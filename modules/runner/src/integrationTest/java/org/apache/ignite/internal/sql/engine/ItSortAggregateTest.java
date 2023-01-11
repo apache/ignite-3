@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Locale;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +28,7 @@ import org.junit.jupiter.api.Test;
  * Sort aggregate integration test.
  */
 public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
-    public static final int ROWS = 103;
+    private static final int ROWS = 103;
 
     /**
      * Before all.
@@ -48,12 +50,10 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void mapReduceAggregate() {
+        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedSortAggregateConverterRule') */ ";
+
         var res = sql(
-                "SELECT /*+ DISABLE_RULE('HashAggregateConverterRule') */"
-                        + "SUM(val0), SUM(val1), grp0 FROM TEST "
-                        + "GROUP BY grp0 "
-                        + "HAVING SUM(val1) > 10"
-        );
+                appendDisabledRules("SELECT SUM(val0), SUM(val1), grp0 FROM TEST GROUP BY grp0 HAVING SUM(val1) > 10", disabledRules));
 
         assertEquals(ROWS / 10, res.size());
 
@@ -67,8 +67,112 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void correctCollationsOnMapReduceSortAgg() {
-        var cursors = sql("SELECT PK FROM TEST_ONE_COL_IDX WHERE col0 IN (SELECT col0 FROM TEST_ONE_COL_IDX)");
+        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedSortAggregateConverterRule') */ ";
+
+        var cursors = sql(
+                appendDisabledRules("SELECT PK FROM TEST_ONE_COL_IDX WHERE col0 IN (SELECT col0 FROM TEST_ONE_COL_IDX)", disabledRules));
 
         assertEquals(ROWS, cursors.size());
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void testDifferentCollocatedSortAgg() {
+        try {
+            sql("CREATE TABLE testMe (a INTEGER, b INTEGER, s VARCHAR);");
+            sql("INSERT INTO testMe VALUES (11, 1, 'hello'), (12, 2, 'world'), (11, 3, NULL)");
+            sql("INSERT INTO testMe VALUES (11, 3, 'hello'), (12, 2, 'world'), (10, 5, 'ahello'), (13, 6, 'world')");
+
+            String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+                    "ColocatedHashAggregateConverterRule"};
+
+            assertQuery("SELECT DISTINCT(a) as a FROM testMe ORDER BY a")
+                    .disableRules(disabledRules)
+                    .returns(10)
+                    .returns(11)
+                    .returns(12)
+                    .returns(13)
+                    .check();
+
+            assertQuery("SELECT COUNT(*) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(7L)
+                    .check();
+
+            assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(7L, 5L)
+                    .check();
+
+            assertQuery("SELECT COUNT(a) as a, s FROM testMe GROUP BY s ORDER BY a, s")
+                    .disableRules(disabledRules)
+                    .returns(1L, "ahello")
+                    .returns(1L, null)
+                    .returns(2L, "hello")
+                    .returns(3L, "world")
+                    .check();
+
+            assertQuery("SELECT COUNT(a) as a, AVG(a) as b, MIN(a), MIN(b), s FROM testMe GROUP BY s ORDER BY a, b")
+                    .disableRules(disabledRules)
+                    .returns(1L, 10, 10, 5, "ahello")
+                    .returns(1L, 11, 11, 3, null)
+                    .returns(2L, 11, 11, 1, "hello")
+                    .returns(3L, 12, 12, 2, "world")
+                    .check();
+
+            assertQuery("SELECT COUNT(a) as a, AVG(a) as bb, MIN(a), MIN(b), s FROM testMe GROUP BY s, b ORDER BY a, s")
+                    .disableRules(disabledRules)
+                    .returns(1L, 10, 10, 5, "ahello")
+                    .returns(1L, 11, 11, 1, "hello")
+                    .returns(1L, 11, 11, 3, "hello")
+                    .returns(1L, 13, 13, 6, "world")
+                    .returns(1L, 11, 11, 3, null)
+                    .returns(2L, 12, 12, 2, "world")
+                    .check();
+
+            assertQuery("SELECT COUNT(a) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(7L)
+                    .check();
+
+            assertQuery("SELECT COUNT(DISTINCT(a)) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(4L)
+                    .check();
+
+            assertQuery("SELECT COUNT(a), COUNT(s), COUNT(*) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(7L, 6L, 7L)
+                    .check();
+
+            assertQuery("SELECT AVG(a) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(11)
+                    .check();
+
+            assertQuery("SELECT MIN(a) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(10)
+                    .check();
+
+            assertQuery("SELECT COUNT(a), COUNT(DISTINCT(a)) FROM testMe")
+                    .disableRules(disabledRules)
+                    .returns(7L, 4L)
+                    .check();
+        } finally {
+            sql("DROP TABLE testMe");
+        }
+    }
+
+    private String appendDisabledRules(String sql, String rules) {
+        sql = sql.toLowerCase(Locale.ENGLISH);
+        int pos = sql.indexOf("select");
+
+        assert pos >= 0;
+
+        String newSql = sql.substring(0, pos + "select".length() + 1);
+        newSql += rules;
+        newSql += sql.substring(pos + "select".length() + 1);
+        return newSql;
     }
 }

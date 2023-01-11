@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -76,7 +75,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             Comparator<RowT> comp
     ) {
         super(ctx);
-        assert Objects.nonNull(comp);
 
         this.type = type;
         this.accFactory = accFactory;
@@ -119,7 +117,11 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         waiting--;
 
         if (grp != null) {
-            int cmp = comp.compare(row, prevRow);
+            int cmp = 0;
+
+            if (comp != null) {
+                cmp = comp.compare(row, prevRow);
+            }
 
             if (cmp == 0) {
                 grp.add(row);
@@ -158,6 +160,10 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         checkState();
 
         waiting = -1;
+
+        if (grp == null && accFactory != null) {
+            grp = emptyGrp();
+        }
 
         if (grp != null) {
             outBuf.add(grp.row());
@@ -211,6 +217,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         grp.add(r);
 
         return grp;
+    }
+
+    private Group emptyGrp() {
+        Object[] grpKeys = new Object[grpSet.cardinality()];
+
+        return new Group(grpKeys);
     }
 
     private void doPush() throws Exception {

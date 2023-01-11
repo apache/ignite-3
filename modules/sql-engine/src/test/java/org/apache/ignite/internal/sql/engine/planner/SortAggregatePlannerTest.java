@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.hamcrest.CoreMatchers.startsWith;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -56,32 +52,6 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     /** Hash aggregate rules. */
     private static final String[] HASH_AGG_RULES =
             {"ColocatedHashAggregateConverterRule", "MapReduceHashAggregateConverterRule"};
-
-    /**
-     * NotApplicableForSortAggregate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Test
-    public void notApplicableForSortAggregate() {
-        TestTable tbl = createAffinityTable("TEST").addIndex("val0_val1", 1, 2);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        String sqlMin = "SELECT MIN(val0) FROM test";
-
-        RelOptPlanner.CannotPlanException ex = assertThrows(
-                RelOptPlanner.CannotPlanException.class,
-                () -> physicalPlan(
-                        sqlMin,
-                        publicSchema,
-                        HASH_AGG_RULES
-                )
-        );
-
-        assertThat(ex.getMessage(), startsWith("There are not enough rules to produce a node with desired properties"));
-    }
 
     /** Checks if already sorted input exist and involved [Map|Reduce]SortAggregate. */
     @Test
