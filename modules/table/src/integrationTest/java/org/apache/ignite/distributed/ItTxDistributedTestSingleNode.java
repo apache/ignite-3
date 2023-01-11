@@ -264,8 +264,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                     cluster.get(i),
                     raftConfiguration,
                     workDir.resolve("node" + i),
-                    clock,
-                    new PendingComparableValuesTracker<>(clock.now())
+                    clock
             );
 
             raftSrv.start();
@@ -417,6 +416,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
+                PendingComparableValuesTracker<HybridTimestamp> safeTime =
+                        new PendingComparableValuesTracker<>(clocks.get(assignment).now());
+
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
                         new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
@@ -425,15 +427,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 new TestTxStateStorage(),
                                 txManagers.get(assignment),
                                 () -> Map.of(pkStorage.get().id(), pkStorage.get()),
-                                partId
+                                partId,
+                                safeTime
                         ),
                         RaftGroupEventsListener.noopLsnr
                 ).thenAccept(
                         raftSvc -> {
                             try {
-                                PendingComparableValuesTracker<HybridTimestamp> safeTime =
-                                        new PendingComparableValuesTracker<>(clocks.get(assignment).now());
-
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tblId, partId),
                                         new PartitionReplicaListener(

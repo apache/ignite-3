@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator.command;
 
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -25,5 +24,5 @@ import org.apache.ignite.network.annotations.Transferable;
  * Write command to synchronize safe time periodically.
  */
 @Transferable(ReplicaMessageGroup.SAFE_TIME_SYNC_COMMAND)
-public interface SafeTimeSyncCommand extends WriteCommand {
+public interface SafeTimeSyncCommand extends SafeTimePropagatingCommand {
 }

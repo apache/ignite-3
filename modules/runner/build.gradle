@@ -87,9 +87,28 @@ dependencies {
     testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-baseline')
+    integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-client-handler')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
+    integrationTestImplementation project(':ignite-index')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-rest')
+    integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation(project(':ignite-sql-engine')) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+    }
+    integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
@@ -97,25 +116,20 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-metastorage')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-vault')))
+    integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.rocksdb.jni
-    integrationTestImplementation libs.jsonpath.assert
+    integrationTestImplementation libs.disruptor
+    integrationTestImplementation libs.jackson.databind
+    integrationTestImplementation(libs.jsonpath.assert) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
     integrationTestImplementation libs.typesafe.config
 
 }
 
-def sqlIntegrationTest = tasks.register("sqlIntegrationTest", Test) {
-    description = 'Runs sql integration tests.'
-    group = 'verification'
-    useJUnitPlatform {
-        includeTags "sqllogic"
-    }
-    maxHeapSize = "16g"
-
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
-}
-
-def runnerPlatformTest = tasks.register("runnerPlatformTest", JavaExec) {
+tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
 
     classpath = sourceSets.integrationTest.runtimeClasspath
@@ -125,7 +139,11 @@ def runnerPlatformTest = tasks.register("runnerPlatformTest", JavaExec) {
 
 integrationTest {
     useJUnitPlatform {
-        excludeTags "sqllogic"
+        if (System.getProperty("sqlTest") != null) {
+            it.includeTags "sqllogic"
+        } else {
+            it.excludeTags "sqllogic"
+        }
     }
 }
 

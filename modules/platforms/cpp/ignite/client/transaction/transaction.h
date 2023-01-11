@@ -22,10 +22,21 @@
 
 namespace ignite {
 
+namespace detail {
+class sql_impl;
+class table_impl;
+class transaction_impl;
+class transactions_impl;
+}
+
 /**
- * Ignite tuple.
+ * Ignite transaction.
  */
 class transaction {
+    friend class detail::sql_impl;
+    friend class detail::table_impl;
+    friend class detail::transactions_impl;
+
 public:
     // Default
     transaction() = default;
@@ -39,11 +50,10 @@ public:
 
     /**
      * Commits the transaction asynchronously.
+     *
+     * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void commit_async(ignite_callback<void> on_complete) {
-        (void) on_complete;
-        throw ignite_error("Transactions are not yet supported");
-    }
+    IGNITE_API void commit_async(ignite_callback<void> callback);
 
     /**
      * Rollbacks the transaction.
@@ -54,13 +64,22 @@ public:
 
     /**
      * Rollbacks the transaction asynchronously.
+     *
+     * @param callback Callback to be called upon asynchronous operation completion.
      */
-    IGNITE_API void rollback_async(ignite_callback<void> on_complete) {
-        (void) on_complete;
-        throw ignite_error("Transactions are not yet supported");
-    }
+    IGNITE_API void rollback_async(ignite_callback<void> callback);
 
 private:
+    /**
+     * Constructor
+     *
+     * @param impl Implementation
+     */
+    explicit transaction(std::shared_ptr<detail::transaction_impl> impl)
+        : m_impl(std::move(impl)) {}
+
+    /** Implementation. */
+    std::shared_ptr<detail::transaction_impl> m_impl;
 };
 
 } // namespace ignite

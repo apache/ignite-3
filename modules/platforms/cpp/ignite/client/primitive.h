@@ -22,9 +22,9 @@
 #include "ignite/common/uuid.h"
 
 #include <cstdint>
+#include <type_traits>
 #include <variant>
 #include <vector>
-#include <type_traits>
 
 namespace ignite {
 
@@ -41,70 +41,80 @@ public:
      *
      * @param value Value.
      */
-    primitive(bool value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(bool value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for std::int8_t value.
      *
      * @param value Value.
      */
-    primitive(std::int8_t value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int8_t value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for std::int16_t value.
      *
      * @param value Value.
      */
-    primitive(std::int16_t value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int16_t value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for std::int32_t value.
      *
      * @param value Value.
      */
-    primitive(std::int32_t value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int32_t value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for std::int64_t value.
      *
      * @param value Value.
      */
-    primitive(std::int64_t value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int64_t value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for float value.
      *
      * @param value Value.
      */
-    primitive(float value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(float value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for double value.
      *
      * @param value Value.
      */
-    primitive(double value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(double value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for UUID value.
      *
      * @param value Value.
      */
-    primitive(uuid value) : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(uuid value)
+        : m_value(value) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for string value.
      *
      * @param value Value.
      */
-    primitive(std::string value) : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
+    primitive(std::string value)
+        : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for byte array value.
      *
      * @param value Value.
      */
-    primitive(std::vector<std::byte> value) : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
+    primitive(std::vector<std::byte> value)
+        : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
 
     /**
      * Constructor for byte array value.
@@ -112,7 +122,8 @@ public:
      * @param buf Buffer.
      * @param len Buffer length.
      */
-    primitive(std::byte* buf, std::size_t len) : m_value(std::vector<std::byte>(buf, buf + len)) {}
+    primitive(std::byte *buf, std::size_t len)
+        : m_value(std::vector<std::byte>(buf, buf + len)) {}
 
     /**
      * Get underlying value.
@@ -122,18 +133,10 @@ public:
      * @throw ignite_error if primitive contains value of any other type.
      */
     template<typename T>
-    [[nodiscard]] const T& get() const {
+    [[nodiscard]] const T &get() const {
         if constexpr (
-                std::is_same_v<T, bool> ||
-                std::is_same_v<T, std::int8_t> ||
-                std::is_same_v<T, std::int16_t> ||
-                std::is_same_v<T, std::int32_t> ||
-                std::is_same_v<T, std::int64_t> ||
-                std::is_same_v<T, float> ||
-                std::is_same_v<T, double> ||
-                std::is_same_v<T, uuid> ||
-                std::is_same_v<T, std::string> ||
-                std::is_same_v<T, std::vector<std::byte>>) {
+            std::is_same_v<
+                T, bool> || std::is_same_v<T, std::int8_t> || std::is_same_v<T, std::int16_t> || std::is_same_v<T, std::int32_t> || std::is_same_v<T, std::int64_t> || std::is_same_v<T, float> || std::is_same_v<T, double> || std::is_same_v<T, uuid> || std::is_same_v<T, std::string> || std::is_same_v<T, std::vector<std::byte>>) {
             return std::get<T>(m_value);
         } else {
             static_assert(sizeof(T) == 0, "Type is not an Ignite primitive type or is not yet supported");
@@ -155,27 +158,20 @@ private:
     typedef void *unsupported_type;
 
     /** Value type. */
-    typedef std::variant<
-                bool,
-                std::int8_t,
-                std::int16_t,
-                std::int32_t,
-                std::int64_t,
-                float,
-                double,
-                unsupported_type, // Decimal
-                unsupported_type, // Date
-                unsupported_type, // Time
-                unsupported_type, // Datetime
-                unsupported_type, // Timestamp
-                uuid,
-                unsupported_type, // Bitmask
-                std::string,
-                std::vector<std::byte>,
-                unsupported_type, // Period
-                unsupported_type, // Duration
-                unsupported_type  // Number
-            > value_type;
+    typedef std::variant<bool, std::int8_t, std::int16_t, std::int32_t, std::int64_t, float, double,
+        unsupported_type, // Decimal
+        unsupported_type, // Date
+        unsupported_type, // Time
+        unsupported_type, // Datetime
+        unsupported_type, // Timestamp
+        uuid,
+        unsupported_type, // Bitmask
+        std::string, std::vector<std::byte>,
+        unsupported_type, // Period
+        unsupported_type, // Duration
+        unsupported_type // Number
+        >
+        value_type;
 
     /** Value. */
     value_type m_value;

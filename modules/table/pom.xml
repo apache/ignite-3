@@ -222,6 +222,10 @@
             <artifactId>javax.annotation-api</artifactId>
             <scope>test</scope>
         </dependency>
+      <dependency>
+        <groupId>org.apache.ignite</groupId>
+        <artifactId>ignite-distribution-zones</artifactId>
+      </dependency>
     </dependencies>
 
     <build>

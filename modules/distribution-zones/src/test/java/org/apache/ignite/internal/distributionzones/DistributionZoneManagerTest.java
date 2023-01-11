@@ -18,16 +18,26 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.NamedConfigurationTree;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -35,8 +45,13 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -61,15 +76,31 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private DistributionZoneManager distributionZoneManager;
 
+    private TablesConfiguration tablesConfiguration;
+
     @BeforeEach
     public void setUp() {
         registry.start();
 
         registry.initializeDefaults();
 
+        tablesConfiguration = mock(TablesConfiguration.class);
+
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
+
+        when(tablesConfiguration.tables()).thenReturn(tables);
+
+        NamedListView<TableView> value = mock(NamedListView.class);
+
+        when(tables.value()).thenReturn(value);
+
+        when(value.namedListKeys()).thenReturn(new ArrayList<>());
+
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
+
         distributionZoneManager = new DistributionZoneManager(
                 zonesConfiguration,
+                tablesConfiguration,
                 null,
                 null,
                 null
@@ -523,5 +554,189 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 e.getCause().getMessage(),
                 Matchers.containsString("Distribution zone name is null")
         );
+    }
+
+    @Test
+    public void testGetExistingZoneIdByName() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        assertEquals(DEFAULT_ZONE_ID + 1, distributionZoneManager.getZoneId(ZONE_NAME));
+        assertEquals(DEFAULT_ZONE_ID + 1,
+                registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones().get(ZONE_NAME).zoneId().value(),
+                "Default distribution zone has wrong id.");
+
+        distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
+
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        assertEquals(DEFAULT_ZONE_ID, distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME),
+                "Default distribution zone has wrong id.");
+        assertEquals(DEFAULT_ZONE_ID,
+                registry.getConfiguration(DistributionZonesConfiguration.KEY).defaultDistributionZone().zoneId().value(),
+                "Default distribution zone has wrong id.");
+
+        assertEquals(DEFAULT_ZONE_ID + 2, distributionZoneManager.getZoneId(NEW_ZONE_NAME));
+        assertEquals(DEFAULT_ZONE_ID + 2,
+                registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones().get(NEW_ZONE_NAME).zoneId().value(),
+                "Default distribution zone has wrong id.");
+    }
+
+    @Test
+    public void testGetNotExistingZoneIdByName() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        assertThrows(DistributionZoneNotFoundException.class, () -> distributionZoneManager.getZoneId(NEW_ZONE_NAME),
+                "Expected exception was not thrown.");
+    }
+
+    @Test
+    public void testTryDropZoneBoundToTable() throws Exception {
+        distributionZoneManager.createZone(
+                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
+                )
+                .get(5, TimeUnit.SECONDS);
+
+        bindZoneToTable(ZONE_NAME);
+
+        CompletableFuture<Void> fut = distributionZoneManager.dropZone(ZONE_NAME);
+
+        Exception e = null;
+
+        try {
+            fut.get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof DistributionZoneBindTableException,
+                "Unexpected type of exception (requires DistributionZoneBindTableException): " + e
+        );
+    }
+
+    @Test
+    public void testTryCreateDefaultZone() {
+        Exception e = null;
+
+        CompletableFuture<Void> fut = distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).build()
+        );
+
+        try {
+            fut.get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof IllegalArgumentException,
+                "Unexpected type of exception (requires IllegalArgumentException): " + e
+        );
+        assertEquals(
+                "It's not possible to create distribution zone with [name= " + DEFAULT_ZONE_NAME + ']',
+                e.getCause().getMessage(),
+                "Unexpected exception message: " + e.getCause().getMessage()
+        );
+    }
+
+    @Test
+    public void testTryRenameDefaultZone() {
+        Exception e = null;
+
+        CompletableFuture<Void> fut = distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build()
+        );
+
+        try {
+            fut.get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof IllegalArgumentException,
+                "Unexpected type of exception (requires IllegalArgumentException): " + e
+        );
+        assertEquals(
+                "It's not possible to rename default distribution zone",
+                e.getCause().getMessage(),
+                "Unexpected exception message: " + e.getCause().getMessage()
+        );
+    }
+
+    @Test
+    public void testTryRenameToDefaultZoneName() {
+        Exception e = null;
+
+        CompletableFuture<Void> fut = distributionZoneManager.alterZone(NEW_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).build()
+        );
+
+        try {
+            fut.get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof IllegalArgumentException,
+                "Unexpected type of exception (requires IllegalArgumentException): " + e
+        );
+        assertEquals(
+                "It's not possible to rename distribution zone to [name= " + DEFAULT_ZONE_NAME + ']',
+                e.getCause().getMessage(),
+                "Unexpected exception message: " + e.getCause().getMessage()
+        );
+    }
+
+    @Test
+    public void testTryDropDefaultZone() {
+        Exception e = null;
+
+        CompletableFuture<Void> fut = distributionZoneManager.dropZone(DEFAULT_ZONE_NAME);
+
+        try {
+            fut.get(5, TimeUnit.SECONDS);
+        } catch (Exception e0) {
+            e = e0;
+        }
+
+        assertTrue(e != null, "Expected exception was not thrown.");
+        assertTrue(
+                e.getCause() instanceof IllegalArgumentException,
+                "Unexpected type of exception (requires IllegalArgumentException): " + e
+        );
+        assertEquals(
+                "Default distribution zone cannot be dropped.",
+                e.getCause().getMessage(),
+                "Unexpected exception message: " + e.getCause().getMessage()
+        );
+    }
+
+    private void bindZoneToTable(String zoneName) {
+        int zoneId = distributionZoneManager.getZoneId(zoneName);
+
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class, RETURNS_DEEP_STUBS);
+
+        when(tablesConfiguration.tables()).thenReturn(tables);
+
+        TableView tableView = mock(TableView.class);
+
+        when(tables.value().size()).thenReturn(1);
+        when(tables.value().get(anyInt())).thenReturn(tableView);
+        when(tableView.zoneId()).thenReturn(zoneId);
     }
 }

@@ -20,7 +20,7 @@
 
 namespace ignite {
 
-const result_set_metadata& result_set::metadata() const {
+const result_set_metadata &result_set::metadata() const {
     return m_impl->metadata();
 }
 

@@ -44,7 +44,7 @@ void reader::next() {
 
     m_offset = m_offset_next;
     m_move_res = msgpack_unpack_next(
-            &m_current_val, reinterpret_cast<const char *>(m_buffer.data()), m_buffer.size(), &m_offset_next);
+        &m_current_val, reinterpret_cast<const char *>(m_buffer.data()), m_buffer.size(), &m_offset_next);
 }
 
 } // namespace ignite::protocol

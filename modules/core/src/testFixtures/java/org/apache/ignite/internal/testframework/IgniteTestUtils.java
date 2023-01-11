@@ -58,7 +58,7 @@ import org.junit.jupiter.api.TestInfo;
 public final class IgniteTestUtils {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteTestUtils.class);
 
-    private static final int TIMEOUT_SEC = 5000;
+    private static final int TIMEOUT_SEC = 30;
 
     /**
      * Set object field value via reflection.

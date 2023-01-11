@@ -20,9 +20,9 @@
 #include "ignite/client/primitive.h"
 
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <cstdint>
 
 namespace ignite {
 
@@ -32,7 +32,7 @@ namespace ignite {
 class sql_statement {
 public:
     /** Default SQL schema name. */
-    static constexpr const char* DEFAULT_SCHEMA{"PUBLIC"};
+    static constexpr const char *DEFAULT_SCHEMA{"PUBLIC"};
 
     /** Default number of rows per data page. */
     static constexpr std::int32_t DEFAULT_PAGE_SIZE{1024};
@@ -53,14 +53,14 @@ public:
      * @param properties Properties list.
      */
     sql_statement( // NOLINT(google-explicit-constructor)
-            std::string query, std::chrono::milliseconds timeout = DEFAULT_TIMEOUT,
-            std::string schema = DEFAULT_SCHEMA, std::int32_t page_size = DEFAULT_PAGE_SIZE,
-            std::initializer_list<std::pair<const std::string, primitive>> properties = {})
+        std::string query, std::chrono::milliseconds timeout = DEFAULT_TIMEOUT, std::string schema = DEFAULT_SCHEMA,
+        std::int32_t page_size = DEFAULT_PAGE_SIZE,
+        std::initializer_list<std::pair<const std::string, primitive>> properties = {})
         : m_query(std::move(query))
         , m_timeout(timeout)
         , m_schema(std::move(schema))
         , m_page_size(page_size)
-        , m_properties(properties) { }
+        , m_properties(properties) {}
 
     /**
      * Gets the query text.
@@ -123,7 +123,7 @@ public:
      *
      * @return Properties.
      */
-    [[nodiscard]] const std::unordered_map<std::string, primitive>& properties() const { return m_properties; }
+    [[nodiscard]] const std::unordered_map<std::string, primitive> &properties() const { return m_properties; }
 
     /**
      * Sets the statement properties.

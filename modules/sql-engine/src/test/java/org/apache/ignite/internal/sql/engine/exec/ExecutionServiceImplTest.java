@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -35,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -45,18 +45,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
@@ -64,14 +66,16 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTable;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
+import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -108,7 +112,7 @@ public class ExecutionServiceImplTest {
     );
 
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
-            "ID", Integer.class, "VAL", Integer.class);
+            "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
 
     private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null);
 
@@ -588,22 +592,22 @@ public class ExecutionServiceImplTest {
             throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
         }
 
-        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(CLUSTER.getTypeFactory());
+        List<ColumnDescriptor> columns = new ArrayList<>();
 
         for (int i = 0; i < fields.length; i += 2) {
-            b.add((String) fields[i], CLUSTER.getTypeFactory().createJavaType((Class<?>) fields[i + 1]));
+            columns.add(
+                    new ColumnDescriptorImpl(
+                            (String) fields[i], false, true, i, i,
+                            (NativeType) fields[i + 1], DefaultValueStrategy.DEFAULT_NULL, null
+                    )
+            );
         }
 
-        return new TestTable(name, b.build(), size) {
-            @Override
-            public IgniteDistribution distribution() {
-                return distr;
-            }
-
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(nodeNames);
-            }
-        };
+        return new TestTable(
+                new TableDescriptorImpl(columns, distr),
+                name,
+                ColocationGroup.forNodes(nodeNames),
+                size
+        );
     }
 }

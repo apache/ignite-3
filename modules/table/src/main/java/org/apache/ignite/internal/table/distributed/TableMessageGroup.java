@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GROUP_TYPE;
 
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.HybridTimestampMessage;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -152,9 +151,6 @@ public interface TableMessageGroup {
 
         /** Message type for {@link UpdateCommand}. */
         short UPDATE = 43;
-
-        /** Message type for {@link HybridTimestampMessage}. */
-        short HYBRID_TIMESTAMP = 60;
 
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;

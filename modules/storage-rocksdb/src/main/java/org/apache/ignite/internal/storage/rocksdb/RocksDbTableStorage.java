@@ -68,6 +68,7 @@ import org.rocksdb.FlushOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
 /**
@@ -410,16 +411,32 @@ public class RocksDbTableStorage implements MvTableStorage {
         RocksDbMvPartitionStorage mvPartition = partitions.getAndSet(partitionId, null);
 
         if (mvPartition != null) {
-            try {
-                //TODO IGNITE-17626 Destroy indexes as well...
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartition.close();
 
                 // Operation to delete partition data should be fast, since we will write only the range of keys for deletion, and the
                 // RocksDB itself will then destroy the data on flash.
-                mvPartition.destroy();
+                mvPartition.destroyData(writeBatch);
 
-                mvPartition.close();
+                for (HashIndex hashIndex : hashIndices.values()) {
+                    hashIndex.destroy(partitionId, writeBatch);
+                }
 
-                partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+                for (SortedIndex sortedIndex : sortedIndices.values()) {
+                    sortedIndex.destroy(partitionId, writeBatch);
+                }
+
+                db.write(writeOptions, writeBatch);
+
+                CompletableFuture<?> flushFuture = awaitFlush(true);
+
+                flushFuture.whenComplete((unused, throwable) -> {
+                    if (throwable == null) {
+                        partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+                    } else {
+                        partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
+                    }
+                });
             } catch (Throwable throwable) {
                 partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
             }

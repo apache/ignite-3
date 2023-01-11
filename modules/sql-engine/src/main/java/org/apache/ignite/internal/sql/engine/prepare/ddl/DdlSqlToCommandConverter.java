@@ -131,6 +131,7 @@ public class DdlSqlToCommandConverter {
         this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
 
         this.tableOptionInfos = Map.of(
+                "PRIMARY_ZONE", new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
                 REPLICAS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
                 PARTITIONS.name(), new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
         );

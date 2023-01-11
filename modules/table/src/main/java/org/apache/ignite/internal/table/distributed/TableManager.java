@@ -93,7 +93,6 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.ReplicationGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -756,8 +755,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
-                                                partitionKey(internalTbl, partId),
-                                                safeTime
+                                                partitionKey(internalTbl, partId)
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -774,7 +772,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             txStatePartitionStorage,
                                                             txManager,
                                                             table.indexStorageAdapters(partId),
-                                                            partId
+                                                            partId,
+                                                            safeTime
                                                     ),
                                                     new RebalanceRaftGroupEventsListener(
                                                             metaStorageMgr,
@@ -907,8 +906,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private RaftGroupOptions groupOptionsForPartition(
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
-            PartitionKey partitionKey,
-            PendingComparableValuesTracker<HybridTimestamp> safeTime
+            PartitionKey partitionKey
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -927,8 +925,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new PartitionAccessImpl(partitionKey, mvTableStorage, txStateTableStorage),
                 incomingSnapshotsExecutor
         ));
-
-        raftGroupOptions.replicationGroupOptions(new ReplicationGroupOptions().safeTime(safeTime));
 
         return raftGroupOptions;
     }
@@ -1841,8 +1837,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
-                                partitionKey(internalTable, partId),
-                                safeTime
+                                partitionKey(internalTable, partId)
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -1850,7 +1845,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 txStatePartitionStorage,
                                 txManager,
                                 tbl.indexStorageAdapters(partId),
-                                partId
+                                partId,
+                                safeTime
                         );
 
                         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

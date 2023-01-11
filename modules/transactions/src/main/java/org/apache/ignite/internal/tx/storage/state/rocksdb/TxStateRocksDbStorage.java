@@ -47,7 +47,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -653,9 +652,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         busyLock.block();
 
-        List<AbstractNativeReference> resources = new ArrayList<>(iterators);
-
-        RocksUtils.closeAll(resources);
+        RocksUtils.closeAll(iterators);
 
         iterators.clear();
 

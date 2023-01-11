@@ -557,7 +557,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private void checkStorageClosed() {
         if (closed) {
-            throw new StorageClosedException("Storage is already closed");
+            throw new StorageClosedException();
         }
     }
 

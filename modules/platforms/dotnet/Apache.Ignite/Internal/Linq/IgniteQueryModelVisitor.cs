@@ -26,6 +26,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using Common;
+using Dml;
+using Ignite.Sql;
 using Remotion.Linq;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
@@ -198,8 +200,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
             return;
         }
 
-        // TODO: IGNITE-18137 DML: queryModel.ResultOperators.LastOrDefault() is UpdateAllResultOperator;
-        var isUpdateQuery = false;
+        var isUpdateQuery = queryModel.ResultOperators.LastOrDefault() is ExecuteUpdateResultOperator;
         if (!isUpdateQuery)
         {
             _builder.Append("from ");
@@ -220,8 +221,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
         if (isUpdateQuery)
         {
-            // TODO: IGNITE-18137 DML
-            // BuildSetClauseForUpdateAll(queryModel);
+            BuildSetClauseForExecuteUpdate(queryModel);
         }
     }
 
@@ -235,18 +235,16 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     {
         _aliases.Push(copyAliases);
 
-        // TODO: IGNITE-18137 DML
-        // var lastResultOp = queryModel.ResultOperators.LastOrDefault();
-        // if (lastResultOp is RemoveAllResultOperator)
-        // {
-        //     VisitRemoveOperator(queryModel);
-        // }
-        // else if (lastResultOp is UpdateAllResultOperator)
-        // {
-        //     VisitUpdateAllOperator(queryModel);
-        // }
-        // else
-        if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
+        var lastResultOp = queryModel.ResultOperators.LastOrDefault();
+        if (lastResultOp is ExecuteDeleteResultOperator)
+        {
+            VisitDmlOperator(queryModel, "delete ", nameof(IgniteQueryableExtensions.ExecuteDeleteAsync));
+        }
+        else if (lastResultOp is ExecuteUpdateResultOperator)
+        {
+            VisitDmlOperator(queryModel, "update ", nameof(IgniteQueryableExtensions.ExecuteUpdateAsync));
+        }
+        else if (queryModel.ResultOperators.Count == 1 && queryModel.ResultOperators[0] is AnyResultOperator or AllResultOperator)
         {
             // All is different from Any: it always has a predicate inside.
             // We use NOT EXISTS with reverted predicate to implement All.
@@ -646,8 +644,67 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
     /// <summary>
     /// Builds the SQL expression.
     /// </summary>
-    private void BuildSqlExpression(Expression expression, bool useStar = false, bool includeAllFields = false, bool visitSubqueryModel = false)
+    private void BuildSqlExpression(
+        Expression expression,
+        bool useStar = false,
+        bool includeAllFields = false,
+        bool visitSubqueryModel = false,
+        bool columnNameWithoutTable = false) =>
+        new IgniteQueryExpressionVisitor(
+                modelVisitor: this,
+                useStar: useStar,
+                includeAllFields: includeAllFields,
+                visitEntireSubQueryModel: visitSubqueryModel,
+                columnNameWithoutTable: columnNameWithoutTable)
+            .Visit(expression);
+
+    /// <summary>
+    /// Visits a DML operator (update, delete).
+    /// </summary>
+    private void VisitDmlOperator(QueryModel queryModel, string sqlName, string methodName)
     {
-        new IgniteQueryExpressionVisitor(this, useStar, includeAllFields, visitSubqueryModel).Visit(expression);
+        if (queryModel.ResultOperators.Count > 1)
+        {
+            var ops = string.Join(
+                ", ",
+                queryModel.ResultOperators.Where(x => x is not ExecuteDeleteResultOperator && x is not ExecuteUpdateResultOperator));
+
+            throw new NotSupportedException($"{methodName} can not be combined with result operators: {ops}");
+        }
+
+        _builder.Append(sqlName);
+
+        // FROM ... WHERE ... JOIN ...
+        base.VisitQueryModel(queryModel);
+    }
+
+    /// <summary>
+    /// Builds SET clause of UPDATE statement.
+    /// </summary>
+    private void BuildSetClauseForExecuteUpdate(QueryModel queryModel)
+    {
+        if (queryModel.ResultOperators.LastOrDefault() is not ExecuteUpdateResultOperator updateResultOperator)
+        {
+            return;
+        }
+
+        _builder.Append("set ");
+        var first = true;
+
+        foreach (var update in updateResultOperator.Updates)
+        {
+            if (!first)
+            {
+                _builder.Append(", ");
+            }
+
+            first = false;
+
+            BuildSqlExpression(update.Selector, columnNameWithoutTable: true);
+            _builder.Append(" = ");
+            BuildSqlExpression(update.Value, visitSubqueryModel: true);
+        }
+
+        _builder.Append(' ');
     }
 }

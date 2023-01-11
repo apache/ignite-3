@@ -153,18 +153,6 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         assertThat(tableStorage.isVolatile(), is(false));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18180")
-    @Override
-    public void testDestroyPartition() throws Exception {
-        super.testDestroyPartition();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18180")
-    @Override
-    public void testReCreatePartition() throws Exception {
-        super.testReCreatePartition();
-    }
-
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
     @Override
     public void testSuccessRebalance() throws Exception {

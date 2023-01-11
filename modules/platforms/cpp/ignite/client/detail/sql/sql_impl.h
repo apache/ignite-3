@@ -18,10 +18,10 @@
 #pragma once
 
 #include "ignite/client/detail/cluster_connection.h"
-#include "ignite/client/transaction/transaction.h"
-#include "ignite/client/sql/sql_statement.h"
-#include "ignite/client/sql/result_set.h"
 #include "ignite/client/primitive.h"
+#include "ignite/client/sql/result_set.h"
+#include "ignite/client/sql/sql_statement.h"
+#include "ignite/client/transaction/transaction.h"
 
 #include <memory>
 #include <utility>
@@ -60,8 +60,8 @@ public:
      * @param args Arguments for the statement.
      * @param callback A callback called on operation completion with SQL result set.
      */
-    void execute_async(
-        transaction *tx, const sql_statement& statement, std::vector<primitive>&& args, ignite_callback<result_set>&& callback);
+    void execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> &&args,
+        ignite_callback<result_set> &&callback);
 
 private:
     /** Cluster connection. */
