@@ -25,6 +25,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -285,7 +288,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1", curMethodName);
+                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
@@ -297,16 +300,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1", curMethodName);
+                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
 
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
         // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1,primary_zone='zone123'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1,primary_zone='zone123'")));
+
+        assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas=1,primary_zone__wrong='zone123'")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -314,6 +320,49 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String finalNewTblSql3 = newTblSql;
 
         assertDoesNotThrow(() -> await(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql3).get(0)));
+    }
+
+    /**
+     * Tests create a table with distribution zone through public API.
+     */
+    @Test
+    public void testCreateTableWithDistributionZone() {
+        String tableName = getCurrentMethodName().toUpperCase();
+
+        String zoneName = "zone123";
+
+        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                + "with partitions=1,replicas=1", tableName);
+
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+
+        assertEquals(1, tblsCfg.tables().get(tableName).zoneId().value());
+
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + tableName));
+
+
+        when(distributionZoneManager.getZoneId(zoneName)).thenReturn(5);
+
+        newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName);
+
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+
+        assertEquals(5, tblsCfg.tables().get(tableName).zoneId().value());
+
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + tableName));
+
+
+        when(distributionZoneManager.getZoneId(zoneName)).thenThrow(DistributionZoneNotFoundException.class);
+
+        Exception exception = assertThrows(
+                IgniteException.class,
+                () -> readFirst(queryProc.queryAsync("PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName)))
+        );
+
+        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
     }
 
     /**
@@ -374,7 +423,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1", method + 4)
+                String.format(
+                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1, primary_zone='zone123'",
+                        method + 4
+                )
         )));
 
         IgniteException exception = assertThrows(
