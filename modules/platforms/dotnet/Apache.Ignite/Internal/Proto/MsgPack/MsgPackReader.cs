@@ -160,6 +160,18 @@ internal ref struct MsgPackReader
     /// <returns>Span of byte.</returns>
     public ReadOnlySpan<byte> ReadBinary() => GetSpan(ReadBinaryHeader());
 
+    /// <summary>
+    /// Reads GUID value.
+    /// </summary>
+    /// <returns>Guid.</returns>
+    public Guid ReadGuid()
+    {
+        CheckCode(nameof(MsgPackCode.FixExt16), MsgPackCode.FixExt16);
+        CheckCode(nameof(ClientMessagePackType.Uuid), (byte)ClientMessagePackType.Uuid);
+
+        return UuidSerializer.Read(GetSpan(16));
+    }
+
     private static InvalidDataException GetInvalidCodeException(string expected, byte code) =>
         new($"Invalid code, expected '{expected}', but got '{code}'");
 
@@ -170,5 +182,14 @@ internal ref struct MsgPackReader
         _pos += length;
 
         return span;
+    }
+
+    private void CheckCode(string name, byte expectedCode)
+    {
+        var code = _span[_pos++];
+        if (code != expectedCode)
+        {
+            throw GetInvalidCodeException(name, code);
+        }
     }
 }
