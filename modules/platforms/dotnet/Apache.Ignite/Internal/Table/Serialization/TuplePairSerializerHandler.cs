@@ -48,7 +48,7 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
         var count = keyOnly ? schema.KeyColumnCount : columns.Count;
         var keyTuple = new IgniteTuple(count);
         var valTuple = keyOnly ? null! : new IgniteTuple(schema.ValueColumnCount);
-        var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), count);
+        var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), count);
 
         for (var index = 0; index < count; index++)
         {
@@ -66,7 +66,7 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     {
         var columns = schema.Columns;
         var tuple = new IgniteTuple(columns.Count);
-        var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.ValueColumnCount);
+        var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), schema.ValueColumnCount);
 
         for (var i = schema.KeyColumnCount; i < columns.Count; i++)
         {

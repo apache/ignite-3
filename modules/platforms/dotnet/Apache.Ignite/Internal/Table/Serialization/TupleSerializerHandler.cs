@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
             var tuple = new IgniteTuple(count);
-            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), count);
 
             for (var index = 0; index < count; index++)
             {
@@ -63,7 +63,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
-            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.ValueColumnCount);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), schema.ValueColumnCount);
 
             for (var i = 0; i < columns.Count; i++)
             {

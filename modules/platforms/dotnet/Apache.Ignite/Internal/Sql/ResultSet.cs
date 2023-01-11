@@ -256,7 +256,7 @@ namespace Apache.Ignite.Internal.Sql
 
         private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader)
         {
-            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), cols.Count);
 
             return _rowReader!(cols, ref tupleReader);
         }

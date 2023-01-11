@@ -41,7 +41,7 @@ namespace Apache.Ignite.Internal.Proto
                 return null;
             }
 
-            var tuple = new BinaryTupleReader(reader.ReadBytesAsMemory(), 3);
+            var tuple = new BinaryTupleReader(reader.ReadBytesAsSpan(), 3);
 
             return tuple.GetObject(0);
         }
@@ -115,13 +115,13 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="reader">Reader.</param>
         /// <returns>Binary value.</returns>
-        public static ReadOnlyMemory<byte> ReadBytesAsMemory(this ref MessagePackReader reader)
+        public static ReadOnlySpan<byte> ReadBytesAsSpan(this ref MessagePackReader reader)
         {
             ReadOnlySequence<byte> tupleSeq = reader.ReadBytes()!.Value;
 
             Debug.Assert(tupleSeq.IsSingleSegment, "tupleSeq.IsSingleSegment");
 
-            return tupleSeq.First;
+            return tupleSeq.First.Span;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

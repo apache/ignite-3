@@ -111,7 +111,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         private static BinaryTupleReader WriteAndGetTupleReader(bool keyOnly = false)
         {
             var msgPackReader = WriteAndGetReader(keyOnly);
-            var bytes = msgPackReader.ReadBytesAsMemory();
+            var bytes = msgPackReader.ReadBytesAsSpan();
 
             return new BinaryTupleReader(bytes, keyOnly ? 1 : 2);
         }

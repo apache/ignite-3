@@ -58,7 +58,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         public void ReadObjectManual()
         {
             var reader = new MessagePackReader(SerializedData);
-            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), 3);
+            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsSpan(), 3);
 
             var res = new Car
             {

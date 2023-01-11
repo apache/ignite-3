@@ -241,7 +241,7 @@ namespace Apache.Ignite.Tests
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadInt32();
-            var propTuple = new BinaryTupleReader(reader.ReadBytesAsMemory(), propCount * 4);
+            var propTuple = new BinaryTupleReader(reader.ReadBytesAsSpan(), propCount * 4);
 
             for (int i = 0; i < propCount; i++)
             {
