@@ -17,11 +17,35 @@
 
 namespace Apache.Ignite.Tests.Proto.MsgPack;
 
+using System;
+using System.Buffers;
 using Internal.Proto.MsgPack;
+using MessagePack;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="MsgPackReader"/>.
 /// </summary>
 public class MsgPackReaderTests
 {
+    [Test]
+    public void TestReadArrayHeader()
+    {
+        var bufWriter = new ArrayBufferWriter<byte>();
+        var writer = new MessagePackWriter(bufWriter);
+
+        for (int i = 0; i < 30; i++)
+        {
+            writer.WriteArrayHeader((int)Math.Pow(2, i));
+        }
+
+        writer.Flush();
+
+        var reader = new MsgPackReader(bufWriter.WrittenSpan);
+
+        for (int i = 0; i < 30; i++)
+        {
+            Assert.AreEqual((int)Math.Pow(2, i), reader.ReadArrayHeader());
+        }
+    }
 }
