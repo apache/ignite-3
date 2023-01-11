@@ -120,9 +120,9 @@ internal ref struct MsgPackReader
         };
 
     /// <summary>
-    /// Reads raw bytes header.
+    /// Reads binary header.
     /// </summary>
-    /// <returns>Array size.</returns>
+    /// <returns>Binary size.</returns>
     public int ReadBinaryHeader() =>
         _span[_pos++] switch
         {
@@ -132,6 +132,12 @@ internal ref struct MsgPackReader
             MsgPackCode.Bin32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
             var invalid => throw GetInvalidCodeException("binary", invalid)
         };
+
+    /// <summary>
+    /// Reads bytes.
+    /// </summary>
+    /// <returns>Span of byte.</returns>
+    public ReadOnlySpan<byte> ReadBinary() => GetSpan(ReadBinaryHeader());
 
     private static InvalidDataException GetInvalidCodeException(string expected, byte code) =>
         new($"Invalid code, expected '{expected}', but got '{code}'");
