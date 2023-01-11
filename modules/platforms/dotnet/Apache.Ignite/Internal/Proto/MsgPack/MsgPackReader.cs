@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto.MsgPack;
 using System;
 using System.Buffers.Binary;
 using System.IO;
+using System.Text;
 
 /// <summary>
 /// MsgPack reader.
@@ -118,6 +119,26 @@ internal ref struct MsgPackReader
             MsgPackCode.Array32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
             var invalid => throw GetInvalidCodeException("array", invalid)
         };
+
+    /// <summary>
+    /// Reads string header.
+    /// </summary>
+    /// <returns>String length in bytes.</returns>
+    public int ReadStringHeader() =>
+        _span[_pos++] switch
+        {
+            var code when MsgPackCode.IsFixStr(code) => code & 0x1F,
+            MsgPackCode.Str8 => _span[_pos++],
+            MsgPackCode.Str16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
+            MsgPackCode.Str32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
+            var invalid => throw GetInvalidCodeException("binary", invalid)
+        };
+
+    /// <summary>
+    /// Reads string value.
+    /// </summary>
+    /// <returns>String.</returns>
+    public string ReadString() => ProtoCommon.StringEncoding.GetString(GetSpan(ReadStringHeader()));
 
     /// <summary>
     /// Reads binary header.
