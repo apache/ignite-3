@@ -30,9 +30,9 @@ To distinguish to which node the specific thread belongs, each executor has a no
 ### Interface methods
 
 Futures are returned by a number of Metastorage Manager operations, like get(), getAll(), invoke(), etc. Those futures are completed when
-the corresponding RAFT command is completed in the Metastorage group. Although the entire replication process took place in the RAFT
-threads, this result appears in the RAFT client executor with prefix <NODE_NAME>%Raft-Group-Client. See RAFT module for more information
-about its threading model.
+the corresponding RAFT command is completed in the Metastorage group. As the entire replication process takes place in RAFT threads, this
+result appears in the RAFT client executor with prefix <NODE_NAME>%Raft-Group-Client. See RAFT module for more information about its
+threading model.
 
 Although some methods return futures, they are often run synchronously. Futures are dependent on asynchronous Metastorage initialization,
 since starting an RAFT group requires time. In other words, we have a chance to complete those features in the RAFT client executor thread (
@@ -40,6 +40,6 @@ prefix NODE NAME>%Raft-Group-Client).
 
 ### Using common pool
 
-The component uses common ForkJoinPool on start (in fact, it is not necessary, because all components starts asynchronously in the same
-ForkJoinPool). The using of the common pool is dangerous, because the pool can be busy by another threads that hosted on the same JVM 
+The component uses common ForkJoinPool on start (in fact, it is not necessary, because all components start asynchronously in the same
+ForkJoinPool). The using of the common pool is dangerous, because the pool can be occupied by another threads that hosted on the same JVM 
 (TODO: IGNITE-18505 Avoid using common pool on start components).
