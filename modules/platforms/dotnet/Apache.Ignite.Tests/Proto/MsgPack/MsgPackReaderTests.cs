@@ -52,17 +52,23 @@ public class MsgPackReaderTests
     [Test]
     public void TestTryReadNil()
     {
+        var buf = new[] { MsgPackCode.Nil, MsgPackCode.Int8 };
+        var reader = new MsgPackReader(buf);
+
+        Assert.IsTrue(reader.TryReadNil());
+        Assert.IsFalse(reader.TryReadNil());
+        Assert.IsFalse(reader.TryReadNil());
     }
 
     [Test]
     public void TestReadPastBufferEndThrows()
     {
-        var arr = new byte[] { MsgPackCode.Array16, 0, 0, 0, 0, 0, 0 };
+        var buf = new byte[] { MsgPackCode.Array16, 0, 0, 0, 0, 0, 0 };
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
             // There is enough data in the array, but we take a smaller slice, which is not enough for Array16 header.
-            var span = arr.AsSpan()[..2];
+            var span = buf.AsSpan()[..2];
             var reader = new MsgPackReader(span);
             reader.ReadArrayHeader();
         });
