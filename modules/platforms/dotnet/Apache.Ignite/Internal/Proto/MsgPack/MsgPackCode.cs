@@ -80,4 +80,7 @@ internal static class MsgPackCode
     public static bool IsFixStr(byte code) => (code & 0b11100000) == 0b10100000;
 
     public static bool IsFixRaw(byte code) => (code & 0b11100000) == 0b10100000;
+
+    public static bool IsInt32(byte code) =>
+        IsPosFixInt(code) || IsNegFixInt(code) || code is Int8 or UInt8 or Int16 or UInt16 or Int32 or UInt32;
 }

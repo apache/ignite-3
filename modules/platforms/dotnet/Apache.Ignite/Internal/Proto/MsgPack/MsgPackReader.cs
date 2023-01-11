@@ -146,7 +146,14 @@ internal ref struct MsgPackReader
     /// <returns><c>true</c> if could read an integer value; <c>false</c> otherwise.</returns>
     public bool TryReadInt(out int res)
     {
-        throw new NotImplementedException();
+        if (MsgPackCode.IsInt32(_span[_pos]))
+        {
+            res = ReadInt32();
+            return true;
+        }
+
+        res = default;
+        return false;
     }
 
     /// <summary>
