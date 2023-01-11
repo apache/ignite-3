@@ -235,8 +235,6 @@ internal ref struct MsgPackReader
     /// <param name="count">Count of elements to skip.</param>
     public void Skip(int count = 1)
     {
-        // TODO: Proper skip based on type
-        // Support only relevant types?
         _pos += count;
 
         while (count > 0)
@@ -250,6 +248,27 @@ internal ref struct MsgPackReader
                 continue;
             }
 
+            if (MsgPackCode.IsFixMap(code))
+            {
+                int mapLen = code & 0x0f;
+                count += mapLen * 2;
+                continue;
+            }
+
+            if (MsgPackCode.IsFixArr(code))
+            {
+                int arrayLen = code & 0x0f;
+                count += arrayLen;
+                continue;
+            }
+
+            if (MsgPackCode.IsFixStr(code))
+            {
+                int strLen = code & 0x1f;
+                _pos += strLen;
+                continue;
+            }
+
             switch (code)
             {
                 case MsgPackCode.True:
@@ -257,114 +276,93 @@ internal ref struct MsgPackReader
                 case MsgPackCode.Nil:
                     break;
 
-                case FIXMAP:
-                {
-                    int mapLen = code & 0x0f;
-                    count += mapLen * 2;
-                    break;
-                }
-
-                case FIXARRAY:
-                {
-                    int arrayLen = code & 0x0f;
-                    count += arrayLen;
-                    break;
-                }
-
-                case FIXSTR:
-                {
-                    int strLen = code & 0x1f;
-                    skipBytes(strLen);
-                    break;
-                }
-
-                case INT8:
-                case UINT8:
-                    skipBytes(1);
+                case MsgPackCode.Int8:
+                case MsgPackCode.UInt8:
+                    _pos++;
                     break;
 
-                case INT16:
-                case UINT16:
-                    skipBytes(2);
+                case MsgPackCode.Int16:
+                case MsgPackCode.UInt16:
+                    _pos += 2;
                     break;
 
-                case INT32:
-                case UINT32:
-                case FLOAT32:
-                    skipBytes(4);
+                case MsgPackCode.Int32:
+                case MsgPackCode.UInt32:
+                case MsgPackCode.Float32:
+                    _pos += 4;
                     break;
 
-                case INT64:
-                case UINT64:
-                case FLOAT64:
-                    skipBytes(8);
+                case MsgPackCode.Int64:
+                case MsgPackCode.UInt64:
+                case MsgPackCode.Float64:
+                    _pos += 8;
                     break;
 
-                case BIN8:
-                case STR8:
-                    skipBytes(readLength8());
+                case MsgPackCode.Bin8:
+                case MsgPackCode.Str8:
+                    _pos += _span[_pos++];
                     break;
 
-                case BIN16:
-                case STR16:
-                    skipBytes(readLength16());
+                case MsgPackCode.Bin16:
+                case MsgPackCode.Str16:
+                    _pos += BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2));
                     break;
 
-                case BIN32:
-                case STR32:
-                    skipBytes(readLength32());
+                case MsgPackCode.Bin32:
+                case MsgPackCode.Str32:
+                    _pos += checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4)));
                     break;
 
-                case FIXEXT1:
-                    skipBytes(2);
+                case MsgPackCode.FixExt1:
+                    _pos += 2;
                     break;
 
-                case FIXEXT2:
-                    skipBytes(3);
+                case MsgPackCode.FixExt2:
+                    _pos += 3;
                     break;
 
-                case FIXEXT4:
-                    skipBytes(5);
+                case MsgPackCode.FixExt4:
+                    _pos += 5;
                     break;
 
-                case FIXEXT8:
-                    skipBytes(9);
+                case MsgPackCode.FixExt8:
+                    _pos += 9;
                     break;
 
-                case FIXEXT16:
-                    skipBytes(17);
+                case MsgPackCode.FixExt16:
+                    _pos += 17;
                     break;
 
-                case EXT8:
-                    skipBytes(readLength8() + 1);
+                case MsgPackCode.Ext8:
+                    _pos += _span[_pos++] + 1;
                     break;
 
-                case EXT16:
-                    skipBytes(readLength16() + 1);
+                case MsgPackCode.Ext16:
+                    _pos += BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)) + 1;
                     break;
 
-                case EXT32:
-                    skipBytes(readLength32() + 1);
+                case MsgPackCode.Ext32:
+                    _pos += checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))) + 1;
                     break;
 
-                case ARRAY16:
-                    count += readLength16();
+                case MsgPackCode.Array16:
+                    count += BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2));
                     break;
 
-                case ARRAY32:
-                    count += readLength32();
+                case MsgPackCode.Array32:
+                    count += checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4)));
                     break;
 
-                case MAP16:
-                    count += readLength16() * 2;
+                case MsgPackCode.Map16:
+                    count += BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)) * 2;
                     break;
 
-                case MAP32:
-                    count += readLength32() * 2;
+                case MsgPackCode.Map32:
+                    count += checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4)) * 2);
                     break;
 
                 default:
-                    throw new MessageFormatException("Unexpected format code: " + code);
+                    throw GetInvalidCodeException("valid type code", code);
             }
         }
     }
