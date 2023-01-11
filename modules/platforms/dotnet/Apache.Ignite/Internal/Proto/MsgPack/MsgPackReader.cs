@@ -238,6 +238,135 @@ internal ref struct MsgPackReader
         // TODO: Proper skip based on type
         // Support only relevant types?
         _pos += count;
+
+        while (count > 0)
+        {
+            count--;
+
+            var code = _span[_pos++];
+
+            if (MsgPackCode.IsPosFixInt(code) || MsgPackCode.IsNegFixInt(code))
+            {
+                continue;
+            }
+
+            switch (code)
+            {
+                case MsgPackCode.True:
+                case MsgPackCode.False:
+                case MsgPackCode.Nil:
+                    break;
+
+                case FIXMAP:
+                {
+                    int mapLen = code & 0x0f;
+                    count += mapLen * 2;
+                    break;
+                }
+
+                case FIXARRAY:
+                {
+                    int arrayLen = code & 0x0f;
+                    count += arrayLen;
+                    break;
+                }
+
+                case FIXSTR:
+                {
+                    int strLen = code & 0x1f;
+                    skipBytes(strLen);
+                    break;
+                }
+
+                case INT8:
+                case UINT8:
+                    skipBytes(1);
+                    break;
+
+                case INT16:
+                case UINT16:
+                    skipBytes(2);
+                    break;
+
+                case INT32:
+                case UINT32:
+                case FLOAT32:
+                    skipBytes(4);
+                    break;
+
+                case INT64:
+                case UINT64:
+                case FLOAT64:
+                    skipBytes(8);
+                    break;
+
+                case BIN8:
+                case STR8:
+                    skipBytes(readLength8());
+                    break;
+
+                case BIN16:
+                case STR16:
+                    skipBytes(readLength16());
+                    break;
+
+                case BIN32:
+                case STR32:
+                    skipBytes(readLength32());
+                    break;
+
+                case FIXEXT1:
+                    skipBytes(2);
+                    break;
+
+                case FIXEXT2:
+                    skipBytes(3);
+                    break;
+
+                case FIXEXT4:
+                    skipBytes(5);
+                    break;
+
+                case FIXEXT8:
+                    skipBytes(9);
+                    break;
+
+                case FIXEXT16:
+                    skipBytes(17);
+                    break;
+
+                case EXT8:
+                    skipBytes(readLength8() + 1);
+                    break;
+
+                case EXT16:
+                    skipBytes(readLength16() + 1);
+                    break;
+
+                case EXT32:
+                    skipBytes(readLength32() + 1);
+                    break;
+
+                case ARRAY16:
+                    count += readLength16();
+                    break;
+
+                case ARRAY32:
+                    count += readLength32();
+                    break;
+
+                case MAP16:
+                    count += readLength16() * 2;
+                    break;
+
+                case MAP32:
+                    count += readLength32() * 2;
+                    break;
+
+                default:
+                    throw new MessageFormatException("Unexpected format code: " + code);
+            }
+        }
     }
 
     /// <summary>
