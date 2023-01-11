@@ -81,25 +81,14 @@ internal ref struct MsgPackReader
     /// Reads array header.
     /// </summary>
     /// <returns>Array size.</returns>
-    public int ReadArrayHeader()
-    {
-        var code = _span[_pos++];
-
-        if (MsgPackCode.IsFixArr(code))
+    public int ReadArrayHeader() =>
+        _span[_pos++] switch
         {
-            return code & 0x0F;
-        }
-
-        switch (code)
-        {
-            case MsgPackCode.Array16: return BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2));
-            case MsgPackCode.Array32: return BinaryPrimitives.ReadInt32BigEndian(GetSpan(4));
-
-            default:
-                Debug.Fail("Unexpected array header: " + code);
-                return -1;
-        }
-    }
+            var code when MsgPackCode.IsFixArr(code) => code & 0x0F,
+            MsgPackCode.Array16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
+            MsgPackCode.Array32 => BinaryPrimitives.ReadInt32BigEndian(GetSpan(4)),
+            var invalid => throw GetInvalidCodeException(invalid)
+        };
 
     private static InvalidDataException GetInvalidCodeException(byte code) => new("Unexpected code: " + code);
 
