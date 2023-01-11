@@ -64,17 +64,18 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /**
      * Constructor.
      *
+     * @param tableConfig Table configuration.
+     * @param tablesConfig Tables configuration.
      * @param engine Storage engine instance.
-     * @param tableCfg Table configuration.
      * @param dataRegion Data region for the table.
      */
     public PersistentPageMemoryTableStorage(
+            TableConfiguration tableConfig,
+            TablesConfiguration tablesConfig,
             PersistentPageMemoryStorageEngine engine,
-            TableConfiguration tableCfg,
-            PersistentPageMemoryDataRegion dataRegion,
-            TablesConfiguration tablesCfg
+            PersistentPageMemoryDataRegion dataRegion
     ) {
-        super(tableCfg, tablesCfg);
+        super(tableConfig, tablesConfig);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
@@ -99,7 +100,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     public CompletableFuture<Void> destroy() {
-        started = false;
+        if (!CLOSED.compareAndSet(this, false, true)) {
+            return completedFuture(null);
+        }
+
+        busyLock.block();
 
         List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
 
@@ -117,7 +122,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
         }
 
-        int tableId = tableCfg.tableId().value();
+        int tableId = tableConfig.tableId().value();
 
         if (destroyFutures.isEmpty()) {
             dataRegion.pageMemory().onGroupDestroyed(tableId);
@@ -146,7 +151,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             }
         }
 
-        TableView tableView = tableCfg.value();
+        TableView tableView = tableConfig.value();
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(tableView.tableId(), partitionId);
 
@@ -190,7 +195,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
-                    tablesConfiguration
+                    tablesConfig
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
@@ -465,7 +470,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         mvPartitionStorage.close();
 
-        int tableId = tableCfg.tableId().value();
+        int tableId = tableConfig.tableId().value();
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
 
