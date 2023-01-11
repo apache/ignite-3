@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
 using System.Buffers.Binary;
-using System.Diagnostics;
 using System.IO;
 
 /// <summary>
@@ -27,6 +26,7 @@ using System.IO;
 /// </summary>
 internal ref struct MsgPackReader
 {
+    // TODO: Write tests only after we check usages. Do not create and test unnecessary methods.
     private readonly ReadOnlySpan<byte> _span;
 
     private int _pos;
@@ -57,6 +57,18 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
+    /// Reads a boolean value.
+    /// </summary>
+    /// <returns>The value.</returns>
+    public bool ReadBoolean() =>
+        _span[_pos++] switch
+        {
+            MsgPackCode.True => true,
+            MsgPackCode.False => false,
+            var invalid => throw GetInvalidCodeException("bool", invalid)
+        };
+
+    /// <summary>
     /// Reads an int value.
     /// </summary>
     /// <returns>The value.</returns>
@@ -71,7 +83,7 @@ internal ref struct MsgPackReader
             MsgPackCode.Int16 => BinaryPrimitives.ReadInt16BigEndian(GetSpan(2)),
             MsgPackCode.UInt32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
             MsgPackCode.Int32 => BinaryPrimitives.ReadInt32BigEndian(GetSpan(4)),
-            var invalid => throw GetInvalidCodeException(invalid)
+            var invalid => throw GetInvalidCodeException("int32", invalid)
         };
 
     /// <summary>
@@ -91,7 +103,7 @@ internal ref struct MsgPackReader
             MsgPackCode.Int32 => BinaryPrimitives.ReadInt32BigEndian(GetSpan(4)),
             MsgPackCode.UInt64 => checked((long)BinaryPrimitives.ReadUInt64BigEndian(GetSpan(8))),
             MsgPackCode.Int64 => BinaryPrimitives.ReadInt64BigEndian(GetSpan(8)),
-            var invalid => throw GetInvalidCodeException(invalid)
+            var invalid => throw GetInvalidCodeException("int64", invalid)
         };
 
     /// <summary>
@@ -103,11 +115,26 @@ internal ref struct MsgPackReader
         {
             var code when MsgPackCode.IsFixArr(code) => code & 0x0F,
             MsgPackCode.Array16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
-            MsgPackCode.Array32 => BinaryPrimitives.ReadInt32BigEndian(GetSpan(4)),
-            var invalid => throw GetInvalidCodeException(invalid)
+            MsgPackCode.Array32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
+            var invalid => throw GetInvalidCodeException("array", invalid)
         };
 
-    private static InvalidDataException GetInvalidCodeException(byte code) => new("Unexpected code: " + code);
+    /// <summary>
+    /// Reads raw bytes header.
+    /// </summary>
+    /// <returns>Array size.</returns>
+    public int ReadBinaryHeader() =>
+        _span[_pos++] switch
+        {
+            var code when MsgPackCode.IsFixRaw(code) => code & 0x1F,
+            MsgPackCode.Bin8 => _span[_pos++],
+            MsgPackCode.Bin16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
+            MsgPackCode.Bin32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
+            var invalid => throw GetInvalidCodeException("binary", invalid)
+        };
+
+    private static InvalidDataException GetInvalidCodeException(string expected, byte code) =>
+        new($"Invalid code, expected '{expected}', but got '{code}'");
 
     private ReadOnlySpan<byte> GetSpan(int length)
     {
