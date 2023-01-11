@@ -69,5 +69,15 @@ internal static class MsgPackCode
     public const byte MinNegativeFixInt = 0xe0; // 224
     public const byte MaxNegativeFixInt = 0xff; // 255
 
-    public static bool IsFixArray(byte code) => (code & 240) == MinFixArray;
+    public static bool IsFixArray(byte code) => (code & 0b11110000) == MinFixArray;
+
+    public static bool IsPosFixInt(byte code) => (code & 0b10000000) == 0;
+
+    public static bool IsNegFixInt(byte code) => (code & 0b11100000) == 0b11100000;
+
+    public static bool IsFixMap(byte code) => (code & 0b11110000) == 0b10000000;
+
+    public static bool IsFixStr(byte code) => (code & 0b11100000) == 0b10100000;
+
+    public static bool IsFixRaw(byte code) => (code & 0b11100000) == 0b10100000;
 }
