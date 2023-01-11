@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto.MsgPack;
 using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.IO;
 
 /// <summary>
 /// MsgPack reader.
@@ -56,6 +57,27 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
+    /// Reads a long value.
+    /// </summary>
+    /// <returns>The value.</returns>
+    /// <exception cref="OverflowException">Thrown when the value exceeds what can be stored in the returned type.</exception>
+    public long ReadInt64() =>
+        _span[_pos++] switch
+        {
+            var code and >= MsgPackCode.MinNegativeFixInt and <= MsgPackCode.MaxNegativeFixInt => unchecked((sbyte)code),
+            var code and >= MsgPackCode.MinFixInt and <= MsgPackCode.MaxFixInt => code,
+            MsgPackCode.UInt8 => _span[_pos++],
+            MsgPackCode.Int8 => unchecked((sbyte)_span[_pos++]),
+            MsgPackCode.UInt16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
+            MsgPackCode.Int16 => BinaryPrimitives.ReadInt16BigEndian(GetSpan(2)),
+            MsgPackCode.UInt32 => BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4)),
+            MsgPackCode.Int32 => BinaryPrimitives.ReadInt32BigEndian(GetSpan(4)),
+            MsgPackCode.UInt64 => checked((long)BinaryPrimitives.ReadUInt64BigEndian(GetSpan(8))),
+            MsgPackCode.Int64 => BinaryPrimitives.ReadInt64BigEndian(GetSpan(8)),
+            var invalid => throw GetInvalidCodeException(invalid)
+        };
+
+    /// <summary>
     /// Reads array header.
     /// </summary>
     /// <returns>Array size.</returns>
@@ -78,6 +100,8 @@ internal ref struct MsgPackReader
                 return -1;
         }
     }
+
+    private static InvalidDataException GetInvalidCodeException(byte code) => new("Unexpected code: " + code);
 
     private ReadOnlySpan<byte> GetSpan(int length)
     {
