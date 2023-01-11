@@ -264,8 +264,21 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             try {
                 // TODO: IGNITE-18029 реализовать
+            } catch (StorageRebalanceException t) {
+                rebalanceFuture.completeExceptionally(t);
+
+                throw t;
             } catch (Throwable t) {
                 rebalanceFuture.completeExceptionally(t);
+
+                throw new StorageRebalanceException(
+                        IgniteStringFormatter.format(
+                                "Error occurred while trying to start a rebalance for partition: [table={}, partition={}]",
+                                getTableName(),
+                                partitionId
+                        ),
+                        t
+                );
             }
 
             return rebalanceFuture;
@@ -310,9 +323,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                     StorageRebalanceException::new
             );
 
-            return rebalanceFuture.thenAccept(unused -> {
-                // TODO: IGNITE-18029 реализовать
-            });
+            return rebalanceFuture.thenAccept(unused -> mvPartitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm));
         });
     }
 

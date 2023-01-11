@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.lang.ErrorGroups.Storage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception that will be thrown when the storage is in the process of rebalance.
@@ -37,5 +38,15 @@ public class StorageRebalanceException extends StorageException {
      */
     public StorageRebalanceException(String message) {
         super(Storage.STORAGE_REBALANCE_ERR, message);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public StorageRebalanceException(String message, @Nullable Throwable cause) {
+        super(Storage.STORAGE_REBALANCE_ERR, message, cause);
     }
 }

@@ -1007,4 +1007,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected void throwStorageClosedException() {
         throw new StorageClosedException();
     }
+
+    /**
+     * Completes the rebalancing of the storage and its indexes.
+     *
+     * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
+     */
+    public void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        // TODO: IGNITE-18029 реализовать
+    }
 }
