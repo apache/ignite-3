@@ -66,6 +66,17 @@ public class MsgPackWriterTests
         }
     }
 
+    [Test]
+    public void TestWriteString()
+    {
+        foreach (var str in TestStrings)
+        {
+            var res = Write(x => x.MessageWriter.Write(str));
+
+            Assert.AreEqual(str, new MessagePackReader(res.AsMemory()).ReadString());
+        }
+    }
+
     private static byte[] Write(Action<PooledArrayBuffer> writer)
     {
         using var buf = new PooledArrayBuffer();

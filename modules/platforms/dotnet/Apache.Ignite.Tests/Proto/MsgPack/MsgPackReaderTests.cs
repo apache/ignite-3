@@ -41,17 +41,6 @@ public class MsgPackReaderTests
         -40, 3, 24, 64, 74, 36, 106, 20, 36, 111, -126, 32, -76, -11, -100, 62, 108, -93
     };
 
-    private static readonly string?[] TestStrings =
-    {
-        "foo",
-        string.Empty,
-        null,
-        "тест",
-        "ascii0123456789",
-        "的的abcdкириллица",
-        new(new[] { (char)0xD801, (char)0xDC37 }),
-    };
-
     private static readonly Guid[] TestGuids =
     {
         Guid.Empty, new(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), Guid.NewGuid()

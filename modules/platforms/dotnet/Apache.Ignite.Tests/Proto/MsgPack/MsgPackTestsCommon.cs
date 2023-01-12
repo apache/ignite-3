@@ -24,6 +24,17 @@ using System.Collections.Generic;
 /// </summary>
 public static class MsgPackTestsCommon
 {
+    public static readonly string?[] TestStrings =
+    {
+        "foo",
+        string.Empty,
+        null,
+        "тест",
+        "ascii0123456789",
+        "的的abcdкириллица",
+        new(new[] { (char)0xD801, (char)0xDC37 }),
+    };
+
     public static IEnumerable<long> GetNumbers(long max = long.MaxValue, bool unsignedOnly = false)
     {
         yield return 0;
