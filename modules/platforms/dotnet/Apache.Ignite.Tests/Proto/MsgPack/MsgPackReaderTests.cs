@@ -123,16 +123,30 @@ public class MsgPackReaderTests
     }
 
     [Test]
-    public void TestReadInt32()
+    public void TestReadInt32([Values(true, false)] bool nullable)
     {
         foreach (var val in GetNumbers(int.MaxValue - 1))
         {
             var res = WriteRead(
                 buf => buf.MessageWriter.Write(val),
-                m => new MsgPackReader(m.Span).ReadInt32());
+                m =>
+                {
+                    var reader = new MsgPackReader(m.Span);
+                    return nullable ? reader.ReadInt32Nullable() : reader.ReadInt32();
+                });
 
             Assert.AreEqual(val, res);
         }
+    }
+
+    [Test]
+    public void TestReadInt32Nullable()
+    {
+        var res = WriteRead(
+            buf => buf.MessageWriter.WriteNil(),
+            m => new MsgPackReader(m.Span).ReadInt32Nullable());
+
+        Assert.IsNull(res);
     }
 
     [Test]
