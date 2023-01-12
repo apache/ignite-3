@@ -77,6 +77,9 @@ public class MsgPackReaderTests
         Assert.IsTrue(reader.TryReadNil());
         Assert.IsFalse(reader.TryReadNil());
         Assert.IsFalse(reader.TryReadNil());
+
+        Assert.IsFalse(reader.End);
+        Assert.AreEqual(1, reader.Consumed);
     }
 
     [Test]
