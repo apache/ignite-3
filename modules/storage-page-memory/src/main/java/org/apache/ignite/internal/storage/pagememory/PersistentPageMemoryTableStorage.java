@@ -140,6 +140,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        // TODO: IGNITE-18029 не забудь про чистку партиции если мы упали на середине ребаланса!
+
         CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
 
         if (partitionDestroyFuture != null) {
@@ -444,15 +446,21 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        int partitionId = mvPartitionStorage.partitionId();
-
         // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
         // compactor to remove the partition, and then simply delete the partition file and its delta files.
-
         mvPartitionStorage.close();
 
-        int tableId = tableConfig.tableId().value();
+        return destroyPartition(tableConfig.tableId().value(), mvPartitionStorage.partitionId());
+    }
 
+    @Override
+    CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        return destroyPartition(tableConfig.tableId().value(), mvPartitionStorage.partitionId()).thenAccept(unused -> {
+            // TODO: IGNITE-18029 вот тут продолжить
+        });
+    }
+
+    private CompletableFuture<Void> destroyPartition(int tableId, int partitionId) {
         GroupPartitionId groupPartitionId = new GroupPartitionId(tableId, partitionId);
 
         dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
@@ -462,11 +470,5 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
                 .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
                 .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
-    }
-
-    @Override
-    CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        // TODO: IGNITE-18029 реализовать!
-        return completedFuture(null);
     }
 }
