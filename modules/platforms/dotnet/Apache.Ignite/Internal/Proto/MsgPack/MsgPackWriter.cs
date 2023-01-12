@@ -242,6 +242,7 @@ internal readonly ref struct MsgPackWriter
         WriteExtensionFormatHeader((byte)ClientMessagePackType.Bitmask, byteCount);
         var span = Writer.GetSpanAndAdvance(byteCount);
 
+        // Clear all bits to avoid random data from pooled array.
         span.Clear();
 
         return span;
