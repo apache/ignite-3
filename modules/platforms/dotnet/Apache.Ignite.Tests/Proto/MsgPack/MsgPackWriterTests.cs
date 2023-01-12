@@ -33,12 +33,24 @@ public class MsgPackWriterTests
     [Test]
     public void TestWriteNil()
     {
-        var buf = new PooledArrayBuffer();
-        buf.MessageWriter.WriteNil();
-        var mem = buf.GetWrittenMemory();
+        var res = Write(x => x.MessageWriter.WriteNil());
 
-        Assert.AreEqual(1, mem.Length);
-        Assert.AreEqual(MsgPackCode.Nil, mem.Span[0]);
+        Assert.AreEqual(1, res.Length);
+        Assert.AreEqual(MsgPackCode.Nil, res[0]);
+    }
+
+    [Test]
+    public void TestWriteBool()
+    {
+        var res = Write(x =>
+        {
+            x.MessageWriter.Write(true);
+            x.MessageWriter.Write(false);
+        });
+
+        Assert.AreEqual(2, res.Length);
+        Assert.AreEqual(MsgPackCode.True, res[0]);
+        Assert.AreEqual(MsgPackCode.False, res[1]);
     }
 
     [Test]
@@ -52,5 +64,13 @@ public class MsgPackWriterTests
             var reader = new MessagePackReader(buf.AsMemory());
             Assert.AreEqual((ulong)number, reader.ReadUInt64());
         }
+    }
+
+    private static byte[] Write(Action<PooledArrayBuffer> writer)
+    {
+        using var buf = new PooledArrayBuffer();
+        buf.MessageWriter.WriteNil();
+
+        return buf.GetWrittenMemory().ToArray();
     }
 }
