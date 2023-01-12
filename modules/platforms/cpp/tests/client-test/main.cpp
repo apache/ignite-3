@@ -63,9 +63,7 @@ void set_process_abort_handler(std::function<void(int)> handler) {
 void before_all() {
     ignite::IgniteRunner runner;
 
-    // Ignite dry run to make sure everything is built, all artifacts downloaded
-    // and Ignite node is ready to run.
-    runner.start(true);
+    runner.start();
 
     // Five minutes should be enough but feel free to increase.
     runner.join(std::chrono::minutes(5));
@@ -85,7 +83,7 @@ int main(int argc, char **argv) {
     });
 
     try {
-        runner.start(false);
+        runner.start();
 
         // TODO: Implement node startup await
         std::this_thread::sleep_for(std::chrono::seconds(20));

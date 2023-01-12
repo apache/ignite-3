@@ -37,7 +37,7 @@ constexpr std::string_view SYSTEM_SHELL_ARG_0 = IGNITE_SWITCH_WIN_OTHER("/c ", "
 
 namespace ignite {
 
-void IgniteRunner::start(bool dryRun) {
+void IgniteRunner::start() {
     std::string home = resolveIgniteHome();
     if (home.empty())
         throw std::runtime_error("Can not resolve Ignite home directory. Try setting IGNITE_HOME explicitly");
@@ -45,10 +45,8 @@ void IgniteRunner::start(bool dryRun) {
     std::vector<std::string> args;
     args.emplace_back(SYSTEM_SHELL_ARG_0);
 
-    std::string command = getMavenPath() + " exec:java@platform-test-node-runner";
-
-    if (dryRun)
-        command += " -Dexec.args=dry-run";
+    std::string command = "gradlew :ignite-runner:runnerPlatformTest --no-daemon"
+                                             + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava"
 
     args.emplace_back(command);
 
