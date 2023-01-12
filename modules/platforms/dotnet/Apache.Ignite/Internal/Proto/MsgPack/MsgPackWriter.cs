@@ -191,10 +191,7 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         }
     }
 
-    public void Write(int val)
-    {
-        throw new NotImplementedException();
-    }
+    public void Write(int val) => Write((long)val);
 
     /// <summary>
     /// Writes an array of objects with type codes.
@@ -237,11 +234,6 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         }
     }
 
-    public void Write(Span<byte> span)
-    {
-        throw new NotImplementedException();
-    }
-
     public Span<byte> WriteBitSet(int bitCount)
     {
         // var byteCount = bitCount / 8 + 1;
@@ -260,9 +252,35 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         throw new NotImplementedException();
     }
 
-    public void WriteBinHeader(int count)
+    public void WriteBinHeader(int length)
     {
-        throw new NotImplementedException();
+        if (length <= byte.MaxValue)
+        {
+            var span = Writer.GetSpanAndAdvance(2);
+
+            span[0] = MsgPackCode.Bin8;
+            span[1] = (byte)length;
+        }
+        else if (length <= ushort.MaxValue)
+        {
+            var span = Writer.GetSpanAndAdvance(3);
+
+            span[0] = MsgPackCode.Bin16;
+            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)length);
+        }
+        else
+        {
+            var span = Writer.GetSpanAndAdvance(5);
+
+            span[0] = MsgPackCode.Bin32;
+            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)length);
+        }
+    }
+
+    public void Write(ReadOnlySpan<byte> span)
+    {
+        WriteBinHeader(span.Length);
+        span.CopyTo(Writer.GetSpanAndAdvance(span.Length));
     }
 
     public void WriteMapHeader(int count)
