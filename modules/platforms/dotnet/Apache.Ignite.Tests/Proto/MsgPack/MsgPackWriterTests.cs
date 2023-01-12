@@ -69,7 +69,7 @@ public class MsgPackWriterTests
     private static byte[] Write(Action<PooledArrayBuffer> writer)
     {
         using var buf = new PooledArrayBuffer();
-        buf.MessageWriter.WriteNil();
+        writer(buf);
 
         return buf.GetWrittenMemory().ToArray();
     }
