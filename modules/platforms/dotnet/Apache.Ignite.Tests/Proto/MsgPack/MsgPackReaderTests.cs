@@ -310,6 +310,12 @@ public class MsgPackReaderTests
         }
     }
 
+    [Test]
+    public void TestSkip()
+    {
+        Assert.Fail("TODO");
+    }
+
     private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)
     {
         var bufferWriter = new PooledArrayBuffer();
