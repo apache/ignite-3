@@ -103,13 +103,12 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Gets a span for writing.
         /// </summary>
-        /// <param name="sizeHint">Size hint.</param>
+        /// <param name="size">Size.</param>
         /// <returns>Span for writing.</returns>
-        public Span<byte> GetSpan(int sizeHint = 0)
+        public Span<byte> GetSpan(int size)
         {
-            // TODO: Should we slice to sizeHint?
-            CheckAndResizeBuffer(sizeHint);
-            return _buffer.AsSpan(_index);
+            CheckAndResizeBuffer(size);
+            return _buffer.AsSpan(_index, size);
         }
 
         /// <summary>
