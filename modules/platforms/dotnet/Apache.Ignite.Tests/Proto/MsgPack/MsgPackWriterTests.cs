@@ -61,8 +61,18 @@ public class MsgPackWriterTests
             var buf = new byte[20];
             MsgPackWriter.WriteUnsigned(buf.AsSpan(), (ulong)number);
 
-            var reader = new MessagePackReader(buf.AsMemory());
-            Assert.AreEqual((ulong)number, reader.ReadUInt64());
+            Assert.AreEqual((ulong)number, new MessagePackReader(buf.AsMemory()).ReadUInt64());
+        }
+    }
+
+    [Test]
+    public void TestWriteLong()
+    {
+        foreach (var number in GetNumbers())
+        {
+            var res = Write(x => x.MessageWriter.Write(number));
+
+            Assert.AreEqual(number, new MessagePackReader(res.AsMemory()).ReadInt64());
         }
     }
 
