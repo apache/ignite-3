@@ -35,11 +35,7 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
     private const int MaxFixStringLength = 31;
     private const int MinFixNegativeInt = -32;
     private const int MaxFixMapCount = 15;
-
-    /*
-    private const int MaxFixNegativeInt = -1;
     private const int MaxFixArrayCount = 15;
-    */
 
     /// <summary>
     /// Writes an unsigned value to specified memory location and returns number of bytes written.
@@ -248,7 +244,23 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
 
     public void WriteArrayHeader(int count)
     {
-        throw new NotImplementedException();
+        if (count <= MaxFixArrayCount)
+        {
+            Writer.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixArray | count);
+        }
+        else if (count <= ushort.MaxValue)
+        {
+            var span = Writer.GetSpanAndAdvance(3);
+            span[0] = MsgPackCode.Array16;
+            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
+        }
+        else
+        {
+            var span = Writer.GetSpanAndAdvance(5);
+
+            span[0] = MsgPackCode.Array32;
+            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
+        }
     }
 
     public void WriteBinHeader(int length)
@@ -276,12 +288,6 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         }
     }
 
-    public void Write(ReadOnlySpan<byte> span)
-    {
-        WriteBinHeader(span.Length);
-        span.CopyTo(Writer.GetSpanAndAdvance(span.Length));
-    }
-
     public void WriteMapHeader(int count)
     {
         if (count <= MaxFixMapCount)
@@ -301,5 +307,11 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
             span[0] = MsgPackCode.Map32;
             BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
         }
+    }
+
+    public void Write(ReadOnlySpan<byte> span)
+    {
+        WriteBinHeader(span.Length);
+        span.CopyTo(Writer.GetSpanAndAdvance(span.Length));
     }
 }
