@@ -313,7 +313,31 @@ public class MsgPackReaderTests
     [Test]
     public void TestSkip()
     {
-        Assert.Fail("TODO");
+        var res = WriteRead(
+            buf =>
+            {
+                var w = buf.MessageWriter;
+                w.Write("foo");
+                w.Write(1);
+                w.Write(int.MaxValue);
+                w.Write(long.MaxValue);
+                w.Write(Guid.Empty);
+                w.WriteNil();
+                w.Write(new byte[] { 1, 2 });
+                w.WriteMapHeader(1);
+                w.WriteNil();
+                w.WriteNil();
+                w.Write(false);
+                w.Write(true);
+            },
+            m =>
+            {
+                var reader = new MsgPackReader(m.Span);
+                reader.Skip(9);
+                return reader.ReadBoolean();
+            });
+
+        Assert.IsTrue(res);
     }
 
     private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)
