@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
+using Buffers;
 
 /// <summary>
 /// MsgPack writer.
@@ -25,6 +26,17 @@ using System;
 internal ref struct MsgPackWriter
 {
     private const int MaxFixPositiveInt = 127;
+
+    private readonly PooledArrayBufferWriter _writer;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MsgPackWriter"/> struct.
+    /// </summary>
+    /// <param name="writer">Writer.    </param>
+    public MsgPackWriter(PooledArrayBufferWriter writer)
+    {
+        _writer = writer;
+    }
 
     /*
     private const int MinFixNegativeInt = -32;
@@ -63,6 +75,7 @@ internal ref struct MsgPackWriter
 
             if (val <= ushort.MaxValue)
             {
+                // TODO: Use BinaryPrimitives
                 span[0] = MsgPackCode.UInt16;
                 span[2] = (byte)val;
                 span[1] = (byte)(val >> 8);
@@ -93,5 +106,24 @@ internal ref struct MsgPackWriter
 
             return 9;
         }
+    }
+
+    /// <summary>
+    /// Writes a <see cref="Guid"/> as UUID (RFC #4122).
+    /// <para />
+    /// <see cref="Guid"/> uses a mixed-endian format which differs from UUID,
+    /// see https://en.wikipedia.org/wiki/Universally_unique_identifier#Encoding.
+    /// </summary>
+    /// <param name="val">Guid.</param>
+    public void Write(Guid val)
+    {
+        // TODO: GetSpanAndAdvance? GetSpanNoAdvance?
+        var span = _writer.GetSpan(18);
+        span[0] = MsgPackCode.FixExt16;
+        span[1] = (byte)ClientMessagePackType.Uuid;
+
+        UuidSerializer.Write(val, span[2..]);
+
+        _writer.Advance(18);
     }
 }
