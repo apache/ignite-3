@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Proto.MsgPack;
 
 using System;
+using System.Reflection;
 using Internal.Buffers;
 using Internal.Proto;
 using Internal.Proto.MsgPack;
@@ -31,6 +32,12 @@ using static MsgPackTestsCommon;
 /// </summary>
 public class MsgPackWriterTests
 {
+    private static readonly GetBytesLength GetBytesLengthAccessor = typeof(MessagePackReader)
+        .GetMethod(nameof(GetBytesLength), BindingFlags.Instance | BindingFlags.NonPublic)!
+        .CreateDelegate<GetBytesLength>();
+
+    private delegate int GetBytesLength(ref MessagePackReader reader);
+
     [Test]
     public void TestWriteNil()
     {
@@ -134,11 +141,27 @@ public class MsgPackWriterTests
     [Test]
     public void TestWriteMapHeader()
     {
+        foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
+        {
+            var res = Write(x => x.MessageWriter.WriteMapHeader((int)number));
+            var readRes = new MessagePackReader(res.AsMemory()).TryReadMapHeader(out var len);
+
+            Assert.IsTrue(readRes);
+            Assert.AreEqual(number, len);
+        }
     }
 
     [Test]
     public void TestWriteBinHeader()
     {
+        foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
+        {
+            var res = Write(x => x.MessageWriter.WriteBinHeader((int)number));
+            var reader = new MessagePackReader(res.AsMemory());
+            var len = GetBytesLengthAccessor(ref reader);
+
+            Assert.AreEqual(number, len);
+        }
     }
 
     [Test]
