@@ -107,6 +107,15 @@ public class MsgPackWriterTests
     [Test]
     public void TestWriteExtensionHeader()
     {
+        foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
+        {
+            var res = Write(x => x.MessageWriter.WriteExtensionHeader(1, (int)number));
+            var extRes = new MessagePackReader(res.AsMemory()).TryReadExtensionFormatHeader(out var ext);
+
+            Assert.IsTrue(extRes);
+            Assert.AreEqual(1, ext.TypeCode);
+            Assert.AreEqual(number, ext.Length);
+        }
     }
 
     [Test]

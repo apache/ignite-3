@@ -48,8 +48,12 @@ public static class MsgPackTestsCommon
                 yield break;
             }
 
-            yield return num - 1;
             yield return num;
+
+            if (num > 0)
+            {
+                yield return num - 1;
+            }
 
             if (!unsignedOnly)
             {
