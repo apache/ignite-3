@@ -217,47 +217,6 @@ internal readonly ref struct MsgPackWriter
     public void Write(int val) => Write((long)val);
 
     /// <summary>
-    /// Writes an array of objects with type codes.
-    /// </summary>
-    /// <param name="col">Array.</param>
-    public void WriteObjectCollectionAsBinaryTuple(ICollection<object?>? col)
-    {
-        if (col == null)
-        {
-            WriteNil();
-
-            return;
-        }
-
-        Write(col.Count);
-
-        using var builder = new BinaryTupleBuilder(col.Count * 3);
-
-        foreach (var obj in col)
-        {
-            builder.AppendObjectWithType(obj);
-        }
-
-        Write(builder.Build().Span);
-    }
-
-    /// <summary>
-    /// Writes a transaction.
-    /// </summary>
-    /// <param name="tx">Transaction.</param>
-    public void WriteTx(Transaction? tx)
-    {
-        if (tx == null)
-        {
-            WriteNil();
-        }
-        else
-        {
-            Write(tx.Id);
-        }
-    }
-
-    /// <summary>
     /// Reserves space for a bit set.
     /// </summary>
     /// <param name="bitCount">Bit count.</param>
@@ -366,6 +325,31 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
+    /// Writes map header.
+    /// </summary>
+    /// <param name="count">Map element count.</param>
+    public void WriteMapHeader(int count)
+    {
+        if (count <= MaxFixMapCount)
+        {
+            Buf.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixMap | count);
+        }
+        else if (count <= ushort.MaxValue)
+        {
+            var span = Buf.GetSpanAndAdvance(3);
+            span[0] = MsgPackCode.Map16;
+            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
+        }
+        else
+        {
+            var span = Buf.GetSpanAndAdvance(5);
+
+            span[0] = MsgPackCode.Map32;
+            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
+        }
+    }
+
+    /// <summary>
     /// Writes binary header.
     /// </summary>
     /// <param name="length">Binary payload length, in bytes.</param>
@@ -395,31 +379,6 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
-    /// Writes map header.
-    /// </summary>
-    /// <param name="count">Map element count.</param>
-    public void WriteMapHeader(int count)
-    {
-        if (count <= MaxFixMapCount)
-        {
-            Buf.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixMap | count);
-        }
-        else if (count <= ushort.MaxValue)
-        {
-            var span = Buf.GetSpanAndAdvance(3);
-            span[0] = MsgPackCode.Map16;
-            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
-        }
-        else
-        {
-            var span = Buf.GetSpanAndAdvance(5);
-
-            span[0] = MsgPackCode.Map32;
-            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
-        }
-    }
-
-    /// <summary>
     /// Writes binary data, including header.
     /// </summary>
     /// <param name="span">Data.</param>
@@ -427,5 +386,46 @@ internal readonly ref struct MsgPackWriter
     {
         WriteBinHeader(span.Length);
         span.CopyTo(Buf.GetSpanAndAdvance(span.Length));
+    }
+
+    /// <summary>
+    /// Writes a transaction.
+    /// </summary>
+    /// <param name="tx">Transaction.</param>
+    public void WriteTx(Transaction? tx)
+    {
+        if (tx == null)
+        {
+            WriteNil();
+        }
+        else
+        {
+            Write(tx.Id);
+        }
+    }
+
+    /// <summary>
+    /// Writes an array of objects with type codes.
+    /// </summary>
+    /// <param name="col">Array.</param>
+    public void WriteObjectCollectionAsBinaryTuple(ICollection<object?>? col)
+    {
+        if (col == null)
+        {
+            WriteNil();
+
+            return;
+        }
+
+        Write(col.Count);
+
+        using var builder = new BinaryTupleBuilder(col.Count * 3);
+
+        foreach (var obj in col)
+        {
+            builder.AppendObjectWithType(obj);
+        }
+
+        Write(builder.Build().Span);
     }
 }
