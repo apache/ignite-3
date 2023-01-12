@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Proto.MsgPack;
 
 using System;
+using System.Buffers;
 using System.Reflection;
 using Internal.Buffers;
 using Internal.Proto;
@@ -167,6 +168,11 @@ public class MsgPackWriterTests
     [Test]
     public void TestWriteBin()
     {
+        var bytes = new byte[] { 1, 2, 3 };
+        var res = Write(x => x.MessageWriter.Write(bytes));
+        var resBytes = new MessagePackReader(res.AsMemory()).ReadBytes();
+
+        CollectionAssert.AreEqual(bytes, resBytes!.Value.ToArray());
     }
 
     [Test]
