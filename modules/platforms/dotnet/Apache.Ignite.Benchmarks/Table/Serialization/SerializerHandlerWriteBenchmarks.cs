@@ -25,13 +25,24 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
     /// <summary>
     /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Write(ref Apache.Ignite.Internal.Proto.MsgPack.MsgPackWriter,Apache.Ignite.Internal.Table.Schema,T,bool,bool)"/> implementations.
-    /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
-    /// |            Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
-    /// |------------------ |---------:|--------:|--------:|------:|--------:|-------:|----------:|
-    /// | WriteObjectManual | 155.8 ns | 1.15 ns | 1.07 ns |  1.00 |    0.00 | 0.0062 |      40 B |
-    /// |       WriteObject | 167.0 ns | 0.76 ns | 0.75 ns |  1.07 |    0.01 | 0.0062 |      40 B |
-    /// |        WriteTuple | 324.7 ns | 4.35 ns | 4.07 ns |  2.08 |    0.02 | 0.0229 |     144 B |
-    /// |    WriteObjectOld | 798.5 ns | 5.10 ns | 4.77 ns |  5.13 |    0.04 | 0.0381 |     240 B |.
+    ///
+    /// Comparison of MessagePack library and our own implementation, i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
+    ///
+    /// MessagePack 2.1.90 (old):
+    ///
+    /// |            Method |     Mean |   Error |  StdDev | Ratio |  Gen 0 | Allocated |
+    /// |------------------ |---------:|--------:|--------:|------:|-------:|----------:|
+    /// | WriteObjectManual | 189.6 ns | 0.55 ns | 0.51 ns |  1.00 | 0.0002 |      80 B |
+    /// |       WriteObject | 221.7 ns | 0.78 ns | 0.73 ns |  1.17 | 0.0002 |      80 B |
+    /// |        WriteTuple | 310.3 ns | 1.59 ns | 1.41 ns |  1.64 | 0.0005 |     184 B |
+    ///
+    /// Custom MsgPack (new):
+    ///
+    /// |            Method |     Mean |   Error |  StdDev | Ratio |  Gen 0 | Allocated |
+    /// |------------------ |---------:|--------:|--------:|------:|-------:|----------:|
+    /// | WriteObjectManual | 135.7 ns | 1.13 ns | 1.06 ns |  1.00 | 0.0002 |      80 B |
+    /// |       WriteObject | 161.2 ns | 0.59 ns | 0.52 ns |  1.19 | 0.0002 |      80 B |
+    /// |        WriteTuple | 250.5 ns | 0.91 ns | 0.85 ns |  1.85 | 0.0005 |     184 B |.
     /// </summary>
     [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Benchmarks.")]
     [MemoryDiagnoser]
