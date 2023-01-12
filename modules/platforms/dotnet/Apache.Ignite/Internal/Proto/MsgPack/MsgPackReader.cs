@@ -27,7 +27,6 @@ using BinaryTuple;
 /// </summary>
 internal ref struct MsgPackReader
 {
-    // TODO: Write tests only after we check usages. Do not create and test unnecessary methods.
     private readonly ReadOnlySpan<byte> _span;
 
     private int _pos;

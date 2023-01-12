@@ -25,7 +25,7 @@ using Buffers;
 using Transactions;
 
 /// <summary>
-/// MsgPack writer.
+/// MsgPack writer. Wraps <see cref="PooledArrayBuffer"/>. Writer index is kept by the buffer, so this struct is readonly.
 /// </summary>
 internal readonly ref struct MsgPackWriter
 {
