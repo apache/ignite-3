@@ -113,6 +113,19 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Gets a span for writing.
+        /// </summary>
+        /// <param name="size">Size.</param>
+        /// <returns>Span for writing.</returns>
+        public Span<byte> GetSpanAndAdvance(int size)
+        {
+            CheckAndResizeBuffer(size);
+            Advance(size);
+
+            return _buffer.AsSpan(_index, size);
+        }
+
+        /// <summary>
         /// Gets a span for writing at the specified position.
         /// </summary>
         /// <param name="position">Position.</param>

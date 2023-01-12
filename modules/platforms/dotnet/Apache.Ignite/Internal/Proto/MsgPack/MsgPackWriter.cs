@@ -91,6 +91,10 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         }
     }
 
+    public void WriteNil() => Writer.GetSpanAndAdvance(1)[0] = MsgPackCode.Nil;
+
+    public void Write(bool val) => Writer.GetSpanAndAdvance(1)[0] = val ? MsgPackCode.True : MsgPackCode.False;
+
     /// <summary>
     /// Writes a <see cref="Guid"/> as UUID (RFC #4122).
     /// <para />
@@ -100,14 +104,11 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
     /// <param name="val">Guid.</param>
     public void Write(Guid val)
     {
-        // TODO: GetSpanAndAdvance? GetSpanNoAdvance?
-        var span = Writer.GetSpan(18);
+        var span = Writer.GetSpanAndAdvance(18);
         span[0] = MsgPackCode.FixExt16;
         span[1] = (byte)ClientMessagePackType.Uuid;
 
         UuidSerializer.Write(val, span[2..]);
-
-        Writer.Advance(18);
     }
 
     public void Write(string? val)
@@ -151,7 +152,7 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         }
     }
 
-    public void WriteNil()
+    public void Write(long val)
     {
         throw new NotImplementedException();
     }
@@ -184,11 +185,6 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         }
 
         Write(builder.Build().Span);
-    }
-
-    public void Write(long val)
-    {
-        throw new NotImplementedException();
     }
 
     /// <summary>
@@ -236,11 +232,6 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
     }
 
     public void WriteMapHeader(int count)
-    {
-        throw new NotImplementedException();
-    }
-
-    public void Write(bool val)
     {
         throw new NotImplementedException();
     }
