@@ -162,34 +162,31 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         {
             if (value >= MinFixNegativeInt)
             {
-                var span = Writer.GetSpan(1);
-                span[0] = unchecked((byte)value);
-                Writer.Advance(1);
+                Writer.GetSpanAndAdvance(1)[0] = unchecked((byte)value);
             }
             else if (value >= sbyte.MinValue)
             {
-                var span = Writer.GetSpan(2);
+                var span = Writer.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.Int8;
                 span[1] = unchecked((byte)value);
-                Writer.Advance(2);
             }
             else if (value >= short.MinValue)
             {
-                var span = Writer.GetSpan(3);
+                var span = Writer.GetSpanAndAdvance(3);
                 span[0] = MsgPackCode.Int16;
                 BinaryPrimitives.WriteInt16BigEndian(span[1..], (short)value);
-                Writer.Advance(3);
             }
             else if (value >= int.MinValue)
             {
-                var span = Writer.GetSpan(5);
+                var span = Writer.GetSpanAndAdvance(5);
                 span[0] = MsgPackCode.Int32;
                 BinaryPrimitives.WriteInt32BigEndian(span[1..], (int)value);
-                Writer.Advance(5);
             }
             else
             {
-                this.WriteInt64(value);
+                var span = Writer.GetSpanAndAdvance(9);
+                span[0] = MsgPackCode.Int64;
+                BinaryPrimitives.WriteInt64BigEndian(span[1..], value);
             }
         }
     }
