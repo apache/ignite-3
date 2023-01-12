@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.inBusyLock;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.lang.invoke.MethodHandles;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -111,7 +113,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::getStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             try {
                 SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
@@ -145,7 +147,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     @Override
     public void remove(IndexRow row) {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::getStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             try {
                 SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
@@ -167,7 +169,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::getStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
@@ -242,7 +244,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             @Override
             public boolean hasNext() {
                 return busy(() -> {
-                    throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::getStorageInfo);
+                    throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
 
                     return cursor.hasNext();
                 });
@@ -251,7 +253,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             @Override
             public R next() {
                 return busy(() -> {
-                    throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::getStorageInfo);
+                    throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
 
                     return mapper.apply(cursor.next());
                 });
@@ -285,8 +287,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         @Override
         public boolean hasNext() {
             return busy(() -> {
-                throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::getStorageInfo);
-
                 try {
                     advanceIfNeeded();
 
@@ -321,7 +321,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         @Override
         public @Nullable IndexRow peek() {
             return busy(() -> {
-                throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::getStorageInfo);
+                throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
 
                 if (hasNext != null) {
                     if (hasNext) {
@@ -352,6 +352,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }
 
         private void advanceIfNeeded() throws IgniteInternalCheckedException {
+            throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
+
             if (hasNext != null) {
                 return;
             }
@@ -381,11 +383,36 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }
     }
 
-    private String getStorageInfo() {
+    /**
+     * Prepares storage for rebalancing.
+     *
+     * <p>Stops ongoing index operations.
+     *
+     * @throws StorageRebalanceException If there was an error when starting the rebalance.
+     */
+    public void startRebalance() {
+        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        }
+
+        busyLock.block();
+        busyLock.unblock();
+    }
+
+    /**
+     * Completion of storage rebalancing.
+     */
+    public void completeRebalance() {
+        if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        }
+    }
+
+    private String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
     }
 
     private <V> V busy(Supplier<V> supplier) {
-        return inBusyLock(busyLock, supplier, () -> state, this::getStorageInfo);
+        return inBusyLock(busyLock, supplier, () -> state, this::createStorageInfo);
     }
 }

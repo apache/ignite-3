@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.inBusyLock;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.lang.invoke.MethodHandles;
@@ -26,6 +27,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -102,7 +104,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::getStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             try {
                 IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
@@ -121,7 +123,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
                     @Override
                     public boolean hasNext() {
                         return busy(() -> {
-                            throwExceptionIfStorageInProgressOfRebalance(state, PageMemoryHashIndexStorage.this::getStorageInfo);
+                            throwExceptionIfStorageInProgressOfRebalance(state, PageMemoryHashIndexStorage.this::createStorageInfo);
 
                             return cursor.hasNext();
                         });
@@ -130,7 +132,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
                     @Override
                     public RowId next() {
                         return busy(() -> {
-                            throwExceptionIfStorageInProgressOfRebalance(state, PageMemoryHashIndexStorage.this::getStorageInfo);
+                            throwExceptionIfStorageInProgressOfRebalance(state, PageMemoryHashIndexStorage.this::createStorageInfo);
 
                             return cursor.next().rowId();
                         });
@@ -164,7 +166,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     @Override
     public void remove(IndexRow row) throws StorageException {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::getStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             try {
                 IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
@@ -208,11 +210,36 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         hashIndexTree.close();
     }
 
-    private String getStorageInfo() {
+    /**
+     * Prepares storage for rebalancing.
+     *
+     * <p>Stops ongoing index operations.
+     *
+     * @throws StorageRebalanceException If there was an error when starting the rebalance.
+     */
+    public void startRebalance() {
+        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        }
+
+        busyLock.block();
+        busyLock.unblock();
+    }
+
+    /**
+     * Completion of storage rebalancing.
+     */
+    public void completeRebalance() {
+        if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        }
+    }
+
+    private String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
     }
 
     private <V> V busy(Supplier<V> supplier) {
-        return inBusyLock(busyLock, supplier, () -> state, this::getStorageInfo);
+        return inBusyLock(busyLock, supplier, () -> state, this::createStorageInfo);
     }
 }

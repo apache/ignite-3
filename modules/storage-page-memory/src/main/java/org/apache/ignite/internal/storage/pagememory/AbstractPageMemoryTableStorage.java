@@ -264,6 +264,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
         return inBusyLock(busyLock, () -> {
+            checkPartitionId(partitionId);
+
             CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
             if (rebalanceFuture == null) {
@@ -282,6 +284,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
         return inBusyLock(busyLock, () -> {
+            checkPartitionId(partitionId);
+
             CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
 
             if (rebalanceFuture == null) {

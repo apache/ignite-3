@@ -82,13 +82,25 @@ public class PageMemoryStorageUtils {
     }
 
     /**
+     * Throws an {@link StorageRebalanceException} if the storage is <strong>NOT</strong> in the process of rebalancing.
+     *
+     * @param state Storage state.
+     * @param storageInfoSupplier Storage information supplier, for example in the format "table=user, partitionId=1".
+     */
+    public static void throwExceptionIfStorageNotInProgressOfRebalance(StorageState state, Supplier<String> storageInfoSupplier) {
+        if (state != StorageState.REBALANCE) {
+            throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfoSupplier.get()));
+        }
+    }
+
+    /**
      * Throws an {@link StorageRebalanceException} depending on {@link StorageState} on rebalance.
      *
      * @param state Storage state.
      * @param storageInfo Storage information, for example in the format "table=user, partitionId=1".
      * @throws StorageRebalanceException Depending on {@link StorageState}.
      */
-    public static void throwExceptionDependingStorageStateOnRebalance(StorageState state, String storageInfo) {
+    public static void throwExceptionDependingOnStorageStateOnRebalance(StorageState state, String storageInfo) {
         switch (state) {
             case CLOSED:
                 throw new StorageRebalanceException(createStorageClosedErrorMessage(storageInfo));
@@ -100,7 +112,7 @@ public class PageMemoryStorageUtils {
     }
 
     private static String createStorageClosedErrorMessage(String storageInfo) {
-        return IgniteStringFormatter.format("Storage is already closed: [{}}]", storageInfo);
+        return IgniteStringFormatter.format("Storage is already closed: [{}]", storageInfo);
     }
 
     private static String createStorageInProcessOfRebalanceErrorMessage(String storageInfo) {

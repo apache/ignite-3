@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -177,9 +179,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
-
         throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+
+        lastApplied0(lastAppliedIndex, lastAppliedTerm);
+    }
+
+    private void lastApplied0(long lastAppliedIndex, long lastAppliedTerm) {
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
@@ -197,8 +203,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
         return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
-
             try {
                 replicationProtocolGroupConfigReadWriteLock.readLock().lock();
 
@@ -308,5 +312,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 }
             });
         }
+    }
+
+    @Override
+    CompletableFuture<Void> clearStoragesAndUpdateDataDataStructures() {
+        // TODO: IGNITE-18029 реализовать
+        return completedFuture(null);
+    }
+
+    @Override
+    void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+
+        lastApplied0(lastAppliedIndex, lastAppliedTerm);
+
+        persistedIndex = lastAppliedIndex;
     }
 }

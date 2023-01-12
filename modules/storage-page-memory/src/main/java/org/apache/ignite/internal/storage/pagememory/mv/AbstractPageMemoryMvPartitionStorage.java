@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.inBusyLock;
-import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionDependingStorageStateOnRebalance;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.lang.invoke.MethodHandles;
@@ -40,7 +39,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
+import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -52,6 +54,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -974,7 +977,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 rowVersion = versionChain == null ? null : readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
             } else {
-                rowVersion = readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
+                rowVersion = !rowVersion.hasNextLink() ? null : readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
             }
 
             hasNext = rowVersion != null;
@@ -1028,26 +1031,81 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     /**
      * Prepares the storage and its indexes for rebalancing.
+     *
+     * <ul>
+     *     <li>Stops ongoing operations on the store and its indexes;</li>
+     *     <li>Clears the storage and its indexes;</li>
+     *     <li>Sets {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} to {@link #REBALANCE_IN_PROGRESS}.</li>
+     * </ul>
+     *
+     * @return Future of the start rebalance for storage and its indexes.
+     * @throws StorageRebalanceException If there was an error when starting the rebalance.
      */
     public CompletableFuture<Void> startRebalance() {
         if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingStorageStateOnRebalance(state, createStorageInfo());
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
         }
 
-        // TODO: IGNITE-18029 реализовать и еще немного подумать об всей этой кухне
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
 
-        // TODO: IGNITE-18029 возможный план:
-        // TODO: IGNITE-18029 останавливаем нагрузку на хранилище и индексы
-        // TODO: IGNITE-18029 пересоздаем все что нам нужно
-        // TODO: IGNITE-18029 обновляем деревья и листы для хранилища и индексов
-        // TODO: IGNITE-18029 обновляем lastApplied
+        busyLock.block();
+        busyLock.unblock();
 
-        return completedFuture(null);
+        try {
+            hashIndexes.values().forEach(PageMemoryHashIndexStorage::startRebalance);
+            sortedIndexes.values().forEach(PageMemorySortedIndexStorage::startRebalance);
+
+            clearStoragesAndUpdateDataDataStructures().thenAccept(unused ->
+                    runConsistently(() -> {
+                        lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+
+                        return null;
+                    })
+            ).whenComplete((unused, throwable) -> {
+                if (throwable == null) {
+                    rebalanceFuture.complete(null);
+                } else {
+                    rebalanceFuture.completeExceptionally(throwable);
+                }
+            });
+        } catch (Throwable t) {
+            rebalanceFuture.completeExceptionally(t);
+        }
+
+        return rebalanceFuture;
     }
 
+    /**
+     * Aborts storage and its indexes rebalancing.
+     *
+     * <ul>
+     *     <li>Clears the storage and its indexes;</li>
+     *     <li>Sets {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} to {@code 0}.</li>
+     * </ul>
+     *
+     * @return Future of the abort rebalance for storage and its indexes.
+     * @throws StorageRebalanceException If there was an error when aborting the rebalance.
+     */
     public CompletableFuture<Void> abortRebalance() {
-        // TODO: IGNITE-18029 реализовать
-        return completedFuture(null);
+        if (state != StorageState.REBALANCE) {
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        }
+
+        return clearStoragesAndUpdateDataDataStructures()
+                .thenAccept(unused -> {
+                    runConsistently(() -> {
+                        lastAppliedOnRebalance(0, 0);
+
+                        return null;
+                    });
+
+                    if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
+                        throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+                    }
+
+                    hashIndexes.values().forEach(PageMemoryHashIndexStorage::completeRebalance);
+                    sortedIndexes.values().forEach(PageMemorySortedIndexStorage::completeRebalance);
+                });
     }
 
     /**
@@ -1055,8 +1113,38 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      *
      * @param lastAppliedIndex Last applied index value.
      * @param lastAppliedTerm Last applied term value.
+     * @throws StorageRebalanceException If there was an error when finishing the rebalance.
      */
     public void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
-        // TODO: IGNITE-18029 реализовать
+        if (state != StorageState.REBALANCE) {
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        }
+
+        runConsistently(() -> {
+            lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
+
+            return null;
+        });
+
+        if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        }
+
+        hashIndexes.values().forEach(PageMemoryHashIndexStorage::completeRebalance);
+        sortedIndexes.values().forEach(PageMemorySortedIndexStorage::completeRebalance);
     }
+
+    /**
+     * Clears the storage and its indexes. Updates the data structures ({@link BplusTree}, {@link FreeList} and {@link ReuseList}) of the
+     * storage and its indexes with new ones.
+     */
+    abstract CompletableFuture<Void> clearStoragesAndUpdateDataDataStructures();
+
+    /**
+     * Sets the last applied index and term on rebalance.
+     *
+     * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
+     */
+    abstract void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 }
