@@ -163,7 +163,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>Colocation hash.</returns>
         public int Write(
-            PooledArrayBufferWriter buf,
+            PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
             T rec,
@@ -187,7 +187,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>First record hash.</returns>
         public int WriteTwo(
-            PooledArrayBufferWriter buf,
+            PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
             T t,
@@ -212,7 +212,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>First record hash.</returns>
         public int WriteMultiple(
-            PooledArrayBufferWriter buf,
+            PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
             IEnumerator<T> recs,

@@ -173,12 +173,12 @@ namespace Apache.Ignite.Tests
             return new PooledBuffer(buf, 0, size);
         }
 
-        private void Send(Socket socket, long requestId, PooledArrayBufferWriter writer, bool isError = false)
+        private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false)
             => Send(socket, requestId, writer.GetWrittenMemory(), isError);
 
         private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
         {
-            using var header = new PooledArrayBufferWriter();
+            using var header = new PooledArrayBuffer();
             var writer = new MsgPackWriter(header);
 
             writer.Write(0); // Message type.
@@ -204,7 +204,7 @@ namespace Apache.Ignite.Tests
 
         private void SqlCursorNextPage(Socket handler, long requestId)
         {
-            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
             writer.WriteArrayHeader(500); // Page size.
@@ -260,7 +260,7 @@ namespace Apache.Ignite.Tests
             LastSqlTimeoutMs = timeoutMs;
             LastSqlTxId = txId;
 
-            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
             writer.Write(1); // ResourceId.
@@ -331,7 +331,7 @@ namespace Apache.Ignite.Tests
         {
             var tableId = reader.ReadGuid();
 
-            using var arrayBufferWriter = new PooledArrayBufferWriter();
+            using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
             writer.WriteMapHeader(1);
             writer.Write(1); // Version.
@@ -426,7 +426,7 @@ namespace Apache.Ignite.Tests
                 handler.Send(ProtoCommon.MagicBytes);
                 Thread.Sleep(HandshakeDelay);
 
-                using var handshakeBufferWriter = new PooledArrayBufferWriter();
+                using var handshakeBufferWriter = new PooledArrayBuffer();
                 var handshakeWriter = handshakeBufferWriter.MessageWriter;
 
                 // Version.
@@ -484,7 +484,7 @@ namespace Apache.Ignite.Tests
 
                             if (tableId != default)
                             {
-                                using var arrayBufferWriter = new PooledArrayBufferWriter();
+                                using var arrayBufferWriter = new PooledArrayBuffer();
                                 arrayBufferWriter.MessageWriter.Write(tableId);
 
                                 Send(handler, requestId, arrayBufferWriter);
@@ -501,7 +501,7 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.PartitionAssignmentGet:
                         {
-                            using var arrayBufferWriter = new PooledArrayBufferWriter();
+                            using var arrayBufferWriter = new PooledArrayBuffer();
                             var writer = new MsgPackWriter(arrayBufferWriter);
                             writer.WriteArrayHeader(PartitionAssignment.Length);
 
@@ -545,7 +545,7 @@ namespace Apache.Ignite.Tests
 
                         case ClientOp.ComputeExecute:
                         {
-                            using var arrayBufferWriter = new PooledArrayBufferWriter();
+                            using var arrayBufferWriter = new PooledArrayBuffer();
                             var writer = new MsgPackWriter(arrayBufferWriter);
 
                             using var builder = new BinaryTupleBuilder(3);
@@ -575,7 +575,7 @@ namespace Apache.Ignite.Tests
                     }
 
                     // Fake error message for any other op code.
-                    using var errWriter = new PooledArrayBufferWriter();
+                    using var errWriter = new PooledArrayBuffer();
                     var w = new MsgPackWriter(errWriter);
                     w.Write(Guid.Empty);
                     w.Write(262147);

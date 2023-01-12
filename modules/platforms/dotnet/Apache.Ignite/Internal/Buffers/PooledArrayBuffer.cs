@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// <para />
     /// We reserve some bytes for the prefix because message size, op code and request ID are not known initially.
     /// </summary>
-    internal sealed class PooledArrayBufferWriter : IDisposable
+    internal sealed class PooledArrayBuffer : IDisposable
     {
         /** Prefix size. */
         private readonly int _prefixSize;
@@ -45,11 +45,11 @@ namespace Apache.Ignite.Internal.Buffers
         private volatile bool _disposed;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
+        /// Initializes a new instance of the <see cref="PooledArrayBuffer"/> class.
         /// </summary>
         /// <param name="initialCapacity">Initial capacity.</param>
         /// <param name="prefixSize">Size of the reserved space at the start of the buffer.</param>
-        public PooledArrayBufferWriter(int initialCapacity = PooledBuffer.DefaultCapacity, int prefixSize = 0)
+        public PooledArrayBuffer(int initialCapacity = PooledBuffer.DefaultCapacity, int prefixSize = 0)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering

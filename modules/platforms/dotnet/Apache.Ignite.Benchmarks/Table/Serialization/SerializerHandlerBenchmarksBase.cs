@@ -57,7 +57,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         protected Consumer Consumer { get; } = new();
 
-        internal static void VerifyWritten(PooledArrayBufferWriter pooledWriter)
+        internal static void VerifyWritten(PooledArrayBuffer pooledWriter)
         {
             var bytesWritten = pooledWriter.GetWrittenMemory().Length;
 
@@ -69,7 +69,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         private static byte[] GetSerializedData()
         {
-            using var pooledWriter = new PooledArrayBufferWriter();
+            using var pooledWriter = new PooledArrayBuffer();
             var writer = pooledWriter.MessageWriter;
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);

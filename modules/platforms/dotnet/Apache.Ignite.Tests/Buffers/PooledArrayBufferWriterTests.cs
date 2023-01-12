@@ -21,14 +21,14 @@ namespace Apache.Ignite.Tests.Buffers
     using NUnit.Framework;
 
     /// <summary>
-    /// Tests for <see cref="PooledArrayBufferWriter"/>.
+    /// Tests for <see cref="PooledArrayBuffer"/>.
     /// </summary>
     public class PooledArrayBufferWriterTests
     {
         [Test]
         public void TestBufferWriterReservesPrefixSpace()
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
+            using var bufferWriter = new PooledArrayBuffer();
             var writer = bufferWriter.MessageWriter;
 
             writer.Write(1);

@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly IHashedColumnIndexProvider? _hashedColumnsPredicate;
 
         /** Buffer for tuple content. */
-        private readonly PooledArrayBufferWriter _buffer;
+        private readonly PooledArrayBuffer _buffer;
 
         /** Flag indicating if any NULL values were really put here. */
         private bool _hasNullValues;

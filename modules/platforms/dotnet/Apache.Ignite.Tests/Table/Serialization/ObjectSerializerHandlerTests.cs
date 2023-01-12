@@ -120,7 +120,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
         {
             IRecordSerializerHandler<T> handler = new ObjectSerializerHandler<T>();
 
-            using var pooledWriter = new PooledArrayBufferWriter();
+            using var pooledWriter = new PooledArrayBuffer();
             var writer = pooledWriter.MessageWriter;
 
             handler.Write(ref writer, Schema, obj, keyOnly);

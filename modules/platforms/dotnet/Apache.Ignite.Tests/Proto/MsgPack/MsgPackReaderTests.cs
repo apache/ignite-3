@@ -187,7 +187,7 @@ public class MsgPackReaderTests
     [Test]
     public void TestWriteJavaGuidReturnsIdenticalByteRepresentation()
     {
-        var bufferWriter = new PooledArrayBufferWriter();
+        var bufferWriter = new PooledArrayBuffer();
         bufferWriter.MessageWriter.Write(Guid.Parse(JavaUuidString));
 
         var bytes = bufferWriter.GetWrittenMemory()
@@ -232,9 +232,9 @@ public class MsgPackReaderTests
             });
     }
 
-    private static T WriteRead<T>(Action<PooledArrayBufferWriter> write, Func<ReadOnlyMemory<byte>, T> read)
+    private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)
     {
-        var bufferWriter = new PooledArrayBufferWriter();
+        var bufferWriter = new PooledArrayBuffer();
         write(bufferWriter);
 
         var mem = bufferWriter.GetWrittenMemory();

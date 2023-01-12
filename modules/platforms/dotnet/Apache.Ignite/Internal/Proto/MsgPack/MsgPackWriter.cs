@@ -37,12 +37,12 @@ internal readonly ref struct MsgPackWriter
     private const int MaxFixMapCount = 15;
     private const int MaxFixArrayCount = 15;
 
-    public MsgPackWriter(PooledArrayBufferWriter writer)
+    public MsgPackWriter(PooledArrayBuffer buf)
     {
-        Writer = writer;
+        Buf = buf;
     }
 
-    private PooledArrayBufferWriter Writer { get; }
+    private PooledArrayBuffer Buf { get; }
 
     /// <summary>
     /// Writes an unsigned value to specified memory location and returns number of bytes written.
@@ -91,9 +91,9 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
-    public void WriteNil() => Writer.GetSpanAndAdvance(1)[0] = MsgPackCode.Nil;
+    public void WriteNil() => Buf.GetSpanAndAdvance(1)[0] = MsgPackCode.Nil;
 
-    public void Write(bool val) => Writer.GetSpanAndAdvance(1)[0] = val ? MsgPackCode.True : MsgPackCode.False;
+    public void Write(bool val) => Buf.GetSpanAndAdvance(1)[0] = val ? MsgPackCode.True : MsgPackCode.False;
 
     /// <summary>
     /// Writes a <see cref="Guid"/> as UUID (RFC #4122).
@@ -104,7 +104,7 @@ internal readonly ref struct MsgPackWriter
     /// <param name="val">Guid.</param>
     public void Write(Guid val)
     {
-        var span = Writer.GetSpanAndAdvance(18);
+        var span = Buf.GetSpanAndAdvance(18);
         span[0] = MsgPackCode.FixExt16;
         span[1] = (byte)ClientMessagePackType.Uuid;
 
@@ -121,34 +121,34 @@ internal readonly ref struct MsgPackWriter
 
         var byteCount = ProtoCommon.StringEncoding.GetMaxByteCount(val.Length);
         var bufferSize = byteCount + 5;
-        var span = Writer.GetSpan(bufferSize);
+        var span = Buf.GetSpan(bufferSize);
 
         if (byteCount <= MaxFixStringLength)
         {
             var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[1..]);
             span[0] = (byte)(MsgPackCode.MinFixStr | bytesWritten);
-            Writer.Advance(bytesWritten + 1);
+            Buf.Advance(bytesWritten + 1);
         }
         else if (byteCount <= byte.MaxValue)
         {
             var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[2..]);
             span[0] = MsgPackCode.Str8;
             span[1] = unchecked((byte)bytesWritten);
-            Writer.Advance(bytesWritten + 2);
+            Buf.Advance(bytesWritten + 2);
         }
         else if (byteCount <= ushort.MaxValue)
         {
             var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[3..]);
             span[0] = MsgPackCode.Str16;
             BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)bytesWritten);
-            Writer.Advance(bytesWritten + 3);
+            Buf.Advance(bytesWritten + 3);
         }
         else
         {
             var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[5..]);
             span[0] = MsgPackCode.Str32;
             BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)bytesWritten);
-            Writer.Advance(bytesWritten + 5);
+            Buf.Advance(bytesWritten + 5);
         }
     }
 
@@ -156,37 +156,37 @@ internal readonly ref struct MsgPackWriter
     {
         if (value >= 0)
         {
-            var span = Writer.GetSpan(9);
+            var span = Buf.GetSpan(9);
             var written = WriteUnsigned(span, (ulong)value);
-            Writer.Advance(written);
+            Buf.Advance(written);
         }
         else
         {
             if (value >= MinFixNegativeInt)
             {
-                Writer.GetSpanAndAdvance(1)[0] = unchecked((byte)value);
+                Buf.GetSpanAndAdvance(1)[0] = unchecked((byte)value);
             }
             else if (value >= sbyte.MinValue)
             {
-                var span = Writer.GetSpanAndAdvance(2);
+                var span = Buf.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.Int8;
                 span[1] = unchecked((byte)value);
             }
             else if (value >= short.MinValue)
             {
-                var span = Writer.GetSpanAndAdvance(3);
+                var span = Buf.GetSpanAndAdvance(3);
                 span[0] = MsgPackCode.Int16;
                 BinaryPrimitives.WriteInt16BigEndian(span[1..], (short)value);
             }
             else if (value >= int.MinValue)
             {
-                var span = Writer.GetSpanAndAdvance(5);
+                var span = Buf.GetSpanAndAdvance(5);
                 span[0] = MsgPackCode.Int32;
                 BinaryPrimitives.WriteInt32BigEndian(span[1..], (int)value);
             }
             else
             {
-                var span = Writer.GetSpanAndAdvance(9);
+                var span = Buf.GetSpanAndAdvance(9);
                 span[0] = MsgPackCode.Int64;
                 BinaryPrimitives.WriteInt64BigEndian(span[1..], value);
             }
@@ -240,7 +240,7 @@ internal readonly ref struct MsgPackWriter
     {
         var byteCount = bitCount / 8 + 1;
         WriteExtensionFormatHeader((byte)ClientMessagePackType.Bitmask, byteCount);
-        var span = Writer.GetSpanAndAdvance(byteCount);
+        var span = Buf.GetSpanAndAdvance(byteCount);
 
         // Clear all bits to avoid random data from pooled array.
         span.Clear();
@@ -253,31 +253,31 @@ internal readonly ref struct MsgPackWriter
         switch (dataLength)
         {
             case 1:
-                var span = Writer.GetSpanAndAdvance(2);
+                var span = Buf.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.FixExt1;
                 span[1] = typeCode;
                 return;
 
             case 2:
-                span = Writer.GetSpanAndAdvance(2);
+                span = Buf.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.FixExt2;
                 span[1] = typeCode;
                 return;
 
             case 4:
-                span = Writer.GetSpanAndAdvance(2);
+                span = Buf.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.FixExt4;
                 span[1] = typeCode;
                 return;
 
             case 8:
-                span = Writer.GetSpanAndAdvance(2);
+                span = Buf.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.FixExt8;
                 span[1] = typeCode;
                 return;
 
             case 16:
-                span = Writer.GetSpanAndAdvance(2);
+                span = Buf.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.FixExt16;
                 span[1] = typeCode;
                 return;
@@ -285,21 +285,21 @@ internal readonly ref struct MsgPackWriter
             default:
                 if (dataLength <= byte.MaxValue)
                 {
-                    span = Writer.GetSpanAndAdvance(3);
+                    span = Buf.GetSpanAndAdvance(3);
                     span[0] = MsgPackCode.Ext8;
                     span[1] = unchecked((byte)dataLength);
                     span[2] = typeCode;
                 }
                 else if (dataLength <= ushort.MaxValue)
                 {
-                    span = Writer.GetSpanAndAdvance(4);
+                    span = Buf.GetSpanAndAdvance(4);
                     span[0] = MsgPackCode.Ext16;
                     BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)dataLength);
                     span[3] = typeCode;
                 }
                 else
                 {
-                    span = Writer.GetSpanAndAdvance(6);
+                    span = Buf.GetSpanAndAdvance(6);
                     span[0] = MsgPackCode.Ext32;
                     BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)dataLength);
                     span[5] = typeCode;
@@ -313,17 +313,17 @@ internal readonly ref struct MsgPackWriter
     {
         if (count <= MaxFixArrayCount)
         {
-            Writer.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixArray | count);
+            Buf.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixArray | count);
         }
         else if (count <= ushort.MaxValue)
         {
-            var span = Writer.GetSpanAndAdvance(3);
+            var span = Buf.GetSpanAndAdvance(3);
             span[0] = MsgPackCode.Array16;
             BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
         }
         else
         {
-            var span = Writer.GetSpanAndAdvance(5);
+            var span = Buf.GetSpanAndAdvance(5);
 
             span[0] = MsgPackCode.Array32;
             BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
@@ -334,21 +334,21 @@ internal readonly ref struct MsgPackWriter
     {
         if (length <= byte.MaxValue)
         {
-            var span = Writer.GetSpanAndAdvance(2);
+            var span = Buf.GetSpanAndAdvance(2);
 
             span[0] = MsgPackCode.Bin8;
             span[1] = (byte)length;
         }
         else if (length <= ushort.MaxValue)
         {
-            var span = Writer.GetSpanAndAdvance(3);
+            var span = Buf.GetSpanAndAdvance(3);
 
             span[0] = MsgPackCode.Bin16;
             BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)length);
         }
         else
         {
-            var span = Writer.GetSpanAndAdvance(5);
+            var span = Buf.GetSpanAndAdvance(5);
 
             span[0] = MsgPackCode.Bin32;
             BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)length);
@@ -359,17 +359,17 @@ internal readonly ref struct MsgPackWriter
     {
         if (count <= MaxFixMapCount)
         {
-            Writer.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixMap | count);
+            Buf.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixMap | count);
         }
         else if (count <= ushort.MaxValue)
         {
-            var span = Writer.GetSpanAndAdvance(3);
+            var span = Buf.GetSpanAndAdvance(3);
             span[0] = MsgPackCode.Map16;
             BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
         }
         else
         {
-            var span = Writer.GetSpanAndAdvance(5);
+            var span = Buf.GetSpanAndAdvance(5);
 
             span[0] = MsgPackCode.Map32;
             BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
@@ -379,6 +379,6 @@ internal readonly ref struct MsgPackWriter
     public void Write(ReadOnlySpan<byte> span)
     {
         WriteBinHeader(span.Length);
-        span.CopyTo(Writer.GetSpanAndAdvance(span.Length));
+        span.CopyTo(Buf.GetSpanAndAdvance(span.Length));
     }
 }

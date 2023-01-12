@@ -205,7 +205,7 @@ namespace Apache.Ignite.Internal.Compute
                 }
             }
 
-            int Write(PooledArrayBufferWriter bufferWriter, Table table, Schema schema)
+            int Write(PooledArrayBuffer bufferWriter, Table table, Schema schema)
             {
                 var w = bufferWriter.MessageWriter;
 

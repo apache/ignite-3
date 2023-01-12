@@ -63,7 +63,7 @@ namespace Apache.Ignite.Tests
 
             socket.Dispose();
 
-            using var requestWriter = new PooledArrayBufferWriter();
+            using var requestWriter = new PooledArrayBuffer();
             requestWriter.MessageWriter.Write(123);
 
             Assert.ThrowsAsync<ObjectDisposedException>(

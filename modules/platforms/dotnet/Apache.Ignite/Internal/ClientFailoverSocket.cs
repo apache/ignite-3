@@ -130,7 +130,7 @@ namespace Apache.Ignite.Internal
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
-            PooledArrayBufferWriter? request = null,
+            PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default)
         {
             if (tx == null)
@@ -157,7 +157,7 @@ namespace Apache.Ignite.Internal
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
-            PooledArrayBufferWriter? request = null,
+            PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default)
         {
             var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, tx: null, request, preferredNode).ConfigureAwait(false);
@@ -176,7 +176,7 @@ namespace Apache.Ignite.Internal
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
-            PooledArrayBufferWriter? request = null,
+            PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default)
         {
             if (tx != null)

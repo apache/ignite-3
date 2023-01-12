@@ -138,7 +138,7 @@ namespace Apache.Ignite.Internal.Sql
                     e);
             }
 
-            PooledArrayBufferWriter Write()
+            PooledArrayBuffer Write()
             {
                 var writer = ProtoCommon.GetMessageWriter();
                 var w = writer.MessageWriter;
