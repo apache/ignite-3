@@ -251,7 +251,7 @@ namespace Apache.Ignite.Internal.Table
 
             void Write()
             {
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
                 w.Write(Id);
 
                 if (version == null)
@@ -357,7 +357,7 @@ namespace Apache.Ignite.Internal.Table
 
             void Write()
             {
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
                 w.Write(Id);
                 w.Flush();
             }

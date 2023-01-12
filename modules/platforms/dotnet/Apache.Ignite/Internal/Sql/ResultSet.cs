@@ -198,7 +198,7 @@ namespace Apache.Ignite.Internal.Sql
                 try
                 {
                     using var writer = ProtoCommon.GetMessageWriter();
-                    WriteId(writer.GetMessageWriter());
+                    WriteId(writer.MessageWriter);
 
                     await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
                 }
@@ -318,7 +318,7 @@ namespace Apache.Ignite.Internal.Sql
         private async Task<PooledBuffer> FetchNextPage()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            WriteId(writer.GetMessageWriter());
+            WriteId(writer.MessageWriter);
 
             return await _socket.DoOutInOpAsync(ClientOp.SqlCursorNextPage, writer).ConfigureAwait(false);
         }

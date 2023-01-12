@@ -75,7 +75,7 @@ namespace Apache.Ignite.Internal.Transactions
             SetState(StateCommitted);
 
             using var writer = ProtoCommon.GetMessageWriter();
-            Write(writer.GetMessageWriter());
+            Write(writer.MessageWriter);
 
             await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
         }
@@ -104,7 +104,7 @@ namespace Apache.Ignite.Internal.Transactions
         private async Task RollbackAsyncInternal()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            Write(writer.GetMessageWriter());
+            Write(writer.MessageWriter);
 
             await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
         }

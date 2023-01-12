@@ -70,7 +70,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         private static byte[] GetSerializedData()
         {
             using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            var writer = pooledWriter.MessageWriter;
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
 

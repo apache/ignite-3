@@ -36,7 +36,7 @@ namespace Apache.Ignite.Benchmarks.Proto
         public void WriteTwoLongs()
         {
             using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+            var writer = bufferWriter.MessageWriter;
             writer.Write(long.MaxValue);
             writer.Write(long.MaxValue);
             writer.Flush();
@@ -46,7 +46,7 @@ namespace Apache.Ignite.Benchmarks.Proto
         public void WriteGuid()
         {
             using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+            var writer = bufferWriter.MessageWriter;
             writer.Write(Guid);
             writer.Flush();
         }

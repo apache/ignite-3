@@ -134,7 +134,7 @@ namespace Apache.Ignite.Internal.Compute
 
             void Write()
             {
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
 
                 w.Write(node.Name);
                 w.Write(jobClassName);
@@ -209,7 +209,7 @@ namespace Apache.Ignite.Internal.Compute
 
             int Write(PooledArrayBufferWriter bufferWriter, Table table, Schema schema)
             {
-                var w = bufferWriter.GetMessageWriter();
+                var w = bufferWriter.MessageWriter;
 
                 w.Write(table.Id);
                 w.Write(schema.Version);

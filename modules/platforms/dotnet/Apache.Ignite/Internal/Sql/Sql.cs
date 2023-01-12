@@ -141,7 +141,7 @@ namespace Apache.Ignite.Internal.Sql
             PooledArrayBufferWriter Write()
             {
                 var writer = ProtoCommon.GetMessageWriter();
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
 
                 w.WriteTx(tx);
                 w.Write(statement.Schema);

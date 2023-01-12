@@ -29,20 +29,9 @@ using Transactions;
 /// MsgPack writer.
 /// </summary>
 [SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1600:Elements should be documented", Justification = "TODO")] // TODO
-internal readonly ref struct MsgPackWriter // TODO: Convert to extension methods, since position is tracked by PooledArrayBufferWriter?
+internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
 {
     private const int MaxFixPositiveInt = 127;
-
-    private readonly PooledArrayBufferWriter _writer;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MsgPackWriter"/> struct.
-    /// </summary>
-    /// <param name="writer">Writer.    </param>
-    public MsgPackWriter(PooledArrayBufferWriter writer)
-    {
-        _writer = writer;
-    }
 
     /*
     private const int MinFixNegativeInt = -32;
@@ -112,13 +101,13 @@ internal readonly ref struct MsgPackWriter // TODO: Convert to extension methods
     public void Write(Guid val)
     {
         // TODO: GetSpanAndAdvance? GetSpanNoAdvance?
-        var span = _writer.GetSpan(18);
+        var span = Writer.GetSpan(18);
         span[0] = MsgPackCode.FixExt16;
         span[1] = (byte)ClientMessagePackType.Uuid;
 
         UuidSerializer.Write(val, span[2..]);
 
-        _writer.Advance(18);
+        Writer.Advance(18);
     }
 
     public void Write(string? val)
@@ -164,7 +153,7 @@ internal readonly ref struct MsgPackWriter // TODO: Convert to extension methods
     public void Flush()
     {
         // TODO: Remove me, not needed
-        _writer.Advance(0);
+        Writer.Advance(0);
     }
 
     public void Write(long val)

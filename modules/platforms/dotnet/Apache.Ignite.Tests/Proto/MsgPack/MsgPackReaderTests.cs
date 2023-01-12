@@ -110,7 +110,7 @@ public class MsgPackReaderTests
             var res = WriteRead(
                 buf =>
                 {
-                    var w = buf.GetMessageWriter();
+                    var w = buf.MessageWriter;
                     w.Write(val);
                     w.Flush();
                 },
@@ -128,7 +128,7 @@ public class MsgPackReaderTests
             var res = WriteRead(
                 buf =>
                 {
-                    var w = buf.GetMessageWriter();
+                    var w = buf.MessageWriter;
                     w.Write(val);
                     w.Flush();
                 },
@@ -146,7 +146,7 @@ public class MsgPackReaderTests
             var res = WriteRead(
                 buf =>
                 {
-                    var w = buf.GetMessageWriter();
+                    var w = buf.MessageWriter;
                     w.Write(val);
                     w.Flush();
                 },
@@ -164,7 +164,7 @@ public class MsgPackReaderTests
             var res = WriteRead(
                 buf =>
                 {
-                    var w = buf.GetMessageWriter();
+                    var w = buf.MessageWriter;
                     w.Write(val);
                     w.Flush();
                 },
@@ -182,7 +182,7 @@ public class MsgPackReaderTests
             var res = WriteRead(
                 buf =>
                 {
-                    var w = buf.GetMessageWriter();
+                    var w = buf.MessageWriter;
 
                     w.Write(guid);
                     w.Flush();
@@ -214,7 +214,7 @@ public class MsgPackReaderTests
     public void TestWriteJavaGuidReturnsIdenticalByteRepresentation()
     {
         var bufferWriter = new PooledArrayBufferWriter();
-        var writer = bufferWriter.GetMessageWriter();
+        var writer = bufferWriter.MessageWriter;
 
         writer.Write(Guid.Parse(JavaUuidString));
         writer.Flush();
@@ -233,7 +233,7 @@ public class MsgPackReaderTests
         WriteRead(
             buf =>
             {
-                var w = buf.GetMessageWriter();
+                var w = buf.MessageWriter;
 
                 w.Write(3);
                 w.Write(short.MaxValue);

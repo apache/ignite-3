@@ -397,7 +397,7 @@ namespace Apache.Ignite.Internal
         private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
             using var bufferWriter = new PooledArrayBufferWriter(prefixSize: ProtoCommon.MessagePrefixSize);
-            WriteHandshake(version, bufferWriter.GetMessageWriter());
+            WriteHandshake(version, bufferWriter.MessageWriter);
 
             // Prepend size.
             var buf = bufferWriter.GetWrittenMemory();

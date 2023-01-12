@@ -169,7 +169,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             T rec,
             bool keyOnly = false)
         {
-            var w = buf.GetMessageWriter();
+            var w = buf.MessageWriter;
 
             var colocationHash = WriteWithHeader(ref w, tx, schema, rec, keyOnly);
 
@@ -196,7 +196,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             T t2,
             bool keyOnly = false)
         {
-            var w = buf.GetMessageWriter();
+            var w = buf.MessageWriter;
 
             var firstHash = WriteWithHeader(ref w, tx, schema, t, keyOnly);
             _handler.Write(ref w, schema, t2, keyOnly);
@@ -222,7 +222,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             IEnumerator<T> recs,
             bool keyOnly = false)
         {
-            var w = buf.GetMessageWriter();
+            var w = buf.MessageWriter;
 
             WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);

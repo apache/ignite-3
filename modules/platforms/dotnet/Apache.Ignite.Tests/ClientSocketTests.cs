@@ -36,7 +36,7 @@ namespace Apache.Ignite.Tests
             using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
-            requestWriter.GetMessageWriter().Write("non-existent-table");
+            requestWriter.MessageWriter.Write("non-existent-table");
 
             using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
             Assert.IsTrue(response.GetReader().TryReadNil());
@@ -48,7 +48,7 @@ namespace Apache.Ignite.Tests
             using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
-            requestWriter.GetMessageWriter().Write(123);
+            requestWriter.MessageWriter.Write(123);
 
             var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await socket.DoOutInOpAsync((ClientOp)1234567, requestWriter));
@@ -64,7 +64,7 @@ namespace Apache.Ignite.Tests
             socket.Dispose();
 
             using var requestWriter = new PooledArrayBufferWriter();
-            requestWriter.GetMessageWriter().Write(123);
+            requestWriter.MessageWriter.Write(123);
 
             Assert.ThrowsAsync<ObjectDisposedException>(
                 async () => await socket.DoOutInOpAsync(ClientOp.SchemasGet, requestWriter));

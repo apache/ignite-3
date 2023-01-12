@@ -41,7 +41,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         public void WriteObjectManual()
         {
             using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            var writer = pooledWriter.MessageWriter;
 
             using var tupleBuilder = new BinaryTupleBuilder(3);
             tupleBuilder.AppendGuid(Object.Id);
@@ -59,7 +59,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         public void WriteObject()
         {
             using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            var writer = pooledWriter.MessageWriter;
 
             ObjectSerializerHandler.Write(ref writer, Schema, Object);
 
@@ -71,7 +71,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         public void WriteTuple()
         {
             using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            var writer = pooledWriter.MessageWriter;
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
 

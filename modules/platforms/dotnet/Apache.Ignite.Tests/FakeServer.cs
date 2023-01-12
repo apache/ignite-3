@@ -434,7 +434,7 @@ namespace Apache.Ignite.Tests
                 Thread.Sleep(HandshakeDelay);
 
                 using var handshakeBufferWriter = new PooledArrayBufferWriter();
-                var handshakeWriter = handshakeBufferWriter.GetMessageWriter();
+                var handshakeWriter = handshakeBufferWriter.MessageWriter;
 
                 // Version.
                 handshakeWriter.Write(3);

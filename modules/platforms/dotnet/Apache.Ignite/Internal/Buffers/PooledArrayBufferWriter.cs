@@ -22,7 +22,6 @@ namespace Apache.Ignite.Internal.Buffers
     using System.Buffers.Binary;
     using System.Diagnostics;
     using System.IO;
-    using MessagePack;
     using Proto.MsgPack;
 
     /// <summary>
@@ -30,8 +29,6 @@ namespace Apache.Ignite.Internal.Buffers
     /// and adds the logic to prepend messages with size and other data (opcode, request id).
     /// <para />
     /// We reserve some bytes for the prefix because message size, op code and request ID are not known initially.
-    /// <para />
-    /// Not a struct because <see cref="GetMessageWriter"/> will cause boxing.
     /// </summary>
     internal sealed class PooledArrayBufferWriter : IDisposable
     {
@@ -60,6 +57,11 @@ namespace Apache.Ignite.Internal.Buffers
             _prefixSize = prefixSize;
             _index = prefixSize;
         }
+
+        /// <summary>
+        /// Gets the <see cref="MsgPackWriter"/> for this buffer.
+        /// </summary>
+        public MsgPackWriter MessageWriter => new(this);
 
         /// <summary>
         /// Gets the current position.
@@ -126,17 +128,6 @@ namespace Apache.Ignite.Internal.Buffers
             }
 
             return _buffer.AsSpan(_prefixSize + position, size);
-        }
-
-        /// <summary>
-        /// Gets the <see cref="MessagePackWriter"/> for this buffer.
-        /// </summary>
-        /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
-        public MsgPackWriter GetMessageWriter()
-        {
-            // TODO: Convert to property.
-            // TODO: Review usages and simplify.
-            return new(this);
         }
 
         /// <inheritdoc />

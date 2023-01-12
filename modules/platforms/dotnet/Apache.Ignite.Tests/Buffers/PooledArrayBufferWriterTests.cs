@@ -29,7 +29,7 @@ namespace Apache.Ignite.Tests.Buffers
         public void TestBufferWriterReservesPrefixSpace()
         {
             using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+            var writer = bufferWriter.MessageWriter;
 
             writer.Write(1);
             writer.Write("A");

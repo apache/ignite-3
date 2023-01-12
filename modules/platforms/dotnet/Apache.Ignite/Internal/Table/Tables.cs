@@ -98,7 +98,7 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(name, nameof(name));
 
             using var writer = ProtoCommon.GetMessageWriter();
-            Write(writer.GetMessageWriter());
+            Write(writer.MessageWriter);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
