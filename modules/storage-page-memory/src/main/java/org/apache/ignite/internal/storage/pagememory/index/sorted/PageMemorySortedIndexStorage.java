@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.inBusyLock;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -66,10 +67,10 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     private final SortedIndexDescriptor descriptor;
 
     /** Free list to store index columns. */
-    private final IndexColumnsFreeList freeList;
+    private volatile IndexColumnsFreeList freeList;
 
     /** Sorted index tree instance. */
-    private final SortedIndexTree sortedIndexTree;
+    private volatile SortedIndexTree sortedIndexTree;
 
     /** Partition id. */
     private final int partitionId;
@@ -409,6 +410,22 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
         }
+    }
+
+    /**
+     * Updates the internal data structures of the storage on rebalance.
+     *
+     * @param freeList Free list to store index columns.
+     * @param sortedIndexTree Sorted index tree instance.
+     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     */
+    public void updateDataStructuresOnRebalance(IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+
+        this.freeList = freeList;
+
+        this.sortedIndexTree.close();
+        this.sortedIndexTree = sortedIndexTree;
     }
 
     private String createStorageInfo() {

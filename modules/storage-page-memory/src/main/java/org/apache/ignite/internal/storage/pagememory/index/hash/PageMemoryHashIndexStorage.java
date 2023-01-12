@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.inBusyLock;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -57,10 +58,10 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     private final HashIndexDescriptor descriptor;
 
     /** Free list to store index columns. */
-    private final IndexColumnsFreeList freeList;
+    private volatile IndexColumnsFreeList freeList;
 
     /** Hash index tree instance. */
-    private final HashIndexTree hashIndexTree;
+    private volatile HashIndexTree hashIndexTree;
 
     /** Partition id. */
     private final int partitionId;
@@ -236,6 +237,22 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
         }
+    }
+
+    /**
+     * Updates the internal data structures of the storage on rebalance.
+     *
+     * @param freeList Free list to store index columns.
+     * @param hashIndexTree Hash index tree instance.
+     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     */
+    public void updateDataStructuresOnRebalance(IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+
+        this.freeList = freeList;
+
+        this.hashIndexTree.close();
+        this.hashIndexTree = hashIndexTree;
     }
 
     private String createStorageInfo() {

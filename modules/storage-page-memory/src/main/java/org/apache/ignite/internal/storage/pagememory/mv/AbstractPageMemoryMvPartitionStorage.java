@@ -78,7 +78,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
-    protected static final VarHandle STATE;
+    private static final VarHandle STATE;
 
     static {
         try {
@@ -92,24 +92,24 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final int groupId;
 
-    protected final AbstractPageMemoryTableStorage tableStorage;
+    final AbstractPageMemoryTableStorage tableStorage;
 
-    protected final VersionChainTree versionChainTree;
+    volatile VersionChainTree versionChainTree;
 
-    protected final RowVersionFreeList rowVersionFreeList;
+    volatile RowVersionFreeList rowVersionFreeList;
 
-    protected final IndexColumnsFreeList indexFreeList;
+    volatile IndexColumnsFreeList indexFreeList;
 
-    protected final IndexMetaTree indexMetaTree;
+    volatile IndexMetaTree indexMetaTree;
 
-    protected final DataPageReader rowVersionDataPageReader;
+    private final DataPageReader rowVersionDataPageReader;
 
-    protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
+    final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
-    protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
+    final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
     /** Busy lock. */
-    protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Current state of the storage. */
     protected volatile StorageState state = StorageState.RUNNABLE;
@@ -207,6 +207,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
         var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
+        HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta);
+
+        return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+    }
+
+    HashIndexTree createHashIndexTree(HashIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -216,11 +222,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
-            String tableName = tableStorage.configuration().value().name();
-
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,
-                    tableName,
+                    tableStorage.getTableName(),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -237,15 +241,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 assert !replaced;
             }
 
-            return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+            return hashIndexTree;
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(e);
+            throw new StorageException(
+                    IgniteStringFormatter.format(
+                            "Error creating hash index tree: [table={}, partitionId={}, indexId={}]",
+                            tableStorage.getTableName(),
+                            partitionId,
+                            indexMeta.id()
+                    ),
+                    e
+            );
         }
     }
 
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
         var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
+        SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta);
+
+        return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree);
+    }
+
+    SortedIndexTree createSortedIndexTree(SortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -255,11 +273,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
-            String tableName = tableStorage.configuration().value().name();
-
             SortedIndexTree sortedIndexTree = new SortedIndexTree(
                     groupId,
-                    tableName,
+                    tableStorage.getTableName(),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -276,9 +292,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 assert !replaced;
             }
 
-            return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree);
+            return sortedIndexTree;
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(e);
+            throw new StorageException(
+                    IgniteStringFormatter.format(
+                            "Error creating sorted index tree: [table={}, partitionId={}, indexId={}]",
+                            tableStorage.getTableName(),
+                            partitionId,
+                            indexMeta.id()
+                    ),
+                    e
+            );
         }
     }
 
