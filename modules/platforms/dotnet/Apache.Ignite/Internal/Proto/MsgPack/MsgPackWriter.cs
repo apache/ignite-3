@@ -20,7 +20,6 @@ namespace Apache.Ignite.Internal.Proto.MsgPack;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using BinaryTuple;
 using Buffers;
 using Transactions;
@@ -28,7 +27,6 @@ using Transactions;
 /// <summary>
 /// MsgPack writer.
 /// </summary>
-[SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1600:Elements should be documented", Justification = "TODO")] // TODO
 internal readonly ref struct MsgPackWriter
 {
     private const int MaxFixPositiveInt = 127;
@@ -37,6 +35,10 @@ internal readonly ref struct MsgPackWriter
     private const int MaxFixMapCount = 15;
     private const int MaxFixArrayCount = 15;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MsgPackWriter"/> struct.
+    /// </summary>
+    /// <param name="buf">Buffer.</param>
     public MsgPackWriter(PooledArrayBuffer buf)
     {
         Buf = buf;
@@ -91,8 +93,15 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
+    /// <summary>
+    /// Writes nil.
+    /// </summary>
     public void WriteNil() => Buf.GetSpanAndAdvance(1)[0] = MsgPackCode.Nil;
 
+    /// <summary>
+    /// Writes bool.
+    /// </summary>
+    /// <param name="val">Value.</param>
     public void Write(bool val) => Buf.GetSpanAndAdvance(1)[0] = val ? MsgPackCode.True : MsgPackCode.False;
 
     /// <summary>
@@ -111,6 +120,10 @@ internal readonly ref struct MsgPackWriter
         UuidSerializer.Write(val, span[2..]);
     }
 
+    /// <summary>
+    /// Writes string.
+    /// </summary>
+    /// <param name="val">Value.</param>
     public void Write(string? val)
     {
         if (val == null)
@@ -152,47 +165,55 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
-    public void Write(long value)
+    /// <summary>
+    /// Writes long.
+    /// </summary>
+    /// <param name="val">Value.</param>
+    public void Write(long val)
     {
-        if (value >= 0)
+        if (val >= 0)
         {
             var span = Buf.GetSpan(9);
-            var written = WriteUnsigned(span, (ulong)value);
+            var written = WriteUnsigned(span, (ulong)val);
             Buf.Advance(written);
         }
         else
         {
-            if (value >= MinFixNegativeInt)
+            if (val >= MinFixNegativeInt)
             {
-                Buf.GetSpanAndAdvance(1)[0] = unchecked((byte)value);
+                Buf.GetSpanAndAdvance(1)[0] = unchecked((byte)val);
             }
-            else if (value >= sbyte.MinValue)
+            else if (val >= sbyte.MinValue)
             {
                 var span = Buf.GetSpanAndAdvance(2);
                 span[0] = MsgPackCode.Int8;
-                span[1] = unchecked((byte)value);
+                span[1] = unchecked((byte)val);
             }
-            else if (value >= short.MinValue)
+            else if (val >= short.MinValue)
             {
                 var span = Buf.GetSpanAndAdvance(3);
                 span[0] = MsgPackCode.Int16;
-                BinaryPrimitives.WriteInt16BigEndian(span[1..], (short)value);
+                BinaryPrimitives.WriteInt16BigEndian(span[1..], (short)val);
             }
-            else if (value >= int.MinValue)
+            else if (val >= int.MinValue)
             {
                 var span = Buf.GetSpanAndAdvance(5);
                 span[0] = MsgPackCode.Int32;
-                BinaryPrimitives.WriteInt32BigEndian(span[1..], (int)value);
+                BinaryPrimitives.WriteInt32BigEndian(span[1..], (int)val);
             }
             else
             {
                 var span = Buf.GetSpanAndAdvance(9);
                 span[0] = MsgPackCode.Int64;
-                BinaryPrimitives.WriteInt64BigEndian(span[1..], value);
+                BinaryPrimitives.WriteInt64BigEndian(span[1..], val);
             }
         }
     }
 
+    /// <summary>
+    /// Writes int.
+    /// </summary>
+    /// <param name="val">Value.</param>
     public void Write(int val) => Write((long)val);
 
     /// <summary>
@@ -236,10 +257,15 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
+    /// <summary>
+    /// Reserves space for a bit set.
+    /// </summary>
+    /// <param name="bitCount">Bit count.</param>
+    /// <returns>Span to write.</returns>
     public Span<byte> WriteBitSet(int bitCount)
     {
         var byteCount = bitCount / 8 + 1;
-        WriteExtensionFormatHeader((byte)ClientMessagePackType.Bitmask, byteCount);
+        WriteExtensionHeader((byte)ClientMessagePackType.Bitmask, byteCount);
         var span = Buf.GetSpanAndAdvance(byteCount);
 
         // Clear all bits to avoid random data from pooled array.
@@ -248,7 +274,12 @@ internal readonly ref struct MsgPackWriter
         return span;
     }
 
-    public void WriteExtensionFormatHeader(byte typeCode, int dataLength)
+    /// <summary>
+    /// Writes extension format header.
+    /// </summary>
+    /// <param name="typeCode">Extension type code.</param>
+    /// <param name="dataLength">Data length.</param>
+    public void WriteExtensionHeader(byte typeCode, int dataLength)
     {
         switch (dataLength)
         {
@@ -309,6 +340,10 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
+    /// <summary>
+    /// Writes array header.
+    /// </summary>
+    /// <param name="count">Array element count.</param>
     public void WriteArrayHeader(int count)
     {
         if (count <= MaxFixArrayCount)
@@ -330,6 +365,10 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
+    /// <summary>
+    /// Writes binary header.
+    /// </summary>
+    /// <param name="length">Binary payload length, in bytes.</param>
     public void WriteBinHeader(int length)
     {
         if (length <= byte.MaxValue)
@@ -355,6 +394,10 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
+    /// <summary>
+    /// Writes map header.
+    /// </summary>
+    /// <param name="count">Map element count.</param>
     public void WriteMapHeader(int count)
     {
         if (count <= MaxFixMapCount)
@@ -376,6 +419,10 @@ internal readonly ref struct MsgPackWriter
         }
     }
 
+    /// <summary>
+    /// Writes binary data, including header.
+    /// </summary>
+    /// <param name="span">Data.</param>
     public void Write(ReadOnlySpan<byte> span)
     {
         WriteBinHeader(span.Length);
