@@ -29,13 +29,20 @@ using Transactions;
 /// MsgPack writer.
 /// </summary>
 [SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1600:Elements should be documented", Justification = "TODO")] // TODO
-internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
+internal readonly ref struct MsgPackWriter
 {
     private const int MaxFixPositiveInt = 127;
     private const int MaxFixStringLength = 31;
     private const int MinFixNegativeInt = -32;
     private const int MaxFixMapCount = 15;
     private const int MaxFixArrayCount = 15;
+
+    public MsgPackWriter(PooledArrayBufferWriter writer)
+    {
+        Writer = writer;
+    }
+
+    private PooledArrayBufferWriter Writer { get; }
 
     /// <summary>
     /// Writes an unsigned value to specified memory location and returns number of bytes written.
