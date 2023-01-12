@@ -17,40 +17,33 @@
 
 namespace Apache.Ignite.Tests.Proto.MsgPack;
 
-using System;
-using Internal.Buffers;
-using Internal.Proto.MsgPack;
-using MessagePack;
-using NUnit.Framework;
-
-using static MsgPackTestsCommon;
+using System.Collections.Generic;
 
 /// <summary>
-/// Tests for <see cref="MsgPackWriter"/>.
+/// Common MsgPack test logic.
 /// </summary>
-public class MsgPackWriterTests
+public static class MsgPackTestsCommon
 {
-    [Test]
-    public void TestWriteNil()
+    public static IEnumerable<long> GetNumbers(long max = long.MaxValue, bool unsignedOnly = false)
     {
-        var buf = new PooledArrayBuffer();
-        buf.MessageWriter.WriteNil();
-        var mem = buf.GetWrittenMemory();
+        yield return 0;
 
-        Assert.AreEqual(1, mem.Length);
-        Assert.AreEqual(MsgPackCode.Nil, mem.Span[0]);
-    }
-
-    [Test]
-    public void TestWriteUnsigned()
-    {
-        foreach (var number in GetNumbers())
+        for (int i = 1; i < 63; i++)
         {
-            var buf = new byte[20];
-            MsgPackWriter.WriteUnsigned(buf.AsSpan(), (ulong)number);
+            var num = 1 << i;
 
-            var reader = new MessagePackReader(buf.AsMemory());
-            Assert.AreEqual((ulong)number, reader.ReadUInt64());
+            if (num > max)
+            {
+                yield break;
+            }
+
+            yield return num - 1;
+            yield return num;
+
+            if (!unsignedOnly)
+            {
+                yield return -num;
+            }
         }
     }
 }

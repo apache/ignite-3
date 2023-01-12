@@ -19,12 +19,13 @@ namespace Apache.Ignite.Tests.Proto.MsgPack;
 
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Linq;
 using Internal.Buffers;
 using Internal.Proto.MsgPack;
 using MessagePack;
 using NUnit.Framework;
+
+using static MsgPackTestsCommon;
 
 /// <summary>
 /// Tests for <see cref="MsgPackReader"/>.
@@ -239,28 +240,5 @@ public class MsgPackReaderTests
 
         var mem = bufferWriter.GetWrittenMemory();
         return read(mem);
-    }
-
-    private static IEnumerable<long> GetNumbers(long max = long.MaxValue, bool unsignedOnly = false)
-    {
-        yield return 0;
-
-        for (int i = 1; i < 63; i++)
-        {
-            var num = 1 << i;
-
-            if (num > max)
-            {
-                yield break;
-            }
-
-            yield return num - 1;
-            yield return num;
-
-            if (!unsignedOnly)
-            {
-                yield return -num;
-            }
-        }
     }
 }
