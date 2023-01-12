@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -177,7 +179,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-        checkIsStorageInProcessOfRebalance();
+        throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
@@ -195,7 +197,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
         return busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             try {
                 replicationProtocolGroupConfigReadWriteLock.readLock().lock();
@@ -223,7 +225,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-        checkIsStorageInProcessOfRebalance();
+        throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();

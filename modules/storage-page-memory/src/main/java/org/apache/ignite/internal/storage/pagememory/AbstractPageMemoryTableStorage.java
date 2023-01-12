@@ -249,45 +249,13 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                     StorageRebalanceException::new
             );
 
-            assert !destroyFutureByPartitionId.containsKey(partitionId)
-                    : IgniteStringFormatter.format("table={}, paritionId={}", getTableName(), partitionId);
+            assert !destroyFutureByPartitionId.containsKey(partitionId) : mvPartitionStorage.createStorageInfo();
 
-            CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+            CompletableFuture<Void> rebalanceFuture = mvPartitionStorage.startRebalance();
 
-            if (rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture) != null) {
-                throw new StorageRebalanceException(IgniteStringFormatter.format(
-                        "Partition in the process of rebalancing: [table={}, partitionId={}]",
-                        getTableName(),
-                        partitionId)
-                );
-            }
+            CompletableFuture<Void> previousRebalanceFuture = rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture);
 
-            try {
-                mvPartitionStorage
-                        .startRebalance()
-                        .whenComplete((unused, throwable) -> {
-                            if (throwable == null) {
-                                rebalanceFuture.complete(null);
-                            } else {
-                                rebalanceFuture.completeExceptionally(throwable);
-                            }
-                        });
-            } catch (StorageRebalanceException t) {
-                rebalanceFuture.completeExceptionally(t);
-
-                throw t;
-            } catch (Throwable t) {
-                rebalanceFuture.completeExceptionally(t);
-
-                throw new StorageRebalanceException(
-                        IgniteStringFormatter.format(
-                                "Error occurred while trying to start a rebalance for partition: [table={}, partition={}]",
-                                getTableName(),
-                                partitionId
-                        ),
-                        t
-                );
-            }
+            assert previousRebalanceFuture == null : mvPartitionStorage.createStorageInfo();
 
             return rebalanceFuture;
         });

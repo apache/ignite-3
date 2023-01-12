@@ -20,6 +20,9 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.inBusyLock;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionDependingStorageStateOnRebalance;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -48,9 +51,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -285,7 +286,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         return busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             if (rowId.partitionId() != partitionId) {
                 throw new IllegalArgumentException(
@@ -550,7 +551,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             assert rowId.partitionId() == partitionId : rowId;
 
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             VersionChain currentVersionChain = findVersionChain(rowId);
 
@@ -678,7 +679,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             return new ScanVersionsCursor(rowId);
         });
@@ -704,7 +705,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         return busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             Cursor<VersionChain> treeCursor;
 
@@ -725,7 +726,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
         return busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             try (Cursor<VersionChain> cursor = versionChainTree.find(new VersionChainKey(lowerBound), null)) {
                 return cursor.hasNext() ? cursor.next().rowId() : null;
@@ -738,7 +739,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public long rowsCount() {
         return busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             try {
                 return versionChainTree.size();
@@ -764,7 +765,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public final ReadResult next() {
             return busy(() -> {
-                checkIsStorageInProcessOfRebalance();
+                throwExceptionIfStorageInProgressOfRebalance(state, AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
 
                 if (!hasNext()) {
                     throw new NoSuchElementException("The cursor is exhausted");
@@ -788,7 +789,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
             return busy(() -> {
-                checkIsStorageInProcessOfRebalance();
+                throwExceptionIfStorageInProgressOfRebalance(state, AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
 
                 if (currentChain == null) {
                     throw new IllegalStateException();
@@ -835,7 +836,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             while (true) {
                 Boolean hasNext = busy(() -> {
-                    checkIsStorageInProcessOfRebalance();
+                    throwExceptionIfStorageInProgressOfRebalance(state, AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
 
                     if (!treeCursor.hasNext()) {
                         iterationExhausted = true;
@@ -958,7 +959,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         private void advanceIfNeeded() {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
 
             if (hasNext != null) {
                 return;
@@ -1014,58 +1015,33 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     abstract void closeAdditionalResources();
 
-    <V> V busy(Supplier<V> supplier) {
-        if (!busyLock.enterBusy()) {
-            StorageState state = this.state;
-
-            switch (state) {
-                case CLOSED:
-                    throw new StorageClosedException(IgniteStringFormatter.format(
-                            "Storage is already closed: [table={}, partitionId={}]",
-                            tableStorage.getTableName(),
-                            partitionId
-                    ));
-                case REBALANCE:
-                    throw createStorageInProgressOfRebalanceException();
-                default:
-                    throw new StorageException(IgniteStringFormatter.format(
-                            "Unexpected state: [table={}, partitionId={}, state={}]",
-                            tableStorage.getTableName(),
-                            partitionId,
-                            state
-                    ));
-            }
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     /**
-     * Throws an {@link StorageRebalanceException} if the storage is in the process of rebalancing.
+     * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
-    protected void checkIsStorageInProcessOfRebalance() {
-        if (state == StorageState.REBALANCE) {
-            throw createStorageInProgressOfRebalanceException();
-        }
+    public String createStorageInfo() {
+        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
     }
 
-    private StorageRebalanceException createStorageInProgressOfRebalanceException() {
-        return new StorageRebalanceException(IgniteStringFormatter.format(
-                "Storage in the process of rebalancing: [table={}, partitionId={}]",
-                tableStorage.getTableName(),
-                partitionId
-        ));
+    <V> V busy(Supplier<V> supplier) {
+        return inBusyLock(busyLock, supplier, () -> state, this::createStorageInfo);
     }
 
     /**
      * Prepares the storage and its indexes for rebalancing.
      */
     public CompletableFuture<Void> startRebalance() {
-        // TODO: IGNITE-18029 реализовать
+        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingStorageStateOnRebalance(state, createStorageInfo());
+        }
+
+        // TODO: IGNITE-18029 реализовать и еще немного подумать об всей этой кухне
+
+        // TODO: IGNITE-18029 возможный план:
+        // TODO: IGNITE-18029 останавливаем нагрузку на хранилище и индексы
+        // TODO: IGNITE-18029 пересоздаем все что нам нужно
+        // TODO: IGNITE-18029 обновляем деревья и листы для хранилища и индексов
+        // TODO: IGNITE-18029 обновляем lastApplied
+
         return completedFuture(null);
     }
 

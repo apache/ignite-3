@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -89,7 +90,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
@@ -106,7 +107,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
         return busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             return groupConfig;
         });
@@ -115,7 +116,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         busy(() -> {
-            checkIsStorageInProcessOfRebalance();
+            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
 
             groupConfig = config;
 
