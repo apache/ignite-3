@@ -146,4 +146,10 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         // TODO: IGNITE-17833 Implement
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
+    }
 }

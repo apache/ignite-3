@@ -28,7 +28,6 @@ import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,10 +38,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
-import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -1032,100 +1028,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /**
      * Prepares the storage and its indexes for rebalancing.
      *
-     * <ul>
-     *     <li>Stops ongoing operations on the store and its indexes;</li>
-     *     <li>Clears the storage and its indexes;</li>
-     *     <li>Sets {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} to {@link #REBALANCE_IN_PROGRESS}.</li>
-     * </ul>
+     * <p>Stops ongoing operations on the storage and its indexes.
      *
-     * @return Future of the start rebalance for storage and its indexes.
      * @throws StorageRebalanceException If there was an error when starting the rebalance.
      */
-    public CompletableFuture<Void> startRebalance() {
+    public void startRebalance() {
         if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
         }
 
-        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
-
+        // Stops ongoing operations on the storage.
         busyLock.block();
         busyLock.unblock();
 
-        try {
-            hashIndexes.values().forEach(PageMemoryHashIndexStorage::startRebalance);
-            sortedIndexes.values().forEach(PageMemorySortedIndexStorage::startRebalance);
-
-            clearStoragesAndUpdateDataDataStructures().thenAccept(unused ->
-                    runConsistently(() -> {
-                        lastAppliedOnRebalance(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
-
-                        return null;
-                    })
-            ).whenComplete((unused, throwable) -> {
-                if (throwable == null) {
-                    rebalanceFuture.complete(null);
-                } else {
-                    rebalanceFuture.completeExceptionally(throwable);
-                }
-            });
-        } catch (Throwable t) {
-            rebalanceFuture.completeExceptionally(t);
-        }
-
-        return rebalanceFuture;
-    }
-
-    /**
-     * Aborts storage and its indexes rebalancing.
-     *
-     * <ul>
-     *     <li>Clears the storage and its indexes;</li>
-     *     <li>Sets {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} to {@code 0}.</li>
-     * </ul>
-     *
-     * @return Future of the abort rebalance for storage and its indexes.
-     * @throws StorageRebalanceException If there was an error when aborting the rebalance.
-     */
-    public CompletableFuture<Void> abortRebalance() {
-        if (state != StorageState.REBALANCE) {
-            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
-        }
-
-        return clearStoragesAndUpdateDataDataStructures()
-                .thenAccept(unused -> {
-                    runConsistently(() -> {
-                        lastAppliedOnRebalance(0, 0);
-
-                        return null;
-                    });
-
-                    if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
-                        throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
-                    }
-
-                    hashIndexes.values().forEach(PageMemoryHashIndexStorage::completeRebalance);
-                    sortedIndexes.values().forEach(PageMemorySortedIndexStorage::completeRebalance);
-                });
+        hashIndexes.values().forEach(PageMemoryHashIndexStorage::startRebalance);
+        sortedIndexes.values().forEach(PageMemorySortedIndexStorage::startRebalance);
     }
 
     /**
      * Completes the rebalancing of the storage and its indexes.
      *
-     * @param lastAppliedIndex Last applied index value.
-     * @param lastAppliedTerm Last applied term value.
-     * @throws StorageRebalanceException If there was an error when finishing the rebalance.
+     * @throws StorageRebalanceException If there is an error while completing the storage and its indexes rebalance.
      */
-    public void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
-        if (state != StorageState.REBALANCE) {
-            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
-        }
-
-        runConsistently(() -> {
-            lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
-
-            return null;
-        });
-
+    public void completeRebalance() {
         if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
         }
@@ -1135,16 +1060,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Clears the storage and its indexes. Updates the data structures ({@link BplusTree}, {@link FreeList} and {@link ReuseList}) of the
-     * storage and its indexes with new ones.
-     */
-    abstract CompletableFuture<Void> clearStoragesAndUpdateDataDataStructures();
-
-    /**
      * Sets the last applied index and term on rebalance.
      *
      * @param lastAppliedIndex Last applied index value.
      * @param lastAppliedTerm Last applied term value.
      */
-    abstract void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
+    public abstract void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 }

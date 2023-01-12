@@ -463,4 +463,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                 .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
                 .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
     }
+
+    @Override
+    CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        // TODO: IGNITE-18029 реализовать!
+        return completedFuture(null);
+    }
 }

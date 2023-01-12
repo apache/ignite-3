@@ -395,12 +395,15 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
         }
 
+        // Stops ongoing operations on the storage.
         busyLock.block();
         busyLock.unblock();
     }
 
     /**
-     * Completion of storage rebalancing.
+     * Completes the rebalancing of the storage.
+     *
+     * @throws StorageRebalanceException If there is an error while completing the storage rebalance.
      */
     public void completeRebalance() {
         if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {

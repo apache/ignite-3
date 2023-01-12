@@ -127,13 +127,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    CompletableFuture<Void> clearStoragesAndUpdateDataDataStructures() {
-        // TODO: IGNITE-18028 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
 
         this.lastAppliedIndex = lastAppliedIndex;
