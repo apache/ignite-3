@@ -481,8 +481,8 @@ namespace Apache.Ignite.Internal
             try
             {
                 var prefixMem = _prefixBuffer.AsMemory()[4..];
-                var prefixSize = MsgPackWriter.WriteUnsigned(prefixMem, (int)op);
-                prefixSize += MsgPackWriter.WriteUnsigned(prefixMem[prefixSize..], requestId);
+                var prefixSize = MsgPackWriter.WriteUnsigned(prefixMem.Span, (ulong)op);
+                prefixSize += MsgPackWriter.WriteUnsigned(prefixMem[prefixSize..].Span, (ulong)requestId);
 
                 if (request != null)
                 {

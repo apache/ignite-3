@@ -33,9 +33,9 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
 {
     private const int MaxFixPositiveInt = 127;
     private const int MaxFixStringLength = 31;
+    private const int MinFixNegativeInt = -32;
 
     /*
-    private const int MinFixNegativeInt = -32;
     private const int MaxFixNegativeInt = -1;
     private const int MinFixStringLength = 0;
     private const int MaxFixMapCount = 15;
@@ -45,15 +45,13 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
     /// <summary>
     /// Writes an unsigned value to specified memory location and returns number of bytes written.
     /// </summary>
-    /// <param name="mem">Memory.</param>
+    /// <param name="span">Span.</param>
     /// <param name="val">Value.</param>
     /// <returns>Bytes written.</returns>
-    public static int WriteUnsigned(Memory<byte> mem, long val)
+    public static int WriteUnsigned(Span<byte> span, ulong val)
     {
         unchecked
         {
-            var span = mem.Span;
-
             if (val <= MaxFixPositiveInt)
             {
                 span[0] = (byte)val;
@@ -85,7 +83,7 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
             }
 
             span[0] = MsgPackCode.UInt64;
-            BinaryPrimitives.WriteUInt64BigEndian(span[1..], (ulong)val);
+            BinaryPrimitives.WriteUInt64BigEndian(span[1..], val);
 
             return 9;
         }
@@ -152,9 +150,48 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         }
     }
 
-    public void Write(long val)
+    public void Write(long value)
     {
-        throw new NotImplementedException();
+        if (value >= 0)
+        {
+            var span = Writer.GetSpan(9);
+            var written = WriteUnsigned(span, (ulong)value);
+            Writer.Advance(written);
+        }
+        else
+        {
+            if (value >= MinFixNegativeInt)
+            {
+                var span = Writer.GetSpan(1);
+                span[0] = unchecked((byte)value);
+                Writer.Advance(1);
+            }
+            else if (value >= sbyte.MinValue)
+            {
+                var span = Writer.GetSpan(2);
+                span[0] = MsgPackCode.Int8;
+                span[1] = unchecked((byte)value);
+                Writer.Advance(2);
+            }
+            else if (value >= short.MinValue)
+            {
+                var span = Writer.GetSpan(3);
+                span[0] = MsgPackCode.Int16;
+                BinaryPrimitives.WriteInt16BigEndian(span[1..], (short)value);
+                Writer.Advance(3);
+            }
+            else if (value >= int.MinValue)
+            {
+                var span = Writer.GetSpan(5);
+                span[0] = MsgPackCode.Int32;
+                BinaryPrimitives.WriteInt32BigEndian(span[1..], (int)value);
+                Writer.Advance(5);
+            }
+            else
+            {
+                this.WriteInt64(value);
+            }
+        }
     }
 
     public void Write(int val)
