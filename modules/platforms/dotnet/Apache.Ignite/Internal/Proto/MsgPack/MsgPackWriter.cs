@@ -18,12 +18,13 @@
 namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
+using System.Buffers.Binary;
 using Buffers;
 
 /// <summary>
 /// MsgPack writer.
 /// </summary>
-internal ref struct MsgPackWriter
+internal readonly ref struct MsgPackWriter // TODO: Convert to extension methods, since position is tracked by PooledArrayBufferWriter?
 {
     private const int MaxFixPositiveInt = 127;
 
@@ -75,10 +76,8 @@ internal ref struct MsgPackWriter
 
             if (val <= ushort.MaxValue)
             {
-                // TODO: Use BinaryPrimitives
                 span[0] = MsgPackCode.UInt16;
-                span[2] = (byte)val;
-                span[1] = (byte)(val >> 8);
+                BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)val);
 
                 return 3;
             }
@@ -86,23 +85,13 @@ internal ref struct MsgPackWriter
             if (val <= uint.MaxValue)
             {
                 span[0] = MsgPackCode.UInt32;
-                span[4] = (byte)val;
-                span[3] = (byte)(val >> 8);
-                span[2] = (byte)(val >> 16);
-                span[1] = (byte)(val >> 24);
+                BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)val);
 
                 return 5;
             }
 
             span[0] = MsgPackCode.UInt64;
-            span[8] = (byte)val;
-            span[7] = (byte)(val >> 8);
-            span[6] = (byte)(val >> 16);
-            span[5] = (byte)(val >> 24);
-            span[4] = (byte)(val >> 32);
-            span[3] = (byte)(val >> 40);
-            span[2] = (byte)(val >> 48);
-            span[1] = (byte)(val >> 56);
+            BinaryPrimitives.WriteUInt64BigEndian(span[1..], (ulong)val);
 
             return 9;
         }
