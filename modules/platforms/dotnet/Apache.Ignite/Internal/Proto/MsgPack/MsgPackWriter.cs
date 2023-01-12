@@ -231,15 +231,71 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
 
     public Span<byte> WriteBitSet(int bitCount)
     {
-        // var byteCount = bitCount / 8 + 1;
-        // writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, byteCount));
-        //
-        // var span = writer.GetSpan(byteCount)[..byteCount];
-        // span.Clear();
-        // writer.Advance(byteCount);
-        //
-        // return span;
-        throw new NotImplementedException();
+        var byteCount = bitCount / 8 + 1;
+        WriteExtensionFormatHeader((byte)ClientMessagePackType.Bitmask, byteCount);
+
+        return Writer.GetSpanAndAdvance(byteCount);
+    }
+
+    public void WriteExtensionFormatHeader(byte typeCode, int dataLength)
+    {
+        switch (dataLength)
+        {
+            case 1:
+                var span = Writer.GetSpanAndAdvance(2);
+                span[0] = MsgPackCode.FixExt1;
+                span[1] = typeCode;
+                return;
+
+            case 2:
+                span = Writer.GetSpanAndAdvance(2);
+                span[0] = MsgPackCode.FixExt2;
+                span[1] = typeCode;
+                return;
+
+            case 4:
+                span = Writer.GetSpanAndAdvance(2);
+                span[0] = MsgPackCode.FixExt4;
+                span[1] = typeCode;
+                return;
+
+            case 8:
+                span = Writer.GetSpanAndAdvance(2);
+                span[0] = MsgPackCode.FixExt8;
+                span[1] = typeCode;
+                return;
+
+            case 16:
+                span = Writer.GetSpanAndAdvance(2);
+                span[0] = MsgPackCode.FixExt16;
+                span[1] = typeCode;
+                return;
+
+            default:
+                if (dataLength <= byte.MaxValue)
+                {
+                    span = Writer.GetSpanAndAdvance(3);
+                    span[0] = MsgPackCode.Ext8;
+                    span[1] = unchecked((byte)dataLength);
+                    span[2] = typeCode;
+                }
+                else if (dataLength <= ushort.MaxValue)
+                {
+                    span = Writer.GetSpanAndAdvance(4);
+                    span[0] = MsgPackCode.Ext16;
+                    BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)dataLength);
+                    span[3] = typeCode;
+                }
+                else
+                {
+                    span = Writer.GetSpanAndAdvance(6);
+                    span[0] = MsgPackCode.Ext32;
+                    BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)dataLength);
+                    span[5] = typeCode;
+                }
+
+                break;
+        }
     }
 
     public void WriteArrayHeader(int count)
