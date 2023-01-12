@@ -258,6 +258,19 @@ public class MsgPackReaderTests
         Assert.AreEqual((true, false), res);
     }
 
+    [Test]
+    public void TestReadBinaryHeader()
+    {
+        foreach (var num in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
+        {
+            var res = WriteRead(
+                buf => buf.MessageWriter.WriteBinHeader((int)num),
+                m => new MsgPackReader(m.Span).ReadBinaryHeader());
+
+            Assert.AreEqual(num, res);
+        }
+    }
+
     private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)
     {
         var bufferWriter = new PooledArrayBuffer();
