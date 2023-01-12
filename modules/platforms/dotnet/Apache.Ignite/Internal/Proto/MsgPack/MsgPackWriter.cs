@@ -240,8 +240,11 @@ internal readonly ref struct MsgPackWriter
     {
         var byteCount = bitCount / 8 + 1;
         WriteExtensionFormatHeader((byte)ClientMessagePackType.Bitmask, byteCount);
+        var span = Writer.GetSpanAndAdvance(byteCount);
 
-        return Writer.GetSpanAndAdvance(byteCount);
+        span.Clear();
+
+        return span;
     }
 
     public void WriteExtensionFormatHeader(byte typeCode, int dataLength)
