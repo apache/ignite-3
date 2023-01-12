@@ -77,6 +77,17 @@ public class MsgPackWriterTests
     }
 
     [Test]
+    public void TestWriteInt()
+    {
+        foreach (var number in GetNumbers(int.MaxValue))
+        {
+            var res = Write(x => x.MessageWriter.Write((int)number));
+
+            Assert.AreEqual(number, new MessagePackReader(res.AsMemory()).ReadInt32());
+        }
+    }
+
+    [Test]
     public void TestWriteString()
     {
         foreach (var str in TestStrings)
