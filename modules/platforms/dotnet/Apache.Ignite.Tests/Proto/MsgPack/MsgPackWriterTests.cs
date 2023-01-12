@@ -110,17 +110,25 @@ public class MsgPackWriterTests
         foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
         {
             var res = Write(x => x.MessageWriter.WriteExtensionHeader(1, (int)number));
-            var extRes = new MessagePackReader(res.AsMemory()).TryReadExtensionFormatHeader(out var ext);
+            var readRes = new MessagePackReader(res.AsMemory()).TryReadExtensionFormatHeader(out var hdr);
 
-            Assert.IsTrue(extRes);
-            Assert.AreEqual(1, ext.TypeCode);
-            Assert.AreEqual(number, ext.Length);
+            Assert.IsTrue(readRes);
+            Assert.AreEqual(1, hdr.TypeCode);
+            Assert.AreEqual(number, hdr.Length);
         }
     }
 
     [Test]
     public void TestWriteArrayHeader()
     {
+        foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
+        {
+            var res = Write(x => x.MessageWriter.WriteArrayHeader((int)number));
+            var readRes = new MessagePackReader(res.AsMemory()).TryReadArrayHeader(out var len);
+
+            Assert.IsTrue(readRes);
+            Assert.AreEqual(number, len);
+        }
     }
 
     [Test]
