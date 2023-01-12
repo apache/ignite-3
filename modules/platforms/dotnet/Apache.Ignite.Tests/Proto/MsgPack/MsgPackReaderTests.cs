@@ -278,9 +278,9 @@ public class MsgPackReaderTests
         {
             var res = WriteRead(
                 buf => buf.MessageWriter.Write(new byte[num]),
-                m => new MsgPackReader(m.Span).ReadBinaryHeader());
+                m => new MsgPackReader(m.Span).ReadBinary().ToArray());
 
-            Assert.AreEqual(num, res);
+            Assert.AreEqual(num, res.Length);
         }
     }
 
