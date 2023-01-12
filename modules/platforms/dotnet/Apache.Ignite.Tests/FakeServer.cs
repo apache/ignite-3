@@ -190,8 +190,6 @@ namespace Apache.Ignite.Tests
                 writer.WriteNil(); // Success.
             }
 
-            writer.Flush();
-
             var headerMem = header.GetWrittenMemory();
             var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(headerMem.Length + payload.Length));
             socket.Send(size);
@@ -218,7 +216,6 @@ namespace Apache.Ignite.Tests
             }
 
             writer.Write(false); // Has next.
-            writer.Flush();
 
             Send(handler, requestId, arrayBufferWriter);
         }
@@ -327,8 +324,6 @@ namespace Apache.Ignite.Tests
                 }
             }
 
-            writer.Flush();
-
             Send(handler, requestId, arrayBufferWriter);
         }
 
@@ -393,8 +388,6 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Scale.
             }
 
-            writer.Flush();
-
             Send(handler, requestId, arrayBufferWriter);
         }
 
@@ -448,7 +441,6 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.Write(ClusterId);
                 handshakeWriter.WriteBinHeader(0); // Features.
                 handshakeWriter.WriteMapHeader(0); // Extensions.
-                handshakeWriter.Flush();
 
                 var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
                 handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
@@ -493,9 +485,7 @@ namespace Apache.Ignite.Tests
                             if (tableId != default)
                             {
                                 using var arrayBufferWriter = new PooledArrayBufferWriter();
-                                var writer = new MsgPackWriter(arrayBufferWriter);
-                                writer.Write(tableId);
-                                writer.Flush();
+                                arrayBufferWriter.MessageWriter.Write(tableId);
 
                                 Send(handler, requestId, arrayBufferWriter);
 
@@ -519,8 +509,6 @@ namespace Apache.Ignite.Tests
                             {
                                 writer.Write(nodeId);
                             }
-
-                            writer.Flush();
 
                             Send(handler, requestId, arrayBufferWriter);
                             continue;
@@ -564,8 +552,6 @@ namespace Apache.Ignite.Tests
                             builder.AppendObjectWithType(Node.Name);
                             writer.Write(builder.Build().Span);
 
-                            writer.Flush();
-
                             Send(handler, requestId, arrayBufferWriter);
                             continue;
                         }
@@ -596,7 +582,7 @@ namespace Apache.Ignite.Tests
                     w.Write("org.foo.bar.BazException");
                     w.Write(Err);
                     w.WriteNil(); // Stack trace.
-                    w.Flush();
+
                     Send(handler, requestId, errWriter, isError: true);
                 }
 

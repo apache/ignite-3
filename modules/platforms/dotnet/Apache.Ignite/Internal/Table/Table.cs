@@ -263,8 +263,6 @@ namespace Apache.Ignite.Internal.Table
                     w.WriteArrayHeader(1);
                     w.Write(version.Value);
                 }
-
-                w.Flush();
             }
 
             Schema Read()
@@ -350,17 +348,10 @@ namespace Apache.Ignite.Internal.Table
         private async Task<string[]> LoadPartitionAssignmentAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            Write();
+            writer.MessageWriter.Write(Id);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
-
-            void Write()
-            {
-                var w = writer.MessageWriter;
-                w.Write(Id);
-                w.Flush();
-            }
 
             string[] Read()
             {

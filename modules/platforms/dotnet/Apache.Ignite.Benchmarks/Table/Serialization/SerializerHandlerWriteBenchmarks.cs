@@ -51,7 +51,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             writer.WriteBitSet(3);
             writer.Write(tupleBuilder.Build().Span);
 
-            writer.Flush();
             VerifyWritten(pooledWriter);
         }
 
@@ -63,7 +62,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
             ObjectSerializerHandler.Write(ref writer, Schema, Object);
 
-            writer.Flush();
             VerifyWritten(pooledWriter);
         }
 
@@ -75,7 +73,6 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
 
-            writer.Flush();
             VerifyWritten(pooledWriter);
         }
     }

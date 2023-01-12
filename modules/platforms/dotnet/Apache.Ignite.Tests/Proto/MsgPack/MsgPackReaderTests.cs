@@ -108,12 +108,7 @@ public class MsgPackReaderTests
         foreach (var val in TestStrings)
         {
             var res = WriteRead(
-                buf =>
-                {
-                    var w = buf.MessageWriter;
-                    w.Write(val);
-                    w.Flush();
-                },
+                buf => buf.MessageWriter.Write(val),
                 m => new MsgPackReader(m.Span).ReadStringNullable());
 
             Assert.AreEqual(val, res);
@@ -126,12 +121,7 @@ public class MsgPackReaderTests
         foreach (var val in GetNumbers())
         {
             var res = WriteRead(
-                buf =>
-                {
-                    var w = buf.MessageWriter;
-                    w.Write(val);
-                    w.Flush();
-                },
+                buf => buf.MessageWriter.Write(val),
                 m => new MsgPackReader(m.Span).ReadInt64());
 
             Assert.AreEqual(val, res);
@@ -144,12 +134,7 @@ public class MsgPackReaderTests
         foreach (var val in GetNumbers(int.MaxValue - 1))
         {
             var res = WriteRead(
-                buf =>
-                {
-                    var w = buf.MessageWriter;
-                    w.Write(val);
-                    w.Flush();
-                },
+                buf => buf.MessageWriter.Write(val),
                 m => new MsgPackReader(m.Span).ReadInt32());
 
             Assert.AreEqual(val, res);
@@ -162,12 +147,7 @@ public class MsgPackReaderTests
         foreach (var val in GetNumbers(short.MaxValue - 1))
         {
             var res = WriteRead(
-                buf =>
-                {
-                    var w = buf.MessageWriter;
-                    w.Write(val);
-                    w.Flush();
-                },
+                buf => buf.MessageWriter.Write(val),
                 m => new MsgPackReader(m.Span).ReadInt16());
 
             Assert.AreEqual(val, res);
@@ -180,13 +160,7 @@ public class MsgPackReaderTests
         foreach (var guid in TestGuids)
         {
             var res = WriteRead(
-                buf =>
-                {
-                    var w = buf.MessageWriter;
-
-                    w.Write(guid);
-                    w.Flush();
-                },
+                buf => buf.MessageWriter.Write(guid),
                 m =>
                 {
                     var r = new MsgPackReader(m.Span);
@@ -214,10 +188,7 @@ public class MsgPackReaderTests
     public void TestWriteJavaGuidReturnsIdenticalByteRepresentation()
     {
         var bufferWriter = new PooledArrayBufferWriter();
-        var writer = bufferWriter.MessageWriter;
-
-        writer.Write(Guid.Parse(JavaUuidString));
-        writer.Flush();
+        bufferWriter.MessageWriter.Write(Guid.Parse(JavaUuidString));
 
         var bytes = bufferWriter.GetWrittenMemory()
             .ToArray()
@@ -239,8 +210,6 @@ public class MsgPackReaderTests
                 w.Write(short.MaxValue);
                 w.Write(int.MaxValue);
                 w.Write("abc");
-
-                w.Flush();
             },
             m =>
             {

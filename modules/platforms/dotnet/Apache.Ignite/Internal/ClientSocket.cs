@@ -419,8 +419,6 @@ namespace Apache.Ignite.Internal
 
             w.WriteBinHeader(0); // Features.
             w.WriteMapHeader(0); // Extensions.
-
-            w.Flush();
         }
 
         private static void WriteMessageSize(Memory<byte> target, int size) =>

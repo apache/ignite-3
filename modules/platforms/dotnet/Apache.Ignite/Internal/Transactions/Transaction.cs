@@ -145,10 +145,6 @@ namespace Apache.Ignite.Internal.Transactions
         /// Writes the transaction.
         /// </summary>
         /// <param name="writer">Writer.</param>
-        private void Write(MsgPackWriter writer)
-        {
-            writer.Write(Id);
-            writer.Flush();
-        }
+        private void Write(MsgPackWriter writer) => writer.Write(Id);
     }
 }

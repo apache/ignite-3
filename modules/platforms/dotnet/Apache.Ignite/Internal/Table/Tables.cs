@@ -98,16 +98,10 @@ namespace Apache.Ignite.Internal.Table
             IgniteArgumentCheck.NotNull(name, nameof(name));
 
             using var writer = ProtoCommon.GetMessageWriter();
-            Write(writer.MessageWriter);
+            writer.MessageWriter.Write(name);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
-
-            void Write(MsgPackWriter w)
-            {
-                w.Write(name);
-                w.Flush();
-            }
 
             // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
             Table? Read(MsgPackReader r) =>

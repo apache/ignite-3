@@ -139,8 +139,6 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(node.Name);
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
-
-                w.Flush();
             }
 
             static T Read(in PooledBuffer buf)
@@ -219,8 +217,6 @@ namespace Apache.Ignite.Internal.Compute
 
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
-
-                w.Flush();
 
                 return colocationHash;
             }

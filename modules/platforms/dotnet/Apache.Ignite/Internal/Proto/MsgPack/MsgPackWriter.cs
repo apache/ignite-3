@@ -150,12 +150,6 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
         Write(builder.Build().Span);
     }
 
-    public void Flush()
-    {
-        // TODO: Remove me, not needed
-        Writer.Advance(0);
-    }
-
     public void Write(long val)
     {
         throw new NotImplementedException();

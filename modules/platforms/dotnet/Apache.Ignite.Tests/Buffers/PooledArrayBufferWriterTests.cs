@@ -33,7 +33,6 @@ namespace Apache.Ignite.Tests.Buffers
 
             writer.Write(1);
             writer.Write("A");
-            writer.Flush();
 
             var res = bufferWriter.GetWrittenMemory().ToArray();
 

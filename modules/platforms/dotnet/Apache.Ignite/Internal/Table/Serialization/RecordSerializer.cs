@@ -173,8 +173,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var colocationHash = WriteWithHeader(ref w, tx, schema, rec, keyOnly);
 
-            w.Flush();
-
             return colocationHash;
         }
 
@@ -201,8 +199,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var firstHash = WriteWithHeader(ref w, tx, schema, t, keyOnly);
             _handler.Write(ref w, schema, t2, keyOnly);
 
-            w.Flush();
-
             return firstHash;
         }
 
@@ -226,7 +222,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
-            w.Flush();
 
             var count = 0;
             var firstHash = 0;
@@ -255,8 +250,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             countSpan[0] = MessagePackCode.Int32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
-
-            w.Flush();
 
             return firstHash;
         }

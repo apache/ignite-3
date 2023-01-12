@@ -335,7 +335,6 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             writer.Write(_resourceId!.Value);
-            writer.Flush();
         }
 
         private void ValidateAndSetIteratorState()

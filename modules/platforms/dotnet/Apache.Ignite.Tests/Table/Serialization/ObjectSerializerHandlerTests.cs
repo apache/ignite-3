@@ -124,7 +124,6 @@ namespace Apache.Ignite.Tests.Table.Serialization
             var writer = pooledWriter.MessageWriter;
 
             handler.Write(ref writer, Schema, obj, keyOnly);
-            writer.Flush();
 
             // Slice NoValueSet.
             return pooledWriter.GetWrittenMemory().Slice(3).ToArray();

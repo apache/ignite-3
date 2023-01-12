@@ -159,12 +159,9 @@ namespace Apache.Ignite.Internal.Sql
                 }
 
                 w.Write(propTuple.Build().Span);
-
                 w.Write(statement.Query);
-
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
-                w.Flush();
                 return writer;
             }
         }

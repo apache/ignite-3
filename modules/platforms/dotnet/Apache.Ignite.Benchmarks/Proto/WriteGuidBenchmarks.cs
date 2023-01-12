@@ -39,7 +39,6 @@ namespace Apache.Ignite.Benchmarks.Proto
             var writer = bufferWriter.MessageWriter;
             writer.Write(long.MaxValue);
             writer.Write(long.MaxValue);
-            writer.Flush();
         }
 
         [Benchmark]
@@ -48,7 +47,6 @@ namespace Apache.Ignite.Benchmarks.Proto
             using var bufferWriter = new PooledArrayBufferWriter();
             var writer = bufferWriter.MessageWriter;
             writer.Write(Guid);
-            writer.Flush();
         }
     }
 }
