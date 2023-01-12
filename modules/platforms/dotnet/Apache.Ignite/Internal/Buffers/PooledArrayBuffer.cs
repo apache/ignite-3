@@ -25,10 +25,7 @@ namespace Apache.Ignite.Internal.Buffers
     using Proto.MsgPack;
 
     /// <summary>
-    /// Pooled buffer writer: integrates <see cref="MsgPackWriter"/> with <see cref="ArrayPool{T}"/>,
-    /// and adds the logic to prepend messages with size and other data (opcode, request id).
-    /// <para />
-    /// We reserve some bytes for the prefix because message size, op code and request ID are not known initially.
+    /// Pooled buffer with additional logic to prepend messages with size and other data (opcode, request id).
     /// </summary>
     internal sealed class PooledArrayBuffer : IDisposable
     {
