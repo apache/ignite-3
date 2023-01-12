@@ -56,7 +56,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only mode.</param>
         /// <param name="computeHash">Whether to compute key hash while writing the tuple.</param>
         /// <returns>Key hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
-        int Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
+        int Write(ref MsgPackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
         {
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;

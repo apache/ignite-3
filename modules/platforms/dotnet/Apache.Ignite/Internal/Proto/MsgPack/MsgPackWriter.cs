@@ -19,11 +19,16 @@ namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using BinaryTuple;
 using Buffers;
+using Transactions;
 
 /// <summary>
 /// MsgPack writer.
 /// </summary>
+[SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1600:Elements should be documented", Justification = "TODO")] // TODO
 internal readonly ref struct MsgPackWriter // TODO: Convert to extension methods, since position is tracked by PooledArrayBufferWriter?
 {
     private const int MaxFixPositiveInt = 127;
@@ -114,5 +119,109 @@ internal readonly ref struct MsgPackWriter // TODO: Convert to extension methods
         UuidSerializer.Write(val, span[2..]);
 
         _writer.Advance(18);
+    }
+
+    public void Write(string? val)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void WriteNil()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Write(int val)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Writes an array of objects with type codes.
+    /// </summary>
+    /// <param name="col">Array.</param>
+    public void WriteObjectCollectionAsBinaryTuple(ICollection<object?>? col)
+    {
+        if (col == null)
+        {
+            WriteNil();
+
+            return;
+        }
+
+        Write(col.Count);
+
+        using var builder = new BinaryTupleBuilder(col.Count * 3);
+
+        foreach (var obj in col)
+        {
+            builder.AppendObjectWithType(obj);
+        }
+
+        Write(builder.Build().Span);
+    }
+
+    public void Flush()
+    {
+        // TODO: Remove me, not needed
+    }
+
+    public void Write(long val)
+    {
+        throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Writes a transaction.
+    /// </summary>
+    /// <param name="tx">Transaction.</param>
+    public void WriteTx(Transaction? tx)
+    {
+        if (tx == null)
+        {
+            WriteNil();
+        }
+        else
+        {
+            Write(tx.Id);
+        }
+    }
+
+    public void Write(Span<byte> span)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Span<byte> WriteBitSet(int bitCount)
+    {
+        // var byteCount = bitCount / 8 + 1;
+        // writer.WriteExtensionFormatHeader(new ExtensionHeader((sbyte)ClientMessagePackType.Bitmask, byteCount));
+        //
+        // var span = writer.GetSpan(byteCount)[..byteCount];
+        // span.Clear();
+        // writer.Advance(byteCount);
+        //
+        // return span;
+        throw new NotImplementedException();
+    }
+
+    public void WriteArrayHeader(int count)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void WriteBinHeader(int count)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void WriteMapHeader(int count)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Write(bool val)
+    {
+        throw new NotImplementedException();
     }
 }

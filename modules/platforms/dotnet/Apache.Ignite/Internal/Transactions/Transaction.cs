@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Transactions
     using Ignite.Transactions;
     using MessagePack;
     using Proto;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Ignite transaction.
@@ -145,7 +146,7 @@ namespace Apache.Ignite.Internal.Transactions
         /// Writes the transaction.
         /// </summary>
         /// <param name="writer">Writer.</param>
-        private void Write(MessagePackWriter writer)
+        private void Write(MsgPackWriter writer)
         {
             writer.Write(Id);
             writer.Flush();

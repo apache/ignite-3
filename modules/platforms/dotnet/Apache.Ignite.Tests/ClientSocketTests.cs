@@ -24,6 +24,7 @@ namespace Apache.Ignite.Tests
     using Internal;
     using Internal.Buffers;
     using Internal.Proto;
+    using Internal.Proto.MsgPack;
     using MessagePack;
     using NUnit.Framework;
 
@@ -38,17 +39,10 @@ namespace Apache.Ignite.Tests
             using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
-
-            WriteString(requestWriter.GetMessageWriter(), "non-existent-table");
+            requestWriter.GetMessageWriter().Write("non-existent-table");
 
             using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
             Assert.IsTrue(response.GetReader().TryReadNil());
-
-            void WriteString(MessagePackWriter writer, string str)
-            {
-                writer.WriteString(Encoding.UTF8.GetBytes(str));
-                writer.Flush();
-            }
         }
 
         [Test]

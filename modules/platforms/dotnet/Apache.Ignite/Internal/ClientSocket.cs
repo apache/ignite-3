@@ -409,7 +409,7 @@ namespace Apache.Ignite.Internal
             await stream.WriteAsync(resBuf).ConfigureAwait(false);
         }
 
-        private static void WriteHandshake(ClientProtocolVersion version, MessagePackWriter w)
+        private static void WriteHandshake(ClientProtocolVersion version, MsgPackWriter w)
         {
             // Version.
             w.Write(version.Major);

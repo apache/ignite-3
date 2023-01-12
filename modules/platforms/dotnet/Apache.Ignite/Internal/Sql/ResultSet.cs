@@ -324,7 +324,7 @@ namespace Apache.Ignite.Internal.Sql
             return await _socket.DoOutInOpAsync(ClientOp.SqlCursorNextPage, writer).ConfigureAwait(false);
         }
 
-        private void WriteId(MessagePackWriter writer)
+        private void WriteId(MsgPackWriter writer)
         {
             var resourceId = _resourceId;
 

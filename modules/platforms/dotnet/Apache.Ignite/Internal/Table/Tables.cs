@@ -104,7 +104,7 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
-            void Write(MessagePackWriter w)
+            void Write(MsgPackWriter w)
             {
                 w.Write(name);
                 w.Flush();

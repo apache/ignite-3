@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using Buffers;
     using MessagePack;
     using Proto;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Generic record serializer.
@@ -271,7 +272,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>Colocation hash.</returns>
         private int WriteWithHeader(
-            ref MessagePackWriter w,
+            ref MsgPackWriter w,
             Transactions.Transaction? tx,
             Schema schema,
             T rec,
@@ -288,7 +289,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="w">Writer.</param>
         /// <param name="tx">Transaction.</param>
-        private void WriteIdAndTx(ref MessagePackWriter w, Transactions.Transaction? tx)
+        private void WriteIdAndTx(ref MsgPackWriter w, Transactions.Transaction? tx)
         {
             w.Write(_table.Id);
             w.WriteTx(tx);

@@ -179,7 +179,7 @@ namespace Apache.Ignite.Tests
         private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
         {
             using var header = new PooledArrayBufferWriter();
-            var writer = new MessagePackWriter(header);
+            var writer = new MsgPackWriter(header);
 
             writer.Write(0); // Message type.
             writer.Write(requestId);
@@ -207,7 +207,7 @@ namespace Apache.Ignite.Tests
         private void SqlCursorNextPage(Socket handler, long requestId)
         {
             using var arrayBufferWriter = new PooledArrayBufferWriter();
-            var writer = new MessagePackWriter(arrayBufferWriter);
+            var writer = new MsgPackWriter(arrayBufferWriter);
 
             writer.WriteArrayHeader(500); // Page size.
             for (int i = 0; i < 500; i++)
@@ -264,7 +264,7 @@ namespace Apache.Ignite.Tests
             LastSqlTxId = txId;
 
             using var arrayBufferWriter = new PooledArrayBufferWriter();
-            var writer = new MessagePackWriter(arrayBufferWriter);
+            var writer = new MsgPackWriter(arrayBufferWriter);
 
             writer.Write(1); // ResourceId.
 
@@ -337,7 +337,7 @@ namespace Apache.Ignite.Tests
             var tableId = reader.ReadGuid();
 
             using var arrayBufferWriter = new PooledArrayBufferWriter();
-            var writer = new MessagePackWriter(arrayBufferWriter);
+            var writer = new MsgPackWriter(arrayBufferWriter);
             writer.WriteMapHeader(1);
             writer.Write(1); // Version.
 
@@ -493,7 +493,7 @@ namespace Apache.Ignite.Tests
                             if (tableId != default)
                             {
                                 using var arrayBufferWriter = new PooledArrayBufferWriter();
-                                var writer = new MessagePackWriter(arrayBufferWriter);
+                                var writer = new MsgPackWriter(arrayBufferWriter);
                                 writer.Write(tableId);
                                 writer.Flush();
 
@@ -512,7 +512,7 @@ namespace Apache.Ignite.Tests
                         case ClientOp.PartitionAssignmentGet:
                         {
                             using var arrayBufferWriter = new PooledArrayBufferWriter();
-                            var writer = new MessagePackWriter(arrayBufferWriter);
+                            var writer = new MsgPackWriter(arrayBufferWriter);
                             writer.WriteArrayHeader(PartitionAssignment.Length);
 
                             foreach (var nodeId in PartitionAssignment)
@@ -558,8 +558,12 @@ namespace Apache.Ignite.Tests
                         case ClientOp.ComputeExecute:
                         {
                             using var arrayBufferWriter = new PooledArrayBufferWriter();
-                            var writer = new MessagePackWriter(arrayBufferWriter);
-                            writer.WriteObjectAsBinaryTuple(Node.Name);
+                            var writer = new MsgPackWriter(arrayBufferWriter);
+
+                            using var builder = new BinaryTupleBuilder(3);
+                            builder.AppendObjectWithType(Node.Name);
+                            writer.Write(builder.Build().Span);
+
                             writer.Flush();
 
                             Send(handler, requestId, arrayBufferWriter);
@@ -586,7 +590,7 @@ namespace Apache.Ignite.Tests
 
                     // Fake error message for any other op code.
                     using var errWriter = new PooledArrayBufferWriter();
-                    var w = new MessagePackWriter(errWriter);
+                    var w = new MsgPackWriter(errWriter);
                     w.Write(Guid.Empty);
                     w.Write(262147);
                     w.Write("org.foo.bar.BazException");
