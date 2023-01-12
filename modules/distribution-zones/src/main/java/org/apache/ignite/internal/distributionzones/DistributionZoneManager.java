@@ -514,17 +514,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             initTriggerKeysAndDataNodes(zoneId);
 
-            int scaleUp = ctx.newValue().dataNodesAutoAdjustScaleUp();
-
-            if (scaleUp != Integer.MAX_VALUE) {
-                timers.rescheduleScaleUp(scaleUp, () ->  {
-                        saveDataNodesToMetaStorageOnScaleUp(zoneId, ctx.storageRevision());
-
-                });
-            } else {
-                // TODO remove when common auto adjust will be implemented https://issues.apache.org/jira/browse/IGNITE-18134
-                updateMetaStorageOnZoneCreate(zoneId, ctx.storageRevision());
-            }
+            updateMetaStorageOnZoneCreate(zoneId, ctx.storageRevision());
 
             return completedFuture(null);
         }
