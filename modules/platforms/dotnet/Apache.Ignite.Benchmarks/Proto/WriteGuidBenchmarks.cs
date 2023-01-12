@@ -20,7 +20,6 @@ namespace Apache.Ignite.Benchmarks.Proto
     using System;
     using BenchmarkDotNet.Attributes;
     using Internal.Buffers;
-    using Internal.Proto;
 
     /// <summary>
     /// Results on Intel Core i7-7700HQ, .NET SDK 5.0.400, Ubuntu 20.04:

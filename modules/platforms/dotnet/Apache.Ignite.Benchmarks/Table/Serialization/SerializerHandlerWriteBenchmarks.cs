@@ -20,12 +20,11 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
     using Internal.Buffers;
-    using Internal.Proto;
     using Internal.Proto.BinaryTuple;
     using Internal.Table.Serialization;
 
     /// <summary>
-    /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Write(ref MessagePack.MessagePackWriter,Apache.Ignite.Internal.Table.Schema,T,bool,bool)"/> implementations.
+    /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Write(ref Apache.Ignite.Internal.Proto.MsgPack.MsgPackWriter,Apache.Ignite.Internal.Table.Schema,T,bool,bool)"/> implementations.
     /// Results on Intel Core i7-9700K, .NET SDK 3.1.416, Ubuntu 20.04:
     /// |            Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
     /// |------------------ |---------:|--------:|--------:|------:|--------:|-------:|----------:|

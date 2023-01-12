@@ -164,6 +164,7 @@ internal readonly ref struct MsgPackWriter // TODO: Convert to extension methods
     public void Flush()
     {
         // TODO: Remove me, not needed
+        _writer.Advance(0);
     }
 
     public void Write(long val)

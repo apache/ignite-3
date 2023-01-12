@@ -22,7 +22,6 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using Internal.Buffers;
-using Internal.Proto;
 using Internal.Proto.MsgPack;
 using MessagePack;
 using NUnit.Framework;

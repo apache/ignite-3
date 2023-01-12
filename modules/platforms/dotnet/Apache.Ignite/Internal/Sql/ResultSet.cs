@@ -26,7 +26,6 @@ namespace Apache.Ignite.Internal.Sql
     using Buffers;
     using Common;
     using Ignite.Sql;
-    using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;

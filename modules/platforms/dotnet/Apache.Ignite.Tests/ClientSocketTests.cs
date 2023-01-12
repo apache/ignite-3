@@ -19,13 +19,10 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Net;
-    using System.Text;
     using System.Threading.Tasks;
     using Internal;
     using Internal.Buffers;
     using Internal.Proto;
-    using Internal.Proto.MsgPack;
-    using MessagePack;
     using NUnit.Framework;
 
     /// <summary>

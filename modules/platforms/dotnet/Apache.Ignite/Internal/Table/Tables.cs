@@ -23,7 +23,6 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Common;
     using Ignite.Table;
-    using MessagePack;
     using Proto;
     using Proto.MsgPack;
     using Sql;

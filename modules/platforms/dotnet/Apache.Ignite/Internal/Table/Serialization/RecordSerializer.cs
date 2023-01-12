@@ -22,7 +22,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Generic;
     using Buffers;
     using MessagePack;
-    using Proto;
     using Proto.MsgPack;
 
     /// <summary>

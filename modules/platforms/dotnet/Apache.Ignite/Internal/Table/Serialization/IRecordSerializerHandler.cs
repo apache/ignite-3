@@ -18,8 +18,6 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
-    using MessagePack;
-    using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
 
