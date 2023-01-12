@@ -153,7 +153,7 @@ public class MsgPackWriterTests
     }
 
     [Test]
-    public void TestWriteBinHeader()
+    public void TestWriteBinaryHeader()
     {
         foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
         {
