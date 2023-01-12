@@ -88,6 +88,36 @@ public class MsgPackWriterTests
     }
 
     [Test]
+    public void TestWriteBitSet()
+    {
+    }
+
+    [Test]
+    public void TestWriteExtensionHeader()
+    {
+    }
+
+    [Test]
+    public void TestWriteArrayHeader()
+    {
+    }
+
+    [Test]
+    public void TestWriteMapHeader()
+    {
+    }
+
+    [Test]
+    public void TestWriteBinHeader()
+    {
+    }
+
+    [Test]
+    public void TestWriteBin()
+    {
+    }
+
+    [Test]
     public void TestWriteString()
     {
         foreach (var str in TestStrings)
