@@ -274,8 +274,8 @@ public class WatchAggregatorTest {
         return new Entry() {
             /** {@inheritDoc} */
             @Override
-            public @NotNull ByteArray key() {
-                return new ByteArray(key);
+            public @NotNull byte[] key() {
+                return key.getBytes(StandardCharsets.UTF_8);
             }
 
             /** {@inheritDoc} */

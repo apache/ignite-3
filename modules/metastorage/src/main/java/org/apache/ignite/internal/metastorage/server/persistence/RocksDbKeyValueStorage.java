@@ -49,17 +49,18 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
-import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.Operation;
 import org.apache.ignite.internal.metastorage.server.Statement;
-import org.apache.ignite.internal.metastorage.server.StatementResult;
-import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.Value;
-import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksBiPredicate;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -849,7 +850,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         if (revs == null || revs.length == 0) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         long lastRev;
@@ -862,7 +863,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         // lastRev can be -1 if maxRevision return -1.
         if (lastRev == -1) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         return doGetValue(key, lastRev);
@@ -915,7 +916,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @NotNull
     Entry doGetValue(byte[] key, long revision) {
         if (revision == 0) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         byte[] valueBytes;
@@ -927,16 +928,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
 
         if (valueBytes == null || valueBytes.length == 0) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         Value lastVal = bytesToValue(valueBytes);
 
         if (lastVal.tombstone()) {
-            return Entry.tombstone(key, revision, lastVal.updateCounter());
+            return EntryImpl.tombstone(key, revision, lastVal.updateCounter());
         }
 
-        return new Entry(key, lastVal.bytes(), revision, lastVal.updateCounter());
+        return new EntryImpl(key, lastVal.bytes(), revision, lastVal.updateCounter());
     }
 
     /**

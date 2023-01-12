@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.jetbrains.annotations.NotNull;
 
 /**

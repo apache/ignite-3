@@ -27,6 +27,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,11 +44,10 @@ public class AndConditionTest {
     private Condition cond3;
     private Condition cond4;
 
-    private final Entry[] entries = new Entry[] {
-            new Entry(new byte[]{1}, new byte[]{10}, 1, 1),
-            new Entry(new byte[]{2}, new byte[]{20}, 2, 3),
-            new Entry(new byte[]{3}, new byte[]{30}, 3, 4),
-
+    private final Entry[] entries = {
+            new EntryImpl(new byte[]{1}, new byte[]{10}, 1, 1),
+            new EntryImpl(new byte[]{2}, new byte[]{20}, 2, 3),
+            new EntryImpl(new byte[]{3}, new byte[]{30}, 3, 4),
     };
 
     @BeforeEach
