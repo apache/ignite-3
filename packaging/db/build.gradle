@@ -21,6 +21,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.nebula)
     alias(libs.plugins.checksum)
+    alias(libs.plugins.setupbuilder)
 }
 
 import org.apache.tools.ant.filters.ReplaceTokens
@@ -232,6 +233,68 @@ if (project.hasProperty('prepareRelease')) {
         }
         dbRelease(file("$buildDir/checksums")) {
             builtBy createChecksums
+        }
+    }
+}
+
+setupBuilder {
+    vendor = "Apache Software Foundation"
+    application = "Apache Ignite"
+    description = "Apache Ignite is a distributed database for high-performance computing with in-memory speed"
+    appIdentifier = "ignite3-db"
+
+    // '-SNAPSHOT' is not valid in Windows versions
+    version = project.version.toString().replace("-SNAPSHOT", "")
+
+    // Actually a classpath
+    mainJar = "lib\\*"
+    mainClass = "org.apache.ignite.app.IgniteRunner"
+
+    licenseFile = "$rootDir/LICENSE"
+
+    msi {
+        languages = ["en-US"]
+    }
+
+    service {
+        // The working directory of the service, relative to installation root
+        workDir = "."
+
+        jvm = '%JAVA_HOME%\\bin\\server\\jvm.dll'
+
+        javaVMArguments = ["--add-opens=java.base/java.lang=ALL-UNNAMED",
+                           "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+                           "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+                           "--add-opens=java.base/java.io=ALL-UNNAMED",
+                           "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                           "--add-opens=java.base/java.math=ALL-UNNAMED",
+                           "--add-opens=java.base/java.util=ALL-UNNAMED",
+                           "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+                           "-Dio.netty.tryReflectionSetAccessible=true",
+                           "-Djava.util.logging.config.file=etc\\ignite.java.util.logging.properties",
+                           "-Dio.netty.tryReflectionSetAccessible=true"]
+
+        startArguments = "--node-name node1 --work-dir work --config-path etc\\ignite-config.conf"
+    }
+
+    into('') {
+        into('') {
+            from("$rootDir/LICENSE")
+            from("$rootDir/NOTICE")
+            from("$rootDir/assembly/README.md")
+        }
+        into('log') {
+            from('log')
+        }
+        into('etc') {
+            from "${rootDir}/packaging/config/ignite-config.conf"
+        }
+        into('etc') {
+            from("ignite.java.util.logging.properties")
+            filter(ReplaceTokens, tokens: [LOG_DIR: 'log'])
+        }
+        into('lib') {
+            from configurations.dbArtifacts
         }
     }
 }

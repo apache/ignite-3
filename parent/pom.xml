@@ -71,7 +71,7 @@
         <gson.version>2.8.9</gson.version>
         <gson-fire.version>1.8.5</gson-fire.version>
         <threetenbp.version>1.5.2</threetenbp.version>
-        <micronaut.version>3.5.3</micronaut.version>
+        <micronaut.version>3.7.4</micronaut.version>
         <micronaunt-picocli.version>4.1.0</micronaunt-picocli.version>
         <micronaut.test.junit5.version>3.4.0</micronaut.test.junit5.version>
         <mockito.version>4.3.1</mockito.version>
@@ -1612,6 +1612,7 @@
                         <exclude>gradle/**</exclude> <!-- Gradle internal -->
                         <exclude>gradlew</exclude> <!-- Gradle internal -->
                         <exclude>gradlew.batc</exclude> <!-- Gradle internal -->
+                        <exclude>**/.empty</exclude> <!-- Empty files -->
                     </excludes>
                 </configuration>
             </plugin>
