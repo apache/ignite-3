@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Proto.MsgPack;
 
 using System;
 using Internal.Buffers;
+using Internal.Proto;
 using Internal.Proto.MsgPack;
 using MessagePack;
 using NUnit.Framework;
@@ -90,6 +91,17 @@ public class MsgPackWriterTests
     [Test]
     public void TestWriteBitSet()
     {
+        var res = Write(x =>
+        {
+            var span = x.MessageWriter.WriteBitSet(12);
+            span[1] = 1;
+        });
+
+        Assert.AreEqual(4, res.Length);
+        Assert.AreEqual(MsgPackCode.FixExt2, res[0]);
+        Assert.AreEqual((byte)ClientMessagePackType.Bitmask, res[1]);
+        Assert.AreEqual(0, res[2]);
+        Assert.AreEqual(1, res[3]);
     }
 
     [Test]
