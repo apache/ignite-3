@@ -34,11 +34,10 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
     private const int MaxFixPositiveInt = 127;
     private const int MaxFixStringLength = 31;
     private const int MinFixNegativeInt = -32;
+    private const int MaxFixMapCount = 15;
 
     /*
     private const int MaxFixNegativeInt = -1;
-    private const int MinFixStringLength = 0;
-    private const int MaxFixMapCount = 15;
     private const int MaxFixArrayCount = 15;
     */
 
@@ -285,6 +284,22 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
 
     public void WriteMapHeader(int count)
     {
-        throw new NotImplementedException();
+        if (count <= MaxFixMapCount)
+        {
+            Writer.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixMap | count);
+        }
+        else if (count <= ushort.MaxValue)
+        {
+            var span = Writer.GetSpanAndAdvance(3);
+            span[0] = MsgPackCode.Map16;
+            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
+        }
+        else
+        {
+            var span = Writer.GetSpanAndAdvance(5);
+
+            span[0] = MsgPackCode.Map32;
+            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
+        }
     }
 }
