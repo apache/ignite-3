@@ -271,6 +271,45 @@ public class MsgPackReaderTests
         }
     }
 
+    [Test]
+    public void TestReadBinary()
+    {
+        foreach (var num in GetNumbers(short.MaxValue * 2, unsignedOnly: true))
+        {
+            var res = WriteRead(
+                buf => buf.MessageWriter.Write(new byte[num]),
+                m => new MsgPackReader(m.Span).ReadBinaryHeader());
+
+            Assert.AreEqual(num, res);
+        }
+    }
+
+    [Test]
+    public void TestReadMapHeader()
+    {
+        foreach (var num in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
+        {
+            var res = WriteRead(
+                buf => buf.MessageWriter.WriteMapHeader((int)num),
+                m => new MsgPackReader(m.Span).ReadMapHeader());
+
+            Assert.AreEqual(num, res);
+        }
+    }
+
+    [Test]
+    public void TestReadStringHeader()
+    {
+        foreach (var num in GetNumbers(short.MaxValue * 2, unsignedOnly: true))
+        {
+            var res = WriteRead(
+                buf => buf.MessageWriter.Write(new string('c', (int)num)),
+                m => new MsgPackReader(m.Span).ReadStringHeader());
+
+            Assert.AreEqual(num, res);
+        }
+    }
+
     private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)
     {
         var bufferWriter = new PooledArrayBuffer();
