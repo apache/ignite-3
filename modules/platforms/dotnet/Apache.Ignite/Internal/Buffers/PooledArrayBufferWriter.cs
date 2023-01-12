@@ -120,9 +120,11 @@ namespace Apache.Ignite.Internal.Buffers
         public Span<byte> GetSpanAndAdvance(int size)
         {
             CheckAndResizeBuffer(size);
+
+            var span = _buffer.AsSpan(_index, size);
             Advance(size);
 
-            return _buffer.AsSpan(_index, size);
+            return span;
         }
 
         /// <summary>
