@@ -32,12 +32,12 @@ using Transactions;
 internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
 {
     private const int MaxFixPositiveInt = 127;
+    private const int MaxFixStringLength = 31;
 
     /*
     private const int MinFixNegativeInt = -32;
     private const int MaxFixNegativeInt = -1;
     private const int MinFixStringLength = 0;
-    private const int MaxFixStringLength = 31;
     private const int MaxFixMapCount = 15;
     private const int MaxFixArrayCount = 15;
     */
@@ -112,7 +112,43 @@ internal readonly record struct MsgPackWriter(PooledArrayBufferWriter Writer)
 
     public void Write(string? val)
     {
-        throw new NotImplementedException();
+        if (val == null)
+        {
+            WriteNil();
+            return;
+        }
+
+        var byteCount = ProtoCommon.StringEncoding.GetMaxByteCount(val.Length);
+        var bufferSize = byteCount + 5;
+        var span = Writer.GetSpan(bufferSize);
+
+        if (byteCount <= MaxFixStringLength)
+        {
+            var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[1..]);
+            span[0] = (byte)(MsgPackCode.MinFixStr | bytesWritten);
+            Writer.Advance(bytesWritten + 1);
+        }
+        else if (byteCount <= byte.MaxValue)
+        {
+            var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[2..]);
+            span[0] = MsgPackCode.Str8;
+            span[1] = unchecked((byte)bytesWritten);
+            Writer.Advance(bytesWritten + 2);
+        }
+        else if (byteCount <= ushort.MaxValue)
+        {
+            var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[3..]);
+            span[0] = MsgPackCode.Str16;
+            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)bytesWritten);
+            Writer.Advance(bytesWritten + 3);
+        }
+        else
+        {
+            var bytesWritten = ProtoCommon.StringEncoding.GetBytes(val, span[5..]);
+            span[0] = MsgPackCode.Str32;
+            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)bytesWritten);
+            Writer.Advance(bytesWritten + 5);
+        }
     }
 
     public void WriteNil()
