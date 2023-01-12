@@ -17,11 +17,23 @@
 
 namespace Apache.Ignite.Tests.Proto.MsgPack;
 
+using Internal.Buffers;
 using Internal.Proto.MsgPack;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="MsgPackWriter"/>.
 /// </summary>
 public class MsgPackWriterTests
 {
+    [Test]
+    public void TestWriteNil()
+    {
+        var buf = new PooledArrayBuffer();
+        buf.MessageWriter.WriteNil();
+        var mem = buf.GetWrittenMemory();
+
+        Assert.AreEqual(1, mem.Length);
+        Assert.AreEqual(MsgPackCode.Nil, mem.Span[0]);
+    }
 }
