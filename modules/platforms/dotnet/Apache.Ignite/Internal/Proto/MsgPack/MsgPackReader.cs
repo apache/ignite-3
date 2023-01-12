@@ -308,7 +308,7 @@ internal ref struct MsgPackReader
 
                 case MsgPackCode.Bin8:
                 case MsgPackCode.Str8:
-                    _pos += _span[_pos++];
+                    _pos += _span[_pos] + 1;
                     break;
 
                 case MsgPackCode.Bin16:
