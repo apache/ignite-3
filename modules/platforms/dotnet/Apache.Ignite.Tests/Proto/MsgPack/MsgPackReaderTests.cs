@@ -226,6 +226,24 @@ public class MsgPackReaderTests
             });
     }
 
+    [Test]
+    public void TestReadBoolean()
+    {
+        var res = WriteRead(
+            buf =>
+            {
+                buf.MessageWriter.Write(true);
+                buf.MessageWriter.Write(false);
+            },
+            m =>
+            {
+                var r = new MsgPackReader(m.Span);
+                return (r.ReadBoolean(), r.ReadBoolean());
+            });
+
+        Assert.AreEqual((true, false), res);
+    }
+
     private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)
     {
         var bufferWriter = new PooledArrayBuffer();
