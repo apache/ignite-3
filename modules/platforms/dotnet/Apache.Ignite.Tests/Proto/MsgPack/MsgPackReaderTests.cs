@@ -51,19 +51,20 @@ public class MsgPackReaderTests
     {
         var bufWriter = new ArrayBufferWriter<byte>();
         var writer = new MessagePackWriter(bufWriter);
+        var numbers = GetNumbers(int.MaxValue / 2, unsignedOnly: true).ToList();
 
-        for (int i = 0; i < 30; i++)
+        foreach (var num in numbers)
         {
-            writer.WriteArrayHeader((int)Math.Pow(2, i));
+            writer.WriteArrayHeader((uint)num);
         }
 
         writer.Flush();
 
         var reader = new MsgPackReader(bufWriter.WrittenSpan);
 
-        for (int i = 0; i < 30; i++)
+        foreach (var num in numbers)
         {
-            Assert.AreEqual((int)Math.Pow(2, i), reader.ReadArrayHeader());
+            Assert.AreEqual((uint)num, reader.ReadArrayHeader());
         }
     }
 
