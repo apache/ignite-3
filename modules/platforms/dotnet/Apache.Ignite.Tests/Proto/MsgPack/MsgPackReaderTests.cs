@@ -264,7 +264,7 @@ public class MsgPackReaderTests
         foreach (var num in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
         {
             var res = WriteRead(
-                buf => buf.MessageWriter.WriteBinHeader((int)num),
+                buf => buf.MessageWriter.WriteBinaryHeader((int)num),
                 m => new MsgPackReader(m.Span).ReadBinaryHeader());
 
             Assert.AreEqual(num, res);

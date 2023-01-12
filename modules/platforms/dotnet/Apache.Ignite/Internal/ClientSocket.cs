@@ -417,7 +417,7 @@ namespace Apache.Ignite.Internal
 
             w.Write(ClientType); // Client type: general purpose.
 
-            w.WriteBinHeader(0); // Features.
+            w.WriteBinaryHeader(0); // Features.
             w.WriteMapHeader(0); // Extensions.
         }
 

@@ -157,7 +157,7 @@ public class MsgPackWriterTests
     {
         foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
         {
-            var res = Write(x => x.MessageWriter.WriteBinHeader((int)number));
+            var res = Write(x => x.MessageWriter.WriteBinaryHeader((int)number));
             var reader = new MessagePackReader(res.AsMemory());
             var len = GetBytesLengthAccessor(ref reader);
 

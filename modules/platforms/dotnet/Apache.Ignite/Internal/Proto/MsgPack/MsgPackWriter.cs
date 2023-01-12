@@ -353,7 +353,7 @@ internal readonly ref struct MsgPackWriter
     /// Writes binary header.
     /// </summary>
     /// <param name="length">Binary payload length, in bytes.</param>
-    public void WriteBinHeader(int length)
+    public void WriteBinaryHeader(int length)
     {
         if (length <= byte.MaxValue)
         {
@@ -384,7 +384,7 @@ internal readonly ref struct MsgPackWriter
     /// <param name="span">Data.</param>
     public void Write(ReadOnlySpan<byte> span)
     {
-        WriteBinHeader(span.Length);
+        WriteBinaryHeader(span.Length);
         span.CopyTo(Buf.GetSpanAndAdvance(span.Length));
     }
 

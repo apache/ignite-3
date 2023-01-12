@@ -439,7 +439,7 @@ namespace Apache.Ignite.Tests
                 handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
                 handshakeWriter.Write(ClusterId);
-                handshakeWriter.WriteBinHeader(0); // Features.
+                handshakeWriter.WriteBinaryHeader(0); // Features.
                 handshakeWriter.WriteMapHeader(0); // Extensions.
 
                 var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
