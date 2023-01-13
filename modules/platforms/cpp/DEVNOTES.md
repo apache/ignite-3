@@ -1,12 +1,11 @@
 ## Prerequisites
 * C++ compiler supporting C++17
 * Java 11 SDK
-* Maven 3.6.0+ (for building)
 * Conan C/C++ package manager
 * CMake 3.10+
 
 ## Build Java
-In repo root: `mvn clean install -DskipTests`
+In repo root: `gradlew clean build -x test`
 
 ## Build C++
 
@@ -77,8 +76,7 @@ In this dir: `./cmake-build-debug/bin/ignite-client-test.exe`
 Specific test: `./cmake-build-debug/bin/ignite-client-test.exe --gtest_filter=Test_Cases1*`
 
 ## Start a Test Node
-* cd `modules/runner`
-* `mvn exec:java@platform-test-node-runner`
+* `gradlew :ignite-runner:runnerPlatformTest --no-daemon`
 
 To debug or profile Java side of the tests, run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or profiler,
 then run C++ tests as always or with debugger.
