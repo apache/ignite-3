@@ -41,7 +41,7 @@ public static class MsgPackTestsCommon
 
         for (int i = 1; i < 63; i++)
         {
-            var num = 1 << i;
+            var num = 1L << i;
 
             if (num > max)
             {
@@ -58,6 +58,7 @@ public static class MsgPackTestsCommon
             if (!unsignedOnly)
             {
                 yield return -num;
+                yield return 1 - num;
             }
         }
     }
