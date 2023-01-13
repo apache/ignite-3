@@ -56,9 +56,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The future used on repeated commit/rollback. */
     private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
 
-    /** {@code true} if commit is started. */
-    private volatile boolean commitState;
-
     /**
      * The constructor.
      *
@@ -97,17 +94,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
         if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-            if (commitState && commit) {
-                return finishFut.get();
-            } else {
-                return completedFuture(null);
-            }
+            return finishFut.get();
         }
 
-        commitState = commit;
-
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
-        return CompletableFuture
+        CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
                         ignored -> {
@@ -148,6 +139,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             }
                         }
                 ).thenRun(() -> finishFut.get().complete(null));
+
+        return finishFut.get();
     }
 
     /** {@inheritDoc} */

@@ -41,9 +41,6 @@ public class ClientTransaction implements Transaction {
     /** The future used on repeated commit/rollback. */
     private AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
 
-    /** {@code true} if commit is started. */
-    private volatile boolean commitState;
-
     /**
      * Constructor.
      *
@@ -83,17 +80,13 @@ public class ClientTransaction implements Transaction {
     @Override
     public CompletableFuture<Void> commitAsync() {
         if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-            if (commitState) {
-                return finishFut.get();
-            } else {
-                return completedFuture(null);
-            }
+            return finishFut.get();
         }
 
-        commitState = true;
-
-        return ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null)
+        ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null)
                 .thenRun(() -> finishFut.get().complete(null));
+
+        return finishFut.get();
     }
 
     /** {@inheritDoc} */
@@ -106,12 +99,13 @@ public class ClientTransaction implements Transaction {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-            return completedFuture(null);
+            return finishFut.get();
         }
 
-        commitState = false;
+        ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null)
+                .thenRun(() -> finishFut.get().complete(null));
 
-        return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
+        return finishFut.get();
     }
 
     /** {@inheritDoc} */
