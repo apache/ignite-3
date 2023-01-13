@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 
 /**
- * Utility class to help build {@link TableRow} using {@link BinaryTupleBuilder}
+ * Utility class to help build {@link TableRow} using {@link BinaryTupleBuilder}.
  */
 public class TableRowBuilder extends BinaryTupleBuilder {
     private final BinaryTupleSchema schema;
