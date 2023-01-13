@@ -21,8 +21,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Buffers.Binary;
     using System.Collections.Generic;
     using Buffers;
-    using MessagePack;
-    using Proto;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Generic record serializer.
@@ -163,17 +162,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>Colocation hash.</returns>
         public int Write(
-            PooledArrayBufferWriter buf,
+            PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
             T rec,
             bool keyOnly = false)
         {
-            var w = buf.GetMessageWriter();
+            var w = buf.MessageWriter;
 
             var colocationHash = WriteWithHeader(ref w, tx, schema, rec, keyOnly);
-
-            w.Flush();
 
             return colocationHash;
         }
@@ -189,19 +186,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>First record hash.</returns>
         public int WriteTwo(
-            PooledArrayBufferWriter buf,
+            PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
             T t,
             T t2,
             bool keyOnly = false)
         {
-            var w = buf.GetMessageWriter();
+            var w = buf.MessageWriter;
 
             var firstHash = WriteWithHeader(ref w, tx, schema, t, keyOnly);
             _handler.Write(ref w, schema, t2, keyOnly);
-
-            w.Flush();
 
             return firstHash;
         }
@@ -216,17 +211,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>First record hash.</returns>
         public int WriteMultiple(
-            PooledArrayBufferWriter buf,
+            PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
             IEnumerator<T> recs,
             bool keyOnly = false)
         {
-            var w = buf.GetMessageWriter();
+            var w = buf.MessageWriter;
 
             WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
-            w.Flush();
 
             var count = 0;
             var firstHash = 0;
@@ -253,10 +247,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
             while (recs.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
 
-            countSpan[0] = MessagePackCode.Int32;
+            countSpan[0] = MsgPackCode.Int32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
-
-            w.Flush();
 
             return firstHash;
         }
@@ -271,7 +263,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>Colocation hash.</returns>
         private int WriteWithHeader(
-            ref MessagePackWriter w,
+            ref MsgPackWriter w,
             Transactions.Transaction? tx,
             Schema schema,
             T rec,
@@ -288,7 +280,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="w">Writer.</param>
         /// <param name="tx">Transaction.</param>
-        private void WriteIdAndTx(ref MessagePackWriter w, Transactions.Transaction? tx)
+        private void WriteIdAndTx(ref MsgPackWriter w, Transactions.Transaction? tx)
         {
             w.Write(_table.Id);
             w.WriteTx(tx);
