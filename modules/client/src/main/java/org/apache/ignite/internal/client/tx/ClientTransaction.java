@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -38,7 +39,9 @@ public class ClientTransaction implements Transaction {
     private final long id;
 
     /** State. */
-    private final AtomicBoolean openState = new AtomicBoolean(true);
+    private AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
+
+    private volatile boolean commitState;
 
     /**
      * Constructor.
@@ -78,11 +81,18 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
-        if (!openState.compareAndSet(true, false)) {
-            return CompletableFuture.completedFuture(null);
+        if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
+            if (commitState) {
+                return finishFut.get();
+            } else {
+                return completedFuture(null);
+            }
         }
 
-        return ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
+        commitState = true;
+
+        return ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null)
+                .thenRun(() -> finishFut.get().complete(null));
     }
 
     /** {@inheritDoc} */
@@ -94,9 +104,11 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        if (!openState.compareAndSet(true, false)) {
-            return CompletableFuture.completedFuture(null);
+        if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
+            return completedFuture(null);
         }
+
+        commitState = false;
 
         return ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
     }

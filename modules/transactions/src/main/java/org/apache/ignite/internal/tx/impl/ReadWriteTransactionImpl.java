@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,6 +52,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** Reference to the partition that stores the transaction state. */
     private final AtomicReference<ReplicationGroupId> commitPartitionRef = new AtomicReference<>();
+
+    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
+
+    private volatile boolean commitState;
 
     /**
      * The constructor.
@@ -88,6 +94,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
+        if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
+            if (commitState && commit) {
+                return finishFut.get();
+            } else {
+                return completedFuture(null);
+            }
+        }
+
+        commitState = commit;
+
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
         return CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
@@ -126,10 +142,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         id()
                                 );
                             } else {
-                                return CompletableFuture.completedFuture(null);
+                                return completedFuture(null);
                             }
                         }
-                );
+                ).thenRun(() -> finishFut.get().complete(null));
     }
 
     /** {@inheritDoc} */
