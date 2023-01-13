@@ -22,6 +22,7 @@ using System.Buffers;
 using System.IO;
 using System.Linq;
 using Internal.Buffers;
+using Internal.Proto;
 using Internal.Proto.MsgPack;
 using MessagePack;
 using NUnit.Framework;
@@ -327,7 +328,9 @@ public class MsgPackReaderTests
         var bufWriter = new ArrayBufferWriter<byte>();
         var writer = new MessagePackWriter(bufWriter);
 
-        writer.Write(new string('c', 32000));
+        writer.Write(new string('c', 33)); // Str8
+        writer.Write(new string('c', 33000)); // Str16
+        writer.WriteExtensionFormat(new ExtensionResult((sbyte)ClientMessagePackType.Uuid, Guid.Empty.ToByteArray()));
         writer.Write(1);
         writer.Write(-1);
         writer.Write(-64);
@@ -350,36 +353,8 @@ public class MsgPackReaderTests
         writer.Flush();
 
         var reader = new MsgPackReader(bufWriter.WrittenSpan);
-        reader.Skip(16);
+        reader.Skip(18);
         Assert.IsTrue(reader.ReadBoolean());
-
-        /*
-        var res = WriteRead(
-            buf =>
-            {
-                var w = buf.MessageWriter;
-                w.Write("foo");
-                w.Write(1);
-                w.Write(int.MaxValue);
-                w.Write(long.MaxValue);
-                w.Write(Guid.Empty);
-                w.WriteNil();
-                w.Write(new byte[] { 1, 2 });
-                w.WriteMapHeader(1);
-                w.WriteNil();
-                w.WriteNil();
-                w.Write(false);
-                w.Write(true);
-            },
-            m =>
-            {
-                var reader = new MsgPackReader(m.Span);
-                reader.Skip(9);
-                return reader.ReadBoolean();
-            });
-
-        Assert.IsTrue(res);
-    */
     }
 
     private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)
