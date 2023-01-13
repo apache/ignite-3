@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Proto.MsgPack;
 
 using System;
 using System.Buffers;
+using System.IO;
 using System.Linq;
 using Internal.Buffers;
 using Internal.Proto.MsgPack;
@@ -94,6 +95,16 @@ public class MsgPackReaderTests
             var reader = new MsgPackReader(span);
             reader.ReadArrayHeader();
         });
+    }
+
+    [Test]
+    public void TestReadIncompatibleTypeThrows()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => WriteRead(
+            buf => buf.MessageWriter.Write("x"),
+            m => new MsgPackReader(m.Span).ReadInt32()));
+
+        Assert.AreEqual("Invalid code, expected 'int32', but got '161'", ex!.Message);
     }
 
     [Test]
