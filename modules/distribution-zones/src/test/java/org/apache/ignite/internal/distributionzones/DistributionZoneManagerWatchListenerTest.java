@@ -57,6 +57,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -448,7 +448,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {
         byte[] newLogicalTopology = toBytes(nodes);
 
-        org.apache.ignite.internal.metastorage.Entry newEntry = new EntryImpl(zonesLogicalTopologyKey(), newLogicalTopology, rev, 1);
+        Entry newEntry = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
 
         EntryEvent entryEvent = new EntryEvent(null, newEntry);
 

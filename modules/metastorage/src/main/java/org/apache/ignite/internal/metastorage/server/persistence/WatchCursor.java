@@ -27,11 +27,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
-import org.apache.ignite.internal.metastorage.server.Entry;
-import org.apache.ignite.internal.metastorage.server.EntryEvent;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.Value;
-import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.rocksdb.ReadOptions;
@@ -152,9 +153,9 @@ class WatchCursor implements Cursor<WatchEvent> {
                     Entry newEntry;
 
                     if (val.tombstone()) {
-                        newEntry = Entry.tombstone(key, revision, val.updateCounter());
+                        newEntry = EntryImpl.tombstone(key, revision, val.updateCounter());
                     } else {
-                        newEntry = new Entry(key, val.bytes(), revision, val.updateCounter());
+                        newEntry = new EntryImpl(key, val.bytes(), revision, val.updateCounter());
                     }
 
                     Entry oldEntry = storage.doGet(key, revision - 1);

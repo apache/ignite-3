@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.server.RevisionCondition.Ty
 import static org.apache.ignite.internal.metastorage.server.RevisionCondition.Type.NOT_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -47,7 +48,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(EQUAL, KEY, 1);
 
         // 1 == 1.
-        assertTrue(cond.test(new Entry(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
     }
 
     /**
@@ -58,7 +59,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(NOT_EQUAL, KEY, 1);
 
         // 2 != 1.
-        assertTrue(cond.test(new Entry(KEY, VAL, 2, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, 1)));
     }
 
     /**
@@ -69,7 +70,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(GREATER, KEY, 1);
 
         // 2 > 1.
-        assertTrue(cond.test(new Entry(KEY, VAL, 2, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, 1)));
     }
 
     /**
@@ -80,10 +81,10 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(GREATER_OR_EQUAL, KEY, 1);
 
         // 2 >= 1 (2 > 1).
-        assertTrue(cond.test(new Entry(KEY, VAL, 2, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, 1)));
 
         // 1 >= 1 (1 == 1).
-        assertTrue(cond.test(new Entry(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
     }
 
     /**
@@ -94,7 +95,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(LESS, KEY, 2);
 
         // 1 < 2
-        assertTrue(cond.test(new Entry(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
     }
 
     /**
@@ -105,9 +106,9 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(LESS_OR_EQUAL, KEY, 2);
 
         // 1 <= 2 (1 < 2)
-        assertTrue(cond.test(new Entry(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
 
         // 1 <= 1 (1 == 1).
-        assertTrue(cond.test(new Entry(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
     }
 }

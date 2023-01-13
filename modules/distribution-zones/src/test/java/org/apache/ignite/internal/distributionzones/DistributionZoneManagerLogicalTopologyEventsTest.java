@@ -265,7 +265,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
             return metaStorageService.run(getCommand).thenApply(bi -> {
                 SingleEntryResponse resp = (SingleEntryResponse) bi;
 
-                return new EntryImpl(new ByteArray(resp.key()), resp.value(), resp.revision(), resp.updateCounter());
+                return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
             });
         }).when(metaStorageManager).get(any());
 

@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -245,7 +246,7 @@ public class RebalanceUtil {
      * @param key Key.
      * @return Table id.
      */
-    public static UUID extractTableId(ByteArray key) {
+    public static UUID extractTableId(byte[] key) {
         return extractTableId(key, "");
     }
 
@@ -256,8 +257,8 @@ public class RebalanceUtil {
      * @param prefix Key prefix.
      * @return Table id.
      */
-    public static UUID extractTableId(ByteArray key, String prefix) {
-        String strKey = key.toString();
+    public static UUID extractTableId(byte[] key, String prefix) {
+        String strKey = new String(key, StandardCharsets.UTF_8);
 
         return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
@@ -268,8 +269,8 @@ public class RebalanceUtil {
      * @param key Key.
      * @return Partition number.
      */
-    public static int extractPartitionNumber(ByteArray key) {
-        var strKey = key.toString();
+    public static int extractPartitionNumber(byte[] key) {
+        var strKey = new String(key, StandardCharsets.UTF_8);
 
         return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
     }

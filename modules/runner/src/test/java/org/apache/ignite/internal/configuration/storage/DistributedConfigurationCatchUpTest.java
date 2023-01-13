@@ -184,7 +184,7 @@ public class DistributedConfigurationCatchUpTest {
         private void setup() {
             // Returns current master key revision.
             when(mock.get(MASTER_KEY)).then(invocation -> {
-                return CompletableFuture.completedFuture(new EntryImpl(MASTER_KEY, null, masterKeyRevision, -1));
+                return CompletableFuture.completedFuture(new EntryImpl(MASTER_KEY.bytes(), null, masterKeyRevision, -1));
             });
 
             // On any invocation - trigger storage listener.
@@ -214,7 +214,7 @@ public class DistributedConfigurationCatchUpTest {
          * Triggers MetaStorage listener incrementing master key revision.
          */
         private void triggerStorageListener() {
-            EntryEvent entryEvent = new EntryEvent(null, new EntryImpl(MASTER_KEY, null, ++masterKeyRevision, -1));
+            EntryEvent entryEvent = new EntryEvent(null, new EntryImpl(MASTER_KEY.bytes(), null, ++masterKeyRevision, -1));
             lsnr.onUpdate(new WatchEvent(entryEvent));
         }
 

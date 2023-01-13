@@ -18,18 +18,16 @@
 package org.apache.ignite.internal.metastorage;
 
 import java.io.Serializable;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Represent an update event for particular key and entry.
  */
 public final class EntryEvent implements Serializable {
     /** Old (previous) entry. */
-    @NotNull
     private final Entry oldEntry;
 
     /** New (updated) entry. */
-    @NotNull
     private final Entry newEntry;
 
     /**
@@ -48,7 +46,6 @@ public final class EntryEvent implements Serializable {
      *
      * @return Old entry.
      */
-    @NotNull
     public Entry oldEntry() {
         return oldEntry;
     }
@@ -58,7 +55,6 @@ public final class EntryEvent implements Serializable {
      *
      * @return New entry.
      */
-    @NotNull
     public Entry newEntry() {
         return newEntry;
     }
@@ -91,5 +87,10 @@ public final class EntryEvent implements Serializable {
         res = 31 * res + newEntry.hashCode();
 
         return res;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

@@ -20,46 +20,98 @@ package org.apache.ignite.internal.metastorage.dsl;
 /**
  * Represents a condition for a meta storage conditional update.
  */
-public final class SimpleCondition implements Condition {
-    /** Actual condition implementation. */
-    private final InnerCondition cond;
+public class SimpleCondition implements Condition {
+    /** Entry key. */
+    private final byte[] key;
 
     /**
-     * Constructs a condition, which wraps the actual condition implementation.
+     * Condition type.
+     */
+    private final ConditionType type;
+
+    private SimpleCondition(byte[] key, ConditionType type) {
+        this.key = key;
+        this.type = type;
+    }
+
+    /**
+     * Returns the key, which identifies an entry, which condition will be applied to.
      *
-     * @param cond The actual condition implementation.
+     * @return Key, which identifies an entry, which condition will be applied to.
      */
-    SimpleCondition(InnerCondition cond) {
-        this.cond = cond;
-    }
-
-    public InnerCondition inner() {
-        return cond;
-    }
-
-    public ConditionType type() {
-        return cond.type();
+    public byte[] key() {
+        return key;
     }
 
     /**
-     * Represents a condition on an entry revision. Only one type of condition could be applied to the one instance of a condition.
-     * Subsequent invocations of any method, which produces a condition will throw {@link IllegalStateException}.
+     * Returns the condition type.
+     *
+     * @return Condition type.
      */
-    public static final class RevisionCondition extends AbstractCondition {
-        /** The revision as the condition argument. */
-        private long rev;
+    public ConditionType type() {
+        return type;
+    }
 
-        /**
-         * Constructs a condition by a revision for an entry identified by the given key.
-         *
-         * @param key Identifies an entry, which condition will be applied to.
-         */
-        RevisionCondition(byte[] key) {
-            super(key);
-        }
+    /**
+     * Creates a builder for a revision condition.
+     *
+     * @param key Key, which identifies an entry, which condition will be applied to.
+     * @return Builder for a revision condition.
+     * @see RevisionCondition
+     */
+    public static RevisionConditionBuilder revision(byte[] key) {
+        return new RevisionConditionBuilder(key);
+    }
 
-        public long revision() {
-            return rev;
+    /**
+     * Creates a builder for a value condition.
+     *
+     * @param key Key, which identifies an entry, which condition will be applied to.
+     * @return Builder for a value condition.
+     * @see ValueCondition
+     */
+    public static ValueConditionBuilder value(byte[] key) {
+        return new ValueConditionBuilder(key);
+    }
+
+    /**
+     * Produces the condition of type {@link ConditionType#TOMBSTONE}. This condition tests that an entry's value, identified by the
+     * given key, is tombstone.
+     *
+     * @return The condition of type {@link ConditionType#TOMBSTONE}.
+     */
+    public static SimpleCondition tombstone(byte[] key) {
+        return new SimpleCondition(key, ConditionType.TOMBSTONE);
+    }
+
+    /**
+     * Produces the condition of type {@link ConditionType#KEY_EXISTS}. This condition tests the existence of an entry identified by the
+     * given key.
+     *
+     * @return The condition of type {@link ConditionType#KEY_EXISTS}.
+     */
+    public static SimpleCondition exists(byte[] key) {
+        return new SimpleCondition(key, ConditionType.KEY_EXISTS);
+    }
+
+    /**
+     * Produces the condition of type {@link ConditionType#KEY_NOT_EXISTS}. This condition tests the non-existence of an entry
+     * identified by the given key.
+     *
+     * @return The condition of type {@link ConditionType#KEY_NOT_EXISTS}.
+     */
+    public static SimpleCondition notExists(byte[] key) {
+        return new SimpleCondition(key, ConditionType.KEY_NOT_EXISTS);
+    }
+
+    /**
+     * Builder for {@link RevisionCondition}.
+     */
+    public static final class RevisionConditionBuilder {
+        private final byte[] key;
+
+        RevisionConditionBuilder(byte[] key) {
+            this.key = key;
         }
 
         /**
@@ -68,18 +120,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition eq(long rev) {
-            assert rev > 0 : "Revision must be positive.";
-
-            validate(type());
-
-            type(ConditionType.REV_EQUAL);
-
-            this.rev = rev;
-
-            return new SimpleCondition(this);
+            return new RevisionCondition(key, ConditionType.REV_EQUAL, rev);
         }
 
         /**
@@ -88,18 +131,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_NOT_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ne(long rev) {
-            assert rev > 0 : "Revision must be positive.";
-
-            validate(type());
-
-            type(ConditionType.REV_NOT_EQUAL);
-
-            this.rev = rev;
-
-            return new SimpleCondition(this);
+            return new RevisionCondition(key, ConditionType.REV_NOT_EQUAL, rev);
         }
 
         /**
@@ -108,18 +142,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_GREATER}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition gt(long rev) {
-            assert rev > 0 : "Revision must be positive.";
-
-            validate(type());
-
-            type(ConditionType.REV_GREATER);
-
-            this.rev = rev;
-
-            return new SimpleCondition(this);
+            return new RevisionCondition(key, ConditionType.REV_GREATER, rev);
         }
 
         /**
@@ -128,18 +153,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_GREATER_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ge(long rev) {
-            assert rev > 0 : "Revision must be positive.";
-
-            validate(type());
-
-            type(ConditionType.REV_GREATER_OR_EQUAL);
-
-            this.rev = rev;
-
-            return new SimpleCondition(this);
+            return new RevisionCondition(key, ConditionType.REV_GREATER_OR_EQUAL, rev);
         }
 
         /**
@@ -148,18 +164,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_LESS}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition lt(long rev) {
-            assert rev > 0 : "Revision must be positive.";
-
-            validate(type());
-
-            type(ConditionType.REV_LESS);
-
-            this.rev = rev;
-
-            return new SimpleCondition(this);
+            return new RevisionCondition(key, ConditionType.REV_LESS, rev);
         }
 
         /**
@@ -168,40 +175,48 @@ public final class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_LESS_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition le(long rev) {
-            assert rev > 0 : "Revision must be positive.";
-
-            validate(type());
-
-            type(ConditionType.REV_LESS_OR_EQUAL);
-
-            this.rev = rev;
-
-            return new SimpleCondition(this);
+            return new RevisionCondition(key, ConditionType.REV_LESS_OR_EQUAL, rev);
         }
     }
 
     /**
-     * Represents a condition on an entry value. Only the one type of condition could be applied to the one instance of a condition.
-     * Subsequent invocations of any method, which produces a condition will throw {@link IllegalStateException}.
+     * Represents a condition on an entry revision.
      */
-    public static final class ValueCondition extends AbstractCondition {
-        /** The value as the condition argument. */
-        private byte[] val;
+    public static final class RevisionCondition extends SimpleCondition {
+        /** The revision as the condition argument. */
+        private final long rev;
 
         /**
-         * Constructs a condition by a value for an entry identified by the given key.
+         * Constructs a condition by a revision for an entry identified by the given key.
          *
          * @param key Identifies an entry, which condition will be applied to.
          */
-        ValueCondition(byte[] key) {
-            super(key);
+        RevisionCondition(byte[] key, ConditionType type, long rev) {
+            super(key, type);
+
+            assert rev > 0 : "Revision must be positive";
+
+            this.rev = rev;
         }
 
-        public byte[] value() {
-            return val;
+        /**
+         * Returns the revision that will be used as a part of this condition.
+         */
+        public long revision() {
+            return rev;
+        }
+    }
+
+    /**
+     * Builder for {@link ValueCondition}.
+     */
+    public static final class ValueConditionBuilder {
+        private final byte[] key;
+
+        ValueConditionBuilder(byte[] key) {
+            this.key = key;
         }
 
         /**
@@ -210,16 +225,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition eq(byte[] val) {
-            validate(type());
-
-            type(ConditionType.VAL_EQUAL);
-
-            this.val = val;
-
-            return new SimpleCondition(this);
+            return new ValueCondition(key, ConditionType.VAL_EQUAL, val);
         }
 
         /**
@@ -228,18 +236,10 @@ public final class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_NOT_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ne(byte[] val) {
-            validate(type());
-
-            type(ConditionType.VAL_NOT_EQUAL);
-
-            this.val = val;
-
-            return new SimpleCondition(this);
+            return new ValueCondition(key, ConditionType.VAL_NOT_EQUAL, val);
         }
-
 
         /**
          * Produces the condition of type {@link ConditionType#VAL_GREATER}. This condition tests that the target entry value is greater
@@ -247,16 +247,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_GREATER}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition gt(byte[] val) {
-            validate(type());
-
-            type(ConditionType.VAL_GREATER);
-
-            this.val = val;
-
-            return new SimpleCondition(this);
+            return new ValueCondition(key, ConditionType.VAL_GREATER, val);
         }
 
         /**
@@ -265,16 +258,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_GREATER_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ge(byte[] val) {
-            validate(type());
-
-            type(ConditionType.VAL_GREATER_OR_EQUAL);
-
-            this.val = val;
-
-            return new SimpleCondition(this);
+            return new ValueCondition(key, ConditionType.VAL_GREATER_OR_EQUAL, val);
         }
 
         /**
@@ -283,16 +269,9 @@ public final class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_LESS}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition lt(byte[] val) {
-            validate(type());
-
-            type(ConditionType.VAL_LESS);
-
-            this.val = val;
-
-            return new SimpleCondition(this);
+            return new ValueCondition(key, ConditionType.VAL_LESS, val);
         }
 
         /**
@@ -301,158 +280,35 @@ public final class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_LESS_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition le(byte[] val) {
-            validate(type());
+            return new ValueCondition(key, ConditionType.VAL_LESS_OR_EQUAL, val);
+        }
+    }
 
-            type(ConditionType.VAL_LESS_OR_EQUAL);
+    /**
+     * Represents a condition on an entry value.
+     */
+    public static final class ValueCondition extends SimpleCondition {
+        /** The value as the condition argument. */
+        private final byte[] val;
+
+        /**
+         * Constructs a condition by a value for an entry identified by the given key.
+         *
+         * @param key Identifies an entry, which condition will be applied to.
+         */
+        ValueCondition(byte[] key, ConditionType type, byte[] val) {
+            super(key, type);
 
             this.val = val;
-
-            return new SimpleCondition(this);
-        }
-    }
-
-    /**
-     * Represents a condition on an entry existence. Only the one type of a condition could be applied to the one instance of a condition.
-     * Subsequent invocations of any method, which produces a condition will throw {@link IllegalStateException}.
-     */
-    public static final class ExistenceCondition extends AbstractCondition {
-        /**
-         * Constructs a condition on existence an entry identified by the given key.
-         *
-         * @param key Identifies an entry, which condition will be applied to.
-         */
-        ExistenceCondition(byte[] key) {
-            super(key);
         }
 
         /**
-         * Produces the condition of type {@link ConditionType#KEY_EXISTS}. This condition tests the existence of an entry identified by the
-         * given key.
-         *
-         * @return The condition of type {@link ConditionType#KEY_EXISTS}.
-         * @throws IllegalStateException In the case when the condition is already defined.
+         * Returns the value that will be used as a part of this condition.
          */
-        public SimpleCondition exists() {
-            validate(type());
-
-            type(ConditionType.KEY_EXISTS);
-
-            return new SimpleCondition(this);
-        }
-
-        /**
-         * Produces the condition of type {@link ConditionType#KEY_NOT_EXISTS}. This condition tests the non-existence of an entry
-         * identified by the given key.
-         *
-         * @return The condition of type {@link ConditionType#KEY_NOT_EXISTS}.
-         * @throws IllegalStateException In the case when the condition is already defined.
-         */
-        public SimpleCondition notExists() {
-            validate(type());
-
-            type(ConditionType.KEY_NOT_EXISTS);
-
-            return new SimpleCondition(this);
-        }
-    }
-
-    /**
-     * Represents a condition on an entry's value, which checks whether a value is tombstone or not. Only the one type of condition
-     * could be applied to the one instance of a condition. Subsequent invocations of any method which produces a condition
-     * will throw {@link IllegalStateException}.
-     */
-    public static final class TombstoneCondition extends AbstractCondition {
-        /**
-         * Constructs a condition on an entry, identified by the given key, is tombstone.
-         *
-         * @param key Identifies an entry, which condition will be applied to.
-         */
-        TombstoneCondition(byte[] key) {
-            super(key);
-        }
-
-        /**
-         * Produces the condition of type {@link ConditionType#TOMBSTONE}. This condition tests that an entry's value, identified by the
-         * given key, is tombstone.
-         *
-         * @return The condition of type {@link ConditionType#TOMBSTONE}.
-         * @throws IllegalStateException In the case when the condition is already defined.
-         */
-        public SimpleCondition tombstone() {
-            validate(type());
-
-            type(ConditionType.TOMBSTONE);
-
-            return new SimpleCondition(this);
-        }
-    }
-
-    /**
-     * Checks that condition is not defined yet. If the condition is already defined then the {@link IllegalStateException} will be thrown.
-     *
-     * @throws IllegalStateException In the case when the condition is already defined.
-     */
-    private static void validate(Enum<?> type) {
-        if (type != null) {
-            throw new IllegalStateException("Condition type " + type.name() + " is already defined.");
-        }
-    }
-
-    /**
-     * Defines a condition interface.
-     */
-    public interface InnerCondition {
-        /**
-         * Returns a key, which identifies an entry, which condition will be applied to.
-         *
-         * @return Key, which identifies an entry, which condition will be applied to.
-         */
-        byte[] key();
-
-        ConditionType type();
-    }
-
-    /**
-     * Defines an abstract condition with the key, which identifies an entry, which condition will be applied to.
-     */
-    private abstract static class AbstractCondition implements InnerCondition {
-        /** Entry key. */
-        private final byte[] key;
-
-        /**
-         * Condition type.
-         */
-        private ConditionType type;
-
-        /**
-         * Constructs a condition with the given entry key.
-         *
-         * @param key Key, which identifies an entry, which condition will be applied to.
-         */
-        private AbstractCondition(byte[] key) {
-            this.key = key;
-        }
-
-        /**
-         * Returns the key, which identifies an entry, which condition will be applied to.
-         *
-         * @return Key, which identifies an entry, which condition will be applied to.
-         */
-        @Override
-        public byte[] key() {
-            return key;
-        }
-
-        @Override
-        public ConditionType type() {
-            return type;
-        }
-
-        protected void type(ConditionType type) {
-            this.type = type;
+        public byte[] value() {
+            return val;
         }
     }
 }
