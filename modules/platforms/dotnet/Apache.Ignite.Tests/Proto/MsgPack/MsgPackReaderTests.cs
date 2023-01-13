@@ -101,11 +101,23 @@ public class MsgPackReaderTests
     [Test]
     public void TestReadIncompatibleTypeThrows()
     {
-        var ex = Assert.Throws<InvalidDataException>(() => WriteRead(
-            buf => buf.MessageWriter.Write("x"),
-            m => new MsgPackReader(m.Span).ReadInt32()));
+        Test(m => new MsgPackReader(m.Span).ReadBoolean());
+        Test(m => new MsgPackReader(m.Span).ReadInt16());
+        Test(m => new MsgPackReader(m.Span).ReadInt32());
+        Test(m => new MsgPackReader(m.Span).ReadInt64());
+        Test(m => new MsgPackReader(m.Span).ReadStringHeader());
+        Test(m => new MsgPackReader(m.Span).ReadArrayHeader());
+        Test(m => new MsgPackReader(m.Span).ReadMapHeader());
+        Test(m => new MsgPackReader(m.Span).ReadBinaryHeader());
+        Test(m => new MsgPackReader(m.Span).ReadGuid());
 
-        Assert.AreEqual("Invalid code, expected 'int32', but got '161'", ex!.Message);
+        void Test<T>(Func<ReadOnlyMemory<byte>, T> read)
+        {
+            var ex = Assert.Throws<InvalidDataException>(
+                () => WriteRead(buf => buf.MessageWriter.WriteNil(), read));
+
+            StringAssert.StartsWith("Invalid code", ex!.Message);
+        }
     }
 
     [Test]
