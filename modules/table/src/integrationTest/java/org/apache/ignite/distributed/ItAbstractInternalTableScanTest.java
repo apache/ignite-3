@@ -50,8 +50,8 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowBuilder;
 import org.apache.ignite.internal.schema.TableRowConverter;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -366,11 +366,10 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @return {@link TableRow} based on given key and value.
      */
     private static TableRow prepareRow(String entryKey, String entryVal) {
-        BinaryRow binaryRow = new RowAssembler(ROW_SCHEMA, 1, 1)
-                .appendString(Objects.requireNonNull(entryKey, "entryKey"))
-                .appendString(Objects.requireNonNull(entryVal, "entryVal"))
-                .build();
-        return TableRowConverter.fromBinaryRow(binaryRow, converter);
+        TableRowBuilder builder = new TableRowBuilder(ROW_SCHEMA);
+        builder.appendString(Objects.requireNonNull(entryKey, "entryKey"))
+                .appendString(Objects.requireNonNull(entryVal, "entryVal"));
+        return builder.buildTableRow();
     }
 
     /**

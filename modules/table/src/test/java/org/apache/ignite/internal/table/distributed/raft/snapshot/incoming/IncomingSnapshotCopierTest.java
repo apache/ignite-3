@@ -53,15 +53,12 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryConverter;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.schema.TableRowConverter;
+import org.apache.ignite.internal.schema.TableRowBuilder;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -107,11 +104,12 @@ public class IncomingSnapshotCopierTest {
 
     private static final int TEST_PARTITION = 0;
 
-    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("key", NativeTypes.stringOf(256), false)},
-            new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
-    );
+    private static final int SCHEMA_VERSION = 1;
+
+    private static final BinaryTupleSchema SCHEMA = BinaryTupleSchema.create(new Element[]{
+            new Element(NativeTypes.stringOf(256), false),
+            new Element(NativeTypes.stringOf(256), false)
+    });
 
     private static final HybridClock HYBRID_CLOCK = new HybridClockImpl();
 
@@ -374,8 +372,9 @@ public class IncomingSnapshotCopierTest {
     }
 
     private static TableRow createRow(String key, String value) {
-        BinaryRow binaryRow = new RowAssembler(SCHEMA_DESCRIPTOR, 1, 1).appendString(key).appendString(value).build();
-        return TableRowConverter.fromBinaryRow(binaryRow, BinaryConverter.forRow(SCHEMA_DESCRIPTOR));
+        TableRowBuilder builder = new TableRowBuilder(SCHEMA, SCHEMA_VERSION);
+        builder.appendStringNotNull(key).appendStringNotNull(value);
+        return builder.buildTableRow();
     }
 
     private static void assertEqualsMvRows(MvPartitionStorage expected, MvPartitionStorage actual, List<RowId> rowIds) {
@@ -391,8 +390,8 @@ public class IncomingSnapshotCopierTest {
 
                 String msg = "RowId=" + rowId + ", i=" + i;
 
-                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), expReadResult.tableRow().tupleSlice());
-                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), actReadResult.tableRow().tupleSlice());
+                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA.elementCount(), expReadResult.tableRow().tupleSlice());
+                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA.elementCount(), actReadResult.tableRow().tupleSlice());
 
                 assertEquals(expTuple.stringValue(0), actTuple.stringValue(0), msg);
                 assertEquals(expTuple.stringValue(1), actTuple.stringValue(1), msg);

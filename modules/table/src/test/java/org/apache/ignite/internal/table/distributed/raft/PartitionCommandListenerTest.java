@@ -72,6 +72,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowBuilder;
 import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -566,9 +567,9 @@ public class PartitionCommandListenerTest {
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, i);
+            TableRow row = getTestTableRow(i, i);
 
-            rows.put(Timestamp.nextVersion().toUuid(), toTableRow(row).byteBuffer());
+            rows.put(Timestamp.nextVersion().toUuid(), row.byteBuffer());
         }
 
         HybridTimestamp commitTimestamp = CLOCK.now();
@@ -794,7 +795,7 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i);
+            TableRow row = getTestTableRow(i, i);
             txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
@@ -805,7 +806,7 @@ public class PartitionCommandListenerTest {
                                     .tableId(txId)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(Timestamp.nextVersion().toUuid())
-                            .rowBuffer(toTableRow(row).byteBuffer())
+                            .rowBuffer(row.byteBuffer())
                             .txId(txId)
                             .safeTime(hybridTimestamp(hybridClock.now()))
                             .build());
@@ -842,7 +843,7 @@ public class PartitionCommandListenerTest {
     }
 
     /**
-     * Prepares a test row which contains key and value fields.
+     * Prepares a test binary row which contains key and value fields.
      *
      * @return Row.
      */
@@ -853,6 +854,20 @@ public class PartitionCommandListenerTest {
         rowBuilder.appendInt(val);
 
         return new Row(SCHEMA, rowBuilder.build());
+    }
+
+    /**
+     * Prepares a test table row which contains key and value fields.
+     *
+     * @return Row.
+     */
+    private TableRow getTestTableRow(int key, int val) {
+        TableRowBuilder builder = new TableRowBuilder(SCHEMA);
+
+        builder.appendInt(key);
+        builder.appendInt(val);
+
+        return builder.buildTableRow();
     }
 
     private void invokeBatchedCommand(WriteCommand cmd) {

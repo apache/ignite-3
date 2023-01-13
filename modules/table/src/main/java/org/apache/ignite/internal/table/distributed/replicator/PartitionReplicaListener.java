@@ -1481,7 +1481,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return toTableRow(searchRow).thenCompose(tableRow -> takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), tableRow, txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), tableRow.byteBuffer(), txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1503,7 +1503,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return toTableRow(searchRow).thenCompose(tableRow -> lockFut
                             .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), tableRow, txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), tableRow.byteBuffer(), txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1525,7 +1525,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return toTableRow(searchRow).thenCompose(tableRow -> lockFut
                             .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId0.uuid(), tableRow, txId))
+                                    updateCommand(commitPartitionId, rowId0.uuid(), tableRow.byteBuffer(), txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1543,7 +1543,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return toTableRow(searchRow).thenCompose(tableRow -> takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowIdLock -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId.uuid(), tableRow, txId))
+                                    updateCommand(commitPartitionId, rowId.uuid(), tableRow.byteBuffer(), txId))
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1561,7 +1561,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return toTableRow(searchRow).thenCompose(tableRow -> takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowLock -> applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, rowId.uuid(), tableRow, txId))
+                                    updateCommand(commitPartitionId, rowId.uuid(), tableRow.byteBuffer(), txId))
                                     .thenApply(ignored -> rowLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
@@ -1723,7 +1723,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
 
                             return applyCmdWithExceptionHandling(
-                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), tableRow, txId))
+                                    updateCommand(commitPartitionId, validatedRowId.get1().uuid(), tableRow.byteBuffer(), txId))
                                     .thenApply(ignored -> validatedRowId)
                                     .thenApply(rowIdLock -> {
                                         // Release short term locks.
@@ -1944,19 +1944,19 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param tablePartId {@link TablePartitionId} object to construct {@link UpdateCommand} object with.
      * @param rowUuid Row UUID.
-     * @param row {@link BinaryRow}.
+     * @param rowBuf {@link ByteBuffer} representation of {@link TableRow}.
      * @param txId Transaction ID.
      * @return Constructed {@link UpdateCommand} object.
      */
-    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, TableRow row, UUID txId) {
+    private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, ByteBuffer rowBuf, UUID txId) {
         UpdateCommandBuilder bldr = msgFactory.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .safeTime(hybridTimestamp(hybridClock.now()));
 
-        if (row != null) {
-            bldr.rowBuffer(row.byteBuffer());
+        if (rowBuf != null) {
+            bldr.rowBuffer(rowBuf);
         }
 
         return bldr.build();
