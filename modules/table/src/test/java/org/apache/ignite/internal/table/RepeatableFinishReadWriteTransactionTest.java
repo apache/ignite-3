@@ -1,7 +1,26 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -29,11 +48,10 @@ import org.junit.jupiter.api.Test;
 public class RepeatableFinishReadWriteTransactionTest {
     @Test
     public void testRepeatableCommitRollbackAfterCommit() throws Exception {
-        CountDownLatch txStartedLatch = new CountDownLatch(1);
-
+        CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 
-        TestTxManager txManager = new TestTxManager(txStartedLatch, secondFinishLatch);
+        TestTxManager txManager = new TestTxManager(txFinishStartedLatch, secondFinishLatch);
 
         ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
 
@@ -43,9 +61,7 @@ public class RepeatableFinishReadWriteTransactionTest {
 
         tx.assignCommitPartition(partId);
 
-        CompletableFuture<Object> enlistFut = completedFuture(null);
-
-        tx.enlistResultFuture(enlistFut);
+        tx.enlistResultFuture(completedFuture(null));
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -53,24 +69,17 @@ public class RepeatableFinishReadWriteTransactionTest {
 
         fut.complete(null);
 
-
-//        CompletableFuture<Object> fut = new CompletableFuture<>();
-//
-//        CompletableFuture<Void> firstCommitFut = fut.thenComposeAsync((ignored) -> tx.commitAsync());
-//
-//        fut.complete(null);
-
-
-        txStartedLatch.await();
+        txFinishStartedLatch.await();
 
         CompletableFuture<Void> secondCommitFut = tx.commitAsync();
 
         CompletableFuture<Void> rollbackFut = tx.rollbackAsync();
 
-        assertFalse(firstCommitFut == secondCommitFut);
-        assertFalse(secondCommitFut == rollbackFut);
-        assertTrue(secondCommitFut == tx.commitAsync());
-        assertFalse(rollbackFut == tx.rollbackAsync());
+        assertNotSame(firstCommitFut, secondCommitFut);
+        assertNotSame(secondCommitFut, rollbackFut);
+        assertNotSame(firstCommitFut, rollbackFut);
+        assertSame(secondCommitFut, tx.commitAsync());
+        assertNotSame(rollbackFut, tx.rollbackAsync());
 
         assertFalse(firstCommitFut.isDone());
         assertFalse(secondCommitFut.isDone());
@@ -81,13 +90,13 @@ public class RepeatableFinishReadWriteTransactionTest {
         firstCommitFut.get(3, TimeUnit.SECONDS);
         assertTrue(secondCommitFut.isDone());
     }
+
     @Test
     public void testRepeatableCommitRollbackAfterRollback() throws Exception {
-        CountDownLatch txStartedLatch = new CountDownLatch(1);
-
+        CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 
-        TestTxManager txManager = new TestTxManager(txStartedLatch, secondFinishLatch);
+        TestTxManager txManager = new TestTxManager(txFinishStartedLatch, secondFinishLatch);
 
         ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
 
@@ -97,9 +106,7 @@ public class RepeatableFinishReadWriteTransactionTest {
 
         tx.assignCommitPartition(partId);
 
-        CompletableFuture<Object> enlistFut = completedFuture(null);
-
-        tx.enlistResultFuture(enlistFut);
+        tx.enlistResultFuture(completedFuture(null));
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -107,34 +114,34 @@ public class RepeatableFinishReadWriteTransactionTest {
 
         fut.complete(null);
 
+        txFinishStartedLatch.await();
 
-        txStartedLatch.await();
+        CompletableFuture<Void> commitFut = tx.commitAsync();
 
-        CompletableFuture<Void> secondCommitFut = tx.commitAsync();
+        CompletableFuture<Void> secondRollbackFut = tx.rollbackAsync();
 
-        CompletableFuture<Void> rollbackFut = tx.rollbackAsync();
-
-        assertFalse(firstRollbackFut == secondCommitFut);
-        assertFalse(secondCommitFut == rollbackFut);
+        assertNotSame(firstRollbackFut, commitFut);
+        assertNotSame(commitFut, secondRollbackFut);
+        assertNotSame(firstRollbackFut, secondRollbackFut);
 
         assertFalse(firstRollbackFut.isDone());
-        assertTrue(secondCommitFut.isDone());
-        assertTrue(rollbackFut.isDone());
+        assertTrue(commitFut.isDone());
+        assertTrue(secondRollbackFut.isDone());
 
         secondFinishLatch.countDown();
 
         firstRollbackFut.get(3, TimeUnit.SECONDS);
-        assertTrue(secondCommitFut.isDone());
-        assertTrue(rollbackFut.isDone());
+        assertTrue(commitFut.isDone());
+        assertTrue(secondRollbackFut.isDone());
     }
 
     private static class TestTxManager implements TxManager {
-        private final CountDownLatch txStartedLatch;
+        private final CountDownLatch txFinishStartedLatch;
 
         private final CountDownLatch secondFinishLatch;
 
-        public TestTxManager(CountDownLatch txStartedLatch, CountDownLatch secondFinishLatch) {
-            this.txStartedLatch = txStartedLatch;
+        TestTxManager(CountDownLatch txFinishStartedLatch, CountDownLatch secondFinishLatch) {
+            this.txFinishStartedLatch = txFinishStartedLatch;
             this.secondFinishLatch = secondFinishLatch;
         }
 
@@ -166,7 +173,7 @@ public class RepeatableFinishReadWriteTransactionTest {
         @Override
         public CompletableFuture<Void> finish(ReplicationGroupId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
                 Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups, UUID txId) {
-            txStartedLatch.countDown();
+            txFinishStartedLatch.countDown();
 
             try {
                 secondFinishLatch.await();
@@ -181,15 +188,7 @@ public class RepeatableFinishReadWriteTransactionTest {
         public CompletableFuture<Void> cleanup(ClusterNode recipientNode,
                 List<IgniteBiTuple<ReplicationGroupId, Long>> replicationGroupIds, UUID txId, boolean commit,
                 HybridTimestamp commitTimestamp) {
-            txStartedLatch.countDown();
-
-            try {
-                secondFinishLatch.await();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-
-            return completedFuture(null);
+            return null;
         }
 
         @Override
@@ -207,5 +206,4 @@ public class RepeatableFinishReadWriteTransactionTest {
 
         }
     }
-
 }

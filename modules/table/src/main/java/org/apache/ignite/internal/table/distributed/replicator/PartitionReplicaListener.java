@@ -113,6 +113,7 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -951,7 +952,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         boolean commit = request.commit();
 
-        CompletableFuture<Object> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
+        CompletableFuture<Boolean> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture[] cleanupFutures = new CompletableFuture[request.groups().size()];
@@ -961,7 +962,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 (recipientNode, replicationGroupIds) ->
                         cleanupFutures[cleanupFuturesCnt.getAndIncrement()] =
                                 changeStateFuture.thenCompose(isStateChanged -> {
-                                    if ((Boolean) isStateChanged) {
+                                    if (isStateChanged) {
                                         return txManager.cleanup(
                                                 recipientNode,
                                                 replicationGroupIds,
@@ -985,9 +986,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param aggregatedGroupIds Replication groups identifies which are enlisted in the transaction.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
-     * @return Future to wait of the finish.
+     * @return Future is completed with {@code true}
+     *      if {@link TxManager#cleanup(ClusterNode, List, UUID, boolean, HybridTimestamp)} is needed.
      */
-    private CompletableFuture<Object> finishTransaction(List<ReplicationGroupId> aggregatedGroupIds, UUID txId, boolean commit) {
+    private CompletableFuture<Boolean> finishTransaction(List<ReplicationGroupId> aggregatedGroupIds, UUID txId, boolean commit) {
         // TODO: IGNITE-17261 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
@@ -1013,7 +1015,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             txTimestampUpdateMap.remove(txId);
         });
 
-        return changeStateFuture;
+        return changeStateFuture.thenApply(Boolean.class::cast);
     }
 
 

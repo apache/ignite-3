@@ -38,9 +38,10 @@ public class ClientTransaction implements Transaction {
     /** Transaction id. */
     private final long id;
 
-    /** State. */
+    /** The future used on repeated commit/rollback. */
     private AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
 
+    /** {@code true} if commit is started. */
     private volatile boolean commitState;
 
     /**

@@ -53,8 +53,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Reference to the partition that stores the transaction state. */
     private final AtomicReference<ReplicationGroupId> commitPartitionRef = new AtomicReference<>();
 
+    /** The future used on repeated commit/rollback. */
     private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
 
+    /** {@code true} if commit is started. */
     private volatile boolean commitState;
 
     /**
