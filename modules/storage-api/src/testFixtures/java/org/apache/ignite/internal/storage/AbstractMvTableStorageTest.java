@@ -66,6 +66,7 @@ import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteTuple3;
@@ -698,6 +699,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageRebalanceException.class, cursor::hasNext);
         assertThrows(StorageRebalanceException.class, cursor::next);
+
+        if (cursor instanceof PeekCursor) {
+            assertThrows(StorageRebalanceException.class, ((PeekCursor<?>) cursor)::peek);
+        }
     }
 
     private void fillStorages(
@@ -762,8 +767,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     ) {
         for (IgniteTuple3<RowId, BinaryRow, HybridTimestamp> row : rows) {
             assertThat(
-                    getAll(mvPartitionStorage.scanVersions(row.get1())).stream().map(ReadResult::binaryRow).collect(toList()),
-                    containsInAnyOrder(row.get2())
+                    toListOfByteArrays(mvPartitionStorage.scanVersions(row.get1())),
+                    containsInAnyOrder(row.get2().bytes())
             );
 
             IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), row.get2(), row.get1());
@@ -783,5 +788,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertEquals(expLastAppliedIndex, storage.lastAppliedIndex());
         assertEquals(expPersistentIndex, storage.persistedIndex());
         assertEquals(expLastAppliedTerm, storage.lastAppliedTerm());
+    }
+
+    private static List<byte[]> toListOfByteArrays(Cursor<ReadResult> cursor) {
+        try (cursor) {
+            return cursor.stream().map(ReadResult::binaryRow).map(BinaryRow::bytes).collect(toList());
+        }
     }
 }
