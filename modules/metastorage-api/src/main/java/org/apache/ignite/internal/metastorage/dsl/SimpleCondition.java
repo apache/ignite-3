@@ -79,7 +79,6 @@ public class SimpleCondition implements Condition {
      * given key, is tombstone.
      *
      * @return The condition of type {@link ConditionType#TOMBSTONE}.
-     * @throws IllegalStateException In the case when the condition is already defined.
      */
     public static SimpleCondition tombstone(byte[] key) {
         return new SimpleCondition(key, ConditionType.TOMBSTONE);
@@ -90,7 +89,6 @@ public class SimpleCondition implements Condition {
      * given key.
      *
      * @return The condition of type {@link ConditionType#KEY_EXISTS}.
-     * @throws IllegalStateException In the case when the condition is already defined.
      */
     public static SimpleCondition exists(byte[] key) {
         return new SimpleCondition(key, ConditionType.KEY_EXISTS);
@@ -101,7 +99,6 @@ public class SimpleCondition implements Condition {
      * identified by the given key.
      *
      * @return The condition of type {@link ConditionType#KEY_NOT_EXISTS}.
-     * @throws IllegalStateException In the case when the condition is already defined.
      */
     public static SimpleCondition notExists(byte[] key) {
         return new SimpleCondition(key, ConditionType.KEY_NOT_EXISTS);
@@ -123,7 +120,6 @@ public class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition eq(long rev) {
             return new RevisionCondition(key, ConditionType.REV_EQUAL, rev);
@@ -135,7 +131,6 @@ public class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_NOT_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ne(long rev) {
             return new RevisionCondition(key, ConditionType.REV_NOT_EQUAL, rev);
@@ -147,7 +142,6 @@ public class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_GREATER}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition gt(long rev) {
             return new RevisionCondition(key, ConditionType.REV_GREATER, rev);
@@ -159,7 +153,6 @@ public class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_GREATER_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ge(long rev) {
             return new RevisionCondition(key, ConditionType.REV_GREATER_OR_EQUAL, rev);
@@ -171,7 +164,6 @@ public class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_LESS}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition lt(long rev) {
             return new RevisionCondition(key, ConditionType.REV_LESS, rev);
@@ -183,7 +175,6 @@ public class SimpleCondition implements Condition {
          *
          * @param rev The revision.
          * @return The condition of type {@link ConditionType#REV_LESS_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition le(long rev) {
             return new RevisionCondition(key, ConditionType.REV_LESS_OR_EQUAL, rev);
@@ -234,7 +225,6 @@ public class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition eq(byte[] val) {
             return new ValueCondition(key, ConditionType.VAL_EQUAL, val);
@@ -246,12 +236,10 @@ public class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_NOT_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ne(byte[] val) {
             return new ValueCondition(key, ConditionType.VAL_NOT_EQUAL, val);
         }
-
 
         /**
          * Produces the condition of type {@link ConditionType#VAL_GREATER}. This condition tests that the target entry value is greater
@@ -259,7 +247,6 @@ public class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_GREATER}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition gt(byte[] val) {
             return new ValueCondition(key, ConditionType.VAL_GREATER, val);
@@ -271,7 +258,6 @@ public class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_GREATER_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition ge(byte[] val) {
             return new ValueCondition(key, ConditionType.VAL_GREATER_OR_EQUAL, val);
@@ -283,7 +269,6 @@ public class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_LESS}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition lt(byte[] val) {
             return new ValueCondition(key, ConditionType.VAL_LESS, val);
@@ -295,7 +280,6 @@ public class SimpleCondition implements Condition {
          *
          * @param val The value.
          * @return The condition of type {@link ConditionType#VAL_LESS_OR_EQUAL}.
-         * @throws IllegalStateException In the case when the condition is already defined.
          */
         public SimpleCondition le(byte[] val) {
             return new ValueCondition(key, ConditionType.VAL_LESS_OR_EQUAL, val);
