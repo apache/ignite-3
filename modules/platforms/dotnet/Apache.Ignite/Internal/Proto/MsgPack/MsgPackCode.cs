@@ -26,16 +26,12 @@ using System.Diagnostics.CodeAnalysis;
 [SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "MsgPack names.")]
 internal static class MsgPackCode
 {
-    public const byte MinFixInt = 0x00; // 0
-    public const byte MaxFixInt = 0x7f; // 127
-    public const byte MinFixMap = 0x80; // 128
-    public const byte MaxFixMap = 0x8f; // 143
-    public const byte MinFixArray = 0x90; // 144
-    public const byte MaxFixArray = 0x9f; // 159
-    public const byte MinFixStr = 0xa0; // 160
-    public const byte MaxFixStr = 0xbf; // 191
+    public const byte MinFixInt = 0x00;
+    public const byte MaxFixInt = 0x7f;
+    public const byte MinFixMap = 0x80;
+    public const byte MinFixArray = 0x90;
+    public const byte MinFixStr = 0xa0;
     public const byte Nil = 0xc0;
-    public const byte NeverUsed = 0xc1;
     public const byte False = 0xc2;
     public const byte True = 0xc3;
     public const byte Bin8 = 0xc4;
@@ -78,8 +74,6 @@ internal static class MsgPackCode
     public static bool IsFixMap(byte code) => (code & 0b11110000) == 0b10000000;
 
     public static bool IsFixStr(byte code) => (code & 0b11100000) == 0b10100000;
-
-    public static bool IsFixRaw(byte code) => (code & 0b11100000) == 0b10100000;
 
     public static bool IsInt32(byte code) =>
         IsPosFixInt(code) || IsNegFixInt(code) || code is Int8 or UInt8 or Int16 or UInt16 or Int32 or UInt32;

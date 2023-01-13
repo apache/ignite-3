@@ -201,7 +201,6 @@ internal ref struct MsgPackReader
     public int ReadBinaryHeader() =>
         _span[_pos++] switch
         {
-            var code when MsgPackCode.IsFixRaw(code) => code & 0x1F,
             MsgPackCode.Bin8 => _span[_pos++],
             MsgPackCode.Bin16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
             MsgPackCode.Bin32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
