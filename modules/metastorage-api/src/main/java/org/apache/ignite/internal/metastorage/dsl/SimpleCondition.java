@@ -43,14 +43,33 @@ public class SimpleCondition implements Condition {
         return key;
     }
 
+    /**
+     * Returns the condition type.
+     *
+     * @return Condition type.
+     */
     public ConditionType type() {
         return type;
     }
 
+    /**
+     * Creates a builder for a revision condition.
+     *
+     * @param key Key, which identifies an entry, which condition will be applied to.
+     * @return Builder for a revision condition.
+     * @see RevisionCondition
+     */
     public static RevisionConditionBuilder revision(byte[] key) {
         return new RevisionConditionBuilder(key);
     }
 
+    /**
+     * Creates a builder for a value condition.
+     *
+     * @param key Key, which identifies an entry, which condition will be applied to.
+     * @return Builder for a value condition.
+     * @see ValueCondition
+     */
     public static ValueConditionBuilder value(byte[] key) {
         return new ValueConditionBuilder(key);
     }
@@ -172,8 +191,7 @@ public class SimpleCondition implements Condition {
     }
 
     /**
-     * Represents a condition on an entry revision. Only one type of condition could be applied to the one instance of a condition.
-     * Subsequent invocations of any method, which produces a condition will throw {@link IllegalStateException}.
+     * Represents a condition on an entry revision.
      */
     public static final class RevisionCondition extends SimpleCondition {
         /** The revision as the condition argument. */
@@ -192,6 +210,9 @@ public class SimpleCondition implements Condition {
             this.rev = rev;
         }
 
+        /**
+         * Returns the revision that will be used as a part of this condition.
+         */
         public long revision() {
             return rev;
         }
@@ -282,8 +303,7 @@ public class SimpleCondition implements Condition {
     }
 
     /**
-     * Represents a condition on an entry value. Only the one type of condition could be applied to the one instance of a condition.
-     * Subsequent invocations of any method, which produces a condition will throw {@link IllegalStateException}.
+     * Represents a condition on an entry value.
      */
     public static final class ValueCondition extends SimpleCondition {
         /** The value as the condition argument. */
@@ -300,6 +320,9 @@ public class SimpleCondition implements Condition {
             this.val = val;
         }
 
+        /**
+         * Returns the value that will be used as a part of this condition.
+         */
         public byte[] value() {
             return val;
         }

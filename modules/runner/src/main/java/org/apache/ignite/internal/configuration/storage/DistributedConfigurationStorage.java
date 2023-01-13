@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 import java.io.Serializable;
@@ -167,7 +168,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                         continue;
                     }
 
-                    String dataKey = new String(key, StandardCharsets.UTF_8).substring(DISTRIBUTED_PREFIX.length());
+                    String dataKey = new String(key, UTF_8).substring(DISTRIBUTED_PREFIX.length());
 
                     data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
                 }
@@ -313,7 +314,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                         if (Arrays.equals(e.key(), MASTER_KEY.bytes())) {
                             masterKeyEntry = e;
                         } else {
-                            String key = new String(e.key(), StandardCharsets.UTF_8).substring(DISTRIBUTED_PREFIX.length());
+                            String key = new String(e.key(), UTF_8).substring(DISTRIBUTED_PREFIX.length());
 
                             Serializable value = e.value() == null ? null : ConfigurationSerializationUtil.fromBytes(e.value());
 

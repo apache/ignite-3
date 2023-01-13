@@ -90,16 +90,22 @@ public final class Operation {
     }
 
     /**
-     * Represents operation of type <i>remove</i>.
+     * Creates an operation of type <i>remove</i>.
      */
     public static Operation remove(byte[] key) {
         return new Operation(OperationType.REMOVE, key, null);
     }
 
+    /**
+     * Creates an operation of type <i>put</i>.
+     */
     public static Operation put(byte[] key, byte[] val) {
         return new Operation(OperationType.PUT, key, val);
     }
 
+    /**
+     * Creates an operation of type <i>no-op</i>.
+     */
     public static Operation noOp() {
         return new Operation(OperationType.NO_OP, null, null);
     }

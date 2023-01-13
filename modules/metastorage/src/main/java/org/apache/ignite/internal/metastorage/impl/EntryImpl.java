@@ -37,9 +37,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>Instance of {@link #EntryImpl} could represent:
  * <ul>
  *     <li>A regular entry which stores a particular key, a value and a revision number.</li>
- *     <li>An empty entry which denotes absence a regular entry in the meta storage for a given key.
+ *     <li>An empty entry which denotes absence of a regular entry in the meta storage for a given key.
  *     A revision is 0 for such kind of entry.</li>
- *     <li>A tombstone entry which denotes that a regular entry for a given key was removed from storage on some revision.</li>
+ *     <li>A tombstone entry which denotes that a regular entry for a given key was removed from the storage at some revision.</li>
  * </ul>
  */
 public final class EntryImpl implements Entry {
