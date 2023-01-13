@@ -30,7 +30,7 @@ import org.apache.ignite.lang.ByteArray;
  */
 public final class Operations {
     /** No-op operation singleton. */
-    private static final Operation.NoOp NO_OP = new Operation.NoOp();
+    private static final Operation NO_OP = Operation.noOp();
 
     /** Operations. */
     private final Operation[] operations;
@@ -90,7 +90,7 @@ public final class Operations {
      * @return Operation of type <i>remove</i>.
      */
     public static Operation remove(ByteArray key) {
-        return new Operation(new Operation.RemoveOp(key.bytes()));
+        return Operation.remove(key.bytes());
     }
 
     /**
@@ -101,7 +101,7 @@ public final class Operations {
      * @return Operation of type <i>put</i>.
      */
     public static Operation put(ByteArray key, byte[] value) {
-        return new Operation(new Operation.PutOp(key.bytes(), value));
+        return Operation.put(key.bytes(), value);
     }
 
     /**
@@ -110,6 +110,6 @@ public final class Operations {
      * @return Operation of type <i>noop</i>.
      */
     public static Operation noop() {
-        return new Operation(NO_OP);
+        return NO_OP;
     }
 }

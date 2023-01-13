@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * This class contains fabric methods which produce conditions needed for a conditional multi update functionality provided by the meta
@@ -34,8 +33,8 @@ public final class Conditions {
      * @return Condition on entry revision.
      * @see SimpleCondition.RevisionCondition
      */
-    public static SimpleCondition.RevisionCondition revision(@NotNull ByteArray key) {
-        return new SimpleCondition.RevisionCondition(key.bytes());
+    public static SimpleCondition.RevisionConditionBuilder revision(ByteArray key) {
+        return SimpleCondition.revision(key.bytes());
     }
 
     /**
@@ -45,8 +44,8 @@ public final class Conditions {
      * @return Condition on entry value.
      * @see SimpleCondition.ValueCondition
      */
-    public static SimpleCondition.ValueCondition value(@NotNull ByteArray key) {
-        return new SimpleCondition.ValueCondition(key.bytes());
+    public static SimpleCondition.ValueConditionBuilder value(ByteArray key) {
+        return SimpleCondition.value(key.bytes());
     }
 
     /**
@@ -55,8 +54,8 @@ public final class Conditions {
      * @param key Identifies an entry, which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry existence.
      */
-    public static SimpleCondition exists(@NotNull ByteArray key) {
-        return new SimpleCondition.ExistenceCondition(key.bytes()).exists();
+    public static SimpleCondition exists(ByteArray key) {
+        return SimpleCondition.exists(key.bytes());
     }
 
     /**
@@ -65,8 +64,8 @@ public final class Conditions {
      * @param key Identifies an entry, which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry not existence.
      */
-    public static SimpleCondition notExists(@NotNull ByteArray key) {
-        return new SimpleCondition.ExistenceCondition(key.bytes()).notExists();
+    public static SimpleCondition notExists(ByteArray key) {
+        return SimpleCondition.notExists(key.bytes());
     }
 
     /**
@@ -75,8 +74,8 @@ public final class Conditions {
      * @param key Identifies an entry, which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry's value is tombstone.
      */
-    public static SimpleCondition tombstone(@NotNull ByteArray key) {
-        return new SimpleCondition.TombstoneCondition(key.bytes()).tombstone();
+    public static SimpleCondition tombstone(ByteArray key) {
+        return SimpleCondition.tombstone(key.bytes());
     }
 
     /**

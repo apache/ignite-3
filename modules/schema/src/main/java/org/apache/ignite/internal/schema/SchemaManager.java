@@ -22,10 +22,14 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -433,7 +437,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             int lastVer = INITIAL_SCHEMA_VERSION;
 
             for (Entry ent : cur) {
-                String key = ent.key().toString();
+                String key = new String(ent.key(), StandardCharsets.UTF_8);
                 int descVer = extractVerFromSchemaKey(key);
 
                 if (descVer > lastVer) {
@@ -455,19 +459,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      */
     private byte[] schemaByVersion(UUID tblId, int ver) {
         try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaWithVerHistKey(tblId, ver));
+            return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
+                    .thenApply(Entry::value)
+                    .get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
 
-            if (cur.hasNext()) {
-                Entry ent = cur.next();
-
-                assert !cur.hasNext();
-
-                return ent.value();
-            }
-
-            return null;
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+            throw new IgniteInternalException("Interrupted when getting schema from metastorage", e);
+        } catch (TimeoutException | ExecutionException e) {
+            throw new IgniteInternalException("Exception when getting schema from metastorage", e);
         }
     }
 

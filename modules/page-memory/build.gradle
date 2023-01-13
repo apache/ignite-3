@@ -39,6 +39,7 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.auto.service.annotations
 

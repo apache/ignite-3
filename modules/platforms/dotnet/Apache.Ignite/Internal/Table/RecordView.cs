@@ -403,7 +403,7 @@ namespace Apache.Ignite.Internal.Table
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
-            PooledArrayBufferWriter? request = null,
+            PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default) =>
             await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
 

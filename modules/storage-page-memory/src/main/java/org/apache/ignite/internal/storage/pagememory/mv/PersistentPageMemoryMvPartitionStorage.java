@@ -283,6 +283,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         rowVersionFreeList.close();
         indexFreeList.close();
+        blobStorage.close();
     }
 
     /**

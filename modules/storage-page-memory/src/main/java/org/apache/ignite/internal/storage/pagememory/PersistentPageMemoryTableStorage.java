@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -100,43 +97,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     @Override
-    public CompletableFuture<Void> destroy() {
-        if (!CLOSED.compareAndSet(this, false, true)) {
-            return completedFuture(null);
-        }
-
-        busyLock.block();
-
-        List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
-
-        for (int i = 0; i < mvPartitions.length(); i++) {
-            CompletableFuture<Void> destroyPartitionFuture = destroyFutureByPartitionId.get(i);
-
-            if (destroyPartitionFuture != null) {
-                destroyFutures.add(destroyPartitionFuture);
-            } else {
-                AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
-
-                if (partition != null) {
-                    destroyFutures.add(destroyMvPartitionStorage(partition));
-                }
-            }
-        }
-
-        int tableId = tableConfig.tableId().value();
-
-        if (destroyFutures.isEmpty()) {
-            dataRegion.pageMemory().onGroupDestroyed(tableId);
-
-            return completedFuture(null);
-        } else {
-            return CompletableFuture.allOf(destroyFutures.toArray(CompletableFuture[]::new))
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable == null) {
-                            dataRegion.pageMemory().onGroupDestroyed(tableId);
-                        }
-                    });
-        }
+    protected void finishDestruction() {
+        dataRegion.pageMemory().onGroupDestroyed(tableConfig.tableId().value());
     }
 
     @Override

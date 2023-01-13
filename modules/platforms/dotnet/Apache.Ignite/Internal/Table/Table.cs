@@ -25,8 +25,8 @@ namespace Apache.Ignite.Internal.Table
     using Buffers;
     using Ignite.Table;
     using Ignite.Transactions;
-    using MessagePack;
     using Proto;
+    using Proto.MsgPack;
     using Serialization;
     using Sql;
 
@@ -251,7 +251,7 @@ namespace Apache.Ignite.Internal.Table
 
             void Write()
             {
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
                 w.Write(Id);
 
                 if (version == null)
@@ -263,8 +263,6 @@ namespace Apache.Ignite.Internal.Table
                     w.WriteArrayHeader(1);
                     w.Write(version.Value);
                 }
-
-                w.Flush();
             }
 
             Schema Read()
@@ -294,7 +292,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="r">Reader.</param>
         /// <returns>Schema.</returns>
-        private Schema ReadSchema(ref MessagePackReader r)
+        private Schema ReadSchema(ref MsgPackReader r)
         {
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadArrayHeader();
@@ -350,17 +348,10 @@ namespace Apache.Ignite.Internal.Table
         private async Task<string[]> LoadPartitionAssignmentAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            Write();
+            writer.MessageWriter.Write(Id);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
-
-            void Write()
-            {
-                var w = writer.GetMessageWriter();
-                w.Write(Id);
-                w.Flush();
-            }
 
             string[] Read()
             {

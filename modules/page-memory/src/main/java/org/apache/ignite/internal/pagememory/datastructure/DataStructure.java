@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.toDetailStr
 
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -46,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base class for all the data structures based on {@link PageMemory}.
  */
-public abstract class DataStructure {
+public abstract class DataStructure implements ManuallyCloseable {
     /** For tests. */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
     public static Random rnd;
@@ -470,6 +471,7 @@ public abstract class DataStructure {
     /**
      * Frees the resources allocated by this structure.
      */
+    @Override
     public void close() {
         lockLsnr.close();
     }

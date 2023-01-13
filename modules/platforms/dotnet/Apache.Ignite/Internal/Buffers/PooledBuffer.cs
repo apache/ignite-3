@@ -20,7 +20,7 @@ namespace Apache.Ignite.Internal.Buffers
     using System;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
-    using MessagePack;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Pooled byte buffer. Wraps a byte array rented from <see cref="ByteArrayPool"/>,
@@ -60,11 +60,11 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
-        /// Gets a <see cref="MessagePackReader"/> for this buffer.
+        /// Gets a <see cref="MsgPackReader"/> for this buffer.
         /// </summary>
         /// <param name="offset">Offset.</param>
-        /// <returns><see cref="MessagePackReader"/> for this buffer.</returns>
-        public MessagePackReader GetReader(int offset = 0) => new(AsMemory(offset));
+        /// <returns><see cref="MsgPackReader"/> for this buffer.</returns>
+        public MsgPackReader GetReader(int offset = 0) => new(_bytes.AsSpan(_position + offset, _length - offset));
 
         /// <summary>
         /// Gets this buffer contents as memory.

@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.metastorage.server.ExistenceCondition.T
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,13 +39,13 @@ public class ExistenceConditionTest {
     private static final byte[] VAL = new byte[]{1};
 
     /** Regular entry. */
-    private static final Entry ENTRY = new Entry(KEY, VAL, 1, 1);
+    private static final Entry ENTRY = new EntryImpl(KEY, VAL, 1, 1);
 
     /** Empty entry. */
-    private static final Entry EMPTY = Entry.empty(KEY);
+    private static final Entry EMPTY = EntryImpl.empty(KEY);
 
     /** Tombstone entry. */
-    private static final Entry TOMBSTONE = Entry.tombstone(KEY, 1, 1);
+    private static final Entry TOMBSTONE = EntryImpl.tombstone(KEY, 1, 1);
 
     /**
      * Tests {@link ExistenceCondition.Type#EXISTS} condition for regular, empty and tombstone entries.

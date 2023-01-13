@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import org.apache.ignite.internal.metastorage.dsl.Update;
+
 /**
  * Simple Either-like wrapper to hold one of the statement type: {@link If} or {@link Update}.
  * Needed to construct and simple deconstruction of nested {@link If},

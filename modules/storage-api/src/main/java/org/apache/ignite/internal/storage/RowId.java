@@ -38,6 +38,10 @@ public final class RowId implements Serializable, Comparable<RowId> {
         return new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
     }
 
+    public static RowId highestRowId(int partitionId) {
+        return new RowId(partitionId, Long.MAX_VALUE, Long.MAX_VALUE);
+    }
+
     /**
      * Create a row ID with the UUID value based on {@link UUID#randomUUID()}.
      * Intended for tests only, because random UUIDs are very slow when it comes to frequent usages.

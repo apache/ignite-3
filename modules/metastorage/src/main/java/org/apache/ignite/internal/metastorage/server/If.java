@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import org.apache.ignite.internal.metastorage.dsl.Update;
+
 /**
  * Root building block for the compound meta storage invoke command.
  * Contains of boolean condition and 2 branches of execution, like usual programming language's if.

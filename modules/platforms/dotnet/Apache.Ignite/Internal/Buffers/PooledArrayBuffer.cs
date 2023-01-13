@@ -18,28 +18,15 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System;
-    using System.Buffers;
     using System.Buffers.Binary;
     using System.Diagnostics;
     using System.IO;
-    using MessagePack;
+    using Proto.MsgPack;
 
     /// <summary>
-    /// Pooled buffer writer: integrates <see cref="MessagePackWriter"/> with <see cref="ArrayPool{T}"/>,
-    /// and adds the logic to prepend messages with size and other data (opcode, request id).
-    /// <para />
-    /// We reserve some bytes for the prefix because message size, op code and request ID are not known initially.
-    /// <para />
-    /// There are two ways to use <see cref="MessagePackWriter"/>: with a <see cref="SequencePool"/>,
-    /// or with a <see cref="IBufferWriter{T}"/>. SequencePool approach uses buffer pooling too, but still allocates
-    /// the final array with <c>MessagePackWriter.FlushAndGetArray</c>. We want to avoid all array allocations,
-    /// so we implement our own <see cref="IBufferWriter{T}"/> here.
-    /// <para />
-    /// Based on <see cref="ArrayBufferWriter{T}"/>, but uses <see cref="ByteArrayPool"/> to allocate arrays.
-    /// <para />
-    /// Not a struct because <see cref="GetMessageWriter"/> will cause boxing.
+    /// Pooled buffer with additional logic to prepend messages with size and other data (opcode, request id).
     /// </summary>
-    internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
+    internal sealed class PooledArrayBuffer : IDisposable
     {
         /** Prefix size. */
         private readonly int _prefixSize;
@@ -54,11 +41,11 @@ namespace Apache.Ignite.Internal.Buffers
         private volatile bool _disposed;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.
+        /// Initializes a new instance of the <see cref="PooledArrayBuffer"/> class.
         /// </summary>
         /// <param name="initialCapacity">Initial capacity.</param>
         /// <param name="prefixSize">Size of the reserved space at the start of the buffer.</param>
-        public PooledArrayBufferWriter(int initialCapacity = PooledBuffer.DefaultCapacity, int prefixSize = 0)
+        public PooledArrayBuffer(int initialCapacity = PooledBuffer.DefaultCapacity, int prefixSize = 0)
         {
             // NOTE: Shared pool has 1M elements limit before .NET 6.
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
@@ -66,6 +53,11 @@ namespace Apache.Ignite.Internal.Buffers
             _prefixSize = prefixSize;
             _index = prefixSize;
         }
+
+        /// <summary>
+        /// Gets the <see cref="MsgPackWriter"/> for this buffer.
+        /// </summary>
+        public MsgPackWriter MessageWriter => new(this);
 
         /// <summary>
         /// Gets the current position.
@@ -88,7 +80,10 @@ namespace Apache.Ignite.Internal.Buffers
             return new(_buffer, start: 0, length: _index);
         }
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Advances the index.
+        /// </summary>
+        /// <param name="count">Number of bytes to advance.</param>
         public void Advance(int count)
         {
             Debug.Assert(count >= 0, "count >= 0");
@@ -101,18 +96,30 @@ namespace Apache.Ignite.Internal.Buffers
             _index += count;
         }
 
-        /// <inheritdoc />
-        public Memory<byte> GetMemory(int sizeHint = 0)
+        /// <summary>
+        /// Gets a span for writing.
+        /// </summary>
+        /// <param name="size">Size.</param>
+        /// <returns>Span for writing.</returns>
+        public Span<byte> GetSpan(int size)
         {
-            CheckAndResizeBuffer(sizeHint);
-            return _buffer.AsMemory(_index);
+            CheckAndResizeBuffer(size);
+            return _buffer.AsSpan(_index, size);
         }
 
-        /// <inheritdoc />
-        public Span<byte> GetSpan(int sizeHint = 0)
+        /// <summary>
+        /// Gets a span for writing.
+        /// </summary>
+        /// <param name="size">Size.</param>
+        /// <returns>Span for writing.</returns>
+        public Span<byte> GetSpanAndAdvance(int size)
         {
-            CheckAndResizeBuffer(sizeHint);
-            return _buffer.AsSpan(_index);
+            CheckAndResizeBuffer(size);
+
+            var span = _buffer.AsSpan(_index, size);
+            Advance(size);
+
+            return span;
         }
 
         /// <summary>
@@ -132,12 +139,6 @@ namespace Apache.Ignite.Internal.Buffers
 
             return _buffer.AsSpan(_prefixSize + position, size);
         }
-
-        /// <summary>
-        /// Gets the <see cref="MessagePackWriter"/> for this buffer.
-        /// </summary>
-        /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
-        public MessagePackWriter GetMessageWriter() => new(this);
 
         /// <inheritdoc />
         public void Dispose()
