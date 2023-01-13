@@ -324,6 +324,36 @@ public class MsgPackReaderTests
     [Test]
     public void TestSkip()
     {
+        var bufWriter = new ArrayBufferWriter<byte>();
+        var writer = new MessagePackWriter(bufWriter);
+
+        writer.Write(new string('c', 32000));
+        writer.Write(1);
+        writer.Write(-1);
+        writer.Write(-64);
+        writer.Write(short.MaxValue);
+        writer.Write(short.MinValue);
+        writer.Write(int.MaxValue);
+        writer.Write(int.MinValue);
+        writer.Write(long.MaxValue);
+        writer.Write(long.MinValue);
+        writer.Write(true);
+        writer.Write(DateTime.Now);
+        writer.WriteNil();
+        writer.WriteMapHeader(1);
+        writer.Write("key");
+        writer.Write("val");
+        writer.WriteArrayHeader(1);
+        writer.Write("array-element");
+        writer.Write(new byte[] { 1, 2 });
+        writer.Write(true);
+        writer.Flush();
+
+        var reader = new MsgPackReader(bufWriter.WrittenSpan);
+        reader.Skip(16);
+        Assert.IsTrue(reader.ReadBoolean());
+
+        /*
         var res = WriteRead(
             buf =>
             {
@@ -349,6 +379,7 @@ public class MsgPackReaderTests
             });
 
         Assert.IsTrue(res);
+    */
     }
 
     private static T WriteRead<T>(Action<PooledArrayBuffer> write, Func<ReadOnlyMemory<byte>, T> read)

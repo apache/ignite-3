@@ -313,12 +313,12 @@ internal ref struct MsgPackReader
 
                 case MsgPackCode.Bin16:
                 case MsgPackCode.Str16:
-                    _pos += BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2));
+                    _pos = BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)) + _pos;
                     break;
 
                 case MsgPackCode.Bin32:
                 case MsgPackCode.Str32:
-                    _pos += checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4)));
+                    _pos = checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))) + _pos;
                     break;
 
                 case MsgPackCode.FixExt1:
@@ -342,15 +342,15 @@ internal ref struct MsgPackReader
                     break;
 
                 case MsgPackCode.Ext8:
-                    _pos += _span[_pos++] + 1;
+                    _pos += _span[_pos] + 2;
                     break;
 
                 case MsgPackCode.Ext16:
-                    _pos += BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)) + 1;
+                    _pos = BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)) + 1 + _pos;
                     break;
 
                 case MsgPackCode.Ext32:
-                    _pos += checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))) + 1;
+                    _pos = checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))) + 1 + _pos;
                     break;
 
                 case MsgPackCode.Array16:
