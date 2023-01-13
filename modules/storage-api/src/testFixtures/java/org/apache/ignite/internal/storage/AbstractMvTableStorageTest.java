@@ -507,13 +507,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         RowId rowId = new RowId(PARTITION_ID);
 
-        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), binaryRow, rowId);
-        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), binaryRow, rowId);
+        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), tableRow, rowId);
+        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), tableRow, rowId);
 
         mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.addWriteCommitted(rowId, binaryRow, clock.now());
+            mvPartitionStorage.addWriteCommitted(rowId, tableRow, clock.now());
 
             hashIndexStorage.put(hashIndexRow);
 
