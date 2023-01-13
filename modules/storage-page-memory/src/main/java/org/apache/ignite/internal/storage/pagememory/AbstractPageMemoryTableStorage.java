@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -107,6 +109,45 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             throw new StorageException("Failed to stop PageMemory table storage.", e);
         }
     }
+
+    @Override
+    public CompletableFuture<Void> destroy() {
+        started = false;
+
+        List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
+
+        for (int i = 0; i < mvPartitions.length(); i++) {
+            CompletableFuture<Void> destroyPartitionFuture = partitionIdDestroyFutureMap.get(i);
+
+            if (destroyPartitionFuture != null) {
+                destroyFutures.add(destroyPartitionFuture);
+            } else {
+                AbstractPageMemoryMvPartitionStorage partition = mvPartitions.getAndUpdate(i, p -> null);
+
+                if (partition != null) {
+                    destroyFutures.add(destroyMvPartitionStorage(partition));
+                }
+            }
+        }
+
+        if (destroyFutures.isEmpty()) {
+            finishDestruction();
+
+            return completedFuture(null);
+        } else {
+            return CompletableFuture.allOf(destroyFutures.toArray(CompletableFuture[]::new))
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable == null) {
+                            finishDestruction();
+                        }
+                    });
+        }
+    }
+
+    /**
+     * Executes actions needed to finish destruction after the table storage has been stopped and all partitions destroyed.
+     */
+    protected abstract void finishDestruction();
 
     /**
      * Returns a new instance of {@link AbstractPageMemoryMvPartitionStorage}.

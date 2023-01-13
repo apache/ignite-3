@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -51,8 +52,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine(engineConfig, ioRegistry);
-
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
         engine.start();
 
         table = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
