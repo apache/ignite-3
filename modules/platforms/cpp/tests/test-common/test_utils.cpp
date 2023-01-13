@@ -81,9 +81,4 @@ std::string resolveIgniteHome(const std::string &path) {
     return home.string();
 }
 
-std::string getMavenPath() {
-    // Currently, we only support systems with "mvn" command in PATH
-    return "mvn";
-}
-
 } // namespace ignite

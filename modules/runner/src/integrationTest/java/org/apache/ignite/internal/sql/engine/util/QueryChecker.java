@@ -117,12 +117,11 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> containsProject(String schema, String tblName, int... requiredColumns) {
-        Matcher<String> res = matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
+        return matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
                 + Arrays.toString(requiredColumns)
                         .replaceAll("\\[", "")
                         .replaceAll("]", "") + "\\}\\].*");
-        return res;
     }
 
     /**
@@ -174,7 +173,7 @@ public abstract class QueryChecker {
             /** {@inheritDoc} */
             @Override
             protected boolean evalSubstringOf(String strIn) {
-                strIn = strIn.replaceAll("\n", "");
+                strIn = strIn.replaceAll(System.lineSeparator(), "");
 
                 return strIn.matches(substring);
             }
@@ -197,7 +196,7 @@ public abstract class QueryChecker {
             /** {@inheritDoc} */
             @Override
             protected boolean evalSubstringOf(String strIn) {
-                strIn = strIn.replaceAll("\n", "");
+                strIn = strIn.replaceAll(System.lineSeparator(), "");
 
                 return containsOnce(strIn, substring);
             }
