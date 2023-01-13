@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -140,36 +141,16 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        // TODO: IGNITE-18029 не забудь про чистку партиции если мы упали на середине ребаланса!
-
-        CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
-
-        if (partitionDestroyFuture != null) {
-            try {
-                // Time is chosen randomly (long enough) so as not to call #join().
-                partitionDestroyFuture.get(10, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new StorageException(
-                        IgniteStringFormatter.format(
-                                "Error waiting for the destruction of the previous version of the partition: [table={}, partitionId={}]",
-                                getTableName(),
-                                partitionId
-                        ),
-                        e
-                );
-            }
-        }
+        waitPartitionToBeDestroyed(partitionId);
 
         TableView tableView = tableConfig.value();
 
         GroupPartitionId groupPartitionId = createGroupPartitionId(partitionId);
 
-        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, groupPartitionId);
+        PartitionMeta meta = getOrCreatePartitionMetaWithRecreatePartitionPageStoreIfRebalanceNotCompleted(groupPartitionId);
 
         return inCheckpointLock(() -> {
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
-
-            PartitionMeta meta = getOrCreatePartitionMeta(groupPartitionId, filePageStore);
 
             RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(tableView, partitionId, pageMemory, meta);
 
@@ -435,25 +416,23 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         // compactor to remove the partition, and then simply delete the partition file and its delta files.
         mvPartitionStorage.close();
 
-        return destroyPartition(createGroupPartitionId(mvPartitionStorage.partitionId()));
+        return destroyPartitionPhysically(createGroupPartitionId(mvPartitionStorage.partitionId()));
     }
 
     @Override
     CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         GroupPartitionId groupPartitionId = createGroupPartitionId(mvPartitionStorage.partitionId());
 
-        return destroyPartition(groupPartitionId).thenAccept(unused -> {
+        return destroyPartitionPhysically(groupPartitionId).thenAccept(unused -> {
             TableView tableView = tableConfig.value();
 
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
 
             int partitionId = groupPartitionId.getPartitionId();
 
-            FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, groupPartitionId);
+            PartitionMeta meta = getOrCreatePartitionMeta(groupPartitionId, ensurePartitionFilePageStore(tableView, groupPartitionId));
 
             inCheckpointLock(() -> {
-                PartitionMeta meta = getOrCreatePartitionMeta(groupPartitionId, filePageStore);
-
                 RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(tableView, partitionId, pageMemory, meta);
 
                 IndexColumnsFreeList indexColumnsFreeList
@@ -476,7 +455,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         });
     }
 
-    private CompletableFuture<Void> destroyPartition(GroupPartitionId groupPartitionId) {
+    private CompletableFuture<Void> destroyPartitionPhysically(GroupPartitionId groupPartitionId) {
         dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
 
         dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
@@ -515,6 +494,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
                 meta.incrementPageCount(lastCheckpointId());
             });
+
             return meta;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
@@ -525,6 +505,54 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     ),
                     e
             );
+        }
+    }
+
+    private PartitionMeta getOrCreatePartitionMetaWithRecreatePartitionPageStoreIfRebalanceNotCompleted(GroupPartitionId groupPartitionId) {
+        TableView tableView = tableConfig.value();
+
+        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, groupPartitionId);
+
+        PartitionMeta partitionMeta = getOrCreatePartitionMeta(groupPartitionId, filePageStore);
+
+        if (partitionMeta.lastAppliedIndex() == REBALANCE_IN_PROGRESS) {
+            try {
+                // Time is chosen randomly (long enough) so as not to call #join().
+                destroyPartitionPhysically(groupPartitionId).get(10, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new StorageException(
+                        IgniteStringFormatter.format(
+                                "Error when physically destroying a partition: [table={}, partitionId={}]",
+                                getTableName(),
+                                groupPartitionId.getPartitionId()
+                        ),
+                        e
+                );
+            }
+
+            return getOrCreatePartitionMeta(groupPartitionId, ensurePartitionFilePageStore(tableView, groupPartitionId));
+        } else {
+            return partitionMeta;
+        }
+    }
+
+    private void waitPartitionToBeDestroyed(int partitionId) {
+        CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
+
+        if (partitionDestroyFuture != null) {
+            try {
+                // Time is chosen randomly (long enough) so as not to call #join().
+                partitionDestroyFuture.get(10, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                throw new StorageException(
+                        IgniteStringFormatter.format(
+                                "Error waiting for the destruction of the previous version of the partition: [table={}, partitionId={}]",
+                                getTableName(),
+                                partitionId
+                        ),
+                        e
+                );
+            }
         }
     }
 }
