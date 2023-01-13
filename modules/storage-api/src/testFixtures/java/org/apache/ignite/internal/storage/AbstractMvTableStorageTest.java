@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteTuple3;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -89,25 +92,46 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /** Partition id for 1 storage. */
     protected static final int PARTITION_ID_1 = 1 << 8;
 
-    private MvTableStorage tableStorage;
+    protected MvTableStorage tableStorage;
 
     private TableIndexView sortedIdx;
 
     private TableIndexView hashIdx;
+
+    private StorageEngine storageEngine;
 
     /**
      * Initializes the internal structures needed for tests.
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
-        createTestTable(tableStorage.configuration());
-        createTestIndexes(tablesCfg);
+    protected final void initialize(StorageEngine storageEngine, TablesConfiguration tablesConfig) {
+        createTestTable(getTableConfig(tablesConfig));
+        createTestIndexes(tablesConfig);
 
-        this.tableStorage = tableStorage;
+        this.storageEngine = storageEngine;
 
-        sortedIdx = tablesCfg.indexes().get(SORTED_INDEX_NAME).value();
-        hashIdx = tablesCfg.indexes().get(HASH_INDEX_NAME).value();
+        this.tableStorage = createMvTableStorage(tablesConfig);
+
+        this.tableStorage.start();
+
+        sortedIdx = tablesConfig.indexes().get(SORTED_INDEX_NAME).value();
+        hashIdx = tablesConfig.indexes().get(HASH_INDEX_NAME).value();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (tableStorage != null) {
+            tableStorage.stop();
+        }
+    }
+
+    protected MvTableStorage createMvTableStorage(TablesConfiguration tablesConfig) {
+        return storageEngine.createMvTable(getTableConfig(tablesConfig), tablesConfig);
+    }
+
+    private TableConfiguration getTableConfig(TablesConfiguration tablesConfig) {
+        return tablesConfig.tables().get("foo");
     }
 
     /**
@@ -498,6 +522,51 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         mvPartitionStorage.close();
 
         assertThrows(StorageRebalanceException.class, () -> tableStorage.startRebalancePartition(PARTITION_ID));
+    }
+
+    /**
+     * Checks that if we restart the storages after a crash in the middle of a rebalance, the storages will be empty.
+     */
+    @Test
+    public void testRestartStoragesAfterFailOnMiddleOfRebalance() {
+        assumeFalse(tableStorage.isVolatile());
+
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now())
+        );
+
+        fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+
+        // Since it is not possible to close storages in middle of rebalance, we will shorten path a bit by updating only lastApplied*.
+        MvPartitionStorage finalMvPartitionStorage = mvPartitionStorage;
+
+        mvPartitionStorage.runConsistently(() -> {
+            finalMvPartitionStorage.lastApplied(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+
+            return null;
+        });
+
+        assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+        // Restart storages.
+        tableStorage.stop();
+
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
+
+        tableStorage.start();
+
+        mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        // Let's check the repositories: they should be empty.
+        checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+
+        checkLastApplied(mvPartitionStorage, 0, 0, 0);
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {

@@ -162,9 +162,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
                     if (indexCfgView instanceof HashIndexView) {
-                        createOrRestoreHashIndex(indexMeta);
+                        hashIndexes.put(indexCfgView.id(), createOrRestoreHashIndex(indexMeta));
                     } else if (indexCfgView instanceof SortedIndexView) {
-                        createOrRestoreSortedIndex(indexMeta);
+                        sortedIndexes.put(indexCfgView.id(), createOrRestoreSortedIndex(indexMeta));
                     } else {
                         assert indexCfgView == null;
 

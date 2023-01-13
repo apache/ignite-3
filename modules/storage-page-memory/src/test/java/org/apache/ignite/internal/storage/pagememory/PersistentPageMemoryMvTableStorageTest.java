@@ -25,11 +25,9 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,8 +40,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private PersistentPageMemoryStorageEngine engine;
 
-    private MvTableStorage tableStorage;
-
     @BeforeEach
     void setUp(
             @WorkDirectory
@@ -51,7 +47,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             @InjectConfiguration
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
-                    value = "mock.tables.foo{ partitions = 512, dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + "}"
+                    "mock.tables.foo{ partitions = 512, dataStorage.name = " + PersistentPageMemoryStorageEngine.ENGINE_NAME + "}"
             )
             TablesConfiguration tablesConfig
     ) {
@@ -63,19 +59,14 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         engine.start();
 
-        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
-
-        tableStorage.start();
-
-        initialize(tableStorage, tablesConfig);
+        initialize(engine, tablesConfig);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                tableStorage == null ? null : tableStorage::stop,
-                engine == null ? null : engine::stop
-        );
+    void tearDown() {
+        if (engine != null) {
+            engine.stop();
+        }
     }
 
     @Test
