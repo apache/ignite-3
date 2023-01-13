@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
@@ -147,19 +146,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     @Override
-    CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        // TODO: IGNITE-17833 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        // TODO: IGNITE-18028 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
         // TODO: IGNITE-18028 Implement
         throw new UnsupportedOperationException();
     }
@@ -174,6 +161,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         // we don't care when it finishes.
         volatilePartitionStorage.destroyStructures();
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 }

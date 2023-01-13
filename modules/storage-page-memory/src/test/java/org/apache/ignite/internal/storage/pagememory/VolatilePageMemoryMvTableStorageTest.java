@@ -37,7 +37,6 @@ import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,7 +104,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = tableStorage.dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = ((VolatilePageMemoryTableStorage) tableStorage).dataRegion().rowVersionFreeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -114,7 +113,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     private void assertDestructionCompletes(long emptyDataPagesBeforeDestroy) throws InterruptedException, IgniteInternalCheckedException {
         assertTrue(waitForCondition(
-                () -> tableStorage.dataRegion().rowVersionFreeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
+                () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
                 5_000
         ));
 
@@ -137,10 +136,14 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = tableStorage.dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
         assertDestructionCompletes(emptyDataPagesBeforeDestroy);
+    }
+
+    private VolatilePageMemoryDataRegion dataRegion() {
+        return ((VolatilePageMemoryTableStorage) tableStorage).dataRegion();
     }
 }
