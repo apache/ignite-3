@@ -27,13 +27,11 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
@@ -153,14 +151,6 @@ class BlobStorageTest {
 
     @Test
     void freedPagesAreRecycled() throws Exception {
-        List<Long> allocatedPageIds = new ArrayList<>();
-
-        when(pageMemory.allocatePage(1, 1, PageIdAllocator.FLAG_AUX)).then(invocation -> {
-            long pageId = (long) invocation.callRealMethod();
-            allocatedPageIds.add(pageId);
-            return pageId;
-        });
-
         long pageId = blobStorage.addBlob(new byte[PAGE_SIZE * 2]);
 
         blobStorage.updateBlob(pageId, new byte[0]);

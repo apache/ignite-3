@@ -21,8 +21,8 @@ namespace Apache.Ignite.Internal.Transactions
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
-    using MessagePack;
     using Proto;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Ignite transaction.
@@ -75,7 +75,7 @@ namespace Apache.Ignite.Internal.Transactions
             SetState(StateCommitted);
 
             using var writer = ProtoCommon.GetMessageWriter();
-            Write(writer.GetMessageWriter());
+            Write(writer.MessageWriter);
 
             await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
         }
@@ -104,7 +104,7 @@ namespace Apache.Ignite.Internal.Transactions
         private async Task RollbackAsyncInternal()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            Write(writer.GetMessageWriter());
+            Write(writer.MessageWriter);
 
             await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
         }
@@ -145,10 +145,6 @@ namespace Apache.Ignite.Internal.Transactions
         /// Writes the transaction.
         /// </summary>
         /// <param name="writer">Writer.</param>
-        private void Write(MessagePackWriter writer)
-        {
-            writer.Write(Id);
-            writer.Flush();
-        }
+        private void Write(MsgPackWriter writer) => writer.Write(Id);
     }
 }

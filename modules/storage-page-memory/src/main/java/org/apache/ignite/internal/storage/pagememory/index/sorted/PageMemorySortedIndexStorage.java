@@ -93,9 +93,9 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         partitionId = sortedIndexTree.partitionId();
 
-        lowestRowId = new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
+        lowestRowId = RowId.lowestRowId(partitionId);
 
-        highestRowId = new RowId(partitionId, Long.MAX_VALUE, Long.MAX_VALUE);
+        highestRowId = RowId.highestRowId(partitionId);
     }
 
     @Override

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
@@ -34,9 +36,9 @@ public class DistributionZoneConfigurationSchema {
 
     /** Integer zone id. */
     @Immutable
-    @Range(min = 1)
+    @Range(min = DEFAULT_ZONE_ID)
     @Value(hasDefault = true)
-    public int zoneId = 1;
+    public int zoneId = DEFAULT_ZONE_ID;
 
     /** Timeout in seconds between node added or node left topology event itself and data nodes switch. */
     @Range(min = 0)

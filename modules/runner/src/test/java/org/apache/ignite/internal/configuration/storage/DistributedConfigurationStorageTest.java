@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static java.util.stream.Collectors.toList;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
@@ -25,23 +24,18 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -92,11 +86,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             Collection<Operation> success = invocation.getArgument(1);
             Collection<Operation> failure = invocation.getArgument(2);
 
-            boolean invokeResult = metaStorage.invoke(
-                    toServerCondition(condition),
-                    success.stream().map(DistributedConfigurationStorageTest::toServerOperation).collect(toList()),
-                    failure.stream().map(DistributedConfigurationStorageTest::toServerOperation).collect(toList())
-            );
+            boolean invokeResult = metaStorage.invoke(toServerCondition(condition), success, failure);
 
             return CompletableFuture.completedFuture(invokeResult);
         });
@@ -106,7 +96,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                 ByteArray keyFrom = invocation.getArgument(0);
                 ByteArray keyTo = invocation.getArgument(1);
 
-                return new CursorAdapter(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), false));
+                return metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), false);
             });
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
@@ -123,111 +113,16 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             case REV_LESS_OR_EQUAL:
                 return new RevisionCondition(
                         RevisionCondition.Type.LESS_OR_EQUAL,
-                        condition.inner().key(),
-                        ((SimpleCondition.RevisionCondition) condition.inner()).revision()
+                        condition.key(),
+                        ((SimpleCondition.RevisionCondition) condition).revision()
                 );
             case KEY_NOT_EXISTS:
                 return new ExistenceCondition(
                         ExistenceCondition.Type.NOT_EXISTS,
-                        condition.inner().key()
+                        condition.key()
                 );
             default:
                 throw new UnsupportedOperationException("Unsupported condition type: " + condition.type());
-        }
-    }
-
-    /**
-     * Converts a {@link Operation} to a {@link org.apache.ignite.internal.metastorage.server.Operation}.
-     */
-    private static org.apache.ignite.internal.metastorage.server.Operation toServerOperation(Operation operation) {
-        switch (operation.type()) {
-            case PUT:
-                return new org.apache.ignite.internal.metastorage.server.Operation(
-                        OperationType.PUT,
-                        operation.inner().key(),
-                        ((Operation.PutOp) (operation.inner())).value()
-                );
-            case REMOVE:
-                return new org.apache.ignite.internal.metastorage.server.Operation(
-                        OperationType.REMOVE,
-                        operation.inner().key(),
-                        null
-                );
-            case NO_OP:
-                return new org.apache.ignite.internal.metastorage.server.Operation(
-                        OperationType.NO_OP,
-                        null,
-                        null
-                );
-            default:
-                throw new UnsupportedOperationException("Unsupported operation type: " + operation.type());
-        }
-    }
-
-    /**
-     * {@code Cursor} that converts {@link Entry} to {@link org.apache.ignite.internal.metastorage.server.Entry}.
-     */
-    private static class CursorAdapter implements Cursor<Entry> {
-        /** Internal cursor. */
-        private final Cursor<org.apache.ignite.internal.metastorage.server.Entry> internalCursor;
-
-        /**
-         * Constructor.
-         *
-         * @param internalCursor internal cursor.
-         */
-        CursorAdapter(Cursor<org.apache.ignite.internal.metastorage.server.Entry> internalCursor) {
-            this.internalCursor = internalCursor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void close() {
-            internalCursor.close();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean hasNext() {
-            return internalCursor.hasNext();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Entry next() {
-            org.apache.ignite.internal.metastorage.server.Entry next = internalCursor.next();
-
-            return new Entry() {
-                @Override
-                public @NotNull ByteArray key() {
-                    return new ByteArray(next.key());
-                }
-
-                @Override
-                public byte @Nullable [] value() {
-                    return next.value();
-                }
-
-                @Override
-                public long revision() {
-                    return next.revision();
-                }
-
-                @Override
-                public long updateCounter() {
-                    return next.updateCounter();
-                }
-
-                @Override
-                public boolean empty() {
-                    return next.empty();
-                }
-
-                @Override
-                public boolean tombstone() {
-                    return next.tombstone();
-                }
-            };
         }
     }
 }

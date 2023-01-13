@@ -44,6 +44,6 @@ namespace Apache.Ignite.Internal.Proto
         /// Gets a new message writer.
         /// </summary>
         /// <returns>Message writer.</returns>
-        public static PooledArrayBufferWriter GetMessageWriter() => new(prefixSize: MessagePrefixSize);
+        public static PooledArrayBuffer GetMessageWriter() => new(prefixSize: MessagePrefixSize);
     }
 }

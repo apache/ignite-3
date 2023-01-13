@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -39,6 +41,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
@@ -106,8 +109,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
      * stored {@link MetaStorageManagerImpl#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
-     * possible to use {@link SimpleCondition.RevisionCondition#eq} on {@link #MASTER_KEY}
-     * in {@link DistributedConfigurationStorage#write(Map, long)}. {@link SimpleCondition.RevisionCondition#le(long)} must be used instead.
+     * possible to use {@link ConditionType#REV_EQUAL} on {@link #MASTER_KEY}
+     * in {@link DistributedConfigurationStorage#write(Map, long)}. {@link ConditionType#REV_LESS_OR_EQUAL} must be used instead.
      *
      * @see #MASTER_KEY
      * @see MetaStorageManagerImpl#APPLIED_REV
@@ -150,7 +153,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
             try (Cursor<Entry> entries = metaStorageMgr.range(rangeStart, rangeEnd)) {
                 for (Entry entry : entries) {
-                    ByteArray key = entry.key();
+                    byte[] key = entry.key();
                     byte[] value = entry.value();
 
                     if (entry.tombstone()) {
@@ -160,11 +163,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     // Meta Storage should not return nulls as values
                     assert value != null;
 
-                    if (key.equals(MASTER_KEY)) {
+                    if (Arrays.equals(key, MASTER_KEY.bytes())) {
                         continue;
                     }
 
-                    String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
+                    String dataKey = new String(key, UTF_8).substring(DISTRIBUTED_PREFIX.length());
 
                     data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
                 }
@@ -291,7 +294,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void registerConfigurationListener(@NotNull ConfigurationStorageListener lsnr) {
+    public synchronized void registerConfigurationListener(ConfigurationStorageListener lsnr) {
         if (this.lsnr == null) {
             this.lsnr = lsnr;
 
@@ -307,10 +310,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     for (EntryEvent event : events.entryEvents()) {
                         Entry e = event.newEntry();
 
-                        if (e.key().equals(MASTER_KEY)) {
+                        if (Arrays.equals(e.key(), MASTER_KEY.bytes())) {
                             masterKeyEntry = e;
                         } else {
-                            String key = e.key().toString().substring(DISTRIBUTED_PREFIX.length());
+                            String key = new String(e.key(), UTF_8).substring(DISTRIBUTED_PREFIX.length());
 
                             Serializable value = e.value() == null ? null : ConfigurationSerializationUtil.fromBytes(e.value());
 

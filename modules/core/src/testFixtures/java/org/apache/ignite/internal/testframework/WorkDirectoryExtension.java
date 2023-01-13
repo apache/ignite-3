@@ -271,14 +271,6 @@ public class WorkDirectoryExtension
     }
 
     private static Path getBasePath() {
-        // Maven build folder
-        Path mavenPath = Path.of("target");
-
-        if (Files.exists(mavenPath)) {
-            return mavenPath.resolve("work");
-        } else {
-            // Gradle build folder
-            return Path.of("build", "work");
-        }
+        return Path.of("build", "work");
     }
 }

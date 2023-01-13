@@ -34,7 +34,13 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -495,7 +501,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         List<Long> revs = keysIdx.get(key);
 
         if (revs == null || revs.isEmpty()) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         long lastRev;
@@ -508,7 +514,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         // lastRev can be -1 if maxRevision return -1.
         if (lastRev == -1) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         return doGetValue(key, lastRev);
@@ -539,22 +545,22 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @NotNull
     private Entry doGetValue(byte[] key, long lastRev) {
         if (lastRev == 0) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         NavigableMap<byte[], Value> lastRevVals = revsIdx.get(lastRev);
 
         if (lastRevVals == null || lastRevVals.isEmpty()) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         Value lastVal = lastRevVals.get(key);
 
         if (lastVal.tombstone()) {
-            return Entry.tombstone(key, lastRev, lastVal.updateCounter());
+            return EntryImpl.tombstone(key, lastRev, lastVal.updateCounter());
         }
 
-        return new Entry(key, lastVal.bytes(), lastRev, lastVal.updateCounter());
+        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.updateCounter());
     }
 
     private long doPut(byte[] key, byte[] bytes, long curRev) {
@@ -854,9 +860,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                                         Entry newEntry;
 
                                         if (val.tombstone()) {
-                                            newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
+                                            newEntry = EntryImpl.tombstone(key, nextRetRev, val.updateCounter());
                                         } else {
-                                            newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
+                                            newEntry = new EntryImpl(key, val.bytes(), nextRetRev, val.updateCounter());
                                         }
 
                                         Entry oldEntry = doGet(key, nextRetRev - 1);
