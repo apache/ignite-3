@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -295,7 +294,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void registerConfigurationListener(@NotNull ConfigurationStorageListener lsnr) {
+    public synchronized void registerConfigurationListener(ConfigurationStorageListener lsnr) {
         if (this.lsnr == null) {
             this.lsnr = lsnr;
 
