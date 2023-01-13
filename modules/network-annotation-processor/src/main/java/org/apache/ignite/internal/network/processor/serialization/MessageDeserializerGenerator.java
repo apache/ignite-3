@@ -68,7 +68,7 @@ public class MessageDeserializerGenerator {
      */
     public TypeSpec generateDeserializer(MessageClass message) {
         processingEnv.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageDeserializer", message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageDeserializer for " + message.className());
 
         FieldSpec msgField = FieldSpec.builder(message.builderClassName(), "msg")
                 .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
