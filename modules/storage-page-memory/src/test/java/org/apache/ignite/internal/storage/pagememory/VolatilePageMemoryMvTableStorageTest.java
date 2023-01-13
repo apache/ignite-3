@@ -104,7 +104,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = ((VolatilePageMemoryTableStorage) tableStorage).dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
