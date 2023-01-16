@@ -36,7 +36,7 @@ namespace Apache.Ignite.Tests
         private const int ConnectTimeoutSeconds = 120;
 
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --no-daemon"
-          + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
+          + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";
 
          /** Full path to Gradle binary. */
         private static readonly string GradlePath = GetGradle();
@@ -177,7 +177,11 @@ namespace Apache.Ignite.Tests
         {
             try
             {
-                var cfg = new IgniteClientConfiguration("127.0.0.1:" + port);
+                var cfg = new IgniteClientConfiguration("127.0.0.1:" + port)
+                {
+                    SocketTimeout = TimeSpan.FromSeconds(0.5)
+                };
+
                 using var client = await IgniteClient.StartAsync(cfg);
 
                 return null;
