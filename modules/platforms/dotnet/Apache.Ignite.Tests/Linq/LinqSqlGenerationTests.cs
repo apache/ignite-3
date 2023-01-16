@@ -260,7 +260,6 @@ public partial class LinqSqlGenerationTests
     }
 
     [Test]
-    [Ignore("IGNITE-18215 Group by calculated value")]
     public void TestGroupBySubQuery()
     {
         AssertSql(

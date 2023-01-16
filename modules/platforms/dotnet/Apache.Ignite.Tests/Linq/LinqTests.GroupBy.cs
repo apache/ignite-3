@@ -91,7 +91,6 @@ public partial class LinqTests
     }
 
     [Test]
-    [Ignore("IGNITE-18215 Group by calculated value")]
     public void TestGroupBySubQuery()
     {
         var query = PocoByteView.AsQueryable()
