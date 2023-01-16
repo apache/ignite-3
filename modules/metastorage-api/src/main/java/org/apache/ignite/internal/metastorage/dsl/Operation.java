@@ -17,158 +17,96 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines operation for meta storage conditional update (invoke).
  */
 public final class Operation {
-    /** Actual operation implementation. */
-    private final InnerOp upd;
+    /**
+     * Key identifies an entry which operation will be applied to. Key is {@code null} for {@link OperationType#NO_OP} operation.
+     */
+    private final byte @Nullable [] key;
 
     /**
-     * Constructs an operation which wraps the actual operation implementation.
-     *
-     * @param upd The actual operation implementation.
+     * Value which will be associated with the {@link #key}. Value is not {@code null} only for {@link OperationType#PUT} operation.
      */
-    Operation(InnerOp upd) {
-        this.upd = upd;
+    private final byte @Nullable [] val;
+
+    /**
+     * Operation type.
+     *
+     * @see OperationType
+     */
+    private final OperationType type;
+
+    /**
+     * Constructs operation which will be applied to an entry identified by the given key.
+     *
+     * @param type Operation type. Can't be {@code null}.
+     * @param key  Key identifies an entry which operation will be applied to.
+     * @param val  Value will be associated with an entry identified by the {@code key}.
+     */
+    public Operation(OperationType type, byte @Nullable [] key, byte @Nullable [] val) {
+        assert (type == OperationType.NO_OP && key == null && val == null)
+                || (type == OperationType.PUT && key != null && val != null)
+                || (type == OperationType.REMOVE && key != null && val == null)
+                : "Invalid operation parameters: [type=" + type
+                + ", key=" + (key == null ? "null" : IgniteUtils.toHexString(key, 256))
+                + ", val=" + (val == null ? "null" : IgniteUtils.toHexString(val, 256)) + ']';
+
+        this.key = key;
+        this.val = val;
+        this.type = type;
     }
 
     /**
-     * Returns actual operation implementation.
+     * Returns a key which identifies an entry which operation will be applied to.
+     *
+     * @return A key which identifies an entry which operation will be applied to.
      */
-    public InnerOp inner() {
-        return upd;
+    public byte @Nullable [] key() {
+        return key;
     }
 
     /**
-     * Returns operation type.
+     * Returns a value which will be associated with an entry identified by the {@code key}.
      *
-     * @return Operation type.
+     * @return A value which will be associated with an entry identified by the {@code key}.
+     */
+
+    public byte @Nullable [] value() {
+        return val;
+    }
+
+    /**
+     * Returns an operation type.
+     *
+     * @return An operation type.
      */
     public OperationType type() {
-        return upd.type();
+        return type;
     }
 
     /**
-     * Represents operation of type <i>remove</i>.
+     * Creates an operation of type <i>remove</i>.
      */
-    public static final class RemoveOp extends AbstractOp {
-        /**
-         * Default no-op constructor.
-         *
-         * @param key Identifies an entry which operation will be applied to.
-         */
-        RemoveOp(byte[] key) {
-            super(key, OperationType.REMOVE);
-        }
+    public static Operation remove(byte[] key) {
+        return new Operation(OperationType.REMOVE, key, null);
     }
 
     /**
-     * Represents operation of type <i>put</i>.
+     * Creates an operation of type <i>put</i>.
      */
-    public static final class PutOp extends AbstractOp {
-        /** Value. */
-        private final byte[] val;
-
-        /**
-         * Constructs operation of type <i>put</i>.
-         *
-         * @param key Identifies an entry which operation will be applied to.
-         * @param val The value to which the entry should be updated.
-         */
-        PutOp(byte[] key, byte[] val) {
-            super(key, OperationType.PUT);
-
-            this.val = val;
-        }
-
-        /**
-         * Returns value.
-         *
-         * @return Value.
-         */
-        public byte[] value() {
-            return val;
-        }
+    public static Operation put(byte[] key, byte[] val) {
+        return new Operation(OperationType.PUT, key, val);
     }
 
     /**
-     * Represents operation of type <i>no-op</i>.
+     * Creates an operation of type <i>no-op</i>.
      */
-    public static final class NoOp extends AbstractOp {
-        /**
-         * Default no-op constructor.
-         */
-        NoOp() {
-            super(null, OperationType.NO_OP);
-        }
-    }
-
-    /**
-     * Defines operation interface.
-     */
-    public interface InnerOp {
-        /**
-         * Returns key.
-         *
-         * @return Key.
-         */
-        @Nullable byte[] key();
-
-        /**
-         * Returns operation type.
-         *
-         * @return Operation type.
-         */
-        @NotNull OperationType type();
-    }
-
-    /**
-     * Extension of {@link InnerOp}.
-     */
-    private static class AbstractOp implements InnerOp {
-        /** Key. */
-        @Nullable
-        private final byte[] key;
-
-        /** Operation type. */
-        @NotNull
-        private final OperationType type;
-
-        /**
-         * Ctor.
-         *
-         * @param key  Key.
-         * @param type Operation type.
-         */
-        private AbstractOp(@Nullable byte[] key, OperationType type) {
-            this.key = key;
-            this.type = type;
-        }
-
-        /**
-         * Returns key.
-         *
-         * @return Key.
-         */
-        @Nullable
-        @Override
-        public byte[] key() {
-            return key;
-        }
-
-        /**
-         * Returns operation type.
-         *
-         * @return Operation type.
-         */
-        @NotNull
-        @Override
-        public OperationType type() {
-            return type;
-        }
+    public static Operation noOp() {
+        return new Operation(OperationType.NO_OP, null, null);
     }
 }

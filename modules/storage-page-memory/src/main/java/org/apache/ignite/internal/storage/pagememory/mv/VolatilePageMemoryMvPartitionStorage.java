@@ -18,7 +18,11 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -27,12 +31,18 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStor
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+    private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
+
+    private final GradualTaskExecutor destructionExecutor;
+
     /** Last applied index value. */
     private volatile long lastAppliedIndex;
 
@@ -50,13 +60,15 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param partitionId Partition id.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param destructionExecutor Executor used to destruct partitions.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
             TablesConfiguration tablesCfg,
             int partitionId,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GradualTaskExecutor destructionExecutor
     ) {
         super(
                 partitionId,
@@ -67,26 +79,60 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 indexMetaTree,
                 tablesCfg
         );
+
+        this.destructionExecutor = destructionExecutor;
     }
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return closure.execute();
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return closure.execute();
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        return CompletableFuture.completedFuture(null);
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return CompletableFuture.completedFuture(null);
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public long lastAppliedIndex() {
-        return lastAppliedIndex;
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return lastAppliedIndex;
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public long lastAppliedTerm() {
-        return lastAppliedTerm;
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return lastAppliedTerm;
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -97,12 +143,28 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public long persistedIndex() {
-        return lastAppliedIndex;
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return lastAppliedIndex;
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return groupConfig;
+        if (!closeBusyLock.enterBusy()) {
+            throwStorageClosedException();
+        }
+
+        try {
+            return groupConfig;
+        } finally {
+            closeBusyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -131,5 +193,42 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
         hashIndexes.clear();
         sortedIndexes.clear();
+    }
+
+    /**
+     * Destroys internal structures backing this partition.
+     *
+     * @return future that completes when the destruction completes.
+     */
+    public CompletableFuture<Void> destroyStructures() {
+        // TODO: IGNITE-18531 - destroy indices.
+
+        try {
+            return destructionExecutor.execute(
+                    versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy MV partition in group=" + groupId + ", partition=" + partitionId, e);
+        }
+    }
+
+    private void destroyVersionChain(VersionChain chainKey) {
+        try {
+            deleteRowVersionsFromFreeList(chainKey);
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException(e);
+        }
+    }
+
+    private void deleteRowVersionsFromFreeList(VersionChain chain) throws IgniteInternalCheckedException {
+        long rowVersionLink = chain.headLink();
+
+        while (rowVersionLink != PageIdUtils.NULL_LINK) {
+            RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
+
+            rowVersionFreeList.removeDataRowByLink(rowVersion.link());
+
+            rowVersionLink = rowVersion.nextLink();
+        }
     }
 }

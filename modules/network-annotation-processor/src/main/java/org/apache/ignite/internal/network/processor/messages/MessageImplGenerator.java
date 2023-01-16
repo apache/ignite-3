@@ -93,7 +93,7 @@ public class MessageImplGenerator {
         ClassName messageImplClassName = message.implClassName();
 
         processingEnv.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating " + messageImplClassName, message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating " + messageImplClassName);
 
         List<ExecutableElement> getters = message.getters();
 

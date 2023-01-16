@@ -63,7 +63,7 @@ public class MessageSerializerGenerator {
      */
     public TypeSpec generateSerializer(MessageClass message) {
         processingEnvironment.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer", message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer for " + message.className());
 
         return TypeSpec.classBuilder(message.simpleName() + "Serializer")
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))

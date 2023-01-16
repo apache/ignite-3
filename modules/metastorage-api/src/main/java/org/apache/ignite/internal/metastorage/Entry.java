@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage;
 
-import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,7 +35,7 @@ public interface Entry {
      *
      * @return The key.
      */
-    @NotNull ByteArray key();
+    byte[] key();
 
     /**
      * Returns a value. Could be {@code null} for empty entry.

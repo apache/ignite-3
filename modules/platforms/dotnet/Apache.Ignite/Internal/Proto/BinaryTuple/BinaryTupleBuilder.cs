@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         private readonly IHashedColumnIndexProvider? _hashedColumnsPredicate;
 
         /** Buffer for tuple content. */
-        private readonly PooledArrayBufferWriter _buffer;
+        private readonly PooledArrayBuffer _buffer;
 
         /** Flag indicating if any NULL values were really put here. */
         private bool _hasNullValues;
@@ -95,7 +95,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _valueBase = baseOffset + _entrySize * numElements;
 
-            _buffer.GetSpan(sizeHint: _valueBase)[.._valueBase].Clear();
+            _buffer.GetSpan(size: _valueBase)[.._valueBase].Clear();
             _buffer.Advance(_valueBase);
         }
 

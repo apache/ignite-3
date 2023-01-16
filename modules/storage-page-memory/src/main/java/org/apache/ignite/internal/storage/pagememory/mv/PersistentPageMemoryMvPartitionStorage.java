@@ -322,6 +322,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         versionChainTree.close();
         indexMetaTree.close();
 
+        blobStorage.close();
+
         for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
             hashIndexStorage.close();
         }

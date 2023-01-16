@@ -95,28 +95,10 @@ public class ItMetaStorageRaftGroupTest {
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /** Expected server result entry. */
-    private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY1 =
-            new org.apache.ignite.internal.metastorage.server.Entry(
-                    new byte[] {1},
-                    new byte[] {2},
-                    10,
-                    2
-            );
-
-    /**  Expected server result entry. */
-    private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY2 =
-            new org.apache.ignite.internal.metastorage.server.Entry(
-                    new byte[] {3},
-                    new byte[] {4},
-                    11,
-                    3
-            );
-
     /**  Expected server result entry. */
     private static final EntryImpl EXPECTED_RESULT_ENTRY1 =
             new EntryImpl(
-                    new ByteArray(new byte[] {1}),
+                    new byte[] {1},
                     new byte[] {2},
                     10,
                     2
@@ -125,7 +107,7 @@ public class ItMetaStorageRaftGroupTest {
     /**  Expected server result entry. */
     private static final EntryImpl EXPECTED_RESULT_ENTRY2 =
             new EntryImpl(
-                    new ByteArray(new byte[] {3}),
+                    new byte[] {3},
                     new byte[] {4},
                     11,
                     3
@@ -232,9 +214,9 @@ public class ItMetaStorageRaftGroupTest {
 
         final AtomicInteger replicatorStoppedCounter = new AtomicInteger(0);
 
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key().bytes(), new byte[]{4}, false)).thenAnswer(invocation -> {
-            List<org.apache.ignite.internal.metastorage.server.Entry> entries = new ArrayList<>(
-                    List.of(EXPECTED_SRV_RESULT_ENTRY1, EXPECTED_SRV_RESULT_ENTRY2));
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY1.key(), new byte[]{4}, false)).thenAnswer(invocation -> {
+            List<Entry> entries = new ArrayList<>(
+                    List.of(EXPECTED_RESULT_ENTRY1, EXPECTED_RESULT_ENTRY2));
 
             return Cursor.fromBareIterator(entries.iterator());
         });
@@ -264,7 +246,7 @@ public class ItMetaStorageRaftGroupTest {
         MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(
                 raftGroupServiceOfLiveServer, "some_node", "some_node");
 
-        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY1.key(), new ByteArray(new byte[]{4}));
+        Cursor<Entry> cursor = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY1.key()), new ByteArray(new byte[]{4}));
 
         assertTrue(waitForCondition(
                 () -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");

@@ -64,6 +64,7 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
@@ -2742,11 +2743,15 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             releasePage(metaPageId, metaPage);
         }
 
+        addForRecycle(bag);
+
+        return pagesCnt;
+    }
+
+    private void addForRecycle(LongListReuseBag bag) throws IgniteInternalCheckedException {
         reuseList.addForRecycle(bag);
 
         assert bag.isEmpty() : bag.size();
-
-        return pagesCnt;
     }
 
     /**
@@ -2845,12 +2850,70 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
 
         if (bag.size() == 128) {
-            reuseList.addForRecycle(bag);
-
-            assert bag.isEmpty() : bag.size();
+            addForRecycle(bag);
         }
 
         return pagesCnt;
+    }
+
+    /**
+     * Starts gradual destruction, that is, closes the tree, recycles its meta page, and returns a {@link GradualTask}
+     * that, when executed by a {@link org.apache.ignite.internal.pagememory.util.GradualTaskExecutor}, gradually destroys
+     * the tree.
+     *
+     * <p>This method is allowed to be invoked only when the tree is out of use (no concurrent operations are trying to read or
+     * update the tree after destroy beginning).
+     *
+     * @param c Visitor closure. Visits only leaf pages.
+     * @param forceDestroy Whether to proceed with destroying, even if tree is already marked as destroyed (see {@link #markDestroyed()}).
+     * @return GradualTask that will destroy the tree; it is the responsibility of a caller to pass this task for
+     *     execution to a {@link org.apache.ignite.internal.pagememory.util.GradualTaskExecutor}.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public final GradualTask startGradualDestruction(@Nullable Consumer<L> c, boolean forceDestroy) throws IgniteInternalCheckedException {
+        close();
+
+        if (!markDestroyed() && !forceDestroy) {
+            return GradualTask.completed();
+        }
+
+        if (reuseList == null) {
+            return GradualTask.completed();
+        }
+
+        LongListReuseBag bag = new LongListReuseBag();
+
+        RootPageIdAndLevel rootPageIdAndLevel = detachMetaPage(bag);
+
+        return new DestroyTreeTask(bag, c, rootPageIdAndLevel.level, rootPageIdAndLevel.pageId);
+    }
+
+    private RootPageIdAndLevel detachMetaPage(LongListReuseBag bag) throws IgniteInternalCheckedException {
+        long metaPage = acquirePage(metaPageId);
+
+        try {
+            long metaPageAddr = writeLock(metaPageId, metaPage); // No checks, we must be out of use.
+
+            try {
+                assert metaPageAddr != 0L;
+
+                int rootLvl = getRootLevel(metaPageAddr);
+
+                if (rootLvl < 0) {
+                    fail("Root level: " + rootLvl);
+                }
+
+                long rootPageId = getFirstPageId(metaPageId, metaPage, rootLvl, metaPageAddr);
+
+                bag.addFreePage(recyclePage(metaPageId, metaPageAddr));
+
+                return new RootPageIdAndLevel(rootPageId, rootLvl);
+            } finally {
+                writeUnlock(metaPageId, metaPage, metaPageAddr, true);
+            }
+        } finally {
+            releasePage(metaPageId, metaPage);
+        }
     }
 
     /**
@@ -6575,5 +6638,169 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 + "if you regularly see this message (current value is " + getLockRetries() + "). "
                 + getClass().getSimpleName() + " [grpName=" + grpName + ", treeName=" + name() + ", metaPageId="
                 + hexLong(metaPageId) + "].";
+    }
+
+    private static class RootPageIdAndLevel {
+        private final long pageId;
+        private final int level;
+
+        private RootPageIdAndLevel(long pageId, int level) {
+            this.pageId = pageId;
+            this.level = level;
+        }
+    }
+
+    private class DestroyTreeTask implements GradualTask {
+        /**
+         * Number of work units per step to execute. Recycling of a node counts as 1 work unit; also, visiting an item
+         * using a Consumer also counts as 1 work unit per item.
+         */
+        private static final int WORK_UNITS_PER_STEP = 1_000_000;
+
+        private final LongListReuseBag bag;
+        private final @Nullable Consumer<L> actOnEachElement;
+        private final int rootLevel;
+
+        /** IDs of pages contained in inner pages on each level. First index is level. */
+        private final long[][] childrenPageIds;
+
+        /** Indices of current page ID (among {@link #childrenPageIds}) on each level. Indexed by level. */
+        private final int[] currentChildIndices;
+
+        /** Level on which we currently are. */
+        private int currentLevel;
+
+        /** ID of the page that we are going to process (that is, recycle it after reading its contents) next. */
+        private long currentPageId;
+
+        private boolean finished = false;
+
+        private DestroyTreeTask(LongListReuseBag bag, @Nullable Consumer<L> actOnEachElement, int rootLevel, long rootPageId) {
+            this.bag = bag;
+            this.actOnEachElement = actOnEachElement;
+            this.rootLevel = rootLevel;
+
+            childrenPageIds = new long[rootLevel + 1][];
+            currentChildIndices = new int[rootLevel + 1];
+
+            currentLevel = rootLevel;
+            currentPageId = rootPageId;
+        }
+
+        @Override
+        public void runStep() throws Exception {
+            destroyNextBatch();
+
+            if (finished) {
+                addForRecycle(bag);
+            }
+        }
+
+        private void destroyNextBatch() throws IgniteInternalCheckedException {
+            int workDone = 0;
+
+            while (!finished && workDone < WORK_UNITS_PER_STEP) {
+                long pageId = currentPageId;
+
+                long page = acquirePage(pageId);
+
+                try {
+                    long pageAddr = writeLock(pageId, page);
+
+                    if (pageAddr == 0L) {
+                        // This page was possibly recycled, but we still need to destroy the rest of the tree.
+                        workDone++;
+
+                        positionToNextPageId();
+
+                        continue;
+                    }
+
+                    try {
+                        BplusIo<L> io = io(pageAddr);
+
+                        if (io.isLeaf() != (currentLevel == 0)) {
+                            // Leaf pages only at the level 0.
+                            fail("Leaf level mismatch: " + currentLevel);
+                        }
+
+                        int cnt = io.getCount(pageAddr);
+
+                        if (cnt < 0) {
+                            fail("Negative count: " + cnt);
+                        }
+
+                        if (!io.isLeaf()) {
+                            readChildrenPageIdsAndDescend(pageAddr, io, cnt);
+                        } else {
+                            if (actOnEachElement != null) {
+                                io.visit(pageAddr, actOnEachElement);
+
+                                workDone += io.getCount(pageAddr);
+                            }
+
+                            positionToNextPageId();
+                        }
+
+                        bag.addFreePage(recyclePage(pageId, pageAddr));
+
+                    } finally {
+                        writeUnlock(pageId, page, pageAddr, true);
+                    }
+                } finally {
+                    releasePage(pageId, page);
+                }
+
+                workDone++;
+
+                if (bag.size() >= 128) {
+                    addForRecycle(bag);
+                }
+            }
+        }
+
+        private void readChildrenPageIdsAndDescend(long pageAddr, BplusIo<L> io, int cnt) {
+            long[] pageIds = new long[cnt + 1];
+
+            // When i == cnt it is the same as io.getRight(cnt - 1) but works for routing pages.
+            for (int i = 0; i <= cnt; i++) {
+                long leftId = inner(io).getLeft(pageAddr, i, partId);
+
+                inner(io).setLeft(pageAddr, i, 0);
+
+                pageIds[i] = leftId;
+            }
+
+            currentLevel--;
+            childrenPageIds[currentLevel] = pageIds;
+            currentChildIndices[currentLevel] = 0;
+            currentPageId = childrenPageIds[currentLevel][currentChildIndices[currentLevel]];
+        }
+
+        /**
+         * Either positions {@link #currentPageId} to next ID that should be processed, or set {@link #finished} to {@code true}.
+         */
+        private void positionToNextPageId() {
+            while (currentLevel < rootLevel) {
+                if (currentChildIndices[currentLevel] + 1 < childrenPageIds[currentLevel].length) {
+                    // We can go right.
+                    currentChildIndices[currentLevel]++;
+                    currentPageId = childrenPageIds[currentLevel][currentChildIndices[currentLevel]];
+
+                    return;
+                } else {
+                    // Go up and try going right again.
+                    currentLevel++;
+                }
+            }
+
+            // We were not able to find any more tree nodes, so our work is over.
+            finished = true;
+        }
+
+        @Override
+        public boolean isCompleted() {
+            return finished;
+        }
     }
 }

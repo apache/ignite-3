@@ -62,7 +62,7 @@ public class SerializationFactoryGenerator {
      */
     public TypeSpec generateFactory(MessageClass message, TypeSpec serializer, TypeSpec deserializer) {
         processingEnv.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializationFactory", message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializationFactory for " + message.className());
 
         ClassName messageFactoryClassName = messageGroup.messageFactoryClassName();
 

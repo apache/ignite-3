@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -69,7 +68,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
 
         // Check that data has been written successfully
-        check(metaStorage, new EntryImpl(FIRST_KEY, FIRST_VALUE, 1, 1));
+        check(metaStorage, new EntryImpl(FIRST_KEY.bytes(), FIRST_VALUE, 1, 1));
     }
 
     /** {@inheritDoc} */
@@ -79,13 +78,13 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         metaStorage.remove(FIRST_KEY).get();
 
         // Check that data has been removed
-        check(metaStorage, new EntryImpl(FIRST_KEY, null, 2, 2));
+        check(metaStorage, new EntryImpl(FIRST_KEY.bytes(), null, 2, 2));
 
         // Put same data again
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
 
         // Check that it has been written
-        check(metaStorage, new EntryImpl(FIRST_KEY, FIRST_VALUE, 3, 3));
+        check(metaStorage, new EntryImpl(FIRST_KEY.bytes(), FIRST_VALUE, 3, 3));
     }
 
     /** {@inheritDoc} */
@@ -105,17 +104,9 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         int expectedRevision = interactedAfterSnapshot ? 4 : 3;
         int expectedUpdateCounter = interactedAfterSnapshot ? 4 : 3;
 
-        EntryImpl expectedLastEntry = new EntryImpl(new ByteArray(lastKey), lastValue, expectedRevision, expectedUpdateCounter);
+        EntryImpl expectedLastEntry = new EntryImpl(lastKey, lastValue, expectedRevision, expectedUpdateCounter);
 
-        return () -> {
-            org.apache.ignite.internal.metastorage.server.Entry e = storage.get(lastKey);
-            return e.empty() == expectedLastEntry.empty()
-                    && e.tombstone() == expectedLastEntry.tombstone()
-                    && e.revision() == expectedLastEntry.revision()
-                    && e.updateCounter() == expectedLastEntry.revision()
-                    && Arrays.equals(e.key(), expectedLastEntry.key().bytes())
-                    && Arrays.equals(e.value(), expectedLastEntry.value());
-        };
+        return () -> storage.get(lastKey).equals(expectedLastEntry);
     }
 
     /** {@inheritDoc} */
@@ -150,7 +141,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
      */
     private static void check(MetaStorageServiceImpl metaStorage, EntryImpl expected)
             throws ExecutionException, InterruptedException {
-        Entry entry = metaStorage.get(expected.key()).get();
+        Entry entry = metaStorage.get(new ByteArray(expected.key())).get();
 
         assertEquals(expected, entry);
     }

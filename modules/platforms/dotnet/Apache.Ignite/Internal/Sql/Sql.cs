@@ -138,10 +138,10 @@ namespace Apache.Ignite.Internal.Sql
                     e);
             }
 
-            PooledArrayBufferWriter Write()
+            PooledArrayBuffer Write()
             {
                 var writer = ProtoCommon.GetMessageWriter();
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
 
                 w.WriteTx(tx);
                 w.Write(statement.Schema);
@@ -159,12 +159,9 @@ namespace Apache.Ignite.Internal.Sql
                 }
 
                 w.Write(propTuple.Build().Span);
-
                 w.Write(statement.Query);
-
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
-                w.Flush();
                 return writer;
             }
         }

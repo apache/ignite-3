@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.metastorage.server.Entry;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -103,15 +103,15 @@ public class MetaStorageRangeCursorTest {
         return args.stream();
     }
 
-    private void checkCursor(Cursor<org.apache.ignite.internal.metastorage.Entry> range, int count) {
+    private void checkCursor(Cursor<Entry> range, int count) {
         for (int i = 0; i < count; i++) {
             String errorDetails = "count=" + count + ", i=" + i;
 
             assertTrue(range.hasNext(), errorDetails);
 
-            org.apache.ignite.internal.metastorage.Entry e = range.next();
+            Entry e = range.next();
 
-            assertEquals(intToBytes(i), e.key(), errorDetails);
+            assertArrayEquals(intToBytes(i).bytes(), e.key(), errorDetails);
             assertArrayEquals(intToBytes(i).bytes(), e.value(), errorDetails);
             assertEquals(i, e.revision(), errorDetails);
             assertEquals(i, e.updateCounter(), errorDetails);
@@ -125,7 +125,7 @@ public class MetaStorageRangeCursorTest {
     }
 
     private Entry intToEntry(int i) {
-        return new Entry(intToBytes(i).bytes(), intToBytes(i).bytes(), i, i);
+        return new EntryImpl(intToBytes(i).bytes(), intToBytes(i).bytes(), i, i);
     }
 
     private ByteArray intToBytes(int i) {
