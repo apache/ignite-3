@@ -36,6 +36,9 @@ internal sealed class AliasDictionary
     private readonly Dictionary<Expression, string> _fieldAliases = new();
 
     /** */
+    private readonly Dictionary<Expression, string> _groupByAliases = new();
+
+    /** */
     private readonly Stack<Dictionary<IQuerySource, string>> _stack = new();
 
     /** */
@@ -102,6 +105,25 @@ internal sealed class AliasDictionary
         var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression)!;
 
         return GetFieldAlias(referenceExpression);
+    }
+
+    /// <summary>
+    /// Gets the GROUP BY member alias.
+    /// </summary>
+    /// <param name="expression">Expression.</param>
+    /// <returns>Alias.</returns>
+    public (string Alias, bool Created) GetOrCreateGroupByMemberAlias(Expression expression)
+    {
+        if (_groupByAliases.TryGetValue(expression, out var alias))
+        {
+            return (alias, false);
+        }
+
+        alias = "_G" + _groupByAliases.Count;
+
+        _groupByAliases[expression] = alias;
+
+        return (alias, true);
     }
 
     /// <summary>
