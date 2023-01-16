@@ -566,6 +566,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
         else
         {
+            // This GroupBy member was processed before (it is a part of SELECT or something else), use alias.
             _builder.Append(alias);
         }
 
