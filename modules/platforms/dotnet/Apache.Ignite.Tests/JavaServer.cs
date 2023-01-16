@@ -31,11 +31,13 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public sealed class JavaServer : IDisposable
     {
+        private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
+
         private const int DefaultClientPort = 10942;
 
         private const int ConnectTimeoutSeconds = 120;
 
-        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --no-daemon"
+        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
           + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";
 
          /** Full path to Gradle binary. */
@@ -121,6 +123,10 @@ namespace Apache.Ignite.Tests
         private static Process CreateProcess()
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
+            var opts = Environment.GetEnvironmentVariable(GradleOptsEnvVar);
+            var command = $"{GradlePath} {GradleCommandExec} " + opts;
+
+            Log("Executing command: " + command);
 
             var process = new Process
             {
@@ -130,7 +136,7 @@ namespace Apache.Ignite.Tests
                     ArgumentList =
                     {
                         TestUtils.IsWindows ? "/c" : "-c",
-                        $"{GradlePath} {GradleCommandExec}"
+                        command
                     },
                     CreateNoWindow = true,
                     UseShellExecute = false,
@@ -139,6 +145,7 @@ namespace Apache.Ignite.Tests
                     RedirectStandardError = true
                 }
             };
+
             return process;
         }
 
