@@ -552,21 +552,24 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
 
         // Append grouping
-        _builder.Append("group by (");
+        _builder.Append("group by ");
 
         var (alias, aliasCreated) = Aliases.GetOrCreateGroupByMemberAlias(groupBy);
 
         if (aliasCreated)
         {
+            // This GroupBy member was not processed before, build full SQL expression.
+            // Do not append "AS alias" here, because we are inside GROUP BY clause already.
+            _builder.Append('(');
             BuildSqlExpression(groupBy.KeySelector);
-            _builder.Append(" as ").Append(alias);
+            _builder.Append(')');
         }
         else
         {
             _builder.Append(alias);
         }
 
-        _builder.Append(") ");
+        _builder.Append(' ');
 
         return true;
     }
