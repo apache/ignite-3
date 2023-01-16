@@ -37,7 +37,7 @@ pmd {
     consoleOutput = true
 
     toolVersion = libs.versions.pmdTool.get()
-    ruleSets = ["$rootDir/check-rules/pmd-rules.xml"]
+    ruleSets = ["check-rules/pmd-rules.xml"]
 }
 
 processResources {
@@ -61,11 +61,8 @@ checkstyle {
     ignoreFailures = false
     showViolations = true
     maxWarnings = 0
+    configDirectory = project.file("$rootDir/check-rules")
     configFile = file("$rootDir/check-rules/checkstyle-rules.xml")
-    configProperties = [
-            "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
-            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.txt")
-    ]
 }
 
 tasks.withType(Checkstyle) {
