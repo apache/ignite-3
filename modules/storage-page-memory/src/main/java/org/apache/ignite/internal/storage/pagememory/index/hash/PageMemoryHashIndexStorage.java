@@ -22,8 +22,7 @@ import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUti
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
@@ -44,16 +43,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  * Implementation of Hash index storage using Page Memory.
  */
 public class PageMemoryHashIndexStorage implements HashIndexStorage {
-    private static final VarHandle STATE;
-
-    static {
-        try {
-            STATE = MethodHandles.lookup().findVarHandle(PageMemoryHashIndexStorage.class, "state", StorageState.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     /** Index descriptor. */
     private final HashIndexDescriptor descriptor;
 
@@ -76,7 +65,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Current state of the storage. */
-    private volatile StorageState state = StorageState.RUNNABLE;
+    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * Constructor.
@@ -105,7 +94,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
                 IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
@@ -124,7 +113,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
                     @Override
                     public boolean hasNext() {
                         return busy(() -> {
-                            throwExceptionIfStorageInProgressOfRebalance(state, PageMemoryHashIndexStorage.this::createStorageInfo);
+                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
 
                             return cursor.hasNext();
                         });
@@ -133,7 +122,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
                     @Override
                     public RowId next() {
                         return busy(() -> {
-                            throwExceptionIfStorageInProgressOfRebalance(state, PageMemoryHashIndexStorage.this::createStorageInfo);
+                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
 
                             return cursor.next().rowId();
                         });
@@ -167,7 +156,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     @Override
     public void remove(IndexRow row) throws StorageException {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
                 IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
@@ -198,8 +187,8 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state;
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
+            StorageState state = this.state.get();
 
             assert state == StorageState.CLOSED : state;
 
@@ -219,8 +208,8 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * @throws StorageRebalanceException If there was an error when starting the rebalance.
      */
     public void startRebalance() {
-        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
         // Stops ongoing operations on the storage.
@@ -234,8 +223,8 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * @throws StorageRebalanceException If there is an error while completing the storage rebalance.
      */
     public void completeRebalance() {
-        if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
     }
 
@@ -247,7 +236,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
      */
     public void updateDataStructuresOnRebalance(IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
-        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.freeList = freeList;
 
@@ -260,6 +249,6 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     }
 
     private <V> V busy(Supplier<V> supplier) {
-        return inBusyLock(busyLock, supplier, () -> state, this::createStorageInfo);
+        return inBusyLock(busyLock, supplier, state::get, this::createStorageInfo);
     }
 }

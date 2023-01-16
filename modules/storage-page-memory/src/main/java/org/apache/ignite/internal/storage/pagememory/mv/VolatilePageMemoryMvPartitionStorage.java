@@ -105,7 +105,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
@@ -127,7 +127,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             groupConfig = config;
 
@@ -142,7 +142,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;

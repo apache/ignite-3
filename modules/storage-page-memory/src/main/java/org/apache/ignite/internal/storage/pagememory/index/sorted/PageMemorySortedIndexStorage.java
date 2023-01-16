@@ -22,10 +22,9 @@ import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUti
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -53,16 +52,6 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of Sorted index storage using Page Memory.
  */
 public class PageMemorySortedIndexStorage implements SortedIndexStorage {
-    private static final VarHandle STATE;
-
-    static {
-        try {
-            STATE = MethodHandles.lookup().findVarHandle(PageMemorySortedIndexStorage.class, "state", StorageState.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     /** Index descriptor. */
     private final SortedIndexDescriptor descriptor;
 
@@ -85,7 +74,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Current state of the storage. */
-    private volatile StorageState state = StorageState.RUNNABLE;
+    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * Constructor.
@@ -114,7 +103,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
                 SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
@@ -148,7 +137,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     @Override
     public void remove(IndexRow row) {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
                 SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
@@ -170,7 +159,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
@@ -215,8 +204,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      * Closes the sorted index storage.
      */
     public void close() {
-        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state;
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
+            StorageState state = this.state.get();
 
             assert state == StorageState.CLOSED : state;
 
@@ -245,7 +234,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             @Override
             public boolean hasNext() {
                 return busy(() -> {
-                    throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
+                    throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
 
                     return cursor.hasNext();
                 });
@@ -254,7 +243,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             @Override
             public R next() {
                 return busy(() -> {
-                    throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
+                    throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
 
                     return mapper.apply(cursor.next());
                 });
@@ -322,7 +311,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         @Override
         public @Nullable IndexRow peek() {
             return busy(() -> {
-                throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
 
                 if (hasNext != null) {
                     if (hasNext) {
@@ -353,7 +342,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         }
 
         private void advanceIfNeeded() throws IgniteInternalCheckedException {
-            throwExceptionIfStorageInProgressOfRebalance(state, PageMemorySortedIndexStorage.this::createStorageInfo);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
 
             if (hasNext != null) {
                 return;
@@ -392,8 +381,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      * @throws StorageRebalanceException If there was an error when starting the rebalance.
      */
     public void startRebalance() {
-        if (!STATE.compareAndSet(this, StorageState.RUNNABLE, StorageState.REBALANCE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
         // Stops ongoing operations on the storage.
@@ -407,8 +396,8 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      * @throws StorageRebalanceException If there is an error while completing the storage rebalance.
      */
     public void completeRebalance() {
-        if (!STATE.compareAndSet(this, StorageState.REBALANCE, StorageState.RUNNABLE)) {
-            throwExceptionDependingOnStorageStateOnRebalance(state, createStorageInfo());
+        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
     }
 
@@ -420,7 +409,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
      */
     public void updateDataStructuresOnRebalance(IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
-        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.freeList = freeList;
 
@@ -433,6 +422,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     private <V> V busy(Supplier<V> supplier) {
-        return inBusyLock(busyLock, supplier, () -> state, this::createStorageInfo);
+        return inBusyLock(busyLock, supplier, state::get, this::createStorageInfo);
     }
 }

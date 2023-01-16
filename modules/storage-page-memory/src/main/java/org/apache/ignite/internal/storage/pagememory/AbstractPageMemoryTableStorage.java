@@ -21,14 +21,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Function;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -55,16 +54,6 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    protected static final VarHandle CLOSED;
-
-    static {
-        try {
-            CLOSED = MethodHandles.lookup().findVarHandle(AbstractPageMemoryTableStorage.class, "closed", boolean.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     protected final TableConfiguration tableConfig;
 
     protected final TablesConfiguration tablesConfig;
@@ -80,7 +69,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     /** To avoid double closure. */
     @SuppressWarnings("unused")
-    protected volatile boolean closed;
+    protected final AtomicBoolean closed = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -119,7 +108,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void stop() throws StorageException {
-        if (!CLOSED.compareAndSet(this, false, true)) {
+        if (!closed.compareAndSet(false, true)) {
             return;
         }
 
@@ -144,7 +133,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroy() {
-        if (!CLOSED.compareAndSet(this, false, true)) {
+        if (!closed.compareAndSet(false, true)) {
             return completedFuture(null);
         }
 

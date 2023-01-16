@@ -180,7 +180,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         lastApplied0(lastAppliedIndex, lastAppliedTerm);
     }
@@ -230,7 +230,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-        throwExceptionIfStorageInProgressOfRebalance(state, this::createStorageInfo);
+        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
@@ -318,7 +318,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         lastApplied0(lastAppliedIndex, lastAppliedTerm);
 
@@ -342,7 +342,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree
     ) {
-        throwExceptionIfStorageNotInProgressOfRebalance(state, this::createStorageInfo);
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.meta = meta;
 
