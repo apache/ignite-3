@@ -137,6 +137,17 @@ namespace Apache.Ignite.Internal.Sql
                     "Invalid query, check inner exceptions for details: " + statement.Query,
                     e);
             }
+#if DEBUG
+            catch (IgniteException e)
+            {
+                if ((e.InnerException?.Message ?? e.Message).StartsWith("org.apache.calcite.", StringComparison.Ordinal))
+                {
+                    Console.WriteLine("SQL parsing failed: " + statement.Query);
+                }
+
+                throw;
+            }
+#endif
 
             PooledArrayBuffer Write()
             {
