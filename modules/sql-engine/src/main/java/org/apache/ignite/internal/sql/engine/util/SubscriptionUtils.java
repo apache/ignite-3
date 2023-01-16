@@ -34,7 +34,7 @@ public class SubscriptionUtils {
      * @return Publisher which will be combine all of passed as parameter to single one.
      */
     public static <T> Publisher<T> concat(Iterator<Publisher<? extends T>> sources) {
-        return new ConcatPublisher<>(sources);
+        return new ConcatenatedPublisher<>(sources);
     }
 
     /**
@@ -46,7 +46,7 @@ public class SubscriptionUtils {
      */
     @SafeVarargs
     public static <T> Publisher<T> concat(Publisher<? extends T>... sources) {
-        return new ConcatPublisher<>(Arrays.asList(sources).iterator());
+        return new ConcatenatedPublisher<>(Arrays.asList(sources).iterator());
     }
 
     /**

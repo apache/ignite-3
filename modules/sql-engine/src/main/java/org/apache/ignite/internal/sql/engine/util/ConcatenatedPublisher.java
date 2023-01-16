@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Thread-safe implementation of combining multiple publishers.
  * Starts to consume the next source only after the previous has been completed.
  */
-public class ConcatPublisher<T> implements Publisher<T> {
+public class ConcatenatedPublisher<T> implements Publisher<T> {
     /** Iterator of upstream publishers. */
     private final Iterator<Publisher<? extends T>> sources;
 
@@ -40,14 +40,14 @@ public class ConcatPublisher<T> implements Publisher<T> {
      *
      * @param sources Iterator of upstream publishers.
      */
-    public ConcatPublisher(Iterator<Publisher<? extends T>> sources) {
+    public ConcatenatedPublisher(Iterator<Publisher<? extends T>> sources) {
         this.sources = sources;
     }
 
     /** {@inheritDoc} */
     @Override
     public void subscribe(Subscriber<? super T> downstream) {
-        ConcatCoordinator<T> subscription = new ConcatCoordinator<>(downstream, sources);
+        ConcatenatedSubscriber<T> subscription = new ConcatenatedSubscriber<>(downstream, sources);
 
         downstream.onSubscribe(subscription);
         subscription.drain();
@@ -58,7 +58,7 @@ public class ConcatPublisher<T> implements Publisher<T> {
      *
      * <p>Subscribes to the next subscription only after the previous subscription completes.
      */
-    static final class ConcatCoordinator<T> extends SubscriptionArbiter implements Subscriber<T> {
+    static final class ConcatenatedSubscriber<T> extends ConcatenatedSubscription implements Subscriber<T> {
         /** Counter to prevent concurrent execution of a critical section. */
         private final AtomicInteger guardCntr = new AtomicInteger();
 
@@ -74,7 +74,7 @@ public class ConcatPublisher<T> implements Publisher<T> {
          */
         private long consumed;
 
-        ConcatCoordinator(
+        ConcatenatedSubscriber(
                 Subscriber<? super T> downstream,
                 Iterator<Publisher<? extends T>> sources
         ) {
@@ -135,14 +135,14 @@ public class ConcatPublisher<T> implements Publisher<T> {
                 }
 
                 sources.next().subscribe(this);
-            } while (guardCntr.decrementAndGet() != 0); // Retry the loop if there was a race in onComplete().
+            } while (guardCntr.decrementAndGet() != 0); // Resume with the subsequent sources if there was synchronous or racy onComplete().
         }
     }
 
     /**
-     * Manages thread-safe subscription switching.
+     * Concatenation composite subscription.
      */
-    private static class SubscriptionArbiter implements Subscription {
+    private static class ConcatenatedSubscription implements Subscription {
         /** Used to update {@link #current} with proper visibility. */
         private static final VarHandle CURRENT;
 
@@ -162,11 +162,11 @@ public class ConcatPublisher<T> implements Publisher<T> {
             Lookup lk = MethodHandles.lookup();
 
             try {
-                CURRENT = lk.findVarHandle(SubscriptionArbiter.class, "current", Subscription.class);
-                NEXT = lk.findVarHandle(SubscriptionArbiter.class, "next", Subscription.class);
-                DOWNSTREAM_REQUESTED = lk.findVarHandle(SubscriptionArbiter.class, "downstreamRequested", long.class);
-                PRODUCED = lk.findVarHandle(SubscriptionArbiter.class, "produced", long.class);
-                WIP = lk.findVarHandle(SubscriptionArbiter.class, "wip", int.class);
+                CURRENT = lk.findVarHandle(ConcatenatedSubscription.class, "current", Subscription.class);
+                NEXT = lk.findVarHandle(ConcatenatedSubscription.class, "next", Subscription.class);
+                DOWNSTREAM_REQUESTED = lk.findVarHandle(ConcatenatedSubscription.class, "downstreamRequested", long.class);
+                PRODUCED = lk.findVarHandle(ConcatenatedSubscription.class, "produced", long.class);
+                WIP = lk.findVarHandle(ConcatenatedSubscription.class, "wip", int.class);
             } catch (NoSuchFieldException | IllegalAccessException ex) {
                 throw new InternalError(ex);
             }
