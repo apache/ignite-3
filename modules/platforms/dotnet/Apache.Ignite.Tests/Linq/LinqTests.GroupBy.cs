@@ -101,14 +101,17 @@ public partial class LinqTests
 
         var res = query.ToList();
 
-        Assert.AreEqual(1, res[1].Key);
+        Assert.AreEqual(10, res[1].Key);
         Assert.AreEqual(3, res[1].Count);
 
+        Assert.AreEqual(20, res[2].Key);
+        Assert.AreEqual(3, res[2].Count);
+
         StringAssert.Contains(
-            "select (_T0.VAL * ?) as _G0, count (*)  " +
+            "select (cast(_T0.VAL as int) * ?) as _G0, count(*) as COUNT " +
             "from PUBLIC.TBL_INT8 as _T0 " +
-            "group by _G0 " +
-            "order by _G0 asc",
+            "group by (_G0) " +
+            "order by (_G0) asc",
             query.ToString());
     }
 
