@@ -34,13 +34,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -99,10 +96,6 @@ public class RepeatedFinishReadWriteTransactionTest {
         assertTrue(firstCommitFut.isDone());
         assertTrue(secondCommitFut.isDone());
         assertTrue(rollbackFut.isDone());
-
-
-
-        assertTrue(tx.commitAsync().isDone());
     }
 
     @Test
@@ -152,10 +145,11 @@ public class RepeatedFinishReadWriteTransactionTest {
     }
 
     @Test
-    public void test1() throws Exception {
+    public void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
         TestTxManager txManager = mock(TestTxManager.class);
 
-        when(txManager.finish(any(), any(), any(), anyBoolean(), any(), any())).thenReturn(failedFuture(new Exception("qwer")));
+        when(txManager.finish(any(), any(), any(), anyBoolean(), any(), any()))
+                .thenReturn(failedFuture(new Exception("Expected exception.")));
 
         ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
 
@@ -174,25 +168,50 @@ public class RepeatedFinishReadWriteTransactionTest {
         fut.complete(null);
 
         try {
-            firstCommitFut.join();
+            firstCommitFut.get(3, TimeUnit.SECONDS);
 
             fail();
-        } catch (Exception e) {
-
+        } catch (Exception ignored) {
+            // No op.
         }
 
-        tx.commitAsync().get();
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
+    }
 
-//        try {
-//            tx.commitAsync().get();
-//        } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//        } catch (ExecutionException e) {
-//            throw new RuntimeException(e);
-//        }
+    @Test
+    public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
+        TestTxManager txManager = mock(TestTxManager.class);
 
-        System.out.println();
+        when(txManager.finish(any(), any(), any(), anyBoolean(), any(), any()))
+                .thenReturn(failedFuture(new Exception("Expected exception.")));
 
+        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
+
+        TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
+
+        tx.enlist(partId, new IgniteBiTuple<>(null, null));
+
+        tx.assignCommitPartition(partId);
+
+        tx.enlistResultFuture(completedFuture(null));
+
+        CompletableFuture<Object> fut = new CompletableFuture<>();
+
+        CompletableFuture<Void> rollbackFut = fut.thenComposeAsync((ignored) -> tx.rollbackAsync());
+
+        fut.complete(null);
+
+        try {
+            rollbackFut.get(3, TimeUnit.SECONDS);
+
+            fail();
+        } catch (Exception ignored) {
+            // No op.
+        }
+
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
     }
 
     private static class TestTxManager implements TxManager {

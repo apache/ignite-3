@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.tx;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
@@ -39,7 +38,7 @@ public class ClientTransaction implements Transaction {
     private final long id;
 
     /** The future used on repeated commit/rollback. */
-    private AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
+    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -85,7 +84,7 @@ public class ClientTransaction implements Transaction {
 
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
 
-        mainFinishFut.thenRun(() -> finishFut.get().complete(null));
+        mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
 
         return mainFinishFut;
     }
@@ -105,7 +104,7 @@ public class ClientTransaction implements Transaction {
 
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
 
-        mainFinishFut.thenRun(() -> finishFut.get().complete(null));
+        mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
 
         return mainFinishFut;
     }

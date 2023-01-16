@@ -18,10 +18,16 @@
 package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -56,19 +62,20 @@ public class RepeatedFinishClientTransactionTest {
         CompletableFuture<Void> rollbackFut = tx.rollbackAsync();
 
         assertNotSame(firstCommitFut, secondCommitFut);
-        assertNotSame(secondCommitFut, rollbackFut);
-        assertNotSame(firstCommitFut, rollbackFut);
+        assertSame(secondCommitFut, rollbackFut);
         assertSame(secondCommitFut, tx.commitAsync());
-        assertNotSame(rollbackFut, tx.rollbackAsync());
+        assertSame(rollbackFut, tx.rollbackAsync());
 
         assertFalse(firstCommitFut.isDone());
         assertFalse(secondCommitFut.isDone());
-        assertTrue(rollbackFut.isDone());
+        assertFalse(rollbackFut.isDone());
 
         secondFinishLatch.countDown();
 
         firstCommitFut.get(3, TimeUnit.SECONDS);
+        assertTrue(firstCommitFut.isDone());
         assertTrue(secondCommitFut.isDone());
+        assertTrue(rollbackFut.isDone());
     }
 
     @Test
@@ -92,19 +99,73 @@ public class RepeatedFinishClientTransactionTest {
 
         CompletableFuture<Void> secondRollbackFut = tx.rollbackAsync();
 
-        assertNotSame(firstRollbackFut, commitFut);
-        assertNotSame(commitFut, secondRollbackFut);
         assertNotSame(firstRollbackFut, secondRollbackFut);
+        assertSame(secondRollbackFut, commitFut);
+        assertSame(commitFut, tx.commitAsync());
+        assertSame(secondRollbackFut, tx.rollbackAsync());
 
         assertFalse(firstRollbackFut.isDone());
-        assertTrue(commitFut.isDone());
-        assertTrue(secondRollbackFut.isDone());
+        assertFalse(secondRollbackFut.isDone());
+        assertFalse(commitFut.isDone());
 
         secondFinishLatch.countDown();
 
         firstRollbackFut.get(3, TimeUnit.SECONDS);
-        assertTrue(commitFut.isDone());
+        assertTrue(firstRollbackFut.isDone());
         assertTrue(secondRollbackFut.isDone());
+        assertTrue(commitFut.isDone());
+    }
+
+    @Test
+    public void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
+        TestClientChannel clientChannel = mock(TestClientChannel.class);
+
+        when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
+
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1);
+
+        CompletableFuture<Object> fut = new CompletableFuture<>();
+
+        CompletableFuture<Void> commitFut = fut.thenComposeAsync((ignored) -> tx.commitAsync());
+
+        fut.complete(null);
+
+        try {
+            commitFut.get(3, TimeUnit.SECONDS);
+
+            fail();
+        } catch (Exception ignored) {
+            // No op.
+        }
+
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
+        TestClientChannel clientChannel = mock(TestClientChannel.class);
+
+        when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
+
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1);
+
+        CompletableFuture<Object> fut = new CompletableFuture<>();
+
+        CompletableFuture<Void> rollbackFut = fut.thenComposeAsync((ignored) -> tx.rollbackAsync());
+
+        fut.complete(null);
+
+        try {
+            rollbackFut.get(3, TimeUnit.SECONDS);
+
+            fail();
+        } catch (Exception ignored) {
+            // No op.
+        }
+
+        tx.commitAsync().get(3, TimeUnit.SECONDS);
+        tx.rollbackAsync().get(3, TimeUnit.SECONDS);
     }
 
     private static class TestClientChannel implements ClientChannel {
