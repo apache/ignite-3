@@ -258,9 +258,9 @@ public class MetaStorageListener implements RaftGroupListener {
                         ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones())
                         : storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
 
-                var meta = new CursorMeta(cursor, CursorType.RANGE, rangeCmd.requesterNodeId(), rangeCmd.batchSize());
+                var cursorMeta = new CursorMeta(cursor, CursorType.RANGE, rangeCmd.requesterNodeId(), rangeCmd.batchSize());
 
-                cursors.put(cursorId, meta);
+                cursors.put(cursorId, cursorMeta);
 
                 clo.result(cursorId);
             } else if (command instanceof PrefixCommand) {
@@ -272,9 +272,9 @@ public class MetaStorageListener implements RaftGroupListener {
                         ? storage.prefix(prefixCmd.prefix(), prefixCmd.includeTombstones())
                         : storage.prefix(prefixCmd.prefix(), prefixCmd.revUpperBound(), prefixCmd.includeTombstones());
 
-                var meta = new CursorMeta(cursor, CursorType.RANGE, prefixCmd.requesterNodeId(), prefixCmd.batchSize());
+                var cursorMeta = new CursorMeta(cursor, CursorType.RANGE, prefixCmd.requesterNodeId(), prefixCmd.batchSize());
 
-                cursors.put(cursorId, meta);
+                cursors.put(cursorId, cursorMeta);
 
                 clo.result(cursorId);
             } else if (command instanceof CursorNextCommand) {
