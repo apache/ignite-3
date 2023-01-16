@@ -27,6 +27,8 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -95,6 +97,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -556,6 +559,8 @@ public class IgniteImpl implements Ignite {
 
             LOG.info("Components started, joining the cluster");
 
+            ExecutorService startupExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory("start-", LOG));
+
             return cmgMgr.joinFuture()
                     // using the default executor to avoid blocking the CMG Manager threads
                     .thenRunAsync(() -> {
@@ -584,8 +589,8 @@ public class IgniteImpl implements Ignite {
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
-                    })
-                    .thenCompose(v -> {
+                    }, startupExecutor)
+                    .thenComposeAsync(v -> {
                         LOG.info("Components started, performing recovery");
 
                         // Recovery future must be created before configuration listeners are triggered.
@@ -595,7 +600,7 @@ public class IgniteImpl implements Ignite {
                         );
 
                         return notifyConfigurationListeners()
-                                .thenCompose(t -> {
+                                .thenComposeAsync(t -> {
                                     // Deploy all registered watches because all components are ready and have registered their listeners.
                                     try {
                                         metaStorageMgr.deployWatches();
@@ -604,28 +609,32 @@ public class IgniteImpl implements Ignite {
                                     }
 
                                     return recoveryFuture;
-                                });
-                    })
+                                }, startupExecutor);
+                    }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
-                    .thenCompose(v -> {
+                    .thenComposeAsync(v -> {
                         LOG.info("Recovery complete, finishing join");
 
                         return cmgMgr.onJoinReady();
-                    })
-                    .thenRun(() -> {
+                    }, startupExecutor)
+                    .thenRunAsync(() -> {
                         try {
                             // Transfer the node to the STARTED state.
                             lifecycleManager.onStartComplete();
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
-                    })
-                    .handle((v, e) -> {
+                    }, startupExecutor)
+                    .handleAsync((v, e) -> {
                         if (e != null) {
                             throw handleStartException(e);
                         }
 
-                        return this;
+                        return (Ignite) this;
+                    }, startupExecutor)
+                    // Moving to the common pool on purpose to close the startup pool and proceed user's code in the common pool.
+                    .whenCompleteAsync((res, ex) -> {
+                        startupExecutor.shutdown();
                     });
         } catch (Throwable e) {
             throw handleStartException(e);

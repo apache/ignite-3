@@ -72,6 +72,16 @@ public class Cluster {
     /** Timeout for SQL queries (in milliseconds). */
     private static final int QUERY_TIMEOUT_MS = 10_000;
 
+    /** Default nodes bootstrap configuration pattern. */
+    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "{\n"
+            + "  \"network\": {\n"
+            + "    \"port\":{},\n"
+            + "    \"nodeFinder\":{\n"
+            + "      \"netClusterNodes\": [ {} ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
     private final TestInfo testInfo;
 
     private final Path workDir;
@@ -87,7 +97,14 @@ public class Cluster {
     private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
 
     /**
-     * Creates a new instance.
+     * Creates a new cluster with a default bootstrap config.
+     */
+    public Cluster(TestInfo testInfo, Path workDir) {
+        this(testInfo, workDir, DEFAULT_NODE_BOOTSTRAP_CFG);
+    }
+
+    /**
+     * Creates a new cluster with the given bootstrap config.
      */
     public Cluster(TestInfo testInfo, Path workDir, String nodeBootstrapConfig) {
         this.testInfo = testInfo;
@@ -122,7 +139,13 @@ public class Cluster {
         started = true;
     }
 
-    private CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
+    /**
+     * Start a cluster node and return its startup future.
+     *
+     * @param nodeIndex Index of the nodex to start.
+     * @return Future that will be completed when the node starts.
+     */
+    public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
         String config = IgniteStringFormatter.format(nodeBootstrapConfig, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
