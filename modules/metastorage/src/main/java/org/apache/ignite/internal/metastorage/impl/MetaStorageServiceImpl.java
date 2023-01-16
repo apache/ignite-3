@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
+import org.apache.ignite.internal.metastorage.command.PrefixCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RangeCommand;
@@ -118,8 +119,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * Constructor.
      *
      * @param metaStorageRaftGrpSvc Meta storage raft group service.
-     * @param localNodeId           Local node id.
-     * @param localNodeName         Local node name.
+     * @param localNodeId Local node id.
+     * @param localNodeName Local node name.
      */
     public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, String localNodeId, String localNodeName) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
@@ -301,21 +302,25 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
+        return range(keyFrom, keyTo, -1, includeTombstones);
+    }
+
+    @Override
+    public Cursor<Entry> prefix(ByteArray prefix, long revUpperBound) {
         return new CursorImpl<>(
                 commandsFactory,
-            metaStorageRaftGrpSvc,
-            metaStorageRaftGrpSvc.run(
-                    commandsFactory.rangeCommand()
-                            .keyFrom(keyFrom.bytes())
-                            .keyTo(keyTo == null ? null : keyTo.bytes())
-                            .revUpperBound(-1)
-                            .requesterNodeId(localNodeId)
-                            .cursorId(uuidGenerator.randomUuid())
-                            .includeTombstones(includeTombstones)
-                            .batchSize(RangeCommand.DEFAULT_BATCH_SIZE)
-                            .build()
-            ),
-            MetaStorageServiceImpl::multipleEntryResultForCache
+                metaStorageRaftGrpSvc,
+                metaStorageRaftGrpSvc.run(
+                        commandsFactory.prefixCommand()
+                                .prefix(prefix.bytes())
+                                .revUpperBound(revUpperBound)
+                                .requesterNodeId(localNodeId)
+                                .cursorId(uuidGenerator.randomUuid())
+                                .includeTombstones(false)
+                                .batchSize(PrefixCommand.DEFAULT_BATCH_SIZE)
+                                .build()
+                ),
+                MetaStorageServiceImpl::multipleEntryResultForCache
         );
     }
 
@@ -389,7 +394,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> compact() {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -506,8 +511,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         MultipleEntryResponse resp = (MultipleEntryResponse) obj;
 
         return resp.entries().stream()
-            .map(MetaStorageServiceImpl::singleEntryResult)
-            .collect(toList());
+                .map(MetaStorageServiceImpl::singleEntryResult)
+                .collect(toList());
     }
 
     private static Entry singleEntryResult(Object obj) {
@@ -553,8 +558,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
          * {@link WatchListener#onError(Throwable)}.
          *
          * @param watchId Watch id.
-         * @param cursor  Watch Cursor.
-         * @param lsnr    The listener which receives and handles watch updates.
+         * @param cursor Watch Cursor.
+         * @param lsnr The listener which receives and handles watch updates.
          */
         private void addWatch(IgniteUuid watchId, CursorImpl<WatchEvent> cursor, WatchListener lsnr) {
             Watcher watcher = new Watcher(cursor, lsnr);
@@ -613,7 +618,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
              * Constructor.
              *
              * @param cursor Watch event cursor.
-             * @param lsnr   The listener which receives and handles watch updates.
+             * @param lsnr The listener which receives and handles watch updates.
              */
             Watcher(Cursor<WatchEvent> cursor, WatchListener lsnr) {
                 setName("ms-watcher-" + localNodeName);
