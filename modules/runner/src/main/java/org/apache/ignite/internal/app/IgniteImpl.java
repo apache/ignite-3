@@ -559,7 +559,7 @@ public class IgniteImpl implements Ignite {
 
             LOG.info("Components started, joining the cluster");
 
-            ExecutorService startupExecutor = Executors.newSingleThreadExecutor(new NamedThreadFactory("start-", LOG));
+            ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
 
             return cmgMgr.joinFuture()
                     // using the default executor to avoid blocking the CMG Manager threads

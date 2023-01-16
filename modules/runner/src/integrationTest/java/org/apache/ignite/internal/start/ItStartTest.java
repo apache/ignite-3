@@ -35,6 +35,7 @@ import java.util.logging.Logger;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
@@ -52,9 +53,16 @@ class ItStartTest {
     @WorkDirectory
     private Path workDir;
 
+    private TestInfo testInfo;
+
     @BeforeEach
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir);
+    }
+
+    @BeforeEach
+    void storeTestInfo(TestInfo testInfo) {
+        this.testInfo = testInfo;
     }
 
     @AfterEach
@@ -87,10 +95,14 @@ class ItStartTest {
                         .<Executable>map(probe -> () -> assertThat(
                                 "Wrong thread for " + probe.expectation.name,
                                 probe.threadNameRef.get(),
-                                startsWith("start-")
+                                startsWith(startThreadNamePrefix())
                         ))
                         .collect(toList())
         );
+    }
+
+    private String startThreadNamePrefix() {
+        return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%start-";
     }
 
     private static LoggingProbe installProbe(Expectation expectation) {
@@ -131,11 +143,11 @@ class ItStartTest {
         assertThatStartThreadsAreStopped();
     }
 
-    private static void assertThatStartThreadsAreStopped() {
+    private void assertThatStartThreadsAreStopped() {
         List<String> aliveStartThreads = Thread.getAllStackTraces().keySet().stream()
                 .filter(Thread::isAlive)
                 .map(Thread::getName)
-                .filter(name -> name.startsWith("start-"))
+                .filter(name -> name.startsWith(startThreadNamePrefix()))
                 .collect(toList());
 
         assertThat(aliveStartThreads, is(empty()));
