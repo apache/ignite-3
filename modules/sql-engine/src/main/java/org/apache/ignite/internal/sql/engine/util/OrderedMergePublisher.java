@@ -33,7 +33,9 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Sorting composite publisher.
  *
- * <p>Merges multiple concurrent ordered data streams into one.
+ * <p>Merges multiple publishers using merge-sort algorithm.
+ *
+ * <p>Note: upstream publishers must be sources of sorted data.
  */
 public class OrderedMergePublisher<T> implements Publisher<T> {
     /** Rows comparator. */
@@ -74,7 +76,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
     /**
      * Sorting composite subscription.
      *
-     * <p>Merges multiple concurrent ordered data streams into one.
+     * <p>Merges multiple ordered data streams into single ordered stream using merge-sort algorithm.
      */
     static final class OrderedMergeSubscription<T> implements Subscription {
         /** Marker object with means publisher is completed. */
