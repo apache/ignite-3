@@ -989,7 +989,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Deletes partition data from the storage, using write batch to perform the operation.
      */
-    public void destroyData(WriteBatch writeBatch) throws RocksDBException {
+    void destroyData(WriteBatch writeBatch) throws RocksDBException {
         writeBatch.delete(meta, lastAppliedIndexKey);
         writeBatch.delete(meta, lastAppliedTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);

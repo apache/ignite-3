@@ -154,27 +154,6 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testSuccessRebalance() throws Exception {
-        super.testSuccessRebalance();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testFailRebalance() throws Exception {
-        super.testFailRebalance();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testStartRebalanceForClosedPartition() {
-        super.testStartRebalanceForClosedPartition();
-    }
-
-    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18523")
     @Override
     public void testDestroyTableStorage() throws Exception {
