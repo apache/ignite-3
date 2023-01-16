@@ -43,6 +43,7 @@ import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
+import org.apache.ignite.internal.metastorage.command.PrefixCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RangeCommand;
@@ -253,19 +254,27 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 IgniteUuid cursorId = rangeCmd.cursorId();
 
-                Cursor<Entry> cursor = (rangeCmd.revUpperBound() != -1)
+                Cursor<Entry> cursor = rangeCmd.revUpperBound() != -1
                         ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones())
                         : storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
 
-                cursors.put(
-                        cursorId,
-                        new CursorMeta(
-                                cursor,
-                                CursorType.RANGE,
-                                rangeCmd.requesterNodeId(),
-                                rangeCmd.batchSize()
-                        )
-                );
+                var meta = new CursorMeta(cursor, CursorType.RANGE, rangeCmd.requesterNodeId(), rangeCmd.batchSize());
+
+                cursors.put(cursorId, meta);
+
+                clo.result(cursorId);
+            } else if (command instanceof PrefixCommand) {
+                var prefixCmd = (PrefixCommand) command;
+
+                IgniteUuid cursorId = prefixCmd.cursorId();
+
+                Cursor<Entry> cursor = prefixCmd.revUpperBound() == -1
+                        ? storage.prefix(prefixCmd.prefix(), prefixCmd.includeTombstones())
+                        : storage.prefix(prefixCmd.prefix(), prefixCmd.revUpperBound(), prefixCmd.includeTombstones());
+
+                var meta = new CursorMeta(cursor, CursorType.RANGE, prefixCmd.requesterNodeId(), prefixCmd.batchSize());
+
+                cursors.put(cursorId, meta);
 
                 clo.result(cursorId);
             } else if (command instanceof CursorNextCommand) {

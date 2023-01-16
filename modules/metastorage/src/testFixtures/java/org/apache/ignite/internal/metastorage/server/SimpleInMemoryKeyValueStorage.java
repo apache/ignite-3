@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
 import java.nio.file.Path;
@@ -50,7 +51,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /** Lexicographical comparator. */
-    private static final Comparator<byte[]> CMP = Arrays::compare;
+    private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
     /**
      * Special value for revision number which means that operation should be applied to the latest revision of an entry.
@@ -359,7 +360,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, boolean includeTombstones) {
         synchronized (mux) {
@@ -367,13 +367,23 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones) {
         return new RangeCursor(keyFrom, keyTo, revUpperBound, includeTombstones);
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones) {
+        synchronized (mux) {
+            return prefix(prefix, rev, includeTombstones);
+        }
+    }
+
+    @Override
+    public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
+        return new RangeCursor(prefix, incrementArray(prefix), revUpperBound, includeTombstones);
+    }
+
     @Override
     public Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
         assert keyFrom != null : "keyFrom couldn't be null.";
@@ -384,7 +394,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<WatchEvent> watch(byte[] key, long rev) {
         assert key != null : "key couldn't be null.";
@@ -393,7 +402,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return new WatchCursor(rev, k -> CMP.compare(k, key) == 0);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev) {
         assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
@@ -406,7 +414,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return new WatchCursor(rev, keySet::contains);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void compact() {
         synchronized (mux) {
@@ -422,20 +429,17 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @NotNull
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void restoreSnapshot(Path snapshotPath) {
         throw new UnsupportedOperationException();
