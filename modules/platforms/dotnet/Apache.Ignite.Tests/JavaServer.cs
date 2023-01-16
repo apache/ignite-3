@@ -124,7 +124,7 @@ namespace Apache.Ignite.Tests
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
             var opts = Environment.GetEnvironmentVariable(GradleOptsEnvVar);
-            var command = $"{GradlePath} {GradleCommandExec} " + opts;
+            var command = $"{GradlePath} {GradleCommandExec} {opts}";
 
             Log("Executing command: " + command);
 
