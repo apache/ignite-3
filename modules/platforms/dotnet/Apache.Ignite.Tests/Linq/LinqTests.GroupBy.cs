@@ -110,8 +110,8 @@ public partial class LinqTests
         StringAssert.Contains(
             "select (cast(_T0.VAL as int) * ?) as _G0, count(*) as COUNT " +
             "from PUBLIC.TBL_INT8 as _T0 " +
-            "group by _G0 " +
-            "order by _G0 asc",
+            "group by (_G0) " +
+            "order by (_G0) asc",
             query.ToString());
     }
 
