@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.calcite.util.Static.RESOURCE;
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -38,6 +37,7 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
+import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlJoin;
@@ -96,7 +96,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** Dynamic parameters. */
-    Object[] parameters;
+    private final Object[] parameters;
+
+    private int dynamicParameterCount;
+
+    private boolean checkDynamicParameters;
 
     /**
      * Creates a validator.
@@ -112,6 +116,43 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         super(opTab, catalogReader, typeFactory, config);
 
         this.parameters = parameters;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlNode validate(SqlNode topNode) {
+        this.dynamicParameterCount = 0;
+        try {
+            SqlNode topNodeToValidate;
+            // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
+            // java.lang.NullPointerException: namespace for <query>
+            // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
+            boolean explain = topNode instanceof SqlExplain;
+            if (explain) {
+                topNodeToValidate = ((SqlExplain) topNode).getExplicandum();
+                // We do not validate dynamic parameters in case of EXPLAIN FOR queries since they may be omitted.
+                // TODO: We must enable this check for EXPLAIN ANALYZE flavour of EXPLAIN FOR queries.
+                checkDynamicParameters = false;
+            } else {
+                topNodeToValidate = topNode;
+                checkDynamicParameters = true;
+            }
+
+            SqlNode validatedNode = super.validate(topNodeToValidate);
+            if (checkDynamicParameters && parameters.length != dynamicParameterCount) {
+                throw newValidationError(topNode, IgniteResource.INSTANCE.unexpectedParameter(parameters.length, dynamicParameterCount));
+            }
+
+            if (explain) {
+                SqlExplain explainNode = (SqlExplain) topNode;
+                explainNode.setOperand(0, validatedNode);
+                return explainNode;
+            } else {
+                return validatedNode;
+            }
+        } finally {
+            this.checkDynamicParameters = false;
+        }
     }
 
     /** {@inheritDoc} */
@@ -230,12 +271,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
             }
         } else if (n instanceof SqlDynamicParam) {
-            // will fail in params check.
-            if (nullOrEmpty(parameters)) {
-                return;
-            }
-
-            int idx = ((SqlDynamicParam) n).getIndex();
+            SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
+            int idx = dynamicParam.getIndex();
+            // validateDynamicParam is not called by a validator we must call it ourselves.
+            validateDynamicParam(dynamicParam);
 
             if (idx < parameters.length) {
                 Object param = parameters[idx];
@@ -458,15 +497,41 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** {@inheritDoc} */
     @Override
+    public void validateDynamicParam(SqlDynamicParam dynamicParam) {
+        int index = dynamicParam.getIndex();
+        if (checkDynamicParameters && index >= parameters.length) {
+            throw newValidationError(dynamicParam, RESOURCE.dynamicParamIllegal());
+        }
+        this.dynamicParameterCount = Integer.max(dynamicParameterCount, index + 1);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
+
         if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
-            Object param = parameters[((SqlDynamicParam) node).getIndex()];
+            SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
             RelDataType type;
-            if (param == null) {
-                type = typeFactory().createSqlType(SqlTypeName.NULL);
+
+            // We explicitly call validateDynamicParam because the validator does not call it.
+            validateDynamicParam(dynamicParam);
+
+            // If we reach this line then the parameter's index is valid (a) or dynamic parameters validation is disabled
+            // (in case of EXPLAIN queries) (b).
+            // - If the parameter is present we must use the parameter's type.
+            // - If the parameter is absent (and this can only happen in #b) then we set the type of this dynamic parameter to NULL
+            // (or we must use UNKNOWN here).
+            if (dynamicParam.getIndex() < parameters.length) {
+                Object param = parameters[dynamicParam.getIndex()];
+                if (param == null) {
+                    type = typeFactory().createSqlType(SqlTypeName.NULL);
+                } else {
+                    type = typeFactory().toSql(typeFactory().createType(param.getClass()));
+                }
             } else {
-                type = typeFactory().toSql(typeFactory().createType(param.getClass()));
+                type = typeFactory().createSqlType(SqlTypeName.NULL);
             }
+
             setValidatedNodeType(node, type);
         } else if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);

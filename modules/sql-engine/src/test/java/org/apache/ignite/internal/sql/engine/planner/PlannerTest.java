@@ -161,7 +161,6 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
-                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
