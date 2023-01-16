@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +63,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
 
     /** Revisions index. Value contains all entries which were modified under particular revision. */
-    private NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new TreeMap<>();
+    private Map<Long, NavigableMap<byte[], Value>> revsIdx = new HashMap<>();
 
     /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
     private long rev;
@@ -362,9 +363,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, boolean includeTombstones) {
+        long currentRevision;
+
         synchronized (mux) {
-            return new RangeCursor(keyFrom, keyTo, rev, includeTombstones);
+            currentRevision = rev;
         }
+
+        return range(keyFrom, keyTo, currentRevision, includeTombstones);
     }
 
     @Override
@@ -374,9 +379,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones) {
+        long currentRevision;
+
         synchronized (mux) {
-            return prefix(prefix, rev, includeTombstones);
+            currentRevision = rev;
         }
+
+        return prefix(prefix, currentRevision, includeTombstones);
     }
 
     @Override
@@ -419,7 +428,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         synchronized (mux) {
             NavigableMap<byte[], List<Long>> compactedKeysIdx = new TreeMap<>(CMP);
 
-            NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
+            Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new HashMap<>();
 
             keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx));
 
@@ -460,8 +469,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private void compactForKey(
             byte[] key,
             List<Long> revs,
-            NavigableMap<byte[], List<Long>> compactedKeysIdx,
-            NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx
+            Map<byte[], List<Long>> compactedKeysIdx,
+            Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx
     ) {
         Long lastRev = lastRevision(revs);
 
