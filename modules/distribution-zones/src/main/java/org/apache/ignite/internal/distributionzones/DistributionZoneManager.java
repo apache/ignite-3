@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
@@ -289,54 +290,43 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
-            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
+            CompletableFuture<Void> change;
 
-                try {
-                    renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
-                } catch (IllegalArgumentException e) {
-                    throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
+            if (DEFAULT_ZONE_NAME.equals(name)) {
+                change = zonesConfiguration.change(zonesChange -> zonesChange
+                        .changeDefaultDistributionZone(zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg))
+                );
+            } else {
+                change = zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                    NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
+
+                    try {
+                        renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
+                    } catch (IllegalArgumentException e) {
+                        throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
+                    }
+
+                    try {
+                        renameChange.update(distributionZoneCfg.name(), zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg));
+                    } catch (IllegalArgumentException e) {
+                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
+                    }
+                }));
+            }
+
+            change.whenComplete((res, e) -> {
+                if (e != null) {
+                    fut.completeExceptionally(
+                            unwrapDistributionZoneException(
+                                    e,
+                                    DistributionZoneRenameException.class,
+                                    DistributionZoneNotFoundException.class,
+                                    ConfigurationValidationException.class)
+                    );
+                } else {
+                    fut.complete(null);
                 }
-
-                try {
-                    renameChange
-                            .update(
-                                    distributionZoneCfg.name(), zoneChange -> {
-                                        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
-                                            zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
-                                            zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
-                                            zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
-                                        }
-
-                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() != null) {
-                                            zoneChange.changeDataNodesAutoAdjustScaleUp(
-                                                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
-                                            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
-                                        }
-
-                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
-                                            zoneChange.changeDataNodesAutoAdjustScaleDown(
-                                                    distributionZoneCfg.dataNodesAutoAdjustScaleDown());
-                                            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
-                                        }
-                                    });
-                } catch (IllegalArgumentException e) {
-                    throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
-                }
-            }))
-                    .whenComplete((res, e) -> {
-                        if (e != null) {
-                            fut.completeExceptionally(
-                                    unwrapDistributionZoneException(
-                                            e,
-                                            DistributionZoneRenameException.class,
-                                            DistributionZoneNotFoundException.class,
-                                            ConfigurationValidationException.class)
-                            );
-                        } else {
-                            fut.complete(null);
-                        }
-                    });
+            });
 
             return fut;
         } finally {
@@ -439,7 +429,11 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
+            ZonesConfigurationListener zonesConfigurationListener = new ZonesConfigurationListener();
+
+            zonesConfiguration.distributionZones().listenElements(zonesConfigurationListener);
+
+            zonesConfiguration.defaultDistributionZone().listen(zonesConfigurationListener);
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
@@ -587,6 +581,32 @@ public class DistributionZoneManager implements IgniteComponent {
             });
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Updates {@link DistributionZoneChange} according to distribution zone configuration.
+     *
+     * @param zoneChange Zone change.
+     * @param distributionZoneCfg Distribution zone configuration.
+     */
+    private void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
+        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+            zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
+            zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
+            zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
+        }
+
+        if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() != null) {
+            zoneChange.changeDataNodesAutoAdjustScaleUp(
+                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
+        }
+
+        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
+            zoneChange.changeDataNodesAutoAdjustScaleDown(
+                    distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
         }
     }
 
@@ -747,6 +767,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
                                                             saveDataNodesToMetaStorage(zoneId, vaultEntry.value(), vaultAppliedRevision);
                                                         });
+
+                                                saveDataNodesToMetaStorage(DEFAULT_ZONE_ID, vaultEntry.value(), vaultAppliedRevision);
                                             }
                                         } finally {
                                             busyLock.leaveBusy();
@@ -791,9 +813,19 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             logicalTopology = newLogicalTopology;
 
-                            zonesConfiguration.distributionZones().value().namedListKeys()
+                            Stream.of(
+                                        zonesConfiguration.distributionZones().value().namedListKeys().stream(),
+                                        Stream.of(DEFAULT_ZONE_NAME)
+                                    )
+                                    .flatMap(zoneName -> zoneName)
                                     .forEach(zoneName -> {
-                                        DistributionZoneConfiguration zoneCfg = zonesConfiguration.distributionZones().get(zoneName);
+                                        DistributionZoneConfiguration zoneCfg;
+
+                                        if (DEFAULT_ZONE_NAME.equals(zoneName)) {
+                                            zoneCfg = zonesConfiguration.defaultDistributionZone();
+                                        } else {
+                                            zoneCfg = zonesConfiguration.distributionZones().get(zoneName);
+                                        }
 
                                         int autoAdjust = zoneCfg.dataNodesAutoAdjust().value();
                                         int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown().value();
