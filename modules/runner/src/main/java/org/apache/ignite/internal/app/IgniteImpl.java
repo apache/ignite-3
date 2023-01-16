@@ -520,6 +520,8 @@ public class IgniteImpl implements Ignite {
      *         {@code workDir} specified by the user.
      */
     public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
+        ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
+
         try {
             metricManager.registerSource(new JvmMetricSource());
 
@@ -558,8 +560,6 @@ public class IgniteImpl implements Ignite {
             restAddressReporter.writeReport(restAddress());
 
             LOG.info("Components started, joining the cluster");
-
-            ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
 
             return cmgMgr.joinFuture()
                     // using the default executor to avoid blocking the CMG Manager threads
@@ -634,9 +634,11 @@ public class IgniteImpl implements Ignite {
                     }, startupExecutor)
                     // Moving to the common pool on purpose to close the startup pool and proceed user's code in the common pool.
                     .whenCompleteAsync((res, ex) -> {
-                        startupExecutor.shutdown();
+                        startupExecutor.shutdownNow();
                     });
         } catch (Throwable e) {
+            startupExecutor.shutdownNow();
+
             throw handleStartException(e);
         }
     }
