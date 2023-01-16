@@ -554,7 +554,17 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         // Append grouping
         _builder.Append("group by (");
 
-        BuildSqlExpression(groupBy.KeySelector);
+        var (alias, aliasCreated) = Aliases.GetOrCreateGroupByMemberAlias(groupBy);
+
+        if (aliasCreated)
+        {
+            BuildSqlExpression(groupBy.KeySelector);
+            _builder.Append(" as ").Append(alias);
+        }
+        else
+        {
+            _builder.Append(alias);
+        }
 
         _builder.Append(") ");
 

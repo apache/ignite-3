@@ -677,8 +677,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return false;
         }
 
-        // TODO: use grpBy as key?
-        var (alias, aliasCreated) = Aliases.GetOrCreateGroupByMemberAlias(grpBy.KeySelector);
+        var (alias, aliasCreated) = Aliases.GetOrCreateGroupByMemberAlias(grpBy);
 
         if (aliasCreated)
         {
