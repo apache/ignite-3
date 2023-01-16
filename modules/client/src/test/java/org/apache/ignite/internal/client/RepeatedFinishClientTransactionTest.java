@@ -31,11 +31,11 @@ import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests repeatable commit/rollback operations.
+ * Tests repeated commit/rollback operations.
  */
-public class RepeatableFinishClientTransactionTest {
+public class RepeatedFinishClientTransactionTest {
     @Test
-    public void testRepeatableCommitRollbackAfterCommit() throws Exception {
+    public void testRepeatedCommitRollbackAfterCommit() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 
@@ -72,7 +72,7 @@ public class RepeatableFinishClientTransactionTest {
     }
 
     @Test
-    public void testRepeatableCommitRollbackAfterRollback() throws Exception {
+    public void testRepeatedCommitRollbackAfterRollback() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 

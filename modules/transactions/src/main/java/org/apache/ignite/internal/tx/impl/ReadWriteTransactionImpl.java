@@ -98,7 +98,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
-        CompletableFuture
+        CompletableFuture<Void> mainFinishFut = CompletableFuture
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
                         ignored -> {
@@ -138,9 +138,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                 return completedFuture(null);
                             }
                         }
-                ).thenRun(() -> finishFut.get().complete(null));
+                );
 
-        return finishFut.get();
+        mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
+
+        return mainFinishFut;
     }
 
     /** {@inheritDoc} */

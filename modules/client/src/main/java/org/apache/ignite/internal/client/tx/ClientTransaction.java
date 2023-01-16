@@ -83,10 +83,11 @@ public class ClientTransaction implements Transaction {
             return finishFut.get();
         }
 
-        ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null)
-                .thenRun(() -> finishFut.get().complete(null));
+        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> w.out().packLong(id), r -> null);
 
-        return finishFut.get();
+        mainFinishFut.thenRun(() -> finishFut.get().complete(null));
+
+        return mainFinishFut;
     }
 
     /** {@inheritDoc} */
@@ -102,10 +103,11 @@ public class ClientTransaction implements Transaction {
             return finishFut.get();
         }
 
-        ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null)
-                .thenRun(() -> finishFut.get().complete(null));
+        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> w.out().packLong(id), r -> null);
 
-        return finishFut.get();
+        mainFinishFut.thenRun(() -> finishFut.get().complete(null));
+
+        return mainFinishFut;
     }
 
     /** {@inheritDoc} */

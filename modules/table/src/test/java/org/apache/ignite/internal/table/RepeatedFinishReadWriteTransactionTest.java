@@ -18,20 +18,29 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -43,11 +52,11 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests repeatable commit/rollback operations.
+ * Tests repeated commit/rollback operations.
  */
-public class RepeatableFinishReadWriteTransactionTest {
+public class RepeatedFinishReadWriteTransactionTest {
     @Test
-    public void testRepeatableCommitRollbackAfterCommit() throws Exception {
+    public void testRepeatedCommitRollbackAfterCommit() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 
@@ -76,23 +85,28 @@ public class RepeatableFinishReadWriteTransactionTest {
         CompletableFuture<Void> rollbackFut = tx.rollbackAsync();
 
         assertNotSame(firstCommitFut, secondCommitFut);
-        assertNotSame(secondCommitFut, rollbackFut);
-        assertNotSame(firstCommitFut, rollbackFut);
+        assertSame(secondCommitFut, rollbackFut);
         assertSame(secondCommitFut, tx.commitAsync());
-        assertNotSame(rollbackFut, tx.rollbackAsync());
+        assertSame(rollbackFut, tx.rollbackAsync());
 
         assertFalse(firstCommitFut.isDone());
         assertFalse(secondCommitFut.isDone());
-        assertTrue(rollbackFut.isDone());
+        assertFalse(rollbackFut.isDone());
 
         secondFinishLatch.countDown();
 
         firstCommitFut.get(3, TimeUnit.SECONDS);
+        assertTrue(firstCommitFut.isDone());
         assertTrue(secondCommitFut.isDone());
+        assertTrue(rollbackFut.isDone());
+
+
+
+        assertTrue(tx.commitAsync().isDone());
     }
 
     @Test
-    public void testRepeatableCommitRollbackAfterRollback() throws Exception {
+    public void testRepeatedCommitRollbackAfterRollback() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 
@@ -120,19 +134,65 @@ public class RepeatableFinishReadWriteTransactionTest {
 
         CompletableFuture<Void> secondRollbackFut = tx.rollbackAsync();
 
-        assertNotSame(firstRollbackFut, commitFut);
-        assertNotSame(commitFut, secondRollbackFut);
         assertNotSame(firstRollbackFut, secondRollbackFut);
+        assertSame(secondRollbackFut, commitFut);
+        assertSame(commitFut, tx.commitAsync());
+        assertSame(secondRollbackFut, tx.rollbackAsync());
 
         assertFalse(firstRollbackFut.isDone());
-        assertTrue(commitFut.isDone());
-        assertTrue(secondRollbackFut.isDone());
+        assertFalse(secondRollbackFut.isDone());
+        assertFalse(commitFut.isDone());
 
         secondFinishLatch.countDown();
 
         firstRollbackFut.get(3, TimeUnit.SECONDS);
-        assertTrue(commitFut.isDone());
+        assertTrue(firstRollbackFut.isDone());
         assertTrue(secondRollbackFut.isDone());
+        assertTrue(commitFut.isDone());
+    }
+
+    @Test
+    public void test1() throws Exception {
+        TestTxManager txManager = mock(TestTxManager.class);
+
+        when(txManager.finish(any(), any(), any(), anyBoolean(), any(), any())).thenReturn(failedFuture(new Exception("qwer")));
+
+        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
+
+        TablePartitionId partId = new TablePartitionId(UUID.randomUUID(), 1);
+
+        tx.enlist(partId, new IgniteBiTuple<>(null, null));
+
+        tx.assignCommitPartition(partId);
+
+        tx.enlistResultFuture(completedFuture(null));
+
+        CompletableFuture<Object> fut = new CompletableFuture<>();
+
+        CompletableFuture<Void> firstCommitFut = fut.thenComposeAsync((ignored) -> tx.commitAsync());
+
+        fut.complete(null);
+
+        try {
+            firstCommitFut.join();
+
+            fail();
+        } catch (Exception e) {
+
+        }
+
+        tx.commitAsync().get();
+
+//        try {
+//            tx.commitAsync().get();
+//        } catch (InterruptedException e) {
+//            throw new RuntimeException(e);
+//        } catch (ExecutionException e) {
+//            throw new RuntimeException(e);
+//        }
+
+        System.out.println();
+
     }
 
     private static class TestTxManager implements TxManager {
