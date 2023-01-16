@@ -155,6 +155,8 @@ public class PlatformTestNodeRunner {
         System.out.println("THIN_CLIENT_PORTS=" + ports);
 
         long runTimeMinutes = getRunTimeMinutes();
+        System.out.println("Nodes will be active for " + runTimeMinutes + " minutes.");
+
         Thread.sleep(runTimeMinutes * 60_000);
         System.out.println("Exiting after " + runTimeMinutes + " minutes.");
 
