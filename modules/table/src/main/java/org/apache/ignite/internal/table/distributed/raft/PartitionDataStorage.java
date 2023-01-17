@@ -125,7 +125,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.

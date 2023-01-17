@@ -142,7 +142,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.
@@ -180,7 +180,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *   is already something uncommitted for the given row).
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
@@ -220,7 +220,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * Polls the oldest row in the partition, removing it at the same time.
      *
      * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
-     * @return A pair of binary row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
+     * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
      *      {@code null} if there's no such value.
      */
     default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {

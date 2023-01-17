@@ -40,7 +40,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -132,7 +131,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     private static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
-    private static final ByteOrder BINARY_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
+    private static final ByteOrder TABLE_ROW_BYTE_ORDER = TableRow.ORDER;
 
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
@@ -512,7 +511,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         value.position(VALUE_OFFSET).put(rowBytes);
 
-        // Write binary row data as a value.
+        // Write table row data as a value.
         writeBatch.put(cf, copyOf(keyArray, ROW_PREFIX_SIZE), value.array());
     }
 
@@ -1100,11 +1099,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     /**
-     * Converts raw byte array representation of the value into a binary row.
+     * Converts raw byte array representation of the value into a table row.
      *
      * @param valueBytes Value bytes as read from the storage.
      * @param valueHasTxData Whether the value has a transaction id prefix in it.
-     * @return Binary row instance or {@code null} if value is a tombstone.
+     * @return Table row instance or {@code null} if value is a tombstone.
      */
     private static @Nullable TableRow wrapValueIntoTableRow(byte[] valueBytes, boolean valueHasTxData) {
         if (isTombstone(valueBytes, valueHasTxData)) {
@@ -1112,7 +1111,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         return valueHasTxData
-                ? new TableRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(BINARY_ROW_BYTE_ORDER))
+                ? new TableRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(TABLE_ROW_BYTE_ORDER))
                 : new TableRow(valueBytes);
     }
 
@@ -1135,7 +1134,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         if (isTombstone(valueBytes, true)) {
             row = null;
         } else {
-            row = new TableRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(BINARY_ROW_BYTE_ORDER));
+            row = new TableRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(TABLE_ROW_BYTE_ORDER));
         }
 
         return ReadResult.createFromWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, newestCommitTs);
