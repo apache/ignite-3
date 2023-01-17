@@ -45,7 +45,7 @@ dependencies {
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.jackson.annotations
-    implementation (libs.jsonpath.core)  {
+    implementation(libs.jsonpath.core) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
