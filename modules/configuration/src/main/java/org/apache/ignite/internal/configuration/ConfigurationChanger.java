@@ -104,7 +104,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Configuration listener notification counter, must be incremented before each use of {@link #notificator}. */
     private final AtomicLong notificationListenerCnt = new AtomicLong();
 
-    /** Lock for reading/updating the {@link #storageRoots}. Fair, to give meta-storage thread a higher priority. */
+    /** Lock for reading/updating the {@link #storageRoots}. Fair, to give a higher priority to external updates. */
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock(true);
 
     /**
