@@ -94,11 +94,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected volatile IndexMetaTree indexMetaTree;
 
-    private final DataPageReader rowVersionDataPageReader;
+    protected final DataPageReader rowVersionDataPageReader;
 
     protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
-    final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -167,7 +167,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 } else {
                     assert indexCfgView == null;
 
-                    //TODO IGNITE-17626 Drop the index synchronously.
+                    //TODO: IGNITE-17626 Drop the index synchronously.
                 }
             }
         } catch (Exception e) {

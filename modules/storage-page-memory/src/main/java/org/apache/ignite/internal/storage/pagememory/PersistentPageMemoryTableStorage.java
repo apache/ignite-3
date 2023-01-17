@@ -181,7 +181,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /**
      * Returns id of the last started checkpoint, or {@code null} if no checkpoints were started yet.
      */
-    private @Nullable UUID lastCheckpointId() {
+    public @Nullable UUID lastCheckpointId() {
         CheckpointProgress lastCeckpointProgress = dataRegion.checkpointManager().lastCheckpointProgress();
 
         return lastCeckpointProgress == null ? null : lastCeckpointProgress.id();
