@@ -235,7 +235,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         testUpdateZone(ZONE_NAME);
     }
 
-    public void testUpdateZone(String zoneName) throws Exception {
+    private void testUpdateZone(String zoneName) throws Exception {
         if (DEFAULT_ZONE_NAME.equals(zoneName)) {
             distributionZoneManager.alterZone(
                             zoneName,

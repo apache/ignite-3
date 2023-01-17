@@ -60,6 +60,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -169,7 +170,8 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
             return completedFuture(null);
         });
 
-        mockDefaultZone();
+        mockDefaultZoneConfiguration();
+        mockDefaultZoneView();
         mockEmptyZonesList();
 
         AtomicLong raftIndex = new AtomicLong();
@@ -400,7 +402,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         when(namedListView.namedListKeys()).thenReturn(names);
     }
 
-    private DistributionZoneConfiguration mockZone(
+    private DistributionZoneConfiguration mockZoneConfiguration(
             Integer zoneId,
             String name,
             Integer dataNodesAutoAdjustTime,
@@ -432,15 +434,45 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         return distributionZoneConfiguration;
     }
 
-    private DistributionZoneConfiguration mockZoneWithAutoAdjust() {
-        return mockZone(1, ZONE_NAME_1, 100, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    private DistributionZoneView mockZoneView(
+            Integer zoneId,
+            String name,
+            Integer dataNodesAutoAdjustTime,
+            Integer dataNodesAutoAdjustScaleUpTime,
+            Integer dataNodesAutoAdjustScaleDownTime
+    ) {
+        DistributionZoneView distributionZoneView = mock(DistributionZoneView.class);
+
+        when(distributionZoneView.name()).thenReturn(name);
+        when(distributionZoneView.zoneId()).thenReturn(zoneId);
+        when(distributionZoneView.dataNodesAutoAdjust()).thenReturn(dataNodesAutoAdjustTime);
+        when(distributionZoneView.dataNodesAutoAdjustScaleUp()).thenReturn(dataNodesAutoAdjustScaleUpTime);
+        when(distributionZoneView.dataNodesAutoAdjustScaleDown()).thenReturn(dataNodesAutoAdjustScaleDownTime);
+
+        return distributionZoneView;
     }
 
-    private DistributionZoneConfiguration mockDefaultZone() {
-        DistributionZoneConfiguration defaultZone = mockZone(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
+    private DistributionZoneConfiguration mockZoneWithAutoAdjust() {
+        return mockZoneConfiguration(1, ZONE_NAME_1, 100, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    }
+
+    private DistributionZoneConfiguration mockDefaultZoneConfiguration() {
+        DistributionZoneConfiguration defaultZone = mockZoneConfiguration(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
                 Integer.MAX_VALUE);
 
         when(zonesConfiguration.defaultDistributionZone()).thenReturn(defaultZone);
+
+        return defaultZone;
+    }
+
+    private DistributionZoneView mockDefaultZoneView() {
+        DistributionZoneView defaultZone = mockZoneView(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
+                Integer.MAX_VALUE);
+
+        DistributionZonesView zonesView = mock(DistributionZonesView.class);
+
+        when(zonesView.defaultDistributionZone()).thenReturn(defaultZone);
+        when(zonesConfiguration.value()).thenReturn(zonesView);
 
         return defaultZone;
     }

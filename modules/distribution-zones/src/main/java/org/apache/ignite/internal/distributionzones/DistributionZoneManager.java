@@ -42,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
@@ -293,8 +292,10 @@ public class DistributionZoneManager implements IgniteComponent {
             CompletableFuture<Void> change;
 
             if (DEFAULT_ZONE_NAME.equals(name)) {
-                change = zonesConfiguration.change(zonesChange -> zonesChange
-                        .changeDefaultDistributionZone(zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg))
+                change = zonesConfiguration.change(
+                        zonesChange -> zonesChange.changeDefaultDistributionZone(
+                                zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg)
+                        )
                 );
             } else {
                 change = zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
@@ -590,7 +591,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneChange Zone change.
      * @param distributionZoneCfg Distribution zone configuration.
      */
-    private void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
+    private static void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
         if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
             zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
             zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
@@ -803,7 +804,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             Entry newEntry = evt.entryEvent().newEntry();
 
-                            Set<String> newLogicalTopology = ByteUtils.fromBytes(newEntry.value());
+                            long revision = newEntry.revision();
+
+                            byte[] newLogicalTopologyBytes = newEntry.value();
+
+                            Set<String> newLogicalTopology = ByteUtils.fromBytes(newLogicalTopologyBytes);
 
                             List<String> removedNodes =
                                     logicalTopology.stream().filter(node -> !newLogicalTopology.contains(node)).collect(toList());
@@ -813,47 +818,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             logicalTopology = newLogicalTopology;
 
-                            Stream.of(
-                                        zonesConfiguration.distributionZones().value().namedListKeys().stream(),
-                                        Stream.of(DEFAULT_ZONE_NAME)
-                                    )
-                                    .flatMap(zoneName -> zoneName)
-                                    .forEach(zoneName -> {
-                                        DistributionZoneConfiguration zoneCfg;
+                            NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
+                                    zonesConfiguration.distributionZones();
 
-                                        if (DEFAULT_ZONE_NAME.equals(zoneName)) {
-                                            zoneCfg = zonesConfiguration.defaultDistributionZone();
-                                        } else {
-                                            zoneCfg = zonesConfiguration.distributionZones().get(zoneName);
-                                        }
+                            for (int i = 0; i < zones.value().size(); i++) {
+                                DistributionZoneView zoneView = zones.value().get(i);
 
-                                        int autoAdjust = zoneCfg.dataNodesAutoAdjust().value();
-                                        int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown().value();
-                                        int autoAdjustScaleUp = zoneCfg.dataNodesAutoAdjustScaleUp().value();
+                                scheduleTimers(zoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
+                            }
 
-                                        Integer zoneId = zoneCfg.zoneId().value();
+                            DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
-                                        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != Integer.MAX_VALUE) {
-                                            //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-                                            saveDataNodesToMetaStorage(
-                                                    zoneId, newEntry.value(), newEntry.revision()
-                                            );
-                                        } else {
-                                            if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
-                                                //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
-                                                saveDataNodesToMetaStorage(
-                                                        zoneId, newEntry.value(), newEntry.revision()
-                                                );
-                                            }
-
-                                            if (!removedNodes.isEmpty() && autoAdjustScaleDown != Integer.MAX_VALUE) {
-                                                //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
-                                                saveDataNodesToMetaStorage(
-                                                        zoneId, newEntry.value(), newEntry.revision()
-                                                );
-                                            }
-                                        }
-                                    });
+                            scheduleTimers(defaultZoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
 
                             return true;
                         } finally {
@@ -867,6 +843,40 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
                 })
                 .thenAccept(id -> watchListenerId = id);
+    }
+
+    private void scheduleTimers(
+            DistributionZoneView zoneCfg,
+            List<String> addedNodes, List<String> removedNodes,
+            byte[] newLogicalTopologyBytes,
+            long revision
+    ) {
+        int autoAdjust = zoneCfg.dataNodesAutoAdjust();
+        int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown();
+        int autoAdjustScaleUp = zoneCfg.dataNodesAutoAdjustScaleUp();
+
+        int zoneId = zoneCfg.zoneId();
+
+        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != Integer.MAX_VALUE) {
+            //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
+            saveDataNodesToMetaStorage(
+                    zoneId, newLogicalTopologyBytes, revision
+            );
+        } else {
+            if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
+                //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
+                saveDataNodesToMetaStorage(
+                        zoneId, newLogicalTopologyBytes, revision
+                );
+            }
+
+            if (!removedNodes.isEmpty() && autoAdjustScaleDown != Integer.MAX_VALUE) {
+                //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
+                saveDataNodesToMetaStorage(
+                        zoneId, newLogicalTopologyBytes, revision
+                );
+            }
+        }
     }
 
     /**
