@@ -21,18 +21,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
-    using System.Diagnostics.CodeAnalysis;
     using System.Numerics;
     using NodaTime;
 
     /// <summary>
     /// Binary tuple reader.
     /// </summary>
-    [SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "Not needed.")]
-    internal readonly struct BinaryTupleReader
+    internal readonly ref struct BinaryTupleReader
     {
         /** Buffer. */
-        private readonly ReadOnlyMemory<byte> _buffer;
+        private readonly ReadOnlySpan<byte> _buffer;
 
         /** Number of elements in the tuple. */
         private readonly int _numElements;
@@ -51,12 +49,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="buffer">Buffer.</param>
         /// <param name="numElements">Number of elements in the tuple.</param>
-        public BinaryTupleReader(ReadOnlyMemory<byte> buffer, int numElements)
+        public BinaryTupleReader(ReadOnlySpan<byte> buffer, int numElements)
         {
             _buffer = buffer;
             _numElements = numElements;
 
-            var flags = buffer.Span[0];
+            var flags = buffer[0];
 
             int @base = BinaryTupleCommon.HeaderSize;
 
@@ -90,7 +88,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             int nullIndex = BinaryTupleCommon.NullOffset(index);
             byte nullMask = BinaryTupleCommon.NullMask(index);
 
-            return (_buffer.Span[nullIndex] & nullMask) != 0;
+            return (_buffer[nullIndex] & nullMask) != 0;
         }
 
         /// <summary>
@@ -570,7 +568,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private int GetOffset(int position)
         {
-            var span = _buffer.Span[position..];
+            var span = _buffer[position..];
 
             switch (_entrySize)
             {
@@ -622,7 +620,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 throw GetNullElementException(index);
             }
 
-            return _buffer.Span.Slice(offset, nextOffset - offset);
+            return _buffer.Slice(offset, nextOffset - offset);
         }
     }
 }
