@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
@@ -141,44 +139,45 @@ public class CompositeSubscriptionTest {
             Arrays.sort(expData);
         }
 
-        List<TestPublisher<Integer>> publishers = new ArrayList<>();
+        TestPublisher<Integer>[] publishers = new TestPublisher[pubCnt];
 
         for (int i = 0; i < pubCnt; i++) {
-            TestPublisher<Integer> pub = new TestPublisher<>(data[i], sort);
+            TestPublisher<Integer> pub = new TestPublisher<>(data[i]);
 
-            publishers.add(pub);
+            publishers[i] = pub;
         }
 
         AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
         SubscriberListener<Integer> lsnr = new SubscriberListener<>();
 
-        CompositePublisher<Integer> compPublisher = sort
-                ? new SortingCompositePublisher<>(publishers, Comparator.comparingInt(v -> v), requested / pubCnt)
-                : new CompositePublisher<>(publishers);
+        Publisher<Integer> compPublisher = sort
+                ? SubscriptionUtils.orderedMerge(Comparator.naturalOrder(), Math.max(1, requested / pubCnt), publishers)
+                : SubscriptionUtils.concat(publishers);
 
         lsnr.reset(requested);
 
-        compPublisher.subscribe(new Subscriber<>() {
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                subscriptionRef.set(subscription);
-            }
+        CompletableFuture.runAsync(() -> compPublisher.subscribe(new Subscriber<>() {
+                    @Override
+                    public void onSubscribe(Subscription subscription) {
+                        subscriptionRef.set(subscription);
+                    }
 
-            @Override
-            public void onNext(Integer item) {
-                lsnr.onNext(item);
-            }
+                    @Override
+                    public void onNext(Integer item) {
+                        lsnr.onNext(item);
+                    }
 
-            @Override
-            public void onError(Throwable t) {
-                assert false;
-            }
+                    @Override
+                    public void onError(Throwable t) {
+                        assert false;
+                    }
 
-            @Override
-            public void onComplete() {
-                lsnr.onComplete();
-            }
-        });
+                    @Override
+                    public void onComplete() {
+                        lsnr.onComplete();
+                    }
+                })
+        ).join();
 
         if (!split) {
             checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, requested), lsnr);
@@ -205,7 +204,7 @@ public class CompositeSubscriptionTest {
             InputParameters params,
             SubscriberListener<Integer> lsnr
     ) throws InterruptedException {
-        subscription.request(params.requested);
+        CompletableFuture.runAsync(() -> subscription.request(params.requested));
 
         Assertions.assertTrue(lsnr.awaitComplete(10),
                 "Execution timeout [params=" + params + ", results=" + lsnr + ']');
@@ -235,62 +234,52 @@ public class CompositeSubscriptionTest {
     private static class TestPublisher<T> implements Publisher<T> {
         private final T[] data;
         private final AtomicReference<Throwable> errRef = new AtomicReference<>();
-        private final boolean async;
         private boolean publicationComplete;
 
-        TestPublisher(T[] data, boolean async) {
+        TestPublisher(T[] data) {
             this.data = data;
-            this.async = async;
         }
 
         @Override
         public void subscribe(Subscriber<? super T> subscriber) {
-            subscriber.onSubscribe(new Subscription() {
-                private int idx;
+            CompletableFuture.runAsync(() ->
+                    subscriber.onSubscribe(new Subscription() {
+                        private int idx;
 
-                @Override
-                public void request(long requested) {
-                    Runnable dataSupplier = () -> {
-                        int max = Math.min(data.length, idx + (int) requested);
+                        @Override
+                        public void request(long requested) {
+                            Runnable dataSupplier = () -> {
+                                int max = Math.min(data.length, idx + (int) requested);
 
-                        while (idx < max) {
-                            subscriber.onNext(data[idx++]);
+                                while (idx < max) {
+                                    subscriber.onNext(data[idx++]);
+                                }
+
+                                if (idx == data.length && !publicationComplete) {
+                                    publicationComplete = true;
+
+                                    subscriber.onComplete();
+                                }
+                            };
+
+                            CompletableFuture.runAsync(() -> {
+                                // Multiple requests to the same subscription must not be executed concurrently.
+                                synchronized (TestPublisher.this) {
+                                    dataSupplier.run();
+                                }
+                            }).whenComplete((res, err) -> {
+                                if (err != null) {
+                                    handleError(err);
+                                }
+                            });
                         }
 
-                        if (idx == data.length && !publicationComplete) {
-                            publicationComplete = true;
-
-                            subscriber.onComplete();
+                        @Override
+                        public void cancel() {
+                            throw new UnsupportedOperationException();
                         }
-                    };
-
-                    if (!async) {
-                        try {
-                            dataSupplier.run();
-                        } catch (Throwable t) {
-                            handleError(t);
-                        }
-
-                        return;
-                    }
-
-                    CompletableFuture.runAsync(() -> {
-                        // Multiple requests to the same subscription must not be executed concurrently.
-                        synchronized (TestPublisher.this) {
-                            dataSupplier.run();
-                        }
-                    }).whenComplete((res, err) -> {
-                        if (err != null) {
-                            handleError(err);
-                        }
-                    });
-                }
-
-                @Override
-                public void cancel() {
-                    throw new UnsupportedOperationException();
-                }
-            });
+                    })
+            );
         }
 
         @SuppressWarnings("CallToPrintStackTrace")
