@@ -47,7 +47,7 @@ public partial class LinqTests
             "select _T0.KEY, _T0.VAL " +
             "from PUBLIC.TBL1 as _T0 " +
             "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
-            "order by (_T0.KEY) asc",
+            "order by _T0.KEY asc",
             query.ToString());
     }
 
@@ -71,7 +71,7 @@ public partial class LinqTests
             "select _T0.KEY, _T0.VAL " +
             "from PUBLIC.TBL1 as _T0 " +
             "where ((_T0.KEY > ?) and (_T0.VAL IS DISTINCT FROM ?)) " +
-            "order by (_T0.KEY) asc",
+            "order by _T0.KEY asc",
             query.ToString());
     }
 
@@ -90,7 +90,7 @@ public partial class LinqTests
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
             "where (_T0.KEY > ?) " +
-            "order by (_T0.KEY) asc",
+            "order by _T0.KEY asc",
             query.ToString());
     }
 
@@ -109,7 +109,7 @@ public partial class LinqTests
         StringAssert.Contains(
             "select _T0.VAL from PUBLIC.TBL1 as _T0 " +
             "where (_T0.VAL IS DISTINCT FROM ?) " +
-            "order by (_T0.VAL) asc",
+            "order by _T0.VAL asc",
             query.ToString());
     }
 
@@ -128,7 +128,7 @@ public partial class LinqTests
         StringAssert.Contains(
             "select _T0.VAL from PUBLIC.TBL1 as _T0 " +
             "where (_T0.VAL IS DISTINCT FROM ?) " +
-            "order by (_T0.VAL) asc",
+            "order by _T0.VAL asc",
             query.ToString());
     }
 
@@ -166,7 +166,7 @@ public partial class LinqTests
             "select _T0.KEY, _T0.VAL, _T1.KEY, _T1.VAL from PUBLIC.TBL1 as _T0 " +
             "inner join (select * from PUBLIC.TBL1 as _T2 where (_T2.KEY > ?) ) as _T1 on (_T1.KEY = _T0.KEY) " +
             "where (_T0.KEY > ?) " +
-            "order by (_T0.KEY) asc",
+            "order by _T0.KEY asc",
             query.ToString());
     }
 
@@ -196,10 +196,10 @@ public partial class LinqTests
         Assert.AreEqual(2, res[2].Max);
 
         StringAssert.Contains(
-            "select _T0.KEY, count(*) as COUNT, sum(_T0.KEY) as SUM, avg(_T0.KEY) as AVG, min(_T0.KEY) as MIN, max(_T0.KEY) as MAX " +
+            "select _T0.KEY as _G0, count(*) as COUNT, sum(_T0.KEY) as SUM, avg(_T0.KEY) as AVG, min(_T0.KEY) as MIN, max(_T0.KEY) as MAX " +
             "from PUBLIC.TBL1 as _T0 " +
-            "group by (_T0.KEY) " +
-            "order by (_T0.KEY) asc",
+            "group by _G0 " +
+            "order by _G0 asc",
             query.ToString());
     }
 

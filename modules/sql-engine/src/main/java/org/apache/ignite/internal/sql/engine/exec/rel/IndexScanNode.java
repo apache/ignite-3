@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -46,8 +45,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.CompositePublisher;
-import org.apache.ignite.internal.sql.engine.util.SortingCompositePublisher;
+import org.apache.ignite.internal.sql.engine.util.SubscriptionUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -277,15 +275,15 @@ public class IndexScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
-        List<Flow.Publisher<RowT>> partPublishers = new ArrayList<>(parts.length);
+        Publisher<RowT>[] partPublishers = new Publisher[parts.length];
 
-        for (int p : parts) {
-            partPublishers.add(partitionPublisher(p, cond));
+        for (int i = 0; i < parts.length; i++) {
+            partPublishers[i] = partitionPublisher(parts[i], cond);
         }
 
         return comp != null
-                ? new SortingCompositePublisher<>(partPublishers, comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE)
-                : new CompositePublisher<>(partPublishers);
+                ? SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, partPublishers)
+                : SubscriptionUtils.concat(partPublishers);
     }
 
     private Flow.Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {

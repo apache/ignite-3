@@ -149,7 +149,7 @@ public partial class LinqSqlGenerationTests
         AssertSql(
             "select _T0.KEY, _T0.VAL, (_T0.KEY + ?) as KEY2 " +
             "from PUBLIC.tbl1 as _T0 " +
-            "order by ((_T0.KEY + ?)) asc, (_T0.VAL) desc " +
+            "order by (_T0.KEY + ?) asc, _T0.VAL desc " +
             "limit ? offset ?",
             q => q.Select(x => new { x.Key, x.Val, Key2 = x.Key + 1})
                 .OrderBy(x => x.Key2)
@@ -229,7 +229,7 @@ public partial class LinqSqlGenerationTests
     [Test]
     public void TestSelectOrderDistinct() =>
         AssertSql(
-            "select * from (select distinct _T0.KEY, (_T0.KEY + ?) as KEY2 from PUBLIC.tbl1 as _T0) as _T1 order by (_T1.KEY2) asc",
+            "select * from (select distinct _T0.KEY, (_T0.KEY + ?) as KEY2 from PUBLIC.tbl1 as _T0) as _T1 order by _T1.KEY2 asc",
             q => q.Select(x => new { x.Key, Key2 = x.Key + 1})
                 .Distinct()
                 .OrderBy(x => x.Key2)
@@ -260,11 +260,10 @@ public partial class LinqSqlGenerationTests
     }
 
     [Test]
-    [Ignore("IGNITE-18215 Group by calculated value")]
     public void TestGroupBySubQuery()
     {
         AssertSql(
-            "select (_T0.KEY + ?) as _G0, count (*)  from PUBLIC.tbl1 as _T0 group by G0",
+            "select (_T0.KEY + ?) as _G0, count(*) as COUNT from PUBLIC.tbl1 as _T0 group by _G0",
             q => q.Select(x => new { x.Key, Key2 = x.Key + 1 })
                 .GroupBy(x => x.Key2)
                 .Select(g => new { g.Key, Count = g.Count() })

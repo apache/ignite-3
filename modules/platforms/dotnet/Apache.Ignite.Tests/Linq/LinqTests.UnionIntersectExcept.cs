@@ -68,7 +68,7 @@ public partial class LinqTests
             "select * from " +
             "(select _T0.KEY from PUBLIC.TBL_INT64 as _T0 where (_T0.KEY > ?) " +
             "union (select _T1.KEY from PUBLIC.TBL1 as _T1 where (_T1.KEY < ?))) as _T2 " +
-            "order by (_T2.KEY) asc",
+            "order by _T2.KEY asc",
             query.ToString());
     }
 
