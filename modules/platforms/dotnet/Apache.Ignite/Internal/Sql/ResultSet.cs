@@ -222,6 +222,28 @@ namespace Apache.Ignite.Internal.Sql
             return EnumerateRows().GetAsyncEnumerator(cancellationToken);
         }
 
+        /// <summary>
+        /// Enumerates ResultSet pages.
+        /// </summary>
+        /// <returns>ResultSet pages.</returns>
+        internal async IAsyncEnumerable<(PooledBuffer Buffer, int Offset)> EnumeratePagesInternal()
+        {
+            ValidateAndSetIteratorState();
+
+            yield return (_buffer!.Value, _bufferOffset);
+
+            ReleaseBuffer();
+
+            while (true)
+            {
+                using var buffer = await FetchNextPage().ConfigureAwait(false);
+
+                // TODO: Check if hasMore by skipping binary payload.
+                // TODO: Who should dispose buffers? Would be nice to do it here, but not sure.
+                yield return (buffer, 0);
+            }
+        }
+
         private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
         {
             var size = reader.ReadArrayHeader();
