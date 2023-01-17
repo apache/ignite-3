@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
@@ -115,6 +116,13 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             List<Flow.Publisher<? extends RowT>> conditionPublishers = new ArrayList<>(rangeConditions.size());
 
             rangeConditions.forEach(cond -> conditionPublishers.add(indexPublisher(parts, cond)));
+
+/*            Iterator<RangeCondition<RowT>> it = rangeConditions.iterator();
+
+            while (it.hasNext()) {
+                RangeCondition<RowT> cond = it.next();
+                conditionPublishers.add(indexPublisher(parts, cond));
+            }*/
 
             return new ConcatenatedPublisher<>(conditionPublishers.iterator());
         } else {
