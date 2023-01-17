@@ -19,10 +19,13 @@ namespace Apache.Ignite.Sql;
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
+using Internal.Buffers;
 using Internal.Sql;
 
 /// <summary>
@@ -41,6 +44,9 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     internal IgniteDbDataReader(ResultSet<object> resultSet)
     {
         _resultSet = resultSet;
+
+        // TODO
+        IAsyncEnumerable<(PooledBuffer Buffer, int Offset)> enumerator = _resultSet.EnumeratePagesInternal();
     }
 
     /// <inheritdoc/>
@@ -199,7 +205,18 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override bool Read()
     {
-        throw new NotImplementedException();
+        // TODO: If within current page, do it more efficiently.
+        return ReadAsync().GetAwaiter().GetResult();
+    }
+
+    /// <inheritdoc/>
+    public override async Task<bool> ReadAsync(CancellationToken cancellationToken)
+    {
+        // TODO: Fetch next page from iterator.
+        await Task.Yield();
+
+        // TODO: More efficient overload with ValueTask?
+        return false;
     }
 
     /// <inheritdoc/>
