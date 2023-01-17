@@ -234,13 +234,29 @@ namespace Apache.Ignite.Internal.Sql
 
             ReleaseBuffer();
 
+            if (!_hasMorePages)
+            {
+                yield break;
+            }
+
             while (true)
             {
                 using var buffer = await FetchNextPage().ConfigureAwait(false);
 
-                // TODO: Check if hasMore by skipping binary payload.
-                // TODO: Who should dispose buffers? Would be nice to do it here, but not sure.
                 yield return (buffer, 0);
+
+                if (!HasMore(buffer))
+                {
+                    break;
+                }
+            }
+
+            static bool HasMore(PooledBuffer buf)
+            {
+                var reader = buf.GetReader();
+                reader.Skip();
+
+                return !reader.End && reader.ReadBoolean();
             }
         }
 
