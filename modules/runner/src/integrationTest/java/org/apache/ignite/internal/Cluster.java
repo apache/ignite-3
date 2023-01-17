@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -132,8 +133,6 @@ public class Cluster {
 
         for (CompletableFuture<IgniteImpl> future : futures) {
             assertThat(future, willCompleteSuccessfully());
-
-            nodes.add(future.join());
         }
 
         started = true;
@@ -151,7 +150,22 @@ public class Cluster {
         String config = IgniteStringFormatter.format(nodeBootstrapConfig, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
 
         return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
-                .thenApply(IgniteImpl.class::cast);
+                .thenApply(IgniteImpl.class::cast)
+                .thenApply(ignite -> {
+                    synchronized (nodes) {
+                        while (nodes.size() < nodeIndex) {
+                            nodes.add(null);
+                        }
+
+                        if (nodes.size() < nodeIndex + 1) {
+                            nodes.add(ignite);
+                        } else {
+                            nodes.set(nodeIndex, ignite);
+                        }
+                    }
+
+                    return ignite;
+                });
     }
 
     /**
@@ -195,7 +209,7 @@ public class Cluster {
             throw new RuntimeException(e);
         }
 
-        nodes.set(index, newIgniteNode);
+        assertEquals(newIgniteNode, nodes.get(index));
 
         return newIgniteNode;
     }
