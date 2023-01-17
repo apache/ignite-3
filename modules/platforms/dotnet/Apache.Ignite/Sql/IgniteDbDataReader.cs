@@ -45,23 +45,33 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     internal IgniteDbDataReader(ResultSet<object> resultSet)
     {
         _resultSet = resultSet;
+
+        // TODO: Should we support non-query result sets?
         _pageEnumerator = _resultSet.EnumeratePagesInternal().GetAsyncEnumerator();
     }
 
     /// <inheritdoc/>
-    public override int FieldCount => 0; // TODO
+    public override int FieldCount => Metadata.Columns.Count;
 
     /// <inheritdoc/>
-    public override int RecordsAffected => 0; // TODO
+    public override int RecordsAffected => checked((int)_resultSet.AffectedRows);
 
     /// <inheritdoc/>
-    public override bool HasRows => false; // TODO
+    public override bool HasRows => _resultSet.HasRowSet;
 
     /// <inheritdoc/>
-    public override bool IsClosed => false; // TODO
+    public override bool IsClosed => false; // TODO: ??
 
-    /// <inheritdoc/>
-    public override int Depth => 0; // TODO
+    /// <summary>
+    /// Gets a value indicating the depth of nesting for the current row. Always zero in Ignite.
+    /// </summary>
+    /// <returns>The level of nesting.</returns>
+    public override int Depth => 0;
+
+    /// <summary>
+    /// Gets Ignite-specific result set metadata.
+    /// </summary>
+    public IResultSetMetadata Metadata => _resultSet.Metadata!;
 
     /// <inheritdoc/>
     public override object this[int ordinal] => null!; // TODO
