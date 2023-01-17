@@ -21,10 +21,12 @@ using System;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Reads a forward-only stream of rows from an Ignite result set.
 /// </summary>
+[SuppressMessage("Design", "CA1010:Generic interface should also be implemented", Justification = "Generic IEnumerable is not applicable.")]
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
     /// <inheritdoc />
@@ -188,9 +190,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
     /// <inheritdoc/>
     public override IEnumerator GetEnumerator()
-    {
-        throw new NotImplementedException();
-    }
+        => new DbEnumerator(this); // TODO: ???
 
     /// <inheritdoc/>
     public ReadOnlyCollection<DbColumn> GetColumnSchema()

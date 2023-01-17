@@ -62,6 +62,12 @@ namespace Apache.Ignite.Internal.Sql
             throw new NotSupportedException();
         }
 
+        /// <inheritdoc/>
+        public Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <summary>
         /// Reads column value.
         /// </summary>
