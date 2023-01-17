@@ -73,7 +73,11 @@ public class TableImpl implements Table {
     private final Map<UUID, CompletableFuture<?>> indexesToWait = new ConcurrentHashMap<>();
 
     private final Map<UUID, IndexStorageAdapterFactory> indexStorageAdapterFactories = new ConcurrentHashMap<>();
+
     private final Map<UUID, IndexLockerFactory> indexLockerFactories = new ConcurrentHashMap<>();
+
+    /** Watch listener id to unregister the watch listener on {@link }. */
+    private volatile Long watchListenerId;
 
     /**
      * Constructor.
@@ -86,6 +90,14 @@ public class TableImpl implements Table {
         this.tbl = tbl;
         this.lockManager = lockManager;
         // this.activeIndexIds = activeIndexIds;
+    }
+
+    public Long getWatchListenerId() {
+        return watchListenerId;
+    }
+
+    public void setWatchListenerId(Long watchListenerId) {
+        this.watchListenerId = watchListenerId;
     }
 
     /**

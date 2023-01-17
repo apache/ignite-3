@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -1102,6 +1103,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesByIdVv.get(causalityToken)
                 .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
+        metaStorageMgr.registerExactWatch(zoneDataNodesKey(tableCfg.zoneId().value()), new WatchListener() {
+                    @Override
+                    public boolean onUpdate(@NotNull WatchEvent evt) {
+                        int partCnt = tableCfg.partitions().value();
+
+                        CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
+
+                        for (int i = 0; i < partCnt; i++) {
+                            TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), i);
+
+                            futures[i] = updatePendingAssignmentsKeys(tableCfg.name().value(), replicaGrpId, baselineMgr.nodes(), tableCfg.replicas().value(),
+                                    evt.entryEvent().newEntry().revision(), metaStorageMgr, i);
+                        }
+
+                        return true;
+                    }
+
+                    @Override
+                    public void onError(@NotNull Throwable e) {
+                        LOG.warn("Unable to process stable assignments event", e);
+                    }
+                })
+                .thenAccept(id -> table.setWatchListenerId(id));
+
         // TODO should be reworked in IGNITE-16763
         return completedFuture(null);
     }
@@ -1213,6 +1238,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     );
 
             beforeTablesVvComplete.add(allOf(destroyMvStorageFuture, dropSchemaRegistryFuture));
+
+            if (table.getWatchListenerId() != null) {
+                metaStorageMgr.unregisterWatch(table.getWatchListenerId());
+
+                table.setWatchListenerId(null);
+            }
         } catch (Exception e) {
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
