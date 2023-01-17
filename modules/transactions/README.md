@@ -11,16 +11,15 @@ In the next phases, MVCC support should be added to avoid blocking reads and pos
 like parallel commits from <sup id="a1">[1](#f1)</sup>
 
 # Transaction protocol design (first iteration)
-At a high level, we utilize 2 phase locking (2PL) for concurrency control, 2 phase commit (2PC) as an atomic commitment 
-protocol, in conjunction with deadlock prevention, described in <sup id="a2">[2](#f2)</sup>. 
-This implementation is similar to Ignite 2 optimistic serializable mode. 
+At a high level, we utilize 2 phase locking (2PL) for concurrency control, an atomic commitment 
+protocol, in conjunction with deadlock prevention, described in <sup id="a2">[2](#f2)</sup>.
 Additional goals are: 
 1) retain only strong isolation 
 2) support for SQL 
 3) utilize new replication infrastructure based on RAFT.
 
-# Two phase commit
-This protocol is responsible for atomic commitment (all or nothing) tx guraranties.
+# Atomic commitment
+Transactional protocol is responsible for atomic commitment (all or nothing) tx guraranties.
 Each update is **pre-written** to a replication groups on first phase (and replicated to a majority).
 As soon as all updates are pre-written, it's safe to commit.
 This slightly differs from ignite 2, because there is no PREPARED state.
@@ -64,10 +63,10 @@ Coordinators are responsible for id assignment, tx mapping and failover handling
 Knows full tx topology just before committing.
 
 # Transaction id and timestamp
-Transaction is identified by UUID and incorporates timestamp.
+Transaction is identified by UUID and incorporates timestamp. See `org.apache.ignite.internal.tx.impl.TxManagerImpl#begin(boolean)`.
 
 # Deadlock prevention
-Deadlock detection is not an option due to huge computation resources requirement and no real-time guaranties.
+Deadlock detection, in comparison to deadlock prevention, doesn't require huge computation resources requirement and has real-time guaranties.
 This functionality is provided by LockManager and implementations of DeadlockPreventionPolicy.
 Default implementation is WAIT_DIE policy, but other policies are possible, for example NO_WAIT, TIMEOUT_WAIT, WOUND_WAIT. Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses tx priorities to decide which tx should be restarted.
 Each transaction is assigned a unique globally comparable timestamp (for example UUID), which defines tx priority.
