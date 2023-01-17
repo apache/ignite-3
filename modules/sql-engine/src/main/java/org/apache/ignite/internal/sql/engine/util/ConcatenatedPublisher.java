@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
+import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -31,15 +32,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Starts to consume the next source only after the previous has been completed.
  */
 public class ConcatenatedPublisher<T> implements Publisher<T> {
-    /** Upstream publishers. */
-    private final Publisher<? extends T>[]sources;
+    /** Iterator of upstream publishers. */
+    private final Iterator<Publisher<? extends T>> sources;
 
     /**
      * Constructor.
      *
-     * @param sources Upstream publishers.
+     * @param sources Iterator of upstream publishers.
      */
-    public ConcatenatedPublisher(Publisher<? extends T>[] sources) {
+    public ConcatenatedPublisher(Iterator<Publisher<? extends T>> sources) {
         this.sources = sources;
     }
 
@@ -64,11 +65,8 @@ public class ConcatenatedPublisher<T> implements Publisher<T> {
         /** Downstream {@link Subscriber} that receives the signals. */
         private final Subscriber<? super T> downstream;
 
-        /** Array of {@link Publisher publishers} to be consumed one by one. */
-        private final Publisher<? extends T>[] sources;
-
-        /** Current publisher index. */
-        private int index;
+        /** List of {@link Publisher publishers} to be consumed one by one. */
+        private final Iterator<Publisher<? extends T>> sources;
 
         /**
          * Tracks how many items the current source has produced (and has the coordinator consumed). It is used to update the arbiter
@@ -78,7 +76,7 @@ public class ConcatenatedPublisher<T> implements Publisher<T> {
 
         ConcatenatedSubscriber(
                 Subscriber<? super T> downstream,
-                Publisher<? extends T>[] sources
+                Iterator<Publisher<? extends T>> sources
         ) {
             this.downstream = downstream;
             this.sources = sources;
@@ -121,7 +119,7 @@ public class ConcatenatedPublisher<T> implements Publisher<T> {
                     return;
                 }
 
-                if (index == sources.length) {
+                if (!sources.hasNext()) {
                     downstream.onComplete();
                     return;
                 }
@@ -136,7 +134,7 @@ public class ConcatenatedPublisher<T> implements Publisher<T> {
                     setProduced(c);
                 }
 
-                sources[index++].subscribe(this);
+                sources.next().subscribe(this);
             } while (guardCntr.decrementAndGet() != 0); // Resume with the subsequent sources if there was synchronous or racy onComplete().
         }
     }

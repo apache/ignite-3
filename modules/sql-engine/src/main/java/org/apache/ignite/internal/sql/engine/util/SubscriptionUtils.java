@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 
 /**
@@ -28,12 +30,23 @@ public class SubscriptionUtils {
      * Create thread-safe publisher wrapper of combine multiple publishers. Generally, start consuming a source once the previous source has
      * terminated, building a chain.
      *
+     * @param sources Iterator which produces all publishers which should be combine.
+     * @return Publisher which will be combine all of passed as parameter to single one.
+     */
+    public static <T> Publisher<T> concat(Iterator<Publisher<? extends T>> sources) {
+        return new ConcatenatedPublisher<>(sources);
+    }
+
+    /**
+     * Create thread-safe publisher wrapper of combine multiple publishers. Generally, start consuming a source once the previous source has
+     * terminated, building a chain.
+     *
      * @param sources Array of publishers which should be combine.
      * @return Publisher which will be combine all of passed as parameter to single one.
      */
     @SafeVarargs
     public static <T> Publisher<T> concat(Publisher<? extends T>... sources) {
-        return new ConcatenatedPublisher<>(sources);
+        return new ConcatenatedPublisher<>(Arrays.asList(sources).iterator());
     }
 
     /**
