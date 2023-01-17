@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -517,7 +516,7 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesTimers.putIfAbsent(zoneId, zoneState);
 
             // logicalTopology can be updated concurrently by the watch listener.
-            initTriggerKeysAndDataNodesInMetaStorage(zoneId, ctx.storageRevision(), toBytes(logicalTopology));
+            saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), toBytes(logicalTopology));
 
             return completedFuture(null);
         }
@@ -559,7 +558,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
      */
-    private void initTriggerKeysAndDataNodesInMetaStorage(int zoneId, long revision, byte[] dataNodes) {
+    private void saveDataNodesAndUpdateTriggerKeysInMetaStorage(int zoneId, long revision, byte[] dataNodes) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -777,7 +776,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                                             int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId()
                                                                     .value();
 
-                                                            initTriggerKeysAndDataNodesInMetaStorage(
+                                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
                                                                     zoneId,
                                                                     vaultAppliedRevision,
                                                                     vaultEntry.value()
