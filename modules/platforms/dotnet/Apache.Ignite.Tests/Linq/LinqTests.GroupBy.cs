@@ -43,7 +43,7 @@ public partial class LinqTests
             "select _T0.VAL as _G0 " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by _G0 " +
-            "order by (_G0) asc",
+            "order by _G0 asc",
             query.ToString());
     }
 
@@ -64,7 +64,7 @@ public partial class LinqTests
             "select _T0.KEY " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by (_T0.VAL, _T0.KEY) " +
-            "order by (_T0.KEY) asc",
+            "order by _T0.KEY asc",
             query.ToString());
     }
 
@@ -86,7 +86,7 @@ public partial class LinqTests
             "select _T0.VAL, count(*) as COUNT, sum(cast(_T0.KEY as int)) as SUM, avg(cast(_T0.KEY as int)) as AVG " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by (_T0.VAL) " +
-            "order by (_T0.VAL) asc",
+            "order by _T0.VAL asc",
             query.ToString());
     }
 
@@ -111,7 +111,7 @@ public partial class LinqTests
             "select (cast(_T0.VAL as int) * ?) as _G0, count(*) as COUNT " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by _G0 " +
-            "order by (_G0) asc",
+            "order by _G0 asc",
             query.ToString());
     }
 
@@ -142,11 +142,11 @@ public partial class LinqTests
         Assert.AreEqual(10, res.Count);
 
         StringAssert.Contains(
-            "select _T0.VAL, count(*) as COUNT " +
+            "select _T0.VAL as _G0, count(*) as COUNT " +
             "from PUBLIC.TBL1 as _T1 " +
             "inner join PUBLIC.TBL_INT32 as _T0 on (cast(_T0.KEY as bigint) = _T1.KEY) " +
-            "group by (_T0.VAL) " +
-            "order by (_T0.VAL) asc",
+            "group by _G0 " +
+            "order by _G0 asc",
             query.ToString());
     }
 

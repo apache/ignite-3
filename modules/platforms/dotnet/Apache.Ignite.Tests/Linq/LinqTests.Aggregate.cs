@@ -154,7 +154,7 @@ public partial class LinqTests
             "select _T0.KEY as _G0, count(*) as COUNT, sum(_T0.KEY) as SUM, avg(_T0.KEY) as AVG, min(_T0.KEY) as MIN, max(_T0.KEY) as MAX " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "group by _G0 " +
-            "order by (_G0) asc",
+            "order by _G0 asc",
             query.ToString());
     }
 
