@@ -29,6 +29,27 @@ using System.Diagnostics.CodeAnalysis;
 [SuppressMessage("Design", "CA1010:Generic interface should also be implemented", Justification = "Generic IEnumerable is not applicable.")]
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
+    /// <inheritdoc/>
+    public override int FieldCount => 0; // TODO
+
+    /// <inheritdoc/>
+    public override int RecordsAffected => 0; // TODO
+
+    /// <inheritdoc/>
+    public override bool HasRows => false; // TODO
+
+    /// <inheritdoc/>
+    public override bool IsClosed => false; // TODO
+
+    /// <inheritdoc/>
+    public override int Depth => 0; // TODO
+
+    /// <inheritdoc/>
+    public override object this[int ordinal] => null!; // TODO
+
+    /// <inheritdoc/>
+    public override object this[string name] => null!; // TODO
+
     /// <inheritdoc />
     public override bool GetBoolean(int ordinal)
     {
@@ -156,24 +177,6 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override int FieldCount { get; }
-
-    /// <inheritdoc/>
-    public override object this[int ordinal] => throw new NotImplementedException();
-
-    /// <inheritdoc/>
-    public override object this[string name] => throw new NotImplementedException();
-
-    /// <inheritdoc/>
-    public override int RecordsAffected { get; }
-
-    /// <inheritdoc/>
-    public override bool HasRows { get; }
-
-    /// <inheritdoc/>
-    public override bool IsClosed { get; }
-
-    /// <inheritdoc/>
     public override bool NextResult()
     {
         throw new NotImplementedException();
@@ -184,9 +187,6 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         throw new NotImplementedException();
     }
-
-    /// <inheritdoc/>
-    public override int Depth { get; }
 
     /// <inheritdoc/>
     public override IEnumerator GetEnumerator()
