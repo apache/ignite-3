@@ -132,8 +132,6 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
             it.seek(rangeStart);
 
-            busyLock.leaveBusy();
-
             return new BusyRocksIteratorAdapter<RowId>(busyLock, it) {
                 @Override
                 protected void handleBusyFail() {
