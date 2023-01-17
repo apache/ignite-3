@@ -40,7 +40,7 @@ public partial class LinqTests
         Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
 
         StringAssert.Contains(
-            "select _T0.VAL as _G0" +
+            "select _T0.VAL as _G0 " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by _G0 " +
             "order by (_G0) asc",

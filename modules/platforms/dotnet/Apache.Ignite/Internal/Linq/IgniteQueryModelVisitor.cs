@@ -110,12 +110,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
                 _builder.Append(", ");
             }
 
-            // TODO: Remove unnecessary parenthesis.
-            _builder.Append('(');
-
             BuildSqlExpression(ordering.Expression);
-
-            _builder.TrimEnd().Append(')');
 
             _builder.Append(ordering.OrderingDirection == OrderingDirection.Asc ? " asc" : " desc");
         }
