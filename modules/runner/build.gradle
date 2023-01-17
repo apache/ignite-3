@@ -84,7 +84,7 @@ dependencies {
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation(libs.jsonpath.assert) {
-        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
