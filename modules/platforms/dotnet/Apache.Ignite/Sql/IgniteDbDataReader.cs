@@ -46,7 +46,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         _resultSet = resultSet;
 
         // TODO
-        IAsyncEnumerable<(PooledBuffer Buffer, int Offset)> enumerator = _resultSet.EnumeratePagesInternal();
+        IAsyncEnumerable<PooledBuffer> pageEnumerator = _resultSet.EnumeratePagesInternal();
     }
 
     /// <inheritdoc/>
