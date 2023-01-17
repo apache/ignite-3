@@ -52,7 +52,7 @@ public partial class LinqTests
             "select cast(_T0.VAL as tinyint) as BYTE, cast(_T0.VAL as smallint) as SHORT, cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, (cast(_T0.VAL as double) / ?) as DOUBLE " +
             "from PUBLIC.TBL_INT32 as _T0 " +
-            "order by (cast(_T0.VAL as bigint)) desc",
+            "order by cast(_T0.VAL as bigint) desc",
             query.ToString());
     }
 

@@ -274,7 +274,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) asc " +
+            "order by _T0.KEY asc " +
             "offset ?",
             query.ToString());
     }
@@ -292,7 +292,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) asc " +
+            "order by _T0.KEY asc " +
             "limit ?",
             query.ToString());
     }
@@ -332,7 +332,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) desc " +
+            "order by _T0.KEY desc " +
             "limit ? offset ?",
             query.ToString());
     }

@@ -112,7 +112,7 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
 
             BuildSqlExpression(ordering.Expression);
 
-            _builder.Append(ordering.OrderingDirection == OrderingDirection.Asc ? " asc" : " desc");
+            _builder.AppendWithSpace(ordering.OrderingDirection == OrderingDirection.Asc ? "asc" : "desc");
         }
 
         _builder.Append(' ');
