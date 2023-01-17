@@ -31,14 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -244,9 +241,22 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
      * @param rules Additional rules need to be disabled.
      */
     static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
-        return AbstractBasicIntegrationTest.assertQuery(qry.replaceAll("(?i)^select", "select "
-                + Stream.concat(Arrays.stream(joinType.disabledRules), Arrays.stream(rules))
-                .collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
+        return assertQuery(qry)
+                .disableRules(joinType.disabledRules)
+                .disableRules(rules);
+    }
+
+    /**
+     * Used for join checks, disables other join rules for executing exact join algo.
+     *
+     * @param qry Query for check.
+     * @param aggregateType Type of aggregate algo.
+     * @param rules Additional rules need to be disabled.
+     */
+    static QueryChecker assertQuery(String qry, AggregateType aggregateType, String... rules) {
+        return assertQuery(qry)
+                .disableRules(aggregateType.disabledRules)
+                .disableRules(rules);
     }
 
     /**
@@ -285,6 +295,26 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         private final String[] disabledRules;
 
         JoinType(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+    }
+
+    enum AggregateType {
+        SORT(
+                "ColocatedHashAggregateConverterRule",
+                "MapReduceHashAggregateConverterRule",
+                "ColocatedSortAggregateConverterRule"
+        ),
+
+        HASH(
+                "ColocatedSortAggregateConverterRule",
+                "MapReduceSortAggregateConverterRule",
+                "ColocatedHashAggregateConverterRule"
+        );
+
+        private final String[] disabledRules;
+
+        AggregateType(String... disabledRules) {
             this.disabledRules = disabledRules;
         }
     }
