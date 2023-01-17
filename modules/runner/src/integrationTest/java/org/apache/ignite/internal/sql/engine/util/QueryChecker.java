@@ -36,9 +36,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
@@ -399,30 +401,30 @@ public abstract class QueryChecker {
         QueryContext context = tx != null ? QueryContext.of(tx) : QueryContext.of();
 
         try {
-            // Check plan.
-            var explainRes = getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, "EXPLAIN PLAN FOR " + qry, params))
-            );
+            if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
+                var explainCursors = queryEngine.queryAsync("PUBLIC",
+                        "EXPLAIN PLAN FOR " + qry, params);
 
-            String actualPlan = (String) explainRes.get(0).get(0);
+                var explainCursor = explainCursors.get(0).join();
+                var explainRes = getAllFromCursor(explainCursor);
+                String actualPlan = (String) explainRes.get(0).get(0);
 
-            if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-                for (Matcher<String> matcher : planMatchers) {
-                    assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
+                if (!CollectionUtils.nullOrEmpty(planMatchers)) {
+                    for (Matcher<String> matcher : planMatchers) {
+                        assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
+                    }
+                }
+
+                if (exactPlan != null) {
+                    assertEquals(exactPlan, actualPlan);
                 }
             }
 
-            if (exactPlan != null) {
-                assertEquals(exactPlan, actualPlan);
-            }
-
             // Check result.
-            // ToDo: https://issues.apache.org/jira/browse/IGNITE-18501
-            //            var cursors = queryEngine.querySingleAsync(sessionId, context, qry, params);
-            //            var cur = cursors.join();
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = queryEngine.querySingleAsync(
+                    sessionId, context, qry, params);
 
-            var cursors = queryEngine.queryAsync("PUBLIC", qry, params);
-            var cur = cursors.get(0).join();
+            AsyncSqlCursor<List<Object>> cur = await(cursors);
 
             if (expectedColumnNames != null) {
                 List<String> colNames = cur.metadata().columns().stream()
@@ -469,7 +471,7 @@ public abstract class QueryChecker {
                 assertEqualsCollections(expectedResult, res);
             }
         } finally {
-            queryEngine.closeSession(sessionId);
+            await(queryEngine.closeSession(sessionId));
         }
     }
 

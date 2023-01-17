@@ -30,7 +30,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.util.CompositePublisher;
+import org.apache.ignite.internal.sql.engine.util.ConcatenatedPublisher;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,7 +75,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        List<Flow.Publisher<BinaryRow>> partPublishers = new ArrayList<>(parts.length);
+        List<Flow.Publisher<? extends RowT>> partPublishers = new ArrayList<>(parts.length);
 
         boolean roTx = context().transactionTime() != null;
 
@@ -87,10 +87,10 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
                 pub = physTable.scan(p, context().transaction());
             }
 
-            partPublishers.add(pub);
+            partPublishers.add(convertPublisher(pub));
         }
 
-        return convertPublisher(new CompositePublisher<>(partPublishers));
+        return new ConcatenatedPublisher<>(partPublishers.iterator());
     }
 
 }

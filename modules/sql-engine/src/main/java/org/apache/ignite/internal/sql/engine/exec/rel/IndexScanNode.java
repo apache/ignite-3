@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
 import java.util.List;
@@ -40,6 +41,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.ConcatenatedPublisher;
+import org.apache.ignite.internal.sql.engine.util.OrderedMergePublisher;
 import org.apache.ignite.internal.sql.engine.util.SubscriptionUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -109,11 +112,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     @Override
     protected Publisher<RowT> scan() {
         if (rangeConditions != null) {
-            List<CompositePublisher<RowT>> conditionPublishers = new ArrayList<>(rangeConditions.size());
+            List<Flow.Publisher<? extends RowT>> conditionPublishers = new ArrayList<>(rangeConditions.size());
 
             rangeConditions.forEach(cond -> conditionPublishers.add(indexPublisher(parts, cond)));
 
-            return new CompositePublisher<>(conditionPublishers);
+            return new ConcatenatedPublisher<>(conditionPublishers.iterator());
         } else {
             return indexPublisher(parts, null);
         }
