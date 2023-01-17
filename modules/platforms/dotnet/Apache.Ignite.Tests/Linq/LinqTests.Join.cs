@@ -85,7 +85,7 @@ public partial class LinqTests
             "from PUBLIC.TBL1 as _T0 " +
             "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
             "where (_T0.KEY > ?) " +
-            "order by (_T0.KEY) asc " +
+            "order by _T0.KEY asc " +
             "limit ?",
             joinQuery.ToString());
     }
@@ -159,7 +159,7 @@ public partial class LinqTests
             "from PUBLIC.TBL1 as _T0 " +
             "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
             "where (_T1.KEY > ?) " +
-            "order by (_T1.KEY) asc",
+            "order by _T1.KEY asc",
             joinQuery.ToString());
     }
 
@@ -292,7 +292,7 @@ public partial class LinqTests
             "select _T0.KEY, _T1.KEY, _T1.VAL " +
             "from PUBLIC.TBL1 as _T0 " +
             "left outer join (select * from PUBLIC.TBL_STRING as _T2 ) as _T1 on (_T1.VAL = _T0.VAL) " +
-            "order by (_T0.KEY) asc",
+            "order by _T0.KEY asc",
             joinQuery.ToString());
     }
 
