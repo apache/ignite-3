@@ -330,7 +330,13 @@ public class Cluster {
     public void shutdown() {
         stopped = true;
 
-        runningNodes().forEach(node -> IgnitionManager.stop(node.name()));
+        List<IgniteImpl> nodesToStop;
+
+        synchronized (nodes) {
+            nodesToStop = runningNodes().collect(toList());
+        }
+
+        nodesToStop.forEach(node -> IgnitionManager.stop(node.name()));
     }
 
     /**
