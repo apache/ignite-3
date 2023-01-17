@@ -36,6 +36,7 @@ using Internal.Sql;
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
     private readonly ResultSet<object> _resultSet;
+    private readonly IAsyncEnumerator<PooledBuffer> _pageEnumerator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbDataReader"/> class.
@@ -44,9 +45,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     internal IgniteDbDataReader(ResultSet<object> resultSet)
     {
         _resultSet = resultSet;
-
-        // TODO
-        IAsyncEnumerable<PooledBuffer> pageEnumerator = _resultSet.EnumeratePagesInternal();
+        _pageEnumerator = _resultSet.EnumeratePagesInternal().GetAsyncEnumerator();
     }
 
     /// <inheritdoc/>
@@ -230,8 +229,12 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override ValueTask DisposeAsync() => _resultSet.DisposeAsync();
+    public override async ValueTask DisposeAsync()
+    {
+        await _pageEnumerator.DisposeAsync().ConfigureAwait(false);
+        await _resultSet.DisposeAsync().ConfigureAwait(false);
+    }
 
     /// <inheritdoc/>
-    protected override void Dispose(bool disposing) => _resultSet.Dispose();
+    protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
 }
