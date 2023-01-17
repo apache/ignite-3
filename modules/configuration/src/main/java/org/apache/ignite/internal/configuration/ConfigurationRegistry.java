@@ -42,8 +42,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
@@ -67,6 +69,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
@@ -270,6 +273,39 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public CompletableFuture<Void> change(ConfigurationSource changesSrc) {
         return changer.change(changesSrc);
+    }
+
+    /**
+     * Change configuration. Gives the possibility to atomically update several root trees.
+     *
+     * @param change Closure that would consume a mutable super root instance.
+     * @return Future that is completed on change completion.
+     */
+    public CompletableFuture<Void> change(Consumer<SuperRootChange> change) {
+        return change(new ConfigurationSource() {
+            @Override
+            public void descend(ConstructableTreeNode node) {
+                assert node instanceof SuperRoot : "Descending always starts with super root.";
+
+                SuperRoot superRoot = (SuperRoot) node;
+
+                change.accept(new SuperRootChange() {
+                    @Override
+                    public <V, T extends ConfigurationTree<V, ?>> V viewRoot(RootKey<T, V> rootKey) {
+                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
+                    }
+
+                    @Override
+                    public <C, T extends ConfigurationTree<?, C>> C changeRoot(RootKey<T, ?> rootKey) {
+                        // "construct" does a field copying, which is what we need before mutating it.
+                        superRoot.construct(rootKey.key(), ConfigurationUtil.EMPTY_CFG_SRC, true);
+
+                        // "rootView" is not re-used here because of return type incompatibility, although code is the same.
+                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
+                    }
+                });
+            }
+        });
     }
 
     /**

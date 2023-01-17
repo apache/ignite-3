@@ -143,6 +143,26 @@ public class ConfigurationChangerTest {
     }
 
     /**
+     * Test simple change of configuration.
+     */
+    @Test
+    public void testSimpleConfigurationChangeWithoutExtraLambdas() throws Exception {
+        ConfigurationChanger changer = createChanger(KEY);
+        changer.start();
+
+        changer.change(source(KEY, (FirstChange parent) -> {
+            parent.changeChild().changeIntCfg(1).changeStrCfg("1");
+            parent.changeElements().create("a", element -> element.changeStrCfg("1"));
+        })).get(1, SECONDS);
+
+        FirstView newRoot = (FirstView) changer.getRootNode(KEY);
+
+        assertEquals(1, newRoot.child().intCfg());
+        assertEquals("1", newRoot.child().strCfg());
+        assertEquals("1", newRoot.elements().get("a").strCfg());
+    }
+
+    /**
      * Test subsequent change of configuration via different changers.
      */
     @Test

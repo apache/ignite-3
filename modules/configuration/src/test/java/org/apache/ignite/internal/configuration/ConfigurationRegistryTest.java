@@ -19,12 +19,18 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -151,6 +157,49 @@ public class ConfigurationRegistryTest {
                             c1 -> c1.changePoly(toFirst0Polymorphic(4))
                                     .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
             ).get(1, SECONDS);
+        } finally {
+            registry.stop();
+        }
+    }
+
+    @Test
+    void testChangeSuperRoot() throws Exception {
+        TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
+
+        var registry = new ConfigurationRegistry(
+                List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
+                Map.of(),
+                storage,
+                List.of(),
+                List.of()
+        );
+
+        registry.start();
+
+        try {
+            FirstRootConfiguration firstConfiguration = registry.getConfiguration(FirstRootConfiguration.KEY);
+            SecondRootConfiguration secondConfiguration = registry.getConfiguration(SecondRootConfiguration.KEY);
+
+            CompletableFuture<Void> changeFuture = registry.change(superRootChange -> {
+                assertNotNull(superRootChange);
+
+                // Check that originally we have the same value for the root.
+                assertSame(firstConfiguration.value(), superRootChange.viewRoot(FirstRootConfiguration.KEY));
+
+                FirstRootChange firstRootChange = superRootChange.changeRoot(FirstRootConfiguration.KEY);
+
+                // Check that the value of the root has changed.
+                assertNotSame(firstConfiguration.value(), firstRootChange);
+                assertSame(firstRootChange, superRootChange.viewRoot(FirstRootConfiguration.KEY));
+
+                firstRootChange.changeStr("foo");
+                superRootChange.changeRoot(SecondRootConfiguration.KEY).changeStr("bar");
+            });
+
+            assertThat(changeFuture, willCompleteSuccessfully());
+
+            assertEquals("foo", firstConfiguration.str().value());
+            assertEquals("bar", secondConfiguration.str().value());
         } finally {
             registry.stop();
         }

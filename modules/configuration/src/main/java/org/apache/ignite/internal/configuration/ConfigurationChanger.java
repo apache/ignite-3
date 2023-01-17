@@ -53,6 +53,8 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
@@ -101,6 +103,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Configuration listener notification counter, must be incremented before each use of {@link #notificator}. */
     private final AtomicLong notificationListenerCnt = new AtomicLong();
+
+    /** Lock for reading/updating the {@link #storageRoots}. Fair, to give meta-storage thread a higher priority. */
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock(true);
 
     /**
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and invoked
@@ -482,23 +487,16 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @throws ComponentNotStartedException if changer is not started.
      */
     private CompletableFuture<Void> changeInternally(ConfigurationSource src) {
-        StorageRoots localRoots = storageRoots;
-
-        if (localRoots == null) {
+        if (storageRoots == null) {
             throw new ComponentNotStartedException();
         }
 
         return storage.lastRevision()
-            .thenCompose(storageRevision -> {
+            .thenComposeAsync(storageRevision -> {
                 assert storageRevision != null;
 
-                if (localRoots.version < storageRevision) {
-                    // Need to wait for the configuration updates from the storage, then try to update again (loop).
-                    return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
-                } else {
-                    return changeInternally0(localRoots, src);
-                }
-            })
+                return changeInternally0(src, storageRevision);
+            }, pool)
             .exceptionally(throwable -> {
                 Throwable cause = throwable.getCause();
 
@@ -514,41 +512,51 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Internal configuration change method that completes provided future.
      *
      * @param src Configuration source.
+     * @param storageRevision Latest storage revision from the metastorage.
      * @return Future that will be completed after changes are written to the storage.
      */
-    private CompletableFuture<Void> changeInternally0(StorageRoots localRoots, ConfigurationSource src) {
-        return CompletableFuture
-            .supplyAsync(() -> {
-                SuperRoot curRoots = localRoots.roots;
+    private CompletableFuture<Void> changeInternally0(ConfigurationSource src, long storageRevision) {
+        // Read lock protects "storageRoots" field from being updated, thus guaranteeing a thread-safe read of configuration inside of the
+        // change closure.
+        rwLock.readLock().lock();
 
-                SuperRoot changes = curRoots.copy();
+        try {
+            // Put it into a variable to avoid volatile reads.
+            // This read and the following comparison MUST be performed while holding read lock.
+            StorageRoots localRoots = storageRoots;
 
-                src.reset();
+            if (localRoots.version < storageRevision) {
+                // Need to wait for the configuration updates from the storage, then try to update again (loop).
+                return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
+            }
 
-                src.descend(changes);
+            SuperRoot curRoots = localRoots.roots;
 
-                addDefaults(changes);
+            SuperRoot changes = curRoots.copy();
 
-                Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, changes);
+            src.reset();
 
-                dropNulls(changes);
+            src.descend(changes);
 
-                List<ValidationIssue> validationIssues = ValidationUtil.validate(
-                        curRoots,
-                        changes,
-                        this::getRootNode,
-                        cachedAnnotations,
-                        validators
-                );
+            addDefaults(changes);
 
-                if (!validationIssues.isEmpty()) {
-                    throw new ConfigurationValidationException(validationIssues);
-                }
+            Map<String, Serializable> allChanges = createFlattenedUpdatesMap(curRoots, changes);
 
-                return allChanges;
-            }, pool)
-            .thenCompose(allChanges ->
-                storage.write(allChanges, localRoots.version)
+            dropNulls(changes);
+
+            List<ValidationIssue> validationIssues = ValidationUtil.validate(
+                    curRoots,
+                    changes,
+                    this::getRootNode,
+                    cachedAnnotations,
+                    validators
+            );
+
+            if (!validationIssues.isEmpty()) {
+                throw new ConfigurationValidationException(validationIssues);
+            }
+
+            return storage.write(allChanges, localRoots.version)
                     .thenCompose(casWroteSuccessfully -> {
                         if (casWroteSuccessfully) {
                             return localRoots.changeFuture;
@@ -557,8 +565,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                             // because we work with async code (futures).
                             return localRoots.changeFuture.thenCompose(v -> changeInternally(src));
                         }
-                    })
-            );
+                    });
+        } finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     /**
@@ -581,7 +591,13 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         long newChangeId = changedEntries.changeId();
 
-        storageRoots = new StorageRoots(newSuperRoot, newChangeId);
+        rwLock.writeLock().lock();
+
+        try {
+            storageRoots = new StorageRoots(newSuperRoot, newChangeId);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
 
         // Save revisions for recovery.
         return storage.writeConfigurationRevision(oldStorageRoots.version, storageRoots.version)
