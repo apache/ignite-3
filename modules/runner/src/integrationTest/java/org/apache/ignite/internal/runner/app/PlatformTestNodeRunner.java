@@ -290,8 +290,7 @@ public class PlatformTestNodeRunner {
 
         try {
             return Long.parseLong(runTimeMinutesFromEnv);
-        }
-        catch (Exception ignored) {
+        } catch (Exception ignored) {
             // No-op.
         }
 
