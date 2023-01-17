@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -34,13 +35,13 @@ import org.apache.ignite.configuration.validation.Validator;
 /**
  * Table schema configuration validator implementation.
  */
-public class TableValidatorImpl implements Validator<TableValidator, NamedListView<TableView>> {
+public class TableValidatorImpl implements Validator<NamedConfigValue, NamedListView<TableView>> {
     /** Static instance. */
     public static final TableValidatorImpl INSTANCE = new TableValidatorImpl();
 
     /** {@inheritDoc} */
     @Override
-    public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
+    public void validate(NamedConfigValue annotation, ValidationContext<NamedListView<TableView>> ctx) {
         TablesView tablesConfig = ctx.getNewRoot(TablesConfiguration.KEY);
 
         Set<String> idxNames = tablesConfig == null ? Collections.emptySet() : new HashSet<>(tablesConfig.indexes().namedListKeys());

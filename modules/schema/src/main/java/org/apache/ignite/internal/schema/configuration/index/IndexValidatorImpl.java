@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -37,12 +38,12 @@ import org.apache.ignite.internal.schema.configuration.TablesView;
 /**
  * Index configuration validator implementation.
  */
-public class IndexValidatorImpl implements Validator<IndexValidator, NamedListView<TableIndexView>> {
+public class IndexValidatorImpl implements Validator<NamedConfigValue, NamedListView<TableIndexView>> {
     /** Static instance. */
     public static final IndexValidatorImpl INSTANCE = new IndexValidatorImpl();
 
     @Override
-    public void validate(IndexValidator annotation, ValidationContext<NamedListView<TableIndexView>> ctx) {
+    public void validate(NamedConfigValue annotation, ValidationContext<NamedListView<TableIndexView>> ctx) {
         TablesView tablesConfig = ctx.getNewRoot(TablesConfiguration.KEY);
 
         assert tablesConfig != null;

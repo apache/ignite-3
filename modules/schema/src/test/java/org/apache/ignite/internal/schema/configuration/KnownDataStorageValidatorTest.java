@@ -22,13 +22,13 @@ import static org.apache.ignite.internal.configuration.validation.TestValidation
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageChange;
 import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorageValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +47,7 @@ public class KnownDataStorageValidatorTest {
 
     @Test
     void testFailValidation() {
-        KnownDataStorage annotation = mock(KnownDataStorage.class);
+        var annotation = mock(ConfigValue.class);
 
         DataStorageView value = dataStorageConfig.value();
 
@@ -56,7 +56,7 @@ public class KnownDataStorageValidatorTest {
 
     @Test
     void testSuccessValidation() throws Exception {
-        KnownDataStorage annotation = mock(KnownDataStorage.class);
+        var annotation = mock(ConfigValue.class);
 
         dataStorageConfig.change(c -> c.convert(TestDataStorageChange.class)).get(1, SECONDS);
 

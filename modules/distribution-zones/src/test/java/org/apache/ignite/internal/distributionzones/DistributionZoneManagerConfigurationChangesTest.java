@@ -41,7 +41,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -104,7 +103,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     public void setUp() {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of()

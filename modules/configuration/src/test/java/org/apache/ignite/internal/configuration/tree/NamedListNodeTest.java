@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.Config;
@@ -107,7 +108,7 @@ public class NamedListNodeTest {
         changer = new TestConfigurationChanger(
                 cgen,
                 List.of(FirstConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 storage,
                 List.of(),
                 List.of()

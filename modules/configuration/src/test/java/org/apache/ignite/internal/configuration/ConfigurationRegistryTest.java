@@ -24,7 +24,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -48,7 +48,7 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(SecondRootConfiguration.KEY),
-                        Map.of(),
+                        Set.of(),
                         new TestConfigurationStorage(LOCAL),
                         List.of(ExtendedFirstRootConfigurationSchema.class),
                         List.of()
@@ -58,7 +58,7 @@ public class ConfigurationRegistryTest {
         // Check that everything is fine.
         ConfigurationRegistry configRegistry = new ConfigurationRegistry(
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(ExtendedFirstRootConfigurationSchema.class),
                 List.of()
@@ -74,7 +74,7 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(ThirdRootConfiguration.KEY),
-                        Map.of(),
+                        Set.of(),
                         new TestConfigurationStorage(LOCAL),
                         List.of(),
                         List.of(Second0PolymorphicConfigurationSchema.class)
@@ -86,7 +86,7 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(ThirdRootConfiguration.KEY),
-                        Map.of(),
+                        Set.of(),
                         new TestConfigurationStorage(LOCAL),
                         List.of(),
                         List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
@@ -96,7 +96,7 @@ public class ConfigurationRegistryTest {
         // Check that everything is fine.
         ConfigurationRegistry configRegistry = new ConfigurationRegistry(
                 List.of(ThirdRootConfiguration.KEY, FourthRootConfiguration.KEY, FifthRootConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of(
@@ -117,7 +117,7 @@ public class ConfigurationRegistryTest {
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
                         List.of(ThirdRootConfiguration.KEY),
-                        Map.of(),
+                        Set.of(),
                         new TestConfigurationStorage(LOCAL),
                         List.of(),
                         List.of()
@@ -133,7 +133,7 @@ public class ConfigurationRegistryTest {
     void testComplicatedPolymorphicConfig() throws Exception {
         ConfigurationRegistry registry = new ConfigurationRegistry(
                 List.of(SixthRootConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of(Fourth0PolymorphicConfigurationSchema.class)

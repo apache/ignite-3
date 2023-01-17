@@ -19,17 +19,20 @@ package org.apache.ignite.internal.schema.configuration.storage;
 
 import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- * Implementing a validator for {@link KnownDataStorage}.
+ * Implementing a validator for {@link DataStorageView}.
+ * Checks that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
+ * DataStorageConfigurationSchema#name name} is not {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE "unknown"}.
  */
-public class KnownDataStorageValidator implements Validator<KnownDataStorage, DataStorageView> {
+public class KnownDataStorageValidator implements Validator<ConfigValue, DataStorageView> {
     /** {@inheritDoc} */
     @Override
-    public void validate(KnownDataStorage annotation, ValidationContext<DataStorageView> ctx) {
+    public void validate(ConfigValue annotation, ValidationContext<DataStorageView> ctx) {
         DataStorageView newValue = ctx.getNewValue();
 
         if (newValue.name().equals(UNKNOWN_DATA_STORAGE)) {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import java.util.Objects;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -25,13 +26,13 @@ import org.apache.ignite.configuration.validation.Validator;
 /**
  * Column definition validator implementation validates column changes.
  */
-public class ColumnTypeValidatorImpl implements Validator<ColumnTypeValidator, ColumnTypeView> {
+public class ColumnTypeValidatorImpl implements Validator<ConfigValue, ColumnTypeView> {
     /** Static instance. */
     public static final ColumnTypeValidatorImpl INSTANCE = new ColumnTypeValidatorImpl();
 
     /** {@inheritDoc} */
     @Override
-    public void validate(ColumnTypeValidator annotation, ValidationContext<ColumnTypeView> ctx) {
+    public void validate(ConfigValue annotation, ValidationContext<ColumnTypeView> ctx) {
         ColumnTypeView newType = ctx.getNewValue();
         ColumnTypeView oldType = ctx.getOldValue();
 
