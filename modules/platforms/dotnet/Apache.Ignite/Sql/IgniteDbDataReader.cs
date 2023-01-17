@@ -22,12 +22,14 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
 using Internal.Sql;
 
 /// <summary>
 /// Reads a forward-only stream of rows from an Ignite result set.
 /// </summary>
 [SuppressMessage("Design", "CA1010:Generic interface should also be implemented", Justification = "Generic IEnumerable is not applicable.")]
+[SuppressMessage("Usage", "CA2215:Dispose methods should call base class dispose", Justification = "Base class dispose is empty.")]
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
     private readonly ResultSet<object> _resultSet;
@@ -209,4 +211,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         throw new NotImplementedException();
     }
+
+    /// <inheritdoc/>
+    public override ValueTask DisposeAsync() => _resultSet.DisposeAsync();
+
+    /// <inheritdoc/>
+    protected override void Dispose(bool disposing) => _resultSet.Dispose();
 }
