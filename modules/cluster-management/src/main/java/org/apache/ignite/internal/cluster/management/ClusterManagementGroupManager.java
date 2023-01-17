@@ -58,10 +58,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -522,7 +520,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
                             new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
-                            createCmgRaftGroupEventsListener()
+                            this::onElectedAsLeader
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
@@ -547,25 +545,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 return service.updateLearners(term);
             }));
         }
-    }
-
-    private RaftGroupEventsListener createCmgRaftGroupEventsListener() {
-        return new RaftGroupEventsListener() {
-            @Override
-            public void onLeaderElected(long term) {
-                ClusterManagementGroupManager.this.onElectedAsLeader(term);
-            }
-
-            @Override
-            public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
-                // No-op.
-            }
-
-            @Override
-            public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
-                // No-op.
-            }
-        };
     }
 
     /**

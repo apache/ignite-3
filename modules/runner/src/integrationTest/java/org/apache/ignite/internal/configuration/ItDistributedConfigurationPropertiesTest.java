@@ -142,6 +142,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    logicalTopologyService,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name())
             );

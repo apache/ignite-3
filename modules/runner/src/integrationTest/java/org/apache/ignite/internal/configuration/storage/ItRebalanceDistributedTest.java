@@ -656,6 +656,7 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    logicalTopologyService,
                     raftManager,
                     testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                             ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))

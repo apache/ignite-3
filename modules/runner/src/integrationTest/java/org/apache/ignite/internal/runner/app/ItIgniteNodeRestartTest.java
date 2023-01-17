@@ -280,6 +280,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 vault,
                 clusterSvc,
                 cmgManager,
+                logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, dir.resolve("metastorage"))
         );

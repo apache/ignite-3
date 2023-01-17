@@ -116,6 +116,7 @@ public class ItDistributedConfigurationStorageTest {
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    logicalTopologyService,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name())
             );

@@ -40,6 +40,7 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -52,8 +53,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -71,9 +71,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests for Meta Storage Watches.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetaStorageWatchTest {
+public class ItMetaStorageWatchTest extends IgniteAbstractTest {
     private static class Node {
         private final ClusterService clusterService;
 
@@ -109,6 +108,7 @@ public class ItMetaStorageWatchTest {
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    mock(LogicalTopology.class),
                     raftManager,
                     new RocksDbKeyValueStorage(name(), basePath.resolve("storage"))
             );
@@ -136,9 +136,6 @@ public class ItMetaStorageWatchTest {
     }
 
     private TestInfo testInfo;
-
-    @WorkDirectory
-    private Path workDir;
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;

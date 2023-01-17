@@ -345,6 +345,7 @@ public class IgniteImpl implements Ignite {
                 vaultMgr,
                 clusterSvc,
                 cmgMgr,
+                logicalTopology,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
         );
