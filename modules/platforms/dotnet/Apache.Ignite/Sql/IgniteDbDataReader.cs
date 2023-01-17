@@ -22,6 +22,7 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using Internal.Sql;
 
 /// <summary>
 /// Reads a forward-only stream of rows from an Ignite result set.
@@ -29,6 +30,17 @@ using System.Diagnostics.CodeAnalysis;
 [SuppressMessage("Design", "CA1010:Generic interface should also be implemented", Justification = "Generic IEnumerable is not applicable.")]
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
+    private readonly ResultSet<object> _resultSet;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDbDataReader"/> class.
+    /// </summary>
+    /// <param name="resultSet">Result set.</param>
+    internal IgniteDbDataReader(ResultSet<object> resultSet)
+    {
+        _resultSet = resultSet;
+    }
+
     /// <inheritdoc/>
     public override int FieldCount => 0; // TODO
 
