@@ -94,7 +94,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests distribution zones logical topology changes and reaction to that changes.
  */
-//TODO: IGNITE-18121 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
+//TODO: IGNITE-18564 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
 public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME_1 = "zone1";
 
