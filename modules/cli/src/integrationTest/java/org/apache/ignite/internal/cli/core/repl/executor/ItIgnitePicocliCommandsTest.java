@@ -400,33 +400,38 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     @Test
     @DisplayName("files suggested after -script-file option")
     void suggestedScriptFile() {
+        // Given files
 
-        // Given
-
-        // Create temp folder
-        File folder = Files.newTemporaryFolder();
+        // Create temp folders
+        File rootFolder = Files.newTemporaryFolder();
+        File emptyFolder = Files.newFolder(rootFolder.getPath() + File.separator + "emptyFolder");
+        emptyFolder.deleteOnExit();
+        File scriptsFolder = Files.newFolder(rootFolder.getPath() + File.separator + "scriptsFolder");
+        scriptsFolder.deleteOnExit();
 
         // Create temp files
-        String script1 = folder.getPath() + File.separator + "script1.sql";
+        String script1 = scriptsFolder.getPath() + File.separator + "script1.sql";
         Files.newFile(script1).deleteOnExit();
 
-        String script2 = folder.getPath() + File.separator + "script2.sql";
+        String script2 = scriptsFolder.getPath() + File.separator + "script2.sql";
         Files.newFile(script2).deleteOnExit();
 
-        String someFile = folder.getPath() + File.separator + "someFile.sql";
+        String someFile = scriptsFolder.getPath() + File.separator + "someFile.sql";
         Files.newFile(someFile).deleteOnExit();
 
-        // Then
+        // When complete --script-file with folder typed
+        List<String> completions1 = complete(words("sql", "--script-file", rootFolder.getPath()));
+        // Then completions contain emptyFolder and scriptsFolder
+        assertThat(completions1, containsInAnyOrder(emptyFolder.getPath(), scriptsFolder.getPath()));
 
-        // Search in the folder
-        List<String> completions1 = complete(words("sql", "--script-file", folder.getPath()));
-        // Contains all files
-        assertThat(completions1, contains(script1, script2, someFile));
+        List<String> completions2 = complete(words("sql", "--script-file", scriptsFolder.getPath()));
+        // Then completions contain all given files
+        assertThat(completions2, containsInAnyOrder(script1, script2, someFile));
 
-        // Search in the folder for files which starts with 'scrpit'
-        List<String> completions2 = complete(words("sql", "--script-file", folder.getPath() + File.separator + "script"));
-        // Contains script1 and script2 files
-        assertThat(completions2, contains(script1, script2));
+        // When complete --script-file with partial path to script
+        List<String> completions3 = complete(words("sql", "--script-file", scriptsFolder.getPath() + File.separator + "script"));
+        // Then completions contain script1 and script2 files
+        assertThat(completions3, containsInAnyOrder(script1, script2));
     }
 
     List<String> complete(ParsedLine typedWords) {
