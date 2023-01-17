@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -78,7 +80,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
      */
     private final byte[] constantPrefix;
 
-    /** Busy lock to stop synchronously. */
+    /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
@@ -117,93 +119,92 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        return busy(() -> {
+            byte[] rangeStart = rocksPrefix(key);
 
-        byte[] rangeStart = rocksPrefix(key);
+            byte[] rangeEnd = incrementArray(rangeStart);
 
-        byte[] rangeEnd = incrementArray(rangeStart);
+            Slice upperBound = rangeEnd == null ? null : new Slice(rangeEnd);
 
-        Slice upperBound = rangeEnd == null ? null : new Slice(rangeEnd);
+            ReadOptions options = new ReadOptions().setIterateUpperBound(upperBound);
 
-        ReadOptions options = new ReadOptions().setIterateUpperBound(upperBound);
+            RocksIterator it = indexCf.newIterator(options);
 
-        RocksIterator it = indexCf.newIterator(options);
+            it.seek(rangeStart);
 
-        it.seek(rangeStart);
+            busyLock.leaveBusy();
 
-        busyLock.leaveBusy();
+            return new BusyRocksIteratorAdapter<RowId>(busyLock, it) {
+                @Override
+                protected void handleBusyFail() {
+                    // TODO: IGNITE-18027 поменять
+                    throw new StorageClosedException();
+                }
 
-        return new BusyRocksIteratorAdapter<>(busyLock, it) {
-            @Override
-            protected void handleBusyFail() {
-                throw new StorageClosedException();
-            }
+                @Override
+                protected RowId decodeEntry(byte[] key, byte[] value) {
+                    // RowId UUID is located at the last 16 bytes of the key
+                    long mostSignificantBits = bytesToLong(key, key.length - Long.BYTES * 2);
+                    long leastSignificantBits = bytesToLong(key, key.length - Long.BYTES);
 
-            @Override
-            protected RowId decodeEntry(byte[] key, byte[] value) {
-                // RowId UUID is located at the last 16 bytes of the key
-                long mostSignificantBits = bytesToLong(key, key.length - Long.BYTES * 2);
-                long leastSignificantBits = bytesToLong(key, key.length - Long.BYTES);
+                    return new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
+                }
 
-                return new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
-            }
+                @Override
+                public void close() {
+                    super.close();
 
-            @Override
-            public void close() {
-                super.close();
-
-                RocksUtils.closeAll(options, upperBound);
-            }
-        };
+                    RocksUtils.closeAll(options, upperBound);
+                }
+            };
+        });
     }
 
     @Override
     public void put(IndexRow row) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        busy(() -> {
+            try {
+                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
-        try {
-            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
 
-            writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                return null;
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     @Override
     public void remove(IndexRow row) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        busy(() -> {
+            try {
+                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
-        try {
-            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                writeBatch.delete(indexCf.handle(), rocksKey(row));
 
-            writeBatch.delete(indexCf.handle(), rocksKey(row));
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                return null;
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     @Override
     public void destroy() {
-        byte[] rangeEnd = incrementArray(constantPrefix);
+        busy(() -> {
+            byte[] rangeEnd = incrementArray(constantPrefix);
 
-        assert rangeEnd != null;
+            assert rangeEnd != null;
 
-        try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
-            indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
-        }
+            try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
+                indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
+
+                return null;
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     private byte[] rocksPrefix(BinaryTuple prefix) {
@@ -234,6 +235,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
+        // TODO: IGNITE-18027 поменять в связи с ребалансом
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -252,5 +254,22 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         assert rangeEnd != null;
 
         writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
+    }
+
+    private String createStorageInfo() {
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionStorage.partitionId());
+    }
+
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            // TODO: IGNITE-18027 поменять в связи с ребалансом
+            throw new StorageClosedException();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

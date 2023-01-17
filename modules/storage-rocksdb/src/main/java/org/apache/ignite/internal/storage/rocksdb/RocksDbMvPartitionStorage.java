@@ -54,6 +54,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
@@ -210,7 +211,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
 
-    /** Busy lock to stop synchronously. */
+    /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
@@ -245,47 +246,41 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         persistedIndex = lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         if (threadLocalWriteBatch.get() != null) {
             return closure.execute();
         } else {
-            if (!busyLock.enterBusy()) {
-                throw new StorageClosedException();
-            }
+            return busy(() -> {
+                try (var writeBatch = new WriteBatchWithIndex()) {
+                    threadLocalWriteBatch.set(writeBatch);
 
-            try (var writeBatch = new WriteBatchWithIndex()) {
-                threadLocalWriteBatch.set(writeBatch);
+                    pendingAppliedIndex = lastAppliedIndex;
+                    pendingAppliedTerm = lastAppliedTerm;
+                    pendingGroupConfig = lastGroupConfig;
 
-                pendingAppliedIndex = lastAppliedIndex;
-                pendingAppliedTerm = lastAppliedTerm;
-                pendingGroupConfig = lastGroupConfig;
+                    V res = closure.execute();
 
-                V res = closure.execute();
-
-                try {
-                    if (writeBatch.count() > 0) {
-                        db.write(writeOpts, writeBatch);
+                    try {
+                        if (writeBatch.count() > 0) {
+                            db.write(writeOpts, writeBatch);
+                        }
+                    } catch (RocksDBException e) {
+                        throw new StorageException("Unable to apply a write batch to RocksDB instance.", e);
                     }
-                } catch (RocksDBException e) {
-                    throw new StorageException("Unable to apply a write batch to RocksDB instance.", e);
+
+                    lastAppliedIndex = pendingAppliedIndex;
+                    lastAppliedTerm = pendingAppliedTerm;
+                    lastGroupConfig = pendingGroupConfig;
+
+                    return res;
+                } finally {
+                    threadLocalWriteBatch.set(null);
                 }
-
-                lastAppliedIndex = pendingAppliedIndex;
-                lastAppliedTerm = pendingAppliedTerm;
-                lastGroupConfig = pendingGroupConfig;
-
-                return res;
-            } finally {
-                threadLocalWriteBatch.set(null);
-
-                busyLock.leaveBusy();
-            }
+            });
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> flush() {
         return busy(() -> tableStorage.awaitFlush(true));
@@ -373,7 +368,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      *
      * @throws StorageException If failed to read index from the storage.
      */
-    public void refreshPersistedIndex() throws StorageException {
+    void refreshPersistedIndex() throws StorageException {
         if (!busyLock.enterBusy()) {
             // Don't throw the exception, there's no point in that.
             return;
@@ -865,6 +860,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             protected void handleBusyFail() {
+                // TODO: IGNITE-18027 поменять в связи с ребалансом
                 throw new StorageClosedException();
             }
 
@@ -878,7 +874,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     // TODO: IGNITE-16914 Play with prefix settings and benchmark results.
-    /** {@inheritDoc} */
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         Objects.requireNonNull(timestamp, "timestamp is null");
@@ -999,9 +994,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
+        // TODO: IGNITE-18027 поменять в связи с ребалансом
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -1425,8 +1420,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    public String createStorageInfo() {
+        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
+    }
+
     private <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
+            // TODO: IGNITE-18027 поменять в связи с ребалансом
             throw new StorageClosedException();
         }
 

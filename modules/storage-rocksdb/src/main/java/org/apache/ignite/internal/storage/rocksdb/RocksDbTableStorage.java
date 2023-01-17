@@ -552,7 +552,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         if (partitionId < 0 || partitionId >= partitions) {
             throw new IllegalArgumentException(IgniteStringFormatter.format(
-                    "Unable to access partition with id outside of configured range [table={}, partitionId={}, partitions]",
+                    "Unable to access partition with id outside of configured range [table={}, partitionId={}, partitions={}]",
                     getTableName(),
                     partitionId,
                     partitions
@@ -666,7 +666,10 @@ public class RocksDbTableStorage implements MvTableStorage {
         return partitions.get(partitionId);
     }
 
-    private String getTableName() {
+    /**
+     * Returns the name of the table.
+     */
+    String getTableName() {
         return tableConfig.name().value();
     }
 }
