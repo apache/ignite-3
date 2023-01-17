@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -72,6 +73,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
@@ -266,6 +268,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 safeTimeClock,
                 txStateStorage,
                 placementDriver,
+                new StorageUpdateHandler(
+                        partId,
+                        new TestPartitionDataStorage(testMvPartitionStorage),
+                        () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                ),
                 peer -> localNode.name().equals(peer.consistentId())
         );
 

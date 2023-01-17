@@ -40,6 +40,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -75,8 +76,10 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
@@ -419,14 +422,19 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 PendingComparableValuesTracker<HybridTimestamp> safeTime =
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
 
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
+                Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
+                StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(partId, partitionDataStorage, indexes);
+
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
                         new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
                         new PartitionListener(
-                                new TestPartitionDataStorage(testMpPartStorage),
+                                partitionDataStorage,
+                                storageUpdateHandler,
                                 new TestTxStateStorage(),
                                 txManagers.get(assignment),
-                                () -> Map.of(pkStorage.get().id(), pkStorage.get()),
+                                indexes,
                                 partId,
                                 safeTime
                         ),
@@ -451,6 +459,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 safeTime,
                                                 txStateStorage,
                                                 placementDriver,
+                                                storageUpdateHandler,
                                                 peer -> assignment.equals(peer.consistentId())
                                         )
                                 );

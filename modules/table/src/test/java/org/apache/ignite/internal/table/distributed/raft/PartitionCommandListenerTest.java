@@ -569,8 +569,8 @@ public class PartitionCommandListenerTest {
         invokeBatchedCommand(msgFactory.updateAllCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.getTableId())
-                                .partitionId(commitPartId.getPartId())
+                                .tableId(commitPartId.tableId())
+                                .partitionId(commitPartId.partitionId())
                                 .build())
                 .rowsToUpdate(rows)
                 .txId(txId)
@@ -605,8 +605,8 @@ public class PartitionCommandListenerTest {
         invokeBatchedCommand(msgFactory.updateAllCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.getTableId())
-                                .partitionId(commitPartId.getPartId())
+                                .tableId(commitPartId.tableId())
+                                .partitionId(commitPartId.partitionId())
                                 .build())
                 .rowsToUpdate(rows)
                 .txId(txId)
@@ -639,8 +639,8 @@ public class PartitionCommandListenerTest {
         invokeBatchedCommand(msgFactory.updateAllCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.getTableId())
-                                .partitionId(commitPartId.getPartId())
+                                .tableId(commitPartId.tableId())
+                                .partitionId(commitPartId.partitionId())
                                 .build())
                 .rowsToUpdate(keyRows)
                 .txId(txId)
