@@ -94,6 +94,8 @@ public class Cluster {
 
     private volatile boolean started = false;
 
+    private volatile boolean stopped = false;
+
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
 
@@ -162,6 +164,12 @@ public class Cluster {
                         } else {
                             nodes.set(nodeIndex, ignite);
                         }
+                    }
+
+                    if (stopped) {
+                        // Make sure we stop even a node that finished starting after the cluster has been stopped.
+
+                        IgnitionManager.stop(ignite.name());
                     }
 
                     return ignite;
@@ -320,6 +328,8 @@ public class Cluster {
      * Shuts down the  cluster by stopping all its nodes.
      */
     public void shutdown() {
+        stopped = true;
+
         runningNodes().forEach(node -> IgnitionManager.stop(node.name()));
     }
 
