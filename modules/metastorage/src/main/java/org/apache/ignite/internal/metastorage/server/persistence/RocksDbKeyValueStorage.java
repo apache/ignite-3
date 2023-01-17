@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
@@ -116,7 +117,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private static final long LATEST_REV = -1;
 
     /** Lexicographic order comparator. */
-    static final Comparator<byte[]> CMP = Arrays::compare;
+    static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
     static {
         RocksDB.loadLibrary();
@@ -688,19 +689,26 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, boolean includeTombstones) {
         return new RangeCursor(this, keyFrom, keyTo, rev, includeTombstones);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones) {
         return new RangeCursor(this, keyFrom, keyTo, revUpperBound, includeTombstones);
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones) {
+        return prefix(prefix, rev, includeTombstones);
+    }
+
+    @Override
+    public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
+        return new RangeCursor(this, prefix, incrementArray(prefix), revUpperBound, includeTombstones);
+    }
+
     @Override
     public Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
         assert keyFrom != null : "keyFrom couldn't be null.";
@@ -711,7 +719,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<WatchEvent> watch(byte[] key, long rev) {
         assert key != null : "key couldn't be null.";
@@ -720,7 +727,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return new WatchCursor(this, rev, k -> CMP.compare(k, key) == 0);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev) {
         assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
@@ -733,7 +739,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         return new WatchCursor(this, rev, keySet::contains);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void compact() {
         rwLock.writeLock().lock();

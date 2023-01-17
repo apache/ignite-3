@@ -286,6 +286,17 @@ public interface MetaStorageService {
     Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones);
 
     /**
+     * Retrieves entries for keys starting with the given prefix in lexicographic order.
+     *
+     * @param prefix Key prefix.
+     * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
+     * @return Cursor built upon entries corresponding to the given key prefix and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(ByteArray prefix, long revUpperBound);
+
+    /**
      * Subscribes on meta storage updates matching the parameters.
      *
      * @param keyFrom  Start key of range (inclusive). Could be {@code null}.
