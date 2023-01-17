@@ -203,27 +203,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
-        return busy(() -> {
-            try {
-                replicationProtocolGroupConfigReadWriteLock.readLock().lock();
-
-                try {
-                    long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
-
-                    if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
-                        return null;
-                    }
-
-                    byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
-
-                    return replicationProtocolGroupConfigFromBytes(bytes);
-                } finally {
-                    replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
-                }
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
-            }
-        });
+        return busy(this::committedGroupConfigurationBusy);
     }
 
     @Override
@@ -251,6 +231,29 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
         } finally {
             replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
+        }
+    }
+
+    @Nullable
+    private RaftGroupConfiguration committedGroupConfigurationBusy() {
+        try {
+            replicationProtocolGroupConfigReadWriteLock.readLock().lock();
+
+            try {
+                long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
+
+                if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
+                    return null;
+                }
+
+                byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
+
+                return replicationProtocolGroupConfigFromBytes(bytes);
+            } finally {
+                replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
         }
     }
 

@@ -38,7 +38,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -50,8 +49,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private final PageEvictionTracker pageEvictionTracker = spy(PageEvictionTrackerNoOp.INSTANCE);
-
-    private VolatilePageMemoryStorageEngine engine;
 
     @BeforeEach
     void setUp(
@@ -66,18 +63,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker);
-
-        engine.start();
-
-        initialize(engine, tablesConfig);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (engine != null) {
-            engine.stop();
-        }
+        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")

@@ -71,6 +71,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteTuple3;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -98,7 +99,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     private TableIndexView hashIdx;
 
-    private StorageEngine storageEngine;
+    protected StorageEngine storageEngine;
 
     /**
      * Initializes the internal structures needed for tests.
@@ -111,6 +112,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         this.storageEngine = storageEngine;
 
+        this.storageEngine.start();
+
         this.tableStorage = createMvTableStorage(tablesConfig);
 
         this.tableStorage.start();
@@ -120,10 +123,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @AfterEach
-    void tearDown() {
-        if (tableStorage != null) {
-            tableStorage.stop();
-        }
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(
+                tableStorage == null ? null : tableStorage::stop,
+                storageEngine == null ? null : storageEngine::stop
+        );
     }
 
     protected MvTableStorage createMvTableStorage(TablesConfiguration tablesConfig) {
@@ -577,7 +581,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      * Checks that if we restart the storages after a crash in the middle of a rebalance, the storages will be empty.
      */
     @Test
-    public void testRestartStoragesAfterFailOnMiddleOfRebalance() {
+    public void testRestartStoragesAfterFailDuringRebalance() {
         assumeFalse(tableStorage.isVolatile());
 
         MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);

@@ -36,7 +36,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -48,8 +47,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
-    private RocksDbStorageEngine engine;
-
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
@@ -60,18 +57,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             )
             TablesConfiguration tablesConfig
     ) {
-        engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
-
-        engine.start();
-
-        initialize(engine, tablesConfig);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (engine != null) {
-            engine.stop();
-        }
+        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir), tablesConfig);
     }
 
     /**
@@ -171,7 +157,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
     @Override
-    public void testRestartStoragesAfterFailOnMiddleOfRebalance() {
-        super.testRestartStoragesAfterFailOnMiddleOfRebalance();
+    public void testRestartStoragesAfterFailDuringRebalance() {
+        super.testRestartStoragesAfterFailDuringRebalance();
     }
 }

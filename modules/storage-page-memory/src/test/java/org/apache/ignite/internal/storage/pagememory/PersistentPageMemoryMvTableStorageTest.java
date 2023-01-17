@@ -28,7 +28,6 @@ import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,8 +37,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({ConfigurationExtension.class, WorkDirectoryExtension.class})
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
-    private PersistentPageMemoryStorageEngine engine;
-
     @BeforeEach
     void setUp(
             @WorkDirectory
@@ -55,18 +52,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
-
-        engine.start();
-
-        initialize(engine, tablesConfig);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (engine != null) {
-            engine.stop();
-        }
+        initialize(new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null), tablesConfig);
     }
 
     @Test
@@ -75,7 +61,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         super.testDestroyPartition();
 
         // Let's make sure that the checkpoint doesn't fail.
-        engine.checkpointManager()
+        ((PersistentPageMemoryStorageEngine) storageEngine).checkpointManager()
                 .forceCheckpoint("after-test-destroy-partition")
                 .futureFor(CheckpointState.FINISHED)
                 .get(1, TimeUnit.SECONDS);

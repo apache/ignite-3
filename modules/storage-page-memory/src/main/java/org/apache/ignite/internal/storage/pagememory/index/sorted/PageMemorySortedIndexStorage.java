@@ -102,74 +102,86 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+        return busy(() -> getBusy(key));
+    }
 
-            try {
-                SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
+    private Cursor<RowId> getBusy(BinaryTuple key) throws StorageException {
+        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-                SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
+        try {
+            SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
-                return convertCursor(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to create scan cursor", e);
-            }
-        });
+            SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
+
+            return convertCursor(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to create scan cursor", e);
+        }
     }
 
     @Override
     public void put(IndexRow row) {
         busy(() -> {
-            try {
-                SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
+            putBusy(row);
 
-                var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, sortedIndexTree.inlineSize());
-
-                sortedIndexTree.invoke(sortedIndexRow, null, insert);
-
-                return null;
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to put value into index", e);
-            }
+            return null;
         });
+    }
+
+    private void putBusy(IndexRow row) {
+        try {
+            SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
+
+            var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, sortedIndexTree.inlineSize());
+
+            sortedIndexTree.invoke(sortedIndexRow, null, insert);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to put value into index", e);
+        }
     }
 
     @Override
     public void remove(IndexRow row) {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+            removeBusy(row);
 
-            try {
-                SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
-
-                var remove = new RemoveSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
-
-                sortedIndexTree.invoke(sortedIndexRow, null, remove);
-
-                // Performs actual deletion from freeList if necessary.
-                remove.afterCompletion();
-
-                return null;
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to remove value from index", e);
-            }
+            return null;
         });
+    }
+
+    private void removeBusy(IndexRow row) {
+        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        try {
+            SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
+
+            var remove = new RemoveSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
+
+            sortedIndexTree.invoke(sortedIndexRow, null, remove);
+
+            // Performs actual deletion from freeList if necessary.
+            remove.afterCompletion();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to remove value from index", e);
+        }
     }
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        return busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+        return busy(() -> scanBusy(lowerBound, upperBound, flags));
+    }
 
-            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+    private PeekCursor<IndexRow> scanBusy(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
+        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+        SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
 
-            return new ScanCursor(lower, upper);
-        });
+        SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+
+        return new ScanCursor(lower, upper);
     }
 
     @Nullable
@@ -276,69 +288,75 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public boolean hasNext() {
-            return busy(() -> {
-                try {
-                    advanceIfNeeded();
+            return busy(this::hasNext);
+        }
 
-                    return hasNext;
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error while advancing the cursor", e);
-                }
-            });
+        private boolean hasNextBusy() {
+            try {
+                advanceIfNeeded();
+
+                return hasNext;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error while advancing the cursor", e);
+            }
         }
 
         @Override
         public IndexRow next() {
-            return busy(() -> {
-                try {
-                    advanceIfNeeded();
+            return busy(this::next);
+        }
 
-                    boolean hasNext = this.hasNext;
+        private IndexRow nextBusy() {
+            try {
+                advanceIfNeeded();
 
-                    if (!hasNext) {
-                        throw new NoSuchElementException();
-                    }
+                boolean hasNext = this.hasNext;
 
-                    this.hasNext = null;
-
-                    return toIndexRowImpl(treeRow);
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error while advancing the cursor", e);
+                if (!hasNext) {
+                    throw new NoSuchElementException();
                 }
-            });
+
+                this.hasNext = null;
+
+                return toIndexRowImpl(treeRow);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error while advancing the cursor", e);
+            }
         }
 
         @Override
         public @Nullable IndexRow peek() {
-            return busy(() -> {
-                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
+            return busy(this::peek);
+        }
 
-                if (hasNext != null) {
-                    if (hasNext) {
-                        return toIndexRowImpl(treeRow);
-                    }
+        private @Nullable IndexRow peekBusy() {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
 
+            if (hasNext != null) {
+                if (hasNext) {
+                    return toIndexRowImpl(treeRow);
+                }
+
+                return null;
+            }
+
+            try {
+                SortedIndexRow nextTreeRow;
+
+                if (treeRow == null) {
+                    nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+                } else {
+                    nextTreeRow = sortedIndexTree.findNext(treeRow, false);
+                }
+
+                if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
                     return null;
                 }
 
-                try {
-                    SortedIndexRow nextTreeRow;
-
-                    if (treeRow == null) {
-                        nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
-                    } else {
-                        nextTreeRow = sortedIndexTree.findNext(treeRow, false);
-                    }
-
-                    if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
-                        return null;
-                    }
-
-                    return toIndexRowImpl(nextTreeRow);
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Error when peeking next element", e);
-                }
-            });
+                return toIndexRowImpl(nextTreeRow);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error when peeking next element", e);
+            }
         }
 
         private void advanceIfNeeded() throws IgniteInternalCheckedException {
