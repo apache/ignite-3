@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -281,12 +282,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    void closeAdditionalResources() {
-        checkpointManager.removeCheckpointListener(checkpointListener);
+    List<AutoCloseable> getResourcesToClose() {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose();
 
-        rowVersionFreeList.close();
-        indexFreeList.close();
-        blobStorage.close();
+        resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
+        resourcesToClose.add(rowVersionFreeList::close);
+        resourcesToClose.add(indexFreeList::close);
+        resourcesToClose.add(blobStorage::close);
+
+        return resourcesToClose;
     }
 
     /**
@@ -349,19 +353,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         this.meta = meta;
 
-        this.rowVersionFreeList.close();
         this.rowVersionFreeList = rowVersionFreeList;
-
-        this.indexFreeList.close();
         this.indexFreeList = indexFreeList;
-
-        this.versionChainTree.close();
         this.versionChainTree = versionChainTree;
-
-        this.indexMetaTree.close();
         this.indexMetaTree = indexMetaTree;
 
-        this.blobStorage.close();
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
@@ -383,5 +379,16 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
             );
         }
+    }
+
+    @Override
+    List<AutoCloseable> getResourcesToCloseOnRebalance() {
+        return List.of(
+                rowVersionFreeList::close,
+                indexFreeList::close,
+                versionChainTree::close,
+                indexMetaTree::close,
+                blobStorage::close
+        );
     }
 }

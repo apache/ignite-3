@@ -288,7 +288,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public boolean hasNext() {
-            return busy(this::hasNext);
+            return busy(this::hasNextBusy);
         }
 
         private boolean hasNextBusy() {
@@ -303,7 +303,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public IndexRow next() {
-            return busy(this::next);
+            return busy(this::nextBusy);
         }
 
         private IndexRow nextBusy() {
@@ -326,7 +326,7 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public @Nullable IndexRow peek() {
-            return busy(this::peek);
+            return busy(this::peekBusy);
         }
 
         private @Nullable IndexRow peekBusy() {
@@ -394,8 +394,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     /**
      * Prepares storage for rebalancing.
      *
-     * <p>Stops ongoing index operations.
-     *
      * @throws StorageRebalanceException If there was an error when starting the rebalance.
      */
     public void startRebalance() {
@@ -403,9 +401,14 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
-        // Stops ongoing operations on the storage.
+        // Changed storage states and expect all storage operations to stop soon.
         busyLock.block();
-        busyLock.unblock();
+
+        try {
+            this.sortedIndexTree.close();
+        } finally {
+            busyLock.unblock();
+        }
     }
 
     /**
@@ -430,8 +433,6 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.freeList = freeList;
-
-        this.sortedIndexTree.close();
         this.sortedIndexTree = sortedIndexTree;
     }
 

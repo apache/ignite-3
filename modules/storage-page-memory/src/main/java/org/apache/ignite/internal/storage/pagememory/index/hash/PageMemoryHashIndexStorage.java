@@ -213,8 +213,6 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     /**
      * Prepares storage for rebalancing.
      *
-     * <p>Stops ongoing index operations.
-     *
      * @throws StorageRebalanceException If there was an error when starting the rebalance.
      */
     public void startRebalance() {
@@ -222,9 +220,14 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
-        // Stops ongoing operations on the storage.
+        // Changed storage states and expect all storage operations to stop soon.
         busyLock.block();
-        busyLock.unblock();
+
+        try {
+            this.hashIndexTree.close();
+        } finally {
+            busyLock.unblock();
+        }
     }
 
     /**
@@ -249,8 +252,6 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.freeList = freeList;
-
-        this.hashIndexTree.close();
         this.hashIndexTree = hashIndexTree;
     }
 

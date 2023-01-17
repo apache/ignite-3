@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -136,11 +137,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    void closeAdditionalResources() {
-        // No-op.
-    }
-
-    @Override
     public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
@@ -183,5 +179,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
             rowVersionLink = rowVersion.nextLink();
         }
+    }
+
+    @Override
+    List<AutoCloseable> getResourcesToCloseOnRebalance() {
+        // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
     }
 }

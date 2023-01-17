@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUti
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySort
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
@@ -1009,27 +1012,27 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         busyLock.block();
 
-        versionChainTree.close();
-        indexMetaTree.close();
-
-        closeAdditionalResources();
-
-        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            hashIndexStorage.close();
+        try {
+            IgniteUtils.closeAll(getResourcesToClose());
+        } catch (Exception e) {
+            throw new StorageException(e);
         }
-
-        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            sortedIndexStorage.close();
-        }
-
-        hashIndexes.clear();
-        sortedIndexes.clear();
     }
 
     /**
-     * Closing additional resources when executing {@link #close()}.
+     * Returns all resources that should be closed on {@link #close()}.
      */
-    abstract void closeAdditionalResources();
+    List<AutoCloseable> getResourcesToClose() {
+        List<AutoCloseable> resources = new ArrayList<>();
+
+        resources.add(versionChainTree::close);
+        resources.add(indexMetaTree::close);
+
+        hashIndexes.values().forEach(index -> resources.add(index::close));
+        sortedIndexes.values().forEach(index -> resources.add(index::close));
+
+        return resources;
+    }
 
     /**
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
@@ -1054,12 +1057,22 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
-        // Stops ongoing operations on the storage.
+        // Changed storage states and expect all storage operations to stop soon.
         busyLock.block();
-        busyLock.unblock();
 
-        hashIndexes.values().forEach(PageMemoryHashIndexStorage::startRebalance);
-        sortedIndexes.values().forEach(PageMemorySortedIndexStorage::startRebalance);
+        try {
+            IgniteUtils.closeAll(getResourcesToCloseOnRebalance());
+
+            hashIndexes.values().forEach(PageMemoryHashIndexStorage::startRebalance);
+            sortedIndexes.values().forEach(PageMemorySortedIndexStorage::startRebalance);
+        } catch (Exception e) {
+            throw new StorageRebalanceException(
+                    IgniteStringFormatter.format("Error on start of rebalancing: [{}]", createStorageInfo()),
+                    e
+            );
+        } finally {
+            busyLock.unblock();
+        }
     }
 
     /**
@@ -1083,4 +1096,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param lastAppliedTerm Last applied term value.
      */
     public abstract void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
+
+    /**
+     * Returns resources that will have to close on rebalancing.
+     */
+    abstract List<AutoCloseable> getResourcesToCloseOnRebalance();
 }

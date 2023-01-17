@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -109,7 +110,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         GroupPartitionId groupPartitionId = createGroupPartitionId(partitionId);
 
-        PartitionMeta meta = getOrCreatePartitionMetaWithRecreatePartitionPageStoreIfRebalanceNotCompleted(groupPartitionId);
+        PartitionMeta meta = getOrCreatePartitionMetaOnCreatePartition(groupPartitionId);
 
         return inCheckpointLock(() -> {
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
@@ -143,7 +144,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @return Partition file page store.
      * @throws StorageException If failed.
      */
-    private FilePageStore ensurePartitionFilePageStore(TableView tableView, GroupPartitionId groupPartitionId) throws StorageException {
+    private FilePageStore ensurePartitionFilePageStoreExists(
+            TableView tableView,
+            GroupPartitionId groupPartitionId
+    ) throws StorageException {
         try {
             dataRegion.filePageStoreManager().initialize(tableView.name(), groupPartitionId);
 
@@ -177,8 +181,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /**
      * Returns id of the last started checkpoint, or {@code null} if no checkpoints were started yet.
      */
-    @Nullable
-    private UUID lastCheckpointId() {
+    private @Nullable UUID lastCheckpointId() {
         CheckpointProgress lastCeckpointProgress = dataRegion.checkpointManager().lastCheckpointProgress();
 
         return lastCeckpointProgress == null ? null : lastCeckpointProgress.id();
@@ -392,7 +395,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             int partitionId = groupPartitionId.getPartitionId();
 
-            PartitionMeta meta = getOrCreatePartitionMeta(groupPartitionId, ensurePartitionFilePageStore(tableView, groupPartitionId));
+            PartitionMeta meta = getOrCreatePartitionMeta(
+                    groupPartitionId,
+                    ensurePartitionFilePageStoreExists(tableView, groupPartitionId)
+            );
 
             inCheckpointLock(() -> {
                 RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(tableView, partitionId, pageMemory, meta);
@@ -443,6 +449,14 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         }
     }
 
+    /**
+     * Creates or gets partition meta from a file.
+     *
+     * <p>Safe to use without a checkpointReadLock as we read the meta directly without using {@link PageMemory}.
+     *
+     * @param groupPartitionId Partition of the group.
+     * @param filePageStore Partition file page store.
+     */
     private PartitionMeta getOrCreatePartitionMeta(GroupPartitionId groupPartitionId, FilePageStore filePageStore) {
         try {
             PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore);
@@ -470,16 +484,23 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         }
     }
 
-    private PartitionMeta getOrCreatePartitionMetaWithRecreatePartitionPageStoreIfRebalanceNotCompleted(GroupPartitionId groupPartitionId) {
+    /**
+     * Creates or receives partition meta from a file, if the rebalancing has not finished in time, the file page store will be recreated.
+     *
+     * <p>Safe to use without a checkpointReadLock as we read the meta directly without using {@link PageMemory}.
+     *
+     * @param groupPartitionId Partition of the group.
+     */
+    private PartitionMeta getOrCreatePartitionMetaOnCreatePartition(GroupPartitionId groupPartitionId) {
         TableView tableView = tableConfig.value();
 
-        FilePageStore filePageStore = ensurePartitionFilePageStore(tableView, groupPartitionId);
+        FilePageStore filePageStore = ensurePartitionFilePageStoreExists(tableView, groupPartitionId);
 
         PartitionMeta partitionMeta = getOrCreatePartitionMeta(groupPartitionId, filePageStore);
 
         if (partitionMeta.lastAppliedIndex() == REBALANCE_IN_PROGRESS) {
             try {
-                // Time is chosen randomly (long enough) so as not to call #join().
+                // TODO: IGNITE-18565 We need to return a CompletableFuture
                 destroyPartitionPhysically(groupPartitionId).get(10, TimeUnit.SECONDS);
             } catch (Exception e) {
                 throw new StorageException(
@@ -492,7 +513,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                 );
             }
 
-            return getOrCreatePartitionMeta(groupPartitionId, ensurePartitionFilePageStore(tableView, groupPartitionId));
+            return getOrCreatePartitionMeta(groupPartitionId, ensurePartitionFilePageStoreExists(tableView, groupPartitionId));
         } else {
             return partitionMeta;
         }
@@ -503,7 +524,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         if (partitionDestroyFuture != null) {
             try {
-                // Time is chosen randomly (long enough) so as not to call #join().
+                // TODO: IGNITE-18565 We need to return a CompletableFuture
                 partitionDestroyFuture.get(10, TimeUnit.SECONDS);
             } catch (Exception e) {
                 throw new StorageException(
