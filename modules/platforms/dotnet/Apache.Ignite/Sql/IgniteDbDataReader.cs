@@ -82,10 +82,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override object this[string name] => null!; // TODO
 
     /// <inheritdoc />
-    public override bool GetBoolean(int ordinal) => GetReader<bool>(ordinal).GetByteAsBool(ordinal);
+    public override bool GetBoolean(int ordinal) => GetReader(ordinal, typeof(bool)).GetByteAsBool(ordinal);
 
     /// <inheritdoc/>
-    public override byte GetByte(int ordinal) => unchecked((byte)GetReader<byte>(ordinal).GetByte(ordinal));
+    public override byte GetByte(int ordinal) => unchecked((byte)GetReader(ordinal, typeof(byte)).GetByte(ordinal));
 
     /// <inheritdoc/>
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
@@ -244,13 +244,13 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-    private BinaryTupleReader GetReader<T>(int ordinal)
+    private BinaryTupleReader GetReader(int ordinal, Type type)
     {
         var column = Metadata.Columns[ordinal];
 
-        if (column.Type != typeof(T).ToSqlColumnType())
+        if (column.Type != type.ToSqlColumnType())
         {
-            throw new InvalidCastException($"Column {column.Name} of type {column.Type} can not be cast to {typeof(T)}.");
+            throw new InvalidCastException($"Column {column.Name} of type {column.Type} can not be cast to {type}.");
         }
 
         // TODO: Cache tuple reader header somehow?
