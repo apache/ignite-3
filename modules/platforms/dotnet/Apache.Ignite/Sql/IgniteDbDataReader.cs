@@ -26,6 +26,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Internal.Buffers;
+using Internal.Proto.BinaryTuple;
 using Internal.Sql;
 
 /// <summary>
@@ -35,6 +36,7 @@ using Internal.Sql;
 [SuppressMessage("Usage", "CA2215:Dispose methods should call base class dispose", Justification = "Base class dispose is empty.")]
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
+    // TODO: Methods to read Ignite-specific types.
     private readonly ResultSet<object> _resultSet;
     private readonly IAsyncEnumerator<PooledBuffer> _pageEnumerator;
 
@@ -80,16 +82,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override object this[string name] => null!; // TODO
 
     /// <inheritdoc />
-    public override bool GetBoolean(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override bool GetBoolean(int ordinal) => GetReader<bool>(ordinal).GetByteAsBool(ordinal);
 
     /// <inheritdoc/>
-    public override byte GetByte(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override byte GetByte(int ordinal) => unchecked((byte)GetReader<byte>(ordinal).GetByte(ordinal));
 
     /// <inheritdoc/>
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
@@ -247,4 +243,17 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
     /// <inheritdoc/>
     protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    private BinaryTupleReader GetReader<T>(int ordinal)
+    {
+        var column = Metadata.Columns[ordinal];
+
+        if (column.Type != typeof(T).ToSqlColumnType())
+        {
+            throw new InvalidCastException($"Column {column.Name} of type {column.Type} can not be cast to {typeof(T)}.");
+        }
+
+        // TODO: Cache tuple reader header somehow?
+        return new BinaryTupleReader(_pageEnumerator.Current.GetReader().ReadBinary(), FieldCount);
+    }
 }
