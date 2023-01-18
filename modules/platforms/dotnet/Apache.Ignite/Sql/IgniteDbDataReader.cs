@@ -291,6 +291,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         if (_pageEnumerator.Current.IsNull)
         {
+            // TODO: Is this canonical behavior? Check.
             throw new InvalidOperationException($"Reading has not started. Call {nameof(ReadAsync)} or {nameof(Read)}.");
         }
 
