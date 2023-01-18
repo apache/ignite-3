@@ -289,6 +289,11 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         }
 
         // TODO: Cache tuple reader header somehow?
-        return new BinaryTupleReader(_pageEnumerator.Current.GetReader().ReadBinary(), FieldCount);
+        // TODO: Deal with rows.
+        var reader = _pageEnumerator.Current.GetReader();
+        var rowCount = reader.ReadArrayHeader();
+        var tupleSpan = reader.ReadBinary();
+
+        return new BinaryTupleReader(tupleSpan, FieldCount);
     }
 }

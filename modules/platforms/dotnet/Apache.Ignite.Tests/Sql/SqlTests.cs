@@ -423,7 +423,9 @@ namespace Apache.Ignite.Tests.Sql
         [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed", Justification = "Reviewed.")]
         public async Task TestIgniteDbDataReader()
         {
-            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, "select KEY, INT8 from TBL_ALL_COLUMNS_SQL");
+            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(
+                null,
+                "select KEY, INT8 from TBL_ALL_COLUMNS_SQL ORDER BY KEY");
 
             Assert.AreEqual(2, reader.FieldCount);
             Assert.IsTrue(reader.HasRows);
@@ -436,7 +438,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.Throws<InvalidOperationException>(() => reader.GetByte(1));
 
             await reader.ReadAsync();
-            Assert.AreEqual(1L, reader.GetByte(1));
+            Assert.AreEqual(2, reader.GetByte(1));
         }
 
         [Test]
