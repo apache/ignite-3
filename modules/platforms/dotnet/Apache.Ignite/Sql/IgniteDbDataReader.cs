@@ -85,7 +85,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override bool GetBoolean(int ordinal) => GetReader(ordinal, typeof(bool)).GetByteAsBool(ordinal);
 
     /// <inheritdoc/>
-    public override byte GetByte(int ordinal) => unchecked((byte)GetReader(ordinal, typeof(byte)).GetByte(ordinal));
+    public override byte GetByte(int ordinal) => unchecked((byte)GetReader(ordinal, typeof(sbyte)).GetByte(ordinal));
 
     /// <inheritdoc/>
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
@@ -196,10 +196,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override bool IsDBNull(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override bool IsDBNull(int ordinal) => GetReader().IsNull(ordinal);
 
     /// <inheritdoc/>
     public override bool NextResult()
@@ -221,6 +218,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         await Task.Yield();
 
         // TODO: More efficient overload with ValueTask?
+        // No, we can use pre-baked tasks (is there something built-in now?)
+        // var fastRead = TryFastRead();
+        // if (fastRead.HasValue)
+        //     return fastRead.Value ? PGUtil.TrueTask : PGUtil.FalseTask;
         return false;
     }
 
@@ -242,6 +243,36 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
+    public override void Close() => Dispose();
+
+    /// <inheritdoc/>
+    public override Task CloseAsync() => DisposeAsync().AsTask();
+
+    /// <inheritdoc/>
+    public override T GetFieldValue<T>(int ordinal)
+    {
+        return base.GetFieldValue<T>(ordinal);
+    }
+
+    /// <inheritdoc/>
+    public override Type GetProviderSpecificFieldType(int ordinal)
+    {
+        return base.GetProviderSpecificFieldType(ordinal);
+    }
+
+    /// <inheritdoc/>
+    public override object GetProviderSpecificValue(int ordinal)
+    {
+        return base.GetProviderSpecificValue(ordinal);
+    }
+
+    /// <inheritdoc/>
+    public override int GetProviderSpecificValues(object[] values)
+    {
+        return base.GetProviderSpecificValues(values);
+    }
+
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private BinaryTupleReader GetReader(int ordinal, Type type)
@@ -251,6 +282,16 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         if (column.Type != type.ToSqlColumnType())
         {
             throw new InvalidCastException($"Column {column.Name} of type {column.Type} can not be cast to {type}.");
+        }
+
+        return GetReader();
+    }
+
+    private BinaryTupleReader GetReader()
+    {
+        if (_pageEnumerator.Current.IsNull)
+        {
+            throw new InvalidOperationException($"Reading has not started. Call {nameof(ReadAsync)} or {nameof(Read)}.");
         }
 
         // TODO: Cache tuple reader header somehow?

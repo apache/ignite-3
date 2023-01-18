@@ -60,6 +60,11 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
+        /// Gets a value indicating whether this is a null buffer.
+        /// </summary>
+        public bool IsNull => _bytes == null;
+
+        /// <summary>
         /// Gets a <see cref="MsgPackReader"/> for this buffer.
         /// </summary>
         /// <param name="offset">Offset.</param>
