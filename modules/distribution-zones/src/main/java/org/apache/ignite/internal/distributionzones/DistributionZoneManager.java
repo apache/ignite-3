@@ -368,7 +368,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     throw new DistributionZoneNotFoundException(name);
                 }
 
-                //TODO: IGNITE-18516 Access to other configuration must be thread safe.
                 NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
                 for (int i = 0; i < tables.value().size(); i++) {
