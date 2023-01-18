@@ -49,16 +49,18 @@ class ValidatorChecker {
     ) {
         Type[] genericTypeParameters = genericTypeParameters(validator);
 
+        // Check that passed annotation matches the annotation from generic type. For example, that
+        // "Validator<Foo, ?>" can validate the annotation "Foo.class".
         if (genericTypeParameters[0] != annotationType) {
             return false;
         }
 
-        Type viewType = genericTypeParameters(validator)[1];
+        Type viewType = genericTypeParameters[1];
 
         if (viewType instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) viewType;
 
-            assert parameterizedType.getRawType() == NamedListView.class;
+            assert parameterizedType.getRawType() == NamedListView.class : "Unsupported value type in validator " + validator.getClass();
 
             if (!namedList) {
                 return false;
@@ -70,7 +72,7 @@ class ValidatorChecker {
                 return true;
             }
 
-            assert namedListElementType instanceof Class;
+            assert namedListElementType instanceof Class : "Unsupported value type in validator " + validator.getClass();
 
             Class<?> namedListElementClass = (Class<?>) namedListElementType;
 
@@ -81,7 +83,7 @@ class ValidatorChecker {
             return false;
         }
 
-        assert viewType instanceof Class;
+        assert viewType instanceof Class : "Unsupported value type in validator " + validator.getClass();
 
         if (schemaFieldType.getName().endsWith("ConfigurationSchema")) {
             return canValidateConfigValue(schemaFieldType, (Class<?>) viewType);
