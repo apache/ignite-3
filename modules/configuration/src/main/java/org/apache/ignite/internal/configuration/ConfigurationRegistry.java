@@ -55,11 +55,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.ExceptKeys;
-import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.configuration.validation.OneOf;
-import org.apache.ignite.configuration.validation.PowerOfTwo;
-import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
@@ -118,7 +113,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public ConfigurationRegistry(
             Collection<RootKey<?, ?>> rootKeys,
-            Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
@@ -133,13 +128,13 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
         this.rootKeys = rootKeys;
 
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators0 = new HashMap<>(validators);
+        Set<Validator<?, ?>> validators0 = new HashSet<>(validators);
 
-        addDefaultValidator(validators0, Immutable.class, new ImmutableValidator());
-        addDefaultValidator(validators0, OneOf.class, new OneOfValidator());
-        addDefaultValidator(validators0, ExceptKeys.class, new ExceptKeysValidator());
-        addDefaultValidator(validators0, PowerOfTwo.class, new PowerOfTwoValidator());
-        addDefaultValidator(validators0, Range.class, new RangeValidator());
+        validators0.add(new ImmutableValidator());
+        validators0.add(new OneOfValidator());
+        validators0.add(new ExceptKeysValidator());
+        validators0.add(new PowerOfTwoValidator());
+        validators0.add(new RangeValidator());
 
         changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
             /** {@inheritDoc} */
