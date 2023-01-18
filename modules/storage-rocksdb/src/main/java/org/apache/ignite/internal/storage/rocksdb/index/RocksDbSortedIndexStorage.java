@@ -20,19 +20,20 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -103,7 +104,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return inBusyLock(busyLock, () -> {
+        return busy(() -> {
             BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
             return scan(keyPrefix, keyPrefix, true, true, this::decodeRowId);
@@ -112,11 +113,13 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void put(IndexRow row) {
-        inBusyLock(busyLock, () -> {
+        busy(() -> {
             try {
                 WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
                 writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
+
+                return null;
             } catch (RocksDBException e) {
                 throw new StorageException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
             }
@@ -125,11 +128,13 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
-        inBusyLock(busyLock, () -> {
+        busy(() -> {
             try {
                 WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
                 writeBatch.delete(indexCf.handle(), rocksKey(row));
+
+                return null;
             } catch (RocksDBException e) {
                 throw new StorageException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
             }
@@ -138,7 +143,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        return inBusyLock(busyLock, () -> {
+        return busy(() -> {
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
@@ -210,7 +215,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public boolean hasNext() {
-                return inBusyLock(busyLock, () -> {
+                return busy(() -> {
                     advanceIfNeeded();
 
                     return hasNext;
@@ -219,7 +224,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public T next() {
-                return inBusyLock(busyLock, () -> {
+                return busy(() -> {
                     advanceIfNeeded();
 
                     boolean hasNext = this.hasNext;
@@ -236,7 +241,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public @Nullable T peek() {
-                return inBusyLock(busyLock, () -> {
+                return busy(() -> {
                     if (hasNext != null) {
                         if (hasNext) {
                             return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
@@ -378,5 +383,17 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         assert rangeEnd != null;
 
         writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
+    }
+
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }
