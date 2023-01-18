@@ -21,6 +21,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 
@@ -36,10 +37,12 @@ public class TablesConfigurationSchema {
 
     /** List of configured tables. */
     @NamedConfigValue
+    @TableValidator
     public TableConfigurationSchema tables;
 
     /** List of configured indexes. */
     @NamedConfigValue
+    @IndexValidator
     public TableIndexConfigurationSchema indexes;
 
     /** Default data storage for tables. */

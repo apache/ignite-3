@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 
 /**
  * Table configuration schema class.
@@ -56,6 +57,7 @@ public class TableConfigurationSchema {
     public int zoneId = 1;
 
     /** Data storage configuration. */
+    @KnownDataStorage
     @ConfigValue
     public DataStorageConfigurationSchema dataStorage;
 
