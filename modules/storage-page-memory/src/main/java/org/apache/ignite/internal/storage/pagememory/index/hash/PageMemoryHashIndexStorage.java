@@ -93,98 +93,88 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return busy(() -> getBusy(key));
-    }
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-    private Cursor<RowId> getBusy(BinaryTuple key) throws StorageException {
-        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
+                HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
+                HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
 
-            HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
-            HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
+                Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
 
-            Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
+                return new Cursor<RowId>() {
+                    @Override
+                    public void close() {
+                        cursor.close();
+                    }
 
-            return new Cursor<>() {
-                @Override
-                public void close() {
-                    cursor.close();
-                }
+                    @Override
+                    public boolean hasNext() {
+                        return busy(() -> {
+                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
 
-                @Override
-                public boolean hasNext() {
-                    return busy(() -> {
-                        throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
+                            return cursor.hasNext();
+                        });
+                    }
 
-                        return cursor.hasNext();
-                    });
-                }
+                    @Override
+                    public RowId next() {
+                        return busy(() -> {
+                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
 
-                @Override
-                public RowId next() {
-                    return busy(() -> {
-                        throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
-
-                        return cursor.next().rowId();
-                    });
-                }
-            };
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to create scan cursor", e);
-        }
+                            return cursor.next().rowId()
+                        });
+                    }
+                };
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to create scan cursor", e);
+            }
+        });
     }
 
     @Override
     public void put(IndexRow row) throws StorageException {
         busy(() -> {
-            putBusy(row);
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
-            return null;
+                HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
+
+                var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
+
+                hashIndexTree.invoke(hashIndexRow, null, insert);
+
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to put value into index", e);
+            }
         });
-    }
-
-    private void putBusy(IndexRow row) throws StorageException {
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
-
-            HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
-
-            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
-
-            hashIndexTree.invoke(hashIndexRow, null, insert);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to put value into index", e);
-        }
     }
 
     @Override
     public void remove(IndexRow row) throws StorageException {
         busy(() -> {
-            removeBusy(row);
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            return null;
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+
+                HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
+
+                var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
+
+                hashIndexTree.invoke(hashIndexRow, null, remove);
+
+                // Performs actual deletion from freeList if necessary.
+                remove.afterCompletion();
+
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to remove value from index", e);
+            }
         });
-    }
-
-    private void removeBusy(IndexRow row) throws StorageException {
-        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
-
-            HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
-
-            var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
-
-            hashIndexTree.invoke(hashIndexRow, null, remove);
-
-            // Performs actual deletion from freeList if necessary.
-            remove.afterCompletion();
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to remove value from index", e);
-        }
     }
 
     @Override
@@ -208,6 +198,18 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         busyLock.block();
 
         hashIndexTree.close();
+    }
+
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -257,17 +259,5 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
     private String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
-    }
-
-    private <V> V busy(Supplier<V> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 }

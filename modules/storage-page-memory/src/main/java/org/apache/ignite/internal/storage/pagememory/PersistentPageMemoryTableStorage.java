@@ -63,18 +63,18 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /**
      * Constructor.
      *
-     * @param tableConfig Table configuration.
-     * @param tablesConfig Tables configuration.
+     * @param tableCfg Table configuration.
+     * @param tablesCfg Tables configuration.
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
      */
     public PersistentPageMemoryTableStorage(
-            TableConfiguration tableConfig,
-            TablesConfiguration tablesConfig,
+            TableConfiguration tableCfg,
+            TablesConfiguration tablesCfg,
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion
     ) {
-        super(tableConfig, tablesConfig);
+        super(tableCfg, tablesCfg);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
@@ -99,7 +99,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     protected void finishDestruction() {
-        dataRegion.pageMemory().onGroupDestroyed(tableConfig.tableId().value());
+        dataRegion.pageMemory().onGroupDestroyed(tableCfg.tableId().value());
     }
 
     @Override

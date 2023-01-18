@@ -45,17 +45,17 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /**
      * Constructor.
      *
-     * @param tableConfig Table configuration.
-     * @param tablesConfig Tables configuration.
+     * @param tableCfg Table configuration.
+     * @param tablesCfg Tables configuration.
      * @param dataRegion Data region for the table.
      */
     public VolatilePageMemoryTableStorage(
-            TableConfiguration tableConfig,
-            TablesConfiguration tablesConfig,
+            TableConfiguration tableCfg,
+            TablesConfiguration tablesCfg,
             VolatilePageMemoryDataRegion dataRegion,
             GradualTaskExecutor destructionExecutor
     ) {
-        super(tableConfig, tablesConfig);
+        super(tableCfg, tablesCfg);
 
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
@@ -68,12 +68,13 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
-        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableConfig.value());
+        VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
 
-        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableConfig.value());
+        IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableCfg.value());
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
+                tablesCfg,
                 partitionId,
                 versionChainTree,
                 indexMetaTree,

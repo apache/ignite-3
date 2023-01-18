@@ -20,13 +20,12 @@ package org.apache.ignite.internal.configuration;
 import static java.util.Collections.emptyList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 
-import java.lang.annotation.Annotation;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -78,23 +77,23 @@ class CompoundModuleTest {
 
     @Test
     void providesUnionOfValidatorsMapsOfItsModulesPerKey() {
-        when(moduleA.validators()).thenReturn(Map.of(AnnotationA.class, Set.of(validatorA)));
-        when(moduleB.validators()).thenReturn(Map.of(AnnotationB.class, Set.of(validatorB)));
+        when(moduleA.validators()).thenReturn(Set.of(validatorA));
+        when(moduleB.validators()).thenReturn(Set.of(validatorB));
 
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators = compound.validators();
+        Set<Validator<?, ?>> validators = compound.validators();
 
-        assertThat(validators, hasEntry(AnnotationA.class, Set.of(validatorA)));
-        assertThat(validators, hasEntry(AnnotationB.class, Set.of(validatorB)));
+        assertThat(validators, hasItem(validatorA));
+        assertThat(validators, hasItem(validatorB));
     }
 
     @Test
     void mergesValidatorsUnderTheSameKey() {
-        when(moduleA.validators()).thenReturn(Map.of(AnnotationA.class, Set.of(validatorA)));
-        when(moduleB.validators()).thenReturn(Map.of(AnnotationA.class, Set.of(validatorB)));
+        when(moduleA.validators()).thenReturn(Set.of(validatorA));
+        when(moduleB.validators()).thenReturn(Set.of(validatorB));
 
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators = compound.validators();
+        Set<Validator<?, ?>> validators = compound.validators();
 
-        assertThat(validators, hasEntry(AnnotationA.class, Set.of(validatorA, validatorB)));
+        assertThat(validators, hasItems(validatorA, validatorB));
     }
 
     @Test

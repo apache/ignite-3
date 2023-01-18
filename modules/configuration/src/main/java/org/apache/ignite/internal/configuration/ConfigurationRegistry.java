@@ -42,8 +42,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
@@ -55,11 +57,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.ExceptKeys;
-import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.configuration.validation.OneOf;
-import org.apache.ignite.configuration.validation.PowerOfTwo;
-import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
@@ -67,6 +64,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
@@ -118,7 +116,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public ConfigurationRegistry(
             Collection<RootKey<?, ?>> rootKeys,
-            Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions
@@ -133,13 +131,13 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
         this.rootKeys = rootKeys;
 
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators0 = new HashMap<>(validators);
+        Set<Validator<?, ?>> validators0 = new HashSet<>(validators);
 
-        addDefaultValidator(validators0, Immutable.class, new ImmutableValidator());
-        addDefaultValidator(validators0, OneOf.class, new OneOfValidator());
-        addDefaultValidator(validators0, ExceptKeys.class, new ExceptKeysValidator());
-        addDefaultValidator(validators0, PowerOfTwo.class, new PowerOfTwoValidator());
-        addDefaultValidator(validators0, Range.class, new RangeValidator());
+        validators0.add(new ImmutableValidator());
+        validators0.add(new OneOfValidator());
+        validators0.add(new ExceptKeysValidator());
+        validators0.add(new PowerOfTwoValidator());
+        validators0.add(new RangeValidator());
 
         changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
             /** {@inheritDoc} */
@@ -270,6 +268,39 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public CompletableFuture<Void> change(ConfigurationSource changesSrc) {
         return changer.change(changesSrc);
+    }
+
+    /**
+     * Change configuration. Gives the possibility to atomically update several root trees.
+     *
+     * @param change Closure that would consume a mutable super root instance.
+     * @return Future that is completed on change completion.
+     */
+    public CompletableFuture<Void> change(Consumer<SuperRootChange> change) {
+        return change(new ConfigurationSource() {
+            @Override
+            public void descend(ConstructableTreeNode node) {
+                assert node instanceof SuperRoot : "Descending always starts with super root: " + node;
+
+                SuperRoot superRoot = (SuperRoot) node;
+
+                change.accept(new SuperRootChange() {
+                    @Override
+                    public <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey) {
+                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
+                    }
+
+                    @Override
+                    public <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey) {
+                        // "construct" does a field copying, which is what we need before mutating it.
+                        superRoot.construct(rootKey.key(), ConfigurationUtil.EMPTY_CFG_SRC, true);
+
+                        // "rootView" is not re-used here because of return type incompatibility, although code is the same.
+                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
+                    }
+                });
+            }
+        });
     }
 
     /**
