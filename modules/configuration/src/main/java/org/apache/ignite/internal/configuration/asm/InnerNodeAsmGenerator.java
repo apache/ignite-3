@@ -354,6 +354,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                     null
             );
 
+            // Only first element requires a bridge. Please refer to "addNodeChangeMethod" for explanation.
             addNodeChangeBridgeMethod(innerNodeClassDef, changeClassName(schemaField.getDeclaringClass()), changeMethods.get(0));
         }
 
@@ -737,8 +738,9 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     }
 
     /**
-     * Creates a "short" method to return a changed field instance. Name is the same as for {@code changeFoo(Consumer<Foo> change)"}.
+     * Creates a "short" method to return a changed field instance. Name is the same as for {@code changeFoo(Consumer<FooChange> change)"}.
      * This method will be reused to create the value that is passed to "default" change method.
+     * Method's signature is {@code FooChange changeFoo()}, it returns a mutable configuration value to be used for configuration updates.
      */
     private MethodDefinition createShortChangeMethod(
             ClassDefinition classDef,
@@ -1630,6 +1632,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                     null
             );
 
+            // Only first element requires a bridge. Please refer to "addNodeChangeMethod" for explanation.
             addNodeChangeBridgeMethod(classDef, schemaClassInfo.changeClassName, changeMethods.get(0));
         }
 
@@ -1654,6 +1657,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                     changeMtd -> getThisFieldCode(changeMtd, parentInnerNodeFieldDef, polymorphicTypeIdFieldDef)
             );
 
+            // Only first element requires a bridge. Please refer to "addNodeChangeMethod" for explanation.
             addNodeChangeBridgeMethod(classDef, polymorphicExtensionClassInfo.changeClassName, changeMethods.get(0));
         }
 

@@ -285,7 +285,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         return change(new ConfigurationSource() {
             @Override
             public void descend(ConstructableTreeNode node) {
-                assert node instanceof SuperRoot : "Descending always starts with super root.";
+                assert node instanceof SuperRoot : "Descending always starts with super root: " + node;
 
                 SuperRoot superRoot = (SuperRoot) node;
 
