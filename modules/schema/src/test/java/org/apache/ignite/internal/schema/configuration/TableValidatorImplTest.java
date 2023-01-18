@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.configuration.validation.TestValidation
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.junit.jupiter.api.Test;
 
@@ -36,6 +35,6 @@ public class TableValidatorImplTest extends AbstractTableIndexValidatorTest {
     public void testNoIssues() {
         ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
 
-        validate(TableValidatorImpl.INSTANCE, mock(NamedConfigValue.class), ctx, null);
+        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx, null);
     }
 }
