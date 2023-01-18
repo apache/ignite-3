@@ -221,11 +221,11 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
         void ReadFirstRowInCurrentPage()
         {
-            var reader = _pageEnumerator.Current.GetReader(_pageRowOffset);
+            var reader = _pageEnumerator.Current.GetReader();
 
             _pageRowCount = reader.ReadArrayHeader();
             _pageRowOffset = reader.Consumed;
-            _pageRowSize = reader.ReadBinaryHeader();
+            _pageRowSize = reader.ReadBinaryHeader() + reader.Consumed - _pageRowOffset;
             _pageRowIndex = 0;
         }
 
