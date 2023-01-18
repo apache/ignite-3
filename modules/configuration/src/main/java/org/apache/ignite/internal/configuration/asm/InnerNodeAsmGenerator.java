@@ -738,9 +738,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     }
 
     /**
-     * Creates a "short" method to return a changed field instance. Name is the same as for {@code changeFoo(Consumer<FooChange> change)"}.
-     * This method will be reused to create the value that is passed to "default" change method.
-     * Method's signature is {@code FooChange changeFoo()}, it returns a mutable configuration value to be used for configuration updates.
+     * Create "FooChange changeFoo()" method with no parameters, if it's a config value or named list value.
      */
     private MethodDefinition createShortChangeMethod(
             ClassDefinition classDef,
