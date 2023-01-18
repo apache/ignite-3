@@ -199,10 +199,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override bool IsDBNull(int ordinal) => GetReader().IsNull(ordinal);
 
     /// <inheritdoc/>
-    public override bool NextResult()
-    {
-        throw new NotImplementedException();
-    }
+    public override bool NextResult() => throw new NotSupportedException("Batched result sets are not supported.");
 
     /// <inheritdoc/>
     public override bool Read()
