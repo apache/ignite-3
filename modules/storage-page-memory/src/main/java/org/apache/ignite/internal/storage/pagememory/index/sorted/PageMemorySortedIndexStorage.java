@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;

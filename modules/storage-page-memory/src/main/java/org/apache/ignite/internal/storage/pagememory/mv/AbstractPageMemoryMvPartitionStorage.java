@@ -30,7 +30,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -102,13 +102,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
     /** Busy lock. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Prevents double stopping of the component. */
-    protected final AtomicBoolean stopGuard = new AtomicBoolean();
+    protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Current state of the storage. */
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
+
     /**
      * Constructor.
      *
@@ -989,7 +987,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
-        if (!stopGuard.compareAndSet(false, true)) {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
+            StorageState state = this.state.get();
+
+            assert state == StorageState.CLOSED : state;
+
             return;
         }
 
@@ -1030,7 +1032,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     protected <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
         }
 
         try {

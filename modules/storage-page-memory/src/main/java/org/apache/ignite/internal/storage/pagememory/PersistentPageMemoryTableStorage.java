@@ -106,7 +106,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
         waitPartitionToBeDestroyed(partitionId);
 
-        TableView tableView = tableConfig.value();
+        TableView tableView = tableCfg.value();
 
         GroupPartitionId groupPartitionId = createGroupPartitionId(partitionId);
 
@@ -389,7 +389,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         GroupPartitionId groupPartitionId = createGroupPartitionId(mvPartitionStorage.partitionId());
 
         return destroyPartitionPhysically(groupPartitionId).thenAccept(unused -> {
-            TableView tableView = tableConfig.value();
+            TableView tableView = tableCfg.value();
 
             PersistentPageMemory pageMemory = dataRegion.pageMemory();
 
@@ -434,7 +434,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     private GroupPartitionId createGroupPartitionId(int partitionId) {
-        return new GroupPartitionId(tableConfig.tableId().value(), partitionId);
+        return new GroupPartitionId(tableCfg.tableId().value(), partitionId);
     }
 
     private <V> V inCheckpointLock(Supplier<V> supplier) {
@@ -492,7 +492,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param groupPartitionId Partition of the group.
      */
     private PartitionMeta getOrCreatePartitionMetaOnCreatePartition(GroupPartitionId groupPartitionId) {
-        TableView tableView = tableConfig.value();
+        TableView tableView = tableCfg.value();
 
         FilePageStore filePageStore = ensurePartitionFilePageStoreExists(tableView, groupPartitionId);
 

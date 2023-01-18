@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
 import java.util.List;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;

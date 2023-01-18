@@ -74,7 +74,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
-                tablesCfg,
                 partitionId,
                 versionChainTree,
                 indexMetaTree,

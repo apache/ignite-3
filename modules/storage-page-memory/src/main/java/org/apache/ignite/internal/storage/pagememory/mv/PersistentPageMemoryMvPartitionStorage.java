@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
 import java.util.List;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -182,16 +181,22 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
-            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-
-            UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
-
-            meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm);
+            lastAppliedBusy(lastAppliedIndex, lastAppliedTerm);
 
             return null;
         });
+    }
+
+    private void lastAppliedBusy(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+
+        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+
+        meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm);
     }
 
     @Override
@@ -202,7 +207,27 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
-        return busy(this::committedGroupConfigurationBusy);
+        return busy(() -> {
+            try {
+                replicationProtocolGroupConfigReadWriteLock.readLock().lock();
+
+                try {
+                    long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
+
+                    if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
+                        return null;
+                    }
+
+                    byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
+
+                    return replicationProtocolGroupConfigFromBytes(bytes);
+                } finally {
+                    replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
+                }
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
+            }
+        });
     }
 
     @Override
@@ -212,8 +237,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+            UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
             byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
 
@@ -235,29 +260,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
             return null;
         });
-    }
-
-    @Nullable
-    private RaftGroupConfiguration committedGroupConfigurationBusy() {
-        try {
-            replicationProtocolGroupConfigReadWriteLock.readLock().lock();
-
-            try {
-                long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
-
-                if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
-                    return null;
-                }
-
-                byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
-
-                return replicationProtocolGroupConfigFromBytes(bytes);
-            } finally {
-                replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
-            }
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
-        }
     }
 
     @Nullable
@@ -330,7 +332,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        lastApplied0(lastAppliedIndex, lastAppliedTerm);
+        lastAppliedBusy(lastAppliedIndex, lastAppliedTerm);
 
         persistedIndex = lastAppliedIndex;
     }

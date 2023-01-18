@@ -124,7 +124,7 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
                         return busy(() -> {
                             throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
 
-                            return cursor.next().rowId()
+                            return cursor.next().rowId();
                         });
                     }
                 };
