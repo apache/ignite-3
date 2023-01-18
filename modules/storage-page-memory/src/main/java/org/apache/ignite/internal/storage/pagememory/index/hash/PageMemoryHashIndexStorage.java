@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -36,16 +36,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Implementation of Hash index storage using Page Memory.
  */
 public class PageMemoryHashIndexStorage implements HashIndexStorage {
-    private static final VarHandle CLOSED;
-
-    static {
-        try {
-            CLOSED = MethodHandles.lookup().findVarHandle(PageMemoryHashIndexStorage.class, "closed", boolean.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     /** Index descriptor. */
     private final HashIndexDescriptor descriptor;
 
@@ -65,11 +55,10 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     private final RowId highestRowId;
 
     /** Busy lock for synchronous closing. */
-    private final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** To avoid double closure. */
-    @SuppressWarnings("unused")
-    private volatile boolean closed;
+    /** Prevents double stopping of the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -97,100 +86,76 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        return busy(() -> {
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
+                HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
+                HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
 
-            HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
-            HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
+                Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
 
-            Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
-
-            return new Cursor<>() {
-                @Override
-                public void close() {
-                    cursor.close();
-                }
-
-                @Override
-                public boolean hasNext() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
+                return new Cursor<RowId>() {
+                    @Override
+                    public void close() {
+                        cursor.close();
                     }
 
-                    try {
-                        return cursor.hasNext();
-                    } finally {
-                        closeBusyLock.leaveBusy();
-                    }
-                }
-
-                @Override
-                public RowId next() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
+                    @Override
+                    public boolean hasNext() {
+                        return busy(cursor::hasNext);
                     }
 
-                    try {
-                        return cursor.next().rowId();
-                    } finally {
-                        closeBusyLock.leaveBusy();
+                    @Override
+                    public RowId next() {
+                        return busy(() -> cursor.next().rowId());
                     }
-                }
-            };
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to create scan cursor", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                };
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to create scan cursor", e);
+            }
+        });
     }
 
     @Override
     public void put(IndexRow row) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        busy(() -> {
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+                HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
+                var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
 
-            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
+                hashIndexTree.invoke(hashIndexRow, null, insert);
 
-            hashIndexTree.invoke(hashIndexRow, null, insert);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to put value into index", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to put value into index", e);
+            }
+        });
     }
 
     @Override
     public void remove(IndexRow row) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        busy(() -> {
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+                HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
+                var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
 
-            var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
+                hashIndexTree.invoke(hashIndexRow, null, remove);
 
-            hashIndexTree.invoke(hashIndexRow, null, remove);
+                // Performs actual deletion from freeList if necessary.
+                remove.afterCompletion();
 
-            // Performs actual deletion from freeList if necessary.
-            remove.afterCompletion();
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to remove value from index", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to remove value from index", e);
+            }
+        });
     }
 
     @Override
@@ -203,19 +168,24 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!CLOSED.compareAndSet(this, false, true)) {
+        if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
-        closeBusyLock.block();
+        busyLock.block();
 
         hashIndexTree.close();
     }
 
-    /**
-     * Throws an exception that the storage is already closed.
-     */
-    private void throwStorageClosedException() {
-        throw new StorageClosedException();
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

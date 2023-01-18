@@ -61,15 +61,15 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /**
      * Constructor.
      *
-     * @param engine Storage engine instance.
      * @param tableCfg Table configuration.
+     * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
      */
     public PersistentPageMemoryTableStorage(
-            PersistentPageMemoryStorageEngine engine,
             TableConfiguration tableCfg,
-            PersistentPageMemoryDataRegion dataRegion,
-            TablesConfiguration tablesCfg
+            TablesConfiguration tablesCfg,
+            PersistentPageMemoryStorageEngine engine,
+            PersistentPageMemoryDataRegion dataRegion
     ) {
         super(tableCfg, tablesCfg);
 
@@ -156,7 +156,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
-                    tablesConfiguration
+                    tablesCfg
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(

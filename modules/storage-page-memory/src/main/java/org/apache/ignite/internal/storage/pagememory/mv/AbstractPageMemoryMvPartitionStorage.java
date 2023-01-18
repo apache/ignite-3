@@ -20,18 +20,17 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
@@ -64,8 +63,8 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,16 +75,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
 
     private static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
-
-    protected static final VarHandle STARTED;
-
-    static {
-        try {
-            STARTED = MethodHandles.lookup().findVarHandle(AbstractPageMemoryMvPartitionStorage.class, "started", boolean.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
 
     protected final int partitionId;
 
@@ -101,8 +90,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final IndexMetaTree indexMetaTree;
 
-    private final TablesConfiguration tablesConfiguration;
-
     protected final DataPageReader rowVersionDataPageReader;
 
     protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
@@ -110,11 +97,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
     /** Busy lock for synchronous closing. */
-    protected final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
+    protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** To avoid double closure. */
-    @SuppressWarnings("unused")
-    private volatile boolean started;
+    /** Prevents double stopping of the component. */
+    protected final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -144,8 +130,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
 
-        tablesConfiguration = tablesCfg;
-
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
         groupId = tableStorage.configuration().value().tableId();
@@ -157,35 +141,31 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Starts a partition by initializing its internal structures.
      */
     public void start() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        busy(() -> {
+            try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
+                NamedListView<TableIndexView> indexesCfgView = tableStorage.tablesConfiguration().indexes().value();
 
-        try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
-            NamedListView<TableIndexView> indexesCfgView = tablesConfiguration.indexes().value();
+                while (cursor.hasNext()) {
+                    IndexMeta indexMeta = cursor.next();
 
-            while (cursor.hasNext()) {
-                IndexMeta indexMeta = cursor.next();
+                    TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
-                TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
+                    if (indexCfgView instanceof HashIndexView) {
+                        createOrRestoreHashIndex(indexMeta);
+                    } else if (indexCfgView instanceof SortedIndexView) {
+                        createOrRestoreSortedIndex(indexMeta);
+                    } else {
+                        assert indexCfgView == null;
 
-                if (indexCfgView instanceof HashIndexView) {
-                    createOrRestoreHashIndex(indexMeta);
-                } else if (indexCfgView instanceof SortedIndexView) {
-                    createOrRestoreSortedIndex(indexMeta);
-                } else {
-                    assert indexCfgView == null;
-
-                    //TODO: IGNITE-17626 Drop the index synchronously.
+                        //TODO: IGNITE-17626 Drop the index synchronously.
+                    }
                 }
-            }
-        } catch (Exception e) {
-            throw new StorageException("Failed to process SQL indexes during the partition start", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
 
-        started = true;
+                return null;
+            } catch (Exception e) {
+                throw new StorageException("Failed to process SQL indexes during the partition start", e);
+            }
+        });
     }
 
     /**
@@ -201,15 +181,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(UUID indexId) {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L)));
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> hashIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreHashIndex(new IndexMeta(indexId, 0L))));
     }
 
     /**
@@ -218,19 +190,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index UUID.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(UUID indexId) {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L)));
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> sortedIndexes.computeIfAbsent(indexId, uuid -> createOrRestoreSortedIndex(new IndexMeta(indexId, 0L))));
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
-        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
+        var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
@@ -269,7 +233,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
-        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tablesConfiguration.value());
+        var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
@@ -309,11 +273,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             if (rowId.partitionId() != partitionId) {
                 throw new IllegalArgumentException(
                         String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
@@ -330,9 +290,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             } else {
                 return findRowVersionByTimestamp(versionChain, timestamp);
             }
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     private boolean lookingForLatestVersion(HybridTimestamp timestamp) {
@@ -530,11 +488,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             VersionChain currentChain = findVersionChain(rowId);
 
             if (currentChain == null) {
@@ -571,20 +525,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             updateVersionChain(chainReplacement);
 
             return res;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             VersionChain currentVersionChain = findVersionChain(rowId);
 
             if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
@@ -611,9 +559,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
 
             return rowVersionToBinaryRow(latestVersion);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     private void removeVersionChain(VersionChain currentVersionChain) {
@@ -628,16 +574,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        busy(() -> {
             VersionChain currentVersionChain = findVersionChain(rowId);
 
             if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
                 // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
-                return;
+                return null;
             }
 
             long chainLink = currentVersionChain.headLink();
@@ -659,9 +601,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Cannot update transaction ID", e);
             }
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+
+            return null;
+        });
     }
 
     private void removeRowVersion(RowVersion currentVersion) {
@@ -684,11 +626,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        busy(() -> {
             VersionChain currentChain = findVersionChain(rowId);
 
             if (currentChain != null && currentChain.isUncommitted()) {
@@ -703,9 +641,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             VersionChain chainReplacement = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
 
             updateVersionChain(chainReplacement);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+
+            return null;
+        });
     }
 
     private RowVersion insertCommittedRowVersion(@Nullable BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
@@ -720,47 +658,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            VersionChain versionChain = versionChainTree.findOne(new VersionChainKey(rowId));
-
-            if (versionChain == null) {
-                return CursorUtils.emptyCursor();
-            }
-
-            RowVersion head = readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
-
-            Iterator<ReadResult> iterator = Stream.iterate(
-                            head,
-                            Objects::nonNull,
-                            rowVersion -> {
-                                if (!closeBusyLock.enterBusy()) {
-                                    throwStorageClosedException();
-                                }
-
-                                try {
-                                    if (!rowVersion.hasNextLink()) {
-                                        return null;
-                                    }
-
-                                    return readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
-                                } finally {
-                                    closeBusyLock.leaveBusy();
-                                }
-                            }
-                    )
-                    .map(rowVersion -> rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersion))
-                    .iterator();
-
-            return Cursor.fromBareIterator(iterator);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> new ScanVersionsCursor(rowId));
     }
 
     private static ReadResult rowVersionToResultNotFillingLastCommittedTs(VersionChain versionChain, RowVersion rowVersion) {
@@ -782,11 +680,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             Cursor<VersionChain> treeCursor;
 
             try {
@@ -800,39 +694,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             } else {
                 return new TimestampCursor(treeCursor, timestamp);
             }
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try (Cursor<VersionChain> cursor = versionChainTree.find(new VersionChainKey(lowerBound), null)) {
-            return cursor.hasNext() ? cursor.next().rowId() : null;
-        } catch (Exception e) {
-            throw new StorageException("Error occurred while trying to read a row id", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> {
+            try (Cursor<VersionChain> cursor = versionChainTree.find(new VersionChainKey(lowerBound), null)) {
+                return cursor.hasNext() ? cursor.next().rowId() : null;
+            } catch (Exception e) {
+                throw new StorageException("Error occurred while trying to read a row id", e);
+            }
+        });
     }
 
     @Override
     public long rowsCount() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return versionChainTree.size();
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error occurred while fetching the size.", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> {
+            try {
+                return versionChainTree.size();
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error occurred while fetching the size.", e);
+            }
+        });
     }
 
     private abstract class BasePartitionTimestampCursor implements PartitionTimestampCursor {
@@ -850,17 +734,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         @Override
         public final ReadResult next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException("The cursor is exhausted");
-            }
+            return busy(() -> {
+                if (!hasNext()) {
+                    throw new NoSuchElementException("The cursor is exhausted");
+                }
 
-            assert nextRead != null;
+                assert nextRead != null;
 
-            ReadResult res = nextRead;
+                ReadResult res = nextRead;
 
-            nextRead = null;
+                nextRead = null;
 
-            return res;
+                return res;
+            });
         }
 
         @Override
@@ -870,11 +756,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         @Override
         public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
-            if (!closeBusyLock.enterBusy()) {
-                throwStorageClosedException();
-            }
-
-            try {
+            return busy(() -> {
                 if (currentChain == null) {
                     throw new IllegalStateException();
                 }
@@ -887,9 +769,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 // We don't check if row conforms the key filter here, because we've already checked it.
                 return result.binaryRow();
-            } finally {
-                closeBusyLock.leaveBusy();
-            }
+            });
         }
     }
 
@@ -910,22 +790,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         @Override
         public boolean hasNext() {
-            if (nextRead != null) {
-                return true;
-            }
-
-            if (iterationExhausted) {
-                return false;
-            }
-
-            currentChain = null;
-
-            while (true) {
-                if (!closeBusyLock.enterBusy()) {
-                    throwStorageClosedException();
+            return busy(() -> {
+                if (nextRead != null) {
+                    return true;
                 }
 
-                try {
+                if (iterationExhausted) {
+                    return false;
+                }
+
+                currentChain = null;
+
+                while (true) {
                     if (!treeCursor.hasNext()) {
                         iterationExhausted = true;
 
@@ -943,10 +819,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     currentChain = chain;
 
                     return true;
-                } finally {
-                    closeBusyLock.leaveBusy();
                 }
-            }
+            });
         }
     }
 
@@ -964,20 +838,16 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         @Override
         public boolean hasNext() {
-            if (nextRead != null) {
-                return true;
-            }
-
-            if (iterationExhausted) {
-                return false;
-            }
-
-            while (true) {
-                if (!closeBusyLock.enterBusy()) {
-                    throwStorageClosedException();
+            return busy(() -> {
+                if (nextRead != null) {
+                    return true;
                 }
 
-                try {
+                if (iterationExhausted) {
+                    return false;
+                }
+
+                while (true) {
                     if (!treeCursor.hasNext()) {
                         iterationExhausted = true;
                         return false;
@@ -994,17 +864,127 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     currentChain = chain;
 
                     return true;
-                } finally {
-                    closeBusyLock.leaveBusy();
                 }
+            });
+        }
+    }
+
+    private class ScanVersionsCursor implements Cursor<ReadResult> {
+        final RowId rowId;
+
+        @Nullable
+        private Boolean hasNext;
+
+        @Nullable
+        private VersionChain versionChain;
+
+        @Nullable
+        private RowVersion rowVersion;
+
+        private ScanVersionsCursor(RowId rowId) {
+            this.rowId = rowId;
+        }
+
+        @Override
+        public void close() {
+            // No-op.
+        }
+
+        @Override
+        public boolean hasNext() {
+            return busy(() -> {
+                advanceIfNeeded();
+
+                return hasNext;
+            });
+        }
+
+        @Override
+        public ReadResult next() {
+            return busy(() -> {
+                advanceIfNeeded();
+
+                if (!hasNext) {
+                    throw new NoSuchElementException();
+                }
+
+                hasNext = null;
+
+                return rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersion);
+            });
+        }
+
+        private void advanceIfNeeded() {
+            if (hasNext != null) {
+                return;
             }
+
+            if (versionChain == null) {
+                try {
+                    versionChain = versionChainTree.findOne(new VersionChainKey(rowId));
+                } catch (IgniteInternalCheckedException e) {
+                    throw new StorageException(e);
+                }
+
+                rowVersion = versionChain == null ? null : readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
+            } else {
+                rowVersion = !rowVersion.hasNextLink() ? null : readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
+            }
+
+            hasNext = rowVersion != null;
+        }
+    }
+
+    @Override
+    public void close() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        try {
+            IgniteUtils.closeAll(getResourcesToClose());
+        } catch (Exception e) {
+            throw new StorageException(e);
         }
     }
 
     /**
-     * Throws an exception that the storage is already closed.
+     * Returns resources that should be closed on {@link #close()}.
      */
-    protected void throwStorageClosedException() {
-        throw new StorageClosedException();
+    protected List<AutoCloseable> getResourcesToClose() {
+        List<AutoCloseable> resources = new ArrayList<>();
+
+        resources.add(versionChainTree::close);
+        resources.add(indexMetaTree::close);
+
+        hashIndexes.values().forEach(index -> resources.add(index::close));
+        sortedIndexes.values().forEach(index -> resources.add(index::close));
+
+        resources.add(hashIndexes::clear);
+        resources.add(sortedIndexes::clear);
+
+        return resources;
+    }
+
+    /**
+     * Performs a supplier using a {@link #busyLock}.
+     *
+     * @param <V> Type of the returned value.
+     * @param supplier Supplier.
+     * @return Value.
+     * @throws StorageClosedException If the storage is closed.
+     */
+    protected <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }
