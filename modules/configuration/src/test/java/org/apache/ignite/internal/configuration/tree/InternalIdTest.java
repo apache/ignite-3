@@ -25,7 +25,7 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -77,7 +77,7 @@ public class InternalIdTest {
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(InternalIdParentConfiguration.KEY),
-            Map.of(),
+            Set.of(),
             new TestConfigurationStorage(LOCAL),
             List.of(InternalIdInternalConfigurationSchema.class),
             List.of(InternalIdFooConfigurationSchema.class)

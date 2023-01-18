@@ -30,8 +30,8 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -103,7 +103,7 @@ public class DirectPropertiesTest {
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DirectConfiguration.KEY),
-            Map.of(),
+            Set.of(),
             new TestConfigurationStorage(LOCAL),
             List.of(),
             List.of()
