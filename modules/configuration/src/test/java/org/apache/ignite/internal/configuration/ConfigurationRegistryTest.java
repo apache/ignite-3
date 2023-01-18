@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -169,7 +168,7 @@ public class ConfigurationRegistryTest {
 
         var registry = new ConfigurationRegistry(
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 storage,
                 List.of(),
                 List.of()
