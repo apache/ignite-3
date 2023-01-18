@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
@@ -476,7 +477,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     .forEach(zoneName -> {
                         int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
-                        zonesTimers.putIfAbsent(zoneId, new ZoneState());
+                        zonesTimers.putIfAbsent(zoneId, new ZoneState(executor));
                     });
 
             logicalTopologyService.addEventListener(topologyEventListener);
@@ -503,6 +504,8 @@ public class DistributionZoneManager implements IgniteComponent {
         if (watchListenerId != null) {
             metaStorageManager.unregisterWatch(watchListenerId);
         }
+
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     private class ZonesConfigurationListener implements ConfigurationNamedListListener<DistributionZoneView> {
@@ -510,7 +513,7 @@ public class DistributionZoneManager implements IgniteComponent {
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
             int zoneId = ctx.newValue().zoneId();
 
-            ZoneState zoneState = new ZoneState();
+            ZoneState zoneState = new ZoneState(executor);
 
             // TODO default timer?
             zonesTimers.putIfAbsent(zoneId, zoneState);
@@ -843,7 +846,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                         } else {
                                             if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
                                                 //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
-                                                zonesTimers.get(zoneId).nodesToAdd(new HashSet<>(addedNodes));
+                                                zonesTimers.get(zoneId).addNodesToDataNodes(new HashSet<>(addedNodes));
 
                                                 zonesTimers.get(zoneId).rescheduleScaleUp(
                                                         autoAdjustScaleUp,
@@ -943,14 +946,14 @@ public class DistributionZoneManager implements IgniteComponent {
                 return completedFuture(null);
             }
 
-            ReentrantLock lockForZone = zoneState.lock();
+            ReentrantLock lockForZone = zoneState.lockForDataNodes();
 
             lockForZone.lock();
 
             Set<String> deltaToAdd;
 
             try {
-                deltaToAdd = new HashSet<>(zoneState.nodesToAdd());
+                deltaToAdd = new HashSet<>(zoneState.nodesToAddToDataNodes());
             } finally {
                 lockForZone.unlock();
             }
@@ -971,7 +974,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (invokeResult) {
                     lockForZone.lock();
                     try {
-                        zoneState.nodesToAdd().removeAll(deltaToAdd);
+                        zoneState.nodesToAddToDataNodes().removeAll(deltaToAdd);
                     } finally {
                         lockForZone.unlock();
                     }
@@ -996,7 +999,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }).thenCompose(Function.identity());
     }
 
-    private class ZoneState {
+    static class ZoneState {
         private Timer scaleUp;
 
         private Timer scaleDown;
@@ -1009,11 +1012,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
         private final Set<String> nodesToRemove;
 
-        ZoneState() {
+        private final ScheduledExecutorService executor;
+
+        ZoneState(ScheduledExecutorService executor) {
             this.lockDeltas = new ReentrantLock();
             this.lockForTimers = new ReentrantLock();
             this.nodesToAdd = new HashSet<>();
             this.nodesToRemove = new HashSet<>();
+            this.executor = executor;
         }
 
         /**
@@ -1021,34 +1027,54 @@ public class DistributionZoneManager implements IgniteComponent {
          * If the provided {@code runnable} is null, then just tries to reschedule existing task, if it is not started yet, or
          * do nothing otherwise.
          *
-         * @param delay Delay to start runnable.
+         * @param delayMs Delay to start runnable.
          * @param runnable Custom logic to run.
          */
-        private synchronized void rescheduleScaleUp(long delay, @Nullable Runnable runnable) {
+        synchronized void rescheduleScaleUp(long delayMs, @Nullable Runnable runnable) {
             if (scaleUp == null) {
                 if (runnable != null) {
-                    scaleUp = new Timer(runnable);
-                } else {
-                    return;
+                    scaleUp = new Timer(runnable, executor);
+
+                    scaleUp.schedule(delayMs);
                 }
+                return;
             }
 
-            scaleUp.reschedule(delay, runnable != null);
+            if (scaleUp.tryToRescheduleNotRunningTask(delayMs)) {
+                return;
+            }
+
+            if (runnable != null) {
+                // Failed to reschedule existing queued task, so we start new timer, previous one will be completed eventually
+                scaleUp = new Timer(runnable, executor);
+
+                scaleUp.schedule(delayMs);
+            }
         }
 
-        private synchronized void rescheduleScaleDown(long delay, @Nullable Runnable runnable) {
+        synchronized void rescheduleScaleDown(long delayMs, @Nullable Runnable runnable) {
             if (scaleDown == null) {
                 if (runnable != null) {
-                    scaleDown = new Timer(runnable);
-                } else {
-                    return;
+                    scaleDown = new Timer(runnable, executor);
+
+                    scaleDown.schedule(delayMs);
                 }
+                return;
             }
 
-            scaleDown.reschedule(delay, runnable != null);
+            if (scaleDown.tryToRescheduleNotRunningTask(delayMs)) {
+                return;
+            }
+
+            if (runnable != null) {
+                // Failed to reschedule existing queued task, so we start new timer, previous one will be completed eventually
+                scaleDown = new Timer(runnable, executor);
+
+                scaleDown.schedule(delayMs);
+            }
         }
 
-        private synchronized void stopTimers() {
+        synchronized void stopTimers() {
             if (scaleUp != null) {
                 scaleUp.stop();
             }
@@ -1058,23 +1084,23 @@ public class DistributionZoneManager implements IgniteComponent {
             }
         }
 
-        public ReentrantLock lock() {
+        ReentrantLock lockForDataNodes() {
             return lockDeltas;
         }
 
-        public ReentrantLock lockForTimers() {
+        ReentrantLock lockForTimers() {
             return lockForTimers;
         }
 
-        public Set<String> nodesToAdd() {
+        Set<String> nodesToAddToDataNodes() {
             return nodesToAdd;
         }
 
-        public Set<String> nodesToRemove() {
+        public Set<String> nodesToRemoveFromDataNodes() {
             return nodesToRemove;
         }
 
-        public void nodesToAdd(Set<String> nodes) {
+        void addNodesToDataNodes(Set<String> nodes) {
             lockDeltas.lock();
 
             try {
@@ -1084,7 +1110,7 @@ public class DistributionZoneManager implements IgniteComponent {
             }
         }
 
-        public void nodesToRemove(Set<String> nodes) {
+        void nodesToRemoveFromDataNodes(Set<String> nodes) {
             lockDeltas.lock();
 
             try {
@@ -1095,13 +1121,36 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
-    private class Timer implements Runnable {
+    static class Timer implements Runnable {
         private final Runnable runnable;
 
         ScheduledFuture<?> task;
 
-        Timer(Runnable runnable) {
-            this.runnable = runnable;
+        ScheduledExecutorService executor;
+
+        ReentrantLock startedLock = new ReentrantLock();
+
+        volatile boolean running;
+
+        Timer(Runnable runnable, ScheduledExecutorService executor) {
+            this.runnable = () -> {
+                startedLock.lock();
+
+                try {
+                    if (Thread.interrupted()) {
+                        // Task was rescheduled.
+                        return;
+                    }
+
+                    running = true;
+
+                    runnable.run();
+                } finally {
+                    startedLock.unlock();
+                }
+            };
+
+            this.executor = executor;
         }
 
         /** {@inheritDoc} */
@@ -1109,18 +1158,28 @@ public class DistributionZoneManager implements IgniteComponent {
             runnable.run();
         }
 
-        private void reschedule(long delay, boolean scheduleNewTask) {
-            if (task != null) {
-                if (task.cancel(false)) {
-                    task = executor.schedule(this, delay, TimeUnit.MILLISECONDS);
+        private boolean tryToRescheduleNotRunningTask(long delay) {
+            if (task != null && !task.isDone()) {
+                if (startedLock.tryLock()) {
+                    try {
+                        if (!running) {
+                            task.cancel(true);
 
-                    return;
+                            task = executor.schedule(this, delay, TimeUnit.MILLISECONDS);
+
+                            return true;
+                        }
+                    } finally {
+                        startedLock.unlock();
+                    }
                 }
             }
 
-            if (scheduleNewTask) {
-                task = executor.schedule(this, delay, TimeUnit.MILLISECONDS);
-            }
+            return false;
+        }
+
+        private void schedule(long delay) {
+            task = executor.schedule(this, delay, TimeUnit.MILLISECONDS);
         }
 
         private void stop() {
