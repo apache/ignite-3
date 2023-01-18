@@ -20,6 +20,7 @@ package org.apache.ignite.configuration.validation;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -64,6 +65,10 @@ class ValidatorChecker {
             }
 
             Type namedListElementType = parameterizedType.getActualTypeArguments()[0];
+
+            if (namedListElementType instanceof WildcardType) {
+                return true;
+            }
 
             assert namedListElementType instanceof Class;
 
@@ -164,6 +169,10 @@ class ValidatorChecker {
      * assigned to a variable of type {@code viewClass}, assuming that {@code schemaFieldType} is a configuration schema type itself.
      */
     private static boolean canValidateConfigValue(Class<?> schemaFieldType, Class<?> viewClass) {
+        if (viewClass == Object.class) {
+            return true;
+        }
+
         // Here the matching itself is kind of tricky. Since we can't get view class instance by the configuration schema class instance,
         // we implement a workaround and match names.
         String viewClassName = viewClass.getName();
