@@ -37,8 +37,19 @@ using Internal.Sql;
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
     // TODO: Methods to read Ignite-specific types.
+    private static readonly Task<bool> TrueTask = Task.FromResult(true);
+
     private readonly ResultSet<object> _resultSet;
+
     private readonly IAsyncEnumerator<PooledBuffer> _pageEnumerator;
+
+    private int _pageRowCount = -1;
+
+    private int _pageRowIndex = -1;
+
+    private int _pageRowOffset = -1;
+
+    private int _pageRowSize = -1;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbDataReader"/> class.
@@ -191,13 +202,44 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override async Task<bool> ReadAsync(CancellationToken cancellationToken)
+    public override Task<bool> ReadAsync(CancellationToken cancellationToken)
     {
-        // TODO: use pre-baked tasks (is there something built-in now?)
-        // var fastRead = TryFastRead();
-        // if (fastRead.HasValue)
-        //     return fastRead.Value ? PGUtil.TrueTask : PGUtil.FalseTask;
-        return await _pageEnumerator.MoveNextAsync().ConfigureAwait(false);
+        if (_pageRowCount > 0 && _pageRowIndex < _pageRowCount - 1)
+        {
+            ReadNextRowInCurrentPage();
+            return TrueTask;
+        }
+
+        return FetchNextPage();
+
+        void ReadNextRowInCurrentPage()
+        {
+            _pageRowIndex++;
+            _pageRowOffset += _pageRowSize;
+            _pageRowSize = _pageEnumerator.Current.GetReader(_pageRowOffset).ReadBinaryHeader();
+        }
+
+        void ReadFirstRowInCurrentPage()
+        {
+            var reader = _pageEnumerator.Current.GetReader(_pageRowOffset);
+
+            _pageRowCount = reader.ReadArrayHeader();
+            _pageRowOffset = reader.Consumed;
+            _pageRowSize = reader.ReadBinaryHeader();
+            _pageRowIndex = 0;
+        }
+
+        async Task<bool> FetchNextPage()
+        {
+            if (!await _pageEnumerator.MoveNextAsync().ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            ReadFirstRowInCurrentPage();
+
+            return true;
+        }
     }
 
     /// <inheritdoc/>
@@ -264,7 +306,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
     private BinaryTupleReader GetReader()
     {
-        if (_pageEnumerator.Current.IsNull)
+        if (_pageRowCount < 0)
         {
             throw new InvalidOperationException(
                 $"No data exists for the row/column. Reading has not started. Call {nameof(ReadAsync)} or {nameof(Read)}.");
