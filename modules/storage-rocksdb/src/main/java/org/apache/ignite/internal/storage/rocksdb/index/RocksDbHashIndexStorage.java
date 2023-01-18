@@ -40,7 +40,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.HashUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -80,7 +79,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
      */
     private final byte[] constantPrefix;
 
-    /** Busy lock. */
+    /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
@@ -135,7 +134,6 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
             return new BusyRocksIteratorAdapter<RowId>(busyLock, it) {
                 @Override
                 protected void handleBusyFail() {
-                    // TODO: IGNITE-18027 поменять
                     throw new StorageClosedException();
                 }
 
@@ -233,7 +231,6 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        // TODO: IGNITE-18027 поменять в связи с ребалансом
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -254,13 +251,8 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
     }
 
-    private String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionStorage.partitionId());
-    }
-
     private <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
-            // TODO: IGNITE-18027 поменять в связи с ребалансом
             throw new StorageClosedException();
         }
 

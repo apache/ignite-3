@@ -21,7 +21,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -34,11 +33,16 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Sorting composite publisher.
  *
- * <p>Merges multiple concurrent ordered data streams into one.
+ * <p>Merges multiple publishers using merge-sort algorithm.
+ *
+ * <p>Note: upstream publishers must be sources of sorted data.
  */
-public class SortingCompositePublisher<T> extends CompositePublisher<T> {
+public class OrderedMergePublisher<T> implements Publisher<T> {
     /** Rows comparator. */
-    private final Comparator<T> comp;
+    private final Comparator<? super T> comp;
+
+    /** Array of upstream publishers. */
+    private final Publisher<? extends T>[] sources;
 
     /** Prefetch size. */
     private final int prefetch;
@@ -46,39 +50,39 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
     /**
      * Constructor.
      *
-     * @param publishers List of upstream publishers.
      * @param comp Rows comparator.
      * @param prefetch Prefetch size.
+     * @param sources List of upstream publishers.
      */
-    public SortingCompositePublisher(Collection<? extends Publisher<T>> publishers, Comparator<T> comp, int prefetch) {
-        super(publishers);
-
-        this.comp = comp;
+    public OrderedMergePublisher(
+            Comparator<? super T> comp,
+            int prefetch,
+            Publisher<? extends T>... sources) {
+        this.sources = sources;
         this.prefetch = prefetch;
+        this.comp = comp;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void subscribe(Subscriber<? super T> downstream) {
-        subscribe(new OrderedMergeCompositeSubscription<>(downstream, comp, prefetch, publishers.size()), downstream);
+        OrderedMergeSubscription<? super T> subscription = new OrderedMergeSubscription<>(downstream, comp, prefetch, sources.length);
+
+        subscription.subscribe(sources);
+        downstream.onSubscribe(subscription);
+        subscription.drain();
     }
 
     /**
      * Sorting composite subscription.
      *
-     * <p>Merges multiple concurrent ordered data streams into one.
+     * <p>Merges multiple ordered data streams into single ordered stream using merge-sort algorithm.
      */
-    public static class OrderedMergeCompositeSubscription<T> extends CompositePublisher.CompositeSubscription<T> {
-        /** Marker to indicate completed subscription. */
+    static final class OrderedMergeSubscription<T> implements Subscription {
+        /** Marker object with means publisher is completed. */
         private static final Object DONE = new Object();
 
-        /** Atomic updater for {@link #error} field. */
-        private static final VarHandle ERROR;
-
-        /** Atomic updater for {@link #cancelled} field. */
-        private static final VarHandle CANCELLED;
-
-        /** Atomic updater for {@link #requested} field. */
-        private static final VarHandle REQUESTED;
+        final Subscriber<? super T> downstream;
 
         /** Counter to prevent concurrent execution of a critical section. */
         private final AtomicInteger guardCntr = new AtomicInteger();
@@ -107,14 +111,20 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
         /** Number of emitted rows (guarded by {@link #guardCntr}). */
         private long emitted;
 
+        static final VarHandle ERROR;
+
+        static final VarHandle CANCELLED;
+
+        static final VarHandle REQUESTED;
+
         static {
             Lookup lk = MethodHandles.lookup();
 
             try {
-                ERROR = lk.findVarHandle(OrderedMergeCompositeSubscription.class, "error", Throwable.class);
-                CANCELLED = lk.findVarHandle(OrderedMergeCompositeSubscription.class, "cancelled", boolean.class);
-                REQUESTED = lk.findVarHandle(OrderedMergeCompositeSubscription.class, "requested", long.class);
-            } catch (NoSuchFieldException | IllegalAccessException ex) {
+                ERROR = lk.findVarHandle(OrderedMergeSubscription.class, "error", Throwable.class);
+                CANCELLED = lk.findVarHandle(OrderedMergeSubscription.class, "cancelled", boolean.class);
+                REQUESTED = lk.findVarHandle(OrderedMergeSubscription.class, "requested", long.class);
+            } catch (Throwable ex) {
                 throw new InternalError(ex);
             }
         }
@@ -127,9 +137,8 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
          * @param prefetch Prefetch size.
          * @param cnt Count of subscriptions.
          */
-        public OrderedMergeCompositeSubscription(Subscriber<? super T> downstream, Comparator<? super T> comp, int prefetch, int cnt) {
-            super(downstream);
-
+        OrderedMergeSubscription(Subscriber<? super T> downstream, Comparator<? super T> comp, int prefetch, int cnt) {
+            this.downstream = downstream;
             this.comp = comp;
             this.subscribers = new OrderedMergeSubscriber[cnt];
 
@@ -140,18 +149,16 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
             this.values = new Object[cnt];
         }
 
-        @Override
-        public void subscribe(Collection<? extends Publisher<? extends T>> sources) {
-            int i = 0;
-
-            for (Publisher<? extends T> publisher : sources) {
-                publisher.subscribe(subscribers[i++]);
+        void subscribe(Publisher<? extends T>[] sources) {
+            for (int i = 0; i < sources.length; i++) {
+                sources[i].subscribe(subscribers[i]);
             }
         }
 
+        /** {@inheritDoc} */
         @Override
         public void request(long n) {
-            for (;;) {
+            for (; ; ) {
                 long current = (long) REQUESTED.getAcquire(this);
                 long next = current + n;
 
@@ -167,6 +174,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
             drain();
         }
 
+        /** {@inheritDoc} */
         @Override
         public void cancel() {
             if (CANCELLED.compareAndSet(this, false, true)) {
@@ -193,7 +201,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
         }
 
         private void updateError(Throwable throwable) {
-            for (;;) {
+            for (; ; ) {
                 Throwable current = (Throwable) ERROR.getAcquire(this);
                 Throwable next;
 
@@ -224,10 +232,10 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
             Object[] values = this.values;
             long emitted = this.emitted;
 
-            for (;;) {
+            for (; ; ) {
                 long requested = (long) REQUESTED.getAcquire(this);
 
-                for (;;) {
+                for (; ; ) {
                     if ((boolean) CANCELLED.getAcquire(this)) {
                         Arrays.fill(values, null);
 
@@ -314,9 +322,9 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
         /**
          * Merge sort subscriber.
          */
-        private static final class OrderedMergeSubscriber<T> extends AtomicReference<Subscription> implements Subscriber<T>, Subscription {
+        static final class OrderedMergeSubscriber<T> extends AtomicReference<Subscription> implements Subscriber<T>, Subscription {
             /** Parent subscription. */
-            private final OrderedMergeCompositeSubscription<T> parent;
+            private final OrderedMergeSubscription<T> parent;
 
             /** Prefetch size. */
             private final int prefetch;
@@ -333,22 +341,26 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
             /** Flag indicating that the subscription has completed. */
             private volatile boolean done;
 
-            OrderedMergeSubscriber(OrderedMergeCompositeSubscription<T> parent, int prefetch) {
+            OrderedMergeSubscriber(OrderedMergeSubscription<T> parent, int prefetch) {
+                assert prefetch > 0;
+
                 this.parent = parent;
-                this.prefetch = Math.max(1, prefetch);
-                this.limit = this.prefetch - (this.prefetch >> 2);
+                this.prefetch = prefetch;
+                this.limit = prefetch - (prefetch >> 2);
                 this.queue = new ConcurrentLinkedQueue<>();
             }
 
+            /** {@inheritDoc} */
             @Override
-            public void onSubscribe(Subscription s) {
-                if (compareAndSet(null, s)) {
-                    s.request(prefetch);
+            public void onSubscribe(Subscription subscription) {
+                if (compareAndSet(null, subscription)) {
+                    subscription.request(prefetch);
                 } else {
-                    s.cancel();
+                    subscription.cancel();
                 }
             }
 
+            /** {@inheritDoc} */
             @Override
             public void onNext(T item) {
                 queue.offer(item);
@@ -356,11 +368,13 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
                 parent.drain();
             }
 
+            /** {@inheritDoc} */
             @Override
             public void onError(Throwable throwable) {
                 parent.onInnerError(this, throwable);
             }
 
+            /** {@inheritDoc} */
             @Override
             public void onComplete() {
                 done = true;
@@ -368,6 +382,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
                 parent.drain();
             }
 
+            /** {@inheritDoc} */
             @Override
             public void request(long n) {
                 int c = consumed + 1;
@@ -385,6 +400,7 @@ public class SortingCompositePublisher<T> extends CompositePublisher<T> {
                 }
             }
 
+            /** {@inheritDoc} */
             @Override
             public void cancel() {
                 Subscription subscription = getAndSet(this);

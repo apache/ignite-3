@@ -40,10 +40,10 @@ public partial class LinqTests
         Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
 
         StringAssert.Contains(
-            "select _T0.VAL " +
+            "select _T0.VAL as _G0 " +
             "from PUBLIC.TBL_INT8 as _T0 " +
-            "group by (_T0.VAL) " +
-            "order by (_T0.VAL) asc",
+            "group by _G0 " +
+            "order by _G0 asc",
             query.ToString());
     }
 
@@ -64,7 +64,7 @@ public partial class LinqTests
             "select _T0.KEY " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by (_T0.VAL, _T0.KEY) " +
-            "order by (_T0.KEY) asc",
+            "order by _T0.KEY asc",
             query.ToString());
     }
 
@@ -83,15 +83,14 @@ public partial class LinqTests
         Assert.AreEqual(4.0d, res[1].Avg);
 
         StringAssert.Contains(
-            "select _T0.VAL, count(*) as COUNT, sum(cast(_T0.KEY as int)) as SUM, avg(cast(_T0.KEY as int)) as AVG " +
+            "select _T0.VAL as _G0, count(*) as COUNT, sum(cast(_T0.KEY as int)) as SUM, avg(cast(_T0.KEY as int)) as AVG " +
             "from PUBLIC.TBL_INT8 as _T0 " +
-            "group by (_T0.VAL) " +
-            "order by (_T0.VAL) asc",
+            "group by _G0 " +
+            "order by _G0 asc",
             query.ToString());
     }
 
     [Test]
-    [Ignore("IGNITE-18215 Group by calculated value")]
     public void TestGroupBySubQuery()
     {
         var query = PocoByteView.AsQueryable()
@@ -102,11 +101,14 @@ public partial class LinqTests
 
         var res = query.ToList();
 
-        Assert.AreEqual(1, res[1].Key);
+        Assert.AreEqual(10, res[1].Key);
         Assert.AreEqual(3, res[1].Count);
 
+        Assert.AreEqual(20, res[2].Key);
+        Assert.AreEqual(3, res[2].Count);
+
         StringAssert.Contains(
-            "select (_T0.VAL * ?) as _G0, count (*)  " +
+            "select (cast(_T0.VAL as int) * ?) as _G0, count(*) as COUNT " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by _G0 " +
             "order by _G0 asc",
@@ -140,11 +142,11 @@ public partial class LinqTests
         Assert.AreEqual(10, res.Count);
 
         StringAssert.Contains(
-            "select _T0.VAL, count(*) as COUNT " +
+            "select _T0.VAL as _G0, count(*) as COUNT " +
             "from PUBLIC.TBL1 as _T1 " +
             "inner join PUBLIC.TBL_INT32 as _T0 on (cast(_T0.KEY as bigint) = _T1.KEY) " +
-            "group by (_T0.VAL) " +
-            "order by (_T0.VAL) asc",
+            "group by _G0 " +
+            "order by _G0 asc",
             query.ToString());
     }
 
@@ -179,11 +181,11 @@ public partial class LinqTests
         Assert.AreEqual(900, res[0].MaxPrice);
 
         StringAssert.Contains(
-            "select _T0.VAL, max(_T1.VAL) as MAXPRICE " +
+            "select _T0.VAL as _G0, max(_T1.VAL) as MAXPRICE " +
             "from PUBLIC.TBL1 as _T0 " +
             "inner join PUBLIC.TBL_INT32 as _T1 on (cast(_T1.KEY as bigint) = _T0.KEY) " +
-            "group by (_T0.VAL) " +
-            "order by (max(_T1.VAL)) desc",
+            "group by _G0 " +
+            "order by max(_T1.VAL) desc",
             query.ToString());
     }
 }

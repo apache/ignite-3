@@ -43,7 +43,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
@@ -75,7 +74,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     private final RocksDbMvPartitionStorage partitionStorage;
 
-    /** Busy lock. */
+    /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
@@ -364,7 +363,6 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
      * Closes the sorted index storage.
      */
     public void close() {
-        // TODO: IGNITE-18027 поменять в связи с ребалансом
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -387,13 +385,8 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
     }
 
-    private String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionStorage.partitionId());
-    }
-
     private <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
-            // TODO: IGNITE-18027 поменять в связи с ребалансом
             throw new StorageClosedException();
         }
 

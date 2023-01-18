@@ -110,13 +110,9 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
                 _builder.Append(", ");
             }
 
-            _builder.Append('(');
-
             BuildSqlExpression(ordering.Expression);
 
-            _builder.TrimEnd().Append(')');
-
-            _builder.Append(ordering.OrderingDirection == OrderingDirection.Asc ? " asc" : " desc");
+            _builder.AppendWithSpace(ordering.OrderingDirection == OrderingDirection.Asc ? "asc" : "desc");
         }
 
         _builder.Append(' ');
@@ -552,11 +548,25 @@ internal sealed class IgniteQueryModelVisitor : QueryModelVisitorBase
         }
 
         // Append grouping
-        _builder.Append("group by (");
+        _builder.Append("group by ");
 
-        BuildSqlExpression(groupBy.KeySelector);
+        var (alias, aliasCreated) = Aliases.GetOrCreateGroupByMemberAlias(groupBy);
 
-        _builder.Append(") ");
+        if (aliasCreated)
+        {
+            // This GroupBy member was not processed before, build full SQL expression.
+            // Do not append "AS alias" here, because we are inside GROUP BY clause already.
+            _builder.Append('(');
+            BuildSqlExpression(groupBy.KeySelector);
+            _builder.Append(')');
+        }
+        else
+        {
+            // This GroupBy member was processed before (it is a part of SELECT or something else), use alias.
+            _builder.Append(alias);
+        }
+
+        _builder.Append(' ');
 
         return true;
     }

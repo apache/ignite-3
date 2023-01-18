@@ -106,7 +106,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalException(int code, Throwable cause) {
+    public IgniteInternalException(int code, @Nullable Throwable cause) {
         this(UUID.randomUUID(), code, cause);
     }
 
@@ -117,7 +117,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalException(UUID traceId, int code, Throwable cause) {
+    public IgniteInternalException(UUID traceId, int code, @Nullable Throwable cause) {
         super(errorMessageFromCause(traceId, code, cause), cause);
 
         this.traceId = traceId;
@@ -132,7 +132,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalException(int code, String message, Throwable cause) {
+    public IgniteInternalException(int code, String message, @Nullable Throwable cause) {
         this(UUID.randomUUID(), code, message, cause);
     }
 
@@ -144,7 +144,7 @@ public class IgniteInternalException extends RuntimeException {
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalException(UUID traceId, int code, String message, Throwable cause) {
+    public IgniteInternalException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(errorMessage(traceId, code, message), cause);
 
         this.traceId = traceId;

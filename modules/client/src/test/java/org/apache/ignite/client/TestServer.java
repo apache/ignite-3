@@ -26,8 +26,8 @@ import static org.mockito.Mockito.mock;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -97,7 +97,7 @@ public class TestServer implements AutoCloseable {
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of()

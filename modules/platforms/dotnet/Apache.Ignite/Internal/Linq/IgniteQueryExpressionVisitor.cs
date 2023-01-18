@@ -677,7 +677,17 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             return false;
         }
 
-        Visit(grpBy.KeySelector);
+        var (alias, aliasCreated) = Aliases.GetOrCreateGroupByMemberAlias(grpBy);
+
+        if (aliasCreated)
+        {
+            Visit(grpBy.KeySelector);
+            ResultBuilder.Append(" as ").Append(alias);
+        }
+        else
+        {
+            ResultBuilder.Append(alias);
+        }
 
         return true;
     }

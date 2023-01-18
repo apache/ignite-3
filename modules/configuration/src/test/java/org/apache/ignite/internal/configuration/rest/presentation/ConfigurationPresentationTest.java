@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -79,7 +78,7 @@ public class ConfigurationPresentationTest {
 
         cfgRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
-                Map.of(Value.class, Set.of(validator)),
+                Set.of(validator),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of()

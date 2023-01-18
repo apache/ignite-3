@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.lang.ErrorGroups.Storage;
+import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.RootKey;
 
 /**
- * Exception that will be thrown when the storage is closed.
+ * Interface that represent a "change" for the conjunction of all roots in the configuration.
  */
-public class StorageClosedException extends StorageException {
-    private static final long serialVersionUID = -7988332521347221109L;
+public interface SuperRootChange {
+    /**
+     * Returns a root view for the root key.
+     */
+    <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey);
 
     /**
-     * Default constructor.
+     * Returns a root change for the root key.
      */
-    public StorageClosedException() {
-        this("Storage is already closed");
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message Error message.
-     */
-    public StorageClosedException(String message) {
-        super(Storage.ALREADY_CLOSED_ERR, message);
-    }
+    <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey);
 }
