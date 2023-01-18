@@ -217,20 +217,23 @@ public class ReplicaManager implements IgniteComponent {
             ReplicationGroupId replicaGrpId,
             ReplicaListener listener
     ) {
+        Replica newReplica = new Replica(replicaGrpId, listener);
+
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {
-                replicaFut = CompletableFuture.completedFuture(new Replica(replicaGrpId, listener));
-
-                return replicaFut;
+                return CompletableFuture.completedFuture(newReplica);
             } else {
-                replicaFut.complete(new Replica(replicaGrpId, listener));
+                if (replicaFut.isDone() && !replicaFut.isCancelled() && !replicaFut.isCompletedExceptionally()) {
+                    return CompletableFuture.completedFuture(newReplica);
+                }
+
+                replicaFut.complete(newReplica);
 
                 return replicaFut;
             }
         });
 
-        // replicaFut is always completed here.
-        return replicas.get(replicaGrpId).join();
+        return newReplica;
     }
 
     /**

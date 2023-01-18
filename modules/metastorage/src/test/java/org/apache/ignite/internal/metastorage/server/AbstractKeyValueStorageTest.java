@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -2088,6 +2089,37 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
+    public void testStartWatchesForNextRevision() {
+        storage.put(key(0), keyValue(0, 0));
+
+        long appliedRevision = storage.revision();
+
+        storage.startWatches((revision, updatedEntries) -> {
+            // No-op.
+        });
+
+        CompletableFuture<byte[]> fut = new CompletableFuture<>();
+
+        storage.watchExact(key(0), appliedRevision + 1, new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent event) {
+                fut.complete(event.entryEvent().newEntry().value());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                fut.completeExceptionally(e);
+            }
+        });
+
+        byte[] newValue = keyValue(0, 1);
+
+        storage.put(key(0), newValue);
+
+        assertThat(fut, willBe(newValue));
+    }
+
+    @Test
     public void watchLexicographicTest() {
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -2295,7 +2327,7 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
-    public void watchExactkipNonMatchingEntries() {
+    public void watchExactSkipNonMatchingEntries() {
         byte[] key1 = key(1);
         byte[] val1v1 = keyValue(1, 11);
         byte[] val1v2 = keyValue(1, 12);

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.If;
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Defines interface for access to a meta storage service.
  */
-public interface MetaStorageService {
+public interface MetaStorageService extends ManuallyCloseable {
     /**
      * Retrieves an entry for the given key.
      *

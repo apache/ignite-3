@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 
 import java.util.Collection;
 import java.util.List;
@@ -668,6 +669,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+        if (serviceFuture != null) {
+            cancelOrConsume(serviceFuture, CmgRaftService::close);
+        }
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
