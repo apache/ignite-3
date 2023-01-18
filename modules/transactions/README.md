@@ -11,16 +11,15 @@ In the next phases, MVCC support should be added to avoid blocking reads and pos
 like parallel commits from <sup id="a1">[1](#f1)</sup>
 
 # Transaction protocol design (first iteration)
-At a high level, we utilize 2 phase locking (2PL) for concurrency control, 2 phase commit (2PC) as an atomic commitment 
-protocol, in conjunction with WAIT_DIE deadlock prevention, described in <sup id="a2">[2](#f2)</sup>. 
-This implementation is similar to Ignite 2 optimistic serializable mode. 
+At a high level, we utilize 2 phase locking (2PL) for concurrency control, an atomic commitment 
+protocol, in conjunction with deadlock prevention, described in <sup id="a2">[2](#f2)</sup>.
 Additional goals are: 
 1) retain only strong isolation 
 2) support for SQL 
 3) utilize new replication infrastructure based on RAFT.
 
-# Two phase commit
-This protocol is responsible for atomic commitment (all or nothing) tx guraranties.
+# Atomic commitment
+Transactional protocol is responsible for atomic commitment (all or nothing) tx guraranties.
 Each update is **pre-written** to a replication groups on first phase (and replicated to a majority).
 As soon as all updates are pre-written, it's safe to commit.
 This slightly differs from ignite 2, because there is no PREPARED state.
@@ -48,7 +47,7 @@ or discovered on demand by asking raft group nodes.
 The simplest implementation of a leaseholder is using raft leader leases, as described if RAFT paper. 
 In this approach a leaseholder is a same node as a raft leader.
 
-The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first iteration.
+The lockmanager should keep locks in the offheap to reduce GC pressure, but can be heap based in the first iteration. See `org.apache.ignite.internal.tx.impl.HeapLockManager`.
 
 # Locking precausion
 LockManager has a volatile state, so some precausions must be taken before locking the keys due to possible node restarts.
@@ -63,13 +62,16 @@ TX coordination can be done from any grid node. Coordinators can be dedicated no
 Coordinators are responsible for id assignment, tx mapping and failover handling if some nodes from tx topology have failed. 
 Knows full tx topology just before committing.
 
+# Transaction id and timestamp
+Transaction is identified by UUID and incorporates timestamp. See `org.apache.ignite.internal.tx.impl.TxManagerImpl#begin(boolean)`.
+
 # Deadlock prevention
-Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses tx priorities to decide which tx should be restarted.
+Deadlock detection, in comparison to deadlock prevention, doesn't require huge computation resources requirement and has real-time guaranties.
+This functionality is provided by LockManager and implementations of DeadlockPreventionPolicy.
+Default implementation is WAIT_DIE policy, but other policies are possible, for example NO_WAIT, TIMEOUT_WAIT, WOUND_WAIT. Deadlock prevention in WAIT_DIE mode (described in details in <sup id="a2">[2](#f2)</sup>)- uses tx priorities to decide which tx should be restarted.
 Each transaction is assigned a unique globally comparable timestamp (for example UUID), which defines tx priority.
-If T1 has lower priority when T2 (T1 is younger) it can wait for lock, otherwise it's restarted keeping it's timestamp.
+If T1 has higher priority when T2 (T1 is older) it can wait for lock, otherwise it's restarted keeping it's timestamp.
 committing transaction can't be restarted.
-Deadlock detection is not an option due to huge computation resources requirement and no real-time guaranties.
-This functionality should be implemented by LockManager.
 
 # Tx metadata
 Each node maintains a persistent tx map:
@@ -164,7 +166,7 @@ tx.finish - commit or rollback
                         txState = COMMITTED/ABORTED                                  lockManager.tryRelease(k,ts)
                                                                       <------------ 
                         		
-                        when all leasholders are replied,
+                        when all leaseholders replied,
                         reply to initiator
             <--------
 ```
@@ -197,7 +199,7 @@ tx recovery protocol will converge. Consult a 2PC paper for details when it's po
 
 ## Leaserholder fail
 If a tx is not started to COMMIT, the coordinator reverts a transaction on remaining leaseholders.
-Then a new leasholder is elected, it check for its pending transactions and asks a coordinator if it's possible to commit.
+Then a new leasholder is elected, it checks for its pending transactions and asks a coordinator if it's possible to commit.
 
 ## Coordinator fail
 Broadcast recovery (various strategies are possible: via gossip or dedicated node) is necessary (because we don't have 
