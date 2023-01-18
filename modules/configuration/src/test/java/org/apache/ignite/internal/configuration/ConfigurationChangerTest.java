@@ -220,7 +220,7 @@ public class ConfigurationChangerTest {
         ConfigurationChanger changer2 = new TestConfigurationChanger(
                 cgen,
                 List.of(KEY),
-                Map.of(MaybeInvalid.class, Set.of(validator)),
+                Set.of(validator),
                 storage,
                 List.of(),
                 List.of()
@@ -592,7 +592,7 @@ public class ConfigurationChangerTest {
     }
 
     private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
-        return new TestConfigurationChanger(cgen, List.of(rootKey), Map.of(), storage, List.of(), List.of());
+        return new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(), storage, List.of(), List.of());
     }
 
     private static KeyPathNode node(String key) {

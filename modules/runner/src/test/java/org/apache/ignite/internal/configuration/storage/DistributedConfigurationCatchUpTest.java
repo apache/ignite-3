@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
@@ -98,7 +99,7 @@ public class DistributedConfigurationCatchUpTest {
         DistributedConfigurationStorage storage = storage(wrapper);
 
         try {
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             try {
@@ -129,7 +130,7 @@ public class DistributedConfigurationCatchUpTest {
 
         try {
 
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             try {

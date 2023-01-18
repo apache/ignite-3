@@ -84,7 +84,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final ForkJoinPool pool = new ForkJoinPool(2);
 
     /** Lazy annotations cache for configuration schema fields. */
-    private final Map<MemberKey, Annotation[]> cachedAnnotations = new ConcurrentHashMap<>();
+    private final Map<MemberKey, Map<Annotation, Set<Validator<?, ?>>>> cachedAnnotations = new ConcurrentHashMap<>();
 
     /** Closure to execute when an update from the storage is received. */
     private final Notificator notificator;
@@ -93,7 +93,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final Map<String, RootKey<?, ?>> rootKeys;
 
     /** Validators. */
-    private final Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators;
+    private final List<Validator<?, ?>> validators;
 
     /** Configuration storage. */
     private final ConfigurationStorage storage;
@@ -162,13 +162,13 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     public ConfigurationChanger(
             Notificator notificator,
             Collection<RootKey<?, ?>> rootKeys,
-            Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
+            Collection<Validator<?, ?>> validators,
             ConfigurationStorage storage
     ) {
         checkConfigurationType(rootKeys, storage);
 
         this.notificator = notificator;
-        this.validators = validators;
+        this.validators = List.copyOf(validators);
         this.storage = storage;
 
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));

@@ -34,8 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
@@ -107,7 +107,7 @@ public class ConfigurationAsmGeneratorTest {
         changer = new TestConfigurationChanger(
                 generator,
                 List.of(TestRootConfiguration.KEY, InjectedNameRootConfiguration.KEY, RootFromAbstractConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 internalExtensions,
                 polymorphicExtensions

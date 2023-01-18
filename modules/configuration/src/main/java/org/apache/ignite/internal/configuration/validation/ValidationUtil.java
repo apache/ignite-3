@@ -17,20 +17,22 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
-import static java.util.Collections.emptySet;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.SuperRoot;
@@ -49,7 +51,7 @@ public class ValidationUtil {
      *
      * @param oldRoots Old known roots.
      * @param newRoots New roots.
-     * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
+     * @param otherRoots Provider for arbitrary roots that might not be associated with the same storage.
      * @param memberAnnotationsCache Mutable map that contains annotations associated with corresponding member keys.
      * @param validators Current validators map to look into.
      * @return List of validation results.
@@ -58,8 +60,8 @@ public class ValidationUtil {
             SuperRoot oldRoots,
             SuperRoot newRoots,
             Function<RootKey<?, ?>, InnerNode> otherRoots,
-            Map<MemberKey, Annotation[]> memberAnnotationsCache,
-            Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators
+            Map<MemberKey, Map<Annotation, Set<Validator<?, ?>>>> memberAnnotationsCache,
+            List<? extends Validator<?, ?>> validators
     ) {
         List<ValidationIssue> issues = new ArrayList<>();
 
@@ -99,36 +101,38 @@ public class ValidationUtil {
 
                 MemberKey memberKey = new MemberKey(lastInnerNode.schemaType(), fieldName);
 
-                Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
+                Map<Annotation, Set<Validator<?, ?>>> fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
                     try {
                         Field field = findSchemaField(lastInnerNode, fieldName);
 
                         assert field != null : memberKey;
 
-                        return field.getDeclaredAnnotations();
+                        return Stream.of(field.getDeclaredAnnotations()).collect(toMap(identity(), annotation ->
+                                validators.stream()
+                                        .filter(validator -> validator.canValidate(
+                                                annotation.annotationType(),
+                                                field.getType(),
+                                                field.isAnnotationPresent(NamedConfigValue.class)
+                                        ))
+                                        .collect(Collectors.toSet()))
+                        );
                     } catch (Exception e) {
                         // Should be impossible.
                         throw new IgniteInternalException(e);
                     }
                 });
 
-                if (fieldAnnotations.length == 0) {
+                if (fieldAnnotations.isEmpty()) {
                     return;
                 }
 
                 String currentKey = currentKey() + fieldName;
                 List<String> currentPath = appendKey(currentPath(), fieldName);
 
-                for (Annotation annotation : fieldAnnotations) {
-                    for (Validator<?, ?> validator : validators.getOrDefault(annotation.annotationType(), emptySet())) {
-                        // Making this a compile-time check would be too expensive to implement.
-                        assert assertValidatorTypesCoherence(validator.getClass(), annotation.annotationType(), val)
-                                : "Validator coherence is violated ["
-                                + "class=" + lastInnerNode.getClass().getCanonicalName() + ", "
-                                + "field=" + fieldName + ", "
-                                + "annotation=" + annotation.annotationType().getCanonicalName() + ", "
-                                + "validator=" + validator.getClass().getName() + ']';
+                for (Entry<Annotation, Set<Validator<?, ?>>> entry : fieldAnnotations.entrySet()) {
+                    Annotation annotation = entry.getKey();
 
+                    for (Validator<?, ?> validator : entry.getValue()) {
                         ValidationContextImpl<Object> ctx = new ValidationContextImpl<>(
                                 oldRoots,
                                 newRoots,
@@ -146,46 +150,6 @@ public class ValidationUtil {
         }, true);
 
         return issues;
-    }
-
-    private static boolean assertValidatorTypesCoherence(
-            Class<?> validatorClass,
-            Class<? extends Annotation> annotationType,
-            Object val
-    ) {
-        // Find superclass that directly extends Validator.
-        if (!Arrays.asList(validatorClass.getInterfaces()).contains(Validator.class)) {
-            return assertValidatorTypesCoherence(validatorClass.getSuperclass(), annotationType, val);
-        }
-
-        Type genericSuperClass = Arrays.stream(validatorClass.getGenericInterfaces())
-                .filter(i -> i instanceof ParameterizedType && ((ParameterizedType) i).getRawType() == Validator.class)
-                .findAny()
-                .get();
-
-        if (!(genericSuperClass instanceof ParameterizedType)) {
-            return false;
-        }
-
-        ParameterizedType parameterizedSuperClass = (ParameterizedType) genericSuperClass;
-
-        Type[] actualTypeParameters = parameterizedSuperClass.getActualTypeArguments();
-
-        if (actualTypeParameters.length != 2) {
-            return false;
-        }
-
-        if (actualTypeParameters[0] != annotationType) {
-            return false;
-        }
-
-        Type sndParam = actualTypeParameters[1];
-
-        if (sndParam instanceof ParameterizedType) {
-            sndParam = ((ParameterizedType) sndParam).getRawType();
-        }
-
-        return (sndParam instanceof Class) && (val == null || ((Class<?>) sndParam).isInstance(val));
     }
 
     private static @Nullable Field findSchemaField(InnerNode innerNode, String schemaFieldName) throws NoSuchFieldException {

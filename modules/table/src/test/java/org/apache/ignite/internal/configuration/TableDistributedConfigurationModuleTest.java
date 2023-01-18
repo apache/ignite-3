@@ -20,7 +20,6 @@ package org.apache.ignite.internal.configuration;
 import static com.github.npathai.hamcrestopt.OptionalMatchers.isPresent;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
@@ -48,7 +47,7 @@ class TableDistributedConfigurationModuleTest {
 
     @Test
     void providesNoValidators() {
-        assertThat(module.validators(), is(anEmptyMap()));
+        assertThat(module.validators(), is(empty()));
     }
 
     @Test
