@@ -211,15 +211,11 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override async Task<bool> ReadAsync(CancellationToken cancellationToken)
     {
-        // TODO: Fetch next page from iterator.
-        await Task.Yield();
-
-        // TODO: More efficient overload with ValueTask?
-        // No, we can use pre-baked tasks (is there something built-in now?)
+        // TODO: use pre-baked tasks (is there something built-in now?)
         // var fastRead = TryFastRead();
         // if (fastRead.HasValue)
         //     return fastRead.Value ? PGUtil.TrueTask : PGUtil.FalseTask;
-        return false;
+        return await _pageEnumerator.MoveNextAsync().ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -288,8 +284,8 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         if (_pageEnumerator.Current.IsNull)
         {
-            // TODO: Is this canonical behavior? Check.
-            throw new InvalidOperationException($"Reading has not started. Call {nameof(ReadAsync)} or {nameof(Read)}.");
+            throw new InvalidOperationException(
+                $"No data exists for the row/column. Reading has not started. Call {nameof(ReadAsync)} or {nameof(Read)}.");
         }
 
         // TODO: Cache tuple reader header somehow?

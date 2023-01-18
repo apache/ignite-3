@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -419,7 +420,8 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestIgniteDbDataReaderProperties()
+        [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed", Justification = "Reviewed.")]
+        public async Task TestIgniteDbDataReader()
         {
             await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, "select KEY, INT8 from TBL_ALL_COLUMNS_SQL");
 
@@ -431,8 +433,10 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("KEY", reader.Metadata.Columns[0].Name);
             Assert.AreEqual("INT8", reader.Metadata.Columns[1].Name);
 
-            Assert.AreEqual(1L, reader.GetByte(1));
+            Assert.Throws<InvalidOperationException>(() => reader.GetByte(1));
+
             await reader.ReadAsync();
+            Assert.AreEqual(1L, reader.GetByte(1));
         }
 
         [Test]
