@@ -21,13 +21,6 @@ import org.apache.ignite.internal.metastorage.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.metastorage.command.cursor.CursorsCloseCommand;
-import org.apache.ignite.internal.metastorage.command.info.CompoundConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.IfInfo;
-import org.apache.ignite.internal.metastorage.command.info.OperationInfo;
-import org.apache.ignite.internal.metastorage.command.info.SimpleConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.StatementInfo;
-import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.command.info.UpdateInfo;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -35,27 +28,6 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 @MessageGroup(groupType = 111, groupName = "MetaStorageCommands")
 public interface MetastorageCommandsMessageGroup {
-    /** Message type for {@link OperationInfo}. */
-    short OPERATION_INFO = 1;
-
-    /** Message type for {@link UpdateInfo}. */
-    short UPDATE_INFO = 2;
-
-    /** Message type for {@link StatementInfo}. */
-    short STATEMENT_INFO = 3;
-
-    /** Message type for {@link SimpleConditionInfo}. */
-    short SIMPLE_CONDITION_INFO = 4;
-
-    /** Message type for {@link CompoundConditionInfo}. */
-    short COMPOUND_CONDITION_INFO = 5;
-
-    /** Message type for {@link StatementResultInfo}. */
-    short STATEMENT_RESULT_INFO = 6;
-
-    /** Message type for {@link IfInfo}. */
-    short IF_INFO = 7;
-
     /** Message type for {@link InvokeCommand}. */
     short INVOKE = 10;
 

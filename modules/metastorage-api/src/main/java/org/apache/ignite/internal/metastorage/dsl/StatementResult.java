@@ -17,58 +17,32 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
-
+import java.io.Serializable;
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Simple result of statement execution, backed by byte[] array.
  * Provides some shortcut methods to represent the values of some primitive types.
  */
-public class StatementResult {
+@Transferable(MetaStorageMessageGroup.STATEMENT_RESULT)
+public interface StatementResult extends NetworkMessage, Serializable {
     /** Result data. */
-    private final byte[] result;
-
-    /**
-     * Constructs result from the byte array.
-     *
-     * @param result byte array.
-     */
-    public StatementResult(byte[] result) {
-        this.result = result;
-    }
-
-    /**
-     * Constructs result from the boolean value.
-     *
-     * @param result boolean.
-     */
-    public StatementResult(boolean result) {
-        this.result = new byte[] {(byte) (result ? 1 : 0)};
-    }
-
-    /**
-     * Constructs result from the int value.
-     *
-     * @param result int.
-     */
-    public StatementResult(int result) {
-        this.result = ByteBuffer.allocate(4).putInt(result).array();
-    }
+    byte[] result();
 
     /**
      * Returns result value as a boolean.
      *
      * @return boolean result.
-     * @throws ResultConversionException if boolean conversion is not possible, or can have ambiguous behaviour.
+     * @throws IllegalStateException if boolean conversion is not possible, or can have ambiguous behaviour.
      */
-    public boolean getAsBoolean() {
-        if (result.length != 1) {
-            throw new ResultConversionException("Result can't be interpreted as boolean");
+    default boolean getAsBoolean() {
+        if (result().length != 1) {
+            throw new IllegalStateException("Result can't be interpreted as boolean");
         }
 
-        return result[0] != 0;
+        return result()[0] != 0;
 
     }
 
@@ -76,37 +50,13 @@ public class StatementResult {
      * Returns result as an int.
      *
      * @return int result.
-     * @throws ResultConversionException if int conversion is not possible, or can have ambiguous behaviour.
+     * @throws IllegalStateException if int conversion is not possible, or can have ambiguous behaviour.
      */
-    public Integer getAsInt() {
-        if (result.length != 4) {
-            throw new ResultConversionException("Result can't be interpreted as int");
+    default int getAsInt() {
+        if (result().length != 4) {
+            throw new IllegalStateException("Result can't be interpreted as int");
         }
 
-        return ByteBuffer.wrap(result).getInt();
-    }
-
-    /**
-     * Returns backed byte array.
-     *
-     * @return backed byte array.
-     */
-    public byte[] bytes() {
-        return result;
-    }
-
-    /**
-     * Exception to propagate result type conversion issues.
-     */
-    public static class ResultConversionException extends MetaStorageException {
-
-        /**
-         * Constructs new conversion exception.
-         *
-         * @param msg exception message.
-         */
-        public ResultConversionException(String msg) {
-            super(OP_EXECUTION_ERR, msg);
-        }
+        return ByteBuffer.wrap(result()).getInt();
     }
 }

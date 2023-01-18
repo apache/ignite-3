@@ -18,43 +18,17 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import java.util.Collection;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Simple operations + result wrapper to describe the terminal branch of {@link If} execution.
  */
-public class Update {
+@Transferable(MetaStorageMessageGroup.UPDATE)
+public interface Update extends NetworkMessage {
     /** Operations. */
-    private final Collection<Operation> ops;
+    Collection<Operation> operations();
 
     /** Result. */
-    private final StatementResult result;
-
-    /**
-     * Constructs new update object.
-     *
-     * @param ops operations
-     * @param result result
-     */
-    public Update(Collection<Operation> ops, StatementResult result) {
-        this.ops = ops;
-        this.result = result;
-    }
-
-    /**
-     * Returns operations.
-     *
-     * @return operations.
-     */
-    public Collection<Operation> operations() {
-        return ops;
-    }
-
-    /**
-     * Returns result.
-     *
-     * @return result.
-     */
-    public StatementResult result() {
-        return result;
-    }
+    StatementResult result();
 }

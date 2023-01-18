@@ -26,7 +26,6 @@ import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
@@ -34,18 +33,12 @@ import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.info.CompoundConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.ConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.IfInfo;
-import org.apache.ignite.internal.metastorage.command.info.OperationInfo;
-import org.apache.ignite.internal.metastorage.command.info.SimpleConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.StatementInfo;
-import org.apache.ignite.internal.metastorage.command.info.UpdateInfo;
-import org.apache.ignite.internal.metastorage.dsl.CompoundConditionType;
+import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
+import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
+import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
@@ -63,8 +56,6 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
  * Class containing some common logic for Meta Storage Raft group listeners.
  */
 class MetaStorageWriteHandler {
-    private final MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
-
     private final KeyValueStorage storage;
 
     MetaStorageWriteHandler(KeyValueStorage storage) {
@@ -72,8 +63,8 @@ class MetaStorageWriteHandler {
     }
 
     /**
-     * Tries to process a {@link WriteCommand}, returning {@code true} if the command has been successfully processed or {@code false}
-     * if the command requires external processing.
+     * Tries to process a {@link WriteCommand}, returning {@code true} if the command has been successfully processed or {@code false} if
+     * the command requires external processing.
      */
     boolean handleWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
@@ -141,19 +132,11 @@ class MetaStorageWriteHandler {
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
-            boolean res = storage.invoke(
-                    toCondition(cmd.condition()),
-                    toOperations(cmd.success()),
-                    toOperations(cmd.failure())
-            );
-
-            clo.result(res);
+            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure()));
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
-            StatementResult res = storage.invoke(toIf(cmd.iif()));
-
-            clo.result(commandsFactory.statementResultInfo().result(res.bytes()).build());
+            clo.result(storage.invoke(toIf(cmd.iif())));
         } else {
             return false;
         }
@@ -161,85 +144,109 @@ class MetaStorageWriteHandler {
         return true;
     }
 
-    private static If toIf(IfInfo iif) {
-        return new If(toCondition(iif.cond()), toConditionBranch(iif.andThen()), toConditionBranch(iif.orElse()));
+    private static If toIf(Iif iif) {
+        return new If(toCondition(iif.condition()), toConditionBranch(iif.andThen()), toConditionBranch(iif.orElse()));
     }
 
-    private static Update toUpdate(UpdateInfo updateInfo) {
-        return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new StatementResult(updateInfo.result().result()));
-    }
-
-    private static Statement toConditionBranch(StatementInfo statementInfo) {
-        if (statementInfo.isTerminal()) {
-            return new Statement(toUpdate(statementInfo.update()));
+    private static Statement toConditionBranch(org.apache.ignite.internal.metastorage.dsl.Statement statement) {
+        if (statement instanceof IfStatement) {
+            return new Statement(toIf(((IfStatement) statement).iif()));
+        } else if (statement instanceof UpdateStatement) {
+            return new Statement(((UpdateStatement) statement).update());
         } else {
-            return new Statement(toIf(statementInfo.iif()));
+            throw new IllegalArgumentException("Unexpected statement type: " + statement);
         }
     }
 
-    private static Condition toCondition(ConditionInfo info) {
-        if (info instanceof SimpleConditionInfo) {
-            SimpleConditionInfo inf = (SimpleConditionInfo) info;
-            byte[] key = inf.key();
+    private static Condition toCondition(org.apache.ignite.internal.metastorage.dsl.Condition condition) {
+        if (condition instanceof SimpleCondition.ValueCondition) {
+            var valueCondition = (SimpleCondition.ValueCondition) condition;
 
-            ConditionType type = inf.type();
+            return new ValueCondition(
+                    toValueConditionType(valueCondition.type()),
+                    valueCondition.key(),
+                    valueCondition.value()
+            );
+        } else if (condition instanceof SimpleCondition.RevisionCondition) {
+            var revisionCondition = (SimpleCondition.RevisionCondition) condition;
 
-            if (type == ConditionType.KEY_EXISTS) {
-                return new ExistenceCondition(ExistenceCondition.Type.EXISTS, key);
-            } else if (type == ConditionType.KEY_NOT_EXISTS) {
-                return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key);
-            } else if (type == ConditionType.TOMBSTONE) {
-                return new TombstoneCondition(key);
-            } else if (type == ConditionType.VAL_EQUAL) {
-                return new ValueCondition(ValueCondition.Type.EQUAL, key, inf.value());
-            } else if (type == ConditionType.VAL_NOT_EQUAL) {
-                return new ValueCondition(ValueCondition.Type.NOT_EQUAL, key, inf.value());
-            } else if (type == ConditionType.VAL_GREATER) {
-                return new ValueCondition(ValueCondition.Type.GREATER, key, inf.value());
-            } else if (type == ConditionType.VAL_GREATER_OR_EQUAL) {
-                return new ValueCondition(ValueCondition.Type.GREATER_OR_EQUAL, key, inf.value());
-            } else if (type == ConditionType.VAL_LESS) {
-                return new ValueCondition(ValueCondition.Type.LESS, key, inf.value());
-            } else if (type == ConditionType.VAL_LESS_OR_EQUAL) {
-                return new ValueCondition(ValueCondition.Type.LESS_OR_EQUAL, key, inf.value());
-            } else if (type == ConditionType.REV_EQUAL) {
-                return new RevisionCondition(RevisionCondition.Type.EQUAL, key, inf.revision());
-            } else if (type == ConditionType.REV_NOT_EQUAL) {
-                return new RevisionCondition(RevisionCondition.Type.NOT_EQUAL, key, inf.revision());
-            } else if (type == ConditionType.REV_GREATER) {
-                return new RevisionCondition(RevisionCondition.Type.GREATER, key, inf.revision());
-            } else if (type == ConditionType.REV_GREATER_OR_EQUAL) {
-                return new RevisionCondition(RevisionCondition.Type.GREATER_OR_EQUAL, key, inf.revision());
-            } else if (type == ConditionType.REV_LESS) {
-                return new RevisionCondition(RevisionCondition.Type.LESS, key, inf.revision());
-            } else if (type == ConditionType.REV_LESS_OR_EQUAL) {
-                return new RevisionCondition(RevisionCondition.Type.LESS_OR_EQUAL, key, inf.revision());
-            } else {
-                throw new IllegalArgumentException("Unknown condition type: " + type);
+            return new RevisionCondition(
+                    toRevisionConditionType(revisionCondition.type()),
+                    revisionCondition.key(),
+                    revisionCondition.revision()
+            );
+        } else if (condition instanceof SimpleCondition) {
+            var simpleCondition = (SimpleCondition) condition;
+
+            switch (simpleCondition.type()) {
+                case KEY_EXISTS:
+                    return new ExistenceCondition(ExistenceCondition.Type.EXISTS, simpleCondition.key());
+
+                case KEY_NOT_EXISTS:
+                    return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, simpleCondition.key());
+
+                case TOMBSTONE:
+                    return new TombstoneCondition(simpleCondition.key());
+
+                default:
+                    throw new IllegalArgumentException("Unexpected simple condition type " + simpleCondition.type());
             }
-        } else if (info instanceof CompoundConditionInfo) {
-            CompoundConditionInfo inf = (CompoundConditionInfo) info;
+        } else if (condition instanceof CompoundCondition) {
+            CompoundCondition compoundCondition = (CompoundCondition) condition;
 
-            if (inf.type() == CompoundConditionType.AND) {
-                return new AndCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
+            Condition leftCondition = toCondition(compoundCondition.leftCondition());
+            Condition rightCondition = toCondition(compoundCondition.rightCondition());
 
-            } else if (inf.type() == CompoundConditionType.OR) {
-                return new OrCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
-            } else {
-                throw new IllegalArgumentException("Unknown compound condition " + inf.type());
+            switch (compoundCondition.type()) {
+                case AND:
+                    return new AndCondition(leftCondition, rightCondition);
+
+                case OR:
+                    return new OrCondition(leftCondition, rightCondition);
+
+                default:
+                    throw new IllegalArgumentException("Unexpected compound condition type " + compoundCondition.type());
             }
         } else {
-            throw new IllegalArgumentException("Unknown condition info type " + info);
+            throw new IllegalArgumentException("Unknown condition " + condition);
         }
     }
 
-    private static List<Operation> toOperations(List<OperationInfo> infos) {
-        List<Operation> ops = new ArrayList<>(infos.size());
-
-        for (OperationInfo info : infos) {
-            ops.add(new Operation(info.type(), info.key(), info.value()));
+    private static ValueCondition.Type toValueConditionType(ConditionType type) {
+        switch (type) {
+            case VAL_EQUAL:
+                return ValueCondition.Type.EQUAL;
+            case VAL_NOT_EQUAL:
+                return ValueCondition.Type.NOT_EQUAL;
+            case VAL_GREATER:
+                return ValueCondition.Type.GREATER;
+            case VAL_GREATER_OR_EQUAL:
+                return ValueCondition.Type.GREATER_OR_EQUAL;
+            case VAL_LESS:
+                return ValueCondition.Type.LESS;
+            case VAL_LESS_OR_EQUAL:
+                return ValueCondition.Type.LESS_OR_EQUAL;
+            default:
+                throw new IllegalArgumentException("Unexpected value condition type " + type);
         }
+    }
 
-        return ops;
+    private static RevisionCondition.Type toRevisionConditionType(ConditionType type) {
+        switch (type) {
+            case REV_EQUAL:
+                return RevisionCondition.Type.EQUAL;
+            case REV_NOT_EQUAL:
+                return RevisionCondition.Type.NOT_EQUAL;
+            case REV_GREATER:
+                return RevisionCondition.Type.GREATER;
+            case REV_GREATER_OR_EQUAL:
+                return RevisionCondition.Type.GREATER_OR_EQUAL;
+            case REV_LESS:
+                return RevisionCondition.Type.LESS;
+            case REV_LESS_OR_EQUAL:
+                return RevisionCondition.Type.LESS_OR_EQUAL;
+            default:
+                throw new IllegalArgumentException("Unexpected revision condition type " + type);
+        }
     }
 }

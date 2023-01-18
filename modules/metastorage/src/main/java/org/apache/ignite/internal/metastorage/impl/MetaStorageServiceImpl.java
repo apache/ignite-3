@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.metastorage.command.GetAndRemoveAllComm
 import static org.apache.ignite.internal.metastorage.command.PutAllCommand.putAllCommand;
 import static org.apache.ignite.internal.metastorage.command.RemoveAllCommand.removeAllCommand;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -50,25 +49,10 @@ import org.apache.ignite.internal.metastorage.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.info.ConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.IfInfo;
-import org.apache.ignite.internal.metastorage.command.info.OperationInfo;
-import org.apache.ignite.internal.metastorage.command.info.OperationInfoBuilder;
-import org.apache.ignite.internal.metastorage.command.info.SimpleConditionInfoBuilder;
-import org.apache.ignite.internal.metastorage.command.info.StatementInfo;
-import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.command.info.UpdateInfo;
-import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.OperationType;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.RevisionCondition;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.ValueCondition;
-import org.apache.ignite.internal.metastorage.dsl.Statement;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -219,24 +203,23 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             Collection<Operation> success,
             Collection<Operation> failure
     ) {
-        ConditionInfo cond = toConditionInfo(condition, commandsFactory);
-
-        List<OperationInfo> successOps = toOperationInfos(success, commandsFactory);
-
-        List<OperationInfo> failureOps = toOperationInfos(failure, commandsFactory);
-
-        InvokeCommand invokeCommand = commandsFactory.invokeCommand().condition(cond).success(successOps).failure(failureOps).build();
+        InvokeCommand invokeCommand = commandsFactory.invokeCommand()
+                .condition(condition)
+                .success(success)
+                .failure(failure)
+                .build();
 
         return metaStorageRaftGrpSvc.run(invokeCommand);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<StatementResult> invoke(If iif) {
-        MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(toIfInfo(iif, commandsFactory)).build();
+    public CompletableFuture<StatementResult> invoke(Iif iif) {
+        MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
+                .iif(iif)
+                .build();
 
-        return metaStorageRaftGrpSvc.run(multiInvokeCommand)
-                .thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+        return metaStorageRaftGrpSvc.run(multiInvokeCommand);
     }
 
     /** {@inheritDoc} */
@@ -317,96 +300,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public void close() {
         metaStorageRaftGrpSvc.shutdown();
-    }
-
-    private static List<OperationInfo> toOperationInfos(Collection<Operation> ops, MetaStorageCommandsFactory commandsFactory) {
-        List<OperationInfo> res = new ArrayList<>(ops.size());
-
-        for (Operation op : ops) {
-            OperationInfoBuilder info = commandsFactory.operationInfo();
-
-            switch (op.type()) {
-                case NO_OP:
-                    info.operationType(OperationType.NO_OP.ordinal());
-
-                    break;
-
-                case REMOVE:
-                    info.key(op.key()).operationType(OperationType.REMOVE.ordinal());
-
-                    break;
-
-                case PUT:
-                    info.key(op.key()).value(op.value()).operationType(OperationType.PUT.ordinal());
-
-                    break;
-
-                default:
-                    assert false : "Unknown operation type " + op.type();
-            }
-
-            res.add(info.build());
-        }
-
-        return res;
-    }
-
-    private static UpdateInfo toUpdateInfo(Update update, MetaStorageCommandsFactory commandsFactory) {
-        return commandsFactory.updateInfo()
-                .operations(toOperationInfos(update.operations(), commandsFactory))
-                .result(commandsFactory.statementResultInfo().result(update.result().bytes()).build())
-                .build();
-    }
-
-    private static StatementInfo toIfBranchInfo(Statement statement, MetaStorageCommandsFactory commandsFactory) {
-        if (statement.isTerminal()) {
-            return commandsFactory.statementInfo().update(toUpdateInfo(statement.update(), commandsFactory)).build();
-        } else {
-            return commandsFactory.statementInfo().iif(toIfInfo(statement.iif(), commandsFactory)).build();
-        }
-    }
-
-    /**
-     * Generate network message from {@link If} statement.
-     *
-     * @param iif If statement.
-     * @param commandsFactory Commands factory.
-     * @return Network message.
-     */
-    public static IfInfo toIfInfo(If iif, MetaStorageCommandsFactory commandsFactory) {
-        return commandsFactory.ifInfo()
-                .cond(toConditionInfo(iif.condition(), commandsFactory))
-                .andThen(toIfBranchInfo(iif.andThen(), commandsFactory))
-                .orElse(toIfBranchInfo(iif.orElse(), commandsFactory))
-                .build();
-    }
-
-    private static ConditionInfo toConditionInfo(Condition condition, MetaStorageCommandsFactory commandsFactory) {
-        if (condition instanceof SimpleCondition) {
-            var simpleCondition = (SimpleCondition) condition;
-
-            SimpleConditionInfoBuilder cnd = commandsFactory.simpleConditionInfo()
-                    .key(simpleCondition.key())
-                    .conditionType(simpleCondition.type().ordinal());
-
-            if (simpleCondition instanceof SimpleCondition.RevisionCondition) {
-                cnd.revision(((RevisionCondition) simpleCondition).revision());
-            } else if (simpleCondition instanceof SimpleCondition.ValueCondition) {
-                cnd.value(((ValueCondition) simpleCondition).value());
-            }
-
-            return cnd.build();
-        } else if (condition instanceof CompoundCondition) {
-            CompoundCondition cond = (CompoundCondition) condition;
-
-            return commandsFactory.compoundConditionInfo()
-                    .leftConditionInfo(toConditionInfo(cond.leftCondition(), commandsFactory))
-                    .rightConditionInfo(toConditionInfo(cond.rightCondition(), commandsFactory))
-                    .conditionType(cond.compoundConditionType().ordinal())
-                    .build();
-        } else {
-            throw new IllegalArgumentException("Unknown condition type: " + condition.getClass().getSimpleName());
-        }
     }
 
     private static Map<ByteArray, Entry> multipleEntryResult(Object obj) {
