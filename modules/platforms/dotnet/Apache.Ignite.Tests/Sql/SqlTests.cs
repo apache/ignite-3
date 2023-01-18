@@ -23,7 +23,9 @@ namespace Apache.Ignite.Tests.Sql
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
+    using NodaTime;
     using NUnit.Framework;
+    using Table;
 
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
@@ -51,6 +53,28 @@ namespace Apache.Ignite.Tests.Sql
         {
             await Client.Sql.ExecuteAsync(null, "DROP TABLE TEST");
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestDdlDml");
+        }
+
+        [OneTimeSetUp]
+        public async Task InsertTestData()
+        {
+            var pocoAllColumns = new PocoAllColumnsSqlNullable(
+                1,
+                "v-1",
+                2,
+                3,
+                4,
+                5,
+                6.5F,
+                7.5D,
+                new LocalDate(2023, 01, 18),
+                new LocalTime(09, 28),
+                new LocalDateTime(2023, 01, 18, 09, 29),
+                Instant.FromUnixTimeSeconds(123),
+                new byte[] { 1, 2 },
+                8.7M);
+
+            await PocoAllColumnsSqlNullableView.UpsertAsync(null, pocoAllColumns);
         }
 
         [Test]
@@ -392,6 +416,31 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("SELECT PROPS", props["sql"]);
             Assert.AreEqual("10", props["prop1"]);
             Assert.AreEqual("xyz", props["prop-2"]);
+        }
+
+        [Test]
+        public async Task TestIgniteDbDataReaderProperties()
+        {
+            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, "select KEY, INT8 from TBL_ALL_COLUMNS_SQL");
+
+            Assert.AreEqual(2, reader.FieldCount);
+            Assert.IsTrue(reader.HasRows);
+            Assert.AreEqual(0, reader.Depth);
+            Assert.AreEqual(-1, reader.RecordsAffected);
+        }
+
+        [Test]
+        public async Task TestIgniteDbDataReaderAllColumnTypes()
+        {
+            await Task.Yield();
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public async Task TestIgniteDbDataReaderMultiplePages()
+        {
+            await Task.Yield();
+            Assert.Fail("TODO");
         }
     }
 }
