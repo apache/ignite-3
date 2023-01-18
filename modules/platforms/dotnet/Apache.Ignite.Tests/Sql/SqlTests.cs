@@ -427,6 +427,9 @@ namespace Apache.Ignite.Tests.Sql
             Assert.IsTrue(reader.HasRows);
             Assert.AreEqual(0, reader.Depth);
             Assert.AreEqual(-1, reader.RecordsAffected);
+
+            Assert.AreEqual("KEY", reader.Metadata.Columns[0].Name);
+            Assert.AreEqual("INT8", reader.Metadata.Columns[1].Name);
         }
 
         [Test]
