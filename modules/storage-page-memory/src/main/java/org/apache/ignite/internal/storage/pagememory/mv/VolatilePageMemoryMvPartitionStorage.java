@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -28,9 +30,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -85,114 +85,47 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return closure.execute();
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(closure::execute);
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return CompletableFuture.completedFuture(null);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> completedFuture(null));
     }
 
     @Override
     public long lastAppliedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return lastAppliedIndex;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public long lastAppliedTerm() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return lastAppliedTerm;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> lastAppliedTerm);
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
+        busy(() -> {
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+
+            return null;
+        });
     }
 
     @Override
     public long persistedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return lastAppliedIndex;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return groupConfig;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> groupConfig);
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         this.groupConfig = config;
-    }
-
-    @Override
-    public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
-        }
-
-        closeBusyLock.block();
-
-        versionChainTree.close();
-        indexMetaTree.close();
-
-        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            hashIndexStorage.close();
-        }
-
-        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            sortedIndexStorage.close();
-        }
-
-        hashIndexes.clear();
-        sortedIndexes.clear();
     }
 
     /**

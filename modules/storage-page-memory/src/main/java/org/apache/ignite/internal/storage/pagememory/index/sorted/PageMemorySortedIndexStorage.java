@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -44,16 +44,6 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of Sorted index storage using Page Memory.
  */
 public class PageMemorySortedIndexStorage implements SortedIndexStorage {
-    private static final VarHandle CLOSED;
-
-    static {
-        try {
-            CLOSED = MethodHandles.lookup().findVarHandle(PageMemorySortedIndexStorage.class, "closed", boolean.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     /** Index descriptor. */
     private final SortedIndexDescriptor descriptor;
 
@@ -73,11 +63,10 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     private final RowId highestRowId;
 
     /** Busy lock for synchronous closing. */
-    private final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** To avoid double closure. */
-    @SuppressWarnings("unused")
-    private volatile boolean closed;
+    /** Prevents double stopping of the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -105,71 +94,59 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        return busy(() -> {
+            try {
+                SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
-        try {
-            SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
+                SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
 
-            SortedIndexRowKey upperBound = toSortedIndexRow(key, highestRowId);
-
-            return convertCursor(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to create scan cursor", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                return convertCursor(sortedIndexTree.find(lowerBound, upperBound), SortedIndexRow::rowId);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to create scan cursor", e);
+            }
+        });
     }
 
     @Override
     public void put(IndexRow row) {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        busy(() -> {
+            try {
+                SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
-        try {
-            SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
+                var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, sortedIndexTree.inlineSize());
 
-            var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, sortedIndexTree.inlineSize());
+                sortedIndexTree.invoke(sortedIndexRow, null, insert);
 
-            sortedIndexTree.invoke(sortedIndexRow, null, insert);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to put value into index", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to put value into index", e);
+            }
+        });
     }
 
     @Override
     public void remove(IndexRow row) {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        busy(() -> {
+            try {
+                SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
-        try {
-            SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
+                var remove = new RemoveSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
 
-            var remove = new RemoveSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
+                sortedIndexTree.invoke(sortedIndexRow, null, remove);
 
-            sortedIndexTree.invoke(sortedIndexRow, null, remove);
+                // Performs actual deletion from freeList if necessary.
+                remove.afterCompletion();
 
-            // Performs actual deletion from freeList if necessary.
-            remove.afterCompletion();
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to remove value from index", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to remove value from index", e);
+            }
+        });
     }
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
@@ -178,13 +155,10 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
             return new ScanCursor(lower, upper);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
-    @Nullable
-    private SortedIndexRowKey createBound(@Nullable BinaryTuplePrefix bound, boolean setEqualityFlag) {
+    private @Nullable SortedIndexRowKey createBound(@Nullable BinaryTuplePrefix bound, boolean setEqualityFlag) {
         if (bound == null) {
             return null;
         }
@@ -215,20 +189,13 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
      * Closes the sorted index storage.
      */
     public void close() {
-        if (!CLOSED.compareAndSet(this, false, true)) {
+        if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
-        closeBusyLock.block();
+        busyLock.block();
 
         sortedIndexTree.close();
-    }
-
-    /**
-     * Throws an exception that the storage is already closed.
-     */
-    private void throwStorageClosedException() {
-        throw new StorageClosedException();
     }
 
     /**
@@ -247,28 +214,12 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public boolean hasNext() {
-                if (!closeBusyLock.enterBusy()) {
-                    throwStorageClosedException();
-                }
-
-                try {
-                    return cursor.hasNext();
-                } finally {
-                    closeBusyLock.leaveBusy();
-                }
+                return busy(cursor::hasNext);
             }
 
             @Override
             public R next() {
-                if (!closeBusyLock.enterBusy()) {
-                    throwStorageClosedException();
-                }
-
-                try {
-                    return mapper.apply(cursor.next());
-                } finally {
-                    closeBusyLock.leaveBusy();
-                }
+                return busy(() -> mapper.apply(cursor.next()));
             }
         };
     }
@@ -298,73 +249,67 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
         @Override
         public boolean hasNext() {
-            if (!closeBusyLock.enterBusy()) {
-                throwStorageClosedException();
-            }
+            return busy(() -> {
+                try {
+                    advanceIfNeeded();
 
-            try {
-                advanceIfNeeded();
-
-                return hasNext;
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error while advancing the cursor", e);
-            } finally {
-                closeBusyLock.leaveBusy();
-            }
+                    return hasNext;
+                } catch (IgniteInternalCheckedException e) {
+                    throw new StorageException("Error while advancing the cursor", e);
+                }
+            });
         }
 
         @Override
         public IndexRow next() {
-            if (!closeBusyLock.enterBusy()) {
-                throwStorageClosedException();
-            }
+            return busy(() -> {
+                try {
+                    advanceIfNeeded();
 
-            try {
-                advanceIfNeeded();
+                    boolean hasNext = this.hasNext;
 
-                boolean hasNext = this.hasNext;
+                    if (!hasNext) {
+                        throw new NoSuchElementException();
+                    }
 
-                if (!hasNext) {
-                    throw new NoSuchElementException();
+                    this.hasNext = null;
+
+                    return toIndexRowImpl(treeRow);
+                } catch (IgniteInternalCheckedException e) {
+                    throw new StorageException("Error while advancing the cursor", e);
                 }
-
-                this.hasNext = null;
-
-                return toIndexRowImpl(treeRow);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error while advancing the cursor", e);
-            } finally {
-                closeBusyLock.leaveBusy();
-            }
+            });
         }
 
         @Override
         public @Nullable IndexRow peek() {
-            if (hasNext != null) {
-                if (hasNext) {
-                    return toIndexRowImpl(treeRow);
-                }
+            return busy(() -> {
+                if (hasNext != null) {
+                    if (hasNext) {
+                        return toIndexRowImpl(treeRow);
+                    }
 
-                return null;
-            }
-
-            try {
-                SortedIndexRow nextTreeRow;
-
-                if (treeRow == null) {
-                    nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
-                } else {
-                    nextTreeRow = sortedIndexTree.findNext(treeRow, false);
-                }
-
-                if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
                     return null;
                 }
 
-                return toIndexRowImpl(nextTreeRow);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error when peeking next element", e);
-            }
+                try {
+                    SortedIndexRow nextTreeRow;
+
+                    if (treeRow == null) {
+                        nextTreeRow = lower == null ? sortedIndexTree.findFirst() : sortedIndexTree.findNext(lower, true);
+                    } else {
+                        nextTreeRow = sortedIndexTree.findNext(treeRow, false);
+                    }
+
+                    if (nextTreeRow == null || (upper != null && compareRows(nextTreeRow, upper) >= 0)) {
+                        return null;
+                    }
+
+                    return toIndexRowImpl(nextTreeRow);
+                } catch (IgniteInternalCheckedException e) {
+                    throw new StorageException("Error when peeking next element", e);
+                }
+            });
         }
 
         private void advanceIfNeeded() throws IgniteInternalCheckedException {
@@ -394,6 +339,18 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
                     key1.indexColumns().valueBuffer(),
                     key2.indexColumns().valueBuffer()
             );
+        }
+    }
+
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }

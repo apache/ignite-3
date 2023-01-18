@@ -32,6 +32,7 @@ import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
+import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -58,6 +59,9 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
 
     @Inject
     protected NodeNameRegistry nodeNameRegistry;
+
+    @Inject
+    protected JdbcUrlRegistry jdbcUrlRegistry;
 
     private CommandLine cmd;
 

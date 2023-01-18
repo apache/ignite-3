@@ -27,7 +27,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -463,7 +462,7 @@ public class ItRebalanceDistributedTest {
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
-                    Map.of(),
+                    Set.of(),
                     new LocalConfigurationStorage(vaultManager),
                     List.of(),
                     List.of()
@@ -519,7 +518,7 @@ public class ItRebalanceDistributedTest {
                     List.of(RocksDbStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY),
-                    Map.of(),
+                    Set.of(),
                     cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(UnknownDataStorageConfigurationSchema.class,

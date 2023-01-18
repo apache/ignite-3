@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
@@ -97,7 +98,7 @@ public class DistributedConfigurationCatchUpTest {
         DistributedConfigurationStorage storage = storage(wrapper);
 
         try {
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             try {
@@ -128,7 +129,7 @@ public class DistributedConfigurationCatchUpTest {
 
         try {
 
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             try {
@@ -188,18 +189,10 @@ public class DistributedConfigurationCatchUpTest {
 
             // On any invocation - trigger storage listener.
             when(mock.invoke(any(), anyCollection(), any()))
-                    .then(invocation -> {
-                        triggerStorageListener();
-
-                        return CompletableFuture.completedFuture(true);
-                    });
+                    .then(invocation -> triggerStorageListener());
 
             when(mock.invoke(any(), any(Operation.class), any()))
-                    .then(invocation -> {
-                        triggerStorageListener();
-
-                        return CompletableFuture.completedFuture(true);
-                    });
+                    .then(invocation -> triggerStorageListener());
 
             // This captures the listener.
             doAnswer(invocation -> {
@@ -212,9 +205,13 @@ public class DistributedConfigurationCatchUpTest {
         /**
          * Triggers MetaStorage listener incrementing master key revision.
          */
-        private void triggerStorageListener() {
-            EntryEvent entryEvent = new EntryEvent(null, new EntryImpl(MASTER_KEY.bytes(), null, ++masterKeyRevision, -1));
-            lsnr.onUpdate(new WatchEvent(entryEvent));
+        private CompletableFuture<Boolean> triggerStorageListener() {
+            return CompletableFuture.supplyAsync(() -> {
+                EntryEvent entryEvent = new EntryEvent(null, new EntryImpl(MASTER_KEY.bytes(), null, ++masterKeyRevision, -1));
+                lsnr.onUpdate(new WatchEvent(entryEvent));
+
+                return true;
+            });
         }
 
         private MetaStorageManager metaStorageManager() {

@@ -518,6 +518,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
             }
 
             changeClsBuilder.addMethod(changeMtdBuilder.build());
+
+            // Create "FooChange changeFoo()" method with no parameters, if it's a config value or named list value.
+            if (valAnnotation == null) {
+                MethodSpec.Builder shortChangeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
+                        .addModifiers(PUBLIC, ABSTRACT)
+                        .returns(changeFieldType);
+
+                changeClsBuilder.addMethod(shortChangeMtdBuilder.build());
+            }
         }
 
         if (isPolymorphicConfig) {

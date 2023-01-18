@@ -26,6 +26,7 @@ import java.nio.ByteOrder;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -103,67 +104,51 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        return busy(() -> {
+            BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
-
-        try {
             return scan(keyPrefix, keyPrefix, true, true, this::decodeRowId);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public void put(IndexRow row) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        busy(() -> {
+            try {
+                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
-        try {
-            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
 
-            writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                return null;
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     @Override
     public void remove(IndexRow row) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        busy(() -> {
+            try {
+                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
-        try {
-            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
+                writeBatch.delete(indexCf.handle(), rocksKey(row));
 
-            writeBatch.delete(indexCf.handle(), rocksKey(row));
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                return null;
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        return busy(() -> {
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
-
-        try {
             return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        });
     }
 
     private <T> PeekCursor<T> scan(
@@ -230,26 +215,16 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             public boolean hasNext() {
-                if (!busyLock.enterBusy()) {
-                    throw new StorageClosedException();
-                }
-
-                try {
+                return busy(() -> {
                     advanceIfNeeded();
 
                     return hasNext;
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                });
             }
 
             @Override
             public T next() {
-                if (!busyLock.enterBusy()) {
-                    throw new StorageClosedException();
-                }
-
-                try {
+                return busy(() -> {
                     advanceIfNeeded();
 
                     boolean hasNext = this.hasNext;
@@ -261,18 +236,12 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                     this.hasNext = null;
 
                     return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                });
             }
 
             @Override
             public @Nullable T peek() {
-                if (!busyLock.enterBusy()) {
-                    throw new StorageClosedException();
-                }
-
-                try {
+                return busy(() -> {
                     if (hasNext != null) {
                         if (hasNext) {
                             return mapper.apply(ByteBuffer.wrap(key).order(ORDER));
@@ -290,9 +259,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                     } else {
                         return mapper.apply(ByteBuffer.wrap(it.key()).order(ORDER));
                     }
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                });
             }
 
             private void advanceIfNeeded() throws StorageException {
@@ -416,5 +383,17 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
         assert rangeEnd != null;
 
         writeBatch.deleteRange(indexCf.handle(), constantPrefix, rangeEnd);
+    }
+
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throw new StorageClosedException();
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

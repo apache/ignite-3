@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -132,11 +132,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             checkpointTimeoutLock.checkpointReadLock();
 
             try {
@@ -144,18 +140,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             } finally {
                 checkpointTimeoutLock.checkpointReadUnlock();
             }
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
             CheckpointProgress scheduledCheckpoint;
@@ -172,115 +162,93 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             }
 
             return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public long lastAppliedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return meta.lastAppliedIndex();
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(meta::lastAppliedIndex);
     }
 
     @Override
     public long lastAppliedTerm() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return meta.lastAppliedTerm();
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(meta::lastAppliedTerm);
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+        busy(() -> {
+            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
-        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+            UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm);
+            meta.lastApplied(lastCheckpointId, lastAppliedIndex, lastAppliedTerm);
+
+            return null;
+        });
     }
 
     @Override
     public long persistedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return persistedIndex;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> persistedIndex);
     }
 
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            replicationProtocolGroupConfigReadWriteLock.readLock().lock();
-
+        return busy(() -> {
             try {
-                long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
+                replicationProtocolGroupConfigReadWriteLock.readLock().lock();
 
-                if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
-                    return null;
+                try {
+                    long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
+
+                    if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
+                        return null;
+                    }
+
+                    byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
+
+                    return replicationProtocolGroupConfigFromBytes(bytes);
+                } finally {
+                    replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
                 }
-
-                byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
-
-                return replicationProtocolGroupConfigFromBytes(bytes);
-            } finally {
-                replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
             }
-        } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+        busy(() -> {
+            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+            UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
+            byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
 
-        replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
+            replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
 
-        try {
-            if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                long configPageId = blobStorage.addBlob(groupConfigBytes);
+            try {
+                if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                    long configPageId = blobStorage.addBlob(groupConfigBytes);
 
-                meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
-            } else {
-                blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+                    meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
+                } else {
+                    blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+                }
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
+            } finally {
+                replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
             }
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
-        } finally {
-            replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
-        }
+
+            return null;
+        });
     }
 
     @Nullable
@@ -307,33 +275,16 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
-        }
+    protected List<AutoCloseable> getResourcesToClose() {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose();
 
-        closeBusyLock.block();
+        resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 
-        checkpointManager.removeCheckpointListener(checkpointListener);
+        resourcesToClose.add(rowVersionFreeList::close);
+        resourcesToClose.add(indexFreeList::close);
+        resourcesToClose.add(blobStorage::close);
 
-        rowVersionFreeList.close();
-        indexFreeList.close();
-
-        versionChainTree.close();
-        indexMetaTree.close();
-
-        blobStorage.close();
-
-        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            hashIndexStorage.close();
-        }
-
-        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            sortedIndexStorage.close();
-        }
-
-        hashIndexes.clear();
-        sortedIndexes.clear();
+        return resourcesToClose;
     }
 
     /**
@@ -352,7 +303,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 try {
                     rowVersionFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save RowVersionFreeList metadata", e);
+                    throw new StorageException("Failed to save RowVersionFreeList metadata", e);
                 }
             });
 
@@ -360,7 +311,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 try {
                     indexFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save IndexColumnsFreeList metadata", e);
+                    throw new StorageException("Failed to save IndexColumnsFreeList metadata", e);
                 }
             });
         }
