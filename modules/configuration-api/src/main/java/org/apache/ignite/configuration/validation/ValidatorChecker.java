@@ -150,6 +150,9 @@ class ValidatorChecker {
                 case "char":
                     schemaFieldType = Character.class;
                     break;
+
+                default:
+                    // No-op.
             }
         }
 
