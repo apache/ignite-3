@@ -451,8 +451,23 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIgniteDbDataReaderMultiplePages()
         {
-            await Task.Yield();
-            Assert.Fail("TODO");
+            var statement = new SqlStatement("select ID, VAL FROM TEST ORDER BY ID", pageSize: 2);
+            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, statement);
+
+            var count = 0;
+
+            while (await reader.ReadAsync())
+            {
+                var id = reader.GetInt32(0);
+                var val = reader.GetString(1);
+
+                Assert.AreEqual(count, id);
+                Assert.AreEqual($"s-{count}", val);
+
+                count++;
+            }
+
+            Assert.AreEqual(10, count);
         }
     }
 }

@@ -148,40 +148,22 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override short GetInt16(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override short GetInt16(int ordinal) => GetReader(ordinal, typeof(short)).GetShort(ordinal);
 
     /// <inheritdoc/>
-    public override int GetInt32(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override int GetInt32(int ordinal) => GetReader(ordinal, typeof(int)).GetInt(ordinal);
 
     /// <inheritdoc/>
-    public override long GetInt64(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override long GetInt64(int ordinal) => GetReader(ordinal, typeof(long)).GetLong(ordinal);
 
     /// <inheritdoc/>
-    public override string GetName(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override string GetName(int ordinal) => Metadata.Columns[ordinal].Name;
 
     /// <inheritdoc/>
-    public override int GetOrdinal(string name)
-    {
-        throw new NotImplementedException();
-    }
+    public override int GetOrdinal(string name) => Metadata.IndexOf(name);
 
     /// <inheritdoc/>
-    public override string GetString(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override string GetString(int ordinal) => GetReader(ordinal, typeof(string)).GetString(ordinal);
 
     /// <inheritdoc/>
     public override object GetValue(int ordinal)
