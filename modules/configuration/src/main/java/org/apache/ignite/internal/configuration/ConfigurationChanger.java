@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.to
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -164,7 +163,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         checkConfigurationType(rootKeys, storage);
 
         this.notificator = notificator;
-        this.validators = new ArrayList<>(validators);
+        this.validators = List.copyOf(validators);
         this.storage = storage;
 
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
