@@ -25,6 +25,7 @@ using System.Linq.Expressions;
 using System.Text;
 using Remotion.Linq.Clauses;
 using Remotion.Linq.Clauses.Expressions;
+using Remotion.Linq.Clauses.ResultOperators;
 
 /// <summary>
 /// Alias dictionary.
@@ -34,6 +35,9 @@ internal sealed class AliasDictionary
 {
     /** */
     private readonly Dictionary<Expression, string> _fieldAliases = new();
+
+    /** */
+    private readonly Dictionary<GroupResultOperator, string> _groupByAliases = new();
 
     /** */
     private readonly Stack<Dictionary<IQuerySource, string>> _stack = new();
@@ -102,6 +106,25 @@ internal sealed class AliasDictionary
         var referenceExpression = ExpressionWalker.GetQuerySourceReference(expression)!;
 
         return GetFieldAlias(referenceExpression);
+    }
+
+    /// <summary>
+    /// Gets or creates the GROUP BY member alias.
+    /// </summary>
+    /// <param name="op">Group operator.</param>
+    /// <returns>Alias.</returns>
+    public (string Alias, bool Created) GetOrCreateGroupByMemberAlias(GroupResultOperator op)
+    {
+        if (_groupByAliases.TryGetValue(op, out var alias))
+        {
+            return (alias, false);
+        }
+
+        alias = "_G" + _groupByAliases.Count;
+
+        _groupByAliases[op] = alias;
+
+        return (alias, true);
     }
 
     /// <summary>

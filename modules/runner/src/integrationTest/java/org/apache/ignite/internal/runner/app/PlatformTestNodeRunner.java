@@ -57,6 +57,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
  */
+@SuppressWarnings("CallToSystemGetenv")
 public class PlatformTestNodeRunner {
     /** Test node name. */
     private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();
@@ -74,6 +75,9 @@ public class PlatformTestNodeRunner {
 
     /** Time to keep the node alive. */
     private static final int RUN_TIME_MINUTES = 30;
+
+    /** Time to keep the node alive - env var. */
+    private static final String RUN_TIME_MINUTES_ENV = "IGNITE_PLATFORM_TEST_NODE_RUNNER_RUN_TIME_MINUTES";
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
@@ -150,9 +154,11 @@ public class PlatformTestNodeRunner {
 
         System.out.println("THIN_CLIENT_PORTS=" + ports);
 
-        Thread.sleep(RUN_TIME_MINUTES * 60_000);
+        long runTimeMinutes = getRunTimeMinutes();
+        System.out.println("Nodes will be active for " + runTimeMinutes + " minutes.");
 
-        System.out.println("Exiting after " + RUN_TIME_MINUTES + " minutes.");
+        Thread.sleep(runTimeMinutes * 60_000);
+        System.out.println("Exiting after " + runTimeMinutes + " minutes.");
 
         for (Ignite node : startedNodes) {
             IgnitionManager.stop(node.name());
@@ -268,6 +274,27 @@ public class PlatformTestNodeRunner {
      */
     private static int getPort(IgniteImpl node) {
         return node.clientAddress().port();
+    }
+
+    /**
+     * Gets run time limit, in minutes.
+     *
+     * @return Node run time limit, in minutes.
+     */
+    private static long getRunTimeMinutes() {
+        String runTimeMinutesFromEnv = System.getenv(RUN_TIME_MINUTES_ENV);
+
+        if (runTimeMinutesFromEnv == null) {
+            return RUN_TIME_MINUTES;
+        }
+
+        try {
+            return Long.parseLong(runTimeMinutesFromEnv);
+        } catch (Exception ignored) {
+            // No-op.
+        }
+
+        return RUN_TIME_MINUTES;
     }
 
     /**
