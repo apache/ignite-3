@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -117,93 +118,83 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        return inBusyLock(busyLock, () -> {
+            byte[] rangeStart = rocksPrefix(key);
 
-        byte[] rangeStart = rocksPrefix(key);
+            byte[] rangeEnd = incrementArray(rangeStart);
 
-        byte[] rangeEnd = incrementArray(rangeStart);
+            Slice upperBound = rangeEnd == null ? null : new Slice(rangeEnd);
 
-        Slice upperBound = rangeEnd == null ? null : new Slice(rangeEnd);
+            ReadOptions options = new ReadOptions().setIterateUpperBound(upperBound);
 
-        ReadOptions options = new ReadOptions().setIterateUpperBound(upperBound);
+            RocksIterator it = indexCf.newIterator(options);
 
-        RocksIterator it = indexCf.newIterator(options);
+            it.seek(rangeStart);
 
-        it.seek(rangeStart);
+            return new BusyRocksIteratorAdapter<RowId>(busyLock, it) {
+                @Override
+                protected void handleBusyFail() {
+                    throw new StorageClosedException();
+                }
 
-        busyLock.leaveBusy();
+                @Override
+                protected RowId decodeEntry(byte[] key, byte[] value) {
+                    // RowId UUID is located at the last 16 bytes of the key
+                    long mostSignificantBits = bytesToLong(key, key.length - Long.BYTES * 2);
+                    long leastSignificantBits = bytesToLong(key, key.length - Long.BYTES);
 
-        return new BusyRocksIteratorAdapter<>(busyLock, it) {
-            @Override
-            protected void handleBusyFail() {
-                throw new StorageClosedException();
-            }
+                    return new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
+                }
 
-            @Override
-            protected RowId decodeEntry(byte[] key, byte[] value) {
-                // RowId UUID is located at the last 16 bytes of the key
-                long mostSignificantBits = bytesToLong(key, key.length - Long.BYTES * 2);
-                long leastSignificantBits = bytesToLong(key, key.length - Long.BYTES);
+                @Override
+                public void close() {
+                    super.close();
 
-                return new RowId(partitionStorage.partitionId(), mostSignificantBits, leastSignificantBits);
-            }
-
-            @Override
-            public void close() {
-                super.close();
-
-                RocksUtils.closeAll(options, upperBound);
-            }
-        };
+                    RocksUtils.closeAll(options, upperBound);
+                }
+            };
+        });
     }
 
     @Override
     public void put(IndexRow row) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        inBusyLock(busyLock, () -> {
+            try {
+                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
-        try {
-            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
-
-            writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                writeBatch.put(indexCf.handle(), rocksKey(row), BYTE_EMPTY_ARRAY);
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     @Override
     public void remove(IndexRow row) {
-        if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
-        }
+        inBusyLock(busyLock, () -> {
+            try {
+                WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
 
-        try {
-            WriteBatchWithIndex writeBatch = partitionStorage.currentWriteBatch();
-
-            writeBatch.delete(indexCf.handle(), rocksKey(row));
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
-        } finally {
-            busyLock.leaveBusy();
-        }
+                writeBatch.delete(indexCf.handle(), rocksKey(row));
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     @Override
     public void destroy() {
-        byte[] rangeEnd = incrementArray(constantPrefix);
+        inBusyLock(busyLock, () -> {
+            byte[] rangeEnd = incrementArray(constantPrefix);
 
-        assert rangeEnd != null;
+            assert rangeEnd != null;
 
-        try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
-            indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
-        } catch (RocksDBException e) {
-            throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
-        }
+            try (WriteOptions writeOptions = new WriteOptions().setDisableWAL(true)) {
+                indexCf.db().deleteRange(indexCf.handle(), writeOptions, constantPrefix, rangeEnd);
+            } catch (RocksDBException e) {
+                throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+            }
+        });
     }
 
     private byte[] rocksPrefix(BinaryTuple prefix) {
