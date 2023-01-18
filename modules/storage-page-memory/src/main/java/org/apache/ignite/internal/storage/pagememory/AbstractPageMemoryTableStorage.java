@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -87,10 +88,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public void start() throws StorageException {
-        inBusyLock(busyLock, () -> {
+        busy(() -> {
             TableView tableView = tableCfg.value();
 
             mvPartitions = new AtomicReferenceArray<>(tableView.partitions());
+
+            return null;
         });
     }
 
@@ -180,7 +183,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        return inBusyLock(busyLock, () -> {
+        return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partition = getMvPartitionBusy(partitionId);
 
             if (partition != null) {
@@ -199,7 +202,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public @Nullable AbstractPageMemoryMvPartitionStorage getMvPartition(int partitionId) {
-        return inBusyLock(busyLock, () -> getMvPartitionBusy(partitionId));
+        return busy(() -> getMvPartitionBusy(partitionId));
     }
 
     private @Nullable AbstractPageMemoryMvPartitionStorage getMvPartitionBusy(int partitionId) {
@@ -210,7 +213,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
-        return inBusyLock(busyLock, () -> {
+        return busy(() -> {
             checkPartitionId(partitionId);
 
             CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
@@ -246,7 +249,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
-        return inBusyLock(busyLock, () -> {
+        return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartitionBusy(partitionId);
 
             if (partitionStorage == null) {
@@ -259,7 +262,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
-        return inBusyLock(busyLock, () -> {
+        return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = getMvPartitionBusy(partitionId);
 
             if (partitionStorage == null) {
@@ -296,5 +299,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                     "partitions", partitions, false
             ));
         }
+    }
+
+    private <V> V busy(Supplier<V> supplier) {
+        return inBusyLock(busyLock, supplier);
     }
 }
