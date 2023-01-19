@@ -465,7 +465,7 @@ public class DistributionZoneManager implements IgniteComponent {
             zonesConfiguration.defaultDistributionZone().listen(zonesConfigurationListener);
 
             // Init timers after restart.
-            //zonesTimers.putIfAbsent(zonesConfiguration.defaultDistributionZone().zoneId().value(), new ZoneState());
+            zonesTimers.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
 
             zonesConfiguration.distributionZones().value().namedListKeys()
                     .forEach(zoneName -> {
@@ -788,11 +788,11 @@ public class DistributionZoneManager implements IgniteComponent {
                                                 logicalTopology = fromBytes(vaultEntry.value());
 
                                                 // init keys and data nodes for default zone
-//                                                initTriggerKeysAndDataNodesInMetaStorage(
-//                                                        zonesConfiguration.defaultDistributionZone().zoneId().value(),
-//                                                        vaultAppliedRevision,
-//                                                        vaultEntry.value()
-//                                                );
+                                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                                        DEFAULT_ZONE_ID,
+                                                        vaultAppliedRevision,
+                                                        vaultEntry.value()
+                                                );
 
                                                 zonesConfiguration.distributionZones().value().namedListKeys()
                                                         .forEach(zoneName -> {
@@ -806,8 +806,6 @@ public class DistributionZoneManager implements IgniteComponent {
                                                             );
 
                                                         });
-
-                                                saveDataNodesToMetaStorage(DEFAULT_ZONE_ID, vaultEntry.value(), vaultAppliedRevision);
                                             }
                                         } finally {
                                             busyLock.leaveBusy();
@@ -1129,6 +1127,12 @@ public class DistributionZoneManager implements IgniteComponent {
             return lockDeltas;
         }
 
+        /**
+         * Lock for the timers' task synchronisation.
+         *
+         * @return Lock that is responsible for the blocking sections in a task from schedulers. This lock should be used if
+         * it is needed that some logic must be done only in the one scheduler's task concurrently.
+         */
         ReentrantLock lockForTimers() {
             return lockForTimers;
         }
