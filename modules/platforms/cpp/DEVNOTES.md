@@ -1,13 +1,9 @@
-## Prerequisites
+## Build C++
+
+### Prerequisites
 * C++ compiler supporting C++17
-* Java 11 SDK
 * Conan C/C++ package manager
 * CMake 3.10+
-
-## Build Java
-In repo root: `gradlew clean build -x test`
-
-## Build C++
 
 ### For Windows Developers
 Building in debug mode with tests. In this dir:
@@ -71,12 +67,31 @@ cmake --build . -j8
 
 ## Run Tests
 
-### Windows
-In this dir: `./cmake-build-debug/bin/ignite-client-test.exe`
-Specific test: `./cmake-build-debug/bin/ignite-client-test.exe --gtest_filter=Test_Cases1*`
+### Prerequisites
+* Java 11 SDK
+* Gradle
 
-## Start a Test Node
-* `gradlew :ignite-runner:runnerPlatformTest --no-daemon`
+### Starting Java Test Node
+
+Tests require a running Java node. Prior to running it you will obviously need to build a Java part of the product. To do that the following command can be used from the root of the repo:
+`gradlew clean build -x test`
+
+After that, start a Test Node in the root repo:
+`gradlew :ignite-runner:runnerPlatformTest --no-daemon`
+
+### Starting tests in Windows
+In modules/platforms/cpp dir:
+`./cmake-build-debug/bin/ignite-client-test.exe`
+
+To run a specific test:
+`./cmake-build-debug/bin/ignite-client-test.exe --gtest_filter=Test_Cases1*`
+
+### Starting tests in Linux
+In modules/platforms/cpp dir:
+`./cmake-build-debug/bin/ignite-client-test`
+
+To run a specific test:
+`./cmake-build-debug/bin/ignite-client-test --gtest_filter=Test_Cases1*`
 
 To debug or profile Java side of the tests, run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or profiler,
 then run C++ tests as always or with debugger.
