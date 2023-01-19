@@ -381,6 +381,12 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestBytesSpan([Values(0, 1, 123)] int count)
+        {
+            Assert.Fail("TODO");
+        }
+
+        [Test]
         public void TestBitMask([Values(0, 1, 123)] int count)
         {
             var bitMask = new BitArray(count);
