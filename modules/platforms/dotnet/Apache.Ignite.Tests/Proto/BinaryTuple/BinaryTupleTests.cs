@@ -883,6 +883,15 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
         }
 
+        [Test]
+        public void TestInvalidElementLengthThrowsException()
+        {
+            var bytes = Build((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[1000]));
+
+            var ex = Assert.Throws<InvalidOperationException>(() => new BinaryTupleReader(bytes, 1).GetByte(0));
+            Assert.AreEqual("TODO", ex!.Message);
+        }
+
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
         {
             var bytes = Build(build, numElements);
