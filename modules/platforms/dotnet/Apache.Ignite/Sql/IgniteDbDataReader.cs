@@ -27,6 +27,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Internal.Buffers;
+using Internal.Common;
 using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Sql;
@@ -231,8 +232,19 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override int GetValues(object[] values)
     {
-        // TODO: Read all columns into the array
-        throw new NotImplementedException();
+        IgniteArgumentCheck.NotNull(values, nameof(values));
+
+        var cols = Metadata.Columns;
+        var count = Math.Min(values.Length, cols.Count);
+
+        var reader = GetReader();
+
+        for (int i = 0; i < count; i++)
+        {
+            values[i] = Sql.ReadColumnValue(ref reader, cols[i], i)!;
+        }
+
+        return count;
     }
 
     /// <inheritdoc/>
