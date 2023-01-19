@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
@@ -64,7 +66,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
-            TablesConfiguration tablesCfg,
             int partitionId,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
@@ -76,8 +77,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree,
-                tablesCfg
+                indexMetaTree
         );
 
         this.destructionExecutor = destructionExecutor;
@@ -106,6 +106,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
 
@@ -125,7 +127,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        this.groupConfig = config;
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            groupConfig = config;
+
+            return null;
+        });
+    }
+
+    @Override
+    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
     }
 
     /**
@@ -163,5 +179,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
             rowVersionLink = rowVersion.nextLink();
         }
+    }
+
+    @Override
+    List<AutoCloseable> getResourcesToCloseOnRebalance() {
+        // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
     }
 }

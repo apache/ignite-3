@@ -19,6 +19,9 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -27,8 +30,8 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
@@ -40,7 +43,6 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
@@ -62,10 +65,12 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
+import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -82,13 +87,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final AbstractPageMemoryTableStorage tableStorage;
 
-    protected final VersionChainTree versionChainTree;
+    protected volatile VersionChainTree versionChainTree;
 
-    protected final RowVersionFreeList rowVersionFreeList;
+    protected volatile RowVersionFreeList rowVersionFreeList;
 
-    protected final IndexColumnsFreeList indexFreeList;
+    protected volatile IndexColumnsFreeList indexFreeList;
 
-    protected final IndexMetaTree indexMetaTree;
+    protected volatile IndexMetaTree indexMetaTree;
 
     protected final DataPageReader rowVersionDataPageReader;
 
@@ -96,16 +101,16 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final ConcurrentMap<UUID, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
-    /** Busy lock for synchronous closing. */
+    /** Busy lock. */
     protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping of the component. */
-    protected final AtomicBoolean stopGuard = new AtomicBoolean();
+    /** Current state of the storage. */
+    protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * Constructor.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      * @param tableStorage Table storage instance.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
      * @param indexFreeList Free list fot {@link IndexColumns}.
@@ -118,8 +123,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree,
-            TablesConfiguration tablesCfg
+            IndexMetaTree indexMetaTree
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
@@ -151,9 +155,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
                     if (indexCfgView instanceof HashIndexView) {
-                        createOrRestoreHashIndex(indexMeta);
+                        hashIndexes.put(indexCfgView.id(), createOrRestoreHashIndex(indexMeta));
                     } else if (indexCfgView instanceof SortedIndexView) {
-                        createOrRestoreSortedIndex(indexMeta);
+                        sortedIndexes.put(indexCfgView.id(), createOrRestoreSortedIndex(indexMeta));
                     } else {
                         assert indexCfgView == null;
 
@@ -196,6 +200,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
         var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
+        HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta);
+
+        return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+    }
+
+    HashIndexTree createHashIndexTree(HashIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -205,11 +215,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
-            String tableName = tableStorage.configuration().value().name();
-
             HashIndexTree hashIndexTree = new HashIndexTree(
                     groupId,
-                    tableName,
+                    tableStorage.getTableName(),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -226,15 +234,29 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 assert !replaced;
             }
 
-            return new PageMemoryHashIndexStorage(indexDescriptor, indexFreeList, hashIndexTree);
+            return hashIndexTree;
         } catch (IgniteInternalCheckedException e) {
-            throw new RuntimeException(e);
+            throw new StorageException(
+                    IgniteStringFormatter.format(
+                            "Error creating hash index tree: [table={}, partitionId={}, indexId={}]",
+                            tableStorage.getTableName(),
+                            partitionId,
+                            indexMeta.id()
+                    ),
+                    e
+            );
         }
     }
 
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
         var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
+        SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta);
+
+        return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree);
+    }
+
+    SortedIndexTree createSortedIndexTree(SortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -244,11 +266,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     ? pageMemory.allocatePage(groupId, partitionId, PageIdAllocator.FLAG_AUX)
                     : indexMeta.metaPageId();
 
-            String tableName = tableStorage.configuration().value().name();
-
             SortedIndexTree sortedIndexTree = new SortedIndexTree(
                     groupId,
-                    tableName,
+                    tableStorage.getTableName(),
                     partitionId,
                     pageMemory,
                     PageLockListenerNoOp.INSTANCE,
@@ -265,15 +285,25 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 assert !replaced;
             }
 
-            return new PageMemorySortedIndexStorage(indexDescriptor, indexFreeList, sortedIndexTree);
+            return sortedIndexTree;
         } catch (IgniteInternalCheckedException e) {
-            throw new RuntimeException(e);
+            throw new StorageException(
+                    IgniteStringFormatter.format(
+                            "Error creating sorted index tree: [table={}, partitionId={}, indexId={}]",
+                            tableStorage.getTableName(),
+                            partitionId,
+                            indexMeta.id()
+                    ),
+                    e
+            );
         }
     }
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             if (rowId.partitionId() != partitionId) {
                 throw new IllegalArgumentException(
                         String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
@@ -533,6 +563,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowId.partitionId() == partitionId : rowId;
 
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             VersionChain currentVersionChain = findVersionChain(rowId);
 
             if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
@@ -658,7 +690,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        return busy(() -> new ScanVersionsCursor(rowId));
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            return new ScanVersionsCursor(rowId);
+        });
     }
 
     private static ReadResult rowVersionToResultNotFillingLastCommittedTs(VersionChain versionChain, RowVersion rowVersion) {
@@ -681,6 +717,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             Cursor<VersionChain> treeCursor;
 
             try {
@@ -700,6 +738,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             try (Cursor<VersionChain> cursor = versionChainTree.find(new VersionChainKey(lowerBound), null)) {
                 return cursor.hasNext() ? cursor.next().rowId() : null;
             } catch (Exception e) {
@@ -711,6 +751,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public long rowsCount() {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             try {
                 return versionChainTree.size();
             } catch (IgniteInternalCheckedException e) {
@@ -735,6 +777,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public final ReadResult next() {
             return busy(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+
                 if (!hasNext()) {
                     throw new NoSuchElementException("The cursor is exhausted");
                 }
@@ -757,6 +801,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
             return busy(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+
                 if (currentChain == null) {
                     throw new IllegalStateException();
                 }
@@ -791,6 +837,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public boolean hasNext() {
             return busy(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+
                 if (nextRead != null) {
                     return true;
                 }
@@ -802,6 +850,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 currentChain = null;
 
                 while (true) {
+                    throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+
                     if (!treeCursor.hasNext()) {
                         iterationExhausted = true;
 
@@ -915,6 +965,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         private void advanceIfNeeded() {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+
             if (hasNext != null) {
                 return;
             }
@@ -937,7 +989,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
-        if (!stopGuard.compareAndSet(false, true)) {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
+            StorageState state = this.state.get();
+
+            assert state == StorageState.CLOSED : state;
+
             return;
         }
 
@@ -978,7 +1034,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     protected <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
         }
 
         try {
@@ -987,4 +1043,68 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             busyLock.leaveBusy();
         }
     }
+
+    /**
+     * Creates a summary info of the storage in the format "table=user, partitionId=1".
+     */
+    public String createStorageInfo() {
+        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
+    }
+
+    /**
+     * Prepares the storage and its indexes for rebalancing.
+     *
+     * <p>Stops ongoing operations on the storage and its indexes.
+     *
+     * @throws StorageRebalanceException If there was an error when starting the rebalance.
+     */
+    public void startRebalance() {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
+        }
+
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        try {
+            IgniteUtils.closeAll(getResourcesToCloseOnRebalance());
+
+            hashIndexes.values().forEach(PageMemoryHashIndexStorage::startRebalance);
+            sortedIndexes.values().forEach(PageMemorySortedIndexStorage::startRebalance);
+        } catch (Exception e) {
+            throw new StorageRebalanceException(
+                    IgniteStringFormatter.format("Error on start of rebalancing: [{}]", createStorageInfo()),
+                    e
+            );
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    /**
+     * Completes the rebalancing of the storage and its indexes.
+     *
+     * @throws StorageRebalanceException If there is an error while completing the storage and its indexes rebalance.
+     */
+    public void completeRebalance() {
+        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
+        }
+
+        hashIndexes.values().forEach(PageMemoryHashIndexStorage::completeRebalance);
+        sortedIndexes.values().forEach(PageMemorySortedIndexStorage::completeRebalance);
+    }
+
+    /**
+     * Sets the last applied index and term on rebalance.
+     *
+     * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
+     */
+    public abstract void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
+
+    /**
+     * Returns resources that will have to close on rebalancing.
+     */
+    abstract List<AutoCloseable> getResourcesToCloseOnRebalance();
 }

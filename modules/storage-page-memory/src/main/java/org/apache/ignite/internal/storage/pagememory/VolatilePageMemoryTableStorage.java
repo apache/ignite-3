@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.CompletableFuture;
@@ -44,8 +45,9 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     /**
      * Constructor.
      *
-     * @param tableCfg – Table configuration.
-     * @param dataRegion – Data region for the table.
+     * @param tableCfg Table configuration.
+     * @param tablesCfg Tables configuration.
+     * @param dataRegion Data region for the table.
      */
     public VolatilePageMemoryTableStorage(
             TableConfiguration tableCfg,
@@ -72,7 +74,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
-                tablesCfg,
                 partitionId,
                 versionChainTree,
                 indexMetaTree,
@@ -145,19 +146,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     }
 
     @Override
-    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        // TODO: IGNITE-18028 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
-        // TODO: IGNITE-18028 Implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+    CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         // TODO: IGNITE-18028 Implement
         throw new UnsupportedOperationException();
     }
@@ -172,6 +161,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         // we don't care when it finishes.
         volatilePartitionStorage.destroyStructures();
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 }
