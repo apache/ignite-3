@@ -32,6 +32,7 @@ namespace {
  */
 constexpr std::string_view SYSTEM_SHELL = IGNITE_SWITCH_WIN_OTHER("cmd.exe", "/bin/sh");
 constexpr std::string_view SYSTEM_SHELL_ARG_0 = IGNITE_SWITCH_WIN_OTHER("/c ", "-c");
+constexpr std::string_view GRADLEW_SCRIPT = IGNITE_SWITCH_WIN_OTHER("gradlew.bat", "./gradlew");
 
 } // anonymous namespace
 
@@ -45,14 +46,17 @@ void IgniteRunner::start() {
     std::vector<std::string> args;
     args.emplace_back(SYSTEM_SHELL_ARG_0);
 
-    std::string command = "gradlew :ignite-runner:runnerPlatformTest --no-daemon"
-        " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
+    std::string command{GRADLEW_SCRIPT};
+    command += " :ignite-runner:runnerPlatformTest"
+               " --no-daemon"
+               " -x compileJava"
+               " -x compileTestFixturesJava"
+               " -x compileIntegrationTestJava"
+               " -x compileTestJava";
 
     args.emplace_back(command);
 
-    auto workDir = std::filesystem::path(home) / "modules" / "runner";
-
-    m_process = CmdProcess::make(std::string(SYSTEM_SHELL), args, workDir.string());
+    m_process = CmdProcess::make(std::string(SYSTEM_SHELL), args, home);
     if (!m_process->start()) {
         m_process.reset();
 

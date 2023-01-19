@@ -115,6 +115,7 @@ public:
             }
         }
 
+        m_logger->log_debug("Performing request: op=" + std::to_string(int(op)) + ", req_id=" + std::to_string(reqId));
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
             get_and_remove_handler(reqId);
