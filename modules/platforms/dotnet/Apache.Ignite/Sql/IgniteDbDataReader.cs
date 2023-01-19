@@ -180,8 +180,11 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override string GetDataTypeName(int ordinal) => Metadata.Columns[ordinal].Type.ToString();
 
     /// <inheritdoc/>
-    public override DateTime GetDateTime(int ordinal) =>
-        GetReader(ordinal, typeof(LocalDateTime)).GetDateTime(ordinal).ToDateTimeUnspecified();
+    public override DateTime GetDateTime(int ordinal)
+    {
+        // TODO: Support DateOnly and TimeOnly here.
+        return GetReader(ordinal, typeof(LocalDateTime)).GetDateTime(ordinal).ToDateTimeUnspecified();
+    }
 
     /// <inheritdoc/>
     public override decimal GetDecimal(int ordinal)
