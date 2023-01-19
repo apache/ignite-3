@@ -195,52 +195,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override bool NextResult() => throw new NotSupportedException("Batched result sets are not supported.");
 
     /// <inheritdoc/>
-    public override bool Read()
-    {
-        // TODO: If within current page, do it more efficiently.
-        return ReadAsync().GetAwaiter().GetResult();
-    }
+    public override bool Read() => ReadNextRowInCurrentPage() || FetchNextPage().GetAwaiter().GetResult();
 
     /// <inheritdoc/>
-    public override Task<bool> ReadAsync(CancellationToken cancellationToken)
-    {
-        if (_pageRowCount > 0 && _pageRowIndex < _pageRowCount - 1)
-        {
-            ReadNextRowInCurrentPage();
-            return TrueTask;
-        }
-
-        return FetchNextPage();
-
-        void ReadNextRowInCurrentPage()
-        {
-            _pageRowIndex++;
-            _pageRowOffset += _pageRowSize;
-            _pageRowSize = _pageEnumerator.Current.GetReader(_pageRowOffset).ReadBinaryHeader();
-        }
-
-        void ReadFirstRowInCurrentPage()
-        {
-            var reader = _pageEnumerator.Current.GetReader();
-
-            _pageRowCount = reader.ReadArrayHeader();
-            _pageRowOffset = reader.Consumed;
-            _pageRowSize = reader.ReadBinaryHeader() + reader.Consumed - _pageRowOffset;
-            _pageRowIndex = 0;
-        }
-
-        async Task<bool> FetchNextPage()
-        {
-            if (!await _pageEnumerator.MoveNextAsync().ConfigureAwait(false))
-            {
-                return false;
-            }
-
-            ReadFirstRowInCurrentPage();
-
-            return true;
-        }
-    }
+    public override Task<bool> ReadAsync(CancellationToken cancellationToken) => ReadNextRowInCurrentPage() ? TrueTask : FetchNextPage();
 
     /// <inheritdoc/>
     public override IEnumerator GetEnumerator()
@@ -318,5 +276,41 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         var tupleSpan = reader.ReadBinary();
 
         return new BinaryTupleReader(tupleSpan, FieldCount);
+    }
+
+    private bool ReadNextRowInCurrentPage()
+    {
+        if (_pageRowCount <= 0 || _pageRowIndex >= _pageRowCount - 1)
+        {
+            return false;
+        }
+
+        _pageRowIndex++;
+        _pageRowOffset += _pageRowSize;
+        _pageRowSize = _pageEnumerator.Current.GetReader(_pageRowOffset).ReadBinaryHeader();
+
+        return true;
+    }
+
+    private async Task<bool> FetchNextPage()
+    {
+        if (!await _pageEnumerator.MoveNextAsync().ConfigureAwait(false))
+        {
+            return false;
+        }
+
+        ReadFirstRowInCurrentPage();
+
+        return true;
+
+        void ReadFirstRowInCurrentPage()
+        {
+            var reader = _pageEnumerator.Current.GetReader();
+
+            _pageRowCount = reader.ReadArrayHeader();
+            _pageRowOffset = reader.Consumed;
+            _pageRowSize = reader.ReadBinaryHeader() + reader.Consumed - _pageRowOffset;
+            _pageRowIndex = 0;
+        }
     }
 }
