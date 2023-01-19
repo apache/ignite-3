@@ -34,6 +34,9 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
+ */
 public class StorageUpdateHandler {
     /** Partition id. */
     private final int partitionId;
@@ -49,6 +52,15 @@ public class StorageUpdateHandler {
         this.indexes = indexes;
     }
 
+    /**
+     * Handle single update.
+     *
+     * @param txId Transaction id.
+     * @param rowUuid Row UUID.
+     * @param commitPartitionId Commit partition id.
+     * @param rowBuffer Row buffer.
+     * @param onReplication Callback on replication.
+     */
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
@@ -74,6 +86,14 @@ public class StorageUpdateHandler {
         });
     }
 
+    /**
+     * Handle multiple updates.
+     *
+     * @param txId Transaction id.
+     * @param rowsToUpdate Collection of rows to update.
+     * @param commitPartitionId Commit partition id.
+     * @param onReplication On replication callback.
+     */
     public void handleUpdateAll(
             UUID txId,
             Map<UUID, ByteBuffer> rowsToUpdate,

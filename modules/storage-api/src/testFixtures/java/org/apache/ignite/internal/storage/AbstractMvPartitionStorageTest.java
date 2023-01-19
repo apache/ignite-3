@@ -45,7 +45,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
@@ -98,6 +97,18 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         // Read with timestamp returns write-intent.
         assertRowMatches(read(rowId, clock.now()), binaryRow);
+
+        // Remove write.
+        addWrite(rowId, null, txId);
+
+        // Removed row can't be read.
+        assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
+
+        // Remove write once again.
+        addWrite(rowId, null, txId);
+
+        // Still can't be read.
+        assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
     }
 
     /**

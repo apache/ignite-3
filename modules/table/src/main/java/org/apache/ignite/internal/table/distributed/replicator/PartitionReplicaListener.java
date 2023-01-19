@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
@@ -43,6 +44,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -80,6 +82,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
+import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -115,6 +118,7 @@ import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -1041,17 +1045,22 @@ public class PartitionReplicaListener implements ReplicaListener {
             return failedFuture(e);
         }
 
-        TxCleanupReadyFuture readyFuture = txCleanupReadyFutures.compute(request.txId(), (txId, fut) -> {
+        List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
+
+        txCleanupReadyFutures.compute(request.txId(), (txId, fut) -> {
             if (fut == null) {
                 fut = new TxCleanupReadyFuture();
             }
 
             fut.locked = true;
-
+            txUpdateFutures.addAll(fut.futures);
             return fut;
         });
 
-        return allOf(readyFuture.futures.toArray(new CompletableFuture[] {})).thenCompose(v -> {
+        CompletableFuture<Void> txReadyFuture = txUpdateFutures.isEmpty() ? completedFuture(null)
+                : allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()]));
+
+        return txReadyFuture.thenCompose(v -> {
             HybridTimestampMessage timestampMsg = hybridTimestamp(request.commitTimestamp());
 
             TxCleanupCommand txCleanupCmd = msgFactory.txCleanupCommand()
@@ -1417,27 +1426,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateCommand(UpdateCommand cmd) {
-        CompletableFuture<Object> res = applyCmdWithExceptionHandling(cmd);
-
-        TxCleanupReadyFuture readyFuture = txCleanupReadyFutures.compute(cmd.txId(), (txId, fut) -> {
-            if (fut == null) {
-                fut = new TxCleanupReadyFuture();
-            }
-
-            if (fut.locked) {
-                throw new RuntimeException("Transaction if already finished.");
-            }
-
-            fut.futures.add(res);
-
-            return fut;
-        });
-
-        if (!readyFuture.locked) {
+        return applyUpdatingCommand(cmd.txId(), () -> {
             storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(), null);
-        }
 
-        return res;
+            return applyCmdWithExceptionHandling(cmd);
+        });
     }
 
     /**
@@ -1447,27 +1440,33 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateAllCommand(UpdateAllCommand cmd) {
-        CompletableFuture<Object> res = applyCmdWithExceptionHandling(cmd);
+        return applyUpdatingCommand(cmd.txId(), () -> {
+            storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null);
 
-        TxCleanupReadyFuture readyFuture = txCleanupReadyFutures.compute(cmd.txId(), (txId, fut) -> {
+            return applyCmdWithExceptionHandling(cmd);
+        });
+    }
+
+    private CompletableFuture<Object> applyUpdatingCommand(UUID txId, Supplier<CompletableFuture<Object>> closure) {
+        AtomicReference<CompletableFuture<Object>> resRef = new AtomicReference<>();
+
+        txCleanupReadyFutures.compute(txId, (id, fut) -> {
             if (fut == null) {
                 fut = new TxCleanupReadyFuture();
             }
 
             if (fut.locked) {
-                throw new RuntimeException("Transaction if already finished.");
+                throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction if already finished.");
             }
 
-            fut.futures.add(res);
+            CompletableFuture<Object> applyCmdFuture = closure.get();
+            resRef.set(applyCmdFuture);
+            fut.futures.add(applyCmdFuture);
 
             return fut;
         });
 
-        if (!readyFuture.locked) {
-            storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null);
-        }
-
-        return res;
+        return resRef.get();
     }
 
     /**
@@ -2062,12 +2061,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private static class TxCleanupReadyFuture {
-        private List<CompletableFuture<?>> futures = new ArrayList<>();
+        final List<CompletableFuture<?>> futures = new ArrayList<>();
 
-        private boolean locked;
-
-        private boolean completed;
-
-        private Exception exception;
+        volatile boolean locked;
     }
 }
