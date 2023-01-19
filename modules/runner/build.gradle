@@ -54,6 +54,7 @@ dependencies {
     implementation project(':ignite-metrics')
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-placement-driver')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
