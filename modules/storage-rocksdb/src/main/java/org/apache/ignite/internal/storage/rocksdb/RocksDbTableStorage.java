@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -133,7 +134,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     private final ConcurrentMap<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
+    private final Set<Integer> rebalancePartitions = ConcurrentHashMap.newKeySet();
 
     /**
      * Constructor.
@@ -413,7 +414,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> {
             checkPartitionId(partitionId);
 
-            assert !rebalanceFutureByPartitionId.containsKey(partitionId)
+            assert !rebalancePartitions.contains(partitionId)
                     : IgniteStringFormatter.format("table={}, partitionId={}", getTableName(), partitionId);
 
             CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
@@ -661,13 +662,11 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                 db.write(writeOptions, writeBatch);
 
-                CompletableFuture<Void> rebalanceFuture = completedFuture(null);
+                boolean added = rebalancePartitions.add(partitionId);
 
-                CompletableFuture<Void> previousRebalanceFuture = rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture);
+                assert added : mvPartitionStorage.createStorageInfo();
 
-                assert previousRebalanceFuture == null : mvPartitionStorage.createStorageInfo();
-
-                return rebalanceFuture;
+                return completedFuture(null);
             } catch (RocksDBException e) {
                 throw new StorageRebalanceException(
                         "Error when trying to start rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
@@ -686,27 +685,27 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+            boolean removed = rebalancePartitions.remove(partitionId);
 
-            if (rebalanceFuture == null) {
+            if (!removed) {
                 return completedFuture(null);
             }
 
-            return rebalanceFuture.thenAccept(unused -> {
-                try (WriteBatch writeBatch = new WriteBatch()) {
-                    mvPartitionStorage.abortReblance(writeBatch);
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.abortReblance(writeBatch);
 
-                    getHashIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
-                    getSortedIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
+                getHashIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
+                getSortedIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
 
-                    db.write(writeOptions, writeBatch);
-                } catch (RocksDBException e) {
-                    throw new StorageRebalanceException(
-                            "Error when trying to abort rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
-                            e
-                    );
-                }
-            });
+                db.write(writeOptions, writeBatch);
+
+                return completedFuture(null);
+            } catch (RocksDBException e) {
+                throw new StorageRebalanceException(
+                        "Error when trying to abort rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                        e
+                );
+            }
         });
     }
 
@@ -719,27 +718,27 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+            boolean removed = rebalancePartitions.remove(partitionId);
 
-            if (rebalanceFuture == null) {
+            if (!removed) {
                 throw new StorageRebalanceException("Rebalance for partition did not start: " + mvPartitionStorage.createStorageInfo());
             }
 
-            return rebalanceFuture.thenAccept(unused -> {
-                try (WriteBatch writeBatch = new WriteBatch()) {
-                    mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
-                    getHashIndexStorages(partitionId).forEach(RocksDbHashIndexStorage::finishRebalance);
-                    getSortedIndexStorages(partitionId).forEach(RocksDbSortedIndexStorage::finishRebalance);
+                getHashIndexStorages(partitionId).forEach(RocksDbHashIndexStorage::finishRebalance);
+                getSortedIndexStorages(partitionId).forEach(RocksDbSortedIndexStorage::finishRebalance);
 
-                    db.write(writeOptions, writeBatch);
-                } catch (RocksDBException e) {
-                    throw new StorageRebalanceException(
-                            "Error when trying to finish rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
-                            e
-                    );
-                }
-            });
+                db.write(writeOptions, writeBatch);
+
+                return completedFuture(null);
+            } catch (RocksDBException e) {
+                throw new StorageRebalanceException(
+                        "Error when trying to finish rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                        e
+                );
+            }
         });
     }
 

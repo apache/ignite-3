@@ -324,7 +324,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                lastAppliedBusy(requireWriteBatch(), lastAppliedIndex, lastAppliedTerm);
+                saveLastApplied(requireWriteBatch(), lastAppliedIndex, lastAppliedTerm);
 
                 return null;
             } catch (RocksDBException e) {
@@ -333,7 +333,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private void lastAppliedBusy(AbstractWriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+    private void saveLastApplied(AbstractWriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
         writeBatch.put(meta, lastAppliedIndexKey, longToBytes(lastAppliedIndex));
         writeBatch.put(meta, lastAppliedTermKey, longToBytes(lastAppliedTerm));
 
@@ -1512,22 +1512,22 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         try {
-            lastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+            saveLastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
     }
 
     private void clearStorageOnRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
-        lastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+        saveLastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.delete(meta, partitionIdKey(partitionId));
         writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
     }
 
-    private void lastAppliedOnRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
-        lastAppliedBusy(writeBatch, lastAppliedIndex, lastAppliedTerm);
+    private void saveLastAppliedOnRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+        saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
