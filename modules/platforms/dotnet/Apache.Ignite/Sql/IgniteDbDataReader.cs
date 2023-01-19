@@ -223,7 +223,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override long GetInt64(int ordinal) => Metadata.Columns[ordinal].Type switch
     {
-        // TODO: Can reader handle compatible types?
+        // TODO: Can reader handle compatible types? It can, but it ignores mismatches - IGNITE-18588
         SqlColumnType.Int8 => GetReader().GetByte(ordinal),
         SqlColumnType.Int16 => GetReader().GetShort(ordinal),
         SqlColumnType.Int32 => GetReader().GetInt(ordinal),
