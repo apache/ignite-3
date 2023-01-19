@@ -381,14 +381,13 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        checkTx(ses, true, false, true, planMatcher);
-        checkTx(ses, true, false, false, planMatcher);
-        checkTx(ses, true, true, true, planMatcher);
-        checkTx(ses, true, true, false, planMatcher);
-        checkTx(ses, false, true, true, planMatcher);
-        checkTx(ses, false, true, false, planMatcher);
-        checkTx(ses, false, false, true, planMatcher);
-        checkTx(ses, false, false, false, planMatcher);
+        for (int roTx = 0; roTx < 2; roTx++) {
+            for (int commit = 0; commit < 2; commit++) {
+                for (int explicit = 0; explicit < 2; explicit++) {
+                    checkTx(ses, roTx == 0, commit == 0, explicit == 0, planMatcher);
+                }
+            }
+        }
     }
 
     private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) throws Exception {
