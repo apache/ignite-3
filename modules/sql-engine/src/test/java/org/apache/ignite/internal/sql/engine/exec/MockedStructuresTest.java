@@ -276,6 +276,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(itMock.hasNext()).thenReturn(false);
         when(msm.prefix(any())).thenReturn(cursorMocked);
         when(cursorMocked.iterator()).thenReturn(itMock);
+        when(msm.registerPrefixWatch(any(), any())).thenReturn(completedFuture(1L));
     }
 
     /**
