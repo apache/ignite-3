@@ -182,8 +182,15 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override DateTime GetDateTime(int ordinal)
     {
-        // TODO: Support DateOnly and TimeOnly here.
-        return GetReader(ordinal, typeof(LocalDateTime)).GetDateTime(ordinal).ToDateTimeUnspecified();
+        var column = Metadata.Columns[ordinal];
+
+        return column.Type switch
+        {
+            SqlColumnType.Date => GetReader().GetDate(ordinal).ToDateTimeUnspecified(),
+            SqlColumnType.Datetime => GetReader().GetDateTime(ordinal).ToDateTimeUnspecified(),
+            SqlColumnType.Timestamp => GetReader().GetTimestamp(ordinal).ToDateTimeUtc(),
+            _ => throw GetInvalidColumnTypeException(typeof(DateTime), column)
+        };
     }
 
     /// <inheritdoc/>
@@ -333,9 +340,12 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     {
         if (column.Type != type.ToSqlColumnType())
         {
-            throw new InvalidCastException($"Column {column.Name} of type {column.Type} can not be cast to {type}.");
+            throw GetInvalidColumnTypeException(type, column);
         }
     }
+
+    private static InvalidCastException GetInvalidColumnTypeException(Type type, IColumnMetadata column) =>
+        new($"Column {column.Name} of type {column.Type} can not be cast to {type}.");
 
     private BinaryTupleReader GetReader(int ordinal, Type type)
     {
