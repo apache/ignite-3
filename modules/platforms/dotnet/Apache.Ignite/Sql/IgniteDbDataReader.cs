@@ -351,7 +351,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         }
 
         // TODO: Cache tuple reader header somehow?
-        // TODO: Deal with rows.
+        // TODO: Benchmark this.
         var reader = _pageEnumerator.Current.GetReader(_pageRowOffset);
         var tupleSpan = reader.ReadBinary();
 
