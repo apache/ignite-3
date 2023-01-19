@@ -136,10 +136,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override char GetChar(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override char GetChar(int ordinal) => throw new NotSupportedException("char data type is not supported");
 
     /// <inheritdoc/>
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
@@ -175,10 +172,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override string GetDataTypeName(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override string GetDataTypeName(int ordinal) => Metadata.Columns[ordinal].Type.ToString();
 
     /// <inheritdoc/>
     public override DateTime GetDateTime(int ordinal)
@@ -189,32 +183,24 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override decimal GetDecimal(int ordinal)
     {
-        throw new NotImplementedException();
+        var column = Metadata.Columns[ordinal];
+
+        ValidateColumnType(typeof(decimal), column);
+
+        return GetReader().GetDecimal(ordinal, column.Scale);
     }
 
     /// <inheritdoc/>
-    public override double GetDouble(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override double GetDouble(int ordinal) => GetReader(ordinal, typeof(double)).GetDouble(ordinal);
 
     /// <inheritdoc/>
-    public override Type GetFieldType(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
 
     /// <inheritdoc/>
-    public override float GetFloat(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override float GetFloat(int ordinal) => GetReader(ordinal, typeof(float)).GetFloat(ordinal);
 
     /// <inheritdoc/>
-    public override Guid GetGuid(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override Guid GetGuid(int ordinal) => GetReader(ordinal, typeof(Guid)).GetGuid(ordinal);
 
     /// <inheritdoc/>
     public override short GetInt16(int ordinal) => GetReader(ordinal, typeof(short)).GetShort(ordinal);
@@ -310,14 +296,19 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-    private BinaryTupleReader GetReader(int ordinal, Type type)
+    private static void ValidateColumnType(Type type, IColumnMetadata column)
     {
-        var column = Metadata.Columns[ordinal];
-
         if (column.Type != type.ToSqlColumnType())
         {
             throw new InvalidCastException($"Column {column.Name} of type {column.Type} can not be cast to {type}.");
         }
+    }
+
+    private BinaryTupleReader GetReader(int ordinal, Type type)
+    {
+        var column = Metadata.Columns[ordinal];
+
+        ValidateColumnType(type, column);
 
         return GetReader();
     }
