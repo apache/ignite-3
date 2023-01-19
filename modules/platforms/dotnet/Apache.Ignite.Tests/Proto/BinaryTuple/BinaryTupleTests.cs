@@ -124,6 +124,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             var reader = new BinaryTupleReader(res, 1);
             Assert.AreEqual(value, reader.GetByte(0));
+            Assert.AreEqual(value, reader.GetShort(0));
+            Assert.AreEqual(value, reader.GetLong(0));
         }
 
         [Test]
