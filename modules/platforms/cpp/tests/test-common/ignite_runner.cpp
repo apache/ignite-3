@@ -46,7 +46,7 @@ void IgniteRunner::start() {
     args.emplace_back(SYSTEM_SHELL_ARG_0);
 
     std::string command = "gradlew :ignite-runner:runnerPlatformTest --no-daemon"
-                                             + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava"
+        " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
 
     args.emplace_back(command);
 

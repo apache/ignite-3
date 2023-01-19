@@ -33,10 +33,8 @@ class IgniteRunner {
 public:
     /**
      * Start node.
-     *
-     * @param dryRun Perform a dry run. Mostly used to ensure that code is compiled and all artifacts are downloaded.
      */
-    void start(bool dryRun = false);
+    void start();
 
     /**
      * Stop node.
