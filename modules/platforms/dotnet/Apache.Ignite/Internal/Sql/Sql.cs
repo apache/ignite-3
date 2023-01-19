@@ -67,6 +67,11 @@ namespace Apache.Ignite.Internal.Sql
         {
             var resultSet = await ExecuteAsyncInternal<object>(transaction, statement, _ => null!, args).ConfigureAwait(false);
 
+            if (!resultSet.HasRowSet)
+            {
+                throw new InvalidOperationException($"{nameof(ExecuteReaderAsync)} does not support queries without row set (DDL, DML).");
+            }
+
             return new IgniteDbDataReader(resultSet);
         }
 

@@ -22,6 +22,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,9 +63,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <param name="resultSet">Result set.</param>
     internal IgniteDbDataReader(ResultSet<object> resultSet)
     {
+        Debug.Assert(_resultSet!.HasRowSet, "_resultSet.HasRowSet");
+
         _resultSet = resultSet;
 
-        // TODO: Should we support non-query result sets?
         _pageEnumerator = _resultSet.EnumeratePagesInternal().GetAsyncEnumerator();
     }
 
