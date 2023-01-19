@@ -25,7 +25,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
-import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.HashMap;
@@ -181,7 +180,7 @@ public class ValidationUtilTest {
             }
         };
 
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(LeafValidation.class, Set.of(validator));
+        List<Validator<LeafValidation, String>> validators = List.of(validator);
 
         List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
@@ -221,7 +220,7 @@ public class ValidationUtilTest {
             }
         };
 
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(InnerValidation.class, Set.of(validator));
+        List<Validator<InnerValidation, ?>> validators = List.of(validator);
 
         List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
@@ -253,7 +252,7 @@ public class ValidationUtilTest {
             }
         };
 
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(NamedListValidation.class, Set.of(validator));
+        List<Validator<NamedListValidation, NamedListView<?>>> validators = List.of(validator);
 
         List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
@@ -329,11 +328,7 @@ public class ValidationUtilTest {
             }
         };
 
-        Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(
-                InnerValidation.class, Set.of(innerValidator),
-                LeafValidation.class, Set.of(leafValidator),
-                NamedListValidation.class, Set.of(namedListValidator)
-        );
+        List<Validator<?, ?>> validators = List.of(innerValidator, leafValidator, namedListValidator);
 
         List<ValidationIssue> validationIssues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 

@@ -22,8 +22,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,7 +58,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param key The key.
      * @return Value corresponding to the given key.
      */
-    @NotNull Entry get(byte[] key);
+    Entry get(byte[] key);
 
     /**
      * Returns an entry by the given key and bounded by the given revision.
@@ -64,7 +67,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param revUpperBound The upper bound of revision.
      * @return Value corresponding to the given key.
      */
-    @NotNull Entry get(byte[] key, long revUpperBound);
+    Entry get(byte[] key, long revUpperBound);
 
     /**
      * Returns all entries corresponding to given keys.
@@ -72,7 +75,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param keys Keys collection.
      * @return Entries corresponding to given keys.
      */
-    @NotNull Collection<Entry> getAll(List<byte[]> keys);
+    Collection<Entry> getAll(List<byte[]> keys);
 
     /**
      * Returns all entries corresponding to given keys and bounded by the given revision.
@@ -81,7 +84,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param revUpperBound Upper bound of revision.
      * @return Entries corresponding to given keys.
      */
-    @NotNull Collection<Entry> getAll(List<byte[]> keys, long revUpperBound);
+    Collection<Entry> getAll(List<byte[]> keys, long revUpperBound);
 
     /**
      * Inserts an entry with the given key and given value.
@@ -98,7 +101,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param value The value.
      * @return Previous entry corresponding to the given key.
      */
-    @NotNull Entry getAndPut(byte[] key, byte[] value);
+    Entry getAndPut(byte[] key, byte[] value);
 
     /**
      * Inserts entries with given keys and given values.
@@ -115,7 +118,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param values The values list.
      * @return Collection of previous entries corresponding to given keys.
      */
-    @NotNull Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
+    Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values);
 
     /**
      * Removes an entry with the given key.
@@ -130,7 +133,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param key The key.
      * @return Previous entry.
      */
-    @NotNull Entry getAndRemove(byte[] key);
+    Entry getAndRemove(byte[] key);
 
     /**
      * Remove all entries corresponding to given keys.
@@ -145,7 +148,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param keys The keys list.
      * @return Previous entries.
      */
-    @NotNull Collection<Entry> getAndRemoveAll(List<byte[]> keys);
+    Collection<Entry> getAndRemoveAll(List<byte[]> keys);
 
     /**
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.
@@ -166,7 +169,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @see If
      * @see StatementResult
      */
-    @NotNull StatementResult invoke(@NotNull If iif);
+    StatementResult invoke(If iif);
 
     /**
      * Returns cursor by entries which correspond to the given keys range.
@@ -188,6 +191,28 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @return Cursor by entries which correspond to the given keys range.
      */
     Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones);
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order.
+     *
+     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones);
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
+     * number.
+     *
+     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param revUpperBound Upper bound of revision.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones);
 
     /**
      * Creates subscription on updates of entries corresponding to the given keys range and starting from the given revision number.

@@ -30,6 +30,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
@@ -40,6 +43,7 @@ import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
+import org.apache.ignite.internal.metastorage.command.PrefixCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RangeCommand;
@@ -61,23 +65,20 @@ import org.apache.ignite.internal.metastorage.command.info.StatementInfo;
 import org.apache.ignite.internal.metastorage.command.info.UpdateInfo;
 import org.apache.ignite.internal.metastorage.dsl.CompoundConditionType;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
-import org.apache.ignite.internal.metastorage.server.Entry;
-import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.Operation;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.Statement;
-import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
-import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
-import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -253,19 +254,27 @@ public class MetaStorageListener implements RaftGroupListener {
 
                 IgniteUuid cursorId = rangeCmd.cursorId();
 
-                Cursor<Entry> cursor = (rangeCmd.revUpperBound() != -1)
+                Cursor<Entry> cursor = rangeCmd.revUpperBound() != -1
                         ? storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.revUpperBound(), rangeCmd.includeTombstones())
                         : storage.range(rangeCmd.keyFrom(), rangeCmd.keyTo(), rangeCmd.includeTombstones());
 
-                cursors.put(
-                        cursorId,
-                        new CursorMeta(
-                                cursor,
-                                CursorType.RANGE,
-                                rangeCmd.requesterNodeId(),
-                                rangeCmd.batchSize()
-                        )
-                );
+                var cursorMeta = new CursorMeta(cursor, CursorType.RANGE, rangeCmd.requesterNodeId(), rangeCmd.batchSize());
+
+                cursors.put(cursorId, cursorMeta);
+
+                clo.result(cursorId);
+            } else if (command instanceof PrefixCommand) {
+                var prefixCmd = (PrefixCommand) command;
+
+                IgniteUuid cursorId = prefixCmd.cursorId();
+
+                Cursor<Entry> cursor = prefixCmd.revUpperBound() == -1
+                        ? storage.prefix(prefixCmd.prefix(), prefixCmd.includeTombstones())
+                        : storage.prefix(prefixCmd.prefix(), prefixCmd.revUpperBound(), prefixCmd.includeTombstones());
+
+                var cursorMeta = new CursorMeta(cursor, CursorType.RANGE, prefixCmd.requesterNodeId(), prefixCmd.batchSize());
+
+                cursors.put(cursorId, cursorMeta);
 
                 clo.result(cursorId);
             } else if (command instanceof CursorNextCommand) {
@@ -304,7 +313,7 @@ public class MetaStorageListener implements RaftGroupListener {
                         for (EntryEvent e : evt.entryEvents()) {
                             Entry o = e.oldEntry();
 
-                            Entry n = e.entry();
+                            Entry n = e.newEntry();
 
                             resp.add(new SingleEntryResponse(o.key(), o.value(), o.revision(), o.updateCounter()));
 

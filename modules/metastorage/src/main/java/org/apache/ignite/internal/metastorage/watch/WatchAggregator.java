@@ -192,7 +192,7 @@ public class WatchAggregator {
                     var filteredEvts = new ArrayList<EntryEvent>();
 
                     for (EntryEvent entryEvt : evt.entryEvents()) {
-                        if (watch.keyCriterion().contains(entryEvt.oldEntry().key())) {
+                        if (watch.keyCriterion().contains(new ByteArray(entryEvt.oldEntry().key()))) {
                             filteredEvts.add(entryEvt);
                         }
                     }
@@ -217,7 +217,7 @@ public class WatchAggregator {
                 for (EntryEvent entryEvt : evt.entryEvents()) {
                     revision = entryEvt.newEntry().revision();
 
-                    entries.add(new IgniteBiTuple<>(entryEvt.newEntry().key(), entryEvt.newEntry().value()));
+                    entries.add(new IgniteBiTuple<>(new ByteArray(entryEvt.newEntry().key()), entryEvt.newEntry().value()));
                 }
 
                 storeRevision.accept(entries, revision);

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
 
@@ -72,5 +73,14 @@ class HashIndex {
 
             hashIndex.destroyData(writeBatch);
         }
+    }
+
+    /**
+     * Returns hash index storage for partition.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable RocksDbHashIndexStorage get(int partitionId) {
+        return storages.get(partitionId);
     }
 }

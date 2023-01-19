@@ -28,6 +28,8 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
 
 import jakarta.inject.Inject;
+import java.io.File;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
 import org.jline.reader.LineReader;
 import org.jline.reader.ParsedLine;
@@ -354,6 +357,81 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
         // Then node name comes back to suggestions
         await().until(() -> complete(givenParsedLine), containsInAnyOrder(allNodeNames().toArray()));
+    }
+
+    @Test
+    @DisplayName("jdbc url suggested after --jdbc-url option")
+    void suggestedJdbcUrl() {
+        // Given
+        connected();
+        // And the first update is fetched
+        await().until(() -> jdbcUrlRegistry.jdbcUrls(), not(empty()));
+
+        // Then
+        List<String> completions = complete(words("sql", "--jdbc-url", ""));
+        assertThat(completions, containsInAnyOrder(jdbcUrlRegistry.jdbcUrls().toArray()));
+    }
+
+    private Stream<Arguments> clusterUrlSource() {
+        return Stream.of(
+                words("cluster", "config", "show", "--cluster-endpoint-url", ""),
+                words("cluster", "config", "update", "--cluster-endpoint-url", ""),
+                words("cluster", "status", "--cluster-endpoint-url", ""),
+                words("cluster", "init", "--cluster-endpoint-url", "")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("clusterUrlSource")
+    @DisplayName("cluster url suggested after --cluster-endpoint-url option")
+    void suggestedClusterUrl(ParsedLine parsedLine) {
+        // Given
+        connected();
+        // And the first update is fetched
+        await().until(() -> nodeNameRegistry.urls(), not(empty()));
+
+        // Then
+        String[] expectedUrls = nodeNameRegistry.urls().stream().map(URL::toString).toArray(String[]::new);
+        assertThat("For given parsed words: " + parsedLine.words(),
+                complete(parsedLine),
+                containsInAnyOrder(expectedUrls));
+    }
+
+    @Test
+    @DisplayName("files suggested after -script-file option")
+    void suggestedScriptFile() {
+        // Given files
+
+        // Create temp folders
+        File rootFolder = Files.newTemporaryFolder();
+        File emptyFolder = Files.newFolder(rootFolder.getPath() + File.separator + "emptyFolder");
+        emptyFolder.deleteOnExit();
+        File scriptsFolder = Files.newFolder(rootFolder.getPath() + File.separator + "scriptsFolder");
+        scriptsFolder.deleteOnExit();
+
+        // Create temp files
+        String script1 = scriptsFolder.getPath() + File.separator + "script1.sql";
+        Files.newFile(script1).deleteOnExit();
+
+        String script2 = scriptsFolder.getPath() + File.separator + "script2.sql";
+        Files.newFile(script2).deleteOnExit();
+
+        String someFile = scriptsFolder.getPath() + File.separator + "someFile.sql";
+        Files.newFile(someFile).deleteOnExit();
+
+        // When complete --script-file with folder typed
+        List<String> completions1 = complete(words("sql", "--script-file", rootFolder.getPath()));
+        // Then completions contain emptyFolder and scriptsFolder
+        assertThat(completions1, containsInAnyOrder(emptyFolder.getPath(), scriptsFolder.getPath()));
+
+        List<String> completions2 = complete(words("sql", "--script-file", scriptsFolder.getPath()));
+        // Then completions contain all given files
+        assertThat(completions2, containsInAnyOrder(script1, script2, someFile));
+
+        // When complete --script-file with partial path to script
+        List<String> completions3 = complete(words("sql", "--script-file", scriptsFolder.getPath() + File.separator + "script"));
+        // Then completions contain script1 and script2 files
+        assertThat(completions3, containsInAnyOrder(script1, script2));
     }
 
     List<String> complete(ParsedLine typedWords) {

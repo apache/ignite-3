@@ -22,7 +22,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -31,26 +30,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class TestMvTableStorageTest extends AbstractMvTableStorageTest {
-    private TestMvTableStorage storage;
-
     @BeforeEach
     void setUp(
-            @InjectConfiguration(
-                    value = "mock.tables.foo.dataStorage.name = " + TestStorageEngine.ENGINE_NAME
-            )
+            @InjectConfiguration("mock.tables.foo.dataStorage.name = " + TestStorageEngine.ENGINE_NAME)
             TablesConfiguration tablesConfig
     ) {
-        storage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
-
-        storage.start();
-
-        initialize(storage, tablesConfig);
-    }
-
-    @AfterEach
-    void tearDown() {
-        if (storage != null) {
-            storage.stop();
-        }
+        initialize(new TestStorageEngine(), tablesConfig);
     }
 }

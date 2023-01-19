@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
 import java.nio.file.Path;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +36,13 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /** Lexicographical comparator. */
-    private static final Comparator<byte[]> CMP = Arrays::compare;
+    private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
     /**
      * Special value for revision number which means that operation should be applied to the latest revision of an entry.
@@ -55,7 +63,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
 
     /** Revisions index. Value contains all entries which were modified under particular revision. */
-    private NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new TreeMap<>();
+    private Map<Long, NavigableMap<byte[], Value>> revsIdx = new HashMap<>();
 
     /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
     private long rev;
@@ -353,21 +361,38 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, boolean includeTombstones) {
+        long currentRevision;
+
         synchronized (mux) {
-            return new RangeCursor(keyFrom, keyTo, rev, includeTombstones);
+            currentRevision = rev;
         }
+
+        return range(keyFrom, keyTo, currentRevision, includeTombstones);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones) {
         return new RangeCursor(keyFrom, keyTo, revUpperBound, includeTombstones);
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones) {
+        long currentRevision;
+
+        synchronized (mux) {
+            currentRevision = rev;
+        }
+
+        return prefix(prefix, currentRevision, includeTombstones);
+    }
+
+    @Override
+    public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
+        return new RangeCursor(prefix, incrementArray(prefix), revUpperBound, includeTombstones);
+    }
+
     @Override
     public Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
         assert keyFrom != null : "keyFrom couldn't be null.";
@@ -378,7 +403,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<WatchEvent> watch(byte[] key, long rev) {
         assert key != null : "key couldn't be null.";
@@ -387,7 +411,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return new WatchCursor(rev, k -> CMP.compare(k, key) == 0);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev) {
         assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
@@ -400,13 +423,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return new WatchCursor(rev, keySet::contains);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void compact() {
         synchronized (mux) {
             NavigableMap<byte[], List<Long>> compactedKeysIdx = new TreeMap<>(CMP);
 
-            NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
+            Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new HashMap<>();
 
             keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx));
 
@@ -416,20 +438,17 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @NotNull
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void restoreSnapshot(Path snapshotPath) {
         throw new UnsupportedOperationException();
@@ -450,8 +469,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private void compactForKey(
             byte[] key,
             List<Long> revs,
-            NavigableMap<byte[], List<Long>> compactedKeysIdx,
-            NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx
+            Map<byte[], List<Long>> compactedKeysIdx,
+            Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx
     ) {
         Long lastRev = lastRevision(revs);
 
@@ -495,7 +514,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         List<Long> revs = keysIdx.get(key);
 
         if (revs == null || revs.isEmpty()) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         long lastRev;
@@ -508,7 +527,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         // lastRev can be -1 if maxRevision return -1.
         if (lastRev == -1) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         return doGetValue(key, lastRev);
@@ -539,22 +558,22 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @NotNull
     private Entry doGetValue(byte[] key, long lastRev) {
         if (lastRev == 0) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         NavigableMap<byte[], Value> lastRevVals = revsIdx.get(lastRev);
 
         if (lastRevVals == null || lastRevVals.isEmpty()) {
-            return Entry.empty(key);
+            return EntryImpl.empty(key);
         }
 
         Value lastVal = lastRevVals.get(key);
 
         if (lastVal.tombstone()) {
-            return Entry.tombstone(key, lastRev, lastVal.updateCounter());
+            return EntryImpl.tombstone(key, lastRev, lastVal.updateCounter());
         }
 
-        return new Entry(key, lastVal.bytes(), lastRev, lastVal.updateCounter());
+        return new EntryImpl(key, lastVal.bytes(), lastRev, lastVal.updateCounter());
     }
 
     private long doPut(byte[] key, byte[] bytes, long curRev) {
@@ -854,9 +873,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                                         Entry newEntry;
 
                                         if (val.tombstone()) {
-                                            newEntry = Entry.tombstone(key, nextRetRev, val.updateCounter());
+                                            newEntry = EntryImpl.tombstone(key, nextRetRev, val.updateCounter());
                                         } else {
-                                            newEntry = new Entry(key, val.bytes(), nextRetRev, val.updateCounter());
+                                            newEntry = new EntryImpl(key, val.bytes(), nextRetRev, val.updateCounter());
                                         }
 
                                         Entry oldEntry = doGet(key, nextRetRev - 1);

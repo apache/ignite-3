@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.command;
 
 import java.io.Serializable;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,12 +25,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SingleEntryResponse implements Serializable {
     /** Key. */
-    @NotNull
     private final byte[] key;
 
     /** Value. */
-    @Nullable
-    private final byte[] val;
+    private final byte @Nullable [] val;
 
     /** Revision. */
     private final long rev;
@@ -47,7 +44,7 @@ public class SingleEntryResponse implements Serializable {
      * @param rev     Revision number.
      * @param updCntr Update counter.
      */
-    public SingleEntryResponse(byte[] key, byte[] val, long rev, long updCntr) {
+    public SingleEntryResponse(byte[] key, byte @Nullable [] val, long rev, long updCntr) {
         this.key = key;
         this.val = val;
         this.rev = rev;
@@ -59,7 +56,6 @@ public class SingleEntryResponse implements Serializable {
      *
      * @return Entry key. Couldn't be {@code null}.
      */
-    @NotNull
     public byte[] key() {
         return key;
     }
@@ -69,8 +65,7 @@ public class SingleEntryResponse implements Serializable {
      *
      * @return Entry value. Could be {@code null} for empty and tombstone entries.
      */
-    @Nullable
-    public byte[] value() {
+    public byte @Nullable [] value() {
         return val;
     }
 

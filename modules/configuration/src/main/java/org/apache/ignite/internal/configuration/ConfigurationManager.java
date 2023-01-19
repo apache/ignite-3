@@ -19,9 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
-import java.lang.annotation.Annotation;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.RootKey;
@@ -56,7 +54,7 @@ public class ConfigurationManager implements IgniteComponent {
      */
     public ConfigurationManager(
             Collection<RootKey<?, ?>> rootKeys,
-            Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators,
+            Set<Validator<?, ?>> validators,
             ConfigurationStorage storage,
             Collection<Class<?>> internalSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions

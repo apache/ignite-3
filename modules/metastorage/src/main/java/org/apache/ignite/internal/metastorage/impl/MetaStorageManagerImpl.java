@@ -199,8 +199,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public void start() {
         this.metaStorageSvcFut = cmgMgr.metaStorageNodes()
-                // use default executor to avoid blocking CMG manager threads
-                .thenComposeAsync(metaStorageNodes -> {
+                .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.failedFuture(new NodeStoppingException());
                     }
@@ -677,17 +676,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @see ByteArray
      * @see Entry
      */
-    public @NotNull Cursor<Entry> prefixWithAppliedRevision(@NotNull ByteArray keyPrefix) throws NodeStoppingException {
+    public Cursor<Entry> prefixWithAppliedRevision(ByteArray keyPrefix) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            KeyCriterion.RangeCriterion rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
-
             CompletableFuture<Cursor<Entry>> cursorFuture = metaStorageSvcFut.thenCombine(
                     appliedRevision(),
-                    (svc, appliedRevision) -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision)
+                    (svc, appliedRevision) -> svc.prefix(keyPrefix, appliedRevision)
             );
 
             return new CursorWrapper<>(cursorFuture);
@@ -708,10 +705,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
-            return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), revUpperBound))
-            );
+            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.prefix(keyPrefix, revUpperBound)));
         } finally {
             busyLock.leaveBusy();
         }

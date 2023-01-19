@@ -39,7 +39,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -107,7 +106,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     private DistributionZoneManager prepareDistributionZoneManager() {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of()
@@ -265,7 +264,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
             return metaStorageService.run(getCommand).thenApply(bi -> {
                 SingleEntryResponse resp = (SingleEntryResponse) bi;
 
-                return new EntryImpl(new ByteArray(resp.key()), resp.value(), resp.revision(), resp.updateCounter());
+                return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
             });
         }).when(metaStorageManager).get(any());
 

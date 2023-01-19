@@ -331,6 +331,9 @@ public class ErrorGroups {
 
         /** Operation on closed storage. */
         public static final int ALREADY_CLOSED_ERR = STORAGE_ERR_GROUP.registerErrorCode(3);
+
+        /** Storage rebalancing error. */
+        public static final int STORAGE_REBALANCE_ERR = STORAGE_ERR_GROUP.registerErrorCode(4);
     }
 
     /** Distribution zones error group. */

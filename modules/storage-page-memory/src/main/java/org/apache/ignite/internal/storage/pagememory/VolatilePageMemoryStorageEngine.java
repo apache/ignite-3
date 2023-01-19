@@ -23,18 +23,26 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 
 /**
  * Storage engine implementation based on {@link PageMemory} for in-memory case.
@@ -43,24 +51,36 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "aimem";
 
+    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryStorageEngine.class);
+
+    private final String igniteInstanceName;
+
     private final VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
     private final PageIoRegistry ioRegistry;
 
+    private final PageEvictionTracker pageEvictionTracker;
+
     private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
+
+    private volatile GradualTaskExecutor destructionExecutor;
 
     /**
      * Constructor.
      *
      * @param engineConfig PageMemory storage engine configuration.
      * @param ioRegistry IO registry.
+     * @param pageEvictionTracker Eviction tracker to use.
      */
     public VolatilePageMemoryStorageEngine(
+            String igniteInstanceName,
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            PageIoRegistry ioRegistry
-    ) {
+            PageIoRegistry ioRegistry,
+            PageEvictionTracker pageEvictionTracker) {
+        this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
         this.ioRegistry = ioRegistry;
+        this.pageEvictionTracker = pageEvictionTracker;
     }
 
     @Override
@@ -83,11 +103,23 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
                 return completedFuture(null);
             }
         });
+
+        ThreadPoolExecutor destructionThreadPool = new ThreadPoolExecutor(
+                0,
+                Runtime.getRuntime().availableProcessors(),
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(igniteInstanceName, "volatile-mv-partition-destruction", LOG)
+        );
+        destructionExecutor = new GradualTaskExecutor(destructionThreadPool);
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
+        destructionExecutor.close();
+
         try {
             closeAll(regions.values().stream().map(region -> region::stop));
         } catch (Exception e) {
@@ -101,7 +133,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
             throws StorageException {
         VolatilePageMemoryDataStorageView dataStorageView = (VolatilePageMemoryDataStorageView) tableCfg.dataStorage().value();
 
-        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, regions.get(dataStorageView.dataRegion()));
+        return new VolatilePageMemoryTableStorage(tableCfg, tablesCfg, regions.get(dataStorageView.dataRegion()), destructionExecutor);
     }
 
     /**
@@ -114,7 +146,12 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
         String name = dataRegionConfig.name().value();
 
-        VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(dataRegionConfig, ioRegistry, pageSize);
+        VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
+                dataRegionConfig,
+                ioRegistry,
+                pageSize,
+                pageEvictionTracker
+        );
 
         dataRegion.start();
 

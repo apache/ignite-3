@@ -134,13 +134,11 @@ namespace Apache.Ignite.Internal.Compute
 
             void Write()
             {
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
 
                 w.Write(node.Name);
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
-
-                w.Flush();
             }
 
             static T Read(in PooledBuffer buf)
@@ -207,9 +205,9 @@ namespace Apache.Ignite.Internal.Compute
                 }
             }
 
-            int Write(PooledArrayBufferWriter bufferWriter, Table table, Schema schema)
+            int Write(PooledArrayBuffer bufferWriter, Table table, Schema schema)
             {
-                var w = bufferWriter.GetMessageWriter();
+                var w = bufferWriter.MessageWriter;
 
                 w.Write(table.Id);
                 w.Write(schema.Version);
@@ -219,8 +217,6 @@ namespace Apache.Ignite.Internal.Compute
 
                 w.Write(jobClassName);
                 w.WriteObjectCollectionAsBinaryTuple(args);
-
-                w.Flush();
 
                 return colocationHash;
             }

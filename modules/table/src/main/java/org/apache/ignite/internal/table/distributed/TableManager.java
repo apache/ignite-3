@@ -2009,7 +2009,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
-                ByteArray key = evt.entryEvent().newEntry().key();
+                byte[] key = evt.entryEvent().newEntry().key();
 
                 int partitionNumber = extractPartitionNumber(key);
                 UUID tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
