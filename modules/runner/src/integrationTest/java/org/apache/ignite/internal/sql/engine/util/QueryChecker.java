@@ -402,10 +402,10 @@ public abstract class QueryChecker {
 
         try {
             if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
-                var explainCursors = queryEngine.queryAsync("PUBLIC",
-                        "EXPLAIN PLAN FOR " + qry, params);
+                CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = queryEngine.querySingleAsync(
+                        sessionId, context, "EXPLAIN PLAN FOR " + qry, params);
 
-                var explainCursor = explainCursors.get(0).join();
+                AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
                 var explainRes = getAllFromCursor(explainCursor);
                 String actualPlan = (String) explainRes.get(0).get(0);
 
