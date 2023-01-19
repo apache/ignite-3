@@ -16,6 +16,7 @@
  */
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
@@ -23,9 +24,9 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 dependencies {
     implementation project(':ignite-metastorage-api')
 
-    implementation libs.jetbrains.annotations
-
     implementation project(':ignite-core')
+
+    implementation libs.jetbrains.annotations
 }
 
 description = 'ignite-placement-driver'

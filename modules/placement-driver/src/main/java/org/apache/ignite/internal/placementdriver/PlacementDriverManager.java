@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdrive;
+package org.apache.ignite.internal.placementdriver;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -24,6 +24,8 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * Placement driver manager.
+ * The manager is a leaseholder tracker: response of renewal of the lease and discover of appear/disappear of a replication group member.
+ * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
@@ -35,7 +37,7 @@ public class PlacementDriverManager implements IgniteComponent {
     /**
      * The constructor.
      *
-     * @param metaStorageMgr Metastorage manager.
+     * @param metaStorageMgr Meta Storage manager.
      */
     public PlacementDriverManager(MetaStorageManager metaStorageMgr) {
     }
