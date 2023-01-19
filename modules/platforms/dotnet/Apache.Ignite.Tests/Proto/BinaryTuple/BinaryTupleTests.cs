@@ -125,6 +125,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var reader = new BinaryTupleReader(res, 1);
             Assert.AreEqual(value, reader.GetByte(0));
             Assert.AreEqual(value, reader.GetShort(0));
+            Assert.AreEqual(value, reader.GetInt(0));
             Assert.AreEqual(value, reader.GetLong(0));
         }
 
@@ -141,7 +142,10 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetByte(0));
                 Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
 
             values = new short[] { short.MinValue, sbyte.MinValue - 1, sbyte.MaxValue + 1, short.MaxValue };
@@ -155,6 +159,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
                 var reader = new BinaryTupleReader(bytes, 1);
                 Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
         }
 
@@ -170,7 +176,10 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetByte(0));
+                Assert.AreEqual(value, reader.GetShort(0));
                 Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
 
             values = new[] { short.MinValue, sbyte.MinValue - 1, sbyte.MaxValue + 1, short.MaxValue };
@@ -182,7 +191,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(4, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetShort(0));
                 Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
 
             values = new[] { int.MinValue, short.MinValue - 1, short.MaxValue + 1, int.MaxValue };
@@ -195,6 +206,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
                 Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
         }
 
@@ -210,6 +222,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetByte(0));
+                Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
                 Assert.AreEqual(value, reader.GetLong(0));
             }
 
@@ -222,6 +237,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(4, bytes.Length);
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
                 Assert.AreEqual(value, reader.GetLong(0));
             }
 
@@ -234,6 +251,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(6, bytes.Length);
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetInt(0));
                 Assert.AreEqual(value, reader.GetLong(0));
             }
 
