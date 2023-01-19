@@ -204,25 +204,34 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override double GetDouble(int ordinal) => GetReader(ordinal, typeof(double)).GetDouble(ordinal);
+    public override double GetDouble(int ordinal) => GetReader(ordinal, typeof(double)).GetDouble(ordinal);  // TODO: Handle compatible types.
 
     /// <inheritdoc/>
     public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
 
     /// <inheritdoc/>
-    public override float GetFloat(int ordinal) => GetReader(ordinal, typeof(float)).GetFloat(ordinal);
+    public override float GetFloat(int ordinal) => GetReader(ordinal, typeof(float)).GetFloat(ordinal);  // TODO: Handle compatible types.
 
     /// <inheritdoc/>
     public override Guid GetGuid(int ordinal) => GetReader(ordinal, typeof(Guid)).GetGuid(ordinal);
 
     /// <inheritdoc/>
-    public override short GetInt16(int ordinal) => GetReader(ordinal, typeof(short)).GetShort(ordinal);
+    public override short GetInt16(int ordinal) => GetReader(ordinal, typeof(short)).GetShort(ordinal);  // TODO: Handle compatible types.
 
     /// <inheritdoc/>
-    public override int GetInt32(int ordinal) => GetReader(ordinal, typeof(int)).GetInt(ordinal);
+    public override int GetInt32(int ordinal) => GetReader(ordinal, typeof(int)).GetInt(ordinal); // TODO: Handle compatible types.
 
     /// <inheritdoc/>
-    public override long GetInt64(int ordinal) => GetReader(ordinal, typeof(long)).GetLong(ordinal);
+    public override long GetInt64(int ordinal) => Metadata.Columns[ordinal].Type switch
+    {
+        // TODO: Can reader handle compatible types?
+        SqlColumnType.Int8 => GetReader().GetByte(ordinal),
+        SqlColumnType.Int16 => GetReader().GetShort(ordinal),
+        SqlColumnType.Int32 => GetReader().GetInt(ordinal),
+        SqlColumnType.Int64 => GetReader().GetLong(ordinal),
+        SqlColumnType.Number => (long)GetReader().GetNumber(ordinal),
+        _ => throw GetInvalidColumnTypeException(typeof(long), Metadata.Columns[ordinal])
+    };
 
     /// <inheritdoc/>
     public override string GetName(int ordinal) => Metadata.Columns[ordinal].Name;
