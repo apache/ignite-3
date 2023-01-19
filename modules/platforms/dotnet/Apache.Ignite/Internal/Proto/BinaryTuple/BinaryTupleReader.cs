@@ -99,7 +99,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public sbyte GetByte(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => unchecked((sbyte)s[0])
+            { Length: 1 } s => unchecked((sbyte)s[0]),
+            var s => throw GetInvalidLengthException(index, 1, s.Length)
         };
 
         /// <summary>
@@ -565,6 +566,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private static InvalidOperationException GetNullElementException(int index) =>
             new($"Binary tuple element with index {index} is null.");
+
+        private static InvalidOperationException GetInvalidLengthException(int index, int expectedLength, int actualLength) =>
+            new($"Binary tuple element with index {index} has invalid length (expected {expectedLength}, actual {actualLength}).");
 
         private int GetOffset(int position)
         {
