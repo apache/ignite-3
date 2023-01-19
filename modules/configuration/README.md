@@ -284,10 +284,13 @@ For the example above, the following interfaces would be generated:
 ```java
 public interface ParentChange extends ParentView { 
     ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
+    NamedListChange<NamedElementChange> changeElements();
 
     ParentChange changeChild(Consumer<ChildChange> child);
+    ChildChange changeChild();
 
     ParentChange changePolymorphicChild(Consumer<PolymorphicChange> polymorphicChild);
+    PolymorphicChange changePolymorphicChild();
 }
 
 public interface ChildChange extends ChildView {
@@ -314,9 +317,13 @@ parentCfg.change(parent ->
     )
 ).get();
 
+parentCfg.change(parent ->
+    parent.changeChild().changeStr("newStr2")
+).get();
+
 ChildConfiguration childCfg = parentCfg.child();
 
-childCfg.changeStr("newStr2").get();
+childCfg.changeStr("newStr3").get();
 ```
 
 Example of changing the type of a polymorphic configuration:

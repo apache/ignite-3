@@ -17,43 +17,40 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
+import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * Implementation of Hash index storage using Page Memory.
  */
 public class PageMemoryHashIndexStorage implements HashIndexStorage {
-    private static final VarHandle CLOSED;
-
-    static {
-        try {
-            CLOSED = MethodHandles.lookup().findVarHandle(PageMemoryHashIndexStorage.class, "closed", boolean.class);
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
-
     /** Index descriptor. */
     private final HashIndexDescriptor descriptor;
 
     /** Free list to store index columns. */
-    private final IndexColumnsFreeList freeList;
+    private volatile IndexColumnsFreeList freeList;
 
     /** Hash index tree instance. */
-    private final HashIndexTree hashIndexTree;
+    private volatile HashIndexTree hashIndexTree;
 
     /** Partition id. */
     private final int partitionId;
@@ -64,12 +61,11 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     /** Highest possible RowId according to signed long ordering. */
     private final RowId highestRowId;
 
-    /** Busy lock for synchronous closing. */
-    private final IgniteSpinBusyLock closeBusyLock = new IgniteSpinBusyLock();
+    /** Busy lock. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** To avoid double closure. */
-    @SuppressWarnings("unused")
-    private volatile boolean closed;
+    /** Current state of the storage. */
+    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * Constructor.
@@ -97,100 +93,88 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
-            HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
-            HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
+                HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
+                HashIndexRow upperBound = new HashIndexRow(indexColumns, highestRowId);
 
-            Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
+                Cursor<HashIndexRow> cursor = hashIndexTree.find(lowerBound, upperBound);
 
-            return new Cursor<>() {
-                @Override
-                public void close() {
-                    cursor.close();
-                }
-
-                @Override
-                public boolean hasNext() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
+                return new Cursor<RowId>() {
+                    @Override
+                    public void close() {
+                        cursor.close();
                     }
 
-                    try {
-                        return cursor.hasNext();
-                    } finally {
-                        closeBusyLock.leaveBusy();
-                    }
-                }
+                    @Override
+                    public boolean hasNext() {
+                        return busy(() -> {
+                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
 
-                @Override
-                public RowId next() {
-                    if (!closeBusyLock.enterBusy()) {
-                        throwStorageClosedException();
+                            return cursor.hasNext();
+                        });
                     }
 
-                    try {
-                        return cursor.next().rowId();
-                    } finally {
-                        closeBusyLock.leaveBusy();
+                    @Override
+                    public RowId next() {
+                        return busy(() -> {
+                            throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemoryHashIndexStorage.this::createStorageInfo);
+
+                            return cursor.next().rowId();
+                        });
                     }
-                }
-            };
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to create scan cursor", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                };
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to create scan cursor", e);
+            }
+        });
     }
 
     @Override
     public void put(IndexRow row) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        busy(() -> {
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+                HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
+                var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
 
-            var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
+                hashIndexTree.invoke(hashIndexRow, null, insert);
 
-            hashIndexTree.invoke(hashIndexRow, null, insert);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to put value into index", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to put value into index", e);
+            }
+        });
     }
 
     @Override
     public void remove(IndexRow row) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        try {
-            IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
+            try {
+                IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
-            HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
+                HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-            var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
+                var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
 
-            hashIndexTree.invoke(hashIndexRow, null, remove);
+                hashIndexTree.invoke(hashIndexRow, null, remove);
 
-            // Performs actual deletion from freeList if necessary.
-            remove.afterCompletion();
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to remove value from index", e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+                // Performs actual deletion from freeList if necessary.
+                remove.afterCompletion();
+
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to remove value from index", e);
+            }
+        });
     }
 
     @Override
@@ -203,19 +187,77 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!CLOSED.compareAndSet(this, false, true)) {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
+            StorageState state = this.state.get();
+
+            assert state == StorageState.CLOSED : state;
+
             return;
         }
 
-        closeBusyLock.block();
+        busyLock.block();
 
         hashIndexTree.close();
     }
 
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     /**
-     * Throws an exception that the storage is already closed.
+     * Prepares storage for rebalancing.
+     *
+     * @throws StorageRebalanceException If there was an error when starting the rebalance.
      */
-    private void throwStorageClosedException() {
-        throw new StorageClosedException();
+    public void startRebalance() {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
+        }
+
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        try {
+            this.hashIndexTree.close();
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    /**
+     * Completes the rebalancing of the storage.
+     *
+     * @throws StorageRebalanceException If there is an error while completing the storage rebalance.
+     */
+    public void completeRebalance() {
+        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
+        }
+    }
+
+    /**
+     * Updates the internal data structures of the storage on rebalance.
+     *
+     * @param freeList Free list to store index columns.
+     * @param hashIndexTree Hash index tree instance.
+     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     */
+    public void updateDataStructuresOnRebalance(IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.freeList = freeList;
+        this.hashIndexTree = hashIndexTree;
+    }
+
+    private String createStorageInfo() {
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
     }
 }

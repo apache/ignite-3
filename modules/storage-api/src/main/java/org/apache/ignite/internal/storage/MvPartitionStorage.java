@@ -89,6 +89,9 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Sets the last applied index and term.
+     *
+     * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
      */
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 

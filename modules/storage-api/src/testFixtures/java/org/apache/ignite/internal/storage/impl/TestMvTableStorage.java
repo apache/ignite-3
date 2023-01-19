@@ -252,9 +252,7 @@ public class TestMvTableStorage implements MvTableStorage {
             throw new StorageRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
-        if (destroyFutureByPartitionId.containsKey(partitionId)) {
-            throw new StorageRebalanceException("Partition in the process of destruction: " + partitionId);
-        }
+        assert !destroyFutureByPartitionId.containsKey(partitionId) : partitionId;
 
         if (partitionStorage.closed()) {
             throw new StorageRebalanceException("Partition closed: " + partitionId);

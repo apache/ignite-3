@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -78,7 +78,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DistributionZonesConfiguration.KEY),
-            Map.of(),
+            Set.of(),
             new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
             List.of()

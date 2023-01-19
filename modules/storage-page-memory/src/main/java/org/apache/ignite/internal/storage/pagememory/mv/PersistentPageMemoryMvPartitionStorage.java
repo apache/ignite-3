@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -32,20 +36,20 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +63,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final CheckpointTimeoutLock checkpointTimeoutLock;
 
     /** Partition meta instance. */
-    private final PartitionMeta meta;
+    private volatile PartitionMeta meta;
 
     /** Value of currently persisted last applied index. */
     private volatile long persistedIndex;
@@ -67,7 +71,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /** Checkpoint listener. */
     private final CheckpointListener checkpointListener;
 
-    private final BlobStorage blobStorage;
+    private volatile BlobStorage blobStorage;
 
     /** Lock that protects group config read/write. */
     private final ReadWriteLock replicationProtocolGroupConfigReadWriteLock = new ReentrantReadWriteLock();
@@ -90,10 +94,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree,
-            TablesConfiguration tablesCfg
+            IndexMetaTree indexMetaTree
     ) {
-        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, tablesCfg);
+        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree);
 
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
@@ -132,11 +135,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             checkpointTimeoutLock.checkpointReadLock();
 
             try {
@@ -144,18 +143,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             } finally {
                 checkpointTimeoutLock.checkpointReadUnlock();
             }
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
+        return busy(() -> {
             CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
             CheckpointProgress scheduledCheckpoint;
@@ -172,39 +165,31 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             }
 
             return scheduledCheckpoint.futureFor(CheckpointState.FINISHED).thenApply(res -> null);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public long lastAppliedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return meta.lastAppliedIndex();
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(meta::lastAppliedIndex);
     }
 
     @Override
     public long lastAppliedTerm() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return meta.lastAppliedTerm();
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(meta::lastAppliedTerm);
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            lastAppliedBusy(lastAppliedIndex, lastAppliedTerm);
+
+            return null;
+        });
+    }
+
+    private void lastAppliedBusy(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
@@ -216,71 +201,65 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     public long persistedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return persistedIndex;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> persistedIndex);
     }
 
     @Override
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            replicationProtocolGroupConfigReadWriteLock.readLock().lock();
-
+        return busy(() -> {
             try {
-                long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
+                replicationProtocolGroupConfigReadWriteLock.readLock().lock();
 
-                if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
-                    return null;
+                try {
+                    long configFirstPageId = meta.lastReplicationProtocolGroupConfigFirstPageId();
+
+                    if (configFirstPageId == BlobStorage.NO_PAGE_ID) {
+                        return null;
+                    }
+
+                    byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
+
+                    return replicationProtocolGroupConfigFromBytes(bytes);
+                } finally {
+                    replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
                 }
-
-                byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
-
-                return replicationProtocolGroupConfigFromBytes(bytes);
-            } finally {
-                replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
             }
-        } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException("Failed to read group config, groupId=" + groupId + ", partitionId=" + partitionId, e);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        });
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+        busy(() -> {
+            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
+            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+            UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
 
-        replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
+            byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
 
-        try {
-            if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                long configPageId = blobStorage.addBlob(groupConfigBytes);
+            replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
 
-                meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
-            } else {
-                blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+            try {
+                if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                    long configPageId = blobStorage.addBlob(groupConfigBytes);
+
+                    meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
+                } else {
+                    blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+                }
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
+            } finally {
+                replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
             }
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
-        } finally {
-            replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
-        }
+
+            return null;
+        });
     }
 
     @Nullable
@@ -307,33 +286,16 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
-        }
+    protected List<AutoCloseable> getResourcesToClose() {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose();
 
-        closeBusyLock.block();
+        resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 
-        checkpointManager.removeCheckpointListener(checkpointListener);
+        resourcesToClose.add(rowVersionFreeList::close);
+        resourcesToClose.add(indexFreeList::close);
+        resourcesToClose.add(blobStorage::close);
 
-        rowVersionFreeList.close();
-        indexFreeList.close();
-
-        versionChainTree.close();
-        indexMetaTree.close();
-
-        blobStorage.close();
-
-        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            hashIndexStorage.close();
-        }
-
-        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            sortedIndexStorage.close();
-        }
-
-        hashIndexes.clear();
-        sortedIndexes.clear();
+        return resourcesToClose;
     }
 
     /**
@@ -352,7 +314,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 try {
                     rowVersionFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save RowVersionFreeList metadata", e);
+                    throw new StorageException("Failed to save RowVersionFreeList metadata", e);
                 }
             });
 
@@ -360,9 +322,78 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 try {
                     indexFreeList.saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
-                    throw new IgniteInternalException("Failed to save IndexColumnsFreeList metadata", e);
+                    throw new StorageException("Failed to save IndexColumnsFreeList metadata", e);
                 }
             });
         }
+    }
+
+    @Override
+    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        lastAppliedBusy(lastAppliedIndex, lastAppliedTerm);
+
+        persistedIndex = lastAppliedIndex;
+    }
+
+    /**
+     * Updates the internal data structures of the storage and its indexes on rebalance.
+     *
+     * @param meta Partition meta.
+     * @param rowVersionFreeList Free list for {@link RowVersion}.
+     * @param indexFreeList Free list fot {@link IndexColumns}.
+     * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     */
+    public void updateDataStructuresOnRebalance(
+            PartitionMeta meta,
+            RowVersionFreeList rowVersionFreeList,
+            IndexColumnsFreeList indexFreeList,
+            VersionChainTree versionChainTree,
+            IndexMetaTree indexMetaTree
+    ) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.meta = meta;
+
+        this.rowVersionFreeList = rowVersionFreeList;
+        this.indexFreeList = indexFreeList;
+        this.versionChainTree = versionChainTree;
+        this.indexMetaTree = indexMetaTree;
+
+        this.blobStorage = new BlobStorage(
+                rowVersionFreeList,
+                tableStorage.dataRegion().pageMemory(),
+                tableStorage.configuration().tableId().value(),
+                partitionId,
+                IoStatisticsHolderNoOp.INSTANCE
+        );
+
+        for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
+            indexStorage.updateDataStructuresOnRebalance(
+                    indexFreeList,
+                    createHashIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
+        }
+
+        for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
+            indexStorage.updateDataStructuresOnRebalance(
+                    indexFreeList,
+                    createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
+        }
+    }
+
+    @Override
+    List<AutoCloseable> getResourcesToCloseOnRebalance() {
+        return List.of(
+                rowVersionFreeList::close,
+                indexFreeList::close,
+                versionChainTree::close,
+                indexMetaTree::close,
+                blobStorage::close
+        );
     }
 }
