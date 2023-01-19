@@ -46,6 +46,13 @@ public class StorageUpdateHandler {
 
     private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes;
 
+    /**
+     * The constructor.
+     *
+     * @param partitionId Partition id.
+     * @param storage Partition data storage.
+     * @param indexes Indexes supplier.
+     */
     public StorageUpdateHandler(int partitionId, PartitionDataStorage storage, Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes) {
         this.partitionId = partitionId;
         this.storage = storage;

@@ -82,7 +82,6 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
-import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -1427,7 +1426,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<Object> applyUpdateCommand(UpdateCommand cmd) {
         return applyUpdatingCommand(cmd.txId(), () -> {
-            storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(), null);
+            storageUpdateHandler.handleUpdate(
+                    cmd.txId(),
+                    cmd.rowUuid(),
+                    cmd.tablePartitionId().asTablePartitionId(),
+                    cmd.rowBuffer(),
+                    null
+            );
 
             return applyCmdWithExceptionHandling(cmd);
         });
