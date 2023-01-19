@@ -22,6 +22,8 @@ import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -35,10 +37,10 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.rocksdb.BusyRocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -47,13 +49,14 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
@@ -210,11 +213,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** The value of {@link #lastAppliedIndex} persisted to the device at this moment. */
     private volatile long persistedIndex;
 
-    /** Busy lock to stop synchronously. */
+    /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
+    /** Current state of the storage. */
+    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /**
      * Constructor.
@@ -245,7 +248,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         persistedIndex = lastAppliedIndex;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         if (threadLocalWriteBatch.get() != null) {
@@ -314,6 +316,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
             try {
@@ -344,6 +348,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
             try {
@@ -512,6 +518,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
             ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
@@ -593,6 +601,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             if (rowId.partitionId() != partitionId) {
                 throw new IllegalArgumentException(
                         String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
@@ -810,6 +820,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
             byte[] lowerBound = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
@@ -830,7 +842,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             it.seek(lowerBound);
 
-            return new BusyRocksIteratorAdapter<ReadResult>(busyLock, it) {
+            return new RocksIteratorAdapter<ReadResult>(it) {
                 @Override
                 protected ReadResult decodeEntry(byte[] key, byte[] value) {
                     int keyLength = key.length;
@@ -841,8 +853,21 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 @Override
-                protected void handleBusyFail() {
-                    throw new StorageClosedException();
+                public boolean hasNext() {
+                    return busy(() -> {
+                        throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbMvPartitionStorage.this::createStorageInfo);
+
+                        return super.hasNext();
+                    });
+                }
+
+                @Override
+                public ReadResult next() {
+                    return busy(() -> {
+                        throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbMvPartitionStorage.this::createStorageInfo);
+
+                        return super.next();
+                    });
                 }
 
                 @Override
@@ -861,6 +886,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         Objects.requireNonNull(timestamp, "timestamp is null");
 
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             if (lookingForLatestVersions(timestamp)) {
                 return new ScanLatestVersionsCursor();
             } else {
@@ -883,6 +910,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             ByteBuffer keyBuf = prepareHeapKeyBuf(lowerBound).position(0).limit(ROW_PREFIX_SIZE);
 
             try (RocksIterator it = db.newIterator(cf, scanReadOptions)) {
@@ -940,6 +969,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long rowsCount() {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             try (
                     var upperBound = new Slice(partitionEndPrefix());
                     var options = new ReadOptions().setIterateUpperBound(upperBound);
@@ -972,10 +1003,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
-        if (!stopGuard.compareAndSet(false, true)) {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
+            StorageState state = this.state.get();
+
+            assert state == StorageState.CLOSED : state;
+
             return;
         }
 
@@ -1176,12 +1210,18 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         @Override
         public boolean hasNext() {
-            return busy(this::hasNextBusy);
+            return busy(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbMvPartitionStorage.this::createStorageInfo);
+
+                return hasNextBusy();
+            });
         }
 
         @Override
         public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
             return busy(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbMvPartitionStorage.this::createStorageInfo);
+
                 Objects.requireNonNull(timestamp, "timestamp is null");
 
                 if (currentRowId == null) {
@@ -1205,6 +1245,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         @Override
         public final ReadResult next() {
             return busy(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbMvPartitionStorage.this::createStorageInfo);
+
                 if (!hasNextBusy()) {
                     throw new NoSuchElementException();
                 }
@@ -1396,7 +1438,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     private <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
-            throw new StorageClosedException();
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
         }
 
         try {
@@ -1404,5 +1446,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Creates a summary info of the storage in the format "table=user, partitionId=1".
+     */
+    String createStorageInfo() {
+        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
     }
 }
