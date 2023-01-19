@@ -36,6 +36,7 @@ using Internal.Sql;
 [SuppressMessage("Usage", "CA2215:Dispose methods should call base class dispose", Justification = "Base class dispose is empty.")]
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
+    // TODO: A method to get bytes into a span. And to get the size?
     // TODO: Methods to read Ignite-specific types.
     private static readonly Task<bool> TrueTask = Task.FromResult(true);
 
@@ -87,10 +88,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public IResultSetMetadata Metadata => _resultSet.Metadata!;
 
     /// <inheritdoc/>
-    public override object this[int ordinal] => null!; // TODO
+    public override object this[int ordinal] => GetValue(ordinal);
 
     /// <inheritdoc/>
-    public override object this[string name] => null!; // TODO
+    public override object this[string name] => GetValue(Metadata.IndexOf(name));
 
     /// <inheritdoc />
     public override bool GetBoolean(int ordinal) => GetReader(ordinal, typeof(bool)).GetByteAsBool(ordinal);
@@ -101,7 +102,35 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
     {
-        throw new NotImplementedException();
+        if (dataOffset is < 0 or > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(dataOffset),
+                dataOffset,
+                $"{nameof(dataOffset)} must be between {0} and {int.MaxValue}");
+        }
+
+        if (buffer != null && (bufferOffset < 0 || bufferOffset >= buffer.Length + 1))
+        {
+            throw new ArgumentOutOfRangeException($"{nameof(bufferOffset)} must be between {0} and {(buffer.Length)}");
+        }
+
+        if (buffer != null && (length < 0 || length > buffer.Length - bufferOffset))
+        {
+            throw new ArgumentOutOfRangeException($"{nameof(length)} must be between {0} and {buffer.Length - bufferOffset}");
+        }
+
+        var span = GetReader(ordinal, typeof(byte[])).GetBytesSpan(ordinal);
+
+        if (buffer == null)
+        {
+            return span.Length;
+        }
+
+        var slice = span.Slice(checked((int)dataOffset), length);
+        slice.CopyTo(buffer);
+
+        return slice.Length;
     }
 
     /// <inheritdoc/>
@@ -179,12 +208,15 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override object GetValue(int ordinal)
     {
-        throw new NotImplementedException();
+        var reader = GetReader();
+
+        return Sql.ReadColumnValue(ref reader, Metadata.Columns[ordinal], ordinal)!;
     }
 
     /// <inheritdoc/>
     public override int GetValues(object[] values)
     {
+        // TODO: Read all columns into the array
         throw new NotImplementedException();
     }
 
@@ -201,8 +233,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override Task<bool> ReadAsync(CancellationToken cancellationToken) => ReadNextRowInCurrentPage() ? TrueTask : FetchNextPage();
 
     /// <inheritdoc/>
-    public override IEnumerator GetEnumerator()
-        => new DbEnumerator(this); // TODO: ???
+    public override IEnumerator GetEnumerator() => new DbEnumerator(this); // TODO: ???
 
     /// <inheritdoc/>
     public ReadOnlyCollection<DbColumn> GetColumnSchema()
