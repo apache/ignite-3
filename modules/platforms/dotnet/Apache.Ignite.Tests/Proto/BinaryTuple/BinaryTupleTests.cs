@@ -889,7 +889,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var bytes = Build((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[1000]));
 
             var ex = Assert.Throws<InvalidOperationException>(() => new BinaryTupleReader(bytes, 1).GetByte(0));
-            Assert.AreEqual("TODO", ex!.Message);
+            Assert.AreEqual("Binary tuple element with index 0 has invalid length (expected 1, actual 1000).", ex!.Message);
         }
 
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)
