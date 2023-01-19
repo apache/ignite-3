@@ -23,6 +23,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -69,6 +72,7 @@ import java.util.function.IntSupplier;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -299,6 +303,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
+    /** Watch listener id to unregister the watch listener on {@link }. */
+    private volatile Long watchListenerId;
+
     /**
      * Creates a new table manager.
      *
@@ -438,6 +445,49 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
+//        System.out.println("TableManager start()");
+
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), new WatchListener() {
+                    @Override
+                    public boolean onUpdate(@NotNull WatchEvent evt) {
+//                        System.out.println("TableManager WatchListener onUpdate");
+
+                        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
+
+                        int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+
+                        for (int i = 0; i < tables.value().size(); i++) {
+                            TableView tableView = tables.value().get(i);
+
+                            int tableZoneId = tableView.zoneId();
+
+                            if (zoneId == tableZoneId) {
+                                TableConfiguration tableCfg = tables.get(tableView.name());
+
+                                int partCnt = tableView.partitions();
+
+                                CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
+
+                                for (int part = 0; part < partCnt; part++) {
+                                    TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), i);
+
+                                    futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, baselineMgr.nodes(), tableView.replicas(),
+                                            evt.entryEvent().newEntry().revision(), metaStorageMgr, part);
+                                }
+                            }
+
+                        }
+
+                        return true;
+                    }
+
+                    @Override
+                    public void onError(@NotNull Throwable e) {
+                        LOG.warn("Unable to process stable assignments event", e);
+                    }
+                })
+                .thenAccept(id -> watchListenerId = id);
+
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         registerRebalanceListeners();
@@ -937,6 +987,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         busyLock.block();
+
+        if (watchListenerId != null) {
+            metaStorageMgr.unregisterWatch(watchListenerId);
+        }
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 

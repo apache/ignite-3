@@ -109,6 +109,7 @@ dependencies {
     integrationTestImplementation project(':ignite-metastorage')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))

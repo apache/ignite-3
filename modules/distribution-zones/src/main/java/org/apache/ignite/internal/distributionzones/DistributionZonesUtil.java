@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
@@ -33,7 +34,7 @@ import org.apache.ignite.lang.ByteArray;
 /**
  * Util class for Distribution Zones flow.
  */
-class DistributionZonesUtil {
+public class DistributionZonesUtil {
     /** Key prefix for zone's data nodes. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
@@ -54,8 +55,19 @@ class DistributionZonesUtil {
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
-    static ByteArray zoneDataNodesKey(int zoneId) {
+    public static ByteArray zoneDataNodesKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
+    }
+
+    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
+    public static ByteArray zoneDataNodesPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
+    }
+
+    public static int extractZoneId(byte[] key) {
+        var strKey = new String(key, StandardCharsets.UTF_8);
+
+        return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_PREFIX.length()));
     }
 
     /**
