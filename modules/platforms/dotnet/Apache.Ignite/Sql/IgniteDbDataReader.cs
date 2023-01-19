@@ -31,6 +31,7 @@ using Internal.Common;
 using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Sql;
+using NodaTime;
 
 /// <summary>
 /// Reads a forward-only stream of rows from an Ignite result set.
@@ -179,10 +180,8 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override string GetDataTypeName(int ordinal) => Metadata.Columns[ordinal].Type.ToString();
 
     /// <inheritdoc/>
-    public override DateTime GetDateTime(int ordinal)
-    {
-        throw new NotImplementedException();
-    }
+    public override DateTime GetDateTime(int ordinal) =>
+        GetReader(ordinal, typeof(LocalDateTime)).GetDateTime(ordinal).ToDateTimeUnspecified();
 
     /// <inheritdoc/>
     public override decimal GetDecimal(int ordinal)
