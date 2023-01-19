@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Sql;
 
 using System;
-using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -54,6 +53,8 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     private int _pageRowOffset = -1;
 
     private int _pageRowSize = -1;
+
+    private ReadOnlyCollection<DbColumn>? _schema;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbDataReader"/> class.
@@ -260,12 +261,24 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override Task<bool> ReadAsync(CancellationToken cancellationToken) => ReadNextRowInCurrentPage() ? TrueTask : FetchNextPage();
 
     /// <inheritdoc/>
-    public override IEnumerator GetEnumerator() => new DbEnumerator(this); // TODO: ???
+    public override IEnumerator GetEnumerator() => new DbEnumerator(this);
 
     /// <inheritdoc/>
     public ReadOnlyCollection<DbColumn> GetColumnSchema()
     {
-        throw new NotImplementedException();
+        if (_schema == null)
+        {
+            var schema = new List<DbColumn>(FieldCount);
+
+            foreach (var col in Metadata.Columns)
+            {
+                schema.Add(new IgniteDbColumn(col));
+            }
+
+            _schema = schema.AsReadOnly();
+        }
+
+        return _schema;
     }
 
     /// <inheritdoc/>
