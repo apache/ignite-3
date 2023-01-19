@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.DDL_EXEC_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.MESSAGE_SEND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,6 +35,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.prepare.FragmentPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -83,6 +86,13 @@ import org.jetbrains.annotations.Nullable;
  * ExecutionServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
+    private static final int CACHE_SIZE = 1024;
+
+    private static final ConcurrentMap<String, IgniteRel> PHYS_NODES_REPR = Caffeine.newBuilder()
+            .maximumSize(CACHE_SIZE)
+            .<String, IgniteRel>build()
+            .asMap();
+
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
@@ -215,7 +225,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private QueryPlan prepareFragment(String jsonFragment) {
-        return new FragmentPlan(fromJson(sqlSchemaManager, jsonFragment));
+        IgniteRel plan = PHYS_NODES_REPR.computeIfAbsent(jsonFragment, ser -> fromJson(sqlSchemaManager, ser));
+
+        return new FragmentPlan(plan);
     }
 
     /** {@inheritDoc} */
