@@ -84,11 +84,6 @@ public class PartitionListener implements RaftGroupListener {
     /** Transaction manager. */
     private final TxManager txManager;
 
-    private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes;
-
-    /** Partition ID. */
-    private int partitionId;
-
     /** Rows that were inserted, updated or removed. */
     private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
 
@@ -100,7 +95,6 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param partitionDataStorage  The storage.
      * @param txManager Transaction manager.
-     * @param partitionId Partition ID this listener serves.
      * @param safeTime Safe time tracker.
      */
     public PartitionListener(
@@ -108,16 +102,12 @@ public class PartitionListener implements RaftGroupListener {
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             TxManager txManager,
-            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes,
-            int partitionId,
             PendingComparableValuesTracker<HybridTimestamp> safeTime
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
         this.txManager = txManager;
-        this.indexes = indexes;
-        this.partitionId = partitionId;
         this.safeTime = safeTime;
 
         // TODO: IGNITE-18502 Implement a pending update storage

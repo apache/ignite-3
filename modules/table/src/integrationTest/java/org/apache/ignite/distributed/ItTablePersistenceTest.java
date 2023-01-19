@@ -282,8 +282,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             storageUpdateHandler,
                             new TestTxStateStorage(),
                             txManager,
-                            Map::of,
-                            0,
                             new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
                     );
 

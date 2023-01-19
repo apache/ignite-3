@@ -272,8 +272,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 this.txManager,
-                indexes,
-                PART_ID,
                 safeTime
         );
     }

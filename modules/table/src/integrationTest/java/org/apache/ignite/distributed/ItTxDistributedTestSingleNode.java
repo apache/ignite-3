@@ -434,8 +434,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 storageUpdateHandler,
                                 new TestTxStateStorage(),
                                 txManagers.get(assignment),
-                                indexes,
-                                partId,
                                 safeTime
                         ),
                         RaftGroupEventsListener.noopLsnr

@@ -203,8 +203,6 @@ public class PartitionCommandListenerTest {
                 storageUpdateHandler,
                 txStateStorage,
                 new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock),
-                indexes,
-                PARTITION_ID,
                 safeTimeTracker
         );
     }
@@ -298,8 +296,6 @@ public class PartitionCommandListenerTest {
                 storageUpdateHandler,
                 txStateStorage,
                 new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
-                indexes,
-                PARTITION_ID,
                 new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
         );
 
