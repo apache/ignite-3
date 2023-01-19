@@ -169,10 +169,10 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
             return ProtoCommon.StringEncoding.GetCharCount(span);
         }
 
-        var slice = span.Slice(checked((int)dataOffset), length);
-        slice.CopyTo(buffer);
-
-        return slice.Length;    }
+        return ProtoCommon.StringEncoding.GetChars(
+            span.Slice(checked((int)dataOffset)),
+            buffer.AsSpan().Slice(bufferOffset, length));
+    }
 
     /// <inheritdoc/>
     public override string GetDataTypeName(int ordinal)
