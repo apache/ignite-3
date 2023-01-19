@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Sql;
 
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -26,6 +27,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Internal.Buffers;
+using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Sql;
 
@@ -142,8 +144,35 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
     {
-        throw new NotImplementedException();
-    }
+        if (dataOffset is < 0 or > int.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(dataOffset),
+                dataOffset,
+                $"{nameof(dataOffset)} must be between {0} and {int.MaxValue}");
+        }
+
+        if (buffer != null && (bufferOffset < 0 || bufferOffset >= buffer.Length + 1))
+        {
+            throw new ArgumentOutOfRangeException($"{nameof(bufferOffset)} must be between {0} and {(buffer.Length)}");
+        }
+
+        if (buffer != null && (length < 0 || length > buffer.Length - bufferOffset))
+        {
+            throw new ArgumentOutOfRangeException($"{nameof(length)} must be between {0} and {buffer.Length - bufferOffset}");
+        }
+
+        var span = GetReader(ordinal, typeof(byte[])).GetBytesSpan(ordinal);
+
+        if (buffer == null)
+        {
+            return ProtoCommon.StringEncoding.GetCharCount(span);
+        }
+
+        var slice = span.Slice(checked((int)dataOffset), length);
+        slice.CopyTo(buffer);
+
+        return slice.Length;    }
 
     /// <inheritdoc/>
     public override string GetDataTypeName(int ordinal)
