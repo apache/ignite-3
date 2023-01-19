@@ -26,12 +26,14 @@ import java.util.UUID;
 /**
  * REST representation of internal ClusterTag.
  */
-@Schema(name = "ClusterTag")
+@Schema(name = "ClusterTag", description = "Unique tag that identifies the cluster.")
 public class ClusterTagDto {
     /** Auto-generated part. */
+    @Schema(description = "Unique cluster UUID. Generated automatically.")
     private final UUID clusterId;
 
     /** Human-readable part. */
+    @Schema(description = "Unique cluster name.")
     private final String clusterName;
 
     @JsonCreator

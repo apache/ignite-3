@@ -25,6 +25,7 @@ import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Produces;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -45,14 +46,14 @@ public interface NodeConfigurationApi {
      *
      * @return the whole node configuration in HOCON format.
      */
-    @Operation(operationId = "getNodeConfiguration")
+    @Operation(operationId = "getNodeConfiguration", description = "Gets node configuratoon in HOCON format.")
     @ApiResponse(responseCode = "200",
             content = @Content(mediaType = MediaType.TEXT_PLAIN,
                     schema = @Schema(type = "string")),
-            description = "Whole node configuration")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+            description = "Whole node configuration.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.TEXT_PLAIN,
@@ -67,32 +68,34 @@ public interface NodeConfigurationApi {
      * @param path to represent a node configuration.
      * @return system configuration in HOCON format represented by given path.
      */
-    @Operation(operationId = "getNodeConfigurationByPath")
+    @Operation(operationId = "getNodeConfigurationByPath",
+            description = "Gets a configuration of a specific node, in HOCON format.")
     @ApiResponse(responseCode = "200",
             content = @Content(mediaType = MediaType.TEXT_PLAIN,
                     schema = @Schema(type = "string")),
-            description = "Configuration represented by path")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+            description = "Returned node configuration.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces({
             MediaType.TEXT_PLAIN,
             MediaType.PROBLEM_JSON
     })
     @Get("/{path}")
-    String getConfigurationByPath(@PathVariable("path") String path);
+    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true, description = "Node address.") String path);
 
     /**
      * Updates node configuration in HOCON format. This is represented as a plain text.
      *
      * @param updatedConfiguration the node configuration to update. This is represented as a plain text.
      */
-    @Operation(operationId = "updateNodeConfiguration")
-    @ApiResponse(responseCode = "200", description = "Configuration updated")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "updateNodeConfiguration", description = "Updates node configuration. "
+            + "New configuration should be provided in HOCON format.")
+    @ApiResponse(responseCode = "200", description = "Configuration successfully updated.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Incorrect configuration",
+    @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)

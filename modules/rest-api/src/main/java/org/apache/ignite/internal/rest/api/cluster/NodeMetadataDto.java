@@ -26,9 +26,11 @@ import org.apache.ignite.network.NodeMetadata;
 /**
  * REST representation of {@link NodeMetadata}.
  */
-@Schema(name = "NodeMetadata")
+@Schema(name = "NodeMetadata", description = "Node metadata information.")
 public class NodeMetadataDto {
+    @Schema(description = "The host exposed to REST API.")
     private final String restHost;
+    @Schema(description = "The port exposed to REST API.")
     private final int restPort;
 
     /**

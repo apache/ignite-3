@@ -26,12 +26,14 @@ import org.apache.ignite.network.NetworkAddress;
 /**
  * REST representation of {@link NetworkAddress}.
  */
-@Schema(name = "NetworkAddress")
+@Schema(name = "NetworkAddress", description = "Node network address information.")
 public class NetworkAddressDto {
     /** Host. */
+    @Schema(description = "Name of the host node is on.")
     private final String host;
 
     /** Port. */
+    @Schema(description = "Port hte node runs on.")
     private final int port;
 
     /**

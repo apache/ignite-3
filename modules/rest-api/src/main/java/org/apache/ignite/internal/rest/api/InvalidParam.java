@@ -20,13 +20,17 @@ package org.apache.ignite.internal.rest.api;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Objects;
 
 /**
  * Parameter validation result.
  */
+@Schema(description = "Information about invalid request parameter.")
 public class InvalidParam {
+    @Schema(description = "Parameter name.")
     private final String name;
+    @Schema(description = "THe issue with the parameter.")
     private final String reason;
 
     @JsonCreator

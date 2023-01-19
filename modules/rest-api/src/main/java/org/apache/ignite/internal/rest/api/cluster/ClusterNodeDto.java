@@ -26,17 +26,22 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * REST representation of {@link ClusterNode}.
  */
-@Schema(name = "ClusterNode")
+@Schema(name = "ClusterNode", description = "Information about the cluster node.")
+
 public class ClusterNodeDto {
     /** Local id assigned to this node instance. Changes between restarts. */
+    @Schema(description = "Node ID.")
     private final String id;
 
     /** Unique name of member in the cluster. Consistent between restarts. */
+    @Schema(description = "Unique cluster name.")
     private final String name;
 
     /** Network address of this node. */
+    @Schema(description = "Cluster network address information.")
     private final NetworkAddressDto address;
 
+    @Schema(description = "Node metadata information.")
     private final NodeMetadataDto metadata;
 
     /**
