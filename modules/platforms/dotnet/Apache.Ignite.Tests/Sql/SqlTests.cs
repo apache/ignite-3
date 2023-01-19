@@ -449,14 +449,15 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestIgniteDbDataReaderMultiplePages()
+        [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
+        public async Task TestIgniteDbDataReaderMultiplePages([Values(true, false)] bool async)
         {
             var statement = new SqlStatement("select ID, VAL FROM TEST ORDER BY ID", pageSize: 2);
             await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, statement);
 
             var count = 0;
 
-            while (await reader.ReadAsync())
+            while (async ? await reader.ReadAsync() : reader.Read())
             {
                 var id = reader.GetInt32(0);
                 var val = reader.GetString(1);
@@ -466,6 +467,9 @@ namespace Apache.Ignite.Tests.Sql
 
                 count++;
             }
+
+            Assert.IsFalse(reader.Read());
+            Assert.IsFalse(await reader.ReadAsync());
 
             Assert.AreEqual(10, count);
         }
