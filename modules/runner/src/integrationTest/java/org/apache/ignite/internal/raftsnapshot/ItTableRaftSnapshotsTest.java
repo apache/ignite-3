@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.Cluster.NodeKnockout.PARTITION_NETWORK;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -33,7 +32,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -51,16 +49,12 @@ import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.Cluster.NodeKnockout;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -70,7 +64,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -131,7 +124,7 @@ class ItTableRaftSnapshotsTest {
     /**
      * {@link NodeKnockout} that is used by tests that are indifferent for the knockout strategy being used.
      */
-    private static final NodeKnockout DEFAULT_KNOCKOUT = PARTITION_NETWORK;
+    private static final NodeKnockout DEFAULT_KNOCKOUT = NodeKnockout.PARTITION_NETWORK;
 
     @WorkDirectory
     private Path workDir;
@@ -209,129 +202,6 @@ class ItTableRaftSnapshotsTest {
         return rows;
     }
 
-//    @Test
-//    void test1() throws Exception {
-//        cluster.startAndInit(3);
-//
-//        createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
-//
-//        ExtendedTableConfiguration table0 = (ExtendedTableConfiguration) cluster.node(0).clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-//
-//        byte[] assignmentsBytes0 = table0.assignments().value();
-//
-//        Set<Assignment> assignments0 = null;
-//
-//        if (assignmentsBytes0 != null) {
-//            assignments0 = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes0)).get(0);
-//        }
-//
-//        ExtendedTableConfiguration table1 = (ExtendedTableConfiguration) cluster.node(1).clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-//
-//        byte[] assignmentsBytes1 = table1.assignments().value();
-//
-//        Set<Assignment> assignments1 = null;
-//
-//        if (assignmentsBytes1 != null) {
-//            assignments1 = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes1)).get(0);
-//        }
-//
-//        ExtendedTableConfiguration table2 = (ExtendedTableConfiguration) cluster.node(2).clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-//
-//        byte[] assignmentsBytes2 = table2.assignments().value();
-//
-//        Set<Assignment> assignments2 = null;
-//
-//        if (assignmentsBytes2 != null) {
-//            assignments2 = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes0)).get(0);
-//        }
-//
-//        cluster.knockOutNode(1, PARTITION_NETWORK);
-//
-//        Thread.sleep(15000);
-//
-//
-//
-//
-//        table0 = (ExtendedTableConfiguration) cluster.node(0).clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-//
-//        assignmentsBytes0 = table0.assignments().value();
-//
-//        assignments0 = null;
-//
-//        if (assignmentsBytes0 != null) {
-//            assignments0 = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes0)).get(0);
-//        }
-//
-//        table1 = (ExtendedTableConfiguration) cluster.node(1).clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-//
-//        assignmentsBytes1 = table1.assignments().value();
-//
-//        assignments1 = null;
-//
-//        if (assignmentsBytes1 != null) {
-//            assignments1 = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes1)).get(0);
-//        }
-//
-//        table2 = (ExtendedTableConfiguration) cluster.node(2).clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-//
-//        assignmentsBytes2 = table2.assignments().value();
-//
-//        assignments2 = null;
-//
-//        if (assignmentsBytes2 != null) {
-//            assignments2 = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes0)).get(0);
-//        }
-//
-//
-//
-//
-//        System.out.println("END++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-//
-////        transferLeadershipOnSolePartitionTo(0);
-//    }
-
-    @Test
-    void test2() throws Exception {
-        cluster.startAndInit(3);
-
-        createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
-
-        assertTrue(waitForCondition(() -> assingmentsCount(0) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(1) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(2) == 3, 5000));
-
-        cluster.knockOutNode(1, PARTITION_NETWORK);
-
-        assertTrue(waitForCondition(() -> assingmentsCount(0) == 2, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(1) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(2) == 2, 5000));
-
-        cluster.reanimateNode(1, PARTITION_NETWORK);
-
-        assertTrue(waitForCondition(() -> assingmentsCount(0) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(1) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(2) == 3, 5000));
-
-
-        System.out.println("END++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-
-//        transferLeadershipOnSolePartitionTo(0);
-    }
-
-    private int assingmentsCount(int node) {
-        ExtendedTableConfiguration table =
-                (ExtendedTableConfiguration) cluster.node(node)
-                        .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-
-        byte[] assignmentsBytes = table.assignments().value();
-
-        if (assignmentsBytes != null) {
-            return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0).size();
-        } else {
-            return -1;
-        }
-    }
-
     /**
      * Tests that a leader successfully feeds a follower with a RAFT snapshot (using {@link NodeKnockout#STOP} strategy
      * to knock-out the follower to make it require a snapshot installation).
@@ -348,7 +218,7 @@ class ItTableRaftSnapshotsTest {
      */
     @Test
     void leaderFeedsFollowerWithSnapshotWithKnockoutPartitionNetwork() throws Exception {
-        testLeaderFeedsFollowerWithSnapshot(PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
+        testLeaderFeedsFollowerWithSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE);
     }
 
     /**
@@ -626,7 +496,7 @@ class ItTableRaftSnapshotsTest {
      */
     @Test
     void txSemanticsIsMaintainedWithKnockoutPartitionNetwork() throws Exception {
-        txSemanticsIsMaintainedAfterInstallingSnapshot(PARTITION_NETWORK);
+        txSemanticsIsMaintainedAfterInstallingSnapshot(Cluster.NodeKnockout.PARTITION_NETWORK);
     }
 
     /**
