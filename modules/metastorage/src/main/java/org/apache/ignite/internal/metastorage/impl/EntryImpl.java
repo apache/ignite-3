@@ -19,17 +19,32 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import java.util.Arrays;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Meta storage entry.
+ * Represents a storage unit as entry with key, value and revision.
+ *
+ * <p>Where:
+ * <ul>
+ *     <li>key - an unique entry's key represented by an array of bytes. Keys are comparable in lexicographic manner.</li>
+ *     <li>value - a data which is associated with a key and represented as an array of bytes.</li>
+ *     <li>revision - a number which denotes a version of whole meta storage.
+ *     Each change (which could include multiple entries) increments the revision. </li>
+ *     <li>updateCounter - a number which increments on every update in the change under one revision.</li>
+ * </ul>
+ *
+ * <p>Instance of {@link #EntryImpl} could represent:
+ * <ul>
+ *     <li>A regular entry which stores a particular key, a value and a revision number.</li>
+ *     <li>An empty entry which denotes absence of a regular entry in the meta storage for a given key.
+ *     A revision is 0 for such kind of entry.</li>
+ *     <li>A tombstone entry which denotes that a regular entry for a given key was removed from the storage at some revision.</li>
+ * </ul>
  */
 public final class EntryImpl implements Entry {
     /** Key. */
-    @NotNull
-    private final ByteArray key;
+    private final byte[] key;
 
     /** Value. */
     private final byte @Nullable [] val;
@@ -41,14 +56,14 @@ public final class EntryImpl implements Entry {
     private final long updCntr;
 
     /**
-     * Construct entry with given paramteters.
+     * Construct entry with given parameters.
      *
-     * @param key     Key.
-     * @param val     Value.
-     * @param rev     Revision.
+     * @param key Key.
+     * @param val Value.
+     * @param rev Revision.
      * @param updCntr Update counter.
      */
-    public EntryImpl(@NotNull ByteArray key, byte @Nullable [] val, long rev, long updCntr) {
+    public EntryImpl(byte[] key, byte @Nullable [] val, long rev, long updCntr) {
         this.key = key;
         this.val = val;
         this.rev = rev;
@@ -56,9 +71,8 @@ public final class EntryImpl implements Entry {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
-    public ByteArray key() {
+    public byte[] key() {
         return key;
     }
 
@@ -80,10 +94,32 @@ public final class EntryImpl implements Entry {
         return updCntr;
     }
 
+    /**
+     * Creates an instance of tombstone entry for a given key and a revision.
+     *
+     * @param key Key bytes. Couldn't be {@code null}.
+     * @param rev Revision.
+     * @param updCntr Update counter.
+     * @return Empty entry.
+     */
+    public static Entry tombstone(byte[] key, long rev, long updCntr) {
+        return new EntryImpl(key, null, rev, updCntr);
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean tombstone() {
         return val == null && rev > 0 && updCntr > 0;
+    }
+
+    /**
+     * Creates an instance of empty entry for a given key.
+     *
+     * @param key Key bytes. Couldn't be {@code null}.
+     * @return Empty entry.
+     */
+    public static Entry empty(byte[] key) {
+        return new EntryImpl(key, null, 0, 0);
     }
 
     /** {@inheritDoc} */
@@ -91,7 +127,6 @@ public final class EntryImpl implements Entry {
     public boolean empty() {
         return val == null && rev == 0 && updCntr == 0;
     }
-
 
     /** {@inheritDoc} */
     @Override
@@ -114,7 +149,7 @@ public final class EntryImpl implements Entry {
             return false;
         }
 
-        if (!key.equals(entry.key)) {
+        if (!Arrays.equals(key, entry.key)) {
             return false;
         }
 
@@ -124,7 +159,7 @@ public final class EntryImpl implements Entry {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        int res = key.hashCode();
+        int res = Arrays.hashCode(key);
 
         res = 31 * res + Arrays.hashCode(val);
 
@@ -133,5 +168,10 @@ public final class EntryImpl implements Entry {
         res = 31 * res + (int) (updCntr ^ (updCntr >>> 32));
 
         return res;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

@@ -21,7 +21,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import org.apache.ignite.internal.metastorage.server.Entry;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

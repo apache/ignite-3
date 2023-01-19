@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -68,7 +68,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DistributionZonesConfiguration.KEY),
-            Map.of(),
+            Set.of(),
             new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
             List.of()
@@ -226,59 +226,87 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testUpdateZone() throws Exception {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
-                )
-                .get(5, TimeUnit.SECONDS);
+    public void testUpdateDefaultZone() throws Exception {
+        testUpdateZone(DEFAULT_ZONE_NAME);
+    }
 
-        DistributionZoneConfiguration zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
+    @Test
+    public void testUpdateNotDefaultZone() throws Exception {
+        testUpdateZone(ZONE_NAME);
+    }
 
-        assertNotNull(zone1, "Zone was not created.");
-        assertEquals(ZONE_NAME, zone1.name().value(), "Zone name is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(100, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+    private void testUpdateZone(String zoneName) throws Exception {
+        if (DEFAULT_ZONE_NAME.equals(zoneName)) {
+            distributionZoneManager.alterZone(
+                            zoneName,
+                            new DistributionZoneConfigurationParameters.Builder(zoneName).dataNodesAutoAdjust(100).build()
+                    )
+                    .get(5, TimeUnit.SECONDS);
+        } else {
+            distributionZoneManager.createZone(
+                            new DistributionZoneConfigurationParameters.Builder(zoneName).dataNodesAutoAdjust(100).build()
+                    )
+                    .get(5, TimeUnit.SECONDS);
+        }
+
+        DistributionZoneConfiguration zone = getZoneFromRegistry(zoneName);
+
+        assertNotNull(zone, "Zone was not created.");
+        assertEquals(zoneName, zone.name().value(), "Zone name is wrong.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+
+        assertNotNull(zone, "Zone was not created.");
+        assertEquals(zoneName, zone.name().value(), "Zone name is wrong.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
 
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+        distributionZoneManager.alterZone(zoneName, new DistributionZoneConfigurationParameters.Builder(zoneName)
                         .dataNodesAutoAdjustScaleUp(200).dataNodesAutoAdjustScaleDown(300).build())
                 .get(5, TimeUnit.SECONDS);
 
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
+        zone = getZoneFromRegistry(zoneName);
 
-        assertNotNull(zone1, "Zone was not created.");
-        assertEquals(200, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+        assertNotNull(zone, "Zone was not created.");
+        assertEquals(200, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(300, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
 
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+        distributionZoneManager.alterZone(zoneName, new DistributionZoneConfigurationParameters.Builder(zoneName)
                         .dataNodesAutoAdjustScaleUp(400).build())
                 .get(5, TimeUnit.SECONDS);
 
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
+        zone = getZoneFromRegistry(zoneName);
 
-        assertNotNull(zone1, "Zone was not created.");
-        assertEquals(400, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(300, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+        assertNotNull(zone, "Zone was not created.");
+        assertEquals(400, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(300, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
 
-        distributionZoneManager.alterZone(ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
+        distributionZoneManager.alterZone(zoneName, new DistributionZoneConfigurationParameters.Builder(zoneName)
                         .dataNodesAutoAdjust(500).build())
                 .get(5, TimeUnit.SECONDS);
 
-        zone1 = registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
-                .get(ZONE_NAME);
+        zone = getZoneFromRegistry(zoneName);
 
-        assertNotNull(zone1, "Zone was not created.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(500, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+        assertNotNull(zone, "Zone was not created.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(500, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+    }
+
+    private DistributionZoneConfiguration getZoneFromRegistry(String zoneName) {
+        if (DEFAULT_ZONE_NAME.equals(zoneName)) {
+            return registry.getConfiguration(DistributionZonesConfiguration.KEY).defaultDistributionZone();
+        } else {
+            return registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones()
+                    .get(zoneName);
+        }
     }
 
     @Test

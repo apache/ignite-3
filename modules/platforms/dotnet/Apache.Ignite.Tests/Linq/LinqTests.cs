@@ -274,7 +274,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) asc " +
+            "order by _T0.KEY asc " +
             "offset ?",
             query.ToString());
     }
@@ -292,7 +292,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) asc " +
+            "order by _T0.KEY asc " +
             "limit ?",
             query.ToString());
     }
@@ -312,7 +312,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) desc " +
+            "order by _T0.KEY desc " +
             "limit ? offset ?",
             query.ToString());
     }
@@ -332,7 +332,7 @@ public partial class LinqTests : IgniteTestsBase
 
         StringAssert.Contains(
             "select _T0.KEY from PUBLIC.TBL1 as _T0 " +
-            "order by (_T0.KEY) desc " +
+            "order by _T0.KEY desc " +
             "limit ? offset ?",
             query.ToString());
     }
@@ -355,8 +355,31 @@ public partial class LinqTests : IgniteTestsBase
             "select _T0.KEY from (" +
             "select _T1.KEY, _T1.VAL " +
             "from PUBLIC.TBL1 as _T1 " +
-            "order by (_T1.KEY) desc " +
+            "order by _T1.KEY desc " +
             "limit ? offset ?) as _T0",
+            query.ToString());
+    }
+
+    [Test]
+    public void TestOrderByMultiple()
+    {
+        var query = PocoAllColumnsSqlView.AsQueryable()
+            .Where(x => x.Key < 10)
+            .OrderBy(x => x.Key)
+            .ThenByDescending(x => x.Int8)
+            .ThenBy(x => x.Int16)
+            .Select(x => new { x.Decimal, x.Double });
+
+        var res = query.ToList();
+
+        Assert.AreEqual(6.5d, res[0].Double);
+        Assert.AreEqual(7.7m, res[0].Decimal);
+
+        StringAssert.Contains(
+            "select _T0.DECIMAL, _T0.DOUBLE " +
+            "from PUBLIC.TBL_ALL_COLUMNS_SQL as _T0 " +
+            "where (_T0.KEY < ?) " +
+            "order by _T0.KEY asc, _T0.INT8 desc, _T0.INT16 asc",
             query.ToString());
     }
 
@@ -438,7 +461,7 @@ public partial class LinqTests : IgniteTestsBase
         StringAssert.Contains(
             "select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL " +
             "from PUBLIC.TBL_INT8 as _T0 " +
-            "order by (_T0.VAL) desc",
+            "order by _T0.VAL desc",
             query.ToString());
     }
 
@@ -458,7 +481,7 @@ public partial class LinqTests : IgniteTestsBase
         StringAssert.Contains(
             "select * from " +
             "(select distinct (cast(_T0.VAL as int) + ?) as ID, _T0.VAL from PUBLIC.TBL_INT8 as _T0) as _T1 " +
-            "order by (_T1.ID) desc",
+            "order by _T1.ID desc",
             query.ToString());
     }
 

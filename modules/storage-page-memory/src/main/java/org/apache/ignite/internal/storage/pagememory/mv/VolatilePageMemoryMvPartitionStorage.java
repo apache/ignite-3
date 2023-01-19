@@ -17,22 +17,34 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+    private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
+
+    private final GradualTaskExecutor destructionExecutor;
+
     /** Last applied index value. */
     private volatile long lastAppliedIndex;
 
@@ -50,13 +62,14 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param partitionId Partition id.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param destructionExecutor Executor used to destruct partitions.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
-            TablesConfiguration tablesCfg,
             int partitionId,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GradualTaskExecutor destructionExecutor
     ) {
         super(
                 partitionId,
@@ -64,72 +77,113 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree,
-                tablesCfg
+                indexMetaTree
         );
+
+        this.destructionExecutor = destructionExecutor;
     }
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return closure.execute();
+        return busy(closure::execute);
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        return CompletableFuture.completedFuture(null);
+        return busy(() -> completedFuture(null));
     }
 
     @Override
     public long lastAppliedIndex() {
-        return lastAppliedIndex;
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public long lastAppliedTerm() {
-        return lastAppliedTerm;
+        return busy(() -> lastAppliedTerm);
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+
+            return null;
+        });
     }
 
     @Override
     public long persistedIndex() {
-        return lastAppliedIndex;
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return groupConfig;
+        return busy(() -> groupConfig);
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        this.groupConfig = config;
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            groupConfig = config;
+
+            return null;
+        });
     }
 
     @Override
-    public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
+    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
+    }
+
+    /**
+     * Destroys internal structures backing this partition.
+     *
+     * @return future that completes when the destruction completes.
+     */
+    public CompletableFuture<Void> destroyStructures() {
+        // TODO: IGNITE-18531 - destroy indices.
+
+        try {
+            return destructionExecutor.execute(
+                    versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy MV partition in group=" + groupId + ", partition=" + partitionId, e);
         }
+    }
 
-        closeBusyLock.block();
-
-        versionChainTree.close();
-        indexMetaTree.close();
-
-        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            hashIndexStorage.close();
+    private void destroyVersionChain(VersionChain chainKey) {
+        try {
+            deleteRowVersionsFromFreeList(chainKey);
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException(e);
         }
+    }
 
-        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            sortedIndexStorage.close();
+    private void deleteRowVersionsFromFreeList(VersionChain chain) throws IgniteInternalCheckedException {
+        long rowVersionLink = chain.headLink();
+
+        while (rowVersionLink != PageIdUtils.NULL_LINK) {
+            RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
+
+            rowVersionFreeList.removeDataRowByLink(rowVersion.link());
+
+            rowVersionLink = rowVersion.nextLink();
         }
+    }
 
-        hashIndexes.clear();
-        sortedIndexes.clear();
+    @Override
+    List<AutoCloseable> getResourcesToCloseOnRebalance() {
+        // TODO: IGNITE-18028 Implement
+        throw new UnsupportedOperationException();
     }
 }

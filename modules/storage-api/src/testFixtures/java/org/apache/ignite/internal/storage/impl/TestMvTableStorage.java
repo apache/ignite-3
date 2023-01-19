@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Map;
@@ -230,7 +231,15 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroy() {
-        return completedFuture(null);
+        stop();
+
+        CompletableFuture[] futures = new CompletableFuture[tableCfg.partitions().value()];
+
+        for (int partitionId = 0; partitionId < futures.length; partitionId++) {
+            futures[partitionId] = destroyPartition(partitionId);
+        }
+
+        return allOf(futures);
     }
 
     @Override
@@ -243,9 +252,7 @@ public class TestMvTableStorage implements MvTableStorage {
             throw new StorageRebalanceException(createPartitionDoesNotExistsErrorMessage(partitionId));
         }
 
-        if (destroyFutureByPartitionId.containsKey(partitionId)) {
-            throw new StorageRebalanceException("Partition in the process of destruction: " + partitionId);
-        }
+        assert !destroyFutureByPartitionId.containsKey(partitionId) : partitionId;
 
         if (partitionStorage.closed()) {
             throw new StorageRebalanceException("Partition closed: " + partitionId);

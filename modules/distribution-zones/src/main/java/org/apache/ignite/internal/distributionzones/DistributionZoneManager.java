@@ -318,54 +318,45 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
-            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
+            CompletableFuture<Void> change;
 
-                try {
-                    renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
-                } catch (IllegalArgumentException e) {
-                    throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
+            if (DEFAULT_ZONE_NAME.equals(name)) {
+                change = zonesConfiguration.change(
+                        zonesChange -> zonesChange.changeDefaultDistributionZone(
+                                zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg)
+                        )
+                );
+            } else {
+                change = zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                    NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
+
+                    try {
+                        renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
+                    } catch (IllegalArgumentException e) {
+                        throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
+                    }
+
+                    try {
+                        renameChange.update(distributionZoneCfg.name(), zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg));
+                    } catch (IllegalArgumentException e) {
+                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
+                    }
+                }));
+            }
+
+            change.whenComplete((res, e) -> {
+                if (e != null) {
+                    fut.completeExceptionally(
+                            unwrapDistributionZoneException(
+                                    e,
+                                    DistributionZoneRenameException.class,
+                                    DistributionZoneNotFoundException.class,
+                                    ConfigurationValidationException.class)
+                    );
+                } else {
+                    fut.complete(null);
                 }
-
-                try {
-                    renameChange
-                            .update(
-                                    distributionZoneCfg.name(), zoneChange -> {
-                                        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
-                                            zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
-                                            zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
-                                            zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
-                                        }
-
-                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() != null) {
-                                            zoneChange.changeDataNodesAutoAdjustScaleUp(
-                                                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
-                                            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
-                                        }
-
-                                        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
-                                            zoneChange.changeDataNodesAutoAdjustScaleDown(
-                                                    distributionZoneCfg.dataNodesAutoAdjustScaleDown());
-                                            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
-                                        }
-                                    });
-                } catch (IllegalArgumentException e) {
-                    throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
-                }
-            }))
-                    .whenComplete((res, e) -> {
-                        if (e != null) {
-                            fut.completeExceptionally(
-                                    unwrapDistributionZoneException(
-                                            e,
-                                            DistributionZoneRenameException.class,
-                                            DistributionZoneNotFoundException.class,
-                                            ConfigurationValidationException.class)
-                            );
-                        } else {
-                            fut.complete(null);
-                        }
-                    });
+            });
 
             return fut;
         } finally {
@@ -406,7 +397,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     throw new DistributionZoneNotFoundException(name);
                 }
 
-                //TODO: IGNITE-18516 Access to other configuration must be thread safe.
                 NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
 
                 for (int i = 0; i < tables.value().size(); i++) {
@@ -468,7 +458,11 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            zonesConfiguration.distributionZones().listenElements(new ZonesConfigurationListener());
+            ZonesConfigurationListener zonesConfigurationListener = new ZonesConfigurationListener();
+
+            zonesConfiguration.distributionZones().listenElements(zonesConfigurationListener);
+
+            zonesConfiguration.defaultDistributionZone().listen(zonesConfigurationListener);
 
             // Init timers after restart.
             //zonesTimers.putIfAbsent(zonesConfiguration.defaultDistributionZone().zoneId().value(), new ZoneState());
@@ -614,6 +608,32 @@ public class DistributionZoneManager implements IgniteComponent {
             });
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Updates {@link DistributionZoneChange} according to distribution zone configuration.
+     *
+     * @param zoneChange Zone change.
+     * @param distributionZoneCfg Distribution zone configuration.
+     */
+    private static void updateZoneChange(DistributionZoneChange zoneChange, DistributionZoneConfigurationParameters distributionZoneCfg) {
+        if (distributionZoneCfg.dataNodesAutoAdjust() != null) {
+            zoneChange.changeDataNodesAutoAdjust(distributionZoneCfg.dataNodesAutoAdjust());
+            zoneChange.changeDataNodesAutoAdjustScaleUp(Integer.MAX_VALUE);
+            zoneChange.changeDataNodesAutoAdjustScaleDown(Integer.MAX_VALUE);
+        }
+
+        if (distributionZoneCfg.dataNodesAutoAdjustScaleUp() != null) {
+            zoneChange.changeDataNodesAutoAdjustScaleUp(
+                    distributionZoneCfg.dataNodesAutoAdjustScaleUp());
+            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
+        }
+
+        if (distributionZoneCfg.dataNodesAutoAdjustScaleDown() != null) {
+            zoneChange.changeDataNodesAutoAdjustScaleDown(
+                    distributionZoneCfg.dataNodesAutoAdjustScaleDown());
+            zoneChange.changeDataNodesAutoAdjust(Integer.MAX_VALUE);
         }
     }
 
@@ -786,6 +806,8 @@ public class DistributionZoneManager implements IgniteComponent {
                                                             );
 
                                                         });
+
+                                                saveDataNodesToMetaStorage(DEFAULT_ZONE_ID, vaultEntry.value(), vaultAppliedRevision);
                                             }
                                         } finally {
                                             busyLock.leaveBusy();
@@ -820,7 +842,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             Entry newEntry = evt.entryEvent().newEntry();
 
-                            Set<String> newLogicalTopology = fromBytes(newEntry.value());
+                            long revision = newEntry.revision();
+
+                            byte[] newLogicalTopologyBytes = newEntry.value();
+
+                            Set<String> newLogicalTopology = fromBytes(newLogicalTopologyBytes);
 
                             List<String> removedNodes =
                                     logicalTopology.stream().filter(node -> !newLogicalTopology.contains(node)).collect(toList());
@@ -830,39 +856,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             logicalTopology = newLogicalTopology;
 
-                            zonesConfiguration.distributionZones().value().namedListKeys()
-                                    .forEach(zoneName -> {
-                                        DistributionZoneConfiguration zoneCfg = zonesConfiguration.distributionZones().get(zoneName);
+                            NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
+                                    zonesConfiguration.distributionZones();
 
-                                        int autoAdjust = zoneCfg.dataNodesAutoAdjust().value();
-                                        int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown().value();
-                                        int autoAdjustScaleUp = zoneCfg.dataNodesAutoAdjustScaleUp().value();
+                            for (int i = 0; i < zones.value().size(); i++) {
+                                DistributionZoneView zoneView = zones.value().get(i);
 
-                                        Integer zoneId = zoneCfg.zoneId().value();
+                                scheduleTimers(zoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
+                            }
 
-                                        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != Integer.MAX_VALUE) {
-                                            //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-                                            throw new UnsupportedOperationException("Data nodes Auto Adjust is not supported.");
-                                        } else {
-                                            if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
-                                                //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
-                                                zonesTimers.get(zoneId).addNodesToDataNodes(new HashSet<>(addedNodes));
+                            DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
-                                                zonesTimers.get(zoneId).rescheduleScaleUp(
-                                                        autoAdjustScaleUp,
-                                                        () -> CompletableFuture.supplyAsync(
-                                                                () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, newEntry.revision()),
-                                                                Runnable::run
-                                                        )
-                                                );
-                                            }
-
-                                            if (!removedNodes.isEmpty() && autoAdjustScaleDown != Integer.MAX_VALUE) {
-                                                //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
-                                                throw new UnsupportedOperationException("Data nodes Auto Adjust Scale Down is not supported.");
-                                            }
-                                        }
-                                    });
+                            scheduleTimers(defaultZoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
 
                             return true;
                         } finally {
@@ -876,6 +881,42 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
                 })
                 .thenAccept(id -> watchListenerId = id);
+    }
+
+    private void scheduleTimers(
+            DistributionZoneView zoneCfg,
+            List<String> addedNodes, List<String> removedNodes,
+            byte[] newLogicalTopologyBytes,
+            long revision
+    ) {
+        int autoAdjust = zoneCfg.dataNodesAutoAdjust();
+        int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown();
+        int autoAdjustScaleUp = zoneCfg.dataNodesAutoAdjustScaleUp();
+
+        int zoneId = zoneCfg.zoneId();
+
+        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != Integer.MAX_VALUE) {
+            //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
+            throw new UnsupportedOperationException("Data nodes Auto Adjust is not supported.");
+        } else {
+            if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
+                //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
+                zonesTimers.get(zoneId).addNodesToDataNodes(new HashSet<>(addedNodes));
+
+                zonesTimers.get(zoneId).rescheduleScaleUp(
+                        autoAdjustScaleUp,
+                        () -> CompletableFuture.supplyAsync(
+                                () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, revision),
+                                Runnable::run
+                        )
+                );
+            }
+
+            if (!removedNodes.isEmpty() && autoAdjustScaleDown != Integer.MAX_VALUE) {
+                //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
+                throw new UnsupportedOperationException("Data nodes Auto Adjust Scale Down is not supported.");
+            }
+        }
     }
 
     /**

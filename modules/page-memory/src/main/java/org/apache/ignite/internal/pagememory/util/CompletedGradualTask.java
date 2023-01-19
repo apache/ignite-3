@@ -15,44 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.pagememory.util;
 
 /**
- * Represent an update event for particular key and entry.
+ * A {@link GradualTask} implementation that is completed from the start.
  */
-public class EntryEvent {
-    /** Old (previous) entry. */
-    private final Entry oldEntry;
+class CompletedGradualTask implements GradualTask {
+    static final GradualTask INSTANCE = new CompletedGradualTask();
 
-    /** New (current) entry. */
-    private final Entry entry;
-
-    /**
-     * Constructs event with given old and new entries.
-     *
-     * @param oldEntry Old entry.
-     * @param curEntry New entry.
-     */
-    public EntryEvent(Entry oldEntry, Entry curEntry) {
-        this.oldEntry = oldEntry;
-        this.entry = curEntry;
+    @Override
+    public void runStep() {
+        // No-op.
     }
 
-    /**
-     * Returns old entry.
-     *
-     * @return Old entry.
-     */
-    public Entry oldEntry() {
-        return oldEntry;
-    }
-
-    /**
-     * Rreturns new entry.
-     *
-     * @return New entry.
-     */
-    public Entry entry() {
-        return entry;
+    @Override
+    public boolean isCompleted() {
+        return true;
     }
 }

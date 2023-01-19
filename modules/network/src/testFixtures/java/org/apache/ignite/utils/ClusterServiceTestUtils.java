@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -81,7 +81,7 @@ public class ClusterServiceTestUtils {
 
         ConfigurationManager nodeConfigurationMgr = new ConfigurationManager(
                 Collections.singleton(NetworkConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
                 List.of(),
                 List.of()

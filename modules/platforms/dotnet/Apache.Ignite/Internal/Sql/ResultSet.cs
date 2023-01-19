@@ -26,9 +26,9 @@ namespace Apache.Ignite.Internal.Sql
     using Buffers;
     using Common;
     using Ignite.Sql;
-    using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// SQL result set.
@@ -80,7 +80,7 @@ namespace Apache.Ignite.Internal.Sql
             if (HasRowSet)
             {
                 _buffer = buf;
-                _bufferOffset = (int)reader.Consumed;
+                _bufferOffset = reader.Consumed;
             }
             else
             {
@@ -198,7 +198,7 @@ namespace Apache.Ignite.Internal.Sql
                 try
                 {
                     using var writer = ProtoCommon.GetMessageWriter();
-                    WriteId(writer.GetMessageWriter());
+                    WriteId(writer.MessageWriter);
 
                     await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
                 }
@@ -222,7 +222,7 @@ namespace Apache.Ignite.Internal.Sql
             return EnumerateRows().GetAsyncEnumerator(cancellationToken);
         }
 
-        private static ResultSetMetadata ReadMeta(ref MessagePackReader reader)
+        private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
         {
             var size = reader.ReadArrayHeader();
 
@@ -254,9 +254,9 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MessagePackReader reader)
+        private T ReadRow(IReadOnlyList<IColumnMetadata> cols, ref MsgPackReader reader)
         {
-            var tupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), cols.Count);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), cols.Count);
 
             return _rowReader!(cols, ref tupleReader);
         }
@@ -294,7 +294,7 @@ namespace Apache.Ignite.Internal.Sql
                 // ReSharper disable AccessToModifiedClosure
                 var reader = buf.GetReader(offset);
                 var pageSize = reader.ReadArrayHeader();
-                offset += (int)reader.Consumed;
+                offset += reader.Consumed;
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
@@ -303,7 +303,7 @@ namespace Apache.Ignite.Internal.Sql
                     var rowReader = buf.GetReader(offset);
                     var row = ReadRow(cols, ref rowReader);
 
-                    offset += (int)rowReader.Consumed;
+                    offset += rowReader.Consumed;
                     yield return row;
                 }
 
@@ -318,12 +318,12 @@ namespace Apache.Ignite.Internal.Sql
         private async Task<PooledBuffer> FetchNextPage()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            WriteId(writer.GetMessageWriter());
+            WriteId(writer.MessageWriter);
 
             return await _socket.DoOutInOpAsync(ClientOp.SqlCursorNextPage, writer).ConfigureAwait(false);
         }
 
-        private void WriteId(MessagePackWriter writer)
+        private void WriteId(MsgPackWriter writer)
         {
             var resourceId = _resourceId;
 
@@ -335,7 +335,6 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             writer.Write(_resourceId!.Value);
-            writer.Flush();
         }
 
         private void ValidateAndSetIteratorState()

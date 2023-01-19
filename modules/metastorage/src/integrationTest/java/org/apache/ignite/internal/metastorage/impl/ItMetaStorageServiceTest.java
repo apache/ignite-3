@@ -71,6 +71,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -79,17 +80,16 @@ import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractSimpleCondition;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
-import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
-import org.apache.ignite.internal.metastorage.server.StatementResult;
-import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -142,21 +142,12 @@ public class ItMetaStorageServiceTest {
     /** Nodes. */
     private static final int NODES = 2;
 
-    /** Expected server result entry. */
-    private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY =
-            new org.apache.ignite.internal.metastorage.server.Entry(
-                    new byte[]{1},
-                    new byte[]{2},
-                    10,
-                    2
-            );
-
     /**
      * Expected server result entry.
      */
     private static final EntryImpl EXPECTED_RESULT_ENTRY =
             new EntryImpl(
-                    new ByteArray(new byte[]{1}),
+                    new byte[]{1},
                     new byte[]{2},
                     10,
                     2
@@ -168,7 +159,7 @@ public class ItMetaStorageServiceTest {
     private static final NavigableMap<ByteArray, Entry> EXPECTED_RESULT_MAP;
 
     /** Expected server result collection. */
-    private static final Collection<org.apache.ignite.internal.metastorage.server.Entry> EXPECTED_SRV_RESULT_COLL;
+    private static final Collection<Entry> EXPECTED_SRV_RESULT_COLL;
 
     /** Node 0 id. */
     private static final String NODE_ID_0 = "node-id-0";
@@ -202,31 +193,24 @@ public class ItMetaStorageServiceTest {
         EXPECTED_RESULT_MAP = new TreeMap<>();
 
         EntryImpl entry1 = new EntryImpl(
-                new ByteArray(new byte[]{1}),
+                new byte[]{1},
                 new byte[]{2},
                 10,
                 2
         );
 
-        EXPECTED_RESULT_MAP.put(entry1.key(), entry1);
+        EXPECTED_RESULT_MAP.put(new ByteArray(entry1.key()), entry1);
 
         EntryImpl entry2 = new EntryImpl(
-                new ByteArray(new byte[]{3}),
+                new byte[]{3},
                 new byte[]{4},
                 10,
                 3
         );
 
-        EXPECTED_RESULT_MAP.put(entry2.key(), entry2);
+        EXPECTED_RESULT_MAP.put(new ByteArray(entry2.key()), entry2);
 
-        EXPECTED_SRV_RESULT_COLL = List.of(
-                new org.apache.ignite.internal.metastorage.server.Entry(
-                        entry1.key().bytes(), entry1.value(), entry1.revision(), entry1.updateCounter()
-                ),
-                new org.apache.ignite.internal.metastorage.server.Entry(
-                        entry2.key().bytes(), entry2.value(), entry2.revision(), entry2.updateCounter()
-                )
-        );
+        EXPECTED_SRV_RESULT_COLL = List.of(entry1, entry2);
     }
 
     /**
@@ -280,9 +264,9 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGet() throws Exception {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key().bytes())).thenReturn(EXPECTED_SRV_RESULT_ENTRY);
+        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenReturn(EXPECTED_RESULT_ENTRY);
 
-        assertEquals(EXPECTED_RESULT_ENTRY, metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+        assertEquals(EXPECTED_RESULT_ENTRY, metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
     }
 
     /**
@@ -292,12 +276,11 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetWithUpperBoundRevision() throws Exception {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key().bytes(), EXPECTED_RESULT_ENTRY.revision()))
-                .thenReturn(EXPECTED_SRV_RESULT_ENTRY);
+        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision())).thenReturn(EXPECTED_RESULT_ENTRY);
 
         assertEquals(
                 EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision()).get()
+                metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()).get()
         );
     }
 
@@ -353,11 +336,11 @@ public class ItMetaStorageServiceTest {
     public void testGetAndPut() throws Exception {
         byte[] expVal = {2};
 
-        when(mockStorage.getAndPut(EXPECTED_RESULT_ENTRY.key().bytes(), expVal)).thenReturn(EXPECTED_SRV_RESULT_ENTRY);
+        when(mockStorage.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal)).thenReturn(EXPECTED_RESULT_ENTRY);
 
         assertEquals(
                 EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal).get()
+                metaStorageSvc.getAndPut(new ByteArray(EXPECTED_RESULT_ENTRY.key()), expVal).get()
         );
     }
 
@@ -469,22 +452,15 @@ public class ItMetaStorageServiceTest {
     @Test
     public void testGetAndRemove() throws Exception {
         EntryImpl expRes = new EntryImpl(
-                new ByteArray(new byte[]{1}),
+                new byte[]{1},
                 new byte[]{3},
                 10,
                 2
         );
 
-        when(mockStorage.getAndRemove(expRes.key().bytes())).thenReturn(
-                new org.apache.ignite.internal.metastorage.server.Entry(
-                        expRes.key().bytes(),
-                        expRes.value(),
-                        expRes.revision(),
-                        expRes.updateCounter()
-                )
-        );
+        when(mockStorage.getAndRemove(expRes.key())).thenReturn(expRes);
 
-        assertEquals(expRes, metaStorageSvc.getAndRemove(expRes.key()).get());
+        assertEquals(expRes, metaStorageSvc.getAndRemove(new ByteArray(expRes.key())).get());
     }
 
     /**
@@ -543,10 +519,9 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with not null keyTo and explicit revUpperBound.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRangeWitKeyToAndUpperBound() throws Exception {
+    public void testRangeWitKeyToAndUpperBound() {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
@@ -561,10 +536,9 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with not null keyTo.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRangeWitKeyTo() throws Exception {
+    public void testRangeWitKeyTo() {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
@@ -577,10 +551,9 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with null keyTo.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRangeWitNullAsKeyTo() throws Exception {
+    public void testRangeWitNullAsKeyTo() {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         when(mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(mock(Cursor.class));
@@ -613,16 +586,16 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeNext() {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null, false)).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
-            when(cursor.next()).thenReturn(EXPECTED_SRV_RESULT_ENTRY);
+            when(cursor.next()).thenReturn(EXPECTED_RESULT_ENTRY);
 
             return cursor;
         });
 
-        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursor = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertEquals(EXPECTED_RESULT_ENTRY, cursor.iterator().next());
     }
@@ -632,7 +605,7 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeNextNoSuchElementException() {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null, false)).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -641,7 +614,7 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        Cursor<Entry> cursor = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursor = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertThrows(NoSuchElementException.class, () -> cursor.iterator().next());
     }
@@ -649,10 +622,9 @@ public class ItMetaStorageServiceTest {
     /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} close.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRangeClose() throws Exception {
+    public void testRangeClose() {
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         Cursor cursorMock = mock(Cursor.class);
@@ -668,44 +640,44 @@ public class ItMetaStorageServiceTest {
 
     @Test
     public void testWatchOnUpdate() throws Exception {
-        org.apache.ignite.internal.metastorage.server.WatchEvent expectedEvent =
-                new org.apache.ignite.internal.metastorage.server.WatchEvent(List.of(
-                        new org.apache.ignite.internal.metastorage.server.EntryEvent(
-                                new org.apache.ignite.internal.metastorage.server.Entry(
+        WatchEvent expectedEvent =
+                new WatchEvent(List.of(
+                        new EntryEvent(
+                                new EntryImpl(
                                         new byte[]{2},
                                         new byte[]{20},
                                         1,
                                         1
                                 ),
-                                new org.apache.ignite.internal.metastorage.server.Entry(
+                                new EntryImpl(
                                         new byte[]{2},
                                         new byte[]{21},
                                         2,
                                         4
                                 )
                         ),
-                        new org.apache.ignite.internal.metastorage.server.EntryEvent(
-                                new org.apache.ignite.internal.metastorage.server.Entry(
+                        new EntryEvent(
+                                new EntryImpl(
                                         new byte[]{3},
                                         new byte[]{20},
                                         1,
                                         2
                                 ),
-                                new org.apache.ignite.internal.metastorage.server.Entry(
+                                new EntryImpl(
                                         new byte[]{3},
                                         new byte[]{},
                                         2,
                                         5
                                 )
                         ),
-                        new org.apache.ignite.internal.metastorage.server.EntryEvent(
-                                new org.apache.ignite.internal.metastorage.server.Entry(
+                        new EntryEvent(
+                                new EntryImpl(
                                         new byte[]{4},
                                         new byte[]{20},
                                         1,
                                         3
                                 ),
-                                new org.apache.ignite.internal.metastorage.server.Entry(
+                                new EntryImpl(
                                         new byte[]{4},
                                         new byte[]{},
                                         3,
@@ -735,21 +707,21 @@ public class ItMetaStorageServiceTest {
             @Override
             public boolean onUpdate(@NotNull WatchEvent event) {
                 Collection<EntryEvent> expectedEvents = expectedEvent.entryEvents();
-                Collection<org.apache.ignite.internal.metastorage.EntryEvent> actualEvents = event.entryEvents();
+                Collection<EntryEvent> actualEvents = event.entryEvents();
 
                 assertEquals(expectedEvents.size(), actualEvents.size());
 
                 Iterator<EntryEvent> expectedIterator = expectedEvents.iterator();
-                Iterator<org.apache.ignite.internal.metastorage.EntryEvent> actualIterator = actualEvents.iterator();
+                Iterator<EntryEvent> actualIterator = actualEvents.iterator();
 
                 while (expectedIterator.hasNext() && actualIterator.hasNext()) {
-                    org.apache.ignite.internal.metastorage.server.EntryEvent expectedEntryEvent = expectedIterator.next();
-                    org.apache.ignite.internal.metastorage.EntryEvent actualEntryEvent = actualIterator.next();
+                    EntryEvent expectedEntryEvent = expectedIterator.next();
+                    EntryEvent actualEntryEvent = actualIterator.next();
 
-                    assertArrayEquals(expectedEntryEvent.oldEntry().key(), actualEntryEvent.oldEntry().key().bytes());
+                    assertArrayEquals(expectedEntryEvent.oldEntry().key(), actualEntryEvent.oldEntry().key());
                     assertArrayEquals(expectedEntryEvent.oldEntry().value(), actualEntryEvent.oldEntry().value());
-                    assertArrayEquals(expectedEntryEvent.entry().key(), actualEntryEvent.newEntry().key().bytes());
-                    assertArrayEquals(expectedEntryEvent.entry().value(), actualEntryEvent.newEntry().value());
+                    assertArrayEquals(expectedEntryEvent.newEntry().key(), actualEntryEvent.newEntry().key());
+                    assertArrayEquals(expectedEntryEvent.newEntry().value(), actualEntryEvent.newEntry().value());
                 }
 
                 latch.countDown();
@@ -829,19 +801,18 @@ public class ItMetaStorageServiceTest {
                         Type.LESS_OR_EQUAL, key1.bytes(), val2))));
 
         assertThat(resultIf.andThen().iif().andThen().update(), upd(new Update(
-                List.of(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)),
+                List.of(Operation.put(key1.bytes(), rval1)),
                 new StatementResult(true))));
 
         assertThat(resultIf.andThen().iif().orElse().iif().andThen().update(), upd(new Update(
-                Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1),
-                        new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)),
+                Arrays.asList(Operation.put(key1.bytes(), rval1), Operation.remove(key2.bytes())),
                 new StatementResult(false))));
 
         assertThat(resultIf.andThen().iif().orElse().iif().orElse().update(),
                 upd(new Update(Collections.emptyList(), new StatementResult(true))));
 
         assertThat(resultIf.orElse().update(), upd(new Update(
-                List.of(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)),
+                List.of(Operation.put(key2.bytes(), rval2)),
                 new StatementResult(false))));
     }
 
@@ -863,11 +834,9 @@ public class ItMetaStorageServiceTest {
 
         var conditionCaptor = ArgumentCaptor.forClass(AbstractSimpleCondition.class);
 
-        ArgumentCaptor<Collection<org.apache.ignite.internal.metastorage.server.Operation>> successCaptor =
-                ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<Collection<Operation>> successCaptor = ArgumentCaptor.forClass(Collection.class);
 
-        ArgumentCaptor<Collection<org.apache.ignite.internal.metastorage.server.Operation>> failureCaptor =
-                ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<Collection<Operation>> failureCaptor = ArgumentCaptor.forClass(Collection.class);
 
         verify(mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture());
 
@@ -888,10 +857,10 @@ public class ItMetaStorageServiceTest {
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
     public void testGetThatThrowsCompactedException() {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key().bytes()))
+        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key()))
                 .thenThrow(new org.apache.ignite.internal.metastorage.server.CompactedException());
 
-        assertThrows(CompactedException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+        assertThrows(CompactedException.class, () -> metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
     }
 
     /**
@@ -900,9 +869,9 @@ public class ItMetaStorageServiceTest {
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
     public void testGetThatThrowsOperationTimeoutException() {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key().bytes())).thenThrow(new OperationTimeoutException());
+        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenThrow(new OperationTimeoutException());
 
-        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(EXPECTED_RESULT_ENTRY.key()).get());
+        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
     }
 
     /**
@@ -912,11 +881,11 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testCursorsCleanup() throws Exception {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key().bytes(), null, false)).thenAnswer(invocation -> {
+        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
-            when(cursor.next()).thenReturn(EXPECTED_SRV_RESULT_ENTRY);
+            when(cursor.next()).thenReturn(EXPECTED_RESULT_ENTRY);
 
             return cursor;
         });
@@ -933,15 +902,15 @@ public class ItMetaStorageServiceTest {
 
         MetaStorageService metaStorageSvc2 = new MetaStorageServiceImpl(metaStorageRaftSvc2, NODE_ID_1, NODE_ID_1);
 
-        Cursor<Entry> cursorNode0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursorNode0 = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertTrue(cursorNode0.hasNext());
 
-        Cursor<Entry> cursor2Node0 = metaStorageSvc.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursor2Node0 = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertTrue(cursor2Node0.hasNext());
 
-        Cursor<Entry> cursorNode1 = metaStorageSvc2.range(EXPECTED_RESULT_ENTRY.key(), null);
+        Cursor<Entry> cursorNode1 = metaStorageSvc2.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertTrue(cursorNode1.hasNext());
 
@@ -993,8 +962,7 @@ public class ItMetaStorageServiceTest {
                     .collect(Collectors.joining(",")) + "])";
         }
 
-        private boolean opsEqual(Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops1,
-                Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops2) {
+        private boolean opsEqual(Iterator<Operation> ops1, Iterator<Operation> ops2) {
             if (!ops1.hasNext()) {
                 return true;
             } else {
@@ -1002,8 +970,7 @@ public class ItMetaStorageServiceTest {
             }
         }
 
-        private boolean opEqual(org.apache.ignite.internal.metastorage.server.Operation op1,
-                org.apache.ignite.internal.metastorage.server.Operation op2) {
+        private boolean opEqual(Operation op1, Operation op2) {
             return Arrays.equals(op1.key(), op2.key()) && Arrays.equals(op1.value(), op2.value()) && op1.type() == op2.type();
         }
     }
@@ -1013,7 +980,7 @@ public class ItMetaStorageServiceTest {
      */
     protected static class ServerConditionMatcher extends TypeSafeMatcher<org.apache.ignite.internal.metastorage.server.Condition> {
 
-        private org.apache.ignite.internal.metastorage.server.Condition condition;
+        private final org.apache.ignite.internal.metastorage.server.Condition condition;
 
         public ServerConditionMatcher(org.apache.ignite.internal.metastorage.server.Condition condition) {
             this.condition = condition;

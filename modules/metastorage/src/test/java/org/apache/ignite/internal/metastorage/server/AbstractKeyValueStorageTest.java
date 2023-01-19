@@ -35,7 +35,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationType;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -75,7 +81,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void put() {
         byte[] key = key(1);
-        final byte[] val = keyValue(1, 1);
+        byte[] val = keyValue(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -111,14 +117,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
-        final byte[] key4 = key(4);
+        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -127,8 +133,8 @@ public abstract class AbstractKeyValueStorageTest {
         storage.put(key1, val1);
 
         // Rewrite.
-        storage.put(key2, val2_1);
-        storage.put(key2, val2_2);
+        storage.put(key2, val21);
+        storage.put(key2, val22);
 
         // Remove.
         storage.put(key3, val3);
@@ -152,7 +158,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertNotNull(key2EntryBounded2);
         assertEquals(2, key2EntryBounded2.revision());
         assertEquals(2, key2EntryBounded2.updateCounter());
-        assertArrayEquals(val2_1, key2EntryBounded2.value());
+        assertArrayEquals(val21, key2EntryBounded2.value());
         assertFalse(key2EntryBounded2.tombstone());
         assertFalse(key2EntryBounded2.empty());
 
@@ -180,7 +186,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertNotNull(key2EntryBounded5);
         assertEquals(3, key2EntryBounded5.revision());
         assertEquals(3, key2EntryBounded5.updateCounter());
-        assertArrayEquals(val2_2, key2EntryBounded5.value());
+        assertArrayEquals(val22, key2EntryBounded5.value());
         assertFalse(key2EntryBounded5.tombstone());
         assertFalse(key2EntryBounded5.empty());
 
@@ -199,14 +205,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
-        final byte[] key4 = key(4);
+        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -215,8 +221,8 @@ public abstract class AbstractKeyValueStorageTest {
         storage.put(key1, val1);
 
         // Rewrite.
-        storage.put(key2, val2_1);
-        storage.put(key2, val2_2);
+        storage.put(key2, val21);
+        storage.put(key2, val22);
 
         // Remove.
         storage.put(key3, val3);
@@ -249,7 +255,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(3, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
-        assertArrayEquals(val2_2, e2.value());
+        assertArrayEquals(val22, e2.value());
 
         // Test removed value.
         Entry e3 = map.get(new ByteArray(key3));
@@ -273,14 +279,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
-        final byte[] key4 = key(4);
+        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -289,8 +295,8 @@ public abstract class AbstractKeyValueStorageTest {
         storage.put(key1, val1);
 
         // Rewrite.
-        storage.put(key2, val2_1);
-        storage.put(key2, val2_2);
+        storage.put(key2, val21);
+        storage.put(key2, val22);
 
         // Remove.
         storage.put(key3, val3);
@@ -324,7 +330,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(2, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
-        assertArrayEquals(val2_1, e2.value());
+        assertArrayEquals(val21, e2.value());
 
         // Values with larger revision don't exist yet.
         Entry e3 = map.get(new ByteArray(key3));
@@ -362,7 +368,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(3, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
-        assertArrayEquals(val2_2, e2.value());
+        assertArrayEquals(val22, e2.value());
 
         // Test not removed value.
         e3 = map.get(new ByteArray(key3));
@@ -384,7 +390,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void getAndPut() {
         byte[] key = key(1);
-        final byte[] val = keyValue(1, 1);
+        byte[] val = keyValue(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -411,18 +417,18 @@ public abstract class AbstractKeyValueStorageTest {
 
     @Test
     public void putAll() {
-        final byte[] key1 = key(1);
-        final byte[] val1 = keyValue(1, 1);
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
 
         byte[] key2 = key(2);
         byte[] val21 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3_1 = keyValue(3, 31);
-        final byte[] val3_2 = keyValue(3, 32);
+        byte[] key3 = key(3);
+        byte[] val31 = keyValue(3, 31);
+        byte[] val32 = keyValue(3, 32);
 
-        final byte[] key4 = key(4);
+        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -431,13 +437,13 @@ public abstract class AbstractKeyValueStorageTest {
         storage.put(key2, val21);
 
         // Remove. Tombstone must be replaced by new value.
-        storage.put(key3, val3_1);
+        storage.put(key3, val31);
         storage.remove(key3);
 
         assertEquals(3, storage.revision());
         assertEquals(3, storage.updateCounter());
 
-        storage.putAll(List.of(key1, key2, key3), List.of(val1, val2_2, val3_2));
+        storage.putAll(List.of(key1, key2, key3), List.of(val1, val22, val32));
 
         assertEquals(4, storage.revision());
         assertEquals(6, storage.updateCounter());
@@ -466,7 +472,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(5, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
-        assertArrayEquals(val2_2, e2.value());
+        assertArrayEquals(val22, e2.value());
 
         // Test removed value.
         Entry e3 = map.get(new ByteArray(key3));
@@ -487,18 +493,18 @@ public abstract class AbstractKeyValueStorageTest {
 
     @Test
     public void getAndPutAll() {
-        final byte[] key1 = key(1);
-        final byte[] val1 = keyValue(1, 1);
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
 
         byte[] key2 = key(2);
         byte[] val21 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3_1 = keyValue(3, 31);
-        final byte[] val3_2 = keyValue(3, 32);
+        byte[] key3 = key(3);
+        byte[] val31 = keyValue(3, 31);
+        byte[] val32 = keyValue(3, 32);
 
-        final byte[] key4 = key(4);
+        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -507,13 +513,13 @@ public abstract class AbstractKeyValueStorageTest {
         storage.put(key2, val21);
 
         // Remove. Tombstone must be replaced by new value.
-        storage.put(key3, val3_1);
+        storage.put(key3, val31);
         storage.remove(key3);
 
         assertEquals(3, storage.revision());
         assertEquals(3, storage.updateCounter());
 
-        Collection<Entry> entries = storage.getAndPutAll(List.of(key1, key2, key3), List.of(val1, val2_2, val3_2));
+        Collection<Entry> entries = storage.getAndPutAll(List.of(key1, key2, key3), List.of(val1, val22, val32));
 
         assertEquals(4, storage.revision());
         assertEquals(6, storage.updateCounter());
@@ -575,7 +581,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(5, e2.updateCounter());
         assertFalse(e2.tombstone());
         assertFalse(e2.empty());
-        assertArrayEquals(val2_2, e2.value());
+        assertArrayEquals(val22, e2.value());
 
         // Test removed value.
         e3 = map.get(new ByteArray(key3));
@@ -597,7 +603,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void remove() {
         byte[] key = key(1);
-        final byte[] val = keyValue(1, 1);
+        byte[] val = keyValue(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -645,7 +651,7 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void getAndRemove() {
         byte[] key = key(1);
-        final byte[] val = keyValue(1, 1);
+        byte[] val = keyValue(1, 1);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -704,14 +710,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3_1 = keyValue(3, 31);
+        byte[] key3 = key(3);
+        byte[] val31 = keyValue(3, 31);
 
-        final byte[] key4 = key(4);
+        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -720,11 +726,11 @@ public abstract class AbstractKeyValueStorageTest {
         storage.put(key1, val1);
 
         // Rewrite.
-        storage.put(key2, val2_1);
-        storage.put(key2, val2_2);
+        storage.put(key2, val21);
+        storage.put(key2, val22);
 
         // Remove. Tombstone must not be removed again.
-        storage.put(key3, val3_1);
+        storage.put(key3, val31);
         storage.remove(key3);
 
         assertEquals(5, storage.revision());
@@ -781,14 +787,14 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3_1 = keyValue(3, 31);
+        byte[] key3 = key(3);
+        byte[] val31 = keyValue(3, 31);
 
-        final byte[] key4 = key(4);
+        byte[] key4 = key(4);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -797,11 +803,11 @@ public abstract class AbstractKeyValueStorageTest {
         storage.put(key1, val1);
 
         // Rewrite.
-        storage.put(key2, val2_1);
-        storage.put(key2, val2_2);
+        storage.put(key2, val21);
+        storage.put(key2, val22);
 
         // Remove. Tombstone must not be removed again.
-        storage.put(key3, val3_1);
+        storage.put(key3, val31);
         storage.remove(key3);
 
         assertEquals(5, storage.revision());
@@ -930,10 +936,10 @@ public abstract class AbstractKeyValueStorageTest {
     public void putGetRemoveCompact() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 1);
-        final byte[] val1_3 = keyValue(1, 3);
+        byte[] val13 = keyValue(1, 3);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val22 = keyValue(2, 2);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -958,7 +964,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(1, storage.updateCounter());
 
         // Previous entry is empty.
-        emptyEntry = storage.getAndPut(key2, val2_2);
+        emptyEntry = storage.getAndPut(key2, val22);
 
         assertEquals(2, storage.revision());
         assertEquals(2, storage.updateCounter());
@@ -970,14 +976,14 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e2.empty());
         assertFalse(e2.tombstone());
         assertArrayEquals(key2, e2.key());
-        assertArrayEquals(val2_2, e2.value());
+        assertArrayEquals(val22, e2.value());
         assertEquals(2, e2.revision());
         assertEquals(2, e2.updateCounter());
         assertEquals(2, storage.revision());
         assertEquals(2, storage.updateCounter());
 
         // Previous entry is not empty.
-        e11 = storage.getAndPut(key1, val1_3);
+        e11 = storage.getAndPut(key1, val13);
 
         assertFalse(e11.empty());
         assertFalse(e11.tombstone());
@@ -994,7 +1000,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e13.empty());
         assertFalse(e13.tombstone());
         assertArrayEquals(key1, e13.key());
-        assertArrayEquals(val1_3, e13.value());
+        assertArrayEquals(val13, e13.value());
         assertEquals(3, e13.revision());
         assertEquals(3, e13.updateCounter());
         assertEquals(3, storage.revision());
@@ -1006,7 +1012,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e22.empty());
         assertFalse(e22.tombstone());
         assertArrayEquals(key2, e22.key());
-        assertArrayEquals(val2_2, e22.value());
+        assertArrayEquals(val22, e22.value());
         assertEquals(2, e22.revision());
         assertEquals(2, e22.updateCounter());
         assertEquals(4, storage.revision()); // Storage revision is changed.
@@ -1034,7 +1040,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e13.empty());
         assertFalse(e13.tombstone());
         assertArrayEquals(key1, e13.key());
-        assertArrayEquals(val1_3, e13.value());
+        assertArrayEquals(val13, e13.value());
         assertEquals(3, e13.revision());
         assertEquals(3, e13.updateCounter());
         assertEquals(5, storage.revision()); // Storage revision is changed.
@@ -1061,13 +1067,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithRevisionCondition_successBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1079,11 +1085,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new RevisionCondition(RevisionCondition.Type.EQUAL, key1, 1),
-                List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
-                ),
-                List.of(new Operation(OperationType.PUT, key3, val3))
+                List.of(Operation.put(key1, val12), Operation.put(key2, val2)),
+                List.of(Operation.put(key3, val3))
         );
 
         // "Success" branch is applied.
@@ -1097,7 +1100,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1117,13 +1120,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithRevisionCondition_failureBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1135,11 +1138,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new RevisionCondition(RevisionCondition.Type.EQUAL, key1, 2),
-                List.of(new Operation(OperationType.PUT, key3, val3)),
-                List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
-                )
+                List.of(Operation.put(key3, val3)),
+                List.of(Operation.put(key1, val12), Operation.put(key2, val2))
         );
 
         // "Failure" branch is applied.
@@ -1153,7 +1153,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1173,13 +1173,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithExistsCondition_successBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1191,11 +1191,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.EXISTS, key1),
-                List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
-                ),
-                List.of(new Operation(OperationType.PUT, key3, val3))
+                List.of(Operation.put(key1, val12), Operation.put(key2, val2)),
+                List.of(Operation.put(key3, val3))
         );
 
         // "Success" branch is applied.
@@ -1209,7 +1206,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1229,13 +1226,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithExistsCondition_failureBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1247,11 +1244,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.EXISTS, key3),
-                List.of(new Operation(OperationType.PUT, key3, val3)),
-                List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
-                )
+                List.of(Operation.put(key3, val3)),
+                List.of(Operation.put(key1, val12), Operation.put(key2, val2))
         );
 
         // "Failure" branch is applied.
@@ -1265,7 +1259,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1285,13 +1279,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithNotExistsCondition_successBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1303,11 +1297,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key2),
-                List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
-                ),
-                List.of(new Operation(OperationType.PUT, key3, val3))
+                List.of(Operation.put(key1, val12), Operation.put(key2, val2)),
+                List.of(Operation.put(key3, val3))
         );
 
         // "Success" branch is applied.
@@ -1321,7 +1312,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1341,13 +1332,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithNotExistsCondition_failureBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1359,10 +1350,10 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key1),
-                List.of(new Operation(OperationType.PUT, key3, val3)),
+                List.of(Operation.put(key3, val3)),
                 List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
+                        Operation.put(key1, val12),
+                        Operation.put(key2, val2)
                 )
         );
 
@@ -1377,7 +1368,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1398,11 +1389,11 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1415,8 +1406,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new TombstoneCondition(key1),
-                List.of(new Operation(OperationType.PUT, key2, val2)),
-                List.of(new Operation(OperationType.PUT, key3, val3))
+                List.of(Operation.put(key2, val2)),
+                List.of(Operation.put(key3, val3))
         );
 
         // "Success" branch is applied.
@@ -1451,11 +1442,11 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1467,8 +1458,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new TombstoneCondition(key1),
-                List.of(new Operation(OperationType.PUT, key2, val2)),
-                List.of(new Operation(OperationType.PUT, key3, val3))
+                List.of(Operation.put(key2, val2)),
+                List.of(Operation.put(key3, val3))
         );
 
         // "Failure" branch is applied.
@@ -1502,13 +1493,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithValueCondition_successBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1521,10 +1512,10 @@ public abstract class AbstractKeyValueStorageTest {
         boolean branch = storage.invoke(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val11),
                 List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
+                        Operation.put(key1, val12),
+                        Operation.put(key2, val2)
                 ),
-                List.of(new Operation(OperationType.PUT, key3, val3))
+                List.of(Operation.put(key3, val3))
         );
 
         // "Success" branch is applied.
@@ -1538,7 +1529,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1558,13 +1549,13 @@ public abstract class AbstractKeyValueStorageTest {
     public void invokeWithValueCondition_failureBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1575,11 +1566,11 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(1, storage.updateCounter());
 
         boolean branch = storage.invoke(
-                new ValueCondition(ValueCondition.Type.EQUAL, key1, val1_2),
-                List.of(new Operation(OperationType.PUT, key3, val3)),
+                new ValueCondition(ValueCondition.Type.EQUAL, key1, val12),
+                List.of(Operation.put(key3, val3)),
                 List.of(
-                        new Operation(OperationType.PUT, key1, val1_2),
-                        new Operation(OperationType.PUT, key2, val2)
+                        Operation.put(key1, val12),
+                        Operation.put(key2, val2)
                 )
         );
 
@@ -1594,7 +1585,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(e1.tombstone());
         assertEquals(2, e1.revision());
         assertEquals(2, e1.updateCounter());
-        assertArrayEquals(val1_2, e1.value());
+        assertArrayEquals(val12, e1.value());
 
         Entry e2 = storage.get(key2);
 
@@ -1615,11 +1606,11 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1646,8 +1637,8 @@ public abstract class AbstractKeyValueStorageTest {
         branch = storage.invoke(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val1),
                 List.of(
-                        new Operation(OperationType.PUT, key2, val2),
-                        new Operation(OperationType.PUT, key3, val3)
+                        Operation.put(key2, val2),
+                        Operation.put(key3, val3)
                 ),
                 List.of(new Operation(OperationType.NO_OP, null, null))
         );
@@ -1730,12 +1721,12 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] val1 = keyValue(1, 1);
         byte[] rval1 = keyValue(1, 4);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
-        final byte[] rval3 = keyValue(2, 6);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
+        byte[] rval3 = keyValue(2, 6);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1761,13 +1752,13 @@ public abstract class AbstractKeyValueStorageTest {
                         new If(
                                 new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
                                 new Statement(
-                                        new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                                        new Update(List.of(Operation.put(key1, rval1)), new StatementResult(1))),
                                 new Statement(
                                         new Update(
-                                                List.of(new Operation(OperationType.PUT, key1, rval1),
+                                                List.of(Operation.put(key1, rval1),
                                                         new Operation(OperationType.REMOVE, key2, null)),
                                                 new StatementResult(2))))),
-                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3)))
+                new Statement(new Update(List.of(Operation.put(key3, rval3)), new StatementResult(3)))
         );
 
         StatementResult branch = storage.invoke(iif);
@@ -1810,12 +1801,12 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] val1 = keyValue(1, 1);
         byte[] rval1 = keyValue(1, 4);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
-        final byte[] rval3 = keyValue(2, 6);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
+        byte[] rval3 = keyValue(2, 6);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1843,11 +1834,11 @@ public abstract class AbstractKeyValueStorageTest {
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
                 new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                        new Statement(new Update(List.of(Operation.put(key1, rval1)), new StatementResult(1))),
                         new Statement(new Update(
-                                List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
+                                List.of(Operation.put(key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
                                 new StatementResult(2))))),
-                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3))));
+                new Statement(new Update(List.of(Operation.put(key3, rval3)), new StatementResult(3))));
 
         StatementResult branch = storage.invoke(iif);
 
@@ -1890,12 +1881,12 @@ public abstract class AbstractKeyValueStorageTest {
         byte[] val1 = keyValue(1, 1);
         byte[] rval1 = keyValue(1, 4);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 2);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
 
-        final byte[] key3 = key(3);
-        final byte[] val3 = keyValue(3, 3);
-        final byte[] rval3 = keyValue(2, 6);
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
+        byte[] rval3 = keyValue(2, 6);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -1913,11 +1904,11 @@ public abstract class AbstractKeyValueStorageTest {
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
                 new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                        new Statement(new Update(List.of(Operation.put(key1, rval1)), new StatementResult(1))),
                         new Statement(new Update(
-                                List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
+                                List.of(Operation.put(key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
                                 new StatementResult(2))))),
-                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3))));
+                new Statement(new Update(List.of(Operation.put(key3, rval3)), new StatementResult(3))));
 
         StatementResult branch = storage.invoke(iif);
 
@@ -2111,7 +2102,7 @@ public abstract class AbstractKeyValueStorageTest {
             for (WatchEvent event : cur) {
                 assertTrue(event.single());
 
-                Entry entry = event.entryEvent().entry();
+                Entry entry = event.entryEvent().newEntry();
 
                 byte[] entryKey = entry.key();
 
@@ -2129,14 +2120,14 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void watchCursorForRange() throws Exception {
         byte[] key1 = key(1);
-        final byte[] val1_1 = keyValue(1, 11);
+        byte[] val11 = keyValue(1, 11);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3_1 = keyValue(3, 31);
+        byte[] key3 = key(3);
+        byte[] val31 = keyValue(3, 31);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -2149,7 +2140,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(it.hasNext());
         assertThrows(NoSuchElementException.class, it::next);
 
-        storage.putAll(List.of(key1, key2), List.of(val1_1, val2_1));
+        storage.putAll(List.of(key1, key2), List.of(val11, val21));
 
         assertEquals(1, storage.revision());
         assertEquals(2, storage.updateCounter());
@@ -2158,7 +2149,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(it.hasNext());
         assertThrows(NoSuchElementException.class, it::next);
 
-        storage.putAll(List.of(key2, key3), List.of(val2_2, val3_1));
+        storage.putAll(List.of(key2, key3), List.of(val22, val31));
 
         assertEquals(2, storage.revision());
         assertEquals(4, storage.updateCounter());
@@ -2171,7 +2162,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(watchEvent.single());
 
         Map<ByteArray, EntryEvent> map = watchEvent.entryEvents().stream()
-                .collect(Collectors.toMap(evt -> new ByteArray(evt.entry().key()), identity()));
+                .collect(Collectors.toMap(evt -> new ByteArray(evt.newEntry().key()), identity()));
 
         assertEquals(2, map.size());
 
@@ -2187,16 +2178,16 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(1, oldEntry2.revision());
         assertEquals(2, oldEntry2.updateCounter());
         assertArrayEquals(key2, oldEntry2.key());
-        assertArrayEquals(val2_1, oldEntry2.value());
+        assertArrayEquals(val21, oldEntry2.value());
 
-        Entry newEntry2 = e2.entry();
+        Entry newEntry2 = e2.newEntry();
 
         assertFalse(newEntry2.empty());
         assertFalse(newEntry2.tombstone());
         assertEquals(2, newEntry2.revision());
         assertEquals(3, newEntry2.updateCounter());
         assertArrayEquals(key2, newEntry2.key());
-        assertArrayEquals(val2_2, newEntry2.value());
+        assertArrayEquals(val22, newEntry2.value());
 
         // Second update under revision.
         EntryEvent e3 = map.get(new ByteArray(key3));
@@ -2209,14 +2200,14 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(oldEntry3.tombstone());
         assertArrayEquals(key3, oldEntry3.key());
 
-        Entry newEntry3 = e3.entry();
+        Entry newEntry3 = e3.newEntry();
 
         assertFalse(newEntry3.empty());
         assertFalse(newEntry3.tombstone());
         assertEquals(2, newEntry3.revision());
         assertEquals(4, newEntry3.updateCounter());
         assertArrayEquals(key3, newEntry3.key());
-        assertArrayEquals(val3_1, newEntry3.value());
+        assertArrayEquals(val31, newEntry3.value());
 
         assertFalse(it.hasNext());
 
@@ -2237,9 +2228,9 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(1, oldEntry1.revision());
         assertEquals(1, oldEntry1.updateCounter());
         assertArrayEquals(key1, oldEntry1.key());
-        assertArrayEquals(val1_1, oldEntry1.value());
+        assertArrayEquals(val11, oldEntry1.value());
 
-        Entry newEntry1 = e1.entry();
+        Entry newEntry1 = e1.newEntry();
 
         assertFalse(newEntry1.empty());
         assertTrue(newEntry1.tombstone());
@@ -2256,12 +2247,12 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void watchCursorForKey() {
         byte[] key1 = key(1);
-        final byte[] val1_1 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val11 = keyValue(1, 11);
+        byte[] val12 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -2273,7 +2264,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(it.hasNext());
         assertThrows(NoSuchElementException.class, it::next);
 
-        storage.putAll(List.of(key1, key2), List.of(val1_1, val2_1));
+        storage.putAll(List.of(key1, key2), List.of(val11, val21));
 
         assertEquals(1, storage.revision());
         assertEquals(2, storage.updateCounter());
@@ -2291,22 +2282,22 @@ public abstract class AbstractKeyValueStorageTest {
         assertTrue(oldEntry1.empty());
         assertFalse(oldEntry1.tombstone());
 
-        Entry newEntry1 = e1.entry();
+        Entry newEntry1 = e1.newEntry();
 
         assertFalse(newEntry1.empty());
         assertFalse(newEntry1.tombstone());
         assertEquals(1, newEntry1.revision());
         assertEquals(1, newEntry1.updateCounter());
         assertArrayEquals(key1, newEntry1.key());
-        assertArrayEquals(val1_1, newEntry1.value());
+        assertArrayEquals(val11, newEntry1.value());
 
         assertFalse(it.hasNext());
 
-        storage.put(key2, val2_2);
+        storage.put(key2, val22);
 
         assertFalse(it.hasNext());
 
-        storage.put(key1, val1_2);
+        storage.put(key1, val12);
 
         assertTrue(it.hasNext());
 
@@ -2323,16 +2314,16 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(1, oldEntry1.revision());
         assertEquals(1, oldEntry1.updateCounter());
         assertArrayEquals(key1, newEntry1.key());
-        assertArrayEquals(val1_1, newEntry1.value());
+        assertArrayEquals(val11, newEntry1.value());
 
-        newEntry1 = e1.entry();
+        newEntry1 = e1.newEntry();
 
         assertFalse(newEntry1.empty());
         assertFalse(newEntry1.tombstone());
         assertEquals(3, newEntry1.revision());
         assertEquals(4, newEntry1.updateCounter());
         assertArrayEquals(key1, newEntry1.key());
-        assertArrayEquals(val1_2, newEntry1.value());
+        assertArrayEquals(val12, newEntry1.value());
 
         assertFalse(it.hasNext());
     }
@@ -2381,7 +2372,7 @@ public abstract class AbstractKeyValueStorageTest {
             assertTrue(oldEntry1.empty());
             assertFalse(oldEntry1.tombstone());
 
-            Entry newEntry1 = e1.entry();
+            Entry newEntry1 = e1.newEntry();
 
             assertFalse(newEntry1.empty());
             assertFalse(newEntry1.tombstone());
@@ -2395,15 +2386,15 @@ public abstract class AbstractKeyValueStorageTest {
     @Test
     public void watchCursorForKeys() {
         byte[] key1 = key(1);
-        final byte[] val1_1 = keyValue(1, 11);
+        byte[] val11 = keyValue(1, 11);
 
         byte[] key2 = key(2);
-        final byte[] val2_1 = keyValue(2, 21);
-        final byte[] val2_2 = keyValue(2, 22);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
 
-        final byte[] key3 = key(3);
-        final byte[] val3_1 = keyValue(3, 31);
-        final byte[] val3_2 = keyValue(3, 32);
+        byte[] key3 = key(3);
+        byte[] val31 = keyValue(3, 31);
+        byte[] val32 = keyValue(3, 32);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
@@ -2415,7 +2406,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertFalse(it.hasNext());
         assertThrows(NoSuchElementException.class, it::next);
 
-        storage.putAll(List.of(key1, key2, key3), List.of(val1_1, val2_1, val3_1));
+        storage.putAll(List.of(key1, key2, key3), List.of(val11, val21, val31));
 
         assertEquals(1, storage.revision());
         assertEquals(3, storage.updateCounter());
@@ -2428,7 +2419,7 @@ public abstract class AbstractKeyValueStorageTest {
 
         assertFalse(it.hasNext());
 
-        storage.put(key2, val2_2);
+        storage.put(key2, val22);
 
         assertTrue(it.hasNext());
 
@@ -2438,7 +2429,7 @@ public abstract class AbstractKeyValueStorageTest {
 
         assertFalse(it.hasNext());
 
-        storage.put(key3, val3_2);
+        storage.put(key3, val32);
 
         assertFalse(it.hasNext());
     }

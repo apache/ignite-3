@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import java.util.Collection;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.metastorage.Entry;
 
 /**
  * Defines interface for boolean condition which could be applied to an array of entries.
@@ -31,7 +31,7 @@ public interface Condition {
      *
      * @return The keys which identifies an entries which condition will be applied to.
      */
-    @NotNull byte[][] keys();
+    byte[][] keys();
 
     /**
      * Tests the given entries on condition.
@@ -39,5 +39,5 @@ public interface Condition {
      * @param entries Array of entries which will be tested on the condition. Can't be {@code null}.
      * @return {@code True} if the given entries satisfies to the condition, otherwise - {@code false}.
      */
-    boolean test(@NotNull Entry... entries);
+    boolean test(Entry... entries);
 }

@@ -19,12 +19,10 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Net;
-    using System.Text;
     using System.Threading.Tasks;
     using Internal;
     using Internal.Buffers;
     using Internal.Proto;
-    using MessagePack;
     using NUnit.Framework;
 
     /// <summary>
@@ -38,17 +36,10 @@ namespace Apache.Ignite.Tests
             using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
-
-            WriteString(requestWriter.GetMessageWriter(), "non-existent-table");
+            requestWriter.MessageWriter.Write("non-existent-table");
 
             using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
-            Assert.IsTrue(response.GetReader().IsNil);
-
-            void WriteString(MessagePackWriter writer, string str)
-            {
-                writer.WriteString(Encoding.UTF8.GetBytes(str));
-                writer.Flush();
-            }
+            Assert.IsTrue(response.GetReader().TryReadNil());
         }
 
         [Test]
@@ -57,7 +48,7 @@ namespace Apache.Ignite.Tests
             using var socket = await ClientSocket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, ServerPort), new(), _ => {});
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
-            requestWriter.GetMessageWriter().Write(123);
+            requestWriter.MessageWriter.Write(123);
 
             var ex = Assert.ThrowsAsync<IgniteException>(
                 async () => await socket.DoOutInOpAsync((ClientOp)1234567, requestWriter));
@@ -72,8 +63,8 @@ namespace Apache.Ignite.Tests
 
             socket.Dispose();
 
-            using var requestWriter = new PooledArrayBufferWriter();
-            requestWriter.GetMessageWriter().Write(123);
+            using var requestWriter = new PooledArrayBuffer();
+            requestWriter.MessageWriter.Write(123);
 
             Assert.ThrowsAsync<ObjectDisposedException>(
                 async () => await socket.DoOutInOpAsync(ClientOp.SchemasGet, requestWriter));

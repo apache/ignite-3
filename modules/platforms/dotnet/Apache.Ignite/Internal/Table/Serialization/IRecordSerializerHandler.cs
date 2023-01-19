@@ -18,9 +18,8 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
-    using MessagePack;
-    using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Serializer handler.
@@ -35,7 +34,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="keyOnly">Key only mode.</param>
         /// <returns>Record.</returns>
-        T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false);
+        T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false);
 
         /// <summary>
         /// Reads the value part and combines with the specified key part into a new object.
@@ -44,7 +43,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="schema">Schema.</param>
         /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        T ReadValuePart(ref MessagePackReader reader, Schema schema, T key);
+        T ReadValuePart(ref MsgPackReader reader, Schema schema, T key);
 
         /// <summary>
         /// Writes a record.
@@ -55,7 +54,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="keyOnly">Key only mode.</param>
         /// <param name="computeHash">Whether to compute key hash while writing the tuple.</param>
         /// <returns>Key hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
-        int Write(ref MessagePackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
+        int Write(ref MsgPackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
         {
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;

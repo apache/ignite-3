@@ -29,9 +29,9 @@ namespace Apache.Ignite.Internal
     using System.Threading.Tasks;
     using Buffers;
     using Log;
-    using MessagePack;
     using Network;
     using Proto;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
@@ -191,7 +191,7 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <returns>Response data.</returns>
-        public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
+        public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBuffer? request = null)
         {
             var ex = _exception;
 
@@ -286,7 +286,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MessagePackReader reader, IPEndPoint endPoint)
+        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -317,7 +317,7 @@ namespace Apache.Ignite.Internal
                 clusterId);
         }
 
-        private static IgniteException? ReadError(ref MessagePackReader reader)
+        private static IgniteException? ReadError(ref MsgPackReader reader)
         {
             if (reader.TryReadNil())
             {
@@ -327,8 +327,8 @@ namespace Apache.Ignite.Internal
             Guid traceId = reader.TryReadNil() ? Guid.NewGuid() : reader.ReadGuid();
             int code = reader.TryReadNil() ? 65537 : reader.ReadInt32();
             string className = reader.ReadString();
-            string? message = reader.ReadString();
-            string? javaStackTrace = reader.ReadString();
+            string? message = reader.ReadStringNullable();
+            string? javaStackTrace = reader.ReadStringNullable();
 
             return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
         }
@@ -396,8 +396,8 @@ namespace Apache.Ignite.Internal
 
         private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
         {
-            using var bufferWriter = new PooledArrayBufferWriter(prefixSize: ProtoCommon.MessagePrefixSize);
-            WriteHandshake(version, bufferWriter.GetMessageWriter());
+            using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
+            WriteHandshake(version, bufferWriter.MessageWriter);
 
             // Prepend size.
             var buf = bufferWriter.GetWrittenMemory();
@@ -408,7 +408,7 @@ namespace Apache.Ignite.Internal
             await stream.WriteAsync(resBuf).ConfigureAwait(false);
         }
 
-        private static void WriteHandshake(ClientProtocolVersion version, MessagePackWriter w)
+        private static void WriteHandshake(ClientProtocolVersion version, MsgPackWriter w)
         {
             // Version.
             w.Write(version.Major);
@@ -417,10 +417,8 @@ namespace Apache.Ignite.Internal
 
             w.Write(ClientType); // Client type: general purpose.
 
-            w.WriteBinHeader(0); // Features.
+            w.WriteBinaryHeader(0); // Features.
             w.WriteMapHeader(0); // Extensions.
-
-            w.Flush();
         }
 
         private static void WriteMessageSize(Memory<byte> target, int size) =>
@@ -473,7 +471,7 @@ namespace Apache.Ignite.Internal
             return recommendedHeartbeatInterval;
         }
 
-        private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)
+        private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
         {
             // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
@@ -483,8 +481,8 @@ namespace Apache.Ignite.Internal
             try
             {
                 var prefixMem = _prefixBuffer.AsMemory()[4..];
-                var prefixSize = MessagePackUtil.WriteUnsigned(prefixMem, (int)op);
-                prefixSize += MessagePackUtil.WriteUnsigned(prefixMem[prefixSize..], requestId);
+                var prefixSize = MsgPackWriter.WriteUnsigned(prefixMem.Span, (ulong)op);
+                prefixSize += MsgPackWriter.WriteUnsigned(prefixMem[prefixSize..].Span, (ulong)requestId);
 
                 if (request != null)
                 {
@@ -583,7 +581,7 @@ namespace Apache.Ignite.Internal
             }
             else
             {
-                var resultBuffer = response.Slice((int)reader.Consumed);
+                var resultBuffer = response.Slice(reader.Consumed);
 
                 taskCompletionSource.SetResult(resultBuffer);
             }

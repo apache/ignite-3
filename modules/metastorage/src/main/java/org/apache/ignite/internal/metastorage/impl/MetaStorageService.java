@@ -32,7 +32,6 @@ import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutExcepti
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteUuid;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,8 +47,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Entry> get(@NotNull ByteArray key);
+    CompletableFuture<Entry> get(ByteArray key);
 
     /**
      * Retrieves an entry for the given key and the revision upper bound.
@@ -63,8 +61,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Entry> get(@NotNull ByteArray key, long revUpperBound);
+    CompletableFuture<Entry> get(ByteArray key, long revUpperBound);
 
     /**
      * Retrieves entries for given keys.
@@ -75,7 +72,6 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
     CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys);
 
     /**
@@ -90,7 +86,6 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
     CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound);
 
     /**
@@ -103,8 +98,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Void> put(@NotNull ByteArray key, @NotNull byte[] value);
+    CompletableFuture<Void> put(ByteArray key, byte[] value);
 
     /**
      * Inserts or updates an entry with the given key and the given value and retrieves a previous entry for the given key.
@@ -116,8 +110,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Entry> getAndPut(@NotNull ByteArray key, @NotNull byte[] value);
+    CompletableFuture<Entry> getAndPut(ByteArray key, byte[] value);
 
     /**
      * Inserts or updates entries with given keys and given values.
@@ -128,8 +121,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals);
+    CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
 
     /**
      * Inserts or updates entries with given keys and given values and retrieves a previous entries for given keys.
@@ -140,8 +132,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(@NotNull Map<ByteArray, byte[]> vals);
+    CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals);
 
     /**
      * Removes an entry for the given key.
@@ -152,8 +143,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Void> remove(@NotNull ByteArray key);
+    CompletableFuture<Void> remove(ByteArray key);
 
     /**
      * Removes an entry for the given key.
@@ -164,8 +154,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Entry> getAndRemove(@NotNull ByteArray key);
+    CompletableFuture<Entry> getAndRemove(ByteArray key);
 
     /**
      * Removes entries for given keys.
@@ -176,8 +165,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Void> removeAll(@NotNull Set<ByteArray> keys);
+    CompletableFuture<Void> removeAll(Set<ByteArray> keys);
 
     /**
      * Removes entries for given keys and retrieves previous entries.
@@ -189,8 +177,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(@NotNull Set<ByteArray> keys);
+    CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys);
 
     /**
      * Updates an entry for the given key conditionally.
@@ -207,9 +194,7 @@ public interface MetaStorageService {
      * @see Condition
      * @see Operation
      */
-    @NotNull
-    CompletableFuture<Boolean> invoke(@NotNull Condition condition,
-            @NotNull Operation success, @NotNull Operation failure);
+    CompletableFuture<Boolean> invoke(Condition condition, Operation success, Operation failure);
 
     /**
      * Updates an entry for the given key conditionally.
@@ -226,9 +211,7 @@ public interface MetaStorageService {
      * @see Condition
      * @see Operation
      */
-    @NotNull
-    CompletableFuture<Boolean> invoke(@NotNull Condition condition,
-            @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure);
+    CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
 
     /**
      * Invoke, which supports nested conditional statements.
@@ -240,8 +223,7 @@ public interface MetaStorageService {
      * @see If
      * @see StatementResult
      */
-    @NotNull
-    CompletableFuture<StatementResult> invoke(@NotNull If iif);
+    CompletableFuture<StatementResult> invoke(If iif);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision
@@ -256,8 +238,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound);
+    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision
@@ -273,8 +254,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound, boolean includeTombstones);
+    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound, boolean includeTombstones);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Short cut for {@link #range(ByteArray, ByteArray, long)} where
@@ -288,8 +268,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo);
+    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Short cut for
@@ -304,8 +283,18 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones);
+    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones);
+
+    /**
+     * Retrieves entries for keys starting with the given prefix in lexicographic order.
+     *
+     * @param prefix Key prefix.
+     * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
+     * @return Cursor built upon entries corresponding to the given key prefix and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(ByteArray prefix, long revUpperBound);
 
     /**
      * Subscribes on meta storage updates matching the parameters.
@@ -322,9 +311,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<IgniteUuid> watch(@Nullable ByteArray keyFrom, @Nullable ByteArray keyTo,
-            long revision, @NotNull WatchListener lsnr);
+    CompletableFuture<IgniteUuid> watch(@Nullable ByteArray keyFrom, @Nullable ByteArray keyTo, long revision, WatchListener lsnr);
 
     /**
      * Subscribes on meta storage updates for the given key.
@@ -340,8 +327,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<IgniteUuid> watch(@NotNull ByteArray key, long revision, @NotNull WatchListener lsnr);
+    CompletableFuture<IgniteUuid> watch(ByteArray key, long revision, WatchListener lsnr);
 
     /**
      * Subscribes on meta storage updates for given keys.
@@ -357,8 +343,7 @@ public interface MetaStorageService {
      * @see ByteArray
      * @see Entry
      */
-    @NotNull
-    CompletableFuture<IgniteUuid> watch(@NotNull Set<ByteArray> keys, long revision, @NotNull WatchListener lsnr);
+    CompletableFuture<IgniteUuid> watch(Set<ByteArray> keys, long revision, WatchListener lsnr);
 
     /**
      * Cancels subscription for the given identifier.
@@ -367,8 +352,7 @@ public interface MetaStorageService {
      * @return Completed future in case of operation success. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      */
-    @NotNull
-    CompletableFuture<Void> stopWatch(@NotNull IgniteUuid id);
+    CompletableFuture<Void> stopWatch(IgniteUuid id);
 
     /**
      * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).
@@ -376,7 +360,6 @@ public interface MetaStorageService {
      * @return Completed future. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      */
-    @NotNull
     CompletableFuture<Void> compact();
 
     /**
@@ -386,6 +369,5 @@ public interface MetaStorageService {
      * @return Completed future in case of operation success. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      */
-    @NotNull
-    CompletableFuture<Void> closeCursors(@NotNull String nodeId);
+    CompletableFuture<Void> closeCursors(String nodeId);
 }

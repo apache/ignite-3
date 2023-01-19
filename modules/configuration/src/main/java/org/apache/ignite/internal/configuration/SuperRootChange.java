@@ -15,46 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.configuration;
 
-import java.util.Collection;
+import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.RootKey;
 
 /**
- * Simple operations + result wrapper to describe the terminal branch of {@link If} execution.
+ * Interface that represent a "change" for the conjunction of all roots in the configuration.
  */
-public class Update {
-    /** Operations. */
-    private final Collection<Operation> ops;
-
-    /** Result. */
-    private final StatementResult result;
+public interface SuperRootChange {
+    /**
+     * Returns a root view for the root key.
+     */
+    <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey);
 
     /**
-     * Constructs new update object.
-     *
-     * @param ops operations
-     * @param result result
+     * Returns a root change for the root key.
      */
-    public Update(Collection<Operation> ops, StatementResult result) {
-        this.ops = ops;
-        this.result = result;
-    }
-
-    /**
-     * Returns operations.
-     *
-     * @return operations.
-     */
-    public Collection<Operation> operations() {
-        return ops;
-    }
-
-    /**
-     * Returns result.
-     *
-     * @return result.
-     */
-    public StatementResult result() {
-        return result;
-    }
+    <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey);
 }

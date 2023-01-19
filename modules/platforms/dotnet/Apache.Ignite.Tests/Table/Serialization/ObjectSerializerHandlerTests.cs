@@ -21,9 +21,9 @@ namespace Apache.Ignite.Tests.Table.Serialization
     using Internal.Buffers;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
+    using Internal.Proto.MsgPack;
     using Internal.Table;
     using Internal.Table.Serialization;
-    using MessagePack;
     using NUnit.Framework;
 
     /// <summary>
@@ -101,17 +101,17 @@ namespace Apache.Ignite.Tests.Table.Serialization
                 ex!.Message);
         }
 
-        private static MessagePackReader WriteAndGetReader(bool keyOnly = false)
+        private static MsgPackReader WriteAndGetReader(bool keyOnly = false)
         {
             var bytes = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
 
-            return new MessagePackReader(bytes);
+            return new MsgPackReader(bytes);
         }
 
         private static BinaryTupleReader WriteAndGetTupleReader(bool keyOnly = false)
         {
             var msgPackReader = WriteAndGetReader(keyOnly);
-            var bytes = msgPackReader.ReadBytesAsMemory();
+            var bytes = msgPackReader.ReadBinary();
 
             return new BinaryTupleReader(bytes, keyOnly ? 1 : 2);
         }
@@ -120,11 +120,10 @@ namespace Apache.Ignite.Tests.Table.Serialization
         {
             IRecordSerializerHandler<T> handler = new ObjectSerializerHandler<T>();
 
-            using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
 
             handler.Write(ref writer, Schema, obj, keyOnly);
-            writer.Flush();
 
             // Slice NoValueSet.
             return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
