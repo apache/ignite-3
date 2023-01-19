@@ -255,6 +255,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     public void testPreconfiguredTable() throws Exception {
         when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
 
+        mockMetastore();
+
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
         tblManagerFut.complete(tableManager);
@@ -263,8 +265,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
-
-        mockMetastore();
 
         tblsCfg.tables().change(tablesChange -> {
             tablesChange.create(scmTbl.name(), tableChange -> {
@@ -345,6 +345,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testApiTableManagerOnStop() {
+        when(msm.registerPrefixWatch(any(), any())).thenReturn(completedFuture(1L));
+
         createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
@@ -394,6 +396,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testInternalApiTableManagerOnStop() {
+        when(msm.registerPrefixWatch(any(), any())).thenReturn(completedFuture(1L));
+
         createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
@@ -601,6 +605,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         Iterator itMock = mock(Iterator.class);
         when(itMock.hasNext()).thenReturn(false);
         when(msm.prefix(any())).thenReturn(cursorMocked);
+        when(msm.registerPrefixWatch(any(), any())).thenReturn(completedFuture(1L));
         when(cursorMocked.iterator()).thenReturn(itMock);
     }
 
@@ -650,6 +655,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                     .thenReturn(assignment);
         }
 
+        mockMetastore();
+
         TableManager tableManager = createTableManager(tblManagerFut, true);
 
         final int tablesBeforeCreation = tableManager.tables().size();
@@ -686,8 +693,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)
         );
-
-        mockMetastore();
 
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
 
