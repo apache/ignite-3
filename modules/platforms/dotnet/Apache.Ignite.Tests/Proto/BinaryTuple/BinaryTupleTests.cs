@@ -383,7 +383,11 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         [Test]
         public void TestBytesSpan([Values(0, 1, 123)] int count)
         {
-            Assert.Fail("TODO");
+            var bytes = Enumerable.Range(1, count).Select(x => (byte)x).ToArray();
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(bytes));
+            var res = reader.GetBytesSpan(0).ToArray();
+
+            CollectionAssert.AreEqual(bytes, res);
         }
 
         [Test]
