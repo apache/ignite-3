@@ -297,24 +297,28 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override T GetFieldValue<T>(int ordinal)
     {
+        // TODO: This should be flexible and support standard types like DateTime and also provider-specific DateOnly etc.
         return base.GetFieldValue<T>(ordinal);
     }
 
     /// <inheritdoc/>
     public override Type GetProviderSpecificFieldType(int ordinal)
     {
+        // TODO: GetFieldType must return standard types like DateTime, and this method returns provider-specific DateOnly etc.
         return base.GetProviderSpecificFieldType(ordinal);
     }
 
     /// <inheritdoc/>
     public override object GetProviderSpecificValue(int ordinal)
     {
+        // TODO: GetValue must return standard types like DateTime, and this method returns provider-specific DateOnly etc.
         return base.GetProviderSpecificValue(ordinal);
     }
 
     /// <inheritdoc/>
     public override int GetProviderSpecificValues(object[] values)
     {
+        // TODO: GetValues must return standard types like DateTime, and this method returns provider-specific DateOnly etc.
         return base.GetProviderSpecificValues(values);
     }
 
