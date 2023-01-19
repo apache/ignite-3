@@ -31,7 +31,6 @@ using Internal.Common;
 using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Sql;
-using NodaTime;
 
 /// <summary>
 /// Reads a forward-only stream of rows from an Ignite result set.
@@ -318,28 +317,18 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override T GetFieldValue<T>(int ordinal)
     {
         // TODO: This should be flexible and support standard types like DateTime and also provider-specific DateOnly etc.
-        return base.GetFieldValue<T>(ordinal);
-    }
+        // TODO: Support all types.
+        if (typeof(T) == typeof(string))
+        {
+            return (T)(object)GetString(ordinal);
+        }
 
-    /// <inheritdoc/>
-    public override Type GetProviderSpecificFieldType(int ordinal)
-    {
-        // TODO: GetFieldType must return standard types like DateTime, and this method returns provider-specific DateOnly etc.
-        return base.GetProviderSpecificFieldType(ordinal);
-    }
+        if (typeof(T) == typeof(int))
+        {
+            return (T)(object)GetInt32(ordinal);
+        }
 
-    /// <inheritdoc/>
-    public override object GetProviderSpecificValue(int ordinal)
-    {
-        // TODO: GetValue must return standard types like DateTime, and this method returns provider-specific DateOnly etc.
-        return base.GetProviderSpecificValue(ordinal);
-    }
-
-    /// <inheritdoc/>
-    public override int GetProviderSpecificValues(object[] values)
-    {
-        // TODO: GetValues must return standard types like DateTime, and this method returns provider-specific DateOnly etc.
-        return base.GetProviderSpecificValues(values);
+        throw GetInvalidColumnTypeException(typeof(T), Metadata.Columns[ordinal]);
     }
 
     /// <inheritdoc/>
