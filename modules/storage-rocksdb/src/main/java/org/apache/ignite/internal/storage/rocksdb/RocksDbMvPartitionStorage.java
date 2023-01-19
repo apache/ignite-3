@@ -22,11 +22,14 @@ import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.partitionIdKey;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putUuidToBytes;
 import static org.rocksdb.ReadTier.PERSISTED_TIER;
 
@@ -50,6 +53,7 @@ import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -58,6 +62,7 @@ import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -318,20 +323,22 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            WriteBatchWithIndex writeBatch = requireWriteBatch();
-
             try {
-                writeBatch.put(meta, lastAppliedIndexKey, ByteUtils.longToBytes(lastAppliedIndex));
-                writeBatch.put(meta, lastAppliedTermKey, ByteUtils.longToBytes(lastAppliedTerm));
-
-                pendingAppliedIndex = lastAppliedIndex;
-                pendingAppliedTerm = lastAppliedTerm;
+                lastAppliedBusy(requireWriteBatch(), lastAppliedIndex, lastAppliedTerm);
 
                 return null;
             } catch (RocksDBException e) {
                 throw new StorageException(e);
             }
         });
+    }
+
+    private void lastAppliedBusy(AbstractWriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+        writeBatch.put(meta, lastAppliedIndexKey, longToBytes(lastAppliedIndex));
+        writeBatch.put(meta, lastAppliedTermKey, longToBytes(lastAppliedTerm));
+
+        pendingAppliedIndex = lastAppliedIndex;
+        pendingAppliedTerm = lastAppliedTerm;
     }
 
     @Override
@@ -998,7 +1005,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         writeBatch.delete(meta, lastAppliedTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);
 
-        writeBatch.delete(meta, RocksDbMetaStorage.partitionIdKey(partitionId));
+        writeBatch.delete(meta, partitionIdKey(partitionId));
 
         writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
     }
@@ -1453,5 +1460,78 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     String createStorageInfo() {
         return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
+    }
+
+    /**
+     * Prepares the storage for rebalancing.
+     *
+     * @throws StorageRebalanceException If there was an error when starting the rebalance.
+     */
+    void startRebalance(WriteBatch writeBatch) {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.REBALANCE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
+        }
+
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        try {
+            clearStorageOnRebalance(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        } catch (RocksDBException e) {
+            throw new StorageRebalanceException("Error when trying to start rebalancing storage: " + createStorageInfo(), e);
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    /**
+     * Aborts storage rebalancing.
+     *
+     * @throws StorageRebalanceException If there was an error when aborting the rebalance.
+     */
+    void abortReblance(WriteBatch writeBatch) {
+        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
+        }
+
+        try {
+            clearStorageOnRebalance(writeBatch, 0, 0);
+        } catch (RocksDBException e) {
+            throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
+        }
+    }
+
+    /**
+     * Completes storage rebalancing.
+     *
+     * @throws StorageRebalanceException If there was an error when finishing the rebalance.
+     */
+    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) {
+        if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
+            throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
+        }
+
+        try {
+            lastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+        } catch (RocksDBException e) {
+            throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
+        }
+    }
+
+    private void clearStorageOnRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+        lastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+
+        writeBatch.delete(meta, lastGroupConfigKey);
+        writeBatch.delete(meta, partitionIdKey(partitionId));
+        writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
+    }
+
+    private void lastAppliedOnRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+        lastAppliedBusy(writeBatch, lastAppliedIndex, lastAppliedTerm);
+
+        this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
+
+        persistedIndex = lastAppliedIndex;
     }
 }

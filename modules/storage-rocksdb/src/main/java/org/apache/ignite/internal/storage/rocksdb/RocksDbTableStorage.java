@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -651,15 +653,27 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             assert !destroyFutureByPartitionId.containsKey(partitionId) : mvPartitionStorage.createStorageInfo();
 
-            // TODO: IGNITE-18027 вот тут надо что-то забабахать ниже
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.startRebalance(writeBatch);
 
-            CompletableFuture<Void> rebalanceFuture = completedFuture(null);
+                getHashIndexStorages(partitionId).forEach(index -> index.startRebalance(writeBatch));
+                getSortedIndexStorages(partitionId).forEach(index -> index.startRebalance(writeBatch));
 
-            CompletableFuture<Void> previousRebalanceFuture = rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture);
+                db.write(writeOptions, writeBatch);
 
-            assert previousRebalanceFuture == null : mvPartitionStorage.createStorageInfo();
+                CompletableFuture<Void> rebalanceFuture = completedFuture(null);
 
-            return rebalanceFuture;
+                CompletableFuture<Void> previousRebalanceFuture = rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture);
+
+                assert previousRebalanceFuture == null : mvPartitionStorage.createStorageInfo();
+
+                return rebalanceFuture;
+            } catch (RocksDBException e) {
+                throw new StorageRebalanceException(
+                        "Error when trying to start rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                        e
+                );
+            }
         });
     }
 
@@ -678,8 +692,21 @@ public class RocksDbTableStorage implements MvTableStorage {
                 return completedFuture(null);
             }
 
-            // TODO: IGNITE-18027 вот тут надо что-то забабахать
-            return rebalanceFuture;
+            return rebalanceFuture.thenAccept(unused -> {
+                try (WriteBatch writeBatch = new WriteBatch()) {
+                    mvPartitionStorage.abortReblance(writeBatch);
+
+                    getHashIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
+                    getSortedIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
+
+                    db.write(writeOptions, writeBatch);
+                } catch (RocksDBException e) {
+                    throw new StorageRebalanceException(
+                            "Error when trying to abort rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                            e
+                    );
+                }
+            });
         });
     }
 
@@ -698,8 +725,21 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageRebalanceException("Rebalance for partition did not start: " + mvPartitionStorage.createStorageInfo());
             }
 
-            // TODO: IGNITE-18027 вот тут надо что-то забабахать
-            return rebalanceFuture;
+            return rebalanceFuture.thenAccept(unused -> {
+                try (WriteBatch writeBatch = new WriteBatch()) {
+                    mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+
+                    getHashIndexStorages(partitionId).forEach(RocksDbHashIndexStorage::finishRebalance);
+                    getSortedIndexStorages(partitionId).forEach(RocksDbSortedIndexStorage::finishRebalance);
+
+                    db.write(writeOptions, writeBatch);
+                } catch (RocksDBException e) {
+                    throw new StorageRebalanceException(
+                            "Error when trying to finish rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                            e
+                    );
+                }
+            });
         });
     }
 
@@ -708,5 +748,13 @@ public class RocksDbTableStorage implements MvTableStorage {
      */
     String getTableName() {
         return tableCfg.name().value();
+    }
+
+    private List<RocksDbHashIndexStorage> getHashIndexStorages(int partitionId) {
+        return hashIndices.values().stream().map(indexes -> indexes.get(partitionId)).filter(Objects::nonNull).collect(toList());
+    }
+
+    private List<RocksDbSortedIndexStorage> getSortedIndexStorages(int partitionId) {
+        return sortedIndices.values().stream().map(indexes -> indexes.get(partitionId)).filter(Objects::nonNull).collect(toList());
     }
 }
