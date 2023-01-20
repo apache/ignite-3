@@ -218,7 +218,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override float GetFloat(int ordinal) => Metadata.Columns[ordinal] switch
     {
         var c when c.Type.IsAnyFloat() => GetReader().GetFloat(ordinal),
-        var c => throw GetInvalidColumnTypeException(typeof(double), c)
+        var c => throw GetInvalidColumnTypeException(typeof(float), c)
     };
 
     /// <inheritdoc/>

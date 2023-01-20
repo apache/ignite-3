@@ -172,6 +172,10 @@ public partial class SqlTests
 
         // TODO: All types
         Test(() => reader.GetBoolean("STR"), "STR", SqlColumnType.String, typeof(bool), typeof(string));
+        Test(() => reader.GetString("INT8"), "INT8", SqlColumnType.Int8, typeof(string), typeof(sbyte));
+        Test(() => reader.GetGuid("INT16"), "INT16", SqlColumnType.Int16, typeof(Guid), typeof(short));
+        Test(() => reader.GetDateTime("INT32"), "INT32", SqlColumnType.Int32, typeof(DateTime), typeof(int));
+        Test(() => reader.GetFloat("INT64"), "INT64", SqlColumnType.Int64, typeof(float), typeof(long));
 
         // Assert.AreEqual(2, reader.GetString("INT8"));
         // Assert.AreEqual(3, reader.GetGuid("INT16"));
