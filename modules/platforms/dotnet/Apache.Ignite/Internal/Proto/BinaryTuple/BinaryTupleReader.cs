@@ -365,7 +365,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public LocalDateTime GetDateTime(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => ReadDate(s) + ReadTime(s[3..])
+            { Length: >= 7 and <= 9 } s => ReadDate(s) + ReadTime(s[3..]),
+            var s => throw GetInvalidLengthException(index, 9, s.Length)
         };
 
         /// <summary>
