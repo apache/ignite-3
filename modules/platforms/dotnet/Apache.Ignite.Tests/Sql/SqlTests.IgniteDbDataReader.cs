@@ -128,12 +128,12 @@ public partial class SqlTests
         Assert.AreEqual(int.MinValue, reader.GetInt32("INT32"));
         Assert.AreEqual(int.MinValue, reader.GetInt64("INT32"));
 
-        Assert.AreEqual(5, reader.GetInt64("INT64"));
+        Assert.AreEqual(long.MinValue, reader.GetInt64("INT64"));
 
-        Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
-        Assert.AreEqual(6.5f, reader.GetDouble("FLOAT"));
+        Assert.AreEqual(float.MinValue, reader.GetFloat("FLOAT"));
+        Assert.AreEqual(float.MinValue, reader.GetDouble("FLOAT"));
 
-        Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
+        Assert.AreEqual(double.MinValue, reader.GetDouble("DOUBLE"));
     }
 
     [Test]
