@@ -81,7 +81,7 @@ class OutgoingSnapshotCommonTest {
         when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
         lenient().when(txStateStorage.lastAppliedTerm()).thenReturn(3L);
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 List.of("peer1:3000", "peer2:3000"),
                 List.of("learner1:3000", "learner2:3000"),
                 List.of("peer1:3000"),
@@ -119,7 +119,7 @@ class OutgoingSnapshotCommonTest {
 
     @Test
     void doesNotSendOldConfigWhenItIsNotThere() {
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 List.of(), List.of(), null, null
         ));
 
@@ -136,7 +136,7 @@ class OutgoingSnapshotCommonTest {
         when(mvPartitionStorage.lastAppliedIndex()).thenReturn(100L);
         when(txStateStorage.lastAppliedIndex()).thenReturn(90L);
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         snapshot.freezeScopeUnderMvLock();
 
@@ -150,7 +150,7 @@ class OutgoingSnapshotCommonTest {
         when(mvPartitionStorage.lastAppliedIndex()).thenReturn(90L);
         when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         snapshot.freezeScopeUnderMvLock();
 

@@ -75,7 +75,7 @@ class OutgoingSnapshotsManagerTest {
         when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
         when(partitionAccess.txStatePartitionStorage()).thenReturn(mock(TxStateStorage.class));
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         OutgoingSnapshot snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
 

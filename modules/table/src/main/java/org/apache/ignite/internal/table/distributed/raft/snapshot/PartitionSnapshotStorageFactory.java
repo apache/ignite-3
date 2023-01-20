@@ -97,7 +97,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 partition.txStatePartitionStorage().lastAppliedTerm()
         );
 
-        lastIncludedConfiguration = partition.mvPartitionStorage().committedGroupConfiguration();
+        lastIncludedConfiguration = partition.committedGroupConfiguration();
     }
 
     @Override

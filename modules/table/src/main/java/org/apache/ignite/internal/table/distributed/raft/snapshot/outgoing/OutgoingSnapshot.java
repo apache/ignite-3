@@ -148,7 +148,7 @@ public class OutgoingSnapshot {
         try {
             frozenMeta = takeSnapshotMeta();
 
-            txDataCursor = partition.txStatePartitionStorage().scan();
+            txDataCursor = partition.getAllTxMeta();
         } finally {
             releaseMvLock();
         }
@@ -164,7 +164,7 @@ public class OutgoingSnapshot {
                 partition.txStatePartitionStorage().lastAppliedTerm()
         );
 
-        RaftGroupConfiguration config = partition.mvPartitionStorage().committedGroupConfiguration();
+        RaftGroupConfiguration config = partition.committedGroupConfiguration();
 
         assert config != null : "Configuration should never be null when installing a snapshot";
 
@@ -292,11 +292,11 @@ public class OutgoingSnapshot {
         }
 
         if (!startedToReadMvPartition) {
-            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId);
+            lastRowId = partition.closestRowId(lastRowId);
 
             startedToReadMvPartition = true;
         } else {
-            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId.increment());
+            lastRowId = partition.closestRowId(lastRowId.increment());
         }
 
         if (!finishedMvData()) {
@@ -358,7 +358,7 @@ public class OutgoingSnapshot {
     }
 
     private List<ReadResult> readRowVersionsN2O(RowId rowId) {
-        try (Cursor<ReadResult> versions = partition.mvPartitionStorage().scanVersions(rowId)) {
+        try (Cursor<ReadResult> versions = partition.getAllRowVersions(rowId)) {
             return versions.stream().collect(toList());
         }
     }
