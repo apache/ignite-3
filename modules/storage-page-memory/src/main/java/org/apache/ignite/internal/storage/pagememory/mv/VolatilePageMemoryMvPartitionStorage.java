@@ -153,6 +153,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      */
     public void destroyStructures() {
         startMvDataDestruction();
+        startIndexMetaTreeDestruction();
 
         hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
         sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
@@ -185,6 +186,16 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             rowVersionFreeList.removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
+        }
+    }
+
+    private void startIndexMetaTreeDestruction() {
+        try {
+            destructionExecutor.execute(
+                    indexMetaTree.startGradualDestruction(null, false)
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy index meta tree in group=" + groupId + ", partition=" + partitionId, e);
         }
     }
 
