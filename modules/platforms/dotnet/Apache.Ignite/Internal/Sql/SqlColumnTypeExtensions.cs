@@ -124,4 +124,12 @@ internal static class SqlColumnTypeExtensions
     /// <returns>SQL column type, or null.</returns>
     public static SqlColumnType? ToSqlColumnType(this Type type) =>
         ClrToSql.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlType) ? sqlType : null;
+
+    /// <summary>
+    /// Gets a value indicating whether specified column type is an integer of any size (int8 to in64).
+    /// </summary>
+    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <returns>Whether the type is integer.</returns>
+    public static bool IsAnyInt(this SqlColumnType sqlColumnType) =>
+        sqlColumnType is SqlColumnType.Int8 or SqlColumnType.Int16 or SqlColumnType.Int32 or SqlColumnType.Int64;
 }

@@ -479,6 +479,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
         {
+            // TODO: Test when value does not fit.
             await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
             await reader.ReadAsync();
 

@@ -216,21 +216,24 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override Guid GetGuid(int ordinal) => GetReader(ordinal, typeof(Guid)).GetGuid(ordinal);
 
     /// <inheritdoc/>
-    public override short GetInt16(int ordinal) => GetReader(ordinal, typeof(short)).GetShort(ordinal);  // TODO: Handle compatible types.
-
-    /// <inheritdoc/>
-    public override int GetInt32(int ordinal) => GetReader(ordinal, typeof(int)).GetInt(ordinal); // TODO: Handle compatible types.
-
-    /// <inheritdoc/>
-    public override long GetInt64(int ordinal) => Metadata.Columns[ordinal].Type switch
+    public override short GetInt16(int ordinal) => Metadata.Columns[ordinal] switch
     {
-        // TODO: Can reader handle compatible types? It can, but it ignores mismatches - IGNITE-18588
-        SqlColumnType.Int8 => GetReader().GetByte(ordinal),
-        SqlColumnType.Int16 => GetReader().GetShort(ordinal),
-        SqlColumnType.Int32 => GetReader().GetInt(ordinal),
-        SqlColumnType.Int64 => GetReader().GetLong(ordinal),
-        SqlColumnType.Number => (long)GetReader().GetNumber(ordinal),
-        _ => throw GetInvalidColumnTypeException(typeof(long), Metadata.Columns[ordinal])
+        var c when c.Type.IsAnyInt() => GetReader().GetShort(ordinal),
+        var c => throw GetInvalidColumnTypeException(typeof(short), c)
+    };
+
+    /// <inheritdoc/>
+    public override int GetInt32(int ordinal) => Metadata.Columns[ordinal] switch
+    {
+        var c when c.Type.IsAnyInt() => GetReader().GetInt(ordinal),
+        var c => throw GetInvalidColumnTypeException(typeof(int), c)
+    };
+
+    /// <inheritdoc/>
+    public override long GetInt64(int ordinal) => Metadata.Columns[ordinal] switch
+    {
+        var c when c.Type.IsAnyInt() => GetReader().GetLong(ordinal),
+        var c => throw GetInvalidColumnTypeException(typeof(long), c)
     };
 
     /// <inheritdoc/>
