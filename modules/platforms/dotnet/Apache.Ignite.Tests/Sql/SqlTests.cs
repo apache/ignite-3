@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Data;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
@@ -444,7 +445,8 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIgniteDbDataReaderAllColumnTypes()
         {
-            var query = "select KEY, STR, INT8, INT16, INT32, INT64, FLOAT, DOUBLE, DATE, TIME, DATETIME, TIMESTAMP, BLOB, DECIMAL " +
+            var query = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", \"DOUBLE\", \"DATE\", " +
+                        "\"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
                         "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
             await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, query);
@@ -452,8 +454,20 @@ namespace Apache.Ignite.Tests.Sql
 
             Assert.AreEqual(14, reader.FieldCount);
 
-            Assert.AreEqual(1, reader.GetInt64(0));
-            Assert.AreEqual("v-1", reader.GetString(1));
+            Assert.AreEqual(1, reader.GetInt64("KEY"));
+            Assert.AreEqual("v-1", reader.GetString("STR"));
+            Assert.AreEqual(2, reader.GetByte("INT8"));
+            Assert.AreEqual(3, reader.GetInt16("INT16"));
+            Assert.AreEqual(4, reader.GetInt32("INT32"));
+            Assert.AreEqual(5, reader.GetInt64("INT64"));
+            Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
+            Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
+            Assert.AreEqual(7.5, reader.GetInt16("DATE"));
+            Assert.AreEqual(7.5, reader.GetInt16("TIME"));
+            Assert.AreEqual(7.5, reader.GetInt16("DATETIME"));
+            Assert.AreEqual(7.5, reader.GetInt16("TIMESTAMP"));
+            Assert.AreEqual(7.5, reader.GetInt16("BLOB"));
+            Assert.AreEqual(8.7m, reader.GetInt16("DECIMAL"));
         }
 
         [Test]
