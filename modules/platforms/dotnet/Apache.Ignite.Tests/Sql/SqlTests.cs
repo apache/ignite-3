@@ -508,5 +508,12 @@ namespace Apache.Ignite.Tests.Sql
 
             Assert.AreEqual(10, count);
         }
+
+        [Test]
+        public async Task TestIgniteDbDataReaderGetColumnSchema()
+        {
+            await Task.Yield();
+            Assert.Fail("TODO");
+        }
     }
 }
