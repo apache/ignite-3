@@ -52,6 +52,7 @@ public class OutgoingSnapshotReaderTest {
         when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
         when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
         when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(UUID.randomUUID(), 0));
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
         doAnswer(invocation -> {
@@ -61,8 +62,6 @@ public class OutgoingSnapshotReaderTest {
 
             return null;
         }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
-
-        mvPartitionStorage.committedGroupConfiguration(mock(RaftGroupConfiguration.class));
 
         PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
                 mock(TopologyService.class),

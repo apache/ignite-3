@@ -61,7 +61,7 @@ public class PartitionSnapshotStorageFactoryTest {
         mvPartitionStorage.lastApplied(10L, 2L);
         txStateStorage.lastApplied(5L, 1L);
 
-        mvPartitionStorage.committedGroupConfiguration(mock(RaftGroupConfiguration.class));
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),
