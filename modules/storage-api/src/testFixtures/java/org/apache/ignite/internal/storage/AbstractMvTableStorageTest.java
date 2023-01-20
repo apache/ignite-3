@@ -588,8 +588,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
-        List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rows = List.of(
-                new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now())
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now())
         );
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
