@@ -381,10 +381,11 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        for (int roTx = 0; roTx < 2; roTx++) {
-            for (int commit = 0; commit < 2; commit++) {
-                for (int explicit = 0; explicit < 2; explicit++) {
-                    checkTx(ses, roTx == 0, commit == 0, explicit == 0, planMatcher);
+        List<Boolean> booleanList = List.of(Boolean.TRUE, Boolean.FALSE);
+        for (boolean roTx : booleanList) {
+            for (boolean commit : booleanList) {
+                for (boolean explicit : booleanList) {
+                    checkTx(ses, roTx, commit, explicit, planMatcher);
                 }
             }
         }
