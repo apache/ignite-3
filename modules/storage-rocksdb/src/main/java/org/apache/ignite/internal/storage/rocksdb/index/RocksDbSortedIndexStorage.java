@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -397,7 +397,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     public void destroyData(WriteBatch writeBatch) throws RocksDBException {
         byte[] constantPrefix = ByteBuffer.allocate(2).order(ByteOrder.BIG_ENDIAN).putShort((short) partitionStorage.partitionId()).array();
 
-        byte[] rangeEnd = incrementArray(constantPrefix);
+        byte[] rangeEnd = incrementPrefix(constantPrefix);
 
         assert rangeEnd != null;
 

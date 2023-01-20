@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
@@ -706,7 +706,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
-        return new RangeCursor(this, prefix, incrementArray(prefix), revUpperBound, includeTombstones);
+        return new RangeCursor(this, prefix, incrementPrefix(prefix), revUpperBound, includeTombstones);
     }
 
     @Override
