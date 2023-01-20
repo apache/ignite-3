@@ -341,7 +341,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         txStateStorage.put(txId, new TxMeta(TxState.COMMITED, Collections.singletonList(grpId), clock.now()));
 
-
         HybridTimestamp readTimestamp = clock.now();
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
