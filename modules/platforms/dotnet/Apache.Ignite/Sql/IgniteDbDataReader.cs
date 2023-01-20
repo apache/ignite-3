@@ -104,7 +104,11 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override bool GetBoolean(int ordinal) => GetReader(ordinal, typeof(bool)).GetByteAsBool(ordinal);
 
     /// <inheritdoc/>
-    public override byte GetByte(int ordinal) => unchecked((byte)GetReader(ordinal, typeof(sbyte)).GetByte(ordinal));
+    public override byte GetByte(int ordinal) => Metadata.Columns[ordinal] switch
+    {
+        var c when c.Type.IsAnyInt() => unchecked((byte)GetReader().GetByte(ordinal)),
+        var c => throw GetInvalidColumnTypeException(typeof(byte), c)
+    };
 
     /// <inheritdoc/>
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
