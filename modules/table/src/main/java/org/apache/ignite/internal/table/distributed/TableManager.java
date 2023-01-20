@@ -24,7 +24,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -456,6 +455,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
+                        Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
+
+                        List<ClusterNode> clusterNodes = nodesIds.stream()
+                                .map(id -> clusterService.topologyService().getByConsistentId(id))
+                                .collect(toList());
+
                         for (int i = 0; i < tables.value().size(); i++) {
                             TableView tableView = tables.value().get(i);
 
@@ -469,9 +474,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
 
                                 for (int part = 0; part < partCnt; part++) {
-                                    TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), i);
+                                    TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), part);
 
-                                    futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, baselineMgr.nodes(), tableView.replicas(),
+                                    futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, clusterNodes, tableView.replicas(),
                                             evt.entryEvent().newEntry().revision(), metaStorageMgr, part);
                                 }
                             }
@@ -989,6 +994,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         busyLock.block();
 
         if (watchListenerId != null) {
+            System.out.println("unregisterWatch");
             metaStorageMgr.unregisterWatch(watchListenerId);
         }
 
