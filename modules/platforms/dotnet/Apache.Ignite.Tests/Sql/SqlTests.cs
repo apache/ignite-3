@@ -462,7 +462,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(5, reader.GetInt64("INT64"));
             Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
             Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
-            Assert.AreEqual(7.5, reader.GetDateTime("DATE"));
+            Assert.AreEqual(new DateTime(2023, 1, 18), reader.GetDateTime("DATE"));
             Assert.AreEqual(7.5, reader.GetDateTime("TIME"));
             Assert.AreEqual(7.5, reader.GetDateTime("DATETIME"));
             Assert.AreEqual(7.5, reader.GetDateTime("TIMESTAMP"));

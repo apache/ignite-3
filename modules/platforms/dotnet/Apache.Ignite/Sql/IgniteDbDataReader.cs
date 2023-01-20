@@ -343,7 +343,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     private static InvalidCastException GetInvalidColumnTypeException(Type type, IColumnMetadata column) =>
-        new($"Column {column.Name} of type {column.Type} can not be cast to {type}.");
+        new($"Column {column.Name} of type {column.Type} ({column.Type.ToClrType()}) can not be cast to {type}.");
 
     private BinaryTupleReader GetReader(int ordinal, Type type)
     {
