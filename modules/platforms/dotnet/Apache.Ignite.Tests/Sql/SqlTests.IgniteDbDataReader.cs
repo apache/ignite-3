@@ -137,15 +137,30 @@ public partial class SqlTests
     }
 
     [Test]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestIgniteDbDataReaderIntFloatColumnsValueOutOfRangeThrows()
     {
         await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
         await reader.ReadAsync();
         await reader.ReadAsync();
 
-        // TODO
-        var ex = Assert.Throws<InvalidOperationException>(() => reader.GetByte("INT16"));
-        Assert.AreEqual("Binary tuple element with index 3 has invalid length (expected 1, actual 2).", ex!.Message);
+        Test(() => reader.GetByte("INT16"), 1, 2);
+        Test(() => reader.GetByte("INT32"), 1, 4);
+        Test(() => reader.GetByte("INT64"), 1, 8);
+
+        Test(() => reader.GetInt16("INT32"), 2, 4);
+        Test(() => reader.GetInt16("INT64"), 2, 8);
+
+        Test(() => reader.GetInt32("INT64"), 4, 8);
+
+        Test(() => reader.GetFloat("DOUBLE"), 4, 8);
+
+        static void Test(TestDelegate testDelegate, int expected, int actual)
+        {
+            var ex = Assert.Throws<InvalidOperationException>(testDelegate);
+            StringAssert.StartsWith("Binary tuple element with index", ex!.Message);
+            StringAssert.Contains($"has invalid length (expected {expected}, actual {actual}).", ex.Message);
+        }
     }
 
     [Test]
