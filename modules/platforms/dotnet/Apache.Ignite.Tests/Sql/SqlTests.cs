@@ -444,6 +444,21 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIgniteDbDataReaderAllColumnTypes()
         {
+            var query = "select KEY, STR, INT8, INT16, INT32, INT64, FLOAT, DOUBLE, DATE, TIME, DATETIME, TIMESTAMP, BLOB, DECIMAL " +
+                        "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+
+            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, query);
+            await reader.ReadAsync();
+
+            Assert.AreEqual(14, reader.FieldCount);
+
+            Assert.AreEqual(1, reader.GetInt64(0));
+            Assert.AreEqual("v-1", reader.GetString(1));
+        }
+
+        [Test]
+        public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
+        {
             await Task.Yield();
             Assert.Fail("TODO");
         }
