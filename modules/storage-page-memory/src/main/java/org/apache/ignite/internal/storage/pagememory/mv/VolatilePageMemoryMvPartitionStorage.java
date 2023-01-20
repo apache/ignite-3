@@ -31,8 +31,12 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -183,7 +187,37 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     List<AutoCloseable> getResourcesToCloseOnRebalance() {
-        // TODO: IGNITE-18028 Implement
-        throw new UnsupportedOperationException();
+        return List.of(versionChainTree::close, indexMetaTree::close);
+    }
+
+    /**
+     * Updates the internal data structures of the storage and its indexes on rebalance.
+     *
+     * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     */
+    public void updateDataStructuresOnRebalance(
+            VersionChainTree versionChainTree,
+            IndexMetaTree indexMetaTree
+    ) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.versionChainTree = versionChainTree;
+        this.indexMetaTree = indexMetaTree;
+
+        for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
+            indexStorage.updateDataStructuresOnRebalance(
+                    indexFreeList,
+                    createHashIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
+        }
+
+        for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
+            indexStorage.updateDataStructuresOnRebalance(
+                    indexFreeList,
+                    createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
+        }
     }
 }
