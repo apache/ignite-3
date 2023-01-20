@@ -149,9 +149,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
                 NamedListView<TableIndexView> indexesCfgView = tableStorage.tablesConfiguration().indexes().value();
 
-                while (cursor.hasNext()) {
-                    IndexMeta indexMeta = cursor.next();
-
+                for (IndexMeta indexMeta : cursor) {
                     TableIndexView indexCfgView = getByInternalId(indexesCfgView, indexMeta.id());
 
                     if (indexCfgView instanceof HashIndexView) {
@@ -1017,9 +1015,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         hashIndexes.values().forEach(index -> resources.add(index::close));
         sortedIndexes.values().forEach(index -> resources.add(index::close));
-
-        resources.add(hashIndexes::clear);
-        resources.add(sortedIndexes::clear);
 
         return resources;
     }

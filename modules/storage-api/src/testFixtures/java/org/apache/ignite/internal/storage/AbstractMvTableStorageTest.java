@@ -95,9 +95,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected MvTableStorage tableStorage;
 
-    private TableIndexView sortedIdx;
+    protected TableIndexView sortedIdx;
 
-    private TableIndexView hashIdx;
+    protected TableIndexView hashIdx;
 
     protected StorageEngine storageEngine;
 

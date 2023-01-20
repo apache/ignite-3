@@ -2828,7 +2828,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 }
 
                 if (c != null && io.isLeaf()) {
-                    io.visit(pageAddr, c);
+                    io.visit(this, pageAddr, c);
                 }
 
                 bag.addFreePage(recyclePage(pageId, pageAddr));
@@ -6734,7 +6734,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                             readChildrenPageIdsAndDescend(pageAddr, io, cnt);
                         } else {
                             if (actOnEachElement != null) {
-                                io.visit(pageAddr, actOnEachElement);
+                                io.visit(BplusTree.this, pageAddr, actOnEachElement);
 
                                 workDone += io.getCount(pageAddr);
                             }

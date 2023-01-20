@@ -150,14 +150,17 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     /**
      * Destroys internal structures backing this partition.
-     *
-     * @return future that completes when the destruction completes.
      */
-    public CompletableFuture<Void> destroyStructures() {
-        // TODO: IGNITE-18531 - destroy indices.
+    public void destroyStructures() {
+        startMvDataDestruction();
 
+        hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+        sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+    }
+
+    private void startMvDataDestruction() {
         try {
-            return destructionExecutor.execute(
+            destructionExecutor.execute(
                     versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
             );
         } catch (IgniteInternalCheckedException e) {

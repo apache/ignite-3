@@ -295,6 +295,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         resourcesToClose.add(indexFreeList::close);
         resourcesToClose.add(blobStorage::close);
 
+        resourcesToClose.add(hashIndexes::clear);
+        resourcesToClose.add(sortedIndexes::clear);
+
         return resourcesToClose;
     }
 
