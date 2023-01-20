@@ -124,6 +124,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
             var reader = new BinaryTupleReader(res, 1);
             Assert.AreEqual(value, reader.GetByte(0));
+            Assert.AreEqual(value, reader.GetShort(0));
+            Assert.AreEqual(value, reader.GetInt(0));
+            Assert.AreEqual(value, reader.GetLong(0));
         }
 
         [Test]
@@ -139,7 +142,10 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetByte(0));
                 Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
 
             values = new short[] { short.MinValue, sbyte.MinValue - 1, sbyte.MaxValue + 1, short.MaxValue };
@@ -153,6 +159,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
                 var reader = new BinaryTupleReader(bytes, 1);
                 Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
         }
 
@@ -168,7 +176,10 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetByte(0));
+                Assert.AreEqual(value, reader.GetShort(0));
                 Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
 
             values = new[] { short.MinValue, sbyte.MinValue - 1, sbyte.MaxValue + 1, short.MaxValue };
@@ -180,7 +191,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(4, bytes.Length);
 
                 var reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetShort(0));
                 Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
 
             values = new[] { int.MinValue, short.MinValue - 1, short.MaxValue + 1, int.MaxValue };
@@ -193,6 +206,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
                 Assert.AreEqual(value, reader.GetInt(0));
+                Assert.AreEqual(value, reader.GetLong(0));
             }
         }
 
@@ -208,6 +222,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(value != 0 ? 3 : 2, bytes.Length);
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetByte(0));
+                Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
                 Assert.AreEqual(value, reader.GetLong(0));
             }
 
@@ -220,6 +237,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(4, bytes.Length);
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetShort(0));
+                Assert.AreEqual(value, reader.GetInt(0));
                 Assert.AreEqual(value, reader.GetLong(0));
             }
 
@@ -232,6 +251,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 Assert.AreEqual(6, bytes.Length);
 
                 BinaryTupleReader reader = new BinaryTupleReader(bytes, 1);
+                Assert.AreEqual(value, reader.GetInt(0));
                 Assert.AreEqual(value, reader.GetLong(0));
             }
 
@@ -871,6 +891,60 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(date, reader.GetObject(42));
             Assert.AreEqual(dateTime, reader.GetObject(45));
             Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
+        }
+
+        [Test]
+        public void TestInvalidElementLengthThrowsException()
+        {
+            var bytes = Build((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[1000]));
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetByte(0), 1);
+            Test(() => new BinaryTupleReader(bytes, 1).GetByteNullable(0), 1);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetShort(0), 2);
+            Test(() => new BinaryTupleReader(bytes, 1).GetShortNullable(0), 2);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetInt(0), 4);
+            Test(() => new BinaryTupleReader(bytes, 1).GetIntNullable(0), 4);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetLong(0), 8);
+            Test(() => new BinaryTupleReader(bytes, 1).GetLongNullable(0), 8);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetFloat(0), 4);
+            Test(() => new BinaryTupleReader(bytes, 1).GetFloatNullable(0), 4);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetDouble(0), 8);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDoubleNullable(0), 8);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetGuid(0), 16);
+            Test(() => new BinaryTupleReader(bytes, 1).GetGuidNullable(0), 16);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetDate(0), 7);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDateNullable(0), 7);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetTime(0), 6);
+            Test(() => new BinaryTupleReader(bytes, 1).GetTimeNullable(0), 6);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetDateTime(0), 9);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDateTimeNullable(0), 9);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetPeriod(0), 12);
+            Test(() => new BinaryTupleReader(bytes, 1).GetPeriodNullable(0), 12);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetDuration(0), 12);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDurationNullable(0), 12);
+
+            Test(() => new BinaryTupleReader(bytes, 1).GetTimestamp(0), 12);
+            Test(() => new BinaryTupleReader(bytes, 1).GetTimestampNullable(0), 12);
+
+            static void Test(TestDelegate testDelegate, int expectedLength)
+            {
+                var ex = Assert.Throws<InvalidOperationException>(testDelegate);
+
+                Assert.AreEqual(
+                    $"Binary tuple element with index 0 has invalid length (expected {expectedLength}, actual 1000).",
+                    ex!.Message);
+            }
         }
 
         private static BinaryTupleReader BuildAndRead(BinaryTupleBuilderAction build, int numElements = 1)

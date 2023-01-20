@@ -39,7 +39,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -64,24 +63,6 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
         ioRegistry.loadFromServiceLoader();
 
         initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testSuccessRebalance() throws Exception {
-        super.testSuccessRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testFailRebalance() throws Exception {
-        super.testFailRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testStartRebalanceForClosedPartition() {
-        super.testStartRebalanceForClosedPartition();
     }
 
     @Test
