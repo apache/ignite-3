@@ -517,6 +517,27 @@ namespace Apache.Ignite.Tests.Sql
 
             Assert.AreEqual(7.5d, reader.GetFloat("DOUBLE"));
             Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
+
+            await reader.ReadAsync();
+
+            Assert.AreEqual(unchecked((byte)sbyte.MinValue), reader.GetByte("INT8"));
+            Assert.AreEqual(sbyte.MinValue, reader.GetInt16("INT8"));
+            Assert.AreEqual(sbyte.MinValue, reader.GetInt32("INT8"));
+            Assert.AreEqual(sbyte.MinValue, reader.GetInt64("INT8"));
+
+            Assert.AreEqual(3, reader.GetInt16("INT16"));
+            Assert.AreEqual(3, reader.GetInt32("INT16"));
+            Assert.AreEqual(3, reader.GetInt64("INT16"));
+
+            Assert.AreEqual(4, reader.GetInt32("INT32"));
+            Assert.AreEqual(4, reader.GetInt64("INT32"));
+
+            Assert.AreEqual(5, reader.GetInt64("INT64"));
+
+            Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
+            Assert.AreEqual(6.5f, reader.GetDouble("FLOAT"));
+
+            Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
         }
 
         [Test]
@@ -527,7 +548,8 @@ namespace Apache.Ignite.Tests.Sql
             await reader.ReadAsync();
 
             // TODO
-            Assert.AreEqual(sbyte.MinValue, reader.GetByte("INT8"));
+            var ex = Assert.Throws<InvalidOperationException>(() => reader.GetByte("INT16"));
+            Assert.AreEqual("Binary tuple element with index 3 has invalid length (expected 1, actual 2).", ex!.Message);
         }
 
         [Test]
