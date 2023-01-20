@@ -45,6 +45,8 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         return Short.MAX_VALUE;
     }
 
+
+
     /** {@inheritDoc} */
     @Override
     public int getMaxPrecision(SqlTypeName typeName) {
@@ -66,6 +68,10 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
                 return TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION;
+            case FLOAT:
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-18556
+                // Fixes leastRestrictive(FLOAT, DOUBLE) != leastRestrictive(DOUBLE, FLOAT).
+                return super.getDefaultPrecision(typeName) - 1;
             default:
                 return super.getDefaultPrecision(typeName);
         }
