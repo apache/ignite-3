@@ -144,9 +144,6 @@ public class ItMetaStorageWatchTest {
 
     private final List<Node> nodes = new ArrayList<>();
 
-    /**
-     * Run {@code NODES} cluster nodes.
-     */
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
         this.testInfo = testInfo;

@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.stream.Collectors.toUnmodifiableSet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
@@ -227,46 +228,45 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             metaStorageSvcFut
                     .thenApply(MetaStorageServiceImpl::raftGroupService)
                     .thenCompose(raftService -> isCurrentNodeLeader(raftService)
-                            .thenCompose(isLeader -> {
-                                if (!isLeader) {
-                                    return CompletableFuture.completedFuture(null);
-                                }
-
-                                if (!busyLock.enterBusy()) {
-                                    LOG.info("Skipping Meta Storage configuration update because the node is stopping");
-
-                                    return CompletableFuture.completedFuture(null);
-                                }
-
-                                try {
-                                    Set<String> peers = raftService.peers().stream()
-                                            .map(Peer::consistentId)
-                                            .collect(toUnmodifiableSet());
-
-                                    Set<String> learners = nodes.stream()
-                                            .map(ClusterNode::name)
-                                            .filter(name -> !peers.contains(name))
-                                            .collect(toUnmodifiableSet());
-
-                                    LOG.info("New Meta Storage learners detected: " + learners);
-
-                                    if (learners.isEmpty()) {
-                                        return CompletableFuture.completedFuture(null);
-                                    }
-
-                                    PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
-
-                                    return raftService.addLearners(newConfiguration.learners());
-                                } finally {
-                                    busyLock.leaveBusy();
-                                }
-                            })
-                    )
+                            .thenCompose(isLeader -> isLeader ? addLearners(raftService, nodes) : completedFuture(null)))
                     .whenComplete((v, e) -> {
                         if (e != null) {
                             LOG.error("Unable to change peers on topology update", e);
                         }
                     });
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Void> addLearners(RaftGroupService raftService, Collection<ClusterNode> nodes) {
+        if (!busyLock.enterBusy()) {
+            LOG.info("Skipping Meta Storage configuration update because the node is stopping");
+
+            return completedFuture(null);
+        }
+
+        try {
+            Set<String> peers = raftService.peers().stream()
+                    .map(Peer::consistentId)
+                    .collect(toSet());
+
+            Set<String> learners = nodes.stream()
+                    .map(ClusterNode::name)
+                    .filter(name -> !peers.contains(name))
+                    .collect(toSet());
+
+            if (learners.isEmpty()) {
+                return completedFuture(null);
+            }
+
+            if (LOG.isInfoEnabled()) {
+                LOG.info("New Meta Storage learners detected: " + learners);
+            }
+
+            PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
+
+            return raftService.addLearners(newConfiguration.learners());
         } finally {
             busyLock.leaveBusy();
         }
