@@ -912,11 +912,11 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Test(() => new BinaryTupleReader(bytes, 1).GetDate(0), 7);
             Test(() => new BinaryTupleReader(bytes, 1).GetDateNullable(0), 7);
 
-            Test(() => new BinaryTupleReader(bytes, 1).GetTime(0), 16);
-            Test(() => new BinaryTupleReader(bytes, 1).GetTimeNullable(0), 16);
+            Test(() => new BinaryTupleReader(bytes, 1).GetTime(0), 6);
+            Test(() => new BinaryTupleReader(bytes, 1).GetTimeNullable(0), 6);
 
-            Test(() => new BinaryTupleReader(bytes, 1).GetDateTime(0), 16);
-            Test(() => new BinaryTupleReader(bytes, 1).GetDateTimeNullable(0), 16);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDateTime(0), 9);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDateTimeNullable(0), 9);
 
             Test(() => new BinaryTupleReader(bytes, 1).GetPeriod(0), 16);
             Test(() => new BinaryTupleReader(bytes, 1).GetPeriodNullable(0), 16);

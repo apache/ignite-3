@@ -404,9 +404,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Duration GetDuration(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => Duration
-                .FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
-                .Plus(Duration.FromNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..])))
+            { Length: 8 } s => Duration.FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s)),
+            { Length: 12 } s => Duration.FromSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .Plus(Duration.FromNanoseconds(BinaryPrimitives.ReadInt32LittleEndian(s[8..]))),
+            var s => throw GetInvalidLengthException(index, 12, s.Length)
         };
 
         /// <summary>
@@ -430,9 +431,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { Length: 6 } s => Period.FromYears(BinaryPrimitives.ReadInt16LittleEndian(s)) +
                                Period.FromMonths(BinaryPrimitives.ReadInt16LittleEndian(s[2..])) +
                                Period.FromDays(BinaryPrimitives.ReadInt16LittleEndian(s[4..])),
-            var s => Period.FromYears(BinaryPrimitives.ReadInt32LittleEndian(s)) +
-                     Period.FromMonths(BinaryPrimitives.ReadInt32LittleEndian(s[4..])) +
-                     Period.FromDays(BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
+            { Length: 12 } s => Period.FromYears(BinaryPrimitives.ReadInt32LittleEndian(s)) +
+                                Period.FromMonths(BinaryPrimitives.ReadInt32LittleEndian(s[4..])) +
+                                Period.FromDays(BinaryPrimitives.ReadInt32LittleEndian(s[8..])),
+            var s => throw GetInvalidLengthException(index, 12, s.Length)
         };
 
         /// <summary>
