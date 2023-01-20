@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -81,17 +82,23 @@ public class ItMetaStorageManagerImplTest {
 
         raftManager = new Loza(clusterService, raftConfiguration, workDir.resolve("loza"), new HybridClockImpl());
 
+        VaultManager vaultManager = mock(VaultManager.class);
+
+        when(vaultManager.get(any())).thenReturn(completedFuture(null));
+
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.metaStorageNodes())
                 .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
 
+        var storage = new RocksDbKeyValueStorage(clusterService.localConfiguration().getName(), workDir.resolve("metastorage"));
+
         metaStorageManager = new MetaStorageManagerImpl(
-                mock(VaultManager.class),
+                vaultManager,
                 clusterService,
                 cmgManager,
                 raftManager,
-                new RocksDbKeyValueStorage(workDir.resolve("metastorage"))
+                storage
         );
 
         clusterService.start();

@@ -129,8 +129,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         when(vaultMgr.get(any())).thenReturn(completedFuture(null));
 
-        when(metaStorageManager.registerExactWatch(any(), any())).then(invocation -> completedFuture(null));
-
         TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
 
         NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
@@ -155,7 +153,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
