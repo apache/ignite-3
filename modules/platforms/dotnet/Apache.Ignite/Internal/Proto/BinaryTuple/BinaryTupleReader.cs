@@ -384,9 +384,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Instant GetTimestamp(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => Instant
-                .FromUnixTimeSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
-                .PlusNanoseconds(s.Length == 8 ? 0 : BinaryPrimitives.ReadInt32LittleEndian(s[8..]))
+            { Length: 8 } s => Instant.FromUnixTimeSeconds(BinaryPrimitives.ReadInt64LittleEndian(s)),
+            { Length: 12 } s => Instant.FromUnixTimeSeconds(BinaryPrimitives.ReadInt64LittleEndian(s))
+                .PlusNanoseconds(BinaryPrimitives.ReadInt32LittleEndian(s[8..])),
+            var s => throw GetInvalidLengthException(index, 12, s.Length)
         };
 
         /// <summary>

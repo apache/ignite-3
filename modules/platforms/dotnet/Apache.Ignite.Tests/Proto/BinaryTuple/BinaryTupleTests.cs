@@ -918,14 +918,14 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Test(() => new BinaryTupleReader(bytes, 1).GetDateTime(0), 9);
             Test(() => new BinaryTupleReader(bytes, 1).GetDateTimeNullable(0), 9);
 
-            Test(() => new BinaryTupleReader(bytes, 1).GetPeriod(0), 16);
-            Test(() => new BinaryTupleReader(bytes, 1).GetPeriodNullable(0), 16);
+            Test(() => new BinaryTupleReader(bytes, 1).GetPeriod(0), 12);
+            Test(() => new BinaryTupleReader(bytes, 1).GetPeriodNullable(0), 12);
 
-            Test(() => new BinaryTupleReader(bytes, 1).GetDuration(0), 16);
-            Test(() => new BinaryTupleReader(bytes, 1).GetDurationNullable(0), 16);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDuration(0), 12);
+            Test(() => new BinaryTupleReader(bytes, 1).GetDurationNullable(0), 12);
 
-            Test(() => new BinaryTupleReader(bytes, 1).GetTimestamp(0), 16);
-            Test(() => new BinaryTupleReader(bytes, 1).GetTimestampNullable(0), 16);
+            Test(() => new BinaryTupleReader(bytes, 1).GetTimestamp(0), 12);
+            Test(() => new BinaryTupleReader(bytes, 1).GetTimestampNullable(0), 12);
 
             static void Test(TestDelegate testDelegate, int expectedLength)
             {
