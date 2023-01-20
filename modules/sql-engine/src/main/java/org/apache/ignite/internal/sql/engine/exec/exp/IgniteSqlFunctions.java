@@ -165,6 +165,30 @@ public class IgniteSqlFunctions {
         return (int) TypeUtils.toInternal((ExecutionContext<?>) ctx, LocalTime.now(), LocalTime.class);
     }
 
+    /** LEAST2. */
+    public static @Nullable Object least2(Object arg0, Object arg1) {
+        return leastOrGreatest(true, arg0, arg1);
+    }
+
+    /** GREATEST2. */
+    public static @Nullable Object greatest2(Object arg0, Object arg1) {
+        return leastOrGreatest(false, arg0, arg1);
+    }
+
+    /** */
+    private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
+        if (arg0 == null || arg1 == null)
+            return null;
+
+        assert arg0 instanceof Comparable && arg1 instanceof Comparable :
+                "Unexpected class [arg0=" + arg0.getClass().getName() + ", arg1=" + arg1.getClass().getName() + ']';
+
+        if (((Comparable<Object>) arg0).compareTo(arg1) < 0)
+            return least ? arg0 : arg1;
+        else
+            return least ? arg1 : arg0;
+    }
+
     /**
      * Dummy table to implement the SYSTEM_RANGE function.
      */
