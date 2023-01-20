@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Linq;
 
 using System;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -33,9 +32,6 @@ using Remotion.Linq.Clauses.Expressions;
 /// </summary>
 internal static class ExpressionWalker
 {
-    /** Compiled member readers. */
-    private static readonly ConcurrentDictionary<MemberInfo, Func<object?, object?>> MemberReaders = new();
-
     /// <summary>
     /// Gets the queryable.
     /// </summary>
@@ -271,29 +267,11 @@ internal static class ExpressionWalker
     /// <param name="expr">Expression.</param>
     /// <typeparam name="T">Expression type.</typeparam>
     /// <returns>Evaluation result.</returns>
-    public static T? EvaluateExpression<T>(Expression expr)
+    public static T EvaluateExpression<T>(Expression expr)
     {
         if (expr is ConstantExpression constExpr)
         {
             return (T)constExpr.Value!;
-        }
-
-        if (expr is MemberExpression memberExpr)
-        {
-            var targetExpr = memberExpr.Expression as ConstantExpression;
-
-            if (memberExpr.Expression == null || targetExpr != null)
-            {
-                // Instance or static member
-                var target = targetExpr?.Value;
-
-                if (MemberReaders.TryGetValue(memberExpr.Member, out var reader))
-                {
-                    return (T) reader(target)!;
-                }
-
-                return (T?) MemberReaders.GetOrAdd(memberExpr.Member, static (_, me) => CompileMemberReader(me), memberExpr)(target);
-            }
         }
 
         // Case for compiled queries: return unchanged.
@@ -359,29 +337,4 @@ internal static class ExpressionWalker
     /// <param name="queryable">Queryable.</param>
     /// <returns>Table name with schema.</returns>
     public static string GetTableNameWithSchema(IIgniteQueryableInternal queryable) => $"PUBLIC.{queryable.TableName}";
-
-    /// <summary>
-    /// Compiles the member reader.
-    /// </summary>
-    private static Func<object?, object?> CompileMemberReader(MemberExpression memberExpr)
-    {
-        // Field or property
-        var fld = memberExpr.Member as FieldInfo;
-
-        if (fld != null)
-        {
-            // TODO: IGNITE-18509 Replace reflection with emitted delegates.
-            return o => fld.GetValue(o);
-        }
-
-        var prop = memberExpr.Member as PropertyInfo;
-
-        if (prop != null)
-        {
-            // TODO: IGNITE-18509 Replace reflection with emitted delegates.
-            return o => prop.GetValue(o, null);
-        }
-
-        throw new NotSupportedException("Expression not supported: " + memberExpr);
-    }
 }

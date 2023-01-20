@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -34,12 +33,9 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -51,40 +47,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
-    @InjectConfiguration(
-            value = "mock.tables.foo{ partitions = 512, dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
-    )
-    private TablesConfiguration tablesConfig;
-
-    private RocksDbStorageEngine engine;
-
-    private MvTableStorage tableStorage;
-
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
-            RocksDbStorageEngineConfiguration rocksDbEngineConfig
+            RocksDbStorageEngineConfiguration rocksDbEngineConfig,
+            @InjectConfiguration(
+                    "mock.tables.foo{ partitions = 512, dataStorage.name = " + RocksDbStorageEngine.ENGINE_NAME + "}"
+            )
+            TablesConfiguration tablesConfig
     ) {
-        engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
-
-        engine.start();
-
-        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
-
-        assertThat(tableStorage, is(instanceOf(RocksDbTableStorage.class)));
-
-        tableStorage.start();
-
-        initialize(tableStorage, tablesConfig);
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                tableStorage == null ? null : tableStorage::stop,
-                engine == null ? null : engine::stop
-        );
+        initialize(new RocksDbStorageEngine(rocksDbEngineConfig, workDir), tablesConfig);
     }
 
     /**
@@ -137,7 +110,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.stop();
 
-        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
 
         tableStorage.start();
 
@@ -154,30 +127,16 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testSuccessRebalance() throws Exception {
-        super.testSuccessRebalance();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testFailRebalance() throws Exception {
-        super.testFailRebalance();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testStartRebalanceForClosedPartition() {
-        super.testStartRebalanceForClosedPartition();
-    }
-
-    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18523")
     @Override
     public void testDestroyTableStorage() throws Exception {
         super.testDestroyTableStorage();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
+    @Override
+    public void testRestartStoragesAfterFailDuringRebalance() {
+        super.testRestartStoragesAfterFailDuringRebalance();
     }
 }

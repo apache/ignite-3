@@ -37,11 +37,8 @@ import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -51,10 +48,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private final PageEvictionTracker pageEvictionTracker = spy(PageEvictionTrackerNoOp.INSTANCE);
-
-    private VolatilePageMemoryStorageEngine engine;
-
-    private VolatilePageMemoryTableStorage tableStorage;
 
     @BeforeEach
     void setUp(
@@ -69,41 +62,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker);
-
-        engine.start();
-
-        tableStorage = engine.createMvTable(tablesConfig.tables().get("foo"), tablesConfig);
-
-        tableStorage.start();
-
-        initialize(tableStorage, tablesConfig);
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                tableStorage == null ? null : tableStorage::stop,
-                engine == null ? null : engine::stop
-        );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testSuccessRebalance() throws Exception {
-        super.testSuccessRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testFailRebalance() throws Exception {
-        super.testFailRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testStartRebalanceForClosedPartition() {
-        super.testStartRebalanceForClosedPartition();
+        initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
     }
 
     @Test
@@ -112,7 +71,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = tableStorage.dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -121,7 +80,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     private void assertDestructionCompletes(long emptyDataPagesBeforeDestroy) throws InterruptedException, IgniteInternalCheckedException {
         assertTrue(waitForCondition(
-                () -> tableStorage.dataRegion().rowVersionFreeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
+                () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
                 5_000
         ));
 
@@ -144,10 +103,14 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = tableStorage.dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
         assertDestructionCompletes(emptyDataPagesBeforeDestroy);
+    }
+
+    private VolatilePageMemoryDataRegion dataRegion() {
+        return ((VolatilePageMemoryTableStorage) tableStorage).dataRegion();
     }
 }

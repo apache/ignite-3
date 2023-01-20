@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -165,7 +165,7 @@ public class ConfigurationListenerTest {
 
         registry = new ConfigurationRegistry(
                 List.of(ParentConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 storage,
                 List.of(InternalChildConfigurationSchema.class),
                 List.of(StringPolyConfigurationSchema.class, LongPolyConfigurationSchema.class)

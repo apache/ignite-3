@@ -17,18 +17,24 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -64,7 +70,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
-            TablesConfiguration tablesCfg,
             int partitionId,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
@@ -76,8 +81,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree,
-                tablesCfg
+                indexMetaTree
         );
 
         this.destructionExecutor = destructionExecutor;
@@ -85,114 +89,63 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return closure.execute();
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(closure::execute);
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return CompletableFuture.completedFuture(null);
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> completedFuture(null));
     }
 
     @Override
     public long lastAppliedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return lastAppliedIndex;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public long lastAppliedTerm() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return lastAppliedTerm;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> lastAppliedTerm);
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+
+            return null;
+        });
     }
 
     @Override
     public long persistedIndex() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return lastAppliedIndex;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> lastAppliedIndex);
     }
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        if (!closeBusyLock.enterBusy()) {
-            throwStorageClosedException();
-        }
-
-        try {
-            return groupConfig;
-        } finally {
-            closeBusyLock.leaveBusy();
-        }
+        return busy(() -> groupConfig);
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        this.groupConfig = config;
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            groupConfig = config;
+
+            return null;
+        });
     }
 
     @Override
-    public void close() {
-        if (!STARTED.compareAndSet(this, true, false)) {
-            return;
-        }
+    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        closeBusyLock.block();
-
-        versionChainTree.close();
-        indexMetaTree.close();
-
-        for (PageMemoryHashIndexStorage hashIndexStorage : hashIndexes.values()) {
-            hashIndexStorage.close();
-        }
-
-        for (PageMemorySortedIndexStorage sortedIndexStorage : sortedIndexes.values()) {
-            sortedIndexStorage.close();
-        }
-
-        hashIndexes.clear();
-        sortedIndexes.clear();
+        this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
     }
 
     /**
@@ -229,6 +182,42 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             rowVersionFreeList.removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
+        }
+    }
+
+    @Override
+    List<AutoCloseable> getResourcesToCloseOnRebalance() {
+        return List.of(versionChainTree::close, indexMetaTree::close);
+    }
+
+    /**
+     * Updates the internal data structures of the storage and its indexes on rebalance.
+     *
+     * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     */
+    public void updateDataStructuresOnRebalance(
+            VersionChainTree versionChainTree,
+            IndexMetaTree indexMetaTree
+    ) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.versionChainTree = versionChainTree;
+        this.indexMetaTree = indexMetaTree;
+
+        for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
+            indexStorage.updateDataStructuresOnRebalance(
+                    indexFreeList,
+                    createHashIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
+        }
+
+        for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
+            indexStorage.updateDataStructuresOnRebalance(
+                    indexFreeList,
+                    createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
         }
     }
 }

@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.sql;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-/**
- * Enumerates the options for CREATE ZONE statement.
- */
-public enum IgniteSqlCreateZoneOptionEnum {
-    /** Number of partitions. */
-    PARTITIONS,
+dependencies {
+    implementation project(':ignite-metastorage-api')
 
-    /** Number of replicas. */
-    REPLICAS,
+    implementation project(':ignite-core')
 
-    /** Affinity function name. */
-    AFFINITY_FUNCTION,
-
-    /** An expression to filter data nodes. */
-    DATA_NODES_FILTER,
-
-    /** Data nodes auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST,
-
-    /** Data nodes scale up auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_UP,
-
-    /** Data nodes scale down auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN
+    implementation libs.jetbrains.annotations
 }
+
+description = 'ignite-placement-driver'

@@ -3,7 +3,11 @@
 * Java 11 SDK
 
 ## Build Java
-In repo root: `gradlew clean build -x test`
+In repo root:
+`./gradlew assemble compileIntegrationTestJava`
+
+Or a faster variant:
+`./gradlew assemble compileIntegrationTestJava -x check -x assembleDist -x distTar -x distZip --parallel`
 
 ## Build .NET
 In this dir: `dotnet build`

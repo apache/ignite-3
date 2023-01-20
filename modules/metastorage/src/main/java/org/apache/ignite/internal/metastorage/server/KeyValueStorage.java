@@ -193,6 +193,28 @@ public interface KeyValueStorage extends ManuallyCloseable {
     Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones);
 
     /**
+     * Retrieves entries for the given key prefix in lexicographic order.
+     *
+     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones);
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
+     * number.
+     *
+     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param revUpperBound Upper bound of revision.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones);
+
+    /**
      * Creates subscription on updates of entries corresponding to the given keys range and starting from the given revision number.
      *
      * @param keyFrom Start key of range (inclusive).

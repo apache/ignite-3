@@ -34,8 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
@@ -107,7 +107,7 @@ public class ConfigurationAsmGeneratorTest {
         changer = new TestConfigurationChanger(
                 generator,
                 List.of(TestRootConfiguration.KEY, InjectedNameRootConfiguration.KEY, RootFromAbstractConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 internalExtensions,
                 polymorphicExtensions
@@ -202,6 +202,12 @@ public class ConfigurationAsmGeneratorTest {
 
             ((ExtendedTestChange) c).changeStr3("str3").changeStr2("str2");
             ((ExtendedSecondTestChange) c).changeI1(200).changeStr2("str2");
+        }).get(1, SECONDS);
+
+        rootConfig.change(r -> {
+            TestChange subCfg = r.changeSubCfg().changeStr2("str3");
+
+            assertTrue(subCfg instanceof ExtendedTestChange);
         }).get(1, SECONDS);
     }
 
@@ -305,6 +311,13 @@ public class ConfigurationAsmGeneratorTest {
         assertEquals("strVal3", firstCfg.strVal().value());
         assertEquals(3, firstCfg.intVal().value());
 
+        rootConfig.change(c -> ((FirstPolymorphicInstanceTestChange) c.changePolymorphicSubCfg()).changeIntVal(4).changeStrVal("strVal4"))
+                .get(1, SECONDS);
+
+        assertEquals("first", firstCfg.typeId().value());
+        assertEquals("strVal4", firstCfg.strVal().value());
+        assertEquals(4, firstCfg.intVal().value());
+
         // Check convert.
 
         rootConfig.polymorphicSubCfg()
@@ -335,13 +348,13 @@ public class ConfigurationAsmGeneratorTest {
 
         SecondPolymorphicInstanceTestConfiguration secondCfg = (SecondPolymorphicInstanceTestConfiguration) rootConfig.polymorphicSubCfg();
         assertEquals("second", secondCfg.typeId().value());
-        assertEquals("strVal3", secondCfg.strVal().value());
+        assertEquals("strVal4", secondCfg.strVal().value());
         assertEquals(0, secondCfg.intVal().value());
         assertEquals(0L, secondCfg.longVal().value());
 
         SecondPolymorphicInstanceTestView secondView = (SecondPolymorphicInstanceTestView) secondCfg.value();
         assertEquals("second", secondView.typeId());
-        assertEquals("strVal3", secondView.strVal());
+        assertEquals("strVal4", secondView.strVal());
         assertEquals(0, secondView.intVal());
         assertEquals(0L, secondView.longVal());
 
@@ -349,7 +362,7 @@ public class ConfigurationAsmGeneratorTest {
 
         firstCfg = (FirstPolymorphicInstanceTestConfiguration) rootConfig.polymorphicSubCfg();
         assertEquals("first", firstCfg.typeId().value());
-        assertEquals("strVal3", firstCfg.strVal().value());
+        assertEquals("strVal4", firstCfg.strVal().value());
         assertEquals(0, firstCfg.intVal().value());
     }
 
@@ -644,6 +657,16 @@ public class ConfigurationAsmGeneratorTest {
 
         assertEquals(2, rootFromAbstractConfig.configFromAbstract().intVal().value());
         assertTrue(rootFromAbstractConfig.configFromAbstract().booleanVal().value());
+
+        // Check "short" version of change method.
+        rootFromAbstractConfig.change(ch0 -> ch0
+                .changeConfigFromAbstract().changeBooleanVal(true).changeIntVal(3)
+        ).get(1, SECONDS);
+
+        RootFromAbstractView fromAbstractView2 = rootFromAbstractConfig.value();
+
+        assertEquals(3, fromAbstractView2.configFromAbstract().intVal());
+        assertTrue(fromAbstractView2.configFromAbstract().booleanVal());
     }
 
     @Test
