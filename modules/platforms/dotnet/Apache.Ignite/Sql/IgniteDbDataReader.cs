@@ -208,13 +208,18 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override double GetDouble(int ordinal) => GetReader(ordinal, typeof(double)).GetDouble(ordinal);  // TODO: Handle compatible types.
+    public override double GetDouble(int ordinal) => Metadata.Columns[ordinal] switch
+    {
+        var c when c.Type.IsAnyFloat() => GetReader().GetDouble(ordinal),
+        var c => throw GetInvalidColumnTypeException(typeof(double), c)
+    };
 
     /// <inheritdoc/>
-    public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
-
-    /// <inheritdoc/>
-    public override float GetFloat(int ordinal) => GetReader(ordinal, typeof(float)).GetFloat(ordinal);  // TODO: Handle compatible types.
+    public override float GetFloat(int ordinal) => Metadata.Columns[ordinal] switch
+    {
+        var c when c.Type.IsAnyFloat() => GetReader().GetFloat(ordinal),
+        var c => throw GetInvalidColumnTypeException(typeof(double), c)
+    };
 
     /// <inheritdoc/>
     public override Guid GetGuid(int ordinal) => GetReader(ordinal, typeof(Guid)).GetGuid(ordinal);
@@ -343,6 +348,9 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
         throw GetInvalidColumnTypeException(typeof(T), Metadata.Columns[ordinal]);
     }
+
+    /// <inheritdoc/>
+    public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
 
     /// <inheritdoc/>
     protected override void Dispose(bool disposing) => DisposeAsync().AsTask().GetAwaiter().GetResult();
