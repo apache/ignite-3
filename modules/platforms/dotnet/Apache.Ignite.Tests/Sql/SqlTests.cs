@@ -19,8 +19,6 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
-    using System.Data;
-    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -32,7 +30,7 @@ namespace Apache.Ignite.Tests.Sql
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
     /// </summary>
-    public class SqlTests : IgniteTestsBase
+    public partial class SqlTests : IgniteTestsBase
     {
         private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
                                                "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
@@ -432,157 +430,6 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("SELECT PROPS", props["sql"]);
             Assert.AreEqual("10", props["prop1"]);
             Assert.AreEqual("xyz", props["prop-2"]);
-        }
-
-        [Test]
-        [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed", Justification = "Reviewed.")]
-        public async Task TestIgniteDbDataReader()
-        {
-            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(
-                null,
-                "select KEY, INT8 from TBL_ALL_COLUMNS_SQL ORDER BY KEY");
-
-            Assert.AreEqual(2, reader.FieldCount);
-            Assert.IsTrue(reader.HasRows);
-            Assert.AreEqual(0, reader.Depth);
-            Assert.AreEqual(-1, reader.RecordsAffected);
-
-            Assert.AreEqual("KEY", reader.Metadata.Columns[0].Name);
-            Assert.AreEqual("INT8", reader.Metadata.Columns[1].Name);
-
-            Assert.Throws<InvalidOperationException>(() => reader.GetByte(1));
-
-            await reader.ReadAsync();
-            Assert.AreEqual(2, reader.GetByte(1));
-        }
-
-        [Test]
-        public async Task TestIgniteDbDataReaderAllColumnTypes()
-        {
-            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-            await reader.ReadAsync();
-
-            Assert.AreEqual(14, reader.FieldCount);
-
-            Assert.AreEqual(1, reader.GetInt64("KEY"));
-            Assert.AreEqual("v-1", reader.GetString("STR"));
-            Assert.AreEqual(2, reader.GetByte("INT8"));
-            Assert.AreEqual(3, reader.GetInt16("INT16"));
-            Assert.AreEqual(4, reader.GetInt32("INT32"));
-            Assert.AreEqual(5, reader.GetInt64("INT64"));
-            Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
-            Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
-            Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetDateTime("DATE"));
-            Assert.AreEqual(new LocalTime(09, 28), reader.GetFieldValue<LocalTime>("TIME"));
-            Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
-            Assert.AreEqual(Instant.FromUnixTimeSeconds(123).ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
-            Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
-
-            var bytesLen = reader.GetBytes("BLOB", 0, null!, 0, 0);
-            var byteArr = new byte[bytesLen];
-
-            Assert.AreEqual(2, bytesLen);
-            Assert.AreEqual(2, reader.GetBytes("BLOB", 0L, byteArr, 0, (int)bytesLen));
-            Assert.AreEqual(new byte[] { 1, 2 }, byteArr);
-        }
-
-        [Test]
-        public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
-        {
-            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-            await reader.ReadAsync();
-
-            Assert.AreEqual(2, reader.GetByte("INT8"));
-            Assert.AreEqual(2, reader.GetInt16("INT8"));
-            Assert.AreEqual(2, reader.GetInt32("INT8"));
-            Assert.AreEqual(2, reader.GetInt64("INT8"));
-
-            Assert.AreEqual(3, reader.GetByte("INT16"));
-            Assert.AreEqual(3, reader.GetInt16("INT16"));
-            Assert.AreEqual(3, reader.GetInt32("INT16"));
-            Assert.AreEqual(3, reader.GetInt64("INT16"));
-
-            Assert.AreEqual(4, reader.GetByte("INT32"));
-            Assert.AreEqual(4, reader.GetInt16("INT32"));
-            Assert.AreEqual(4, reader.GetInt32("INT32"));
-            Assert.AreEqual(4, reader.GetInt64("INT32"));
-
-            Assert.AreEqual(5, reader.GetByte("INT64"));
-            Assert.AreEqual(5, reader.GetInt16("INT64"));
-            Assert.AreEqual(5, reader.GetInt32("INT64"));
-            Assert.AreEqual(5, reader.GetInt64("INT64"));
-
-            Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
-            Assert.AreEqual(6.5f, reader.GetDouble("FLOAT"));
-
-            Assert.AreEqual(7.5d, reader.GetFloat("DOUBLE"));
-            Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
-
-            await reader.ReadAsync();
-
-            Assert.AreEqual(unchecked((byte)sbyte.MinValue), reader.GetByte("INT8"));
-            Assert.AreEqual(sbyte.MinValue, reader.GetInt16("INT8"));
-            Assert.AreEqual(sbyte.MinValue, reader.GetInt32("INT8"));
-            Assert.AreEqual(sbyte.MinValue, reader.GetInt64("INT8"));
-
-            Assert.AreEqual(short.MinValue, reader.GetInt16("INT16"));
-            Assert.AreEqual(short.MinValue, reader.GetInt32("INT16"));
-            Assert.AreEqual(short.MinValue, reader.GetInt64("INT16"));
-
-            Assert.AreEqual(int.MinValue, reader.GetInt32("INT32"));
-            Assert.AreEqual(int.MinValue, reader.GetInt64("INT32"));
-
-            Assert.AreEqual(5, reader.GetInt64("INT64"));
-
-            Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
-            Assert.AreEqual(6.5f, reader.GetDouble("FLOAT"));
-
-            Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
-        }
-
-        [Test]
-        public async Task TestIgniteDbDataReaderIntFloatColumnsValueOutOfRangeThrows()
-        {
-            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-            await reader.ReadAsync();
-            await reader.ReadAsync();
-
-            // TODO
-            var ex = Assert.Throws<InvalidOperationException>(() => reader.GetByte("INT16"));
-            Assert.AreEqual("Binary tuple element with index 3 has invalid length (expected 1, actual 2).", ex!.Message);
-        }
-
-        [Test]
-        [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
-        public async Task TestIgniteDbDataReaderMultiplePages([Values(true, false)] bool async)
-        {
-            var statement = new SqlStatement("select ID, VAL FROM TEST ORDER BY ID", pageSize: 2);
-            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, statement);
-
-            var count = 0;
-
-            while (async ? await reader.ReadAsync() : reader.Read())
-            {
-                var id = reader.GetInt32(0);
-                var val = reader.GetString(1);
-
-                Assert.AreEqual(count, id);
-                Assert.AreEqual($"s-{count}", val);
-
-                count++;
-            }
-
-            Assert.IsFalse(reader.Read());
-            Assert.IsFalse(await reader.ReadAsync());
-
-            Assert.AreEqual(10, count);
-        }
-
-        [Test]
-        public async Task TestIgniteDbDataReaderGetColumnSchema()
-        {
-            await Task.Yield();
-            Assert.Fail("TODO");
         }
     }
 }
