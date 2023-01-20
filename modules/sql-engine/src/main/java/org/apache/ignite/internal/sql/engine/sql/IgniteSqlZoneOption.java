@@ -31,8 +31,8 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.Litmus;
 
-/** An AST node representing option to create distribution zone with. */
-public class IgniteSqlCreateZoneOption extends SqlCall {
+/** An AST node representing option in CREATE ZONE and ALTER ZONE statements. */
+public class IgniteSqlZoneOption extends SqlCall {
     private static final SqlOperator OPERATOR =
             new SqlSpecialOperator("ZoneOption", SqlKind.OTHER);
 
@@ -42,8 +42,8 @@ public class IgniteSqlCreateZoneOption extends SqlCall {
     /** Option value. */
     private final SqlNode value;
 
-    /** Creates {@link IgniteSqlCreateZoneOption}. */
-    public IgniteSqlCreateZoneOption(SqlLiteral key, SqlNode value, SqlParserPos pos) {
+    /** Creates {@link IgniteSqlZoneOption}. */
+    public IgniteSqlZoneOption(SqlLiteral key, SqlNode value, SqlParserPos pos) {
         super(pos);
 
         this.key = key;
@@ -65,7 +65,7 @@ public class IgniteSqlCreateZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public SqlNode clone(SqlParserPos pos) {
-        return new IgniteSqlCreateZoneOption(key, value, pos);
+        return new IgniteSqlZoneOption(key, value, pos);
     }
 
     /** {@inheritDoc} */
@@ -91,11 +91,11 @@ public class IgniteSqlCreateZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public boolean equalsDeep(SqlNode node, Litmus litmus) {
-        if (!(node instanceof IgniteSqlCreateZoneOption)) {
+        if (!(node instanceof IgniteSqlZoneOption)) {
             return litmus.fail("{} != {}", this, node);
         }
 
-        IgniteSqlCreateZoneOption that = (IgniteSqlCreateZoneOption) node;
+        IgniteSqlZoneOption that = (IgniteSqlZoneOption) node;
         if (key != that.key) {
             return litmus.fail("{} != {}", this, node);
         }

@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * Enumerates the options for CREATE ZONE statement.
+ * Enumerates the options for CREATE ZONE and ALTER ZONE statements.
  */
-public enum IgniteSqlCreateZoneOptionEnum {
+public enum IgniteSqlZoneOptionEnum {
     /** Number of partitions. */
     PARTITIONS,
 
