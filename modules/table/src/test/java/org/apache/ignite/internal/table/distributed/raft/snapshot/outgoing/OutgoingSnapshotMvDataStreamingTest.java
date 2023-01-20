@@ -37,7 +37,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -58,9 +57,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutgoingSnapshotMvDataStreamingTest {
     @Mock
     private PartitionAccess partitionAccess;
-
-    @Mock
-    private MvPartitionStorage mvPartitionStorage;
 
     private OutgoingSnapshot snapshot;
 
@@ -83,8 +79,6 @@ class OutgoingSnapshotMvDataStreamingTest {
     @BeforeEach
     void createTestInstance() {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
-
-        lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }

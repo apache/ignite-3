@@ -21,14 +21,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
@@ -41,16 +39,6 @@ public interface PartitionAccess {
      * Returns the key that uniquely identifies the corresponding partition.
      */
     PartitionKey partitionKey();
-
-    /**
-     * Returns the multi-versioned partition storage.
-     */
-    MvPartitionStorage mvPartitionStorage();
-
-    /**
-     * Returns transaction state storage for the partition.
-     */
-    TxStateStorage txStatePartitionStorage();
 
     /**
      * Destroys and recreates the multi-versioned partition storage.
@@ -140,4 +128,24 @@ public interface PartitionAccess {
      * Updates the last applied index, term, and RAFT configuration.
      */
     void updateLastApplied(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
+
+    /**
+     * Returns the minimum applied index of the partition storages.
+     */
+    long minLastAppliedIndex();
+
+    /**
+     * Returns the minimum applied term of the partition storages.
+     */
+    long minLastAppliedTerm();
+
+    /**
+     * Returns the maximum applied index of the partition storages.
+     */
+    long maxLastAppliedIndex();
+
+    /**
+     * Returns the maximum applied term of the partition storages.
+     */
+    long maxLastAppliedTerm();
 }

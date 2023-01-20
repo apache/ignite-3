@@ -155,14 +155,8 @@ public class OutgoingSnapshot {
     }
 
     private SnapshotMeta takeSnapshotMeta() {
-        long lastAppliedIndex = Math.max(
-                partition.mvPartitionStorage().lastAppliedIndex(),
-                partition.txStatePartitionStorage().lastAppliedIndex()
-        );
-        long lastAppliedTerm = Math.max(
-                partition.mvPartitionStorage().lastAppliedTerm(),
-                partition.txStatePartitionStorage().lastAppliedTerm()
-        );
+        long lastAppliedIndex = partition.maxLastAppliedIndex();
+        long lastAppliedTerm = partition.maxLastAppliedTerm();
 
         RaftGroupConfiguration config = partition.committedGroupConfiguration();
 

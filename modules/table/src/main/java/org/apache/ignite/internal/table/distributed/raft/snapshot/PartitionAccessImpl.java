@@ -70,24 +70,6 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public MvPartitionStorage mvPartitionStorage() {
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId());
-
-        assert mvPartition != null : "table=" + tableName() + ", part=" + partitionId();
-
-        return mvPartition;
-    }
-
-    @Override
-    public TxStateStorage txStatePartitionStorage() {
-        TxStateStorage txStatePartitionStorage = txStateTableStorage.getTxStateStorage(partitionId());
-
-        assert txStatePartitionStorage != null : "table=" + tableName() + ", part=" + partitionId();
-
-        return txStatePartitionStorage;
-    }
-
-    @Override
     public CompletableFuture<Void> reCreateMvPartitionStorage() throws StorageException {
         assert mvTableStorage.getMvPartition(partitionId()) != null : "table=" + tableName() + ", part=" + partitionId();
 
@@ -182,6 +164,38 @@ public class PartitionAccessImpl implements PartitionAccess {
 
             return null;
         });
+    }
+
+    @Override
+    public long minLastAppliedIndex() {
+        return Math.min(
+                getMvPartitionStorage(partitionId()).lastAppliedIndex(),
+                getTxStateStorage(partitionId()).lastAppliedIndex()
+        );
+    }
+
+    @Override
+    public long minLastAppliedTerm() {
+        return Math.min(
+                getMvPartitionStorage(partitionId()).lastAppliedTerm(),
+                getTxStateStorage(partitionId()).lastAppliedTerm()
+        );
+    }
+
+    @Override
+    public long maxLastAppliedIndex() {
+        return Math.max(
+                getMvPartitionStorage(partitionId()).lastAppliedIndex(),
+                getTxStateStorage(partitionId()).lastAppliedIndex()
+        );
+    }
+
+    @Override
+    public long maxLastAppliedTerm() {
+        return Math.max(
+                getMvPartitionStorage(partitionId()).lastAppliedTerm(),
+                getTxStateStorage(partitionId()).lastAppliedTerm()
+        );
     }
 
     private MvPartitionStorage getMvPartitionStorage(int partitionId) {

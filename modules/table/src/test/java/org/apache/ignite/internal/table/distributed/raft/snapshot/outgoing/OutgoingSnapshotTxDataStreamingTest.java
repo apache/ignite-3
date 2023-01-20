@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
@@ -59,12 +57,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutgoingSnapshotTxDataStreamingTest {
     @Mock
     private PartitionAccess partitionAccess;
-
-    @Mock
-    private MvPartitionStorage mvPartitionStorage;
-
-    @Mock
-    private TxStateStorage txStateStorage;
 
     private OutgoingSnapshot snapshot;
 
@@ -86,9 +78,6 @@ class OutgoingSnapshotTxDataStreamingTest {
     @BeforeEach
     void createTestInstance() {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
-
-        lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
-        lenient().when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
 
         lenient().when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 

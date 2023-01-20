@@ -22,19 +22,16 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,12 +44,6 @@ class OutgoingSnapshotCommonTest {
     @Mock
     private PartitionAccess partitionAccess;
 
-    @Mock
-    private MvPartitionStorage mvPartitionStorage;
-
-    @Mock
-    private TxStateStorage txStateStorage;
-
     private OutgoingSnapshot snapshot;
 
     private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
@@ -62,9 +53,6 @@ class OutgoingSnapshotCommonTest {
     @BeforeEach
     void createTestInstance() {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
-
-        lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
-        lenient().when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
@@ -76,10 +64,11 @@ class OutgoingSnapshotCommonTest {
 
     @Test
     void sendsSnapshotMeta() {
-        when(mvPartitionStorage.lastAppliedIndex()).thenReturn(100L);
-        lenient().when(mvPartitionStorage.lastAppliedTerm()).thenReturn(3L);
-        when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
-        lenient().when(txStateStorage.lastAppliedTerm()).thenReturn(3L);
+        lenient().when(partitionAccess.minLastAppliedIndex()).thenReturn(90L);
+        lenient().when(partitionAccess.maxLastAppliedIndex()).thenReturn(100L);
+
+        lenient().when(partitionAccess.minLastAppliedTerm()).thenReturn(2L);
+        lenient().when(partitionAccess.maxLastAppliedTerm()).thenReturn(3L);
 
         when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 List.of("peer1:3000", "peer2:3000"),
@@ -129,34 +118,6 @@ class OutgoingSnapshotCommonTest {
 
         assertThat(response.meta().oldPeersList(), is(nullValue()));
         assertThat(response.meta().oldLearnersList(), is(nullValue()));
-    }
-
-    @Test
-    void sendsMvIndexIfItIsAhead() {
-        when(mvPartitionStorage.lastAppliedIndex()).thenReturn(100L);
-        when(txStateStorage.lastAppliedIndex()).thenReturn(90L);
-
-        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
-
-        snapshot.freezeScopeUnderMvLock();
-
-        SnapshotMetaResponse response = getSnapshotMetaResponse();
-
-        assertThat(response.meta().lastIncludedIndex(), is(100L));
-    }
-
-    @Test
-    void sendsTxIndexIfItIsAhead() {
-        when(mvPartitionStorage.lastAppliedIndex()).thenReturn(90L);
-        when(txStateStorage.lastAppliedIndex()).thenReturn(100L);
-
-        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
-
-        snapshot.freezeScopeUnderMvLock();
-
-        SnapshotMetaResponse response = getSnapshotMetaResponse();
-
-        assertThat(response.meta().lastIncludedIndex(), is(100L));
     }
 
     @Test
