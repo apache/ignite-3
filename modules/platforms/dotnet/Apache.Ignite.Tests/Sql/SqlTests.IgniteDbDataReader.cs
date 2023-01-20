@@ -164,6 +164,35 @@ public partial class SqlTests
     }
 
     [Test]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
+    public async Task TestIgniteDbDataReaderAllColumnTypesAsIncompatibleTypeThrows()
+    {
+        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+        await reader.ReadAsync();
+
+        // TODO: All types
+        Test(() => reader.GetBoolean("STR"), "STR", SqlColumnType.String, typeof(bool), typeof(string));
+
+        // Assert.AreEqual(2, reader.GetString("INT8"));
+        // Assert.AreEqual(3, reader.GetGuid("INT16"));
+        // Assert.AreEqual(4, reader.GetGuid("INT32"));
+        // Assert.AreEqual(5, reader.GetGuid("INT64"));
+        // Assert.AreEqual(6.5f, reader.GetGuid("FLOAT"));
+        // Assert.AreEqual(7.5d, reader.GetGuid("DOUBLE"));
+        // Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetGuid("DATE"));
+        // Assert.AreEqual(new LocalTime(09, 28), reader.GetGuid("TIME"));
+        // Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetGuid("DATETIME"));
+        // Assert.AreEqual(Instant.FromUnixTimeSeconds(123).ToDateTimeUtc(), reader.GetGuid("TIMESTAMP"));
+        // Assert.AreEqual(8.7m, reader.GetGuid("DECIMAL"));
+        // reader.GetFloat("BLOB", 0, null!, 0, 0);
+        static void Test(TestDelegate testDelegate, string columnName, SqlColumnType columnType, Type expectedType, Type actualType)
+        {
+            var ex = Assert.Throws<InvalidCastException>(testDelegate);
+            Assert.AreEqual($"Column {columnName} of type {columnType} ({actualType}) can not be cast to {expectedType}.", ex!.Message);
+        }
+    }
+
+    [Test]
     [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
     public async Task TestIgniteDbDataReaderMultiplePages([Values(true, false)] bool async)
     {
