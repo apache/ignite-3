@@ -28,6 +28,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -2365,6 +2372,42 @@ public abstract class AbstractKeyValueStorageTest {
         assertThat(awaitFuture, willCompleteSuccessfully());
     }
 
+    /**
+     * Tests that, if a watch throws an exception, its {@code onError} method is invoked and all other watches do not get executed.
+     */
+    @Test
+    void testWatchErrorHandling() {
+        byte[] value = "value".getBytes(UTF_8);
+
+        var key = "foo".getBytes(UTF_8);
+
+        WatchListener mockListener1 = mock(WatchListener.class);
+        WatchListener mockListener2 = mock(WatchListener.class);
+        WatchListener mockListener3 = mock(WatchListener.class);
+
+        var exception = new IllegalStateException();
+
+        doThrow(exception).when(mockListener2).onUpdate(any());
+
+        storage.watchExact(key, 1, mockListener1);
+        storage.watchExact(key, 1, mockListener2);
+        storage.watchExact(key, 1, mockListener3);
+
+        OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
+
+        storage.startWatches(mockCallback);
+
+        storage.put(key, value);
+
+        verify(mockListener1, timeout(10_000)).onUpdate(any());
+
+        verify(mockListener2, timeout(10_000)).onError(exception);
+
+        verify(mockListener3, never()).onUpdate(any());
+        verify(mockListener3, never()).onError(any());
+        verify(mockCallback, never()).onRevisionApplied(anyLong(), any());
+    }
+
     private static void fill(KeyValueStorage storage, int keySuffix, int num) {
         for (int i = 0; i < num; i++) {
             storage.getAndPut(key(keySuffix), keyValue(keySuffix, i + 1));
@@ -2426,7 +2469,7 @@ public abstract class AbstractKeyValueStorageTest {
             }
         });
 
-        storage.startWatches(revision -> {});
+        storage.startWatches((revision, updatedEntries) -> {});
 
         return resultFuture;
     }

@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -58,13 +57,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
@@ -74,9 +70,11 @@ import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.Watch;
+import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksBiPredicate;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -181,8 +179,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @Nullable
     private volatile Future<?> watchExecutorFuture;
 
-    /** List of watches that listen to storage events. */
-    private final List<Watch> watches = new CopyOnWriteArrayList<>();
+    /** Watch processor. */
+    private final WatchProcessor watchProcessor = new WatchProcessor(this::get);
 
     /** Status of the watch recovery process. */
     private enum RecoveryStatus {
@@ -207,9 +205,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * <p>Since this list gets read and updated only on writes (under a write lock), no extra synchronisation is needed.
      */
     private final List<Entry> updatedEntries = new ArrayList<>();
-
-    /** Callback that gets notified after a {@link WatchEvent} has been processed by all registered watches. */
-    private volatile LongConsumer revisionCallback;
 
     /**
      * Constructor.
@@ -804,7 +799,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 ? k -> CMP.compare(keyFrom, k) <= 0
                 : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
 
-        watches.add(new Watch(rev, listener, rangePredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
     }
 
     @Override
@@ -819,7 +814,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         Predicate<byte[]> exactPredicate = k -> CMP.compare(k, key) == 0;
 
-        watches.add(new Watch(rev, listener, exactPredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
     }
 
     @Override
@@ -833,19 +828,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         Predicate<byte[]> inPredicate = keySet::contains;
 
-        watches.add(new Watch(rev, listener, inPredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, inPredicate));
     }
 
     @Override
-    public void startWatches(LongConsumer revisionCallback) {
+    public void startWatches(OnRevisionAppliedCallback revisionCallback) {
         long currentRevision;
 
         rwLock.readLock().lock();
 
         try {
-            assert this.revisionCallback == null;
-
-            this.revisionCallback = revisionCallback;
+            watchProcessor.setRevisionCallback(revisionCallback);
 
             currentRevision = rev;
 
@@ -870,7 +863,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void removeWatch(WatchListener listener) {
-        watches.removeIf(watch -> watch.listener() == listener);
+        watchProcessor.removeWatch(listener);
     }
 
     @Override
@@ -1227,52 +1220,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    /**
-     * Notifies registered watches about an update event.
-     */
-    private void notifyWatches(List<Entry> updatedEntries) {
-        // Revision must be the same for all entries.
-        long newRevision = updatedEntries.get(0).revision();
-
-        for (Watch watch : watches) {
-            var entryEvents = new ArrayList<EntryEvent>();
-
-            for (Entry newEntry : updatedEntries) {
-                byte[] newKey = newEntry.key();
-
-                assert newEntry.revision() == newRevision;
-
-                if (watch.matches(newKey, newRevision)) {
-                    Entry oldEntry = get(newKey, newRevision - 1);
-
-                    entryEvents.add(new EntryEvent(oldEntry, newEntry));
-                }
-            }
-
-            if (!entryEvents.isEmpty()) {
-                var event = new WatchEvent(entryEvents, newRevision);
-
-                try {
-                    watch.onUpdate(event);
-                } catch (Exception e) {
-                    watch.onError(e);
-
-                    LOG.error("Error occurred when processing a watch event {}, watch will be disabled", e, event);
-
-                    watches.remove(watch);
-                }
-            }
-        }
-
-        // Watch processing for the new revision is done, notify the revision callback.
-        revisionCallback.accept(newRevision);
-    }
-
     private void replayUpdates(long upperRevision) {
-        long minWatchRevision = watches.stream()
-                .mapToLong(Watch::targetRevision)
-                .min()
-                .orElse(-1);
+        long minWatchRevision = watchProcessor.minWatchRevision().orElse(-1);
 
         if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
             return;
@@ -1299,7 +1248,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                     if (!updatedEntries.isEmpty()) {
                         var updatedEntriesCopy = List.copyOf(updatedEntries);
 
-                        watchExecutor.execute(() -> notifyWatches(updatedEntriesCopy));
+                        watchExecutor.execute(() -> watchProcessor.notifyWatches(updatedEntriesCopy));
 
                         updatedEntries.clear();
                     }
@@ -1314,7 +1263,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             // Notify about the events left after finishing the cycle above.
             if (!updatedEntries.isEmpty()) {
-                watchExecutor.execute(() -> notifyWatches(updatedEntries));
+                watchExecutor.execute(() -> watchProcessor.notifyWatches(updatedEntries));
             }
         }
 
@@ -1327,7 +1276,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             watchExecutorFuture = watchExecutor.submit(() -> {
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
-                        notifyWatches(eventQueue.take());
+                        watchProcessor.notifyWatches(eventQueue.take());
                     } catch (InterruptedException e) {
                         LOG.info("Watch Executor interrupted, watches stopped");
 
