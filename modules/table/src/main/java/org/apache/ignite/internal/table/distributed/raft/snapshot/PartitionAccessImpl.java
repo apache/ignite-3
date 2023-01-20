@@ -95,7 +95,13 @@ public class PartitionAccessImpl implements PartitionAccess {
         //return mvTableStorage.destroyPartition(partId())
         return CompletableFuture.completedFuture(null)
                 .thenApply(unused -> {
-                    mvTableStorage.getOrCreateMvPartition(partitionId()).lastApplied(FULL_RABALANCING_STARTED, 0);
+                    MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(partitionId());
+
+                    mvPartitionStorage.runConsistently(() -> {
+                        mvPartitionStorage.lastApplied(FULL_RABALANCING_STARTED, 0);
+
+                        return null;
+                    });
 
                     return null;
                 });

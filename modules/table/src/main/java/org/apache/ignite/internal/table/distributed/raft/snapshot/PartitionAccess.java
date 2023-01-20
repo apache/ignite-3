@@ -139,5 +139,5 @@ public interface PartitionAccess {
     /**
      * Updates the last applied index, term, and RAFT configuration.
      */
-    void updateLastApplied(long lastAppliedIndex, long lastAppliedTerm, @Nullable RaftGroupConfiguration raftGroupConfig);
+    void updateLastApplied(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
 }
