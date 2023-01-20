@@ -48,6 +48,7 @@ import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -1107,4 +1108,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Returns resources that will have to close on rebalancing.
      */
     abstract List<AutoCloseable> getResourcesToCloseOnRebalance();
+
+    /**
+     * Sets the RAFT group configuration on rebalance.
+     */
+    public abstract void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config);
 }

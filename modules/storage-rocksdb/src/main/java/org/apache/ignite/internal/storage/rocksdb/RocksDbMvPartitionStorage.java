@@ -357,18 +357,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            WriteBatchWithIndex writeBatch = requireWriteBatch();
-
             try {
-                writeBatch.put(meta, lastGroupConfigKey, ByteUtils.toBytes(config));
-
-                pendingGroupConfig = config;
+                saveRaftGroupConfiguration(requireWriteBatch(), config);
 
                 return null;
             } catch (RocksDBException e) {
                 throw new StorageException(e);
             }
         });
+    }
+
+    private void saveRaftGroupConfiguration(AbstractWriteBatch writeBatch, RaftGroupConfiguration config) throws RocksDBException {
+        writeBatch.put(meta, lastGroupConfigKey, ByteUtils.toBytes(config));
+
+        pendingGroupConfig = config;
     }
 
     /**
@@ -1506,13 +1508,15 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      *
      * @throws StorageRebalanceException If there was an error when finishing the rebalance.
      */
-    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) {
+    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
         if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
         try {
             saveLastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+
+            saveRaftGroupConfigurationOnRebalance(writeBatch, raftGroupConfig);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -1533,5 +1537,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         this.lastAppliedTerm = lastAppliedTerm;
 
         persistedIndex = lastAppliedIndex;
+    }
+
+    private void saveRaftGroupConfigurationOnRebalance(WriteBatch writeBatch, RaftGroupConfiguration config) throws RocksDBException {
+        saveRaftGroupConfiguration(writeBatch, config);
+
+        this.lastGroupConfig = config;
     }
 }

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -177,8 +178,9 @@ public interface MvTableStorage extends ManuallyCloseable {
      * <ul>
      *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
      *     and {@link SortedIndexStorage});</li>
-     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()} to
-     *     {@link MvPartitionStorage#REBALANCE_IN_PROGRESS};</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()} to
+     *     {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and {@link MvPartitionStorage#committedGroupConfiguration()} to {@code null};
+     *     </li>
      *     <li>Stops the cursors of a multi-version partition storage and its indexes, subsequent calls to {@link Cursor#hasNext()} and
      *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
      *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
@@ -189,6 +191,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
      *         <li>{@link MvPartitionStorage#persistedIndex()};</li>
+     *         <li>{@link MvPartitionStorage#committedGroupConfiguration()};</li>
      *         <li>{@link HashIndexStorage#put(IndexRow)};</li>
      *         <li>{@link SortedIndexStorage#put(IndexRow)};</li>
      *     </ul></li>
@@ -198,7 +201,8 @@ public interface MvTableStorage extends ManuallyCloseable {
      * to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalancePartition(int, long, long)} - in case of successful completion of rebalance.</li>
+     *     <li>{@link #finishRebalancePartition(int, long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.
+     *     </li>
      * </ul>
      *
      * <p>If the {@link MvPartitionStorage#lastAppliedIndex()} is {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} after a node restart
@@ -218,7 +222,8 @@ public interface MvTableStorage extends ManuallyCloseable {
      * <ul>
      *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
      *     and {@link SortedIndexStorage});</li>
-     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()} to {@code 0};</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()} to {@code 0} and
+     *     {@link MvPartitionStorage#committedGroupConfiguration()} to {@code null};</li>
      *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
      * </ul>
      *
@@ -232,7 +237,8 @@ public interface MvTableStorage extends ManuallyCloseable {
     /**
      * Completes rebalance for a partition.
      * <ul>
-     *     <li>Updates {@link MvPartitionStorage#lastAppliedIndex()} and {@link MvPartitionStorage#lastAppliedTerm()};</li>
+     *     <li>Updates {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()} and
+     *     {@link MvPartitionStorage#committedGroupConfiguration()};</li>
      *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
      * </ul>
      *
@@ -240,9 +246,15 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
+     * @param raftGroupConfig RAFT group configuration.
      * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageRebalanceException If there is an error when completing rebalance.
      */
-    CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm);
+    CompletableFuture<Void> finishRebalancePartition(
+            int partitionId,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig
+    );
 }
