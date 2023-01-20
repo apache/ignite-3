@@ -133,7 +133,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             { IsEmpty: true } => default,
             { Length: 1 } s => unchecked((sbyte)s[0]),
-            var s => BinaryPrimitives.ReadInt16LittleEndian(s)
+            { Length: 2 } s => BinaryPrimitives.ReadInt16LittleEndian(s),
+            var s => throw GetInvalidLengthException(index, 2, s.Length)
         };
 
         /// <summary>
@@ -153,7 +154,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { IsEmpty: true } => default,
             { Length: 1 } s => unchecked((sbyte)s[0]),
             { Length: 2 } s => BinaryPrimitives.ReadInt16LittleEndian(s),
-            var s => BinaryPrimitives.ReadInt32LittleEndian(s)
+            { Length: 4 } s => BinaryPrimitives.ReadInt32LittleEndian(s),
+            var s => throw GetInvalidLengthException(index, 4, s.Length)
         };
 
         /// <summary>
@@ -174,7 +176,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             { Length: 1 } s => unchecked((sbyte)s[0]),
             { Length: 2 } s => BinaryPrimitives.ReadInt16LittleEndian(s),
             { Length: 4 } s => BinaryPrimitives.ReadInt32LittleEndian(s),
-            var s => BinaryPrimitives.ReadInt64LittleEndian(s)
+            { Length: 8 } s => BinaryPrimitives.ReadInt64LittleEndian(s),
+            var s => throw GetInvalidLengthException(index, 8, s.Length)
         };
 
         /// <summary>
@@ -192,7 +195,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public Guid GetGuid(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => UuidSerializer.Read(s)
+            { Length: 16 } s => UuidSerializer.Read(s),
+            var s => throw GetInvalidLengthException(index, 16, s.Length)
         };
 
         /// <summary>
@@ -228,7 +232,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public float GetFloat(int index) => Seek(index) switch
         {
             { IsEmpty: true } => default,
-            var s => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(s))
+            { Length: 4 } s => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(s)),
+            var s => throw GetInvalidLengthException(index, 4, s.Length)
         };
 
         /// <summary>
@@ -247,7 +252,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             { IsEmpty: true } => default,
             { Length: 4 } s => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(s)),
-            var s => BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(s))
+            { Length: 8 } s => BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(s)),
+            var s => throw GetInvalidLengthException(index, 8, s.Length)
         };
 
         /// <summary>
