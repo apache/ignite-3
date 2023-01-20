@@ -734,15 +734,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         /** {@inheritDoc} */
         @Override
         public void close() {
-            try {
-                innerCursorFut.thenAccept(Cursor::close).get();
-            } catch (ExecutionException e) {
-                throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-
-                throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
-            }
+            get(innerCursorFut.thenAccept(Cursor::close), CURSOR_CLOSING_ERR);
         }
 
         /** {@inheritDoc} */
@@ -753,9 +745,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             }
 
             try {
-                return innerCursorFut.thenApply(Iterator::hasNext).get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
+                return get(innerCursorFut.thenApply(Iterator::hasNext), CURSOR_EXECUTION_ERR);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -769,11 +759,21 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             }
 
             try {
-                return innerCursorFut.thenApply(Iterator::next).get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
+                return get(innerCursorFut.thenApply(Iterator::next), CURSOR_EXECUTION_ERR);
             } finally {
                 busyLock.leaveBusy();
+            }
+        }
+
+        private <R> R get(CompletableFuture<R> future, int errorCode) {
+            try {
+                return future.get();
+            } catch (ExecutionException e) {
+                throw new MetaStorageException(errorCode, e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new MetaStorageException(errorCode, e);
             }
         }
     }
