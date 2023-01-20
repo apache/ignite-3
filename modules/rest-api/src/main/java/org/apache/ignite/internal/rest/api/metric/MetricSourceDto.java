@@ -25,7 +25,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /**
  * REST representation of MetricSource.
  */
-@Schema(name = "MetricSource", description = "Metric sources. Provided by modules")
+@Schema(name = "MetricSource", description = "Metric sources provided by modules.")
 public class MetricSourceDto {
     /** Name of the metric source. */
     @Schema(description = "Metric source name.")

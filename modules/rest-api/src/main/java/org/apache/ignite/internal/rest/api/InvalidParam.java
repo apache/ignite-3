@@ -30,7 +30,7 @@ import java.util.Objects;
 public class InvalidParam {
     @Schema(description = "Parameter name.")
     private final String name;
-    @Schema(description = "THe issue with the parameter.")
+    @Schema(description = "The issue with the parameter.")
     private final String reason;
 
     @JsonCreator

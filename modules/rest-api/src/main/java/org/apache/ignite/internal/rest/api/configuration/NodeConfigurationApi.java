@@ -46,7 +46,7 @@ public interface NodeConfigurationApi {
      *
      * @return the whole node configuration in HOCON format.
      */
-    @Operation(operationId = "getNodeConfiguration", description = "Gets node configuratoon in HOCON format.")
+    @Operation(operationId = "getNodeConfiguration", description = "Gets node configuration in HOCON format.")
     @ApiResponse(responseCode = "200",
             content = @Content(mediaType = MediaType.TEXT_PLAIN,
                     schema = @Schema(type = "string")),
@@ -83,7 +83,7 @@ public interface NodeConfigurationApi {
             MediaType.PROBLEM_JSON
     })
     @Get("/{path}")
-    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true, description = "Node address.") String path);
+    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true, description = "Configuration tree address. For example: `element.subelement`.") String path);
 
     /**
      * Updates node configuration in HOCON format. This is represented as a plain text.
