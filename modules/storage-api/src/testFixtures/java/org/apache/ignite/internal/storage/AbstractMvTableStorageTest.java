@@ -938,7 +938,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private static RaftGroupConfiguration createRandomRaftGroupConfiguration() {
-        Random random = new Random();
+        Random random = new Random(System.currentTimeMillis());
 
         return new RaftGroupConfiguration(
                 random.ints(random.nextInt(10)).mapToObj(i -> "peer" + i).collect(toList()),
