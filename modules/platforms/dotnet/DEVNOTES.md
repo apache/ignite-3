@@ -23,6 +23,9 @@ Specific test: `dotnet test --logger "console;verbosity=normal" --filter ClientS
 To debug or profile Java side of the tests, run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or profiler,
 then run .NET tests with `dotnet test` or `dotnet test --filter TEST_NAME`. When a server node is present, .NET tests will use it instead of starting a new one.
 
+The test node will stop after 30 minutes by default.
+To change this, set `IGNITE_PLATFORM_TEST_NODE_RUNNER_RUN_TIME_MINUTES` environment variable.
+
 ## Static Code Analysis
 
 Static code analysis (Roslyn-based) runs as part of the build and includes code style check. Build fails on any warning.
