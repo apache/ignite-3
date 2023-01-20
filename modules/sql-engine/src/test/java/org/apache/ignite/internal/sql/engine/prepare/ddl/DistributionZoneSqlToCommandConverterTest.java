@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -76,21 +77,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(createZone.dataNodesAutoAdjust(), equalTo(300));
 
         // Check option validation.
-        IgniteException ex = assertThrows(
-                IgniteException.class,
-                () -> converter.convert((SqlDdl) parse("CREATE ZONE test with partitions=-1"), createContext())
-        );
+        node = parse("CREATE ZONE test with partitions=-1");
+        expectOptionValidationError((SqlDdl) node, "PARTITION");
 
-        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
-        assertThat(ex.getMessage(), containsString("Zone option validation failed [option=PARTITIONS"));
-
-        ex = assertThrows(
-                IgniteException.class,
-                () -> converter.convert((SqlDdl) parse("CREATE ZONE test with replicas=-1"), createContext())
-        );
-
-        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
-        assertThat(ex.getMessage(), containsString("Zone option validation failed [option=REPLICAS"));
+        node = parse("CREATE ZONE test with replicas=-1");
+        expectOptionValidationError((SqlDdl) node, "REPLICAS");
     }
 
     @Test
@@ -99,12 +90,97 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        IgniteException ex = assertThrows(
-                IgniteException.class,
-                () -> converter.convert((SqlDdl) node, createContext())
-        );
+        expectDuplicateOptionError((SqlDdl) node, "PARTITIONS");
+    }
 
-        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+    @Test
+    public void testRenameZoneCommand() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE test RENAME TO test2");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneRenameCommand.class));
+
+        AlterZoneRenameCommand zoneCmd = (AlterZoneRenameCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.newZoneName(), equalTo("TEST2"));
+        assertThat(zoneCmd.ifExists(), is(false));
+    }
+
+    @Test
+    public void testRenameZoneIfExistCommand() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE IF EXISTS test RENAME TO test2");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneRenameCommand.class));
+
+        AlterZoneRenameCommand zoneCmd = (AlterZoneRenameCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.newZoneName(), equalTo("TEST2"));
+        assertThat(zoneCmd.ifExists(), is(true));
+    }
+
+    @Test
+    public void testAlterZoneCommand() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE test SET replicas=3");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetCommand.class));
+
+        AlterZoneSetCommand zoneCmd = (AlterZoneSetCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.ifExists(), is(false));
+    }
+
+    @Test
+    public void testAlterZoneIfExistsCommand() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE IF EXISTS test SET replicas=3");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetCommand.class));
+
+        AlterZoneSetCommand zoneCmd = (AlterZoneSetCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.ifExists(), is(true));
+    }
+
+    @Test
+    public void testAlterZoneSetCommand() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE test SET "
+                + "replicas=3, "
+                + "data_nodes_filter='\"attr1\" && \"attr2\"', "
+                + "data_nodes_auto_adjust_scale_up=100, "
+                + "data_nodes_auto_adjust_scale_down=200, "
+                + "data_nodes_auto_adjust=300");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetCommand.class));
+
+        AlterZoneSetCommand zoneCmd = (AlterZoneSetCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+
+        assertThat(zoneCmd.replicas(), equalTo(3));
+        assertThat(zoneCmd.nodeFilter(), equalTo("\"attr1\" && \"attr2\""));
+        assertThat(zoneCmd.dataNodesAutoAdjustScaleUp(), equalTo(100));
+        assertThat(zoneCmd.dataNodesAutoAdjustScaleDown(), equalTo(200));
+        assertThat(zoneCmd.dataNodesAutoAdjust(), equalTo(300));
+    }
+
+    @Test
+    public void testAlterZoneCommandWithInvalidOptions() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        expectOptionValidationError((SqlDdl) node, "DATA_NODES_AUTO_ADJUST");
+    }
+
+    @Test
+    public void testAlterZoneCommandWithDuplicateOptions() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=300, DATA_NODES_AUTO_ADJUST=400");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        expectDuplicateOptionError((SqlDdl) node, "DATA_NODES_AUTO_ADJUST");
     }
 
     @Test
@@ -120,5 +196,25 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         DropZoneCommand zoneCmd = (DropZoneCommand) cmd;
 
         assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+    }
+
+    private void expectOptionValidationError(SqlDdl node, String invalidOption) {
+        IgniteException ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert(node, createContext())
+        );
+
+        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.getMessage(), containsString("Zone option validation failed [option=" + invalidOption));
+    }
+
+    private void expectDuplicateOptionError(SqlDdl node, String option) {
+        IgniteException ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert(node, createContext())
+        );
+
+        assertThat(ex.code(), equalTo(Sql.QUERY_VALIDATION_ERR));
+        assertThat(ex.getMessage(), containsString("Duplicate DDL command option has been specified [option=" + option));
     }
 }
