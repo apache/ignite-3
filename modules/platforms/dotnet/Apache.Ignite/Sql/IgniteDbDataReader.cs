@@ -31,6 +31,7 @@ using Internal.Common;
 using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Sql;
+using NodaTime;
 
 /// <summary>
 /// Reads a forward-only stream of rows from an Ignite result set.
@@ -326,6 +327,11 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         if (typeof(T) == typeof(int))
         {
             return (T)(object)GetInt32(ordinal);
+        }
+
+        if (typeof(T) == typeof(LocalTime))
+        {
+            return (T)(object)GetReader(ordinal, typeof(LocalTime)).GetTime(ordinal);
         }
 
         throw GetInvalidColumnTypeException(typeof(T), Metadata.Columns[ordinal]);

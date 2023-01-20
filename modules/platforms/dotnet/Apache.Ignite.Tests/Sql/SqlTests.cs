@@ -462,16 +462,18 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(5, reader.GetInt64("INT64"));
             Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
             Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
-            Assert.AreEqual(new DateTime(2023, 1, 18), reader.GetDateTime("DATE"));
-            Assert.AreEqual(7.5, reader.GetDateTime("TIME"));
-            Assert.AreEqual(7.5, reader.GetDateTime("DATETIME"));
-            Assert.AreEqual(7.5, reader.GetDateTime("TIMESTAMP"));
+            Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetDateTime("DATE"));
+            Assert.AreEqual(new LocalTime(09, 28), reader.GetFieldValue<LocalTime>("TIME"));
+            Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
+            Assert.AreEqual(Instant.FromUnixTimeSeconds(123).ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
             Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
 
             var bytesLen = reader.GetBytes("BLOB", 0, null!, 0, 0);
             var byteArr = new byte[bytesLen];
 
-            Assert.AreEqual(7.5, reader.GetBytes("BLOB", 0L, byteArr, 0, (int)bytesLen));
+            Assert.AreEqual(2, bytesLen);
+            Assert.AreEqual(2, reader.GetBytes("BLOB", 0L, byteArr, 0, (int)bytesLen));
+            Assert.AreEqual(new byte[] { 1, 2 }, byteArr);
         }
 
         [Test]
