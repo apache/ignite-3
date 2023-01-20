@@ -30,6 +30,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -252,7 +253,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
                         result = true;
                     } else {
-                        result = false;
+                        result = txMetaExisting.txState() == txMeta.txState()
+                                && Objects.equals(txMetaExisting.commitTimestamp(), txMeta.commitTimestamp());
                     }
                 } else {
                     result = false;

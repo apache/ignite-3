@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_R
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -82,7 +83,7 @@ public class TestTxStateStorage implements TxStateStorage {
                 if (old.txState() == txStateExpected) {
                     result = storage.replace(txId, old, txMeta);
                 } else {
-                    return false;
+                    return old.txState() == txMeta.txState() && Objects.equals(old.commitTimestamp(), txMeta.commitTimestamp());
                 }
             } else {
                 result = false;

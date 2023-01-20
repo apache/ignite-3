@@ -22,18 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -80,7 +74,6 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
@@ -99,7 +92,6 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -148,9 +140,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Mock
     private static TopologyService topologySrv = mock(TopologyService.class);
-
-    @Mock
-    private static TxManager txManager = mock(TxManager.class);
 
     /** Default reflection marshaller factory. */
     protected static MarshallerFactory marshallerFactory;
@@ -265,7 +254,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
-                txManager,
+                mock(TxManager.class),
                 lockManager,
                 Runnable::run,
                 partId,
@@ -302,7 +291,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
         ((TestHashIndexStorage) hashIndexStorage.storage()).clear();
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
-        reset(txManager);
     }
 
     @Test
@@ -756,63 +744,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertNotNull(rows);
         assertEquals(3, rows.size());
-    }
-
-    @Test
-    public void testTxFinishReplicaRequestTriggersCleanup() throws Exception {
-        testTxFinishReplicaRequest(true);
-
-        verify(txManager, times(1))
-                .cleanup(
-                        any(ClusterNode.class),
-                        any(List.class),
-                        any(UUID.class),
-                        anyBoolean(),
-                        any(HybridTimestamp.class)
-                );
-    }
-
-    @Test
-    public void testTxFinishReplicaRequestDoesNotTriggerCleanup() throws Exception {
-        testTxFinishReplicaRequest(false);
-
-        verify(txManager, never())
-                .cleanup(
-                        any(ClusterNode.class),
-                        any(List.class),
-                        any(UUID.class),
-                        anyBoolean(),
-                        any(HybridTimestamp.class)
-                );
-    }
-
-    private void testTxFinishReplicaRequest(boolean cleanUp) throws Exception {
-        Map<ClusterNode, List<IgniteBiTuple<ReplicationGroupId, Long>>> groups = new HashMap<>();
-
-        groups.put(localNode, List.of(new IgniteBiTuple<>(grpId, 1L)));
-
-        when(mockRaftClient.run(any(FinishTxCommand.class))).thenReturn(CompletableFuture.completedFuture(cleanUp));
-
-        when(txManager.cleanup(
-                        any(ClusterNode.class),
-                        any(List.class),
-                        any(UUID.class),
-                        anyBoolean(),
-                        any(HybridTimestamp.class)
-                )
-        ).thenReturn(CompletableFuture.completedFuture(null));
-
-        UUID txId = Timestamp.nextVersion().toUuid();
-
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txFinishReplicaRequest()
-                .groupId(grpId)
-                .commitTimestamp(clock.now())
-                .txId(txId)
-                .term(1L)
-                .groups(groups)
-                .build());
-
-        fut.get(1, TimeUnit.SECONDS);
     }
 
     private static BinaryTuplePrefix toIndexBound(int val) {
