@@ -227,8 +227,25 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         tearDownBase(testInfo);
     }
 
+    /**
+     * Start execute query and check all passed to the builder asserts.
+     *
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
     protected static QueryChecker assertQuery(String qry) {
-        return new QueryChecker(qry) {
+        return assertQuery(null, qry);
+    }
+
+    /**
+     * Start execute query with given transaction and check all passed to the builder asserts.
+     *
+     * @param tx Transaction.
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
+    protected static QueryChecker assertQuery(Transaction tx, String qry) {
+        return new QueryChecker(tx, qry) {
             @Override
             protected QueryProcessor getEngine() {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
@@ -244,7 +261,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
      * @param rules Additional rules need to be disabled.
      */
     static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
-        return AbstractBasicIntegrationTest.assertQuery(qry.replaceAll("(?i)^select", "select "
+        return assertQuery(qry.replaceAll("(?i)^select", "select "
                 + Stream.concat(Arrays.stream(joinType.disabledRules), Arrays.stream(rules))
                 .collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
     }

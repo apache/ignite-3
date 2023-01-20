@@ -266,9 +266,11 @@ public abstract class QueryChecker {
     /**
      * Constructor.
      *
+     * @param tx Transaction.
      * @param qry Query.
      */
-    public QueryChecker(String qry) {
+    public QueryChecker(Transaction tx, String qry) {
+        this.tx = tx;
         this.qry = qry;
     }
 
@@ -317,19 +319,6 @@ public abstract class QueryChecker {
         }
 
         expectedResult.add(Arrays.asList(res));
-
-        return this;
-    }
-
-    /**
-     * Sets transaction.
-     *
-     * @param tx Transaction which uses for run query.
-     *
-     * @return This.
-     */
-    public QueryChecker tx(Transaction tx) {
-        this.tx = tx;
 
         return this;
     }
@@ -401,12 +390,13 @@ public abstract class QueryChecker {
         QueryContext context = tx != null ? QueryContext.of(tx) : QueryContext.of();
 
         try {
+            // Check plan.
             if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
-                CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = queryEngine.querySingleAsync(
-                        sessionId, context, "EXPLAIN PLAN FOR " + qry, params);
-
+                CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = queryEngine.querySingleAsync(sessionId,
+                        context, "EXPLAIN PLAN FOR " + qry, params);
                 AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
-                var explainRes = getAllFromCursor(explainCursor);
+                List<List<Object>> explainRes = getAllFromCursor(explainCursor);
+
                 String actualPlan = (String) explainRes.get(0).get(0);
 
                 if (!CollectionUtils.nullOrEmpty(planMatchers)) {
@@ -421,9 +411,7 @@ public abstract class QueryChecker {
             }
 
             // Check result.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = queryEngine.querySingleAsync(
-                    sessionId, context, qry, params);
-
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = queryEngine.querySingleAsync(sessionId, context, qry, params);
             AsyncSqlCursor<List<Object>> cur = await(cursors);
 
             if (expectedColumnNames != null) {
@@ -459,7 +447,7 @@ public abstract class QueryChecker {
                 assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
             }
 
-            var res = getAllFromCursor(cur);
+            List<List<Object>> res = getAllFromCursor(cur);
 
             if (expectedResult != null) {
                 if (!ordered) {

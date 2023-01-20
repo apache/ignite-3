@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Supplier;
 
 /**
  * Java Flow API utility methods.
@@ -48,6 +49,31 @@ public class SubscriptionUtils {
     public static <T> Publisher<T> concat(Publisher<? extends T>... sources) {
         return new ConcatenatedPublisher<>(Arrays.asList(sources).iterator());
     }
+
+    /**
+     * Create thread-safe publisher wrapper of combine multiple publishers, sources for whom are suppliers what can be used for lazy
+     * opening these publishers . Generally, start consuming a source once the previous source has terminated, building a chain.
+     *
+     * @param sources Array of publisher suppliers which should be combine.
+     * @return Publisher which will be combine all of passed as parameter to single one.
+     */
+    @SafeVarargs
+    public static <T> Publisher<T> concat(Supplier<Publisher<T>>... sources) {
+        return concat(new Iterator() {
+            private int idx;
+
+            @Override
+            public boolean hasNext() {
+                return idx < sources.length;
+            }
+
+            @Override
+            public Publisher<T> next() {
+                return sources[idx++].get();
+            }
+        });
+    }
+
 
     /**
      * Sorting composite publisher. Merges multiple concurrent ordered data streams into one.

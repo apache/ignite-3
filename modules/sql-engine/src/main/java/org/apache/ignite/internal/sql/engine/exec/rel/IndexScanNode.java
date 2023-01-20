@@ -19,14 +19,14 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.List;
-import java.util.concurrent.Flow;
+import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -41,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.ConcatenatedPublisher;
 import org.apache.ignite.internal.sql.engine.util.SubscriptionUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -111,93 +110,103 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     @Override
     protected Publisher<RowT> scan() {
         if (rangeConditions != null) {
-            List<Flow.Publisher<? extends RowT>> conditionPublishers = new ArrayList<>(rangeConditions.size());
+            Publisher<RowT>[] conditionPublishers = new Publisher[rangeConditions.size()];
 
-            rangeConditions.forEach(cond -> conditionPublishers.add(indexPublisher(parts, cond)));
+            Iterator<RangeCondition<RowT>> it = rangeConditions.iterator();
 
-            return new ConcatenatedPublisher<>(conditionPublishers.iterator());
+            int i = 0;
+            while (it.hasNext()) {
+                conditionPublishers[i++] = indexPublisher(parts, it.next());
+            }
+
+            return SubscriptionUtils.concat(conditionPublishers);
         } else {
             return indexPublisher(parts, null);
         }
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
-        Publisher<RowT>[] partPublishers = new Publisher[parts.length];
+        Supplier<Publisher<RowT>>[] partPublishers = new Supplier[parts.length];
 
         for (int i = 0; i < parts.length; i++) {
             partPublishers[i] = partitionPublisher(parts[i], cond);
         }
 
-        return comp != null
-                ? SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, partPublishers)
-                : SubscriptionUtils.concat(partPublishers);
+        if (comp != null) {
+            Publisher[] publishers = Arrays.stream(partPublishers).map(Supplier::get).toArray(Publisher[]::new);
+
+            return SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, publishers);
+        } else {
+            return SubscriptionUtils.concat(partPublishers);
+        }
     }
 
-    private Flow.Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
-        Publisher<BinaryRow> pub;
+    private Supplier<Publisher<RowT>> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
+        return () -> {
+            Publisher<BinaryRow> pub;
+            boolean roTx = context().transactionTime() != null;
 
-        boolean roTx = context().transactionTime() != null;
+            if (schemaIndex.type() == Type.SORTED) {
+                int flags = 0;
+                BinaryTuplePrefix lower = null;
+                BinaryTuplePrefix upper = null;
 
-        if (schemaIndex.type() == Type.SORTED) {
-            int flags = 0;
-            BinaryTuplePrefix lower = null;
-            BinaryTuplePrefix upper = null;
+                if (cond == null) {
+                    flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+                } else {
+                    lower = toBinaryTuplePrefix(cond.lower());
+                    upper = toBinaryTuplePrefix(cond.upper());
 
-            if (cond == null) {
-                flags = SortedIndex.INCLUDE_LEFT | SortedIndex.INCLUDE_RIGHT;
+                    flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
+                    flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
+                }
+
+                if (roTx) {
+                    pub = ((SortedIndex) schemaIndex.index()).scan(
+                            part,
+                            context().transactionTime(),
+                            context().localNode(),
+                            lower,
+                            upper,
+                            flags,
+                            requiredColumns
+                    );
+                } else {
+                    pub = ((SortedIndex) schemaIndex.index()).scan(
+                            part,
+                            context().transaction(),
+                            lower,
+                            upper,
+                            flags,
+                            requiredColumns
+                    );
+                }
             } else {
-                lower = toBinaryTuplePrefix(cond.lower());
-                upper = toBinaryTuplePrefix(cond.upper());
+                assert schemaIndex.type() == Type.HASH;
+                assert cond != null && cond.lower() != null : "Invalid hash index condition.";
 
-                flags |= (cond.lowerInclude()) ? SortedIndex.INCLUDE_LEFT : 0;
-                flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
+                BinaryTuple key = toBinaryTuple(cond.lower());
+
+                if (roTx) {
+                    pub = schemaIndex.index().lookup(
+                            part,
+                            context().transactionTime(),
+                            context().localNode(),
+                            key,
+                            requiredColumns
+                    );
+                } else {
+                    pub = schemaIndex.index().lookup(
+                            part,
+                            context().transaction(),
+                            key,
+                            requiredColumns
+                    );
+                }
             }
 
-            if (roTx) {
-                pub = ((SortedIndex) schemaIndex.index()).scan(
-                        part,
-                        context().transactionTime(),
-                        context().localNode(),
-                        lower,
-                        upper,
-                        flags,
-                        requiredColumns
-                );
-            } else {
-                pub = ((SortedIndex) schemaIndex.index()).scan(
-                        part,
-                        context().transaction(),
-                        lower,
-                        upper,
-                        flags,
-                        requiredColumns
-                );
-            }
-        } else {
-            assert schemaIndex.type() == Type.HASH;
-            assert cond != null && cond.lower() != null : "Invalid hash index condition.";
-
-            BinaryTuple key = toBinaryTuple(cond.lower());
-
-            if (roTx) {
-                pub = schemaIndex.index().lookup(
-                        part,
-                        context().transactionTime(),
-                        context().localNode(),
-                        key,
-                        requiredColumns
-                );
-            } else {
-                pub = schemaIndex.index().lookup(
-                        part,
-                        context().transaction(),
-                        key,
-                        requiredColumns
-                );
-            }
-        }
-
-        return convertPublisher(pub);
+            return convertPublisher(pub);
+        };
     }
 
     @Contract("null -> null")

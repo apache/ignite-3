@@ -395,7 +395,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 
-        assertQuery(query).tx(outerTx).matches(planMatcher).check();
+        assertQuery(outerTx, query).matches(planMatcher).check();
 
         AsyncResultSet rs = ses.executeAsync(outerTx, query).get();
 

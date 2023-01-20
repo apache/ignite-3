@@ -19,18 +19,16 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.List;
-import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.util.ConcatenatedPublisher;
+import org.apache.ignite.internal.sql.engine.util.SubscriptionUtils;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,22 +73,25 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        List<Flow.Publisher<? extends RowT>> partPublishers = new ArrayList<>(parts.length);
+        Supplier<Publisher<RowT>>[] partPublishers = new Supplier[parts.length];
 
         boolean roTx = context().transactionTime() != null;
 
-        for (int p : parts) {
-            Publisher<BinaryRow> pub;
-            if (roTx) {
-                pub = physTable.scan(p, context().transactionTime(), context().localNode());
-            } else {
-                pub = physTable.scan(p, context().transaction());
-            }
+        for (int i = 0; i < parts.length; i++) {
+            int idx = i;
+            partPublishers[idx] = () -> {
+                Publisher<BinaryRow> pub;
+                if (roTx) {
+                    pub = physTable.scan(parts[idx], context().transactionTime(), context().localNode());
+                } else {
+                    pub = physTable.scan(parts[idx], context().transaction());
+                }
 
-            partPublishers.add(convertPublisher(pub));
+                return convertPublisher(pub);
+            };
         }
 
-        return new ConcatenatedPublisher<>(partPublishers.iterator());
+        return SubscriptionUtils.concat(partPublishers);
     }
 
 }
