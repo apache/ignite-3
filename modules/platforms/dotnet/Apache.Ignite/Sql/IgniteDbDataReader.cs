@@ -63,7 +63,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <param name="resultSet">Result set.</param>
     internal IgniteDbDataReader(ResultSet<object> resultSet)
     {
-        Debug.Assert(_resultSet!.HasRowSet, "_resultSet.HasRowSet");
+        Debug.Assert(resultSet.HasRowSet, "_resultSet.HasRowSet");
 
         _resultSet = resultSet;
 
