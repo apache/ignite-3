@@ -64,23 +64,33 @@ namespace Apache.Ignite.Tests.Sql
         [OneTimeSetUp]
         public async Task InsertTestData()
         {
-            var pocoAllColumns = new PocoAllColumnsSqlNullable(
-                1,
-                "v-1",
-                2,
-                3,
-                4,
-                5,
-                6.5F,
-                7.5D,
-                new LocalDate(2023, 01, 18),
-                new LocalTime(09, 28),
-                new LocalDateTime(2023, 01, 18, 09, 29),
-                Instant.FromUnixTimeSeconds(123),
-                new byte[] { 1, 2 },
-                8.7M);
+            var pocoAllColumns1 = new PocoAllColumnsSqlNullable(
+                Key: 1,
+                Str: "v-1",
+                Int8: 2,
+                Int16: 3,
+                Int32: 4,
+                Int64: 5,
+                Float: 6.5F,
+                Double: 7.5D,
+                Date: new LocalDate(2023, 01, 18),
+                Time: new LocalTime(09, 28),
+                DateTime: new LocalDateTime(2023, 01, 18, 09, 29),
+                Timestamp: Instant.FromUnixTimeSeconds(123),
+                Blob: new byte[] { 1, 2 },
+                Decimal: 8.7M);
 
-            await PocoAllColumnsSqlNullableView.UpsertAsync(null, pocoAllColumns);
+            var pocoAllColumns2 = new PocoAllColumnsSqlNullable(
+                Key: 2,
+                Str: "v-2",
+                Int8: sbyte.MinValue,
+                Int16: short.MinValue,
+                Int32: int.MinValue,
+                Int64: long.MinValue,
+                Float: float.MinValue,
+                Double: double.MinValue);
+
+            await PocoAllColumnsSqlNullableView.UpsertAllAsync(null, new[] { pocoAllColumns1, pocoAllColumns2 });
         }
 
         [Test]
@@ -479,7 +489,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
         {
-            // TODO: Test when value does not fit.
             await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
             await reader.ReadAsync();
 
@@ -508,6 +517,17 @@ namespace Apache.Ignite.Tests.Sql
 
             Assert.AreEqual(7.5d, reader.GetFloat("DOUBLE"));
             Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
+        }
+
+        [Test]
+        public async Task TestIgniteDbDataReaderIntFloatColumnsValueOutOfRangeThrows()
+        {
+            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+            await reader.ReadAsync();
+            await reader.ReadAsync();
+
+            // TODO
+            Assert.AreEqual(sbyte.MinValue, reader.GetByte("INT8"));
         }
 
         [Test]
