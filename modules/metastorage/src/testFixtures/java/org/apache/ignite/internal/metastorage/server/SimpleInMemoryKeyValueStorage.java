@@ -428,7 +428,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void watchPrefix(byte[] prefix, long rev, WatchListener listener) {
-        watchRange(prefix, incrementArray(prefix), rev, listener);
+        watchRange(prefix, incrementPrefix(prefix), rev, listener);
     }
 
     @Override
