@@ -126,10 +126,18 @@ internal static class SqlColumnTypeExtensions
         ClrToSql.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlType) ? sqlType : null;
 
     /// <summary>
-    /// Gets a value indicating whether specified column type is an integer of any size (int8 to in64).
+    /// Gets a value indicating whether specified column type is an integer of any size (int8 to int64).
     /// </summary>
     /// <param name="sqlColumnType">SQL column type.</param>
     /// <returns>Whether the type is integer.</returns>
     public static bool IsAnyInt(this SqlColumnType sqlColumnType) =>
         sqlColumnType is SqlColumnType.Int8 or SqlColumnType.Int16 or SqlColumnType.Int32 or SqlColumnType.Int64;
+
+    /// <summary>
+    /// Gets a value indicating whether specified column type is a floating point of any size (float32 to float64).
+    /// </summary>
+    /// <param name="sqlColumnType">SQL column type.</param>
+    /// <returns>Whether the type is floating point.</returns>
+    public static bool IsAnyFloat(this SqlColumnType sqlColumnType) =>
+        sqlColumnType is SqlColumnType.Float or SqlColumnType.Double;
 }
