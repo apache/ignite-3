@@ -525,12 +525,12 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(sbyte.MinValue, reader.GetInt32("INT8"));
             Assert.AreEqual(sbyte.MinValue, reader.GetInt64("INT8"));
 
-            Assert.AreEqual(3, reader.GetInt16("INT16"));
-            Assert.AreEqual(3, reader.GetInt32("INT16"));
-            Assert.AreEqual(3, reader.GetInt64("INT16"));
+            Assert.AreEqual(short.MinValue, reader.GetInt16("INT16"));
+            Assert.AreEqual(short.MinValue, reader.GetInt32("INT16"));
+            Assert.AreEqual(short.MinValue, reader.GetInt64("INT16"));
 
-            Assert.AreEqual(4, reader.GetInt32("INT32"));
-            Assert.AreEqual(4, reader.GetInt64("INT32"));
+            Assert.AreEqual(int.MinValue, reader.GetInt32("INT32"));
+            Assert.AreEqual(int.MinValue, reader.GetInt64("INT32"));
 
             Assert.AreEqual(5, reader.GetInt64("INT64"));
 
