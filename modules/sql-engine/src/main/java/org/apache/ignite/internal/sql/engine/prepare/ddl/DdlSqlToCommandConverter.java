@@ -20,13 +20,13 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.AFFINITY_FUNCTION;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_FILTER;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.PARTITIONS;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.REPLICAS;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.AFFINITY_FUNCTION;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_FILTER;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
@@ -83,11 +83,11 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOption;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
@@ -114,7 +114,7 @@ public class DdlSqlToCommandConverter {
     private final Map<String, Map<String, DdlOptionInfo<CreateTableCommand, ?>>> dataStorageOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
-    private final Map<IgniteSqlCreateZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
+    private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
 
     /**
      * Constructor.
@@ -492,11 +492,11 @@ public class DdlSqlToCommandConverter {
             return createZoneCmd;
         }
 
-        Set<IgniteSqlCreateZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlCreateZoneOptionEnum.class);
+        Set<IgniteSqlZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class);
 
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
-            IgniteSqlCreateZoneOption option = (IgniteSqlCreateZoneOption) optionNode;
-            IgniteSqlCreateZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlCreateZoneOptionEnum.class);
+            IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
+            IgniteSqlZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlZoneOptionEnum.class);
 
             if (!knownOptionNames.remove(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
