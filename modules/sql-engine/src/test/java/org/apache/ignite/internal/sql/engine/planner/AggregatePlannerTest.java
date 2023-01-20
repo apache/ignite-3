@@ -414,7 +414,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
      * @throws Exception If failed.
      */
     private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema) throws Exception {
-        log.info("++check: " + sql);
         List<Pair<String[], Predicate<IgniteRel>>> disabledRules = List.of(
                 new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
                         "MapReduceSortAggregateConverterRule"}, node -> !findNodes(node, byClass(IgniteMapAggregateBase.class)).isEmpty()),
@@ -425,10 +424,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         );
 
         for (Pair<String[], Predicate<IgniteRel>> rules : disabledRules) {
-            log.info("+++disable rules: " + Arrays.toString(rules.getFirst()));
             IgniteRel phys = physicalPlan(sql, publicSchema, rules.getFirst());
 
-            assertTrue(rules.getSecond().test(phys));
+            assertTrue(rules.getSecond().test(phys), "[" + sql + "] Failed with disabled rules: " + Arrays.toString(rules.getFirst()));
 
             assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
                             .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
