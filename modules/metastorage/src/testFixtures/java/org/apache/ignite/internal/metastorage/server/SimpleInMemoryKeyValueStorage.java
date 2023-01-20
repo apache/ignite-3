@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
 import java.nio.file.Path;
@@ -390,7 +390,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
-        return new RangeCursor(prefix, incrementArray(prefix), revUpperBound, includeTombstones);
+        return new RangeCursor(prefix, incrementPrefix(prefix), revUpperBound, includeTombstones);
     }
 
     @Override
