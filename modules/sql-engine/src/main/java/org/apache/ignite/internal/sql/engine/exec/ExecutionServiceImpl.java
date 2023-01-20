@@ -88,7 +88,7 @@ import org.jetbrains.annotations.Nullable;
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
     private static final int CACHE_SIZE = 1024;
 
-    private static final ConcurrentMap<String, IgniteRel> PHYS_NODES_REPR = Caffeine.newBuilder()
+    private final ConcurrentMap<String, IgniteRel> PHYS_NODES_REPR = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
             .<String, IgniteRel>build()
             .asMap();
