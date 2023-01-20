@@ -34,6 +34,10 @@ namespace Apache.Ignite.Tests.Sql
     /// </summary>
     public class SqlTests : IgniteTestsBase
     {
+        private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
+                                               "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
+                                               "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+
         [OneTimeSetUp]
         public async Task CreateTestTable()
         {
@@ -445,11 +449,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIgniteDbDataReaderAllColumnTypes()
         {
-            var query = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", \"DOUBLE\", \"DATE\", " +
-                        "\"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
-                        "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
-
-            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, query);
+            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
             await reader.ReadAsync();
 
             Assert.AreEqual(14, reader.FieldCount);
@@ -479,8 +479,25 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
         {
-            await Task.Yield();
-            Assert.Fail("TODO");
+            await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+            await reader.ReadAsync();
+
+            Assert.AreEqual(2, reader.GetByte("INT8"));
+            Assert.AreEqual(2, reader.GetInt16("INT8"));
+            Assert.AreEqual(2, reader.GetInt32("INT8"));
+            Assert.AreEqual(2, reader.GetInt64("INT8"));
+
+            // TODO
+            // Assert.AreEqual(3, reader.GetInt16("INT16"));
+            // Assert.AreEqual(4, reader.GetInt32("INT32"));
+            // Assert.AreEqual(5, reader.GetInt64("INT64"));
+            // Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
+            // Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
+            // Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetDateTime("DATE"));
+            // Assert.AreEqual(new LocalTime(09, 28), reader.GetFieldValue<LocalTime>("TIME"));
+            // Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
+            // Assert.AreEqual(Instant.FromUnixTimeSeconds(123).ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
+            // Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
         }
 
         [Test]
