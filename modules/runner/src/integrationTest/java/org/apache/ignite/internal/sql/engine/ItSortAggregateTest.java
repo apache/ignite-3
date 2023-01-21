@@ -168,8 +168,16 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
     @Test
     public void checkEmptyTable() {
         sql("CREATE TABLE t (a INTEGER, b INTEGER)");
-        assertQuery("SELECT min(b) FROM t GROUP BY a")
-                .returnNothing().check();
+
+        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'MapReduceSortAggregateConverterRule', "
+                + "'ColocatedHashAggregateConverterRule') */ ";
+
+        try {
+            assertQuery(appendDisabledRules("SELECT min(b) FROM t GROUP BY a", disabledRules))
+                    .returnNothing().check();
+        } finally {
+            sql("DROP TABLE t");
+        }
     }
 
     private String appendDisabledRules(String sql, String rules) {
