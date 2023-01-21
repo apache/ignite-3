@@ -164,6 +164,14 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
         }
     }
 
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    @Test
+    public void checkEmptyTable() {
+        sql("CREATE TABLE t (a INTEGER, b INTEGER)");
+        assertQuery("SELECT min(b) FROM t GROUP BY a")
+                .returnNothing().check();
+    }
+
     private String appendDisabledRules(String sql, String rules) {
         sql = sql.toLowerCase(Locale.ENGLISH);
         int pos = sql.indexOf("select");

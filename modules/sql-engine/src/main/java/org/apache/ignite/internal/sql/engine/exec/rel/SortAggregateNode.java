@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
@@ -24,6 +25,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -75,12 +77,17 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             Comparator<RowT> comp
     ) {
         super(ctx);
+        assert Objects.nonNull(comp);
 
         this.type = type;
         this.accFactory = accFactory;
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;
+
+        if ((type == AggregateType.REDUCE || type == AggregateType.SINGLE) && accFactory != null && grpSet.isEmpty()) {
+            grp = new Group(OBJECT_EMPTY_ARRAY);
+        }
     }
 
     /** {@inheritDoc} */
@@ -161,10 +168,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         waiting = -1;
 
-        if (grp == null && accFactory != null) {
-            grp = emptyGrp();
-        }
-
         if (grp != null) {
             outBuf.add(grp.row());
 
@@ -217,12 +220,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         grp.add(r);
 
         return grp;
-    }
-
-    private Group emptyGrp() {
-        Object[] grpKeys = new Object[grpSet.cardinality()];
-
-        return new Group(grpKeys);
     }
 
     private void doPush() throws Exception {
