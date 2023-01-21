@@ -149,14 +149,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     /**
-     * Destroys internal structures backing this partition.
+     * Destroys internal structures (including indices) backing this partition.
+     *
+     * @param removeIndexDescriptors Whether indices should be completely removed, not just their contents destroyed.
      */
-    public void destroyStructures() {
+    public void destroyStructures(boolean removeIndexDescriptors) {
         startMvDataDestruction();
         startIndexMetaTreeDestruction();
 
         hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
         sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+
+        if (removeIndexDescriptors) {
+            hashIndexes.clear();
+            sortedIndexes.clear();
+        }
     }
 
     private void startMvDataDestruction() {
