@@ -247,7 +247,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Used for join checks, disables other join rules for executing exact join algo.
+     * Used for query with aggregates checks, disables other aggregate rules for executing exact agregate algo.
      *
      * @param qry Query for check.
      * @param aggregateType Type of aggregate algo.
@@ -302,14 +302,14 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     enum AggregateType {
         SORT(
                 "ColocatedHashAggregateConverterRule",
-                "MapReduceHashAggregateConverterRule",
-                "ColocatedSortAggregateConverterRule"
+                "ColocatedSortAggregateConverterRule",
+                "MapReduceHashAggregateConverterRule"
         ),
 
         HASH(
+                "ColocatedHashAggregateConverterRule",
                 "ColocatedSortAggregateConverterRule",
-                "MapReduceSortAggregateConverterRule",
-                "ColocatedHashAggregateConverterRule"
+                "MapReduceSortAggregateConverterRule"
         );
 
         private final String[] disabledRules;
@@ -364,7 +364,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
 
             assert id != null : "Primary key cannot be null";
 
-            Tuple row  = view.get(null, Tuple.create().set(columnNames[0], id));
+            Tuple row = view.get(null, Tuple.create().set(columnNames[0], id));
 
             assertNotNull(row);
 
