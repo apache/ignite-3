@@ -676,8 +676,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
 
-        if (rel.getGroupSet().isEmpty() && comp == null)
+        if (rel.getGroupSet().isEmpty() && comp == null) {
             comp = (k1, k2) -> 0;
+        }
 
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
