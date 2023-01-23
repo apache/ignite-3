@@ -180,6 +180,57 @@ public partial class SqlTests
     }
 
     [Test]
+    public async Task TestIgniteDbDataReaderAllColumnTypesGetFieldValueAsync()
+    {
+        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+        await reader.ReadAsync();
+
+        Assert.AreEqual(1, await reader.GetFieldValueAsync<long>("KEY"));
+        Assert.AreEqual(1, await reader.GetFieldValueAsync<int>("KEY"));
+        Assert.AreEqual(1, await reader.GetFieldValueAsync<byte>("KEY"));
+        Assert.AreEqual(1, await reader.GetFieldValueAsync<short>("KEY"));
+
+        Assert.AreEqual("v-1", await reader.GetFieldValueAsync<string>("STR"));
+
+        Assert.AreEqual(2, await reader.GetFieldValueAsync<byte>("INT8"));
+        Assert.AreEqual(2, await reader.GetFieldValueAsync<short>("INT8"));
+        Assert.AreEqual(2, await reader.GetFieldValueAsync<int>("INT8"));
+        Assert.AreEqual(2, await reader.GetFieldValueAsync<long>("INT8"));
+
+        Assert.AreEqual(3, await reader.GetFieldValueAsync<short>("INT16"));
+        Assert.AreEqual(3, await reader.GetFieldValueAsync<byte>("INT16"));
+        Assert.AreEqual(3, await reader.GetFieldValueAsync<int>("INT16"));
+        Assert.AreEqual(3, await reader.GetFieldValueAsync<long>("INT16"));
+
+        Assert.AreEqual(4, await reader.GetFieldValueAsync<int>("INT32"));
+        Assert.AreEqual(4, await reader.GetFieldValueAsync<byte>("INT32"));
+        Assert.AreEqual(4, await reader.GetFieldValueAsync<short>("INT32"));
+        Assert.AreEqual(4, await reader.GetFieldValueAsync<long>("INT32"));
+
+        Assert.AreEqual(5, await reader.GetFieldValueAsync<long>("INT64"));
+        Assert.AreEqual(5, await reader.GetFieldValueAsync<byte>("INT64"));
+        Assert.AreEqual(5, await reader.GetFieldValueAsync<short>("INT64"));
+        Assert.AreEqual(5, await reader.GetFieldValueAsync<int>("INT64"));
+
+        Assert.AreEqual(6.5f, await reader.GetFieldValueAsync<float>("FLOAT"));
+        Assert.AreEqual(6.5f, await reader.GetFieldValueAsync<double>("FLOAT"));
+
+        Assert.AreEqual(7.5d, await reader.GetFieldValueAsync<double>("DOUBLE"));
+        Assert.AreEqual(7.5d, await reader.GetFieldValueAsync<float>("DOUBLE"));
+
+        Assert.AreEqual(LocalDate, await reader.GetFieldValueAsync<LocalDate>("DATE"));
+        Assert.AreEqual(LocalDate.ToDateTimeUnspecified(), await reader.GetFieldValueAsync<DateTime>("DATE"));
+
+        Assert.AreEqual(LocalTime, await reader.GetFieldValueAsync<LocalTime>("TIME"));
+        Assert.AreEqual(LocalDateTime, await reader.GetFieldValueAsync<LocalDateTime>("DATETIME"));
+        Assert.AreEqual(LocalDateTime.ToDateTimeUnspecified(), await reader.GetFieldValueAsync<DateTime>("DATETIME"));
+
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(123), await reader.GetFieldValueAsync<Instant>("TIMESTAMP"));
+        Assert.AreEqual(8.7m, await reader.GetFieldValueAsync<decimal>("DECIMAL"));
+        Assert.AreEqual(new byte[] { 1, 2 }, await reader.GetFieldValueAsync<byte[]>("BLOB"));
+    }
+
+    [Test]
     public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
     {
         await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
