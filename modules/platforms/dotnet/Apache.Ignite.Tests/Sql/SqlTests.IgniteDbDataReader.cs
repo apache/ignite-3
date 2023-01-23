@@ -24,6 +24,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
+using Internal.Sql;
 using NodaTime;
 using NUnit.Framework;
 
@@ -194,7 +195,10 @@ public partial class SqlTests
         static void Test(TestDelegate testDelegate, string columnName, SqlColumnType columnType, Type expectedType, Type actualType)
         {
             var ex = Assert.Throws<InvalidCastException>(testDelegate);
-            Assert.AreEqual($"Column {columnName} of type {columnType} ({actualType}) can not be cast to {expectedType}.", ex!.Message);
+
+            Assert.AreEqual(
+                $"Column {columnName} of type {columnType.ToSqlTypeName()} ({actualType}) can not be cast to {expectedType}.",
+                ex!.Message);
         }
     }
 
@@ -233,6 +237,7 @@ public partial class SqlTests
         ReadOnlyCollection<DbColumn> schema = async ? await reader.GetColumnSchemaAsync() : reader.GetColumnSchema();
 
         Assert.AreEqual(2, schema.Count);
+
         Assert.AreEqual("ID", schema[0].ColumnName);
         Assert.AreEqual(0, schema[0].ColumnOrdinal);
         Assert.IsNull(schema[0].ColumnSize);
