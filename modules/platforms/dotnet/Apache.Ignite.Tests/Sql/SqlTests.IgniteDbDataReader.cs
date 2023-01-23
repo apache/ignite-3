@@ -400,13 +400,67 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestGetStream()
+    public void TestGetName()
     {
         Assert.Fail("TODO");
     }
 
     [Test]
-    public void TestGetTextReader()
+    public void TestGetValue()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestGetValues()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestGetChar()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestGetChars()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestIndexers()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestIsClosed()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestIsDbNull()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestNextResult()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestGetEnumerator()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestGetFieldType()
     {
         Assert.Fail("TODO");
     }
