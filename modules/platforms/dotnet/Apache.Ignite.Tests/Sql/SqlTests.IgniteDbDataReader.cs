@@ -137,13 +137,38 @@ public partial class SqlTests
         // TODO: GetFieldValueAsync?
         // TODO: All compatible types
         Assert.AreEqual(1, reader.GetFieldValue<long>("KEY"));
+        Assert.AreEqual(1, reader.GetFieldValue<int>("KEY"));
+        Assert.AreEqual(1, reader.GetFieldValue<byte>("KEY"));
+        Assert.AreEqual(1, reader.GetFieldValue<short>("KEY"));
+
         Assert.AreEqual("v-1", reader.GetFieldValue<string>("STR"));
+
         Assert.AreEqual(2, reader.GetFieldValue<byte>("INT8"));
+        Assert.AreEqual(2, reader.GetFieldValue<short>("INT8"));
+        Assert.AreEqual(2, reader.GetFieldValue<int>("INT8"));
+        Assert.AreEqual(2, reader.GetFieldValue<long>("INT8"));
+
         Assert.AreEqual(3, reader.GetFieldValue<short>("INT16"));
+        Assert.AreEqual(3, reader.GetFieldValue<byte>("INT16"));
+        Assert.AreEqual(3, reader.GetFieldValue<int>("INT16"));
+        Assert.AreEqual(3, reader.GetFieldValue<long>("INT16"));
+
         Assert.AreEqual(4, reader.GetFieldValue<int>("INT32"));
+        Assert.AreEqual(4, reader.GetFieldValue<byte>("INT32"));
+        Assert.AreEqual(4, reader.GetFieldValue<short>("INT32"));
+        Assert.AreEqual(4, reader.GetFieldValue<long>("INT32"));
+
         Assert.AreEqual(5, reader.GetFieldValue<long>("INT64"));
+        Assert.AreEqual(5, reader.GetFieldValue<byte>("INT64"));
+        Assert.AreEqual(5, reader.GetFieldValue<short>("INT64"));
+        Assert.AreEqual(5, reader.GetFieldValue<int>("INT64"));
+
         Assert.AreEqual(6.5f, reader.GetFieldValue<float>("FLOAT"));
+        Assert.AreEqual(6.5f, reader.GetFieldValue<double>("FLOAT"));
+
         Assert.AreEqual(7.5d, reader.GetFieldValue<double>("DOUBLE"));
+        Assert.AreEqual(7.5d, reader.GetFieldValue<float>("DOUBLE"));
+
         Assert.AreEqual(LocalDate, reader.GetFieldValue<LocalDate>("DATE"));
         Assert.AreEqual(LocalTime, reader.GetFieldValue<LocalTime>("TIME"));
         Assert.AreEqual(LocalDateTime, reader.GetFieldValue<LocalDateTime>("DATETIME"));
