@@ -50,7 +50,7 @@ public interface PartitionAccess {
      *     <li>Sets the last applied index and term to {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and the RAFT group configuration to
      *     {@code null};</li>
      *     <li>Only the following methods will be available:<ul>
- *         <li>TODO-18030 перечислить методы</li>
+ *         <li>TODO-18593 Specify methods.</li>
      *     </ul></li>
      * </ul>
      *

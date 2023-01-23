@@ -23,6 +23,7 @@ import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * {@link PartitionAccess} implementation.
@@ -67,17 +68,12 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public TxStateStorage txStatePartitionStorage() {
-        TxStateStorage txStatePartitionStorage = txStateTableStorage.getTxStateStorage(partId());
-
-        assert txStatePartitionStorage != null : "table=" + tableName() + ", part=" + partId();
-
-        return txStatePartitionStorage;
+        return getTxStateStorage(partId());
     }
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        // TODO: IGNITE-18030 вот тут надо будет заменить на получение без нула
-        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partId());
+        TxStateStorage txStateStorage = getTxStateStorage(partId());
 
         return CompletableFuture.allOf(
                 mvTableStorage.startRebalancePartition(partId()),
@@ -87,8 +83,7 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> abortRebalance() {
-        // TODO: IGNITE-18030 вот тут надо будет заменить на получение без нула
-        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partId());
+        TxStateStorage txStateStorage = getTxStateStorage(partId());
 
         return CompletableFuture.allOf(
                 mvTableStorage.abortRebalancePartition(partId()),
@@ -98,8 +93,7 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
-        // TODO: IGNITE-18030 вот тут надо будет заменить на получение без нула
-        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partId());
+        TxStateStorage txStateStorage = getTxStateStorage(partId());
 
         return CompletableFuture.allOf(
                 mvTableStorage.finishRebalancePartition(partId(), lastAppliedIndex, lastAppliedTerm, raftGroupConfig),
@@ -113,5 +107,13 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private String tableName() {
         return mvTableStorage.configuration().name().value();
+    }
+
+    private TxStateStorage getTxStateStorage(int partitionId) {
+        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partitionId);
+
+        assert txStateStorage != null : IgniteStringFormatter.format("table={}, partitionId={}", tableName(), partitionId);
+
+        return txStateStorage;
     }
 }
