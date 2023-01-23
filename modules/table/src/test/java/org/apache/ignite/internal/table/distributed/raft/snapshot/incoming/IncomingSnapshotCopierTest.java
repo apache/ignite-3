@@ -119,7 +119,7 @@ public class IncomingSnapshotCopierTest {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    @InjectConfiguration(value = "mock.tables.foo {}")
+    @InjectConfiguration("mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
 
     private final ClusterNode clusterNode = mock(ClusterNode.class);
@@ -132,7 +132,7 @@ public class IncomingSnapshotCopierTest {
     }
 
     @Test
-    void test() throws Exception {
+    void test() {
         MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
         TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
@@ -189,13 +189,8 @@ public class IncomingSnapshotCopierTest {
         assertEqualsMvRows(outgoingMvPartitionStorage, incomingMvPartitionStorage, rowIds);
         assertEqualsTxStates(outgoingTxStatePartitionStorage, incomingTxStatePartitionStorage, txIds);
 
-        // TODO: IGNITE-18030 - uncomment the following line or remove it if not needed after the rework
-        //verify(incomingMvTableStorage, times(1)).destroyPartition(eq(TEST_PARTITION));
-        verify(incomingMvTableStorage, times(2)).getOrCreateMvPartition(eq(TEST_PARTITION));
-
-        // TODO: IGNITE-18030 - uncomment the following line or remove it if not needed after the rework
-        //verify(incomingTxStateTableStorage, times(1)).destroyTxStateStorage(eq(TEST_PARTITION));
-        verify(incomingTxStateTableStorage, times(2)).getOrCreateTxStateStorage(eq(TEST_PARTITION));
+        verify(incomingMvTableStorage, times(1)).startRebalancePartition(eq(TEST_PARTITION));
+        verify(incomingTxStatePartitionStorage, times(1)).startRebalance();
     }
 
     private MessagingService messagingServiceForSuccessScenario(MvPartitionStorage outgoingMvPartitionStorage,

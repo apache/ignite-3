@@ -19,7 +19,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 
 /**
@@ -42,17 +43,58 @@ public interface PartitionAccess {
     TxStateStorage txStatePartitionStorage();
 
     /**
-     * Destroys and recreates the multi-versioned partition storage.
+     * Prepares partition storages for rebalancing.
+     * <ul>
+     *     <li>Cancels all current operations (including cursors) with storages and waits for their completion;</li>
+     *     <li>Cleans up storages;</li>
+     *     <li>Sets the last applied index and term to {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and the RAFT group configuration to
+     *     {@code null};</li>
+     *     <li>Only the following methods will be available:<ul>
+ *         <li>TODO-18030 перечислить методы</li>
+     *     </ul></li>
+     * </ul>
      *
-     * @return Future that will complete when the partition is recreated.
-     * @throws StorageException If an error has occurred during the partition destruction.
+     * <p>This method must be called before every rebalance and ends with a call to one of the methods:
+     * <ul>
+     *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalance(long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.</li>
+     * </ul>
+     *
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to start rebalancing.
      */
-    CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage() throws StorageException;
+    CompletableFuture<Void> startRebalance();
 
     /**
-     * Destroys and recreates the multi-versioned partition storage.
+     * Aborts rebalancing of the partition storages.
+     * <ul>
+     *     <li>Cleans up storages;</li>
+     *     <li>Resets the last applied index, term, and RAFT group configuration;</li>
+     *     <li>All methods will be available.</li>
+     * </ul>
      *
-     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
+     * <p>If rebalance has not started, then nothing will happen.
+     *
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to abort rebalancing.
      */
-    TxStateStorage reCreateTxStatePartitionStorage() throws StorageException;
+    CompletableFuture<Void> abortRebalance();
+
+    /**
+     * Completes rebalancing of the partition storages.
+     * <ul>
+     *     <li>Cleans up storages;</li>
+     *     <li>Updates the last applied index, term, and RAFT group configuration;</li>
+     *     <li>All methods will be available.</li>
+     * </ul>
+     *
+     * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
+     *
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
+     * @param raftGroupConfig RAFT group configuration.
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
+     */
+    CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
 }

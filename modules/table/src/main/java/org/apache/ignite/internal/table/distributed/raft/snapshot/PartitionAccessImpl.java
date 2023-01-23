@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -75,23 +75,36 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage() throws StorageException {
-        assert mvTableStorage.getMvPartition(partId()) != null : "table=" + tableName() + ", part=" + partId();
+    public CompletableFuture<Void> startRebalance() {
+        // TODO: IGNITE-18030 вот тут надо будет заменить на получение без нула
+        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partId());
 
-        // TODO: IGNITE-18030 - actually recreate or do in a different way
-        //return mvTableStorage.destroyPartition(partId())
-        return CompletableFuture.completedFuture(null)
-                .thenApply(unused -> mvTableStorage.getOrCreateMvPartition(partId()));
+        return CompletableFuture.allOf(
+                mvTableStorage.startRebalancePartition(partId()),
+                txStateStorage.startRebalance()
+        );
     }
 
     @Override
-    public TxStateStorage reCreateTxStatePartitionStorage() throws StorageException {
-        assert txStateTableStorage.getTxStateStorage(partId()) != null : "table=" + tableName() + ", part=" + partId();
+    public CompletableFuture<Void> abortRebalance() {
+        // TODO: IGNITE-18030 вот тут надо будет заменить на получение без нула
+        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partId());
 
-        // TODO: IGNITE-18030 - actually recreate or do in a different way
-        //txStateTableStorage.destroyTxStateStorage(partId());
+        return CompletableFuture.allOf(
+                mvTableStorage.abortRebalancePartition(partId()),
+                txStateStorage.abortRebalance()
+        );
+    }
 
-        return txStateTableStorage.getOrCreateTxStateStorage(partId());
+    @Override
+    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
+        // TODO: IGNITE-18030 вот тут надо будет заменить на получение без нула
+        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partId());
+
+        return CompletableFuture.allOf(
+                mvTableStorage.finishRebalancePartition(partId(), lastAppliedIndex, lastAppliedTerm, raftGroupConfig),
+                txStateStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm)
+        );
     }
 
     private int partId() {

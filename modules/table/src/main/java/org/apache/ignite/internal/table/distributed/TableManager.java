@@ -175,6 +175,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see MvPartitionStorage#lastAppliedIndex()
      * @see TxStateStorage#lastAppliedIndex()
      */
+    // TODO: IGNITE-18030 избавить также от этого и связанного с ним кода
     public static final long FULL_RABALANCING_STARTED = -1;
 
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";

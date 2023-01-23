@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.table.distributed.TableManager.FULL_RABALANCING_STARTED;
 
-import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -33,7 +32,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
@@ -79,7 +78,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private volatile boolean canceled;
 
     @Nullable
-    private volatile CompletableFuture<?> future;
+    private volatile CompletableFuture<?> rebalanceFuture;
+
+    /**
+     * Future is to wait in {@link #join()} because it is important for us to wait for the rebalance to finish or abort.
+     */
+    @Nullable
+    private volatile CompletableFuture<?> joinFuture;
 
     /**
      * Constructor.
@@ -96,38 +101,37 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     public void start() {
         Executor executor = partitionSnapshotStorage.getIncomingSnapshotsExecutor();
 
-        LOG.info("Copier is started for the partition [partId={}, tableId={}]", partId(), tableId());
+        LOG.info("Copier is started for the partition [{}]", createPartitionInfo());
 
-        future = prepareMvPartitionStorageForRebalance(executor)
-                .thenCompose(unused -> prepareTxStatePartitionStorageForRebalance(executor))
+        joinFuture = new CompletableFuture<>();
+
+        rebalanceFuture = partitionSnapshotStorage.partition().startRebalance()
                 .thenCompose(unused -> {
                     ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
 
                     if (snapshotSender == null) {
-                        LOG.error(
-                                "Snapshot sender not found [partId={}, tableId={}, nodeName={}]",
-                                partId(),
-                                tableId(),
-                                snapshotUri.nodeName
-                        );
-
-                        if (!isOk()) {
-                            setError(RaftError.UNKNOWN, "Sender node was not found or it is offline");
-                        }
-
-                        return completedFuture(null);
+                        throw new StorageRebalanceException("Snapshot sender not found: " + snapshotUri.nodeName);
                     }
 
                     return loadSnapshotMeta(snapshotSender)
                             .thenCompose(unused1 -> loadSnapshotMvData(snapshotSender, executor))
-                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
-                            .thenAcceptAsync(unused1 -> updateLastAppliedIndexFromSnapshotMetaForStorages(), executor);
+                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                });
+
+        rebalanceFuture.handle((unused, throwable) -> completesRebalance(throwable))
+                .thenCompose(Function.identity())
+                .whenComplete((unused, throwable) -> {
+                    if (throwable == null) {
+                        joinFuture.complete(null);
+                    } else {
+                        joinFuture.completeExceptionally(throwable);
+                    }
                 });
     }
 
     @Override
     public void join() throws InterruptedException {
-        CompletableFuture<?> fut = future;
+        CompletableFuture<?> fut = joinFuture;
 
         if (fut != null) {
             try {
@@ -157,9 +161,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     public void cancel() {
         canceled = true;
 
-        LOG.info("Copier is canceled for partition [partId={}, tableId={}]", partId(), tableId());
+        LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());
 
-        CompletableFuture<?> fut = future;
+        CompletableFuture<?> fut = rebalanceFuture;
 
         if (fut != null) {
             fut.cancel(false);
@@ -184,62 +188,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return new IncomingSnapshotReader(snapshotMeta);
     }
 
-    /**
-     * Prepares the {@link MvPartitionStorage} for a full rebalance.
-     *
-     * <p>Recreates {@link MvPartitionStorage} and sets the last applied index to {@link TableManager#FULL_RABALANCING_STARTED} so that
-     * when the node is restarted, we can understand that the full rebalance has not completed, and we need to clean up the storage from
-     * garbage.
-     */
-    private CompletableFuture<?> prepareMvPartitionStorageForRebalance(Executor executor) {
-        if (canceled) {
-            return completedFuture(null);
-        }
-
-        return partitionSnapshotStorage.partition().reCreateMvPartitionStorage()
-                .thenComposeAsync(mvPartitionStorage -> {
-                    if (canceled) {
-                        return completedFuture(null);
-                    }
-
-                    mvPartitionStorage.runConsistently(() -> {
-                        mvPartitionStorage.lastApplied(FULL_RABALANCING_STARTED, 0);
-
-                        return null;
-                    });
-
-                    LOG.info("Copier prepared multi-versioned storage for the partition [partId={}, tableId={}]", partId(), tableId());
-
-                    return completedFuture(null);
-                }, executor);
-    }
-
-    /**
-     * Prepares the {@link TxStateStorage} for a full rebalance.
-     *
-     * <p>Recreates {@link TxStateStorage} and sets the last applied index to {@link TableManager#FULL_RABALANCING_STARTED} so that when
-     * the node is restarted, we can understand that the full rebalance has not completed, and we need to clean up the storage from
-     * garbage.
-     */
-    private CompletableFuture<?> prepareTxStatePartitionStorageForRebalance(Executor executor) {
-        if (canceled) {
-            return completedFuture(null);
-        }
-
-        return CompletableFuture.supplyAsync(() -> partitionSnapshotStorage.partition().reCreateTxStatePartitionStorage(), executor)
-                .thenCompose(txStatePartitionStorage -> {
-                    if (canceled) {
-                        return completedFuture(null);
-                    }
-
-                    txStatePartitionStorage.lastApplied(FULL_RABALANCING_STARTED, 0);
-
-                    LOG.info("Copier prepared transaction state storage for the partition [partId={}, tableId={}]", partId(), tableId());
-
-                    return completedFuture(null);
-                });
-    }
-
     private @Nullable ClusterNode getSnapshotSender(String nodeName) {
         return partitionSnapshotStorage.topologyService().getByConsistentId(nodeName);
     }
@@ -259,8 +207,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         ).thenAccept(response -> {
             snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
-            LOG.info("Copier has loaded the snapshot meta for the partition [partId={}, tableId={}, meta={}]",
-                    partId(), tableId(), snapshotMeta);
+            LOG.info("Copier has loaded the snapshot meta for the partition [{}, meta={}]", createPartitionInfo(), snapshotMeta);
         });
     }
 
@@ -317,16 +264,16 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
             if (snapshotMvDataResponse.finish()) {
                 LOG.info(
-                        "Copier has finished loading multi-versioned data [partId={}, rows={}]",
-                        partId(),
+                        "Copier has finished loading multi-versioned data [{}, rows={}]",
+                        createPartitionInfo(),
                         snapshotMvDataResponse.rows().size()
                 );
 
                 return completedFuture(null);
             } else {
                 LOG.info(
-                        "Copier has loaded a portion of multi-versioned data [partId={}, rows={}]",
-                        partId(),
+                        "Copier has loaded a portion of multi-versioned data [{}, rows={}]",
+                        createPartitionInfo(),
                         snapshotMvDataResponse.rows().size()
                 );
 
@@ -368,16 +315,16 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
             if (snapshotTxDataResponse.finish()) {
                 LOG.info(
-                        "Copier has finished loading transaction meta [partId={}, metas={}]",
-                        partId(),
+                        "Copier has finished loading transaction meta [{}, metas={}]",
+                        createPartitionInfo(),
                         snapshotTxDataResponse.txMeta().size()
                 );
 
                 return completedFuture(null);
             } else {
                 LOG.info(
-                        "Copier has loaded a portion of transaction meta [partId={}, metas={}]",
-                        partId(),
+                        "Copier has loaded a portion of transaction meta [{}, metas={}]",
+                        createPartitionInfo(),
                         snapshotTxDataResponse.txMeta().size()
                 );
 
@@ -388,47 +335,50 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     /**
-     * Updates the last applied index for {@link MvPartitionStorage} and {@link TxStateStorage} from the {@link #snapshotMeta}.
+     * Completes rebalancing of the partition storages.
+     *
+     * @param throwable Error occurred while rebalancing the partition storages, {@code null} means that the rebalancing was successful.
      */
-    private void updateLastAppliedIndexFromSnapshotMetaForStorages() {
+    private CompletableFuture<Void> completesRebalance(@Nullable Throwable throwable) {
         if (canceled) {
-            return;
+            return partitionSnapshotStorage.partition().abortRebalance();
         }
 
-        TxStateStorage txStatePartitionStorage = partitionSnapshotStorage.partition().txStatePartitionStorage();
-        MvPartitionStorage mvPartitionStorage = partitionSnapshotStorage.partition().mvPartitionStorage();
+        if (throwable != null) {
+            LOG.error("Partition rebalancing error [{}]", throwable, createPartitionInfo());
+
+            if (!isOk()) {
+                setError(RaftError.UNKNOWN, throwable.getMessage());
+            }
+
+            return partitionSnapshotStorage.partition().abortRebalance();
+        }
 
         SnapshotMeta meta = snapshotMeta;
 
-        assert meta != null;
-
-        mvPartitionStorage.runConsistently(() -> {
-            txStatePartitionStorage.lastApplied(meta.lastIncludedIndex(), meta.lastIncludedTerm());
-            mvPartitionStorage.lastApplied(meta.lastIncludedIndex(), meta.lastIncludedTerm());
-
-            mvPartitionStorage.committedGroupConfiguration(new RaftGroupConfiguration(
-                    meta.peersList(),
-                    meta.learnersList(),
-                    meta.oldPeersList(),
-                    meta.oldLearnersList()
-            ));
-
-            return null;
-        });
+        RaftGroupConfiguration raftGroupConfig = new RaftGroupConfiguration(
+                meta.peersList(),
+                meta.learnersList(),
+                meta.oldPeersList(),
+                meta.oldLearnersList()
+        );
 
         LOG.info(
-                "Copier has finished updating last applied index for the partition [partId={}, lastAppliedIndex={}, lastAppliedTerm={}]",
-                partId(),
+                "Copier completes the rebalancing of the partition: [{}, lastAppliedIndex={}, lastAppliedTerm={}, raftGroupConfig={}]",
+                createPartitionInfo(),
                 meta.lastIncludedIndex(),
-                meta.lastIncludedTerm()
+                meta.lastIncludedTerm(),
+                raftGroupConfig
         );
+
+        return partitionSnapshotStorage.partition().finishRebalance(meta.lastIncludedIndex(), meta.lastIncludedTerm(), raftGroupConfig);
     }
 
     private int partId() {
         return partitionSnapshotStorage.partition().partitionKey().partitionId();
     }
 
-    private UUID tableId() {
-        return partitionSnapshotStorage.partition().partitionKey().tableId();
+    private String createPartitionInfo() {
+        return "tableId=" + partitionSnapshotStorage.partition().partitionKey().tableId() + ", partitionId=" + partId();
     }
 }
