@@ -41,13 +41,13 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -348,7 +348,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return writeIntentToResult(versionChain, rowVersion, newestCommitTs);
         } else {
-            ByteBufferRow row = rowVersionToBinaryRow(rowVersion);
+            TableRow row = rowVersionToTableRow(rowVersion);
 
             return ReadResult.createFromCommitted(versionChain.rowId(), row, rowVersion.timestamp());
         }
@@ -374,12 +374,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private @Nullable ByteBufferRow rowVersionToBinaryRow(RowVersion rowVersion) {
+    private @Nullable TableRow rowVersionToTableRow(RowVersion rowVersion) {
         if (rowVersion.isTombstone()) {
             return null;
         }
 
-        return new ByteBufferRow(rowVersion.value());
+        return new TableRow(rowVersion.value());
     }
 
     /**
@@ -448,12 +448,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             if (compareResult >= 0) {
                 // This commit has timestamp matching the query ts, meaning that commit is the one we are looking for.
-                BinaryRow row;
+                TableRow row;
 
                 if (curCommit.isTombstone()) {
                     row = null;
                 } else {
-                    row = new ByteBufferRow(curCommit.value());
+                    row = new TableRow(curCommit.value());
                 }
 
                 return ReadResult.createFromCommitted(chain.rowId(), row, curCommit.timestamp());
@@ -476,7 +476,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         UUID commitTableId = chain.commitTableId();
         int commitPartitionId = chain.commitPartitionId();
 
-        BinaryRow row = rowVersionToBinaryRow(rowVersion);
+        TableRow row = rowVersionToTableRow(rowVersion);
 
         return ReadResult.createFromWriteIntent(
                 chain.rowId(),
@@ -488,7 +488,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         );
     }
 
-    private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {
+    private RowVersion insertRowVersion(@Nullable TableRow row, long nextPartitionlessLink) {
         byte[] rowBytes = rowBytes(row);
 
         RowVersion rowVersion = new RowVersion(partitionId, nextPartitionlessLink, ByteBuffer.wrap(rowBytes));
@@ -506,13 +506,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private static byte[] rowBytes(@Nullable BinaryRow row) {
+    private static byte[] rowBytes(@Nullable TableRow row) {
         // TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
         return row == null ? TOMBSTONE_PAYLOAD : row.bytes();
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    public @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
@@ -536,12 +536,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             RowVersion newVersion = insertRowVersion(row, currentChain.newestCommittedLink());
 
-            BinaryRow res = null;
+            TableRow res = null;
 
             if (currentChain.isUncommitted()) {
                 RowVersion currentVersion = readRowVersion(currentChain.headLink(), ALWAYS_LOAD_VALUE);
 
-                res = rowVersionToBinaryRow(currentVersion);
+                res = rowVersionToTableRow(currentVersion);
 
                 // as we replace an uncommitted version with new one, we need to remove old uncommitted version
                 removeRowVersion(currentVersion);
@@ -557,7 +557,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+    public @Nullable TableRow abortWrite(RowId rowId) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
         return busy(() -> {
@@ -588,7 +588,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 removeVersionChain(currentVersionChain);
             }
 
-            return rowVersionToBinaryRow(latestVersion);
+            return rowVersionToTableRow(latestVersion);
         });
     }
 
@@ -653,7 +653,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
         busy(() -> {
@@ -676,7 +676,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
-    private RowVersion insertCommittedRowVersion(@Nullable BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
+    private RowVersion insertCommittedRowVersion(@Nullable TableRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
         byte[] rowBytes = rowBytes(row);
 
         RowVersion rowVersion = new RowVersion(partitionId, commitTimestamp, nextPartitionlessLink, ByteBuffer.wrap(rowBytes));
@@ -696,7 +696,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private static ReadResult rowVersionToResultNotFillingLastCommittedTs(VersionChain versionChain, RowVersion rowVersion) {
-        ByteBufferRow row = new ByteBufferRow(rowVersion.value());
+        TableRow row = new TableRow(rowVersion.value());
 
         if (rowVersion.isCommitted()) {
             return ReadResult.createFromCommitted(versionChain.rowId(), row, rowVersion.timestamp());
@@ -797,7 +797,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
 
         @Override
-        public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
+        public @Nullable TableRow committed(HybridTimestamp timestamp) {
             return busy(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
 
@@ -812,7 +812,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 }
 
                 // We don't check if row conforms the key filter here, because we've already checked it.
-                return result.binaryRow();
+                return result.tableRow();
             });
         }
     }
@@ -1102,4 +1102,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Returns resources that will have to close on rebalancing.
      */
     abstract List<AutoCloseable> getResourcesToCloseOnRebalance();
+
+    /**
+     * Sets the RAFT group configuration on rebalance.
+     */
+    public abstract void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config);
 }

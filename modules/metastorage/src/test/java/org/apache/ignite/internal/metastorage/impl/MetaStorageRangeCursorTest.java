@@ -49,6 +49,8 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -62,13 +64,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class MetaStorageRangeCursorTest {
-    MetaStorageListener listener;
+    private MetaStorageListener listener;
 
     @Mock
-    RaftGroupService raftGroupService;
+    private RaftGroupService raftGroupService;
 
     @Mock
-    KeyValueStorage storage;
+    private KeyValueStorage storage;
 
     @ParameterizedTest
     @MethodSource("getParameters")
@@ -82,7 +84,9 @@ public class MetaStorageRangeCursorTest {
 
         when(raftGroupService.run(any())).thenAnswer(invocation -> runCommand(invocation.getArgument(0)));
 
-        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, "test", "test");
+        var localNode = new ClusterNode("test", "test", new NetworkAddress("localhost", 10000));
+
+        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, localNode);
 
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo)), limit);
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo), 0), limit);

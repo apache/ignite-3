@@ -65,13 +65,15 @@ import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowBuilder;
+import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -121,11 +123,14 @@ public class PartitionCommandListenerTest {
     private static final int PARTITION_ID = 0;
 
     /** Schema. */
-    public static SchemaDescriptor SCHEMA = new SchemaDescriptor(
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT32, false)},
             new Column[]{new Column("value", NativeTypes.INT32, false)}
     );
+
+    /** Converter. */
+    private static final BinaryConverter converter = BinaryConverter.forRow(SCHEMA);
 
     /** Hybrid clock. */
     private static final HybridClock CLOCK = new HybridClockImpl();
@@ -136,16 +141,19 @@ public class PartitionCommandListenerTest {
     /** RAFT index. */
     private final AtomicLong raftIndex = new AtomicLong();
 
+    private final BinaryConverter binaryRowConverter = BinaryConverter.forKey(SCHEMA);
+
+    private final TableRowConverter tableRowConverter = new TableRowConverter(
+            BinaryTupleSchema.createRowSchema(SCHEMA),
+            BinaryTupleSchema.createKeySchema(SCHEMA)
+    );
+
     /** Primary index. */
     private final TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
             UUID.randomUUID(),
             new TestHashIndexStorage(null),
-            tableRow -> new BinaryTuple(
-                    BinaryTupleSchema.create(new Element[]{
-                            new Element(NativeTypes.BYTES, false)
-                    }),
-                    tableRow.keySlice()
-            )
+            binaryRowConverter::toTuple,
+            tableRowConverter::toTuple
     );
 
     /** Partition storage. */
@@ -559,7 +567,7 @@ public class PartitionCommandListenerTest {
         var commitPartId = new TablePartitionId(txId, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, i);
+            TableRow row = getTestTableRow(i, i);
 
             rows.put(Timestamp.nextVersion().toUuid(), row.byteBuffer());
         }
@@ -597,7 +605,7 @@ public class PartitionCommandListenerTest {
         for (int i = 0; i < KEY_COUNT; i++) {
             Row row = getTestRow(i, keyValueMapper.apply(i));
 
-            rows.put(readRow(row).uuid(), row.byteBuffer());
+            rows.put(readRow(row).uuid(), toTableRow(row).byteBuffer());
         }
 
         HybridTimestamp commitTimestamp = CLOCK.now();
@@ -679,7 +687,7 @@ public class PartitionCommandListenerTest {
                                     .tableId(txId)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(rowId.uuid())
-                            .rowBuffer(row.byteBuffer())
+                            .rowBuffer(toTableRow(row).byteBuffer())
                             .txId(txId)
                             .safeTime(hybridTimestamp(hybridClock.now()))
                             .build());
@@ -769,7 +777,7 @@ public class PartitionCommandListenerTest {
             if (existed) {
                 ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
 
-                Row row = new Row(SCHEMA, readResult.binaryRow());
+                Row row = new Row(SCHEMA, toBinaryRow(readResult.tableRow()));
 
                 assertEquals(i, row.intValue(0));
                 assertEquals(keyValueMapper.apply(i), row.intValue(1));
@@ -787,7 +795,7 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = Timestamp.nextVersion().toUuid();
-            Row row = getTestRow(i, i);
+            TableRow row = getTestTableRow(i, i);
             txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
@@ -835,7 +843,7 @@ public class PartitionCommandListenerTest {
     }
 
     /**
-     * Prepares a test row which contains key and value fields.
+     * Prepares a test binary row which contains key and value fields.
      *
      * @return Row.
      */
@@ -846,6 +854,20 @@ public class PartitionCommandListenerTest {
         rowBuilder.appendInt(val);
 
         return new Row(SCHEMA, rowBuilder.build());
+    }
+
+    /**
+     * Prepares a test table row which contains key and value fields.
+     *
+     * @return Row.
+     */
+    private TableRow getTestTableRow(int key, int val) {
+        TableRowBuilder builder = new TableRowBuilder(SCHEMA);
+
+        builder.appendInt(key);
+        builder.appendInt(val);
+
+        return builder.buildTableRow();
     }
 
     private void invokeBatchedCommand(WriteCommand cmd) {
@@ -862,6 +884,14 @@ public class PartitionCommandListenerTest {
         }));
     }
 
+    private static TableRow toTableRow(BinaryRow binaryRow) {
+        return TableRowConverter.fromBinaryRow(binaryRow, converter);
+    }
+
+    private static BinaryRow toBinaryRow(TableRow row) {
+        return row != null ? converter.fromTuple(row.tupleSlice()) : null;
+    }
+
     private RowId readRow(BinaryRow tableRow) {
         try (Cursor<RowId> cursor = pkStorage.get(tableRow)) {
             while (cursor.hasNext()) {
@@ -869,7 +899,7 @@ public class PartitionCommandListenerTest {
 
                 ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
 
-                if (!readResult.isEmpty() && readResult.binaryRow() != null) {
+                if (!readResult.isEmpty() && readResult.tableRow() != null) {
                     return rowId;
                 }
             }
