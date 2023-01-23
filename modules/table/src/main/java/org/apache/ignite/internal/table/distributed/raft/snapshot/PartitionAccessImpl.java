@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.table.distributed.TableManager.FULL_RAB
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -133,14 +133,14 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
+    public void addWrite(RowId rowId, TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId));
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) {
+    public void addWriteCommitted(RowId rowId, TableRow row, HybridTimestamp commitTimestamp) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {

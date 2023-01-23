@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -103,14 +103,14 @@ public interface PartitionAccess {
      * {@link TxIdMismatchException} is thrown
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId);
+    void addWrite(RowId rowId, TableRow row, UUID txId, UUID commitTableId, int commitPartitionId);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
@@ -118,11 +118,11 @@ public interface PartitionAccess {
      * uncommitted for the given row).
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data.
      */
-    void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp);
+    void addWriteCommitted(RowId rowId, TableRow row, HybridTimestamp commitTimestamp);
 
     /**
      * Updates the last applied index, term, and RAFT configuration.
