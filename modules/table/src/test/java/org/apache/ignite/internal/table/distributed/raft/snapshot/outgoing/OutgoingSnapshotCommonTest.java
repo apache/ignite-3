@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -64,11 +63,9 @@ class OutgoingSnapshotCommonTest {
 
     @Test
     void sendsSnapshotMeta() {
-        lenient().when(partitionAccess.minLastAppliedIndex()).thenReturn(90L);
-        lenient().when(partitionAccess.maxLastAppliedIndex()).thenReturn(100L);
+        when(partitionAccess.maxLastAppliedIndex()).thenReturn(100L);
 
-        lenient().when(partitionAccess.minLastAppliedTerm()).thenReturn(2L);
-        lenient().when(partitionAccess.maxLastAppliedTerm()).thenReturn(3L);
+        when(partitionAccess.maxLastAppliedTerm()).thenReturn(3L);
 
         when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 List.of("peer1:3000", "peer2:3000"),
