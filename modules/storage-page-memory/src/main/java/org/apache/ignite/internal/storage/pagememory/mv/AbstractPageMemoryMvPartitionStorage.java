@@ -987,6 +987,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
+        close(false);
+    }
+
+    /**
+     * Closes the storage.
+     *
+     * @param goingToDestroy If the closure is in preparation for destruction.
+     */
+    public void close(boolean goingToDestroy) {
         if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
             StorageState state = this.state.get();
 
@@ -998,7 +1007,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busyLock.block();
 
         try {
-            IgniteUtils.closeAll(getResourcesToClose());
+            IgniteUtils.closeAll(getResourcesToClose(goingToDestroy));
         } catch (Exception e) {
             throw new StorageException(e);
         }
@@ -1006,8 +1015,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     /**
      * Returns resources that should be closed on {@link #close()}.
+     *
+     * @param goingToDestroy If the closure is in preparation for destruction.
      */
-    protected List<AutoCloseable> getResourcesToClose() {
+    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
         List<AutoCloseable> resources = new ArrayList<>();
 
         resources.add(versionChainTree::close);
@@ -1015,6 +1026,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         hashIndexes.values().forEach(index -> resources.add(index::close));
         sortedIndexes.values().forEach(index -> resources.add(index::close));
+
+        // We do not clear hashIndexes and sortedIndexes here because we leave the decision about when to clear them
+        // to the subclasses.
 
         return resources;
     }

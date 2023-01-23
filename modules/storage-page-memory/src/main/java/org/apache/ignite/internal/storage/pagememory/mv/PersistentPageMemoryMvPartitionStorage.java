@@ -290,17 +290,17 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    protected List<AutoCloseable> getResourcesToClose() {
-        List<AutoCloseable> resourcesToClose = super.getResourcesToClose();
+    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
+
+        resourcesToClose.add(hashIndexes::clear);
+        resourcesToClose.add(sortedIndexes::clear);
 
         resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 
         resourcesToClose.add(rowVersionFreeList::close);
         resourcesToClose.add(indexFreeList::close);
         resourcesToClose.add(blobStorage::close);
-
-        resourcesToClose.add(hashIndexes::clear);
-        resourcesToClose.add(sortedIndexes::clear);
 
         return resourcesToClose;
     }
