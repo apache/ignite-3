@@ -626,6 +626,9 @@ public class DistributionZoneManager implements IgniteComponent {
         try {
             Set<String> topologyFromCmg = newTopology.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
 
+            LOG.info("updateLogicalTopologyInMetaStorage topologyFromCmg: " + topologyFromCmg);
+            System.out.println("updateLogicalTopologyInMetaStorage topologyFromCmg: " + topologyFromCmg);
+
             Condition updateCondition;
 
             if (topologyLeap) {
@@ -812,6 +815,9 @@ public class DistributionZoneManager implements IgniteComponent {
                                     newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toList());
 
                             logicalTopology = newLogicalTopology;
+
+                            LOG.info("newLogicalTopology in WatchListener DistributionZoneManager: " + newLogicalTopology);
+                            System.out.println("newLogicalTopology in WatchListener DistributionZoneManager: " + newLogicalTopology);
 
                             Stream.of(
                                         zonesConfiguration.distributionZones().value().namedListKeys().stream(),

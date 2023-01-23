@@ -444,12 +444,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
-//        System.out.println("TableManager start()");
+        System.out.println("TableManager start()");
 
+        System.out.println("metaStorageMgr " + System.identityHashCode(metaStorageMgr));
         metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), new WatchListener() {
                     @Override
                     public boolean onUpdate(@NotNull WatchEvent evt) {
-//                        System.out.println("TableManager WatchListener onUpdate");
+                        LOG.info("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
+
+                        System.out.println("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
 
                         NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
 

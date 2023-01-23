@@ -156,6 +156,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private void fireDisappeared(ClusterNode oldNode, LogicalTopologySnapshot snapshot) {
+        LOG.info("LogicalTopologyImpl fireDisappeared: " + oldNode + ", " + snapshot);
+        System.out.println("LogicalTopologyImpl fireDisappeared: " + oldNode + ", " + snapshot);
         for (LogicalTopologyEventListener listener : listeners) {
             try {
                 listener.onDisappeared(oldNode, snapshot);

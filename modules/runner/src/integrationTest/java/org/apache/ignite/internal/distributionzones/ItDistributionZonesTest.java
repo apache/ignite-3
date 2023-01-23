@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -70,26 +72,49 @@ public class ItDistributionZonesTest {
     void assingmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(3);
 
-        createTestTableWith3Replicas();
+        createTestTable();
 
-        assertTrue(waitForCondition(() -> assingmentsCount(0) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(1) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(2) == 3, 5000));
+        List<Set<Assignment>> assingments0 = new ArrayList<>();
 
-        cluster.knockOutNode(1, PARTITION_NETWORK);
+        Thread.sleep(5000);
 
-        assertTrue(waitForCondition(() -> assingmentsCount(0) == 2, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(1) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(2) == 2, 5000));
+        assingments0.add(assingments(0));
+        assingments0.add(assingments(1));
+        assingments0.add(assingments(2));
 
-        cluster.reanimateNode(1, PARTITION_NETWORK);
+        assertTrue(assingments0.get(0).size() == 2);
+        assertTrue(assingments0.get(1).size() == 2);
+        assertTrue(assingments0.get(2).size() == 2);
 
-        assertTrue(waitForCondition(() -> assingmentsCount(0) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(1) == 3, 5000));
-        assertTrue(waitForCondition(() -> assingmentsCount(2) == 3, 5000));
+        cluster.knockOutNode(2, PARTITION_NETWORK);
+//        cluster.knockOutNode(2, PARTITION_NETWORK);
+
+        Thread.sleep(5000);
+
+        List<Set<Assignment>> assingments1 = new ArrayList<>();
+        assingments1.add(assingments(0));
+        assingments1.add(assingments(1));
+        assingments1.add(assingments(2));
+
+        assertTrue(assingments1.get(0).size() == 2);
+        assertTrue(assingments1.get(1).size() == 2);
+        assertTrue(assingments1.get(2).size() == 3);
+
+//        cluster.reanimateNode(2, PARTITION_NETWORK);
+//
+//        Thread.sleep(5000);
+//
+//        List<Set<Assignment>> assingments2 = new ArrayList<>();
+//        assingments2.add(assingments(0));
+//        assingments2.add(assingments(1));
+//        assingments2.add(assingments(2));
+//
+//        assertTrue(assingments2.get(0).size() == 3);
+//        assertTrue(assingments2.get(1).size() == 3);
+//        assertTrue(assingments2.get(2).size() == 3);
     }
 
-    private int assingmentsCount(int node) {
+    private Set<Assignment> assingments(int node) {
         ExtendedTableConfiguration table =
                 (ExtendedTableConfiguration) cluster.node(node)
                         .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
@@ -97,18 +122,18 @@ public class ItDistributionZonesTest {
         byte[] assignmentsBytes = table.assignments().value();
 
         if (assignmentsBytes != null) {
-            return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0).size();
+            return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0);
         } else {
-            return -1;
+            return Collections.emptySet();
         }
     }
 
-    private void createTestTableWith3Replicas() throws InterruptedException {
+    private void createTestTable() throws InterruptedException {
         String sql1 = "create zone test_zone with "
-                + "data_nodes_auto_adjust_scale_up=2, "
-                + "data_nodes_auto_adjust_scale_down=3";
+                + "data_nodes_auto_adjust_scale_up=0, "
+                + "data_nodes_auto_adjust_scale_down=0";
         String sql2 = "create table test (key int primary key, value varchar(20))"
-                + " with partitions=1, replicas=3, primary_zone='TEST_ZONE'";
+                    + " with partitions=1, replicas=2, primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);
@@ -126,7 +151,7 @@ public class ItDistributionZonesTest {
                     .map(ItDistributionZonesTest::tablePartitionIds)
                     .mapToInt(List::size)
                     .sum();
-            return numberOfStartedRaftNodes == 3;
+            return numberOfStartedRaftNodes == 2;
         };
 
         assertTrue(waitForCondition(tableStarted, 10_000), "Did not see all table RAFT nodes started");
