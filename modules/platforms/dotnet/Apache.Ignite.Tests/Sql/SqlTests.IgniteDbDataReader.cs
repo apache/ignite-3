@@ -134,8 +134,6 @@ public partial class SqlTests
         await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
         await reader.ReadAsync();
 
-        // TODO: GetFieldValueAsync?
-        // TODO: All compatible types
         Assert.AreEqual(1, reader.GetFieldValue<long>("KEY"));
         Assert.AreEqual(1, reader.GetFieldValue<int>("KEY"));
         Assert.AreEqual(1, reader.GetFieldValue<byte>("KEY"));
@@ -170,8 +168,12 @@ public partial class SqlTests
         Assert.AreEqual(7.5d, reader.GetFieldValue<float>("DOUBLE"));
 
         Assert.AreEqual(LocalDate, reader.GetFieldValue<LocalDate>("DATE"));
+        Assert.AreEqual(LocalDate.ToDateTimeUnspecified(), reader.GetFieldValue<DateTime>("DATE"));
+
         Assert.AreEqual(LocalTime, reader.GetFieldValue<LocalTime>("TIME"));
         Assert.AreEqual(LocalDateTime, reader.GetFieldValue<LocalDateTime>("DATETIME"));
+        Assert.AreEqual(LocalDateTime.ToDateTimeUnspecified(), reader.GetFieldValue<DateTime>("DATETIME"));
+
         Assert.AreEqual(Instant.FromUnixTimeSeconds(123), reader.GetFieldValue<Instant>("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetFieldValue<decimal>("DECIMAL"));
         Assert.AreEqual(new byte[] { 1, 2 }, reader.GetFieldValue<byte[]>("BLOB"));
