@@ -139,7 +139,15 @@ public interface PartitionAccess {
      *     <li>Sets the last applied index and term to {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and the RAFT group configuration to
      *     {@code null};</li>
      *     <li>Only the following methods will be available:<ul>
-     *         <li>TODO-18593 Specify methods.</li>
+     *         <li>{@link #partitionKey()};</li>
+     *         <li>{@link #minLastAppliedIndex()};</li>
+     *         <li>{@link #maxLastAppliedIndex()};</li>
+     *         <li>{@link #minLastAppliedTerm()};</li>
+     *         <li>{@link #maxLastAppliedTerm()};</li>
+     *         <li>{@link #committedGroupConfiguration()};</li>
+     *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
+     *         <li>{@link #addWrite(RowId, TableRow, UUID, UUID, int)};</li>
+     *         <li>{@link #addWriteCommitted(RowId, TableRow, HybridTimestamp)}.</li>
      *     </ul></li>
      * </ul>
      *
