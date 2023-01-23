@@ -48,8 +48,8 @@ class DistributionZonesUtil {
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = "distributionZones.logicalTopologyVersion";
 
-    /** The key, needed for processing the event about zones' update was triggered only once. */
-    private static final ByteArray DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY = new ByteArray("distributionZones.change.trigger");
+    /** Key prefix, needed for processing the event about zone's update was triggered only once. */
+    private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
@@ -63,11 +63,9 @@ class DistributionZonesUtil {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
     }
 
-    /**
-     * The key, needed for processing the event about zones' create and delete was triggered only once.
-     */
-    static ByteArray zonesChangeTriggerKey() {
-        return DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY;
+    /** The key, needed for processing the event about zone's create and delete was triggered only once. */
+    static ByteArray zonesChangeTriggerKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX + zoneId);
     }
 
     /** */
@@ -105,8 +103,8 @@ class DistributionZonesUtil {
      */
     static CompoundCondition triggerKeyConditionForZonesChanges(long revision, int zoneId) {
         return or(
-                notExists(zonesChangeTriggerKey()),
-                value(zonesChangeTriggerKey()).lt(ByteUtils.longToBytes(revision))
+                notExists(zonesChangeTriggerKey(zoneId)),
+                value(zonesChangeTriggerKey(zoneId)).lt(ByteUtils.longToBytes(revision))
         );
     }
 
@@ -146,7 +144,7 @@ class DistributionZonesUtil {
                 put(zoneDataNodesKey(zoneId), dataNodes),
                 put(zoneScaleUpChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
                 put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
-                put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))
+                put(zonesChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
         ).yield(true);
     }
 
@@ -163,7 +161,7 @@ class DistributionZonesUtil {
                 remove(zoneDataNodesKey(zoneId)),
                 remove(zoneScaleUpChangeTriggerKey(zoneId)),
                 remove(zoneScaleDownChangeTriggerKey(zoneId)),
-                put(zonesChangeTriggerKey(), ByteUtils.longToBytes(revision))
+                put(zonesChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
         ).yield(true);
     }
 

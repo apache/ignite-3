@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -111,6 +112,8 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Name of the default distribution zone. */
     public static final String DEFAULT_ZONE_NAME = "Default";
 
+    private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
+
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
 
@@ -138,11 +141,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Logical topology service to track topology changes. */
     private final LogicalTopologyService logicalTopologyService;
 
-    private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
-            Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
-            new NamedThreadFactory("dst-zones-scheduler", LOG),
-            new ThreadPoolExecutor.DiscardPolicy()
-    );
+    private final ScheduledExecutorService executor;
 
     private final Map<Integer, ZoneState> zonesTimers = new ConcurrentHashMap<>();
 
@@ -187,7 +186,8 @@ public class DistributionZoneManager implements IgniteComponent {
             TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
-            VaultManager vaultMgr
+            VaultManager vaultMgr,
+            String nodeName
     ) {
         this.zonesConfiguration = zonesConfiguration;
         this.tablesConfiguration = tablesConfiguration;
@@ -196,6 +196,12 @@ public class DistributionZoneManager implements IgniteComponent {
         this.vaultMgr = vaultMgr;
 
         logicalTopology = Collections.emptySet();
+
+        executor = new ScheduledThreadPoolExecutor(
+                Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
+                new ThreadPoolExecutor.DiscardPolicy()
+        );
     }
 
     /**
@@ -860,12 +866,12 @@ public class DistributionZoneManager implements IgniteComponent {
                             for (int i = 0; i < zones.value().size(); i++) {
                                 DistributionZoneView zoneView = zones.value().get(i);
 
-                                scheduleTimers(zoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
+                                scheduleTimers(zoneView, addedNodes, removedNodes, revision);
                             }
 
                             DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
-                            scheduleTimers(defaultZoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
+                            scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
 
                             return true;
                         } finally {
@@ -884,7 +890,6 @@ public class DistributionZoneManager implements IgniteComponent {
     private void scheduleTimers(
             DistributionZoneView zoneCfg,
             List<String> addedNodes, List<String> removedNodes,
-            byte[] newLogicalTopologyBytes,
             long revision
     ) {
         int autoAdjust = zoneCfg.dataNodesAutoAdjust();
@@ -952,90 +957,100 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param revision Revision of an event that has triggered this method.
      */
     private CompletableFuture<Void> saveDataNodesToMetaStorageOnScaleUp(int zoneId, long revision) {
-        ZoneState zoneState = zonesTimers.get(zoneId);
-
-        if (zoneState == null) {
-            // Zone was deleted
-            return completedFuture(null);
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
-        ReentrantLock lockForTimers = zoneState.lockForTimers();
+        try {
+            ZoneState zoneState = zonesTimers.get(zoneId);
 
-        lockForTimers.lock();
-
-        Set<ByteArray> keysToGetFromMs = Set.of(
-                zoneDataNodesKey(zoneId),
-                zoneScaleUpChangeTriggerKey(zoneId),
-                zoneScaleDownChangeTriggerKey(zoneId)
-        );
-
-        return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> {
-            if (values.containsValue(null)) {
+            if (zoneState == null) {
                 // Zone was deleted
                 return completedFuture(null);
             }
 
-            Set<String> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+            ReentrantLock lockForTimers = zoneState.lockForTimers();
 
-            long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
+            lockForTimers.lock();
 
-            long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
-
-            if (revision <= scaleUpTriggerRevision) {
-                return completedFuture(null);
-            }
-
-            ReentrantLock lockForZone = zoneState.lockForDataNodes();
-
-            lockForZone.lock();
-
-            Set<String> deltaToAdd;
-
-            try {
-                deltaToAdd = new HashSet<>(zoneState.nodesToAddToDataNodes());
-            } finally {
-                lockForZone.unlock();
-            }
-
-            Set<String> newDataNodes = new HashSet<>(dataNodesFromMetaStorage);
-
-            newDataNodes.addAll(deltaToAdd);
-
-            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(zoneId, revision, toBytes(newDataNodes));
-
-            If iif = If.iif(
-                    triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
-                    dataNodesAndTriggerKeyUpd,
-                    ops().yield(false)
+            Set<ByteArray> keysToGetFromMs = Set.of(
+                    zoneDataNodesKey(zoneId),
+                    zoneScaleUpChangeTriggerKey(zoneId),
+                    zoneScaleDownChangeTriggerKey(zoneId)
             );
 
-            return metaStorageManager.invoke(iif).thenApply(StatementResult::getAsBoolean).thenApply(invokeResult -> {
-                if (invokeResult) {
-                    lockForZone.lock();
-                    try {
-                        zoneState.nodesToAddToDataNodes().removeAll(deltaToAdd);
-                    } finally {
-                        lockForZone.unlock();
-                    }
-                } else {
-                    LOG.debug("Updating data nodes for a zone has not succeeded [zoneId = {}]", zoneId);
-
-                    return saveDataNodesToMetaStorageOnScaleUp(zoneId, revision);
+            return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
+                if (values.containsValue(null)) {
+                    // Zone was deleted
+                    return completedFuture(null);
                 }
 
-                return completedFuture(null);
-            });
-        }).handle((v, e) -> {
-            lockForTimers.unlock();
+                Set<String> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
 
-            if (e != null) {
-                LOG.warn("Failed to update zones' dataNodes value [zoneId = {}]", e, zoneId);
+                long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
 
-                return CompletableFuture.<Void>failedFuture(e);
-            }
+                long scaleDownTriggerRevision = bytesToLong(values.get(zoneScaleDownChangeTriggerKey(zoneId)).value());
 
-            return CompletableFuture.<Void>completedFuture(null);
-        }).thenCompose(Function.identity());
+                if (revision <= scaleUpTriggerRevision) {
+                    return completedFuture(null);
+                }
+
+                ReentrantLock lockForZone = zoneState.lockForDataNodes();
+
+                lockForZone.lock();
+
+                Set<String> deltaToAdd;
+
+                try {
+                    deltaToAdd = new HashSet<>(zoneState.nodesToAddToDataNodes());
+                } finally {
+                    lockForZone.unlock();
+                }
+
+                Set<String> newDataNodes = new HashSet<>(dataNodesFromMetaStorage);
+
+                newDataNodes.addAll(deltaToAdd);
+
+                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(zoneId, revision, toBytes(newDataNodes));
+
+                If iif = If.iif(
+                        triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
+                        dataNodesAndTriggerKeyUpd,
+                        ops().yield(false)
+                );
+
+                return metaStorageManager.invoke(iif)
+                        .thenApply(StatementResult::getAsBoolean)
+                        .thenApply(invokeResult -> inBusyLock(busyLock, () -> {
+                            if (invokeResult) {
+                                lockForZone.lock();
+                                try {
+                                    zoneState.nodesToAddToDataNodes().removeAll(deltaToAdd);
+                                } finally {
+                                    lockForZone.unlock();
+                                }
+                            } else {
+                                LOG.debug("Updating data nodes for a zone has not succeeded [zoneId = {}]", zoneId);
+
+                                return saveDataNodesToMetaStorageOnScaleUp(zoneId, revision);
+                            }
+
+                            return completedFuture(null);
+                        }));
+            })).handle((v, e) -> {
+                lockForTimers.unlock();
+
+                if (e != null) {
+                    LOG.warn("Failed to update zones' dataNodes value [zoneId = {}]", e, zoneId);
+
+                    return CompletableFuture.<Void>failedFuture(e);
+                }
+
+                return CompletableFuture.<Void>completedFuture(null);
+            }).thenCompose(Function.identity());
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     static class ZoneState {

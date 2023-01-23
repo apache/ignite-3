@@ -394,7 +394,8 @@ public class IgniteImpl implements Ignite {
                 tablesConfiguration,
                 metaStorageMgr,
                 logicalTopologyService,
-                vaultMgr
+                vaultMgr,
+                name
         );
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
