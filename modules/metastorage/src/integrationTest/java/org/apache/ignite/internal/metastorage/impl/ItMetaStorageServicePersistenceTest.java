@@ -21,17 +21,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
+import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
 
@@ -49,20 +54,20 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     private MetaStorageServiceImpl metaStorage;
 
-    private KeyValueStorage storage;
+    private final Map<String, RocksDbKeyValueStorage> storageByName = new HashMap<>();
 
     /** After each. */
     @AfterEach
-    void tearDown() {
-        if (storage != null) {
-            storage.close();
-        }
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(storageByName.values().stream().map(storage -> storage::close));
     }
 
     /** {@inheritDoc} */
     @Override
-    public void beforeFollowerStop(RaftGroupService service) throws Exception {
-        metaStorage = new MetaStorageServiceImpl(service, null, null);
+    public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
+        ClusterNode followerNode = getNode(server);
+
+        metaStorage = new MetaStorageServiceImpl(service, followerNode);
 
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
@@ -73,7 +78,15 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public void afterFollowerStop(RaftGroupService service) throws Exception {
+    public void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
+        ClusterNode followerNode = getNode(server);
+
+        KeyValueStorage storage = storageByName.remove(followerNode.name());
+
+        if (storage != null) {
+            storage.close();
+        }
+
         // Remove the first key from the metastorage
         metaStorage.remove(FIRST_KEY).get();
 
@@ -96,7 +109,9 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
-        KeyValueStorage storage = getListener(restarted, raftGroupId()).getStorage();
+        ClusterNode node = getNode(restarted);
+
+        KeyValueStorage storage = storageByName.get(node.name());
 
         byte[] lastKey = interactedAfterSnapshot ? SECOND_KEY.bytes() : FIRST_KEY.bytes();
         byte[] lastValue = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
@@ -111,16 +126,22 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public Path getListenerPersistencePath(MetaStorageListener listener) {
-        return ((RocksDbKeyValueStorage) listener.getStorage()).getDbPath();
+    public Path getListenerPersistencePath(MetaStorageListener listener, RaftServer server) {
+        return storageByName.get(getNode(server).name()).getDbPath();
     }
 
     /** {@inheritDoc} */
     @Override
     public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
-        storage = new RocksDbKeyValueStorage(listenerPersistencePath);
+        String nodeName = service.localConfiguration().getName();
 
-        storage.start();
+        KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
+            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath);
+
+            s.start();
+
+            return s;
+        });
 
         return new MetaStorageListener(storage);
     }
@@ -144,5 +165,9 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         Entry entry = metaStorage.get(new ByteArray(expected.key())).get();
 
         assertEquals(expected, entry);
+    }
+
+    private static ClusterNode getNode(RaftServer server) {
+        return server.clusterService().topologyService().localMember();
     }
 }

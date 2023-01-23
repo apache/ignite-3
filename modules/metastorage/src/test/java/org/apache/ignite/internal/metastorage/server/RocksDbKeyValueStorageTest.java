@@ -17,10 +17,22 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -34,6 +46,62 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
     /** {@inheritDoc} */
     @Override
     KeyValueStorage storage() {
-        return new RocksDbKeyValueStorage(workDir);
+        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"));
+    }
+
+    @Test
+    void testWatchReplayOnSnapshotLoad() throws InterruptedException {
+        storage.put("foo".getBytes(UTF_8), "bar".getBytes(UTF_8));
+        storage.put("baz".getBytes(UTF_8), "quux".getBytes(UTF_8));
+
+        long revisionBeforeSnapshot = storage.revision();
+
+        Path snapshotPath = workDir.resolve("snapshot");
+
+        assertThat(storage.snapshot(snapshotPath), willCompleteSuccessfully());
+
+        storage.close();
+
+        storage = storage();
+
+        storage.start();
+
+        var latch = new CountDownLatch(2);
+
+        storage.watchExact("foo".getBytes(UTF_8), 1, new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent event) {
+                assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(UTF_8)));
+
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                fail();
+            }
+        });
+
+        storage.watchExact("baz".getBytes(UTF_8), 1, new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent event) {
+                assertThat(event.entryEvent().newEntry().value(), is("quux".getBytes(UTF_8)));
+
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                fail();
+            }
+        });
+
+        storage.startWatches(revision -> {});
+
+        storage.restoreSnapshot(snapshotPath);
+
+        assertThat(storage.revision(), is(revisionBeforeSnapshot));
+
+        assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 }

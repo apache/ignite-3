@@ -17,144 +17,82 @@
 
 package org.apache.ignite.internal.test;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Optional;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
-import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.jetbrains.annotations.NotNull;
-import org.junit.platform.commons.util.ReflectionUtils;
-import org.mockito.Mockito;
+import org.apache.ignite.internal.metastorage.server.Watch;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
 /**
  * Listener which wraps another one to inhibit events.
  */
-public class WatchListenerInhibitor implements WatchListener {
-    /** Inhibited events. Guarded by {@code this}. */
-    private final Collection<WatchEvent> inhibitEvents = new ArrayList<>();
+public class WatchListenerInhibitor {
+    /** "watches" field captured from the {@link RocksDbKeyValueStorage} instance. */
+    private final List<Watch> watches;
 
-    /** Inhibit flag. Guarded by {@code this}. */
-    private boolean inhibit = false;
-
-    /** Wrapped listener. Guarded by {@code this}. */
-    private WatchListener realListener;
+    /** Latch used to block the watch notification thread. */
+    private final CountDownLatch inhibitLatch = new CountDownLatch(1);
 
     /**
      * Creates the specific listener which can inhibit events for real metastorage listener.
      *
      * @param ignite Ignite.
      * @return Listener inhibitor.
-     * @throws Exception If something wrong when creating the listener inhibitor.
      */
-    public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite)
-            throws Exception {
+    public static WatchListenerInhibitor metastorageEventsInhibitor(Ignite ignite) {
         //TODO: IGNITE-15723 After a component factory will be implemented, need to got rid of reflection here.
-        MetaStorageManagerImpl metaMngr = (MetaStorageManagerImpl) ReflectionUtils.tryToReadFieldValue(
-                IgniteImpl.class,
-                "metaStorageMgr",
-                (IgniteImpl) ignite
-        ).get();
+        var metaStorageManager = (MetaStorageManagerImpl) getFieldValue(ignite, IgniteImpl.class, "metaStorageMgr");
 
-        assertNotNull(metaMngr);
+        var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager, MetaStorageManagerImpl.class, "storage");
 
-        WatchAggregator aggregator = (WatchAggregator) ReflectionUtils.tryToReadFieldValue(
-                MetaStorageManagerImpl.class,
-                "watchAggregator",
-                metaMngr
-        ).get();
+        var watches = (List<Watch>) getFieldValue(storage, RocksDbKeyValueStorage.class, "watches");
 
-        assertNotNull(aggregator);
+        return new WatchListenerInhibitor(watches);
+    }
 
-        WatchAggregator aggregatorSpy = Mockito.spy(aggregator);
-
-        WatchListenerInhibitor inhibitor = new WatchListenerInhibitor();
-
-        doAnswer(mock -> {
-            Optional<AggregatedWatch> op = (Optional<AggregatedWatch>) mock.callRealMethod();
-
-            assertTrue(op.isPresent());
-
-            inhibitor.setRealListener(op.get().listener());
-
-            return Optional.of(new AggregatedWatch(op.get().keyCriterion(), op.get().revision(),
-                    inhibitor));
-        }).when(aggregatorSpy).watch(anyLong(), any());
-
-        IgniteTestUtils.setFieldValue(metaMngr, "watchAggregator", aggregatorSpy);
-
-        // Redeploy metastorage watch. The Watch inhibitor will be used after.
-        metaMngr.unregisterWatch(-1);
-
-        return inhibitor;
+    private WatchListenerInhibitor(List<Watch> watches) {
+        this.watches = watches;
     }
 
     /**
-     * Default constructor.
+     * Starts inhibiting events.
      */
-    private WatchListenerInhibitor() {
+    public void startInhibit() {
+        // Inject a watch that matches all keys and revisions and blocks the watch notification thread until the latch is released.
+        var blockingWatch = new Watch(
+                0,
+                new WatchListener() {
+                    @Override
+                    public void onUpdate(WatchEvent event) {
+                        try {
+                            inhibitLatch.await();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                    }
+                },
+                key -> true
+        );
+
+        watches.add(0, blockingWatch);
     }
 
     /**
-     * Sets a wrapped listener.
-     *
-     * @param realListener Listener to wrap.
+     * Stops inhibiting events.
      */
-    private synchronized void setRealListener(WatchListener realListener) {
-        this.realListener = realListener;
-    }
-
-    /** {@inheritDoc} */
-    @Override public synchronized boolean onUpdate(@NotNull WatchEvent evt) {
-        if (!inhibit) {
-            return realListener.onUpdate(evt);
-        }
-
-        return inhibitEvents.add(evt);
-    }
-
-    /** {@inheritDoc} */
-    @Override public synchronized void onError(@NotNull Throwable e) {
-        realListener.onError(e);
-    }
-
-    /**
-     * Starts inhibit events.
-     */
-    public synchronized void startInhibit() {
-        inhibit = true;
-    }
-
-    /**
-     * Stops inhibit events.
-     */
-    public synchronized void stopInhibit() {
-        inhibit = false;
-
-        for (WatchEvent evt : inhibitEvents) {
-            realListener.onUpdate(evt);
-        }
-
-        inhibitEvents.clear();
-    }
-
-    /**
-     * Stops silently, no events resend.
-     */
-    public synchronized void stopWithoutResend() {
-        inhibit = false;
-
-        inhibitEvents.clear();
+    public void stopInhibit() {
+        inhibitLatch.countDown();
     }
 }

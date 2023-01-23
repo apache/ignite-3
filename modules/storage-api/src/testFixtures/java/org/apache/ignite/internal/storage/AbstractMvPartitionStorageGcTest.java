@@ -34,18 +34,18 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
     @Test
     void testSingleValueStorage() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
 
         assertNull(storage.pollForVacuum(clock.now()));
     }
 
     @Test
     void testRegularPoll() {
-        HybridTimestamp firstCommitTs = addAndCommit(BINARY_ROW);
+        HybridTimestamp firstCommitTs = addAndCommit(TABLE_ROW);
 
         HybridTimestamp tsBetweenCommits = clock.now();
 
-        HybridTimestamp secondCommitTs = addAndCommit(BINARY_ROW2);
+        HybridTimestamp secondCommitTs = addAndCommit(TABLE_ROW2);
 
         // Data is still visible for older timestamps.
         assertNull(storage.pollForVacuum(firstCommitTs));
@@ -54,28 +54,28 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Once a low watermark value becomes equal to second commit timestamp, previous value
         // becomes completely inaccessible and should be purged.
-        BinaryRowAndRowId gcedRow = storage.pollForVacuum(secondCommitTs);
+        TableRowAndRowId gcedRow = storage.pollForVacuum(secondCommitTs);
 
         assertNotNull(gcedRow);
 
-        assertRowMatches(gcedRow.binaryRow(), BINARY_ROW);
+        assertRowMatches(gcedRow.tableRow(), TABLE_ROW);
 
         // Read from the old timestamp should return null.
         assertNull(read(ROW_ID, firstCommitTs));
 
         // Read from the newer timestamp should return last value.
-        assertRowMatches(read(ROW_ID, secondCommitTs), BINARY_ROW2);
+        assertRowMatches(read(ROW_ID, secondCommitTs), TABLE_ROW2);
     }
 
     @Test
     void testPollFromUnderTombstone() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
         HybridTimestamp secondCommitTs = addAndCommit(null);
 
-        BinaryRowAndRowId row = storage.pollForVacuum(secondCommitTs);
+        TableRowAndRowId row = storage.pollForVacuum(secondCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW);
+        assertRowMatches(row.tableRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, secondCommitTs));
 
@@ -85,14 +85,14 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
     @Test
     void testDoubleTombstone() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
         addAndCommit(null);
         HybridTimestamp lastCommitTs = addAndCommit(null);
 
-        BinaryRowAndRowId row = storage.pollForVacuum(lastCommitTs);
+        TableRowAndRowId row = storage.pollForVacuum(lastCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW);
+        assertRowMatches(row.tableRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, lastCommitTs));
 
@@ -102,23 +102,23 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
     @Test
     void testManyOldVersions() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
 
-        addAndCommit(BINARY_ROW2);
+        addAndCommit(TABLE_ROW2);
 
         HybridTimestamp lowWatermark = addAndCommit(null);
 
         // Poll the oldest row.
-        BinaryRowAndRowId row = pollForVacuum(lowWatermark);
+        TableRowAndRowId row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW);
+        assertRowMatches(row.tableRow(), TABLE_ROW);
 
         // Poll the next oldest row.
         row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW2);
+        assertRowMatches(row.tableRow(), TABLE_ROW2);
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
-import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -128,7 +128,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
 
             byte[] rangeStart = rocksPrefix(key);
 
-            byte[] rangeEnd = incrementArray(rangeStart);
+            byte[] rangeEnd = incrementPrefix(rangeStart);
 
             Slice upperBound = rangeEnd == null ? null : new Slice(rangeEnd);
 
@@ -213,7 +213,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
         busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            byte[] rangeEnd = incrementArray(constantPrefix);
+            byte[] rangeEnd = incrementPrefix(constantPrefix);
 
             assert rangeEnd != null;
 
@@ -272,7 +272,7 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
      * @throws RocksDBException If failed to delete data.
      */
     public void destroyData(WriteBatch writeBatch) throws RocksDBException {
-        byte[] rangeEnd = incrementArray(constantPrefix);
+        byte[] rangeEnd = incrementPrefix(constantPrefix);
 
         assert rangeEnd != null;
 

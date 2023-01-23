@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_LEFT;
 import static org.apache.ignite.internal.index.SortedIndex.INCLUDE_RIGHT;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -39,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -50,6 +53,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
@@ -59,6 +63,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -87,8 +92,15 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     );
 
     @BeforeEach
-    public void beforeTest() {
+    public void beforeTest() throws InterruptedException {
         TableImpl table = getOrCreateTable();
+
+        // FIXME: Wait for the sorted index to be created on all nodes,
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the sorted index.
+        assertTrue(waitForCondition(
+                () -> CLUSTER_NODES.stream().map(ItTableScanTest::getSortedIndexConfig).allMatch(Objects::nonNull),
+                10_000)
+        );
 
         loadData(table);
     }
@@ -120,7 +132,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         subscription.request(2);
 
-        IgniteTestUtils.waitForCondition(() -> scannedRows.size() == 2, 10_000);
+        waitForCondition(() -> scannedRows.size() == 2, 10_000);
 
         assertEquals(2, scannedRows.size());
         assertFalse(scanned.isDone());
@@ -162,7 +174,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         subscription.request(1);
 
-        IgniteTestUtils.waitForCondition(() -> !scannedRows.isEmpty(), 10_000);
+        waitForCondition(() -> !scannedRows.isEmpty(), 10_000);
 
         assertEquals(1, scannedRows.size());
         assertFalse(scanned.isDone());
@@ -406,7 +418,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         subscription.request(1);
 
-        IgniteTestUtils.waitForCondition(() -> !scannedRows.isEmpty(), 10_000);
+        waitForCondition(() -> !scannedRows.isEmpty(), 10_000);
 
         assertEquals(1, scannedRows.size());
         assertFalse(scanned.isDone());
@@ -417,7 +429,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         subscription.request(2);
 
-        IgniteTestUtils.waitForCondition(() -> scannedRows.size() == 3, 10_000);
+        waitForCondition(() -> scannedRows.size() == 3, 10_000);
 
         assertEquals(3, scannedRows.size());
         assertFalse(scanned.isDone());
@@ -462,7 +474,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         subscription.request(3);
 
-        IgniteTestUtils.waitForCondition(() -> scannedRows.size() == 3, 10_000);
+        waitForCondition(() -> scannedRows.size() == 3, 10_000);
 
         assertEquals(3, scannedRows.size());
         assertFalse(scanned.isDone());
@@ -597,7 +609,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         subscription.request(1_000); // Request so much entries here to close the publisher.
 
-        IgniteTestUtils.waitForCondition(() -> scanned.isDone(), 10_000);
+        waitForCondition(() -> scanned.isDone(), 10_000);
 
         return scannedRows;
     }
@@ -638,8 +650,14 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Index id.
      */
     private static UUID getSortedIndexId() {
-        return ((IgniteImpl) CLUSTER_NODES.get(0)).clusterConfiguration().getConfiguration(TablesConfiguration.KEY).indexes()
-                .get(SORTED_IDX.toUpperCase()).id().value();
+        return getSortedIndexConfig(CLUSTER_NODES.get(0)).id().value();
+    }
+
+    private static @Nullable TableIndexConfiguration getSortedIndexConfig(Ignite node) {
+        return ((IgniteImpl) node).clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .indexes()
+                .get(SORTED_IDX.toUpperCase());
     }
 
     /**

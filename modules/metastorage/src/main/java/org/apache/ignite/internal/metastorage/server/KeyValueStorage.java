@@ -21,11 +21,13 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -220,32 +222,54 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param keyFrom Start key of range (inclusive).
      * @param keyTo   Last key of range (exclusive).
      * @param rev     Start revision number.
-     * @return Cursor by update events.
      */
-    Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev);
+    void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener);
 
     /**
-     * Creates subscription on updates of entries corresponding to the given keys range (where upper bound is unlimited) and starting from
-     * the given revision number.
+     * Registers a watch listener by a key prefix.
      *
-     * @param key Start key of range (inclusive).
-     * @param rev Start revision number.
-     * @return Cursor by update events.
+     * @param prefix Prefix to listen to.
+     * @param rev Starting Meta Storage revision.
+     * @param listener Listener which will be notified for each update.
      */
-    Cursor<WatchEvent> watch(byte[] key, long rev);
+    void watchPrefix(byte[] prefix, long rev, WatchListener listener);
 
     /**
-     * Creates subscription on updates of entries corresponding to the given keys collection and starting from the given revision number.
+     * Registers a watch listener for the provided key.
      *
-     * @param keys Collection of keys
-     * @param rev  Start revision number.
-     * @return Cursor by update events.
+     * @param key Meta Storage key.
+     * @param rev Starting Meta Storage revision.
+     * @param listener Listener which will be notified for each update.
      */
-    Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev);
+    void watchExact(byte[] key, long rev, WatchListener listener);
+
+    /**
+     * Registers a watch listener for the provided keys.
+     *
+     * @param keys Meta Storage keys.
+     * @param rev Starting Meta Storage revision.
+     * @param listener Listener which will be notified for each update.
+     */
+    void watchExact(Collection<byte[]> keys, long rev, WatchListener listener);
+
+    /**
+     * Starts all registered watches.
+     *
+     * <p>Before calling this method, watches will not receive any updates.
+     *
+     * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the revision
+     *      as its argument.
+     */
+    void startWatches(LongConsumer revisionCallback);
+
+    /**
+     * Unregisters a watch listener.
+     */
+    void removeWatch(WatchListener listener);
 
     /**
      * Compacts storage (removes tombstones).
-     * TODO: IGNITE-16444 Сorrect compaction for Metastorage.
+     * TODO: IGNITE-16444 Correct compaction for Metastorage.
      */
     void compact();
 

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.and;
 import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -31,13 +31,11 @@ import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTe
 import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerUpdateMatcher.upd;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -60,20 +58,13 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.If;
@@ -92,6 +83,7 @@ import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.Loza;
@@ -101,21 +93,21 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -123,35 +115,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Meta storage client tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-@ExtendWith(MockitoExtension.class)
 public class ItMetaStorageServiceTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(ItMetaStorageServiceTest.class);
-
     /** Base network port. */
     private static final int NODE_PORT_BASE = 20_000;
 
-    /** Nodes. */
-    private static final int NODES = 2;
-
-    /**
-     * Expected server result entry.
-     */
-    private static final EntryImpl EXPECTED_RESULT_ENTRY =
-            new EntryImpl(
-                    new byte[]{1},
-                    new byte[]{2},
-                    10,
-                    2
-            );
+    /** Expected result entry. */
+    private static final Entry EXPECTED_RESULT_ENTRY = new EntryImpl(
+            new byte[]{1},
+            new byte[]{2},
+            10,
+            2
+    );
 
     /**
      * Expected result map.
@@ -161,38 +141,10 @@ public class ItMetaStorageServiceTest {
     /** Expected server result collection. */
     private static final Collection<Entry> EXPECTED_SRV_RESULT_COLL;
 
-    /** Node 0 id. */
-    private static final String NODE_ID_0 = "node-id-0";
-
-    /** Node 1 id. */
-    private static final String NODE_ID_1 = "node-id-1";
-
-    /** Cluster. */
-    private final ArrayList<ClusterService> cluster = new ArrayList<>();
-
-    /** Meta storage raft server. */
-    private final List<RaftManager> raftManagers = new ArrayList<>();
-
-    /** List of Raft services (for resource management purposes). */
-    private final List<RaftGroupService> raftGroupServices = new ArrayList<>();
-
-    /** Mock Metastorage storage. */
-    @Mock
-    private KeyValueStorage mockStorage;
-
-    /** Metastorage service. */
-    private MetaStorageService metaStorageSvc;
-
-    @WorkDirectory
-    private Path dataPath;
-
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
-
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();
 
-        EntryImpl entry1 = new EntryImpl(
+        Entry entry1 = new EntryImpl(
                 new byte[]{1},
                 new byte[]{2},
                 10,
@@ -201,7 +153,7 @@ public class ItMetaStorageServiceTest {
 
         EXPECTED_RESULT_MAP.put(new ByteArray(entry1.key()), entry1);
 
-        EntryImpl entry2 = new EntryImpl(
+        Entry entry2 = new EntryImpl(
                 new byte[]{3},
                 new byte[]{4},
                 10,
@@ -213,29 +165,115 @@ public class ItMetaStorageServiceTest {
         EXPECTED_SRV_RESULT_COLL = List.of(entry1, entry2);
     }
 
-    /**
-     * Run {@code NODES} cluster nodes.
-     */
+    private static class Node {
+        private final ClusterService clusterService;
+
+        private final RaftManager raftManager;
+
+        private final KeyValueStorage mockStorage;
+
+        private RaftGroupService metaStorageRaftService;
+
+        private MetaStorageService metaStorageService;
+
+        Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
+            this.clusterService = clusterService;
+
+            this.raftManager = new Loza(
+                    clusterService,
+                    raftConfiguration,
+                    dataPath.resolve(name()),
+                    new HybridClockImpl()
+            );
+
+            this.mockStorage = mock(KeyValueStorage.class);
+        }
+
+        void start(PeersAndLearners configuration) {
+            clusterService.start();
+            raftManager.start();
+
+            CompletableFuture<RaftGroupService> raftService = startRaftService(configuration);
+
+            assertThat(raftService, willCompleteSuccessfully());
+
+            metaStorageRaftService = raftService.join();
+
+            ClusterNode node = clusterService.topologyService().localMember();
+
+            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, node);
+        }
+
+        String name() {
+            return clusterService.localConfiguration().getName();
+        }
+
+        private CompletableFuture<RaftGroupService> startRaftService(PeersAndLearners configuration) {
+            String name = name();
+
+            boolean isLearner = configuration.peer(name) == null;
+
+            Peer peer = isLearner ? configuration.learner(name) : configuration.peer(name);
+
+            assert peer != null;
+
+            RaftGroupListener listener = isLearner ? new MetaStorageLearnerListener(mockStorage) : new MetaStorageListener(mockStorage);
+
+            var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
+
+            try {
+                return raftManager.startRaftGroupNode(raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr);
+            } catch (NodeStoppingException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        void stop() throws Exception {
+            Stream<AutoCloseable> raftStop = Stream.of(
+                    metaStorageRaftService == null ? null : (AutoCloseable) metaStorageRaftService::shutdown,
+                    () -> raftManager.stopRaftNodes(MetastorageGroupId.INSTANCE)
+            );
+
+            Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
+
+            Stream<AutoCloseable> nodeStop = Stream.of(raftManager, clusterService).map(c -> c::stop);
+
+            IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));
+        }
+    }
+
+    private TestInfo testInfo;
+
+    @WorkDirectory
+    private Path workDir;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
+    private final List<Node> nodes = new ArrayList<>();
+
     @BeforeEach
-    public void beforeTest(TestInfo testInfo) throws Exception {
-        List<NetworkAddress> localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + NODES);
+    public void beforeTest(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
+
+    private List<Node> startNodes(int amount) {
+        List<NetworkAddress> localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + amount);
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
-                .forEach(clusterService -> {
-                    clusterService.start();
-                    cluster.add(clusterService);
-                });
+                .forEach(clusterService -> nodes.add(new Node(clusterService, raftConfiguration, workDir)));
 
-        for (ClusterService node : cluster) {
-            assertTrue(waitForTopology(node, NODES, 1000));
-        }
+        PeersAndLearners metaStorageConfiguration = PeersAndLearners.fromConsistentIds(
+                Set.of(nodes.get(0).name()),
+                nodes.stream().skip(1).map(Node::name).collect(toUnmodifiableSet())
+        );
 
-        LOG.info("Cluster started.");
+        nodes.parallelStream().forEach(node -> node.start(metaStorageConfiguration));
 
-        metaStorageSvc = prepareMetaStorage();
+        return nodes;
     }
 
     /**
@@ -245,16 +283,7 @@ public class ItMetaStorageServiceTest {
      */
     @AfterEach
     public void afterTest() throws Exception {
-        Stream<AutoCloseable> stopRaftGroupServices = raftGroupServices.stream().map(service -> service::shutdown);
-
-        Stream<AutoCloseable> stopRaftGroups = raftManagers.stream()
-                .map(manager -> () -> manager.stopRaftNodes(MetastorageGroupId.INSTANCE));
-
-        Stream<AutoCloseable> beforeNodeStop = Stream.concat(raftManagers.stream(), cluster.stream()).map(c -> c::beforeNodeStop);
-
-        Stream<AutoCloseable> nodeStop = Stream.concat(raftManagers.stream(), cluster.stream()).map(c -> c::stop);
-
-        IgniteUtils.closeAll(Stream.of(stopRaftGroupServices, stopRaftGroups, beforeNodeStop, nodeStop).flatMap(Function.identity()));
+        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
     }
 
     /**
@@ -264,9 +293,11 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGet() throws Exception {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenReturn(EXPECTED_RESULT_ENTRY);
+        Node node = startNodes(1).get(0);
 
-        assertEquals(EXPECTED_RESULT_ENTRY, metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenReturn(EXPECTED_RESULT_ENTRY);
+
+        assertEquals(EXPECTED_RESULT_ENTRY, node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
     }
 
     /**
@@ -276,11 +307,13 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetWithUpperBoundRevision() throws Exception {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision())).thenReturn(EXPECTED_RESULT_ENTRY);
+        Node node = startNodes(1).get(0);
+
+        when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision())).thenReturn(EXPECTED_RESULT_ENTRY);
 
         assertEquals(
                 EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()).get()
+                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()).get()
         );
     }
 
@@ -291,9 +324,11 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetAll() throws Exception {
-        when(mockStorage.getAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        Node node = startNodes(1).get(0);
 
-        assertEquals(EXPECTED_RESULT_MAP, metaStorageSvc.getAll(EXPECTED_RESULT_MAP.keySet()).get());
+        when(node.mockStorage.getAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+
+        assertEquals(EXPECTED_RESULT_MAP, node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet()).get());
     }
 
     /**
@@ -303,11 +338,13 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetAllWithUpperBoundRevision() throws Exception {
-        when(mockStorage.getAll(anyList(), eq(10L))).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        Node node = startNodes(1).get(0);
+
+        when(node.mockStorage.getAll(anyList(), eq(10L))).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
         assertEquals(
                 EXPECTED_RESULT_MAP,
-                metaStorageSvc.getAll(EXPECTED_RESULT_MAP.keySet(), 10).get()
+                node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), 10).get()
         );
     }
 
@@ -318,13 +355,15 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testPut() throws Exception {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKey = new ByteArray(new byte[]{1});
 
         byte[] expVal = {2};
 
-        doNothing().when(mockStorage).put(expKey.bytes(), expVal);
+        doNothing().when(node.mockStorage).put(expKey.bytes(), expVal);
 
-        metaStorageSvc.put(expKey, expVal).get();
+        node.metaStorageService.put(expKey, expVal).get();
     }
 
     /**
@@ -334,13 +373,15 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetAndPut() throws Exception {
+        Node node = startNodes(1).get(0);
+
         byte[] expVal = {2};
 
-        when(mockStorage.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal)).thenReturn(EXPECTED_RESULT_ENTRY);
+        when(node.mockStorage.getAndPut(EXPECTED_RESULT_ENTRY.key(), expVal)).thenReturn(EXPECTED_RESULT_ENTRY);
 
         assertEquals(
                 EXPECTED_RESULT_ENTRY,
-                metaStorageSvc.getAndPut(new ByteArray(EXPECTED_RESULT_ENTRY.key()), expVal).get()
+                node.metaStorageService.getAndPut(new ByteArray(EXPECTED_RESULT_ENTRY.key()), expVal).get()
         );
     }
 
@@ -351,7 +392,9 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testPutAll() throws Exception {
-        metaStorageSvc.putAll(
+        Node node = startNodes(1).get(0);
+
+        node.metaStorageService.putAll(
                 EXPECTED_RESULT_MAP.entrySet().stream()
                         .collect(Collectors.toMap(
                                 Map.Entry::getKey,
@@ -362,7 +405,7 @@ public class ItMetaStorageServiceTest {
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(mockStorage).putAll(keysCaptor.capture(), valuesCaptor.capture());
+        verify(node.mockStorage).putAll(keysCaptor.capture(), valuesCaptor.capture());
 
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
@@ -392,9 +435,11 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetAndPutAll() throws Exception {
-        when(mockStorage.getAndPutAll(anyList(), anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        Node node = startNodes(1).get(0);
 
-        Map<ByteArray, Entry> gotRes = metaStorageSvc.getAndPutAll(
+        when(node.mockStorage.getAndPutAll(anyList(), anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+
+        Map<ByteArray, Entry> gotRes = node.metaStorageService.getAndPutAll(
                 EXPECTED_RESULT_MAP.entrySet().stream()
                         .collect(Collectors.toMap(
                                 Map.Entry::getKey,
@@ -407,7 +452,7 @@ public class ItMetaStorageServiceTest {
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(mockStorage).getAndPutAll(keysCaptor.capture(), valuesCaptor.capture());
+        verify(node.mockStorage).getAndPutAll(keysCaptor.capture(), valuesCaptor.capture());
 
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
@@ -437,11 +482,13 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRemove() throws Exception {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKey = new ByteArray(new byte[]{1});
 
-        doNothing().when(mockStorage).remove(expKey.bytes());
+        doNothing().when(node.mockStorage).remove(expKey.bytes());
 
-        metaStorageSvc.remove(expKey).get();
+        node.metaStorageService.remove(expKey).get();
     }
 
     /**
@@ -451,16 +498,18 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetAndRemove() throws Exception {
-        EntryImpl expRes = new EntryImpl(
+        Node node = startNodes(1).get(0);
+
+        Entry expRes = new EntryImpl(
                 new byte[]{1},
                 new byte[]{3},
                 10,
                 2
         );
 
-        when(mockStorage.getAndRemove(expRes.key())).thenReturn(expRes);
+        when(node.mockStorage.getAndRemove(expRes.key())).thenReturn(expRes);
 
-        assertEquals(expRes, metaStorageSvc.getAndRemove(new ByteArray(expRes.key())).get());
+        assertEquals(expRes, node.metaStorageService.getAndRemove(new ByteArray(expRes.key())).get());
     }
 
     /**
@@ -470,16 +519,16 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRemoveAll() throws Exception {
-        doNothing().when(mockStorage).removeAll(anyList());
+        Node node = startNodes(1).get(0);
 
-        metaStorageSvc.removeAll(EXPECTED_RESULT_MAP.keySet()).get();
+        node.metaStorageService.removeAll(EXPECTED_RESULT_MAP.keySet()).get();
 
         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
                 .map(ByteArray::bytes).collect(toList());
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(mockStorage).removeAll(keysCaptor.capture());
+        verify(node.mockStorage).removeAll(keysCaptor.capture());
 
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
 
@@ -495,15 +544,17 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testGetAndRemoveAll() throws Exception {
-        when(mockStorage.getAndRemoveAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+        Node node = startNodes(1).get(0);
 
-        Map<ByteArray, Entry> gotRes = metaStorageSvc.getAndRemoveAll(EXPECTED_RESULT_MAP.keySet()).get();
+        when(node.mockStorage.getAndRemoveAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
+
+        Map<ByteArray, Entry> gotRes = node.metaStorageService.getAndRemoveAll(EXPECTED_RESULT_MAP.keySet()).get();
 
         assertEquals(EXPECTED_RESULT_MAP, gotRes);
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(mockStorage).getAndRemoveAll(keysCaptor.capture());
+        verify(node.mockStorage).getAndRemoveAll(keysCaptor.capture());
 
         // Assert keys equality.
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
@@ -522,15 +573,17 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeWitKeyToAndUpperBound() {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
         long expRevUpperBound = 10;
 
-        when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound, false)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound, false)).thenReturn(mock(Cursor.class));
 
-        metaStorageSvc.range(expKeyFrom, expKeyTo, expRevUpperBound).close();
+        node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).close();
     }
 
     /**
@@ -539,13 +592,15 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeWitKeyTo() {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
-        when(mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), false)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), false)).thenReturn(mock(Cursor.class));
 
-        metaStorageSvc.range(expKeyFrom, expKeyTo).close();
+        node.metaStorageService.range(expKeyFrom, expKeyTo).close();
     }
 
     /**
@@ -554,11 +609,13 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeWitNullAsKeyTo() {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
-        when(mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(mock(Cursor.class));
+        when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(mock(Cursor.class));
 
-        metaStorageSvc.range(expKeyFrom, null).close();
+        node.metaStorageService.range(expKeyFrom, null).close();
     }
 
     /**
@@ -566,9 +623,11 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeHasNext() {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
-        when(mockStorage.range(expKeyFrom.bytes(), null, false)).thenAnswer(invocation -> {
+        when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -576,7 +635,7 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        Cursor<Entry> cursor = metaStorageSvc.range(expKeyFrom, null);
+        Cursor<Entry> cursor = node.metaStorageService.range(expKeyFrom, null);
 
         assertTrue(cursor.iterator().hasNext());
     }
@@ -586,7 +645,9 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeNext() {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
+        Node node = startNodes(1).get(0);
+
+        when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -595,7 +656,7 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        Cursor<Entry> cursor = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        Cursor<Entry> cursor = node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertEquals(EXPECTED_RESULT_ENTRY, cursor.iterator().next());
     }
@@ -605,7 +666,9 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeNextNoSuchElementException() {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
+        Node node = startNodes(1).get(0);
+
+        when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -614,7 +677,7 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        Cursor<Entry> cursor = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        Cursor<Entry> cursor = node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertThrows(NoSuchElementException.class, () -> cursor.iterator().next());
     }
@@ -625,13 +688,15 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testRangeClose() {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
-        Cursor cursorMock = mock(Cursor.class);
+        Cursor<Entry> cursorMock = mock(Cursor.class);
 
-        when(mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(cursorMock);
+        when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(cursorMock);
 
-        Cursor<Entry> cursor = metaStorageSvc.range(expKeyFrom, null);
+        Cursor<Entry> cursor = node.metaStorageService.range(expKeyFrom, null);
 
         cursor.close();
 
@@ -639,110 +704,9 @@ public class ItMetaStorageServiceTest {
     }
 
     @Test
-    public void testWatchOnUpdate() throws Exception {
-        WatchEvent expectedEvent =
-                new WatchEvent(List.of(
-                        new EntryEvent(
-                                new EntryImpl(
-                                        new byte[]{2},
-                                        new byte[]{20},
-                                        1,
-                                        1
-                                ),
-                                new EntryImpl(
-                                        new byte[]{2},
-                                        new byte[]{21},
-                                        2,
-                                        4
-                                )
-                        ),
-                        new EntryEvent(
-                                new EntryImpl(
-                                        new byte[]{3},
-                                        new byte[]{20},
-                                        1,
-                                        2
-                                ),
-                                new EntryImpl(
-                                        new byte[]{3},
-                                        new byte[]{},
-                                        2,
-                                        5
-                                )
-                        ),
-                        new EntryEvent(
-                                new EntryImpl(
-                                        new byte[]{4},
-                                        new byte[]{20},
-                                        1,
-                                        3
-                                ),
-                                new EntryImpl(
-                                        new byte[]{4},
-                                        new byte[]{},
-                                        3,
-                                        6
-                                )
-                        )
-                ));
-
-        ByteArray keyFrom = new ByteArray(new byte[]{1});
-
-        ByteArray keyTo = new ByteArray(new byte[]{10});
-
-        long rev = 2;
-
-        when(mockStorage.watch(keyFrom.bytes(), keyTo.bytes(), rev)).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(true);
-            when(cursor.next()).thenReturn(expectedEvent);
-
-            return cursor;
-        });
-
-        CountDownLatch latch = new CountDownLatch(1);
-
-        IgniteUuid watchId = metaStorageSvc.watch(keyFrom, keyTo, rev, new WatchListener() {
-            @Override
-            public boolean onUpdate(@NotNull WatchEvent event) {
-                Collection<EntryEvent> expectedEvents = expectedEvent.entryEvents();
-                Collection<EntryEvent> actualEvents = event.entryEvents();
-
-                assertEquals(expectedEvents.size(), actualEvents.size());
-
-                Iterator<EntryEvent> expectedIterator = expectedEvents.iterator();
-                Iterator<EntryEvent> actualIterator = actualEvents.iterator();
-
-                while (expectedIterator.hasNext() && actualIterator.hasNext()) {
-                    EntryEvent expectedEntryEvent = expectedIterator.next();
-                    EntryEvent actualEntryEvent = actualIterator.next();
-
-                    assertArrayEquals(expectedEntryEvent.oldEntry().key(), actualEntryEvent.oldEntry().key());
-                    assertArrayEquals(expectedEntryEvent.oldEntry().value(), actualEntryEvent.oldEntry().value());
-                    assertArrayEquals(expectedEntryEvent.newEntry().key(), actualEntryEvent.newEntry().key());
-                    assertArrayEquals(expectedEntryEvent.newEntry().value(), actualEntryEvent.newEntry().value());
-                }
-
-                latch.countDown();
-
-                return true;
-            }
-
-            @Override
-            public void onError(@NotNull Throwable e) {
-                // Within given test it's not expected to get here.
-                fail();
-            }
-        }).get();
-
-        latch.await();
-
-        metaStorageSvc.stopWatch(watchId).get();
-    }
-
-    @Test
     public void testMultiInvoke() throws Exception {
+        Node node = startNodes(1).get(0);
+
         ByteArray key1 = new ByteArray(new byte[]{1});
         ByteArray key2 = new ByteArray(new byte[]{2});
         ByteArray key3 = new ByteArray(new byte[]{3});
@@ -780,11 +744,11 @@ public class ItMetaStorageServiceTest {
 
         var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
 
-        when(mockStorage.invoke(any())).thenReturn(new StatementResult(true));
+        when(node.mockStorage.invoke(any())).thenReturn(new StatementResult(true));
 
-        assertTrue(metaStorageSvc.invoke(iif).get().getAsBoolean());
+        assertTrue(node.metaStorageService.invoke(iif).get().getAsBoolean());
 
-        verify(mockStorage).invoke(ifCaptor.capture());
+        verify(node.mockStorage).invoke(ifCaptor.capture());
 
         var resultIf = ifCaptor.getValue();
 
@@ -818,11 +782,13 @@ public class ItMetaStorageServiceTest {
 
     @Test
     public void testInvoke() throws Exception {
+        Node node = startNodes(1).get(0);
+
         ByteArray expKey = new ByteArray(new byte[]{1});
 
         byte[] expVal = {2};
 
-        when(mockStorage.invoke(any(), any(), any())).thenReturn(true);
+        when(node.mockStorage.invoke(any(), any(), any())).thenReturn(true);
 
         Condition condition = Conditions.notExists(expKey);
 
@@ -830,7 +796,7 @@ public class ItMetaStorageServiceTest {
 
         Operation failure = Operations.noop();
 
-        assertTrue(metaStorageSvc.invoke(condition, success, failure).get());
+        assertTrue(node.metaStorageService.invoke(condition, success, failure).get());
 
         var conditionCaptor = ArgumentCaptor.forClass(AbstractSimpleCondition.class);
 
@@ -838,7 +804,7 @@ public class ItMetaStorageServiceTest {
 
         ArgumentCaptor<Collection<Operation>> failureCaptor = ArgumentCaptor.forClass(Collection.class);
 
-        verify(mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture());
+        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture());
 
         assertArrayEquals(expKey.bytes(), conditionCaptor.getValue().key());
 
@@ -857,10 +823,11 @@ public class ItMetaStorageServiceTest {
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
     public void testGetThatThrowsCompactedException() {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key()))
-                .thenThrow(new org.apache.ignite.internal.metastorage.server.CompactedException());
+        Node node = startNodes(1).get(0);
 
-        assertThrows(CompactedException.class, () -> metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenThrow(new CompactedException());
+
+        assertThrows(CompactedException.class, () -> node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
     }
 
     /**
@@ -869,9 +836,11 @@ public class ItMetaStorageServiceTest {
     @Disabled // TODO: IGNITE-14693 Add tests for exception handling logic.
     @Test
     public void testGetThatThrowsOperationTimeoutException() {
-        when(mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenThrow(new OperationTimeoutException());
+        Node node = startNodes(1).get(0);
 
-        assertThrows(OperationTimeoutException.class, () -> metaStorageSvc.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenThrow(new OperationTimeoutException());
+
+        assertThrows(OperationTimeoutException.class, () -> node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
     }
 
     /**
@@ -881,7 +850,12 @@ public class ItMetaStorageServiceTest {
      */
     @Test
     public void testCursorsCleanup() throws Exception {
-        when(mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
+        startNodes(2);
+
+        Node leader = nodes.get(0);
+        Node learner = nodes.get(1);
+
+        when(leader.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null, false)).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenReturn(true);
@@ -890,31 +864,19 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        String localName = cluster.get(0).topologyService().localMember().name();
-
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(localName));
-
-        RaftGroupService metaStorageRaftSvc2 = raftManagers.get(1)
-                .startRaftGroupService(MetastorageGroupId.INSTANCE, configuration)
-                .get(3, TimeUnit.SECONDS);
-
-        raftGroupServices.add(metaStorageRaftSvc2);
-
-        MetaStorageService metaStorageSvc2 = new MetaStorageServiceImpl(metaStorageRaftSvc2, NODE_ID_1, NODE_ID_1);
-
-        Cursor<Entry> cursorNode0 = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        Cursor<Entry> cursorNode0 = leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertTrue(cursorNode0.hasNext());
 
-        Cursor<Entry> cursor2Node0 = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        Cursor<Entry> cursor2Node0 = leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertTrue(cursor2Node0.hasNext());
 
-        Cursor<Entry> cursorNode1 = metaStorageSvc2.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        Cursor<Entry> cursorNode1 = learner.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
 
         assertTrue(cursorNode1.hasNext());
 
-        metaStorageSvc.closeCursors(NODE_ID_0).get();
+        leader.metaStorageService.closeCursors(leader.clusterService.topologyService().localMember().id()).get();
 
         assertThrows(NoSuchElementException.class, () -> cursorNode0.iterator().next());
 
@@ -976,7 +938,7 @@ public class ItMetaStorageServiceTest {
     }
 
     /**
-     * Matcher for {@link org.apache.ignite.internal.metastorage.server.Condition}.
+     * Matcher for {@link Condition}.
      */
     protected static class ServerConditionMatcher extends TypeSafeMatcher<org.apache.ignite.internal.metastorage.server.Condition> {
 
@@ -1027,56 +989,6 @@ public class ItMetaStorageServiceTest {
                 throw new IllegalArgumentException("Unknown condition type " + cond.getClass().getSimpleName());
             }
 
-        }
-    }
-
-    /**
-     * Prepares meta storage by instantiating corresponding raft server with {@link MetaStorageListener} and {@link
-     * MetaStorageServiceImpl}.
-     *
-     * @return {@link MetaStorageService} instance.
-     */
-    private MetaStorageService prepareMetaStorage() throws Exception {
-        String localName = cluster.get(0).topologyService().localMember().name();
-
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(localName));
-
-        CompletableFuture<RaftGroupService> firstService = startRaftService(cluster.get(0), configuration);
-        CompletableFuture<RaftGroupService> secondService = startRaftService(cluster.get(1), configuration);
-
-        assertThat(allOf(firstService, secondService), willCompleteSuccessfully());
-
-        raftGroupServices.add(firstService.join());
-        raftGroupServices.add(secondService.join());
-
-        RaftGroupService metaStorageRaftGrpSvc = secondService.join();
-
-        return new MetaStorageServiceImpl(metaStorageRaftGrpSvc, NODE_ID_0, NODE_ID_0);
-    }
-
-    private CompletableFuture<RaftGroupService> startRaftService(
-            ClusterService node, PeersAndLearners configuration
-    ) throws NodeStoppingException {
-        var raftManager = new Loza(
-                node,
-                raftConfiguration,
-                dataPath.resolve("raftManager" + raftManagers.size()),
-                new HybridClockImpl());
-
-        raftManager.start();
-
-        raftManagers.add(raftManager);
-
-        Peer serverPeer = configuration.peer(node.topologyService().localMember().name());
-
-        if (serverPeer == null) {
-            return raftManager.startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
-        } else {
-            var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, serverPeer);
-
-            return raftManager.startRaftGroupNode(
-                    nodeId, configuration, new MetaStorageListener(mockStorage), RaftGroupEventsListener.noopLsnr
-            );
         }
     }
 }

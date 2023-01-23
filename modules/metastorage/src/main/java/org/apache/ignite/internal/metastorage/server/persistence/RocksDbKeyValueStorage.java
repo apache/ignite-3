@@ -24,16 +24,19 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.getAsLongs;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.keyToRocksKey;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.longToBytes;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.revisionFromRocksKey;
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.rocksKeyToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.WATCH_EXECUTION_ERR;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -44,14 +47,25 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.LongConsumer;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
@@ -62,10 +76,12 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.Value;
+import org.apache.ignite.internal.metastorage.server.Watch;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksBiPredicate;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -81,6 +97,7 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
@@ -96,6 +113,8 @@ import org.rocksdb.WriteOptions;
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
 public class RocksDbKeyValueStorage implements KeyValueStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
+
     /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
@@ -127,7 +146,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
     /** Thread-pool for snapshot operations execution. */
-    private final ExecutorService snapshotExecutor = Executors.newFixedThreadPool(2);
+    private final ExecutorService snapshotExecutor;
 
     /** Path to the rocksdb database. */
     private final Path dbPath;
@@ -153,13 +172,55 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Update counter. Will be incremented for each update of any particular entry. */
     private volatile long updCntr;
 
+    /** Executor for processing watch events. */
+    private final ExecutorService watchExecutor;
+
+    /**
+     * Future representing the task of polling the {@code eventQueue}. Needed for cancelling the task on storage stop.
+     */
+    @Nullable
+    private volatile Future<?> watchExecutorFuture;
+
+    /** List of watches that listen to storage events. */
+    private final List<Watch> watches = new CopyOnWriteArrayList<>();
+
+    /** Status of the watch recovery process. */
+    private enum RecoveryStatus {
+        INITIAL,
+        PENDING,
+        IN_PROGRESS,
+        DONE
+    }
+
+    /**
+     * Current status of the watch recovery process. Watch recovery is needed for replaying missed updated when {@link #startWatches}
+     * is called.
+     */
+    private final AtomicReference<RecoveryStatus> recoveryStatus = new AtomicReference<>(RecoveryStatus.INITIAL);
+
+    /** Queue of update events, consumed by the {@link #watchExecutor}. */
+    private final BlockingQueue<List<Entry>> eventQueue = new LinkedBlockingQueue<>();
+
+    /**
+     * Current list of updated entries.
+     *
+     * <p>Since this list gets read and updated only on writes (under a write lock), no extra synchronisation is needed.
+     */
+    private final List<Entry> updatedEntries = new ArrayList<>();
+
+    /** Callback that gets notified after a {@link WatchEvent} has been processed by all registered watches. */
+    private volatile LongConsumer revisionCallback;
+
     /**
      * Constructor.
      *
      * @param dbPath RocksDB path.
      */
-    public RocksDbKeyValueStorage(Path dbPath) {
+    public RocksDbKeyValueStorage(String nodeName, Path dbPath) {
         this.dbPath = dbPath;
+
+        this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
+        this.watchExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "metastorage-watch-executor", LOG));
     }
 
     /** {@inheritDoc} */
@@ -228,6 +289,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** {@inheritDoc} */
     @Override
     public void close() {
+        Future<?> f = watchExecutorFuture;
+
+        if (f != null) {
+            f.cancel(true);
+        }
+
+        IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, TimeUnit.SECONDS);
+
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
         RocksUtils.closeAll(db, options);
@@ -242,6 +311,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** {@inheritDoc} */
     @Override
     public void restoreSnapshot(Path path) {
+        long currentRevision;
+
         rwLock.writeLock().lock();
 
         try {
@@ -252,13 +323,20 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             snapshotManager.restoreSnapshot(path);
 
-            rev = bytesToLong(data.get(REVISION_KEY));
+            currentRevision = bytesToLong(data.get(REVISION_KEY));
+
+            rev = currentRevision;
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
         } catch (Exception e) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         } finally {
             rwLock.writeLock().unlock();
+        }
+
+        // Replay updates if startWatches() has already been called.
+        if (recoveryStatus.compareAndSet(RecoveryStatus.PENDING, RecoveryStatus.IN_PROGRESS)) {
+            replayUpdates(currentRevision);
         }
     }
 
@@ -333,6 +411,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rev = newRev;
             updCntr = newCntr;
         }
+
+        queueWatchEvent();
+    }
+
+    private static Entry entry(byte[] key, long revision, Value value) {
+        return value.tombstone()
+                ? EntryImpl.tombstone(key, revision, value.updateCounter())
+                : new EntryImpl(key, value.bytes(), revision, value.updateCounter());
     }
 
     /** {@inheritDoc} */
@@ -347,7 +433,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             long[] revs = getRevisions(key);
 
-            final long lastRev = revs.length == 0 ? 0 : lastRevision(revs);
+            long lastRev = revs.length == 0 ? 0 : lastRevision(revs);
 
             addDataToBatch(batch, key, value, curRev, cntr);
 
@@ -706,29 +792,38 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
-        return new RangeCursor(this, prefix, incrementArray(prefix), revUpperBound, includeTombstones);
+        return new RangeCursor(this, prefix, incrementPrefix(prefix), revUpperBound, includeTombstones);
     }
 
     @Override
-    public Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
+    public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
         assert keyFrom != null : "keyFrom couldn't be null.";
         assert rev > 0 : "rev must be positive.";
 
-        return new WatchCursor(this, rev, k ->
-                CMP.compare(keyFrom, k) <= 0 && (keyTo == null || CMP.compare(k, keyTo) < 0)
-        );
+        Predicate<byte[]> rangePredicate = keyTo == null
+                ? k -> CMP.compare(keyFrom, k) <= 0
+                : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
+
+        watches.add(new Watch(rev, listener, rangePredicate));
     }
 
     @Override
-    public Cursor<WatchEvent> watch(byte[] key, long rev) {
+    public void watchPrefix(byte[] prefix, long rev, WatchListener listener) {
+        watchRange(prefix, incrementPrefix(prefix), rev, listener);
+    }
+
+    @Override
+    public void watchExact(byte[] key, long rev, WatchListener listener) {
         assert key != null : "key couldn't be null.";
         assert rev > 0 : "rev must be positive.";
 
-        return new WatchCursor(this, rev, k -> CMP.compare(k, key) == 0);
+        Predicate<byte[]> exactPredicate = k -> CMP.compare(k, key) == 0;
+
+        watches.add(new Watch(rev, listener, exactPredicate));
     }
 
     @Override
-    public Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev) {
+    public void watchExact(Collection<byte[]> keys, long rev, WatchListener listener) {
         assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
         assert rev > 0 : "rev must be positive.";
 
@@ -736,7 +831,46 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         keySet.addAll(keys);
 
-        return new WatchCursor(this, rev, keySet::contains);
+        Predicate<byte[]> inPredicate = keySet::contains;
+
+        watches.add(new Watch(rev, listener, inPredicate));
+    }
+
+    @Override
+    public void startWatches(LongConsumer revisionCallback) {
+        long currentRevision;
+
+        rwLock.readLock().lock();
+
+        try {
+            assert this.revisionCallback == null;
+
+            this.revisionCallback = revisionCallback;
+
+            currentRevision = rev;
+
+            // We update the recovery status under the read lock in order to avoid races between starting watches and applying a snapshot
+            // or concurrent writes. Replay of events can be done outside of the read lock relying on RocksDB snapshot isolation.
+            if (currentRevision == 0) {
+                // Revision can be 0 if there's no data in the storage. We set the status to PENDING expecting that it will be further
+                // updated either by applying a snapshot or by the first write to the storage.
+                recoveryStatus.set(RecoveryStatus.PENDING);
+            } else {
+                // If revision is not 0, we need to replay updates that match the existing data.
+                recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
+            }
+        } finally {
+            rwLock.readLock().unlock();
+        }
+
+        if (currentRevision != 0) {
+            replayUpdates(currentRevision);
+        }
+    }
+
+    @Override
+    public void removeWatch(WatchListener listener) {
+        watches.removeIf(watch -> watch.listener() == listener);
     }
 
     @Override
@@ -815,7 +949,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param rev  Target revision.
      * @return Collection of entries.
      */
-    @NotNull
     private Collection<Entry> doGetAll(Collection<byte[]> keys, long rev) {
         assert keys != null : "keys list can't be null.";
         assert !keys.isEmpty() : "keys list can't be empty.";
@@ -843,8 +976,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param revUpperBound  Target upper bound of revision.
      * @return Value.
      */
-    @NotNull
-    Entry doGet(byte[] key, long revUpperBound) {
+    private Entry doGet(byte[] key, long revUpperBound) {
         assert revUpperBound >= LATEST_REV : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
 
         long[] revs;
@@ -878,7 +1010,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * Get a list of the revisions of the entry corresponding to the key.
      *
      * @param key Key.
-     * @return List of the revisions.
+     * @return Array of revisions.
      * @throws RocksDBException If failed to perform {@link RocksDB#get(ColumnFamilyHandle, byte[])}.
      */
     private long[] getRevisions(byte[] key) throws RocksDBException {
@@ -918,7 +1050,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param revision Target revision.
      * @return Entry.
      */
-    @NotNull
     Entry doGetValue(byte[] key, long revision) {
         if (revision == 0) {
             return EntryImpl.empty(key);
@@ -961,6 +1092,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         byte[] rocksValue = valueToBytes(value, cntr);
 
         data.put(batch, rocksKey, rocksValue);
+
+        updatedEntries.add(entry(key, curRev, new Value(value, cntr)));
     }
 
     /**
@@ -1040,16 +1173,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Creates a new iterator over the {@link StorageColumnFamilyType#DATA} column family.
-     *
-     * @param options Read options.
-     * @return Iterator.
-     */
-    public RocksIterator newDataIterator(ReadOptions options) {
-        return data.newIterator(options);
-    }
-
-    /**
      * Gets last revision from the list.
      *
      * @param revs Revisions.
@@ -1060,17 +1183,166 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
+     * Adds modified entries to the watch event queue.
+     */
+    private void queueWatchEvent() {
+        if (updatedEntries.isEmpty()) {
+            return;
+        }
+
+        switch (recoveryStatus.get()) {
+            case INITIAL:
+                // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
+                updatedEntries.clear();
+
+                break;
+
+            case PENDING:
+                // Watches have been enabled, but no event replay happened because there was no data in the
+                // storage. Since we are adding some data here, we need to start the watch processor thread.
+                recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
+
+                startWatchExecutor();
+
+                publishWatchEvent();
+
+                break;
+
+            default:
+                publishWatchEvent();
+
+                break;
+        }
+    }
+
+    private void publishWatchEvent() {
+        List<Entry> updatedEntriesCopy = List.copyOf(updatedEntries);
+
+        updatedEntries.clear();
+
+        try {
+            eventQueue.put(updatedEntriesCopy);
+        } catch (InterruptedException e) {
+            throw new MetaStorageException(WATCH_EXECUTION_ERR, "Interrupted when publishing a watch event", e);
+        }
+    }
+
+    /**
+     * Notifies registered watches about an update event.
+     */
+    private void notifyWatches(List<Entry> updatedEntries) {
+        // Revision must be the same for all entries.
+        long newRevision = updatedEntries.get(0).revision();
+
+        for (Watch watch : watches) {
+            var entryEvents = new ArrayList<EntryEvent>();
+
+            for (Entry newEntry : updatedEntries) {
+                byte[] newKey = newEntry.key();
+
+                assert newEntry.revision() == newRevision;
+
+                if (watch.matches(newKey, newRevision)) {
+                    Entry oldEntry = get(newKey, newRevision - 1);
+
+                    entryEvents.add(new EntryEvent(oldEntry, newEntry));
+                }
+            }
+
+            if (!entryEvents.isEmpty()) {
+                var event = new WatchEvent(entryEvents, newRevision);
+
+                try {
+                    watch.onUpdate(event);
+                } catch (Exception e) {
+                    watch.onError(e);
+
+                    LOG.error("Error occurred when processing a watch event {}, watch will be disabled", e, event);
+
+                    watches.remove(watch);
+                }
+            }
+        }
+
+        // Watch processing for the new revision is done, notify the revision callback.
+        revisionCallback.accept(newRevision);
+    }
+
+    private void replayUpdates(long upperRevision) {
+        long minWatchRevision = watches.stream()
+                .mapToLong(Watch::targetRevision)
+                .min()
+                .orElse(-1);
+
+        if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
+            return;
+        }
+
+        var updatedEntries = new ArrayList<Entry>();
+
+        try (
+                var upperBound = new Slice(longToBytes(upperRevision + 1));
+                var options = new ReadOptions().setIterateUpperBound(upperBound);
+                RocksIterator it = data.newIterator(options)
+        ) {
+            it.seek(longToBytes(minWatchRevision));
+
+            long lastSeenRevision = minWatchRevision;
+
+            for (; it.isValid(); it.next()) {
+                byte[] rocksKey = it.key();
+                byte[] rocksValue = it.value();
+
+                long revision = revisionFromRocksKey(rocksKey);
+
+                if (revision != lastSeenRevision) {
+                    if (!updatedEntries.isEmpty()) {
+                        var updatedEntriesCopy = List.copyOf(updatedEntries);
+
+                        watchExecutor.execute(() -> notifyWatches(updatedEntriesCopy));
+
+                        updatedEntries.clear();
+                    }
+
+                    lastSeenRevision = revision;
+                }
+
+                updatedEntries.add(entry(rocksKeyToBytes(rocksKey), revision, bytesToValue(rocksValue)));
+            }
+
+            RocksUtils.checkIterator(it);
+
+            // Notify about the events left after finishing the cycle above.
+            if (!updatedEntries.isEmpty()) {
+                watchExecutor.execute(() -> notifyWatches(updatedEntries));
+            }
+        }
+
+        // Events replay is finished, now we can start processing more recent events from the event queue.
+        startWatchExecutor();
+    }
+
+    private void startWatchExecutor() {
+        if (recoveryStatus.compareAndSet(RecoveryStatus.IN_PROGRESS, RecoveryStatus.DONE)) {
+            watchExecutorFuture = watchExecutor.submit(() -> {
+                while (!Thread.currentThread().isInterrupted()) {
+                    try {
+                        notifyWatches(eventQueue.take());
+                    } catch (InterruptedException e) {
+                        LOG.info("Watch Executor interrupted, watches stopped");
+
+                        return;
+                    }
+                }
+            });
+        }
+    }
+
+    /**
      * Returns database lock.
      */
     ReadWriteLock lock() {
         return rwLock;
-    }
-
-    /**
-     * Returns database.
-     */
-    RocksDB db() {
-        return db;
     }
 
     @TestOnly

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementArray;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
 import java.nio.file.Path;
@@ -26,8 +26,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -35,22 +33,33 @@ import java.util.NoSuchElementException;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Simple in-memory key/value storage.
+ * Simple in-memory key/value storage for tests.
  */
 public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(SimpleInMemoryKeyValueStorage.class);
+
     /** Lexicographical comparator. */
     private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
@@ -63,7 +72,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private NavigableMap<byte[], List<Long>> keysIdx = new TreeMap<>(CMP);
 
     /** Revisions index. Value contains all entries which were modified under particular revision. */
-    private Map<Long, NavigableMap<byte[], Value>> revsIdx = new HashMap<>();
+    private NavigableMap<Long, NavigableMap<byte[], Value>> revsIdx = new TreeMap<>();
 
     /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
     private long rev;
@@ -73,6 +82,20 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     /** All operations are queued on this lock. */
     private final Object mux = new Object();
+
+    private final List<Watch> watches = new CopyOnWriteArrayList<>();
+
+    private boolean areWatchesEnabled = false;
+
+    private LongConsumer revisionCallback;
+
+    private final ExecutorService watchExecutor;
+
+    private final List<Entry> updatedEntries = new ArrayList<>();
+
+    public SimpleInMemoryKeyValueStorage(String nodeName) {
+        this.watchExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "watch-executor", LOG));
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -104,12 +127,17 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             doPut(key, value, curRev);
 
-            rev = curRev;
+            updateRevision(curRev);
         }
     }
 
+    private void updateRevision(long newRevision) {
+        rev = newRevision;
+
+        notifyWatches(newRevision);
+    }
+
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Entry getAndPut(byte[] key, byte[] bytes) {
         synchronized (mux) {
@@ -117,7 +145,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             long lastRev = doPut(key, bytes, curRev);
 
-            rev = curRev;
+            updateRevision(curRev);
 
             // Return previous value.
             return doGetValue(key, lastRev);
@@ -135,7 +163,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values) {
         Collection<Entry> res;
@@ -152,7 +179,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Entry get(byte[] key) {
         synchronized (mux) {
@@ -161,7 +187,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Entry get(byte[] key, long revUpperBound) {
         synchronized (mux) {
@@ -170,14 +195,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Collection<Entry> getAll(List<byte[]> keys) {
         return doGetAll(keys, LATEST_REV);
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Collection<Entry> getAll(List<byte[]> keys, long revUpperBound) {
         return doGetAll(keys, revUpperBound);
@@ -190,13 +213,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             long curRev = rev + 1;
 
             if (doRemove(key, curRev)) {
-                rev = curRev;
+                updateRevision(curRev);
             }
         }
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Entry getAndRemove(byte[] key) {
         synchronized (mux) {
@@ -237,7 +259,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Collection<Entry> getAndRemoveAll(List<byte[]> keys) {
         Collection<Entry> res = new ArrayList<>(keys.size());
@@ -306,7 +327,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             }
 
             if (modified) {
-                rev = curRev;
+                updateRevision(curRev);
             }
 
             return branch;
@@ -350,7 +371,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     }
 
                     if (modified) {
-                        rev = curRev;
+                        updateRevision(curRev);
                     }
 
                     return branch.update().result();
@@ -390,29 +411,38 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones) {
-        return new RangeCursor(prefix, incrementArray(prefix), revUpperBound, includeTombstones);
+        return new RangeCursor(prefix, incrementPrefix(prefix), revUpperBound, includeTombstones);
     }
 
     @Override
-    public Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev) {
+    public void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener) {
         assert keyFrom != null : "keyFrom couldn't be null.";
         assert rev > 0 : "rev must be positive.";
 
-        return new WatchCursor(rev, k ->
-                CMP.compare(keyFrom, k) <= 0 && (keyTo == null || CMP.compare(k, keyTo) < 0)
-        );
+        Predicate<byte[]> rangePredicate = keyTo == null
+                ? k -> CMP.compare(keyFrom, k) <= 0
+                : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
+
+        watches.add(new Watch(rev, listener, rangePredicate));
     }
 
     @Override
-    public Cursor<WatchEvent> watch(byte[] key, long rev) {
+    public void watchPrefix(byte[] prefix, long rev, WatchListener listener) {
+        watchRange(prefix, incrementPrefix(prefix), rev, listener);
+    }
+
+    @Override
+    public void watchExact(byte[] key, long rev, WatchListener listener) {
         assert key != null : "key couldn't be null.";
         assert rev > 0 : "rev must be positive.";
 
-        return new WatchCursor(rev, k -> CMP.compare(k, key) == 0);
+        Predicate<byte[]> exactPredicate = k -> CMP.compare(k, key) == 0;
+
+        watches.add(new Watch(rev, listener, exactPredicate));
     }
 
     @Override
-    public Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev) {
+    public void watchExact(Collection<byte[]> keys, long rev, WatchListener listener) {
         assert keys != null && !keys.isEmpty() : "keys couldn't be null or empty: " + keys;
         assert rev > 0 : "rev must be positive.";
 
@@ -420,7 +450,95 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         keySet.addAll(keys);
 
-        return new WatchCursor(rev, keySet::contains);
+        Predicate<byte[]> inPredicate = keySet::contains;
+
+        watches.add(new Watch(rev, listener, inPredicate));
+    }
+
+    @Override
+    public void startWatches(LongConsumer revisionCallback) {
+        synchronized (mux) {
+            areWatchesEnabled = true;
+
+            assert this.revisionCallback == null;
+
+            this.revisionCallback = revisionCallback;
+
+            replayUpdates();
+        }
+    }
+
+    private void replayUpdates() {
+        long minWatchRevision = watches.stream()
+                .mapToLong(Watch::targetRevision)
+                .min()
+                .orElse(-1);
+
+        if (minWatchRevision == -1) {
+            return;
+        }
+
+        revsIdx.tailMap(minWatchRevision)
+                .forEach((revision, entries) -> {
+                    entries.forEach((key, value) -> {
+                        var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter());
+
+                        updatedEntries.add(entry);
+                    });
+
+                    notifyWatches(revision);
+                });
+    }
+
+    private void notifyWatches(long revision) {
+        if (!areWatchesEnabled || updatedEntries.isEmpty()) {
+            return;
+        }
+
+        // Make a local copy of the non-volatile field while we are still under the lock.
+        LongConsumer revisionCallback = this.revisionCallback;
+
+        var updatedEntriesCopy = List.copyOf(updatedEntries);
+
+        updatedEntries.clear();
+
+        watchExecutor.execute(() -> {
+            for (Watch watch : watches) {
+                var entryEvents = new ArrayList<EntryEvent>();
+
+                for (Entry newEntry : updatedEntriesCopy) {
+                    byte[] newKey = newEntry.key();
+
+                    if (watch.matches(newKey, revision)) {
+                        Entry oldEntry = get(newKey, revision - 1);
+
+                        entryEvents.add(new EntryEvent(oldEntry, newEntry));
+                    }
+                }
+
+                if (!entryEvents.isEmpty()) {
+                    var event = new WatchEvent(entryEvents, revision);
+
+                    try {
+                        watch.onUpdate(event);
+                    } catch (Exception e) {
+                        watch.onError(e);
+
+                        LOG.error("Error occurred when processing a watch event {}, watch will be disabled", e, event);
+
+                        watches.remove(watch);
+                    }
+                }
+            }
+
+            // Watch processing for the new revision is done, notify the revision callback.
+            revisionCallback.accept(revision);
+        });
+    }
+
+    @Override
+    public void removeWatch(WatchListener listener) {
+        watches.removeIf(watch -> watch.listener() == listener);
     }
 
     @Override
@@ -428,7 +546,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         synchronized (mux) {
             NavigableMap<byte[], List<Long>> compactedKeysIdx = new TreeMap<>(CMP);
 
-            Map<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new HashMap<>();
+            NavigableMap<Long, NavigableMap<byte[], Value>> compactedRevsIdx = new TreeMap<>();
 
             keysIdx.forEach((key, revs) -> compactForKey(key, revs, compactedKeysIdx, compactedRevsIdx));
 
@@ -440,10 +558,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void close() {
-        // No-op.
+        IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, TimeUnit.SECONDS);
     }
 
-    @NotNull
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
         throw new UnsupportedOperationException();
@@ -490,7 +607,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    @NotNull
     private Collection<Entry> doGetAll(List<byte[]> keys, long rev) {
         assert keys != null : "keys list can't be null.";
         assert !keys.isEmpty() : "keys list can't be empty.";
@@ -507,7 +623,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return res;
     }
 
-    @NotNull
     private Entry doGet(byte[] key, long revUpperBound) {
         assert revUpperBound >= LATEST_REV : "Invalid arguments: [revUpperBound=" + revUpperBound + ']';
 
@@ -537,7 +652,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
      * Returns maximum revision which must be less or equal to {@code upperBoundRev}. If there is no such revision then {@code -1} will be
      * returned.
      *
-     * @param revs          Revisions list.
+     * @param revs Revisions list.
      * @param upperBoundRev Revision upper bound.
      * @return Appropriate revision or {@code -1} if there is no such revision.
      */
@@ -555,7 +670,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         return -1;
     }
 
-    @NotNull
     private Entry doGetValue(byte[] key, long lastRev) {
         if (lastRev == 0) {
             return EntryImpl.empty(key);
@@ -602,6 +716,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 }
         );
 
+        var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, curUpdCntr);
+
+        updatedEntries.add(updatedEntry);
+
         return lastRev;
     }
 
@@ -626,10 +744,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                 entries.put(key, val);
 
+                updatedEntries.add(new EntryImpl(key, bytes, curRev, curUpdCntr));
+
                 revsIdx.put(curRev, entries);
             }
 
-            rev = curRev;
+            updateRevision(curRev);
 
             return curRev;
         }
@@ -653,12 +773,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private class RangeCursor implements Cursor<Entry> {
         private final byte[] keyFrom;
 
-        private final byte[] keyTo;
+        private final byte @Nullable [] keyTo;
 
         private final long rev;
 
-        private final Iterator<Entry> it;
-
+        @Nullable
         private Entry nextRetEntry;
 
         private byte[] lastRetKey;
@@ -667,239 +786,99 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         private boolean finished;
 
-        RangeCursor(byte[] keyFrom, byte[] keyTo, long rev, boolean includeTombstones) {
+        RangeCursor(byte[] keyFrom, byte @Nullable [] keyTo, long rev, boolean includeTombstones) {
             this.keyFrom = keyFrom;
             this.keyTo = keyTo;
             this.rev = rev;
             this.includeTombstones = includeTombstones;
-            this.it = createIterator();
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean hasNext() {
-            return it.hasNext();
+            synchronized (mux) {
+                while (true) {
+                    if (finished) {
+                        return false;
+                    }
+
+                    if (nextRetEntry != null) {
+                        return true;
+                    }
+
+                    byte[] key = lastRetKey;
+
+                    while (!finished || nextRetEntry == null) {
+                        Map.Entry<byte[], List<Long>> e =
+                                key == null ? keysIdx.ceilingEntry(keyFrom) : keysIdx.higherEntry(key);
+
+                        if (e == null) {
+                            finished = true;
+
+                            break;
+                        }
+
+                        key = e.getKey();
+
+                        if (keyTo != null && CMP.compare(key, keyTo) >= 0) {
+                            finished = true;
+
+                            break;
+                        }
+
+                        List<Long> revs = e.getValue();
+
+                        assert revs != null && !revs.isEmpty() :
+                                "Revisions should not be empty or null: [revs=" + revs + ']';
+
+                        long lastRev = maxRevision(revs, rev);
+
+                        if (lastRev == -1) {
+                            continue;
+                        }
+
+                        Entry entry = doGetValue(key, lastRev);
+
+                        if (!entry.tombstone() || includeTombstones) {
+                            assert !entry.empty() : "Iterator should not return empty entry.";
+
+                            nextRetEntry = entry;
+
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         /** {@inheritDoc} */
         @Override
         public Entry next() {
-            return it.next();
+            synchronized (mux) {
+                while (true) {
+                    if (finished) {
+                        throw new NoSuchElementException();
+                    }
+
+                    if (nextRetEntry != null) {
+                        Entry e = nextRetEntry;
+
+                        nextRetEntry = null;
+
+                        lastRetKey = e.key();
+
+                        return e;
+                    } else {
+                        hasNext();
+                    }
+                }
+            }
         }
 
         /** {@inheritDoc} */
         @Override
         public void close() {
             // No-op.
-        }
-
-        @NotNull
-        Iterator<Entry> createIterator() {
-            return new Iterator<>() {
-                /** {@inheritDoc} */
-                @Override
-                public boolean hasNext() {
-                    synchronized (mux) {
-                        while (true) {
-                            if (finished) {
-                                return false;
-                            }
-
-                            if (nextRetEntry != null) {
-                                return true;
-                            }
-
-                            byte[] key = lastRetKey;
-
-                            while (!finished || nextRetEntry == null) {
-                                Map.Entry<byte[], List<Long>> e =
-                                        key == null ? keysIdx.ceilingEntry(keyFrom) : keysIdx.higherEntry(key);
-
-                                if (e == null) {
-                                    finished = true;
-
-                                    break;
-                                }
-
-                                key = e.getKey();
-
-                                if (keyTo != null && CMP.compare(key, keyTo) >= 0) {
-                                    finished = true;
-
-                                    break;
-                                }
-
-                                List<Long> revs = e.getValue();
-
-                                assert revs != null && !revs.isEmpty() :
-                                        "Revisions should not be empty or null: [revs=" + revs + ']';
-
-                                long lastRev = maxRevision(revs, rev);
-
-                                if (lastRev == -1) {
-                                    continue;
-                                }
-
-                                Entry entry = doGetValue(key, lastRev);
-
-                                if (!entry.tombstone() || includeTombstones) {
-                                    assert !entry.empty() : "Iterator should not return empty entry.";
-
-                                    nextRetEntry = entry;
-
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public Entry next() {
-                    synchronized (mux) {
-                        while (true) {
-                            if (finished) {
-                                throw new NoSuchElementException();
-                            }
-
-                            if (nextRetEntry != null) {
-                                Entry e = nextRetEntry;
-
-                                nextRetEntry = null;
-
-                                lastRetKey = e.key();
-
-                                return e;
-                            } else {
-                                hasNext();
-                            }
-                        }
-                    }
-                }
-            };
-        }
-    }
-
-    /**
-     * Extension of {@link Cursor}.
-     */
-    private class WatchCursor implements Cursor<WatchEvent> {
-        private final Predicate<byte[]> predicate;
-
-        private final Iterator<WatchEvent> it;
-
-        private long lastRetRev;
-
-        private long nextRetRev = -1;
-
-        WatchCursor(long rev, Predicate<byte[]> predicate) {
-            this.predicate = predicate;
-            this.lastRetRev = rev - 1;
-            this.it = createIterator();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean hasNext() {
-            return it.hasNext();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public WatchEvent next() {
-            return it.next();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void close() {
-            // No-op.
-        }
-
-        @NotNull
-        Iterator<WatchEvent> createIterator() {
-            return new Iterator<>() {
-                /** {@inheritDoc} */
-                @Override
-                public boolean hasNext() {
-                    synchronized (mux) {
-                        if (nextRetRev != -1) {
-                            return true;
-                        }
-
-                        while (true) {
-                            long curRev = lastRetRev + 1;
-
-                            NavigableMap<byte[], Value> entries = revsIdx.get(curRev);
-
-                            if (entries == null) {
-                                return false;
-                            }
-
-                            for (byte[] key : entries.keySet()) {
-                                if (predicate.test(key)) {
-                                    nextRetRev = curRev;
-
-                                    return true;
-                                }
-                            }
-
-                            lastRetRev++;
-                        }
-                    }
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public WatchEvent next() {
-                    synchronized (mux) {
-                        while (true) {
-                            if (nextRetRev != -1) {
-                                NavigableMap<byte[], Value> entries = revsIdx.get(nextRetRev);
-
-                                if (entries == null) {
-                                    throw new NoSuchElementException();
-                                }
-
-                                List<EntryEvent> evts = new ArrayList<>(entries.size());
-
-                                for (Map.Entry<byte[], Value> e : entries.entrySet()) {
-                                    byte[] key = e.getKey();
-
-                                    Value val = e.getValue();
-
-                                    if (predicate.test(key)) {
-                                        Entry newEntry;
-
-                                        if (val.tombstone()) {
-                                            newEntry = EntryImpl.tombstone(key, nextRetRev, val.updateCounter());
-                                        } else {
-                                            newEntry = new EntryImpl(key, val.bytes(), nextRetRev, val.updateCounter());
-                                        }
-
-                                        Entry oldEntry = doGet(key, nextRetRev - 1);
-
-                                        evts.add(new EntryEvent(oldEntry, newEntry));
-                                    }
-                                }
-
-                                if (evts.isEmpty()) {
-                                    continue;
-                                }
-
-                                lastRetRev = nextRetRev;
-
-                                nextRetRev = -1;
-
-                                return new WatchEvent(evts);
-                            } else if (!hasNext()) {
-                                throw new NoSuchElementException();
-                            }
-                        }
-                    }
-                }
-            };
         }
     }
 }
