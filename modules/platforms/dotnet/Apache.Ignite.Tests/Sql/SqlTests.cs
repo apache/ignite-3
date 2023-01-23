@@ -332,7 +332,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("TESTDDLDML", columns[0].Origin!.TableName);
             Assert.IsTrue(columns[0].Nullable);
             Assert.AreEqual(SqlColumnType.String, columns[0].Type);
-            Assert.AreEqual(int.MinValue, columns[0].Scale); // TODO: Ticket for this, does not conform to our docs (see Mashenkov chat).
+            Assert.AreEqual(int.MinValue, columns[0].Scale); // TODO IGNITE-18602 should conform to javadoc/xmldoc.
             Assert.AreEqual(65536, columns[0].Precision);
 
             Assert.AreEqual("ID", columns[1].Name);
