@@ -123,6 +123,30 @@ public partial class SqlTests
     }
 
     [Test]
+    public async Task TestIgniteDbDataReaderAllColumnTypesGetFieldValue()
+    {
+        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+        await reader.ReadAsync();
+
+        // TODO: GetFieldValueAsync?
+        // TODO: All compatible types
+        Assert.AreEqual(1, reader.GetFieldValue<long>("KEY"));
+        Assert.AreEqual("v-1", reader.GetFieldValue<string>("STR"));
+        Assert.AreEqual(2, reader.GetFieldValue<byte>("INT8"));
+        Assert.AreEqual(3, reader.GetFieldValue<short>("INT16"));
+        Assert.AreEqual(4, reader.GetFieldValue<int>("INT32"));
+        Assert.AreEqual(5, reader.GetFieldValue<long>("INT64"));
+        Assert.AreEqual(6.5f, reader.GetFieldValue<float>("FLOAT"));
+        Assert.AreEqual(7.5d, reader.GetFieldValue<double>("DOUBLE"));
+        Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetFieldValue<LocalDate>("DATE"));
+        Assert.AreEqual(new LocalTime(09, 28), reader.GetFieldValue<LocalTime>("TIME"));
+        Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetFieldValue<LocalDateTime>("DATETIME"));
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(123), reader.GetFieldValue<Instant>("TIMESTAMP"));
+        Assert.AreEqual(8.7m, reader.GetFieldValue<decimal>("DECIMAL"));
+        Assert.AreEqual(new byte[] { 1, 2 }, reader.GetFieldValue<byte[]>("BLOB"));
+    }
+
+    [Test]
     public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
     {
         await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
@@ -300,13 +324,6 @@ public partial class SqlTests
     [Test]
     public void TestGetTextReader()
     {
-        Assert.Fail("TODO");
-    }
-
-    [Test]
-    public void TestGetFieldValue()
-    {
-        // TODO: All types, including flexible mapping.
         Assert.Fail("TODO");
     }
 }
