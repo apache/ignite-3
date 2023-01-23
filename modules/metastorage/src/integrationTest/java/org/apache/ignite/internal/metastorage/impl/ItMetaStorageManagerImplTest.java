@@ -19,11 +19,13 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.mockito.ArgumentMatchers.any;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +42,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -50,7 +54,9 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
@@ -68,6 +74,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class ItMetaStorageManagerImplTest {
+    private VaultManager vaultManager;
+
     private ClusterService clusterService;
 
     private RaftManager raftManager;
@@ -75,16 +83,15 @@ public class ItMetaStorageManagerImplTest {
     private MetaStorageManager metaStorageManager;
 
     @BeforeEach
-    void setUp(TestInfo testInfo, @WorkDirectory Path workDir, @InjectConfiguration RaftConfiguration raftConfiguration) {
+    void setUp(TestInfo testInfo, @WorkDirectory Path workDir, @InjectConfiguration RaftConfiguration raftConfiguration)
+            throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
         raftManager = new Loza(clusterService, raftConfiguration, workDir.resolve("loza"), new HybridClockImpl());
 
-        VaultManager vaultManager = mock(VaultManager.class);
-
-        when(vaultManager.get(any())).thenReturn(completedFuture(null));
+        vaultManager = new VaultManager(new InMemoryVaultService());
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -101,14 +108,17 @@ public class ItMetaStorageManagerImplTest {
                 storage
         );
 
+        vaultManager.start();
         clusterService.start();
         raftManager.start();
         metaStorageManager.start();
+
+        metaStorageManager.deployWatches();
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService);
+        List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService, vaultManager);
 
         IgniteUtils.closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
@@ -150,5 +160,80 @@ public class ItMetaStorageManagerImplTest {
 
             assertThat(keys, contains(key1.bytes(), key2.bytes(), key3.bytes()));
         }
+    }
+
+    /**
+     * Tests that "watched" Meta Storage keys get persisted in the Vault.
+     */
+    @Test
+    void testWatchEventsPersistence() throws InterruptedException {
+        byte[] value = "value".getBytes(StandardCharsets.UTF_8);
+
+        var key1 = new ByteArray("foo");
+        var key2 = new ByteArray("bar");
+
+        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(
+                Conditions.notExists(new ByteArray("foo")),
+                List.of(
+                        Operations.put(key1, value),
+                        Operations.put(key2, value)
+                ),
+                List.of(Operations.noop())
+        );
+
+        assertThat(invokeFuture, willBe(true));
+
+        // No data should be persisted until any watches are registered.
+        assertThat(vaultManager.get(key1), willBe(nullValue()));
+        assertThat(vaultManager.get(key2), willBe(nullValue()));
+
+        metaStorageManager.registerExactWatch(key1, noOpListener());
+
+        invokeFuture = metaStorageManager.invoke(
+                Conditions.exists(new ByteArray("foo")),
+                List.of(
+                        Operations.put(key1, value),
+                        Operations.put(key2, value)
+                ),
+                List.of(Operations.noop())
+        );
+
+        assertThat(invokeFuture, willBe(true));
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() == 2, 10_000));
+
+        // Expect that only the watched key is persisted.
+        assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(value));
+        assertThat(vaultManager.get(key2), willBe(nullValue()));
+
+        metaStorageManager.registerExactWatch(key2, noOpListener());
+
+        byte[] newValue = "newValue".getBytes(StandardCharsets.UTF_8);
+
+        invokeFuture = metaStorageManager.invoke(
+                Conditions.exists(new ByteArray("foo")),
+                List.of(
+                        Operations.put(key1, newValue),
+                        Operations.put(key2, newValue)
+                ),
+                List.of(Operations.noop())
+        );
+
+        assertThat(invokeFuture, willBe(true));
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() == 3, 10_000));
+
+        assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(newValue));
+        assertThat(vaultManager.get(key2).thenApply(VaultEntry::value), willBe(newValue));
+    }
+
+    private static WatchListener noOpListener() {
+        return new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent event) {}
+
+            @Override
+            public void onError(Throwable e) {}
+        };
     }
 }

@@ -301,8 +301,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 public void onUpdate(WatchEvent events) {
                     var data = new HashMap<String, Serializable>();
 
-                    var vaultData = new HashMap<ByteArray, byte[]>();
-
                     Entry masterKeyEntry = null;
 
                     for (EntryEvent event : events.entryEvents()) {
@@ -317,8 +315,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
                             data.put(key, value);
                         }
-
-                        vaultData.put(new ByteArray(e.key()), e.value());
                     }
 
                     // Contract of meta storage ensures that all updates of one revision will come in one batch.
@@ -333,9 +329,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     changeId.set(newChangeId);
 
                     try {
-                        vaultMgr.putAll(vaultData)
-                                .thenCompose(v -> lsnr.onEntriesChanged(new Data(data, newChangeId)))
-                                .get();
+                        lsnr.onEntriesChanged(new Data(data, newChangeId)).get();
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
 
