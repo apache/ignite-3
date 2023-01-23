@@ -265,4 +265,11 @@ public partial class SqlTests
     {
         Assert.Fail("TODO");
     }
+
+    [Test]
+    public void TestGetFieldValue()
+    {
+        // TODO: All types, including flexible mapping.
+        Assert.Fail("TODO");
+    }
 }
