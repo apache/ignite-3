@@ -20,7 +20,9 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
@@ -72,9 +74,11 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteFiveFunction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -461,31 +465,28 @@ public class InternalTableImpl implements InternalTable {
      * @return The future.
      */
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean implicit, InternalTransaction tx0) {
-        return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
-            @Override
-            public CompletableFuture<T> apply(T r, Throwable e) {
-                if (e != null) {
-                    Throwable e0 = wrapReplicationException((RuntimeException) e);
+        return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
+            if (e != null) {
+                Throwable e0 = wrapReplicationException(e);
 
-                    return tx0.rollbackAsync().handle((ignored, err) -> {
+                return tx0.rollbackAsync().handle((ignored, err) -> {
 
-                        if (err != null) {
-                            e0.addSuppressed(err);
-                        }
-                        throw (RuntimeException) e0;
-                    }); // Preserve failed state.
-                } else {
-                    tx0.enlistResultFuture(fut);
-
-                    if (implicit) {
-                        return tx0.commitAsync()
-                                .exceptionally(ex -> {
-                                    throw wrapReplicationException((RuntimeException) ex);
-                                })
-                                .thenApply(ignored -> r);
-                    } else {
-                        return completedFuture(r);
+                    if (err != null) {
+                        e0.addSuppressed(err);
                     }
+                    throw (RuntimeException) e0;
+                }); // Preserve failed state.
+            } else {
+                tx0.enlistResultFuture(fut);
+
+                if (implicit) {
+                    return tx0.commitAsync()
+                            .exceptionally(ex -> {
+                                throw wrapReplicationException(ex);
+                            })
+                            .thenApply(ignored -> r);
+                } else {
+                    return completedFuture(r);
                 }
             }
         }).thenCompose(x -> x);
@@ -1370,14 +1371,21 @@ public class InternalTableImpl implements InternalTable {
      * @param e {@link ReplicationException} or {@link CompletionException} with cause {@link ConnectException} or {@link TimeoutException}
      * @return {@link TransactionException}
      */
-    private RuntimeException wrapReplicationException(RuntimeException e) {
+    private RuntimeException wrapReplicationException(Throwable e) {
+        if (e instanceof CompletionException) {
+            e = e.getCause();
+        }
+
         RuntimeException e0;
 
-        if (e instanceof ReplicationException || e.getCause() instanceof ReplicationException || e.getCause() instanceof ConnectException
-                || e.getCause() instanceof TimeoutException) {
+        if (e instanceof ReplicationException || e instanceof ConnectException || e instanceof TimeoutException) {
             e0 = withCause(TransactionException::new, TX_REPLICA_UNAVAILABLE_ERR, e);
+        } else if (e instanceof LockException) {
+            e0 = withCause(TransactionException::new, ACQUIRE_LOCK_ERR, e);
+        } else if (!(e instanceof RuntimeException)) {
+            e0 = withCause(IgniteException::new, UNKNOWN_ERR, e);
         } else {
-            e0 = e;
+            e0 = (RuntimeException) e;
         }
 
         return e0;

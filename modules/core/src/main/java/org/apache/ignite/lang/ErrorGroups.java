@@ -265,9 +265,6 @@ public class ErrorGroups {
         /** Error of unexpected tx state on state change. */
         public static final int TX_UNEXPECTED_STATE_ERR = TX_ERR_GROUP.registerErrorCode(3);
 
-        /** Failed to release a lock on a key. */
-        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
-
         /** Failed to acquire a lock on a key due to a conflict. */
         public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
 
