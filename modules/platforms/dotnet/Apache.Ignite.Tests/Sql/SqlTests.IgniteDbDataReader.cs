@@ -27,12 +27,49 @@ using Ignite.Sql;
 using Internal.Sql;
 using NodaTime;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
 /// Tests for SQL API: <see cref="ISql"/>.
 /// </summary>
 public partial class SqlTests
 {
+    private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
+                                           "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
+                                           "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+
+    [OneTimeSetUp]
+    public async Task InsertTestData()
+    {
+        var pocoAllColumns1 = new PocoAllColumnsSqlNullable(
+            Key: 1,
+            Str: "v-1",
+            Int8: 2,
+            Int16: 3,
+            Int32: 4,
+            Int64: 5,
+            Float: 6.5F,
+            Double: 7.5D,
+            Date: new LocalDate(2023, 01, 18),
+            Time: new LocalTime(09, 28),
+            DateTime: new LocalDateTime(2023, 01, 18, 09, 29),
+            Timestamp: Instant.FromUnixTimeSeconds(123),
+            Blob: new byte[] { 1, 2 },
+            Decimal: 8.7M);
+
+        var pocoAllColumns2 = new PocoAllColumnsSqlNullable(
+            Key: 2,
+            Str: "v-2",
+            Int8: sbyte.MinValue,
+            Int16: short.MinValue,
+            Int32: int.MinValue,
+            Int64: long.MinValue,
+            Float: float.MinValue,
+            Double: double.MinValue);
+
+        await PocoAllColumnsSqlNullableView.UpsertAllAsync(null, new[] { pocoAllColumns1, pocoAllColumns2 });
+    }
+
     [Test]
     [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed", Justification = "Reviewed.")]
     public async Task TestIgniteDbDataReader()
