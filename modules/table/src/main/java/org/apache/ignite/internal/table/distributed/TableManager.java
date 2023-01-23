@@ -169,15 +169,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
-    /**
-     * The special value of the last applied index to indicate the beginning of a full data rebalancing.
-     *
-     * @see MvPartitionStorage#lastAppliedIndex()
-     * @see TxStateStorage#lastAppliedIndex()
-     */
-    // TODO: IGNITE-18030 избавить также от этого и связанного с ним кода
-    public static final long FULL_RABALANCING_STARTED = -1;
-
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     // TODO get rid of this in future? IGNITE-17307
@@ -2044,18 +2035,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future that will complete when the operation completes.
      */
     private CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(MvTableStorage mvTableStorage, int partitionId) {
-        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor)
-                .thenCompose(storage -> {
-                    if (storage.persistedIndex() != FULL_RABALANCING_STARTED) {
-                        // If a full rebalance did not happen, then we return the storage as is.
-                        return completedFuture(storage);
-                    } else {
-                        // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
-                        return mvTableStorage
-                                .destroyPartition(partitionId)
-                                .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor);
-                    }
-                });
+        // TODO: IGNITE-18603 Clear if TxStateStorage hasn't been rebalanced yet
+        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor);
     }
 
     /**
@@ -2068,15 +2049,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partId Partition ID.
      */
     private static TxStateStorage getOrCreateTxStateStorage(TxStateTableStorage txStateTableStorage, int partId) {
-        TxStateStorage txStatePartitionStorage = txStateTableStorage.getOrCreateTxStateStorage(partId);
-
-        // If a full rebalance did not happen, then we return the storage as is.
-        if (txStatePartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
-            return txStatePartitionStorage;
-        }
-
-        txStateTableStorage.destroyTxStateStorage(partId);
-
+        // TODO: IGNITE-18603 Clear if MvPartitionStorage hasn't been rebalanced yet
         return txStateTableStorage.getOrCreateTxStateStorage(partId);
     }
 
