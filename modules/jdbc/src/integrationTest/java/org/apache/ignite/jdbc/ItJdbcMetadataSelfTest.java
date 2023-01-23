@@ -20,6 +20,8 @@ package org.apache.ignite.jdbc;
 import static java.sql.Types.DATE;
 import static java.sql.Types.DECIMAL;
 import static java.sql.Types.INTEGER;
+import static java.sql.Types.NULL;
+import static java.sql.Types.OTHER;
 import static java.sql.Types.VARCHAR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -62,6 +64,30 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             stmt.executeUpdate("CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10))");
             stmt.executeUpdate("INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10)");
         }
+    }
+
+    @Test
+    public void testNullValuesMetaData() throws Exception {
+        Statement stmt = DriverManager.getConnection(URL).createStatement();
+
+        ResultSet rs = stmt.executeQuery(
+                "select NULL, substring(null, 1, 2)");
+
+        assertNotNull(rs);
+
+        ResultSetMetaData meta = rs.getMetaData();
+
+        assertNotNull(meta);
+
+        assertEquals(2, meta.getColumnCount());
+
+        assertEquals(OTHER, meta.getColumnType(1));
+        assertEquals(meta.getColumnTypeName(1), "OTHER");
+        assertEquals(meta.getColumnClassName(1), "java.lang.Void");
+
+        assertEquals(OTHER, meta.getColumnType(2));
+        assertEquals(meta.getColumnTypeName(2), "OTHER");
+        assertEquals(meta.getColumnClassName(2), "java.lang.Void");
     }
 
     @Test
