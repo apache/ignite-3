@@ -755,7 +755,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
-                                                partitionKey(internalTbl, partId)
+                                                partitionKey(internalTbl, partId),
+                                                table
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -907,7 +908,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private RaftGroupOptions groupOptionsForPartition(
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
-            PartitionKey partitionKey
+            PartitionKey partitionKey,
+            TableImpl tableImpl
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -923,7 +925,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 clusterService.topologyService(),
                 outgoingSnapshotsManager,
-                new PartitionAccessImpl(partitionKey, mvTableStorage, txStateTableStorage),
+                new PartitionAccessImpl(
+                        partitionKey,
+                        mvTableStorage,
+                        txStateTableStorage,
+                        () -> tableImpl.indexStorageAdapters(partitionKey.partitionId()).get().values()
+                ),
                 incomingSnapshotsExecutor
         ));
 
@@ -1838,7 +1845,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
-                                partitionKey(internalTable, partId)
+                                partitionKey(internalTable, partId),
+                                tbl
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
