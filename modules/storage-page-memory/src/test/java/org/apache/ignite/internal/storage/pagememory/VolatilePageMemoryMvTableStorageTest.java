@@ -60,7 +60,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private final PageEvictionTracker pageEvictionTracker = spy(PageEvictionTrackerNoOp.INSTANCE);
 
-    private final AtomicInteger touchedPages = new AtomicInteger();
+    private final AtomicInteger pagesForgottenByEvictionTracker = new AtomicInteger();
 
     @BeforeEach
     void setUp(
@@ -77,7 +77,10 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
 
-        doAnswer(invocation -> touchedPages.incrementAndGet())
+        // Track how many times a page was forgotten (when emptying a Data Page). We need it to be able to poll while
+        // awaiting till a page finally gets freed (as MV and index data destruction is async). We don't use verify()
+        // for this end because it throws an AssertionError if the expectation is not satisfied, which is not convenient.
+        doAnswer(invocation -> pagesForgottenByEvictionTracker.incrementAndGet())
                 .when(pageEvictionTracker).forgetPage(anyLong());
     }
 
@@ -101,7 +104,9 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
                 5_000
         ));
 
-        assertTrue(waitForCondition(() -> touchedPages.get() > 0, 5_000));
+        // Make sure that some page storing row versions gets emptied (so we can be sure that row versions
+        // get removed).
+        assertTrue(waitForCondition(() -> pagesForgottenByEvictionTracker.get() > 0, 5_000));
 
         verify(pageEvictionTracker, times(1)).forgetPage(anyLong());
     }
@@ -165,12 +170,15 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     private void assertIndexDataDestructionCompletes(long emptyIndexPagesBeforeDestroy)
             throws InterruptedException, IgniteInternalCheckedException {
+        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
         assertTrue(waitForCondition(
                 () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyIndexPagesBeforeDestroy,
                 5_000
         ));
 
-        assertTrue(waitForCondition(() -> touchedPages.get() > 0, 5_000));
+        // Make sure that some page storing index columns gets emptied (so we can be sure that index columns
+        // get removed).
+        assertTrue(waitForCondition(() -> pagesForgottenByEvictionTracker.get() > 0, 5_000));
 
         verify(pageEvictionTracker, times(1)).forgetPage(anyLong());
     }
