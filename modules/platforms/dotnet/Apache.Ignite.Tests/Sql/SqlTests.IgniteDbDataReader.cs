@@ -410,9 +410,25 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestGetValue()
+    public async Task TestGetValue()
     {
-        Assert.Fail("TODO");
+        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+        await reader.ReadAsync();
+
+        Assert.AreEqual(1, reader.GetValue("KEY"));
+        Assert.AreEqual("v-1", reader.GetValue("STR"));
+        Assert.AreEqual(2, reader.GetValue("INT8"));
+        Assert.AreEqual(3, reader.GetValue("INT16"));
+        Assert.AreEqual(4, reader.GetValue("INT32"));
+        Assert.AreEqual(5, reader.GetValue("INT64"));
+        Assert.AreEqual(6.5f, reader.GetValue("FLOAT"));
+        Assert.AreEqual(7.5d, reader.GetValue("DOUBLE"));
+        Assert.AreEqual(LocalDate, reader.GetValue("DATE"));
+        Assert.AreEqual(LocalTime, reader.GetValue("TIME"));
+        Assert.AreEqual(LocalDateTime, reader.GetValue("DATETIME"));
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(123), reader.GetValue("TIMESTAMP"));
+        Assert.AreEqual(8.7m, reader.GetValue("DECIMAL"));
+        Assert.AreEqual(new byte[] { 1, 2 }, reader.GetValue("BLOB"));
     }
 
     [Test]
