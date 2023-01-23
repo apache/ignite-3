@@ -38,8 +38,8 @@ public sealed class IgniteDbColumn : DbColumn
         DataTypeName = column.Type.ToSqlTypeName();
         DataType = column.Type.ToClrType();
         AllowDBNull = column.Nullable;
-        NumericPrecision = column.Precision;
-        NumericScale = column.Scale;
+        NumericPrecision = column.Precision < 0 ? null : column.Precision;
+        NumericScale = column.Scale < 0 ? null : column.Scale;
     }
 
     /// <summary>
