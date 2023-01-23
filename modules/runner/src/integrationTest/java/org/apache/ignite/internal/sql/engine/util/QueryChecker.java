@@ -233,9 +233,11 @@ public abstract class QueryChecker {
         );
     }
 
-    private final String qry;
+    private final String originalQuery;
 
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
+
+    private final ArrayList<String> disabledRules = new ArrayList<>();
 
     private List<List<?>> expectedResult;
 
@@ -257,7 +259,7 @@ public abstract class QueryChecker {
      * @param qry Query.
      */
     public QueryChecker(String qry) {
-        this.qry = qry;
+        this.originalQuery = qry;
     }
 
     /**
@@ -283,6 +285,20 @@ public abstract class QueryChecker {
         }
 
         this.params = params;
+
+        return this;
+    }
+
+    /**
+     * Disables rules.
+     *
+     * @param rules Rules to disable.
+     * @return This.
+     */
+    public QueryChecker disableRules(String... rules) {
+        if (rules != null) {
+            Arrays.stream(rules).filter(Objects::nonNull).forEach(disabledRules::add);
+        }
 
         return this;
     }
@@ -369,6 +385,15 @@ public abstract class QueryChecker {
     public void check() {
         // Check plan.
         QueryProcessor qryProc = getEngine();
+
+        String qry = originalQuery;
+
+        if (!disabledRules.isEmpty()) {
+            assert qry.matches("(?i)^select .*") : "SELECT query was expected: " + originalQuery;
+
+            qry = qry.replaceAll("(?i)^select", "select "
+                    + disabledRules.stream().collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */")));
+        }
 
         var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry, params);
 

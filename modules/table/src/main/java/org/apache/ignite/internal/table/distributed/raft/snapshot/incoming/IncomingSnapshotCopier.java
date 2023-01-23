@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -229,37 +230,33 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         ).thenComposeAsync(response -> {
             SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) response);
 
-            MvPartitionStorage mvPartition = partitionSnapshotStorage.partition().mvPartitionStorage();
-
             for (ResponseEntry entry : snapshotMvDataResponse.rows()) {
                 if (canceled) {
                     return completedFuture(null);
                 }
 
                 // Let's write all versions for the row ID.
-                mvPartition.runConsistently(() -> {
-                    RowId rowId = new RowId(partId(), entry.rowId());
+                RowId rowId = new RowId(partId(), entry.rowId());
 
-                    for (int i = 0; i < entry.rowVersions().size(); i++) {
-                        HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
+                for (int i = 0; i < entry.rowVersions().size(); i++) {
+                    HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
 
-                        TableRow tableRow = new TableRow(entry.rowVersions().get(i).rewind());
+                    TableRow tableRow = new TableRow(entry.rowVersions().get(i).rewind());
 
-                        if (timestamp == null) {
-                            // Writes an intent to write (uncommitted version).
-                            assert entry.txId() != null;
-                            assert entry.commitTableId() != null;
-                            assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
+                    PartitionAccess partition = partitionSnapshotStorage.partition();
 
-                            mvPartition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
-                        } else {
-                            // Writes committed version.
-                            mvPartition.addWriteCommitted(rowId, tableRow, timestamp);
-                        }
+                    if (timestamp == null) {
+                        // Writes an intent to write (uncommitted version).
+                        assert entry.txId() != null;
+                        assert entry.commitTableId() != null;
+                        assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
+
+                        partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+                    } else {
+                        // Writes committed version.
+                        partition.addWriteCommitted(rowId, tableRow, timestamp);
                     }
-
-                    return null;
-                });
+                }
             }
 
             if (snapshotMvDataResponse.finish()) {
@@ -301,8 +298,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         ).thenComposeAsync(response -> {
             SnapshotTxDataResponse snapshotTxDataResponse = (SnapshotTxDataResponse) response;
 
-            TxStateStorage txStatePartitionStorage = partitionSnapshotStorage.partition().txStatePartitionStorage();
-
             assert snapshotTxDataResponse.txMeta().size() == snapshotTxDataResponse.txIds().size();
 
             for (int i = 0; i < snapshotTxDataResponse.txMeta().size(); i++) {
@@ -310,7 +305,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     return completedFuture(null);
                 }
 
-                txStatePartitionStorage.put(snapshotTxDataResponse.txIds().get(i), snapshotTxDataResponse.txMeta().get(i));
+                partitionSnapshotStorage.partition().addTxMeta(
+                        snapshotTxDataResponse.txIds().get(i),
+                        snapshotTxDataResponse.txMeta().get(i)
+                );
             }
 
             if (snapshotTxDataResponse.finish()) {
