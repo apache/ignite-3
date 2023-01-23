@@ -316,6 +316,9 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {
+        // TODO: Set flag
+        // TODO: What happens when we dispose enumerator?
+        // TODO: tests
         await _pageEnumerator.DisposeAsync().ConfigureAwait(false);
         await _resultSet.DisposeAsync().ConfigureAwait(false);
     }
