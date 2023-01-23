@@ -181,7 +181,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
-    public override string GetDataTypeName(int ordinal) => Metadata.Columns[ordinal].Type.ToString();
+    public override string GetDataTypeName(int ordinal) => Metadata.Columns[ordinal].Type.ToSqlTypeName();
 
     /// <inheritdoc/>
     public override DateTime GetDateTime(int ordinal)
@@ -302,9 +302,9 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         {
             var schema = new List<DbColumn>(FieldCount);
 
-            foreach (var col in Metadata.Columns)
+            for (var i = 0; i < Metadata.Columns.Count; i++)
             {
-                schema.Add(new IgniteDbColumn(col));
+                schema.Add(new IgniteDbColumn(Metadata.Columns[i], i));
             }
 
             _schema = schema.AsReadOnly();
@@ -364,7 +364,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     private static InvalidCastException GetInvalidColumnTypeException(Type type, IColumnMetadata column) =>
-        new($"Column {column.Name} of type {column.Type} ({column.Type.ToClrType()}) can not be cast to {type}.");
+        new($"Column {column.Name} of type {column.Type.ToSqlTypeName()} ({column.Type.ToClrType()}) can not be cast to {type}.");
 
     private BinaryTupleReader GetReader(int ordinal, Type type)
     {

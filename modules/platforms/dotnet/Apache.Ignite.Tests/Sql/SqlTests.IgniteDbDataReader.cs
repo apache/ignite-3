@@ -18,7 +18,9 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.Collections.ObjectModel;
 using System.Data;
+using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -223,9 +225,22 @@ public partial class SqlTests
     }
 
     [Test]
-    public async Task TestIgniteDbDataReaderGetColumnSchema()
+    public async Task TestIgniteDbDataReaderGetColumnSchema([Values(true, false)] bool async)
     {
-        await Task.Yield();
-        Assert.Fail("TODO");
+        var statement = new SqlStatement("select ID, VAL FROM TEST ORDER BY ID", pageSize: 2);
+        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, statement);
+
+        ReadOnlyCollection<DbColumn> schema = async ? await reader.GetColumnSchemaAsync() : reader.GetColumnSchema();
+
+        Assert.AreEqual(2, schema.Count);
+        Assert.AreEqual("ID", schema[0].ColumnName);
+        Assert.AreEqual(0, schema[0].ColumnOrdinal);
+        Assert.IsNull(schema[0].ColumnSize);
+        Assert.AreEqual(typeof(int), schema[0].DataType);
+        Assert.AreEqual("int", schema[0].DataTypeName);
+        Assert.IsFalse(schema[0].AllowDBNull);
+        Assert.AreEqual(10, schema[0].NumericPrecision);
+        Assert.AreEqual(0, schema[0].NumericScale);
+        Assert.IsNotNull((schema[0] as IgniteDbColumn)?.ColumnMetadata);
     }
 }

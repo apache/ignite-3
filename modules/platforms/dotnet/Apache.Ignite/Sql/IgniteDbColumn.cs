@@ -18,23 +18,32 @@
 namespace Apache.Ignite.Sql;
 
 using System.Data.Common;
+using Internal.Sql;
 
 /// <summary>
 /// Represents a column within Ignite result set.
 /// </summary>
 public sealed class IgniteDbColumn : DbColumn
 {
-    private readonly IColumnMetadata _column;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDbColumn"/> class.
     /// </summary>
     /// <param name="column">Column.</param>
-    internal IgniteDbColumn(IColumnMetadata column)
+    /// <param name="ordinal">Column ordinal.</param>
+    internal IgniteDbColumn(IColumnMetadata column, int ordinal)
     {
-        _column = column;
-
-        // TODO: Populate all props.
+        ColumnMetadata = column;
         ColumnName = column.Name;
+        ColumnOrdinal = ordinal;
+        DataTypeName = column.Type.ToSqlTypeName();
+        DataType = column.Type.ToClrType();
+        AllowDBNull = column.Nullable;
+        NumericPrecision = column.Precision;
+        NumericScale = column.Scale;
     }
+
+    /// <summary>
+    /// Gets Ignite-specific column metadata.
+    /// </summary>
+    public IColumnMetadata ColumnMetadata { get; }
 }
