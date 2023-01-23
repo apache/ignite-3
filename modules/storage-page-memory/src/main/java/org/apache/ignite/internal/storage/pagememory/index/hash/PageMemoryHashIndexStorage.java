@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -45,6 +47,8 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  * Implementation of Hash index storage using Page Memory.
  */
 public class PageMemoryHashIndexStorage implements HashIndexStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(PageMemoryHashIndexStorage.class);
+
     /** Index descriptor. */
     private final HashIndexDescriptor descriptor;
 
@@ -199,7 +203,11 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
         try {
             executor.execute(
                     hashIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((HashIndexRow) rowKey), false)
-            );
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Hash index " + descriptor.id() + " destruction has failed", ex);
+                }
+            });
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot destroy hash index " + indexDescriptor().id(), e);
         }

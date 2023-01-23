@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
@@ -45,6 +47,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryMvPartitionStorage.class);
+
     private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
 
     private final GradualTaskExecutor destructionExecutor;
@@ -170,7 +174,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         try {
             destructionExecutor.execute(
                     versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
-            );
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Version chains destruction failed in group={}, partition={}", ex, groupId, partitionId);
+                }
+            });
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot destroy MV partition in group=" + groupId + ", partition=" + partitionId, e);
         }
@@ -200,7 +208,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         try {
             destructionExecutor.execute(
                     indexMetaTree.startGradualDestruction(null, false)
-            );
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Index meta tree destruction failed in group={}, partition={}", ex, groupId, partitionId);
+                }
+            });
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot destroy index meta tree in group=" + groupId + ", partition=" + partitionId, e);
         }
