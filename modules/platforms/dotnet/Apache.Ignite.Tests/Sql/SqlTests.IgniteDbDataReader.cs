@@ -43,6 +43,8 @@ public partial class SqlTests
     private static readonly LocalTime LocalTime = new(09, 28);
 
     private static readonly LocalDateTime LocalDateTime = new(2023, 01, 18, 09, 29);
+    private static readonly Instant Instant = Instant.FromUnixTimeSeconds(123);
+    private static readonly byte[] Bytes = new byte[] { 1, 2 };
 
     [OneTimeSetUp]
     public async Task InsertTestData()
@@ -59,8 +61,8 @@ public partial class SqlTests
             Date: LocalDate,
             Time: LocalTime,
             DateTime: LocalDateTime,
-            Timestamp: Instant.FromUnixTimeSeconds(123),
-            Blob: new byte[] { 1, 2 },
+            Timestamp: Instant,
+            Blob: Bytes,
             Decimal: 8.7M);
 
         var pocoAllColumns2 = new PocoAllColumnsSqlNullable(
@@ -117,7 +119,7 @@ public partial class SqlTests
         Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetDateTime("DATE"));
         Assert.AreEqual(LocalTime, reader.GetFieldValue<LocalTime>("TIME"));
         Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
-        Assert.AreEqual(Instant.FromUnixTimeSeconds(123).ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
+        Assert.AreEqual(Instant.ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
 
         var bytesLen = reader.GetBytes("BLOB", 0, null!, 0, 0);
@@ -125,7 +127,7 @@ public partial class SqlTests
 
         Assert.AreEqual(2, bytesLen);
         Assert.AreEqual(2, reader.GetBytes("BLOB", 0L, byteArr, 0, (int)bytesLen));
-        Assert.AreEqual(new byte[] { 1, 2 }, byteArr);
+        Assert.AreEqual(Bytes, byteArr);
     }
 
     [Test]
@@ -174,9 +176,9 @@ public partial class SqlTests
         Assert.AreEqual(LocalDateTime, reader.GetFieldValue<LocalDateTime>("DATETIME"));
         Assert.AreEqual(LocalDateTime.ToDateTimeUnspecified(), reader.GetFieldValue<DateTime>("DATETIME"));
 
-        Assert.AreEqual(Instant.FromUnixTimeSeconds(123), reader.GetFieldValue<Instant>("TIMESTAMP"));
+        Assert.AreEqual(Instant, reader.GetFieldValue<Instant>("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetFieldValue<decimal>("DECIMAL"));
-        Assert.AreEqual(new byte[] { 1, 2 }, reader.GetFieldValue<byte[]>("BLOB"));
+        Assert.AreEqual(Bytes, reader.GetFieldValue<byte[]>("BLOB"));
     }
 
     [Test]
@@ -225,9 +227,9 @@ public partial class SqlTests
         Assert.AreEqual(LocalDateTime, await reader.GetFieldValueAsync<LocalDateTime>("DATETIME"));
         Assert.AreEqual(LocalDateTime.ToDateTimeUnspecified(), await reader.GetFieldValueAsync<DateTime>("DATETIME"));
 
-        Assert.AreEqual(Instant.FromUnixTimeSeconds(123), await reader.GetFieldValueAsync<Instant>("TIMESTAMP"));
+        Assert.AreEqual(Instant, await reader.GetFieldValueAsync<Instant>("TIMESTAMP"));
         Assert.AreEqual(8.7m, await reader.GetFieldValueAsync<decimal>("DECIMAL"));
-        Assert.AreEqual(new byte[] { 1, 2 }, await reader.GetFieldValueAsync<byte[]>("BLOB"));
+        Assert.AreEqual(Bytes, await reader.GetFieldValueAsync<byte[]>("BLOB"));
     }
 
     [Test]
@@ -426,15 +428,24 @@ public partial class SqlTests
         Assert.AreEqual(LocalDate, reader.GetValue("DATE"));
         Assert.AreEqual(LocalTime, reader.GetValue("TIME"));
         Assert.AreEqual(LocalDateTime, reader.GetValue("DATETIME"));
-        Assert.AreEqual(Instant.FromUnixTimeSeconds(123), reader.GetValue("TIMESTAMP"));
+        Assert.AreEqual(Instant, reader.GetValue("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetValue("DECIMAL"));
-        Assert.AreEqual(new byte[] { 1, 2 }, reader.GetValue("BLOB"));
+        Assert.AreEqual(Bytes, reader.GetValue("BLOB"));
     }
 
     [Test]
-    public void TestGetValues()
+    public async Task TestGetValues()
     {
-        Assert.Fail("TODO");
+        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+        await reader.ReadAsync();
+
+        var values = new object[reader.FieldCount];
+        var count = reader.GetValues(values);
+
+        var expected = new object[] { 1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m };
+
+        CollectionAssert.AreEqual(expected, values);
+        Assert.AreEqual(reader.FieldCount, count);
     }
 
     [Test]
