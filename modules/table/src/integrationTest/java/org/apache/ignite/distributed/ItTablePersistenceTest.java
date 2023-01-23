@@ -38,11 +38,13 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -83,6 +85,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
+    private static final BinaryConverter keyConverter = BinaryConverter.forKey(SCHEMA);
+
     private static final Row FIRST_KEY = createKeyRow(0);
 
     private static final Row FIRST_VALUE = createKeyValueRow(0, 0);
@@ -120,7 +124,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    public void beforeFollowerStop(RaftGroupService service) throws Exception {
+    public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
         TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
 
@@ -146,7 +150,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    public void afterFollowerStop(RaftGroupService service) throws Exception {
+    public void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
         TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
 
@@ -226,7 +230,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 return false;
             }
 
-            return Arrays.equals(value.bytes(), read.binaryRow().bytes());
+            return Arrays.equals(value.bytes(), read.tableRow().bytes());
         };
     }
 
@@ -236,7 +240,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
 
         while (rowId != null) {
-            BinaryRow binaryRow = storage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
+            BinaryRow binaryRow = keyConverter.fromTuple(storage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow().tupleSlice());
             if (binaryRow != null) {
                 result.put(binaryRow.keySlice(), rowId);
             }
@@ -254,7 +258,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     /** {@inheritDoc} */
     @Override
-    public Path getListenerPersistencePath(PartitionListener listener) {
+    public Path getListenerPersistencePath(PartitionListener listener, RaftServer server) {
         return paths.get(listener);
     }
 

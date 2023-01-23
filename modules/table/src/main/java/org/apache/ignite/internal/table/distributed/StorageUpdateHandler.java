@@ -27,8 +27,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -76,7 +75,7 @@ public class StorageUpdateHandler {
             @Nullable Consumer<RowId> onReplication
     ) {
         storage.runConsistently(() -> {
-            BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
+            TableRow row = rowBuffer != null ? new TableRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
             UUID commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
@@ -116,7 +115,7 @@ public class StorageUpdateHandler {
 
                 for (Map.Entry<UUID, ByteBuffer> entry : rowsToUpdate.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue()) : null;
+                    TableRow row = entry.getValue() != null ? new TableRow(entry.getValue()) : null;
 
                     storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
@@ -133,8 +132,8 @@ public class StorageUpdateHandler {
         });
     }
 
-    private void addToIndexes(@Nullable BinaryRow tableRow, RowId rowId) {
-        if (tableRow == null || !tableRow.hasValue()) { // skip removes
+    private void addToIndexes(@Nullable TableRow tableRow, RowId rowId) {
+        if (tableRow == null) { // skip removes
             return;
         }
 

@@ -44,12 +44,15 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -86,6 +89,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final int PART_ID = 0;
 
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("key", NativeTypes.INT64, false)},
+            new Column[]{new Column("value", NativeTypes.INT64, false)}
+    );
+
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(UUID.randomUUID(), 0);
 
     private PartitionListener partitionListener;
@@ -100,7 +109,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      */
     public DummyInternalTableImpl(ReplicaService replicaSvc) {
-        this(replicaSvc, new TestMvPartitionStorage(0));
+        this(replicaSvc, SCHEMA);
+    }
+
+    public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema) {
+        this(replicaSvc, new TestMvPartitionStorage(0), schema);
     }
 
     /**
@@ -111,14 +124,16 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
      * @param placementDriver Placement driver.
+     * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            SchemaDescriptor schema
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver);
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver, schema);
     }
 
     /**
@@ -126,9 +141,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
+     * @param schema Schema descriptor.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage) {
-        this(replicaSvc, mvPartStorage, null, false, null);
+    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage, SchemaDescriptor schema) {
+        this(replicaSvc, mvPartStorage, null, false, null, schema);
     }
 
     /**
@@ -140,13 +156,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
      * @param placementDriver Placement driver.
+     * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             MvPartitionStorage mvPartStorage,
             @Nullable TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            SchemaDescriptor schema
     ) {
         super(
                 "test",
@@ -228,25 +246,30 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         UUID tableId = tableId();
         UUID indexId = UUID.randomUUID();
 
-        BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
-                new Element(NativeTypes.BYTES, false)
-        });
+        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schema);
+        BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schema);
 
-        Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
+        BinaryConverter binaryRowConverter = BinaryConverter.forKey(schema);
+        Function<BinaryRow, BinaryTuple> binaryRow2Tuple = binaryRowConverter::toTuple;
+
+        var rowConverter = new TableRowConverter(tupleSchema, indexSchema);
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 indexId,
                 new TestHashIndexStorage(null),
-                row2tuple
+                binaryRow2Tuple,
+                rowConverter::toTuple
         ));
 
-        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2tuple);
+        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), binaryRow2Tuple);
 
         HybridClock clock = new HybridClockImpl();
         PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes);
+
+        DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -264,7 +287,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 placementDriver,
                 storageUpdateHandler,
-                peer -> true
+                peer -> true,
+                CompletableFuture.completedFuture(schemaManager)
         );
 
         partitionListener = new PartitionListener(

@@ -31,7 +31,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -39,7 +39,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -66,24 +65,6 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
         initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testSuccessRebalance() throws Exception {
-        super.testSuccessRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testFailRebalance() throws Exception {
-        super.testFailRebalance();
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18028")
-    @Override
-    public void testStartRebalanceForClosedPartition() {
-        super.testStartRebalanceForClosedPartition();
-    }
-
     @Test
     void partitionDestructionFreesPartitionPages() throws Exception {
         MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(0);
@@ -107,10 +88,10 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     }
 
     private void insertOneRow(MvPartitionStorage partitionStorage) {
-        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
         partitionStorage.runConsistently(() -> {
-            partitionStorage.addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
+            partitionStorage.addWriteCommitted(new RowId(PARTITION_ID), tableRow, clock.now());
 
             return null;
         });

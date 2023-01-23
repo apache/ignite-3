@@ -25,28 +25,32 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  */
 public interface Transaction {
     /**
-     * Synchronously commits a transaction.
+     * Synchronously commits a transaction. A commit of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @throws TransactionException If a transaction can't be committed.
      */
     void commit() throws TransactionException;
 
     /**
-     * Asynchronously commits a transaction.
+     * Asynchronously commits a transaction. A commit of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @return The future.
      */
     CompletableFuture<Void> commitAsync();
 
     /**
-     * Synchronously rolls back a transaction.
+     * Synchronously rolls back a transaction. A rollback of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @throws TransactionException If a transaction can't be rolled back.
      */
     void rollback() throws TransactionException;
 
     /**
-     * Asynchronously rolls back a transaction.
+     * Asynchronously rolls back a transaction. A rollback of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @return The future.
      */

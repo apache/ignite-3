@@ -15,37 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.jetbrains.annotations.Nullable;
+import java.util.Collection;
+import org.apache.ignite.internal.metastorage.Entry;
 
 /**
- * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
+ * Interface for declaring callbacks that get called after all Meta Storage watches have been notified of a particular revision.
  */
-public class BinaryRowAndRowId {
-    /** Binary row. */
-    private final @Nullable BinaryRow binaryRow;
-
-    /** Row id. */
-    private final RowId rowId;
-
+@FunctionalInterface
+public interface OnRevisionAppliedCallback {
     /**
-     * Constructor.
+     * Notifies of completion of processing of Meta Storage watches for a particular revision.
      *
-     * @param binaryRow Binary row.
-     * @param rowId Row id.
+     * @param revision Revision.
+     * @param updatedEntries Entries that have been modified under this revision and processed by at least one watch.
      */
-    public BinaryRowAndRowId(@Nullable BinaryRow binaryRow, RowId rowId) {
-        this.binaryRow = binaryRow;
-        this.rowId = rowId;
-    }
-
-    public @Nullable BinaryRow binaryRow() {
-        return binaryRow;
-    }
-
-    public RowId rowId() {
-        return rowId;
-    }
+    void onRevisionApplied(long revision, Collection<Entry> updatedEntries);
 }

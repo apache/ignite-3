@@ -849,7 +849,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     txStateStorage,
                                                     placementDriver,
                                                     storageUpdateHandler,
-                                                    this::isLocalPeer
+                                                    this::isLocalPeer,
+                                                    schemaManager.schemaRegistry(causalityToken, tblId)
                                             )
                                     );
                                 } catch (NodeStoppingException ex) {
@@ -1778,7 +1779,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private void registerRebalanceListeners() {
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
-            public boolean onUpdate(@NotNull WatchEvent evt) {
+            public void onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
                     throw new IgniteInternalException(new NodeStoppingException());
                 }
@@ -1789,7 +1790,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     Entry pendingAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
                     if (pendingAssignmentsWatchEvent.value() == null) {
-                        return true;
+                        return;
                     }
 
                     int partId = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
@@ -1906,7 +1907,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             txStatePartitionStorage,
                                             placementDriver,
                                             storageUpdateHandler,
-                                            TableManager.this::isLocalPeer
+                                            TableManager.this::isLocalPeer,
+                                            completedFuture(schemaManager.schemaRegistry(tblId))
                                     )
                             );
                         } catch (NodeStoppingException e) {
@@ -1917,7 +1919,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // Do not change peers of the raft group if this is a stale event.
                     // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
                     if (pendingAssignmentsWatchEvent.revision() < pendingAssignmentsEntry.revision()) {
-                        return true;
+                        return;
                     }
 
                     RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
@@ -1932,22 +1934,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         partGrpSvc.changePeersAsync(pendingConfiguration, leaderWithTerm.term()).join();
                     }
-
-                    return true;
                 } finally {
                     busyLock.leaveBusy();
                 }
             }
 
             @Override
-            public void onError(@NotNull Throwable e) {
+            public void onError(Throwable e) {
                 LOG.warn("Unable to process pending assignments event", e);
             }
         });
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
-            public boolean onUpdate(@NotNull WatchEvent evt) {
+            public void onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
                     throw new IgniteInternalException(new NodeStoppingException());
                 }
@@ -1958,7 +1958,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
                     if (stableAssignmentsWatchEvent.value() == null) {
-                        return true;
+                        return;
                     }
 
                     int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
@@ -1989,22 +1989,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             // no-op
                         }
                     }
-
-                    return true;
                 } finally {
                     busyLock.leaveBusy();
                 }
             }
 
             @Override
-            public void onError(@NotNull Throwable e) {
+            public void onError(Throwable e) {
                 LOG.warn("Unable to process stable assignments event", e);
             }
         });
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
             @Override
-            public boolean onUpdate(@NotNull WatchEvent evt) {
+            public void onUpdate(WatchEvent evt) {
                 byte[] key = evt.entryEvent().newEntry().key();
 
                 int partitionNumber = extractPartitionNumber(key);
@@ -2024,12 +2022,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         replicaGrpId,
                         evt
                 );
-
-                return true;
             }
 
             @Override
-            public void onError(@NotNull Throwable e) {
+            public void onError(Throwable e) {
                 LOG.warn("Unable to process switch reduce event", e);
             }
         });

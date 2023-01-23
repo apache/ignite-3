@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -119,6 +120,32 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public abstract void before() throws Exception;
+
+    @Test
+    public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        accounts.recordView().upsert(tx, makeValue(1, 100.));
+
+        tx.commit();
+
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+    }
+
+    @Test
+    public void testRollbackCommitSameTxDoesNotThrow() throws TransactionException {
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        accounts.recordView().upsert(tx, makeValue(1, 100.));
+
+        tx.rollback();
+
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+    }
 
     @Test
     public void testDeleteUpsertCommit() throws TransactionException {
@@ -532,13 +559,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx1.commit();
 
-        try {
-            tx2.commit();
-
-            fail();
-        } catch (TransactionException e) {
-            // Expected.
-        }
+        tx2.commit();
 
         assertEquals(101., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
