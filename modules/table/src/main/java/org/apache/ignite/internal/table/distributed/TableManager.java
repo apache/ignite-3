@@ -836,7 +836,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     safeTime,
                                                     txStateStorage,
                                                     placementDriver,
-                                                    this::isLocalPeer
+                                                    this::isLocalPeer,
+                                                    schemaManager.schemaRegistry(causalityToken, tblId)
                                             )
                                     );
                                 } catch (NodeStoppingException ex) {
@@ -1890,7 +1891,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             safeTime,
                                             txStatePartitionStorage,
                                             placementDriver,
-                                            TableManager.this::isLocalPeer
+                                            TableManager.this::isLocalPeer,
+                                            completedFuture(schemaManager.schemaRegistry(tblId))
                                     )
                             );
                         } catch (NodeStoppingException e) {
