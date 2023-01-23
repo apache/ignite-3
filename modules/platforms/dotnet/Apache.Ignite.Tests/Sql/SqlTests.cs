@@ -332,12 +332,16 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("TESTDDLDML", columns[0].Origin!.TableName);
             Assert.IsTrue(columns[0].Nullable);
             Assert.AreEqual(SqlColumnType.String, columns[0].Type);
+            Assert.AreEqual(0, columns[0].Scale);
+            Assert.AreEqual(0, columns[0].Precision);
 
             Assert.AreEqual("ID", columns[1].Name);
             Assert.AreEqual("ID", columns[1].Origin!.ColumnName);
             Assert.AreEqual("PUBLIC", columns[1].Origin!.SchemaName);
             Assert.AreEqual("TESTDDLDML", columns[1].Origin!.TableName);
             Assert.IsFalse(columns[1].Nullable);
+            Assert.AreEqual(0, columns[1].Scale);
+            Assert.AreEqual(0, columns[1].Precision);
 
             Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
