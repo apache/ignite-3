@@ -192,6 +192,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return completedFuture(null);
         }
 
+        // TODO: IGNITE-18030 Delete it
         return partitionSnapshotStorage.partition().reCreateMvPartitionStorage();
     }
 
@@ -207,6 +208,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return completedFuture(null);
         }
 
+        // TODO: IGNITE-18030 Delete it
         return CompletableFuture.runAsync(() -> partitionSnapshotStorage.partition().reCreateTxStatePartitionStorage(), executor);
     }
 

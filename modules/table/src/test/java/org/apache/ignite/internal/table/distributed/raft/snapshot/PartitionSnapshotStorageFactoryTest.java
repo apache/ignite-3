@@ -45,7 +45,7 @@ public class PartitionSnapshotStorageFactoryTest {
     @Test
     void testForChoosingMinimumAppliedIndexForMeta() {
         lenient().when(partitionAccess.minLastAppliedIndex()).thenReturn(5L);
-        lenient().when(partitionAccess.maxLastAppliedTerm()).thenReturn(10L);
+        lenient().when(partitionAccess.maxLastAppliedIndex()).thenReturn(10L);
 
         lenient().when(partitionAccess.minLastAppliedTerm()).thenReturn(1L);
         lenient().when(partitionAccess.maxLastAppliedTerm()).thenReturn(2L);

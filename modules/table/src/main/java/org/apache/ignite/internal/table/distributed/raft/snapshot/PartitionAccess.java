@@ -49,9 +49,9 @@ public interface PartitionAccess {
     CompletableFuture<Void> reCreateMvPartitionStorage() throws StorageException;
 
     /**
-     * Destroys and recreates the multi-versioned partition storage.
+     * Destroys and recreates the TX state partition storage.
      *
-     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
+     * @throws StorageException If an error has occurred during destruction of the transaction state storage for the partition.
      */
     void reCreateTxStatePartitionStorage() throws StorageException;
 
