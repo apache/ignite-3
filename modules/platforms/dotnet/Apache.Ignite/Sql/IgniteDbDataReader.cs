@@ -344,9 +344,54 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
             return (T)(object)GetInt32(ordinal);
         }
 
+        if (typeof(T) == typeof(long))
+        {
+            return (T)(object)GetInt64(ordinal);
+        }
+
+        if (typeof(T) == typeof(short))
+        {
+            return (T)(object)GetInt16(ordinal);
+        }
+
+        if (typeof(T) == typeof(float))
+        {
+            return (T)(object)GetFloat(ordinal);
+        }
+
+        if (typeof(T) == typeof(double))
+        {
+            return (T)(object)GetDouble(ordinal);
+        }
+
+        if (typeof(T) == typeof(decimal))
+        {
+            return (T)(object)GetDecimal(ordinal);
+        }
+
+        if (typeof(T) == typeof(byte))
+        {
+            return (T)(object)GetByte(ordinal);
+        }
+
         if (typeof(T) == typeof(LocalTime))
         {
             return (T)(object)GetReader(ordinal, typeof(LocalTime)).GetTime(ordinal);
+        }
+
+        if (typeof(T) == typeof(LocalDate))
+        {
+            return (T)(object)GetReader(ordinal, typeof(LocalDate)).GetDate(ordinal);
+        }
+
+        if (typeof(T) == typeof(LocalDateTime))
+        {
+            return (T)(object)GetReader(ordinal, typeof(LocalDateTime)).GetDateTime(ordinal);
+        }
+
+        if (typeof(T) == typeof(DateTime))
+        {
+            return (T)(object)GetDateTime(ordinal);
         }
 
         throw GetInvalidColumnTypeException(typeof(T), Metadata.Columns[ordinal]);
