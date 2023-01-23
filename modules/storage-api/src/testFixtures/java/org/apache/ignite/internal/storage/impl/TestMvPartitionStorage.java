@@ -580,6 +580,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = REBALANCE_IN_PROGRESS;
         lastAppliedTerm = REBALANCE_IN_PROGRESS;
+
+        groupConfig = null;
     }
 
     void abortRebalance() {
@@ -595,9 +597,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
+
+        groupConfig = null;
     }
 
-    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
         checkStorageClosed();
 
         assert rebalance;
@@ -606,6 +610,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
+        this.groupConfig = raftGroupConfig;
     }
 
     boolean closed() {

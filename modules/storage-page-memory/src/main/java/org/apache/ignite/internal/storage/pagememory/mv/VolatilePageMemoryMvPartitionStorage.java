@@ -141,7 +141,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.lastAppliedIndex = lastAppliedIndex;
@@ -219,5 +219,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                     createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
             );
         }
+    }
+
+    @Override
+    public void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config) throws StorageException {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.groupConfig = config;
     }
 }
