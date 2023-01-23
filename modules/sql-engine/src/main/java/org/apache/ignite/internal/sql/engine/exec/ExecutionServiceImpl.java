@@ -88,7 +88,7 @@ import org.jetbrains.annotations.Nullable;
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
     private static final int CACHE_SIZE = 1024;
 
-    private final ConcurrentMap<String, IgniteRel> PHYS_NODES_REPR = Caffeine.newBuilder()
+    private final ConcurrentMap<String, IgniteRel> physNodesCache = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
             .<String, IgniteRel>build()
             .asMap();
@@ -225,7 +225,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private QueryPlan prepareFragment(String jsonFragment) {
-        IgniteRel plan = PHYS_NODES_REPR.computeIfAbsent(jsonFragment, ser -> fromJson(sqlSchemaManager, ser));
+        IgniteRel plan = physNodesCache.computeIfAbsent(jsonFragment, ser -> fromJson(sqlSchemaManager, ser));
 
         return new FragmentPlan(plan);
     }
