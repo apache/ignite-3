@@ -44,6 +44,7 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -94,6 +95,9 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
+import org.apache.ignite.internal.rest.auth.AuthProviderFactory;
+import org.apache.ignite.internal.rest.configuration.AuthConfiguration;
+import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
@@ -134,6 +138,7 @@ import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -263,6 +268,9 @@ public class IgniteImpl implements Ignite {
 
     private final ScheduledExecutorService raftExecutorService;
 
+    /** CompletableFuture of {@link ClusterRestConfiguration} that will be resolved after the cluster initialization. */
+    private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
     /**
      * The Constructor.
      *
@@ -353,14 +361,16 @@ public class IgniteImpl implements Ignite {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
-                nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY)
-        );
+                nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY),
+                distributedConfigurationUpdater);
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
@@ -391,7 +401,6 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
-
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
@@ -499,16 +508,21 @@ public class IgniteImpl implements Ignite {
     }
 
     private RestComponent createRestComponent(String name) {
+        AuthConfiguration authConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(ClusterRestConfiguration.KEY)
+                .authConfiguration();
         RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
         RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
         RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
         RestFactory nodeMetricRestFactory = new MetricRestFactory(metricManager);
+        AuthProviderFactory authProviderFactory = new AuthProviderFactory(authConfiguration);
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
         return new RestComponent(
                 List.of(presentationsFactory,
                         clusterManagementRestFactory,
                         nodeManagementRestFactory,
-                        nodeMetricRestFactory),
+                        nodeMetricRestFactory,
+                        authProviderFactory),
                 restConfiguration
         );
     }
@@ -652,6 +666,11 @@ public class IgniteImpl implements Ignite {
 
                                     return recoveryFuture;
                                 }, startupExecutor);
+                    }, startupExecutor)
+                    .thenRunAsync(() -> {
+                        ClusterRestConfiguration restConfiguration = clusterCfgMgr.configurationRegistry()
+                                .getConfiguration(ClusterRestConfiguration.KEY);
+                        distributedConfigurationUpdater.setClusterRestConfiguration(restConfiguration);
                     }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
                     .thenComposeAsync(v -> {
@@ -839,9 +858,10 @@ public class IgniteImpl implements Ignite {
     public void init(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
-            String clusterName
+            String clusterName,
+            RestAuthConfig restAuthConfig
     ) throws NodeStoppingException {
-        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName);
+        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, restAuthConfig);
     }
 
     /**

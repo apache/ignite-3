@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
@@ -58,7 +59,7 @@ public class IgniteRunnerTest {
                 "--node-name", NODE_NAME
         );
 
-        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster", disabledAuth());
 
         assertThat(ign, willCompleteSuccessfully());
     }

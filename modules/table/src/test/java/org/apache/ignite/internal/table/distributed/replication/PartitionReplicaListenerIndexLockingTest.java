@@ -108,7 +108,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static Function<BinaryRow, BinaryTuple> row2SortKeyConverter;
 
     @BeforeAll
-    private static void beforeAll() {
+    public static void beforeAll() {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
@@ -194,7 +194,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     }
 
     @BeforeEach
-    private void beforeTest() {
+    public void beforeTest() {
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
         TEST_MV_PARTITION_STORAGE.clear();
 

@@ -35,6 +35,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-rocksdb-common')
+    implementation project(':ignite-rest')
     implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.http.core
@@ -43,6 +44,7 @@ dependencies {
     implementation libs.auto.service.annotations
 
     testImplementation project(':ignite-configuration')
+    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
@@ -58,6 +60,7 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+    integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-rest-api')

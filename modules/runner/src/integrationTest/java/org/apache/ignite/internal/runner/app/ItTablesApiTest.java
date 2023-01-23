@@ -58,6 +58,7 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -113,7 +114,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         String metaStorageNodeName = testNodeName(testInfo, 0);
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster", RestAuthConfig.disabledAuth());
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

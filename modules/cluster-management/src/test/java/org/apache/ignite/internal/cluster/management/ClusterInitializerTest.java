@@ -210,13 +210,17 @@ public class ClusterInitializerTest {
      */
     @Test
     void testInitIllegalArguments() {
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(), List.of(), "cluster"));
+        assertThrows(IllegalArgumentException.class,
+                () -> clusterInitializer.initCluster(List.of(), List.of(), "cluster"));
 
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(" "), List.of("bar"), "cluster"));
+        assertThrows(IllegalArgumentException.class,
+                () -> clusterInitializer.initCluster(List.of(" "), List.of("bar"), "cluster"));
 
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of("foo"), List.of(" "), "cluster"));
+        assertThrows(IllegalArgumentException.class,
+                () -> clusterInitializer.initCluster(List.of("foo"), List.of(" "), "cluster"));
 
-        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of("foo"), List.of("bar"), " "));
+        assertThrows(IllegalArgumentException.class,
+                () -> clusterInitializer.initCluster(List.of("foo"), List.of("bar"), " "));
     }
 
     /**

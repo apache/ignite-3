@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -146,10 +147,11 @@ public interface Ignition {
      * @param nodeName Name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage <b>and</b> the CMG.
      * @param clusterName Human-readable name of the cluster.
+     * @param restAuthConfig REST authentication configuration.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */
-    void init(String nodeName, Collection<String> metaStorageNodeNames, String clusterName);
+    void init(String nodeName, Collection<String> metaStorageNodeNames, String clusterName, RestAuthConfig restAuthConfig);
 
     /**
      * Initializes the cluster that the given node is present in.
@@ -168,8 +170,15 @@ public interface Ignition {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @param cmgNodeNames Names of nodes that will host the CMG.
      * @param clusterName Human-readable name of the cluster.
+     * @param restAuthConfig REST authentication configuration.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */
-    void init(String nodeName, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName);
+    void init(
+            String nodeName,
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            RestAuthConfig restAuthConfig
+    );
 }

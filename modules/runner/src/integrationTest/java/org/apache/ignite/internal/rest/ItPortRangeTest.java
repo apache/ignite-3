@@ -41,7 +41,6 @@ import java.util.stream.Stream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
-import org.apache.ignite.internal.rest.ssl.RestNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,16 +91,17 @@ public class ItPortRangeTest {
     @MethodSource("sslConfigurationProperties")
     void portRange(boolean sslEnabled, boolean dualProtocol, TestInfo testInfo) throws IOException, InterruptedException {
         List<RestNode> nodes = IntStream.range(0, 3)
-                .mapToObj(id -> new RestNode(
-                        workDir,
-                        testNodeName(testInfo, id),
-                        3522 + id,
-                        10300,
-                        10400,
-                        true,
-                        false,
-                        true
-                ))
+                .mapToObj(id -> {
+                    return RestNode.builder()
+                            .setWorkDir(workDir)
+                            .setName(testNodeName(testInfo, id))
+                            .setNetworkPort(3344 + id)
+                            .setHttpPort(10300)
+                            .setHttpsPort(10400)
+                            .setSslEnabled(sslEnabled)
+                            .setDualProtocol(dualProtocol)
+                            .build();
+                })
                 .collect(Collectors.toList());
         try {
             nodes.forEach(RestNode::start);

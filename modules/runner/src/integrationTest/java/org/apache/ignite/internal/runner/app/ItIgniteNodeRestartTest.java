@@ -55,6 +55,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -84,6 +85,7 @@ import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -109,6 +111,7 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -160,6 +163,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
+
+    @InjectConfiguration
+    private static ClusterRestConfiguration clusterRestConfiguration;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
 
@@ -270,14 +276,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+        distributedConfigurationUpdater.setClusterRestConfiguration(clusterRestConfiguration);
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
-                clusterManagementConfiguration
-        );
+                clusterManagementConfiguration,
+                distributedConfigurationUpdater);
 
         var metaStorageMgr = new MetaStorageManagerImpl(
                 vault,
@@ -529,7 +538,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthConfig.disabledAuth());
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -585,7 +594,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthConfig.disabledAuth());
         }
 
         return futures.stream()

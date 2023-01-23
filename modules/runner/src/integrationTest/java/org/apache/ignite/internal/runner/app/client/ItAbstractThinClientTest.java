@@ -38,6 +38,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -97,7 +98,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster", RestAuthConfig.disabledAuth());
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

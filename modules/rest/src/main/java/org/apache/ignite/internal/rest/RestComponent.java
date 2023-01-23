@@ -36,6 +36,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -198,8 +199,13 @@ public class RestComponent implements IgniteComponent {
     private Micronaut buildMicronautContext(int portCandidate, int sslPortCandidate) {
         Micronaut micronaut = Micronaut.build("");
         setFactories(micronaut);
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.putAll(serverProperties(portCandidate, sslPortCandidate));
+        properties.putAll(authProperties());
+
         return micronaut
-                .properties(properties(portCandidate, sslPortCandidate))
+                .properties(properties)
                 .banner(false)
                 .mapError(ServerStartupException.class, this::mapServerStartupException)
                 .mapError(ApplicationStartupException.class, ex -> -1);
@@ -271,6 +277,12 @@ public class RestComponent implements IgniteComponent {
         } else {
             return Map.of("micronaut.server.port", port);
         }
+    }
+
+    private Map<String, Object> authProperties() {
+        return Map.of("micronaut.security.enabled", true,
+                        "micronaut.security.intercept-url-map[1].pattern", "/**",
+                        "micronaut.security.intercept-url-map[1].access", "isAuthenticated()");
     }
 
     private static void validateKeyStorePath(String keyStorePath) {

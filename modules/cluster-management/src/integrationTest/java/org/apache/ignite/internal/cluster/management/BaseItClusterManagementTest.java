@@ -30,6 +30,7 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -50,6 +51,9 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private static ClusterRestConfiguration clusterRestConfiguration;
+
     protected static List<MockNode> createNodes(int numNodes, TestInfo testInfo, Path workDir) {
         StaticNodeFinder nodeFinder = createNodeFinder(numNodes);
 
@@ -60,7 +64,8 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                         nodeFinder,
                         workDir.resolve("node" + i),
                         raftConfiguration,
-                        cmgConfiguration
+                        cmgConfiguration,
+                        clusterRestConfiguration
                 ))
                 .collect(toList());
     }
@@ -72,7 +77,8 @@ public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
                 createNodeFinder(cluster.size()),
                 workDir.resolve("node" + cluster.size()),
                 raftConfiguration,
-                cmgConfiguration
+                cmgConfiguration,
+                clusterRestConfiguration
         );
 
         cluster.add(node);

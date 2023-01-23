@@ -25,6 +25,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.rest.api.cluster.auth.AuthConfigDto;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,6 +42,9 @@ public class InitCommand {
     @Schema(description = "The name of the cluster.")
     private final String clusterName;
 
+    @Schema(description = "Authentication configuration.")
+    private final AuthConfigDto authConfig;
+
     /**
      * Constructor.
      */
@@ -48,7 +52,8 @@ public class InitCommand {
     public InitCommand(
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
             @JsonProperty("cmgNodes") @Nullable Collection<String> cmgNodes,
-            @JsonProperty("clusterName") String clusterName
+            @JsonProperty("clusterName") String clusterName,
+            @JsonProperty("authConfig") AuthConfigDto authConfig
     ) {
         Objects.requireNonNull(metaStorageNodes);
         Objects.requireNonNull(clusterName);
@@ -69,9 +74,14 @@ public class InitCommand {
             throw new IllegalArgumentException("Cluster name must not be empty");
         }
 
+        if (authConfig == null) {
+            throw new IllegalArgumentException("AuthConfig must not be null");
+        }
+
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = cmgNodes == null ? List.of() : List.copyOf(cmgNodes);
         this.clusterName = clusterName;
+        this.authConfig = authConfig;
     }
 
     @JsonProperty
@@ -89,12 +99,18 @@ public class InitCommand {
         return clusterName;
     }
 
+    @JsonProperty
+    public AuthConfigDto authConfig() {
+        return authConfig;
+    }
+
     @Override
     public String toString() {
         return "InitCommand{"
                 + "metaStorageNodes=" + metaStorageNodes
                 + ", cmgNodes=" + cmgNodes
                 + ", clusterName='" + clusterName + '\''
+                + ", authConfig='" + authConfig + '\''
                 + '}';
     }
 }

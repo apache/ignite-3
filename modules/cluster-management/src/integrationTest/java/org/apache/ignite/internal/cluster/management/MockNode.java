@@ -33,6 +33,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -61,6 +62,8 @@ public class MockNode {
 
     private final ClusterManagementConfiguration cmgConfiguration;
 
+    private final ClusterRestConfiguration clusterRestConfiguration;
+
     private final List<IgniteComponent> components = new ArrayList<>();
 
     private CompletableFuture<Void> startFuture;
@@ -74,13 +77,15 @@ public class MockNode {
             NodeFinder nodeFinder,
             Path workDir,
             RaftConfiguration raftConfiguration,
-            ClusterManagementConfiguration cmgConfiguration
+            ClusterManagementConfiguration cmgConfiguration,
+            ClusterRestConfiguration clusterRestConfiguration
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
         this.workDir = workDir;
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
+        this.clusterRestConfiguration = clusterRestConfiguration;
 
         try {
             init(addr.port());
@@ -102,14 +107,17 @@ public class MockNode {
 
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
+        var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+        distributedConfigurationUpdater.setClusterRestConfiguration(clusterRestConfiguration);
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
                 raftManager,
                 clusterStateStorage,
                 logicalTopologyService,
-                cmgConfiguration
-        );
+                cmgConfiguration,
+                distributedConfigurationUpdater);
 
         components.add(vaultManager);
         components.add(clusterService);

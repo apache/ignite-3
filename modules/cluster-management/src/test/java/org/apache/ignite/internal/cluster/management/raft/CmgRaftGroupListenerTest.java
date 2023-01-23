@@ -19,10 +19,13 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.cluster.management.network.auth.RestAuth.restAuth;
+import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -144,6 +147,31 @@ public class CmgRaftGroupListenerTest {
         assertTrue(listener.onSnapshotLoad(Paths.get("/unused")));
 
         verify(logicalTopology).fireTopologyLeap();
+    }
+
+    @Test
+    void writeAndReadRestAuth() {
+        ClusterState clusterState = clusterState(
+                msgFactory,
+                Set.of("foo"),
+                Set.of("bar"),
+                IgniteProductVersion.CURRENT_VERSION,
+                clusterTag,
+                restAuth(msgFactory, disabledAuth())
+        );
+
+        listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(clusterState).build()));
+
+        ClusterState clusterStateToUpdate = clusterState(
+                msgFactory,
+                clusterState.cmgNodes(),
+                clusterState.metaStorageNodes(),
+                clusterState.igniteVersion(),
+                clusterState.clusterTag()
+        );
+
+        listener.onWrite(iterator(msgFactory.updateClusterStateCommand().clusterState(clusterStateToUpdate).build()));
+        assertNull(listener.storage().getClusterState().restAuthToApply());
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {

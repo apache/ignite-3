@@ -42,6 +42,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -180,7 +181,7 @@ abstract class AbstractSchemaChangeTest {
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster", RestAuthConfig.disabledAuth());
 
         await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
 

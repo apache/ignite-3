@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.cluster.management.rest;
 
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
+import io.micronaut.http.hateoas.AbstractResource;
+import io.micronaut.http.hateoas.GenericResource;
+import io.micronaut.http.hateoas.JsonError;
 import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
@@ -27,6 +30,7 @@ import java.util.List;
 import org.apache.ignite.internal.cluster.management.BaseItClusterManagementTest;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MockNode;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -40,6 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Cluster management REST test.
  */
 @MicronautTest
+@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RestTestBase extends BaseItClusterManagementTest {
     static final List<MockNode> cluster = new ArrayList<>();
@@ -71,5 +76,15 @@ public class RestTestBase extends BaseItClusterManagementTest {
 
     static Problem getProblem(HttpClientResponseException exception) {
         return exception.getResponse().getBody(Problem.class).orElseThrow();
+    }
+
+    static String getErrorMessage(HttpClientResponseException exception) {
+        return exception.getResponse().getBody(JsonError.class)
+                .map(AbstractResource::getEmbedded)
+                .flatMap(it -> it.getFirst("errors"))
+                .map(GenericResource.class::cast)
+                .map(it -> it.getAdditionalProperties().get("message"))
+                .map(String.class::cast)
+                .orElseThrow();
     }
 }

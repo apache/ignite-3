@@ -19,6 +19,7 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -79,7 +80,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabledAuth());
 
         assertThat(future, willCompleteSuccessfully());
 

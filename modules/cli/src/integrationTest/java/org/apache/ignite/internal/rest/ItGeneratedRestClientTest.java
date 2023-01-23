@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -55,6 +56,7 @@ import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
+import org.apache.ignite.rest.client.model.AuthConfig;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
@@ -120,7 +122,7 @@ public class ItGeneratedRestClientTest {
 
         String metaStorageNode = testNodeName(testInfo, BASE_PORT);
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster", disabledAuth());
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -268,6 +270,7 @@ public class ItGeneratedRestClientTest {
                             .clusterName("cluster")
                             .metaStorageNodes(List.of(firstNodeName))
                             .cmgNodes(List.of())
+                            .authConfig(new AuthConfig().enabled(false))
             );
         });
     }
@@ -291,7 +294,8 @@ public class ItGeneratedRestClientTest {
                         new InitCommand()
                                 .clusterName("cluster")
                                 .metaStorageNodes(List.of("no-such-node"))
-                                .cmgNodes(List.of()))
+                                .cmgNodes(List.of())
+                                .authConfig(new AuthConfig().enabled(false)))
         );
 
         assertThat(thrown.getCode(), equalTo(400));

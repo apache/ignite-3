@@ -436,6 +436,19 @@ paths:
                 $ref: '#/components/schemas/Problem'
 components:
   schemas:
+    AuthConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: If Security is enabled.
+        providers:
+          type: array
+          description: A list of authentication providers.
+          items:
+            $ref: '#/components/schemas/AuthProviderConfigDto'
+    AuthProviderConfigDto:
+      type: object
     ClusterNode:
       type: object
       properties:
@@ -498,6 +511,8 @@ components:
         clusterName:
           type: string
           description: The name of the cluster.
+        authConfig:
+          $ref: '#/components/schemas/AuthConfig'
     InvalidParam:
       type: object
       properties:

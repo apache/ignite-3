@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.ssl;
+package org.apache.ignite.internal.rest;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 
 /** Presentation of Ignite node for tests. */
 public class RestNode {
@@ -35,6 +38,8 @@ public class RestNode {
     /** Trust store password. */
     private static final String trustStorePassword = "changeit";
 
+    private final String keyStorePath;
+    private final String keyStorePassword;
     private final Path workDir;
     private final String name;
     private final int networkPort;
@@ -43,9 +48,12 @@ public class RestNode {
     private final boolean sslEnabled;
     private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
+    private CompletableFuture<Ignite> igniteNodeFuture;
 
     /** Constructor. */
     public RestNode(
+            String keyStorePath,
+            String keyStorePassword,
             Path workDir,
             String name,
             int networkPort,
@@ -55,6 +63,8 @@ public class RestNode {
             boolean sslClientAuthEnabled,
             boolean dualProtocol
     ) {
+        this.keyStorePath = keyStorePath;
+        this.keyStorePassword = keyStorePassword;
         this.workDir = workDir;
         this.name = name;
         this.networkPort = networkPort;
@@ -65,13 +75,21 @@ public class RestNode {
         this.dualProtocol = dualProtocol;
     }
 
-    public RestNode start() {
-        IgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
-        return this;
+    public static RestNodeBuilder builder() {
+        return new RestNodeBuilder();
+    }
+
+    public CompletableFuture<Ignite> start() {
+        igniteNodeFuture = IgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
+        return igniteNodeFuture;
     }
 
     public void stop() {
         IgnitionManager.stop(name);
+    }
+
+    public String name() {
+        return name;
     }
 
     public String httpAddress() {
@@ -80,6 +98,10 @@ public class RestNode {
 
     public String httpsAddress() {
         return "https://localhost:" + httpsPort;
+    }
+
+    public CompletableFuture<Ignite> igniteNodeFuture() {
+        return igniteNodeFuture;
     }
 
     private String bootstrapCfg() {

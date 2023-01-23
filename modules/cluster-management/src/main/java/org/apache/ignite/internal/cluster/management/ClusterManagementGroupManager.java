@@ -22,7 +22,9 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.cluster.management.RestAuthConverter.toRestAuthConfig;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
 
 import java.util.Collection;
 import java.util.List;
@@ -72,6 +74,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -126,6 +129,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
 
+    private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
     /**
      * Whether we attempted to complete join (i.e. send JoinReady command) on Ignite node start.
      *
@@ -147,13 +152,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
-            ClusterManagementConfiguration configuration
-    ) {
+            ClusterManagementConfiguration configuration,
+            DistributedConfigurationUpdater distributedConfigurationUpdater) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
         this.logicalTopology = logicalTopology;
         this.configuration = configuration;
+        this.distributedConfigurationUpdater = distributedConfigurationUpdater;
 
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
@@ -171,12 +177,29 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             Collection<String> cmgNodeNames,
             String clusterName
     ) throws NodeStoppingException {
+        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, disabledAuth());
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
+     * @param clusterName Human-readable name of the cluster.
+     * @param restAuthConfig REST authentication configuration.
+     */
+    public void initCluster(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            RestAuthConfig restAuthConfig
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName).get();
+            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, restAuthConfig).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -330,7 +353,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 msg.cmgNodes(),
                 msg.metaStorageNodes(),
                 IgniteProductVersion.CURRENT_VERSION,
-                clusterTag(msgFactory, msg.clusterName())
+                clusterTag(msgFactory, msg.clusterName()),
+                msg.restAuthToApply()
         );
     }
 
@@ -366,6 +390,36 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         LOG.warn("Error when executing onLeaderElected callback", e);
                     }
                 });
+
+        raftServiceAfterJoin().thenCompose(service -> service.readClusterState()
+                .thenCompose(state -> {
+                    if (state == null) {
+                        LOG.info("No CMG state found in the Raft storage");
+                        return completedFuture(null);
+                    } else if (state.restAuthToApply() == null) {
+                        LOG.info("No REST auth configuration found in the Raft storage");
+                        return completedFuture(null);
+                    } else {
+                        LOG.info("REST auth configuration found in the Raft storage, going to apply it");
+                        return distributedConfigurationUpdater.updateRestAuthConfiguration(toRestAuthConfig(state.restAuthToApply()))
+                                .thenCompose(unused -> {
+                                    ClusterState clusterState = ClusterState.clusterState(
+                                            msgFactory,
+                                            state.cmgNodes(),
+                                            state.metaStorageNodes(),
+                                            state.igniteVersion(),
+                                            state.clusterTag()
+                                    );
+                                    return service.updateClusterState(clusterState);
+                                })
+                                .whenComplete((v, e) -> {
+                                    if (e != null) {
+                                        LOG.warn("Error when updating REST auth configuration", e);
+                                    }
+                                });
+                    }
+                }));
+
     }
 
     /**
@@ -795,6 +849,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     return serviceFuture;
                 });
     }
+
+
 
     @TestOnly
     LogicalTopologyImpl logicalTopologyImpl() {

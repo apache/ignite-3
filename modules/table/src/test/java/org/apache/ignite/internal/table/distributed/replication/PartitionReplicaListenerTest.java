@@ -230,7 +230,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static Function<PartitionCommand, CompletableFuture<?>> raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
 
     @BeforeAll
-    private static void beforeAll() {
+    public static void beforeAll() {
         when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
                 return completedFuture(new LeaderWithTerm(new Peer(anotherNode.name()), 1L));
@@ -345,7 +345,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @BeforeEach
-    private void beforeTest() {
+    public void beforeTest() {
         localLeader = true;
         txState = null;
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();

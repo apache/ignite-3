@@ -24,6 +24,7 @@ import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
+import org.apache.ignite.rest.client.model.AuthConfig;
 import org.apache.ignite.rest.client.model.InitCommand;
 
 /**
@@ -41,6 +42,7 @@ public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
                     .metaStorageNodes(input.getMetaStorageNodes())
                     .cmgNodes(input.getCmgNodes())
                     .clusterName(input.getClusterName())
+                    .authConfig(new AuthConfig().enabled(false))
             );
             return DefaultCallOutput.success("Cluster was initialized successfully");
         } catch (ApiException | IllegalArgumentException e) {

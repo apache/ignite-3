@@ -48,6 +48,7 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
 
@@ -135,7 +136,7 @@ public class PlatformTestNodeRunner {
 
         String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster", RestAuthConfig.disabledAuth());
 
         System.out.println("Initialization complete");
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -74,6 +76,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItMetaStorageWatchTest extends IgniteAbstractTest {
+
+    @InjectConfiguration
+    private static ClusterRestConfiguration clusterRestConfiguration;
+
     private static class Node {
         private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -115,7 +121,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    cmgConfiguration
+                    cmgConfiguration,
+                    completedFuture(clusterRestConfiguration)
             );
 
             components.add(cmgManager);

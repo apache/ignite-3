@@ -19,6 +19,8 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthProvider;
+import org.apache.ignite.internal.cluster.management.network.auth.RestAuth;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -27,6 +29,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCom
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.UpdateClusterStateCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -117,5 +120,20 @@ public class CmgMessageGroup {
          * Message type for {@link ClusterTag}.
          */
         int CLUSTER_TAG = 62;
+
+        /**
+         * Message type of {@link RestAuth}.
+         */
+        int REST_AUTH = 63;
+
+        /**
+         * Message type of {@link BasicAuthProvider}.
+         */
+        int BASIC_AUTH_PROVIDER = 64;
+
+        /**
+         * Message type of {@link UpdateClusterStateCommand}.
+         */
+        int UPDATE_CMG_STATE = 65;
     }
 }

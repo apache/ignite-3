@@ -46,6 +46,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -198,7 +199,7 @@ class ItIgnitionTest {
         CompletableFuture<Ignite> future = starter.apply(nodeName);
 
         if (startedNodes.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthConfig.disabledAuth());
         }
 
         assertThat(future, willCompleteSuccessfully());

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.rest.RestAuthConfig;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -139,8 +140,13 @@ public class IgnitionImpl implements Ignition {
     }
 
     @Override
-    public void init(String nodeName, Collection<String> metaStorageNodenodeNames, String clusterName) {
-        init(nodeName, metaStorageNodenodeNames, List.of(), clusterName);
+    public void init(
+            String nodeName,
+            Collection<String> metaStorageNodenodeNames,
+            String clusterName,
+            RestAuthConfig restAuthConfig
+    ) {
+        init(nodeName, metaStorageNodenodeNames, List.of(), clusterName, restAuthConfig);
     }
 
     @Override
@@ -148,7 +154,8 @@ public class IgnitionImpl implements Ignition {
             String nodeName,
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
-            String clusterName
+            String clusterName,
+            RestAuthConfig restAuthConfig
     ) {
         IgniteImpl node = readyForInitNodes.get(nodeName);
 
@@ -157,7 +164,7 @@ public class IgnitionImpl implements Ignition {
         }
 
         try {
-            node.init(metaStorageNodeNames, cmgNodeNames, clusterName);
+            node.init(metaStorageNodeNames, cmgNodeNames, clusterName, restAuthConfig);
         } catch (NodeStoppingException e) {
             throw new IgniteException("Node stop detected during init", e);
         }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sqllogic;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -327,7 +328,7 @@ public class ItSqlLogicTest {
 
         String metaStorageNodeName = NODE_NAME_PREFIX + "0";
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster", disabledAuth());
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
