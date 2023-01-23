@@ -173,25 +173,20 @@ public partial class SqlTests
         await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
         await reader.ReadAsync();
 
-        // TODO: All types
         Test(() => reader.GetBoolean("STR"), "STR", SqlColumnType.String, typeof(bool), typeof(string));
         Test(() => reader.GetString("INT8"), "INT8", SqlColumnType.Int8, typeof(string), typeof(sbyte));
         Test(() => reader.GetGuid("INT16"), "INT16", SqlColumnType.Int16, typeof(Guid), typeof(short));
         Test(() => reader.GetDateTime("INT32"), "INT32", SqlColumnType.Int32, typeof(DateTime), typeof(int));
         Test(() => reader.GetFloat("INT64"), "INT64", SqlColumnType.Int64, typeof(float), typeof(long));
+        Test(() => reader.GetDouble("INT64"), "INT64", SqlColumnType.Int64, typeof(double), typeof(long));
+        Test(() => reader.GetString("INT64"), "INT64", SqlColumnType.Int64, typeof(string), typeof(long));
+        Test(() => reader.GetByte("STR"), "STR", SqlColumnType.String, typeof(byte), typeof(string));
+        Test(() => reader.GetBytes("STR", 0, null!, 0, 0), "STR", SqlColumnType.String, typeof(byte[]), typeof(string));
+        Test(() => reader.GetDecimal("STR"), "STR", SqlColumnType.String, typeof(decimal), typeof(string));
+        Test(() => reader.GetInt16("STR"), "STR", SqlColumnType.String, typeof(short), typeof(string));
+        Test(() => reader.GetInt32("STR"), "STR", SqlColumnType.String, typeof(int), typeof(string));
+        Test(() => reader.GetInt64("STR"), "STR", SqlColumnType.String, typeof(long), typeof(string));
 
-        // Assert.AreEqual(2, reader.GetString("INT8"));
-        // Assert.AreEqual(3, reader.GetGuid("INT16"));
-        // Assert.AreEqual(4, reader.GetGuid("INT32"));
-        // Assert.AreEqual(5, reader.GetGuid("INT64"));
-        // Assert.AreEqual(6.5f, reader.GetGuid("FLOAT"));
-        // Assert.AreEqual(7.5d, reader.GetGuid("DOUBLE"));
-        // Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetGuid("DATE"));
-        // Assert.AreEqual(new LocalTime(09, 28), reader.GetGuid("TIME"));
-        // Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetGuid("DATETIME"));
-        // Assert.AreEqual(Instant.FromUnixTimeSeconds(123).ToDateTimeUtc(), reader.GetGuid("TIMESTAMP"));
-        // Assert.AreEqual(8.7m, reader.GetGuid("DECIMAL"));
-        // reader.GetFloat("BLOB", 0, null!, 0, 0);
         static void Test(TestDelegate testDelegate, string columnName, SqlColumnType columnType, Type expectedType, Type actualType)
         {
             var ex = Assert.Throws<InvalidCastException>(testDelegate);
@@ -257,5 +252,17 @@ public partial class SqlTests
         Assert.AreEqual(65536, schema[1].NumericPrecision);
         Assert.IsNull(schema[1].NumericScale);
         Assert.IsNotNull((schema[1] as IgniteDbColumn)?.ColumnMetadata);
+    }
+
+    [Test]
+    public void TestGetStream()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestGetTextReader()
+    {
+        Assert.Fail("TODO");
     }
 }
