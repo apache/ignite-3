@@ -247,5 +247,15 @@ public partial class SqlTests
         Assert.AreEqual(10, schema[0].NumericPrecision);
         Assert.AreEqual(0, schema[0].NumericScale);
         Assert.IsNotNull((schema[0] as IgniteDbColumn)?.ColumnMetadata);
+
+        Assert.AreEqual("VAL", schema[1].ColumnName);
+        Assert.AreEqual(1, schema[1].ColumnOrdinal);
+        Assert.IsNull(schema[1].ColumnSize);
+        Assert.AreEqual(typeof(string), schema[1].DataType);
+        Assert.AreEqual("varchar", schema[1].DataTypeName);
+        Assert.IsTrue(schema[1].AllowDBNull);
+        Assert.AreEqual(10, schema[1].NumericPrecision);
+        Assert.AreEqual(0, schema[1].NumericScale);
+        Assert.IsNotNull((schema[1] as IgniteDbColumn)?.ColumnMetadata);
     }
 }
