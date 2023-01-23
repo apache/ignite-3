@@ -59,8 +59,9 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteFilter(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
