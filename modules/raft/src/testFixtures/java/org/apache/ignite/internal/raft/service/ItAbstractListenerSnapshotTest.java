@@ -84,7 +84,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     @WorkDirectory
-    private Path workDir;
+    protected Path workDir;
 
     /** Initial Raft configuration. */
     private PeersAndLearners initialConf;
@@ -316,7 +316,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath);
+    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index);
 
     /**
      * Returns raft group id for tests.
@@ -413,7 +413,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftNode(
                 new RaftNodeId(raftGroupId(), initialConf.peer(service.topologyService().localMember().name())),
                 initialConf,
-                createListener(service, listenerPersistencePath),
+                createListener(service, listenerPersistencePath, idx),
                 defaults()
         );
 

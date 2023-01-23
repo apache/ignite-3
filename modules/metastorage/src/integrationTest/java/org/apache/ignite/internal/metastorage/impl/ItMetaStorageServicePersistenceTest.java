@@ -132,7 +132,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
+    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index) {
         String nodeName = service.localConfiguration().getName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {

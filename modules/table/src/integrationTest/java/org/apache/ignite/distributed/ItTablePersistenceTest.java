@@ -17,10 +17,12 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.ByteBuffer;
@@ -31,10 +33,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -44,41 +48,67 @@ import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.HashIndexLocker;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Persistent partitions raft group snapshots tests.
  */
-@Disabled("IGNITE-16644, IGNITE-17817 MvPartitionStorage hasn't supported snapshots yet")
+//@Disabled("IGNITE-16644, IGNITE-17817 MvPartitionStorage hasn't supported snapshots yet")
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
+    //@InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16777216, writeBufferSize = 16777216}}")
+    //private RocksDbStorageEngineConfiguration engineConfig;
+
+    @InjectConfiguration("mock.tables.foo = {}")
+    private TablesConfiguration tablesCfg;
+
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -100,16 +130,45 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      */
     private final Map<PartitionListener, Path> paths = new ConcurrentHashMap<>();
 
+    private final Map<Integer, MvTableStorage> mvTableStorages = new ConcurrentHashMap<>();
+
+    private final Map<Integer, MvPartitionStorage> mvPartitionStorages = new ConcurrentHashMap<>();
+
+    private final Map<Integer, PartitionDataStorage> partitionDataStorages = new ConcurrentHashMap<>();
+
+    private final Map<Integer, TxStateStorage> txStateStorages = new ConcurrentHashMap<>();
+
+    private final Map<Integer, TxManager> txManagers = new ConcurrentHashMap<>();
+
+    private ReplicaService replicaService;
+
     private final List<TxManager> managers = new ArrayList<>();
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
             -> new ClusterNode("node1", "node1", new NetworkAddress(addr, 3333));
 
-    private final ReplicaService replicaService = mock(ReplicaService.class);
+    private final HybridClock hybridClock = new HybridClockImpl();
 
     @BeforeEach
-    void initMocks() {
-        doReturn(CompletableFuture.completedFuture(null)).when(replicaService).invoke(any(), any());
+    @Override
+    public void beforeTest(TestInfo testInfo) {
+        //doReturn(CompletableFuture.completedFuture(null)).when(replicaService).invoke(any(), any());
+        super.beforeTest(testInfo);
+
+        TableConfiguration tableCfg = tablesCfg.tables().get("foo");
+
+        for (int ii = 0; ii <= 2; ii++) {
+            final int i = ii;
+            Path path = workDir.resolve(testNodeName(testInfo, i));
+            MvTableStorage mvTableStorage = new TestMvTableStorage(tableCfg, tablesCfg);
+            MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(0);
+            mvPartitionStorages.put(i, mvPartitionStorage);
+            PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
+            partitionDataStorages.put(i, partitionDataStorage);
+
+            TxStateStorage txStateStorage = new TestTxStateStorage();
+            txStateStorages.put(i, txStateStorage);
+        }
     }
 
     @AfterEach
@@ -126,11 +185,33 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
+        TableConfiguration tableCfg = tablesCfg.tables().get("foo");
+/*        StorageEngine storageEngine = new RocksDbStorageEngine(engineConfig, workDir);
+        storageEngine.start();
+        MvTableStorage tableStorage = storageEngine.createMvTable(tableCfg, tablesCfg);*/
+        MvTableStorage tableStorage = new TestMvTableStorage(tableCfg, tablesCfg);
 
-        managers.add(txManager);
+        PartitionReplicaListener partitionReplicaListener = mock(PartitionReplicaListener.class);
+        when(partitionReplicaListener.invoke(any())).thenAnswer(invocationOnMock -> {
+            ReplicaRequest req = invocationOnMock.getArgument(0);
+            if (req instanceof SingleRowReplicaRequest) {
+                SingleRowReplicaRequest req0 = (SingleRowReplicaRequest) req;
+                if (req0.requestType() == RequestType.RW_UPSERT) {
 
-        txManager.start();
+                }
+            }
+        });
+
+        replicaService = mock(ReplicaService.class);
+        when(replicaService.invoke(any(), any()))
+                .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(0)));
+
+        for (int i = 0; i <= 2; i++) {
+            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock);
+            txManagers.put(i, txManager);
+        }
+
+        TxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         var table = new InternalTableImpl(
                 "table",
@@ -138,11 +219,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
-                txManager,
-                mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
-                replicaService,
-                mock(HybridClock.class)
+                txManagers.get(0),
+                tableStorage,
+                txStateTableStorage,
+                replicaServices.get(0),
+                hybridClock
         );
 
         table.upsert(FIRST_VALUE, null).get();
@@ -152,22 +233,16 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
-
-        managers.add(txManager);
-
-        txManager.start();
-
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
-                txManager,
+                txManagers.get(1),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
-                replicaService,
+                replicaServices.get(1),
                 mock(HybridClock.class)
         );
 
@@ -176,38 +251,28 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         // Put deleted data again
         table.upsert(FIRST_VALUE, null).get();
-
-        txManager.stop();
     }
 
     /** {@inheritDoc} */
     @Override
     public void afterSnapshot(RaftGroupService service) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
-
-        managers.add(txManager);
-
-        txManager.start();
-
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
-                txManager,
+                txManagers.get(1),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
-                replicaService,
+                replicaServices.get(1),
                 mock(HybridClock.class)
         );
 
         table.upsert(SECOND_VALUE, null).get();
 
         assertNotNull(table.get(SECOND_KEY, null).join());
-
-        txManager.stop();
     }
 
     /** {@inheritDoc} */
@@ -265,24 +330,18 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** {@inheritDoc} */
     @Override
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
-    public RaftGroupListener createListener(ClusterService service, Path workDir) {
+    public RaftGroupListener createListener(ClusterService service, Path workDir, int index) {
         return paths.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(workDir))
                 .map(Map.Entry::getKey)
                 .findAny()
                 .orElseGet(() -> {
-                    TxManagerImpl txManager = new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl());
+                    var mvPartStorage = mvPartitionStorages.get(0);
 
-                    txManager.start(); // Init listener.
-
-                    var testMpPartStorage = new TestMvPartitionStorage(0);
-
-                    PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
-
-                    StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorage, Map::of);
+                    StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorages.get(0), Map::of);
 
                     PartitionListener listener = new PartitionListener(
-                            new TestPartitionDataStorage(testMpPartStorage),
+                            new TestPartitionDataStorage(mvPartStorage),
                             storageUpdateHandler,
                             new TestTxStateStorage(),
                             new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
