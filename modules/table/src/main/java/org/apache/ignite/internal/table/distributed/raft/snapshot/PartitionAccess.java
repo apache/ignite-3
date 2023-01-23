@@ -25,7 +25,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -107,14 +107,9 @@ public interface PartitionAccess {
      * @param rowId Row id.
      * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
-     * @throws org.apache.ignite.internal.storage.StorageException If failed to write data.
+     * @throws StorageException If failed to write data.
      */
     void addWriteCommitted(RowId rowId, TableRow row, HybridTimestamp commitTimestamp);
-
-    /**
-     * Updates the last applied index, term, and RAFT configuration.
-     */
-    void updateLastApplied(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
 
     /**
      * Returns the minimum applied index of the partition storages.
