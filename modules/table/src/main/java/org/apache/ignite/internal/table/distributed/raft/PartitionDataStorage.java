@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -34,7 +34,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Provides access to MV (multi-version) data of a partition.
  *
- * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, UUID, int)}, {@link #abortWrite(RowId)}
+ * <p>Methods writing to MV storage ({@link #addWrite(RowId, TableRow, UUID, UUID, int)}, {@link #abortWrite(RowId)}
  * and {@link #commitWrite(RowId, HybridTimestamp)}) and TX data storage MUST be invoked under a lock acquired using
  * {@link #acquirePartitionSnapshotsReadLock()}.
  *
@@ -125,7 +125,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.
@@ -133,9 +133,9 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)
+     * @see MvPartitionStorage#addWrite(RowId, TableRow, UUID, UUID, int)
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**
@@ -148,7 +148,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      * @see MvPartitionStorage#abortWrite(RowId)
      */
-    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
+    @Nullable TableRow abortWrite(RowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.

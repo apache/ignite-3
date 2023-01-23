@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.DEPLOYING_WATCH_ERR;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -32,6 +34,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -43,25 +47,21 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
-import org.apache.ignite.internal.metastorage.watch.KeyCriterion;
-import org.apache.ignite.internal.metastorage.watch.WatchAggregator;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -80,11 +80,12 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class MetaStorageManagerImpl implements MetaStorageManager {
+    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
+
     /**
-     * Special key for the vault where the applied revision for {@link MetaStorageManagerImpl#storeEntries} operation is stored.
-     * This mechanism is needed for committing processed watches to {@link VaultManager}.
+     * Special key for the vault where the applied revision for {@link MetaStorageManagerImpl#saveRevision} operation is stored.
      */
-    public static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
+    private static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
     private final ClusterService clusterService;
 
@@ -97,22 +98,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private final ClusterManagementGroupManager cmgMgr;
 
     /** Meta storage service. */
-    private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
-
-    /**
-     * Aggregator of multiple watches to deploy them as one batch.
-     *
-     * @see WatchAggregator
-     */
-    private final WatchAggregator watchAggregator = new WatchAggregator();
-
-    /**
-     * Future which will be completed with {@link IgniteUuid}, when aggregated watch will be successfully deployed. Can be resolved to
-     * {@code null} if no watch deployed at the moment.
-     *
-     * <p>Multi-threaded access is guarded by {@code this}.
-     */
-    private CompletableFuture<IgniteUuid> deployFut = new CompletableFuture<>();
+    private volatile CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
 
     /** Actual storage for the Metastorage. */
     private final KeyValueStorage storage;
@@ -120,22 +106,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /**
-     * If true - all new watches will be deployed immediately.
-     *
-     * <p>If false - all new watches will be aggregated to one batch for further deploy by {@link MetaStorageManager#deployWatches()}.
-     *
-     * <p>Multi-threaded access is guarded by {@code this}.
-     */
-    private boolean areWatchesDeployed = false;
-
-    /**
-     * Flag that indicates that the component has been initialized.
-     */
-    private volatile boolean isInitialized = false;
-
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
+
+    /**
+     * Applied revision of the Meta Storage, that is, the most recent revision that has been processed on this node.
+     */
+    private volatile long appliedRevision;
 
     /**
      * The constructor.
@@ -159,32 +136,58 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.storage = storage;
     }
 
-    private CompletableFuture<MetaStorageService> initializeMetaStorage(Set<String> metaStorageNodes) {
+    private CompletableFuture<MetaStorageServiceImpl> initializeMetaStorage(Set<String> metaStorageNodes) {
         ClusterNode thisNode = clusterService.topologyService().localMember();
 
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes);
-
-        Peer localPeer = configuration.peer(thisNode.name());
+        String thisNodeName = thisNode.name();
 
         CompletableFuture<RaftGroupService> raftServiceFuture;
 
         try {
-            if (localPeer == null) {
-                raftServiceFuture = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, configuration);
-            } else {
-                clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
-                    @Override
-                    public void onDisappeared(ClusterNode member) {
-                        metaStorageSvcFut.thenAccept(svc -> svc.closeCursors(member.id()));
-                    }
-                });
+            // We need to configure the replication protocol differently whether this node is a synchronous or asynchronous replica.
+            if (metaStorageNodes.contains(thisNodeName)) {
+                PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes);
 
-                storage.start();
+                Peer localPeer = configuration.peer(thisNodeName);
+
+                assert localPeer != null;
 
                 raftServiceFuture = raftMgr.startRaftGroupNode(
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
                         new MetaStorageListener(storage),
+                        new RaftGroupEventsListener() {
+                            @Override
+                            public void onLeaderElected(long term) {
+                                // TODO: add listener to remove learners when they leave Logical Topology
+                                //  see https://issues.apache.org/jira/browse/IGNITE-18554
+
+                                registerTopologyEventListener();
+
+                                // Update the configuration immediately in case we missed some updates.
+                                addLearners(clusterService.topologyService().allMembers());
+                            }
+
+                            @Override
+                            public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
+                            }
+
+                            @Override
+                            public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
+                            }
+                        }
+                );
+            } else {
+                PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
+
+                Peer localPeer = configuration.learner(thisNodeName);
+
+                assert localPeer != null;
+
+                raftServiceFuture = raftMgr.startRaftGroupNode(
+                        new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
+                        configuration,
+                        new MetaStorageLearnerListener(storage),
                         RaftGroupEventsListener.noopLsnr
                 );
             }
@@ -192,12 +195,97 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             return CompletableFuture.failedFuture(e);
         }
 
-        return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id(), thisNode.name()));
+        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(raftService, thisNode));
+    }
+
+    private void registerTopologyEventListener() {
+        clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onAppeared(ClusterNode member) {
+                addLearners(List.of(member));
+            }
+
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                metaStorageSvcFut.thenAccept(service -> isCurrentNodeLeader(service.raftGroupService())
+                        .thenAccept(isLeader -> {
+                            if (isLeader) {
+                                service.closeCursors(member.id());
+                            }
+                        }));
+            }
+        });
+    }
+
+    private void addLearners(Collection<ClusterNode> nodes) {
+        if (!busyLock.enterBusy()) {
+            LOG.info("Skipping Meta Storage configuration update because the node is stopping");
+
+            return;
+        }
+
+        try {
+            metaStorageSvcFut
+                    .thenApply(MetaStorageServiceImpl::raftGroupService)
+                    .thenCompose(raftService -> isCurrentNodeLeader(raftService)
+                            .thenCompose(isLeader -> isLeader ? addLearners(raftService, nodes) : completedFuture(null)))
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Unable to change peers on topology update", e);
+                        }
+                    });
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Void> addLearners(RaftGroupService raftService, Collection<ClusterNode> nodes) {
+        if (!busyLock.enterBusy()) {
+            LOG.info("Skipping Meta Storage configuration update because the node is stopping");
+
+            return completedFuture(null);
+        }
+
+        try {
+            Set<String> peers = raftService.peers().stream()
+                    .map(Peer::consistentId)
+                    .collect(toSet());
+
+            Set<String> learners = nodes.stream()
+                    .map(ClusterNode::name)
+                    .filter(name -> !peers.contains(name))
+                    .collect(toSet());
+
+            if (learners.isEmpty()) {
+                return completedFuture(null);
+            }
+
+            if (LOG.isInfoEnabled()) {
+                LOG.info("New Meta Storage learners detected: " + learners);
+            }
+
+            PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
+
+            return raftService.addLearners(newConfiguration.learners());
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Boolean> isCurrentNodeLeader(RaftGroupService raftService) {
+        String name = clusterService.topologyService().localMember().name();
+
+        return raftService.refreshLeader()
+                .thenApply(v -> raftService.leader().consistentId().equals(name));
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
+        this.appliedRevision = readAppliedRevision().join();
+
+        storage.start();
+
         this.metaStorageSvcFut = cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
@@ -205,8 +293,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     }
 
                     try {
-                        isInitialized = true;
-
                         return initializeMetaStorage(metaStorageNodes);
                     } finally {
                         busyLock.leaveBusy();
@@ -223,135 +309,59 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         busyLock.block();
 
-        if (!isInitialized) {
-            // Stop command was called before the init command was received
-            return;
-        }
+        metaStorageSvcFut.cancel(true);
 
-        synchronized (this) {
-            IgniteUtils.closeAll(
-                    this::stopDeployedWatches,
-                    () -> {
-                        if (raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE)) {
-                            storage.close();
-                        }
-                    }
-            );
-        }
-    }
-
-    private void stopDeployedWatches() throws Exception {
-        if (!areWatchesDeployed) {
-            return;
-        }
-
-        deployFut
-                .thenCompose(watchId -> watchId == null
-                        ? CompletableFuture.completedFuture(null)
-                        : metaStorageSvcFut.thenAccept(service -> service.stopWatch(watchId))
-                )
-                .get();
+        IgniteUtils.closeAll(
+                () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
+                storage::close
+        );
     }
 
     @Override
-    public synchronized void deployWatches() throws NodeStoppingException {
+    public long appliedRevision() {
+        return appliedRevision;
+    }
+
+    @Override
+    public void registerPrefixWatch(ByteArray key, WatchListener lsnr) {
+        storage.watchPrefix(key.bytes(), appliedRevision + 1, lsnr);
+    }
+
+    @Override
+    public void registerExactWatch(ByteArray key, WatchListener listener) {
+        storage.watchExact(key.bytes(), appliedRevision + 1, listener);
+    }
+
+    @Override
+    public void registerRangeWatch(ByteArray keyFrom, @Nullable ByteArray keyTo, WatchListener listener) {
+        storage.watchRange(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), appliedRevision + 1, listener);
+    }
+
+    @Override
+    public void unregisterWatch(WatchListener lsnr) {
+        storage.removeWatch(lsnr);
+    }
+
+    @Override
+    public void deployWatches() throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            CompletableFuture<IgniteUuid> deployFut = this.deployFut;
+            storage.startWatches(revision -> {
+                if (!busyLock.enterBusy()) {
+                    LOG.info("Skipping applying MetaStorage revision because the node is stopping");
 
-            updateAggregatedWatch().whenComplete((id, ex) -> {
-                if (ex == null) {
-                    deployFut.complete(id);
-                } else {
-                    deployFut.completeExceptionally(ex);
+                    return;
+                }
+
+                try {
+                    saveRevision(revision);
+                } finally {
+                    busyLock.leaveBusy();
                 }
             });
-
-            areWatchesDeployed = true;
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    @Override
-    public synchronized CompletableFuture<Long> registerExactWatch(ByteArray key, WatchListener lsnr) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            long watchId = watchAggregator.add(key, lsnr);
-
-            return updateWatches().thenApply(uuid -> watchId);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Register watch listener by collection of keys.
-     *
-     * @param keys Collection listen.
-     * @param lsnr Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
-     */
-    public synchronized CompletableFuture<Long> registerWatch(Collection<ByteArray> keys, WatchListener lsnr) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            long watchId = watchAggregator.add(keys, lsnr);
-
-            return updateWatches().thenApply(uuid -> watchId);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    @Override
-    public synchronized CompletableFuture<Long> registerRangeWatch(ByteArray keyFrom, ByteArray keyTo, WatchListener lsnr) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            long watchId = watchAggregator.add(keyFrom, keyTo, lsnr);
-
-            return updateWatches().thenApply(uuid -> watchId);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    @Override
-    public synchronized CompletableFuture<Long> registerPrefixWatch(ByteArray key, WatchListener lsnr) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            long watchId = watchAggregator.addPrefix(key, lsnr);
-
-            return updateWatches().thenApply(uuid -> watchId);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    @Override
-    public synchronized CompletableFuture<Void> unregisterWatch(long id) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            watchAggregator.cancel(id);
-
-            return updateWatches().thenApply(uuid -> null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -594,8 +604,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#range(ByteArray, ByteArray, long)
      */
-    public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound)
-            throws NodeStoppingException {
+    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -617,11 +626,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
      */
-    public @NotNull Cursor<Entry> range(
-            @NotNull ByteArray keyFrom,
-            @Nullable ByteArray keyTo,
-            boolean includeTombstones
-    ) throws NodeStoppingException {
+    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -652,42 +657,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            CompletableFuture<Cursor<Entry>> cursorFuture = metaStorageSvcFut.thenCombine(
-                    appliedRevision(),
-                    (svc, appliedRevision) -> svc.range(keyFrom, keyTo, appliedRevision)
-            );
-
-            return new CursorWrapper<>(cursorFuture);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by the current applied revision as an
-     * upper bound. Applied revision is a revision of the last successful vault update.
-     *
-     * <p>Prefix query is a synonym of the range query {@code (prefixKey, nextKey(prefixKey))}.
-     *
-     * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @return Cursor built upon entries corresponding to the given range and applied revision.
-     * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     * @see ByteArray
-     * @see Entry
-     */
-    public Cursor<Entry> prefixWithAppliedRevision(ByteArray keyPrefix) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            CompletableFuture<Cursor<Entry>> cursorFuture = metaStorageSvcFut.thenCombine(
-                    appliedRevision(),
-                    (svc, appliedRevision) -> svc.prefix(keyPrefix, appliedRevision)
-            );
-
-            return new CursorWrapper<>(cursorFuture);
+            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -729,69 +699,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Returns applied revision for {@link VaultManager#putAll} operation.
+     * Returns applied revision from the local storage.
      */
-    private CompletableFuture<Long> appliedRevision() {
+    private CompletableFuture<Long> readAppliedRevision() {
         return vaultMgr.get(APPLIED_REV)
                 .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
     }
 
     /**
-     * Stop current batch of consolidated watches and register new one from current {@link WatchAggregator}.
-     *
-     * <p>This method MUST always be called under a {@code synchronized} block.
-     *
-     * @return Ignite UUID of new consolidated watch.
+     * Save processed Meta Storage revision.
      */
-    private CompletableFuture<IgniteUuid> updateWatches() {
-        if (!areWatchesDeployed) {
-            return deployFut;
-        }
+    private void saveRevision(long revision) {
+        vaultMgr.put(APPLIED_REV, longToBytes(revision)).join();
 
-        deployFut = deployFut
-                .thenCompose(id -> id == null
-                        ? CompletableFuture.completedFuture(null)
-                        : metaStorageSvcFut.thenCompose(svc -> svc.stopWatch(id))
-                )
-                .thenCompose(r -> updateAggregatedWatch());
-
-        return deployFut;
-    }
-
-    private CompletableFuture<IgniteUuid> updateAggregatedWatch() {
-        return appliedRevision()
-                .thenCompose(appliedRevision ->
-                        watchAggregator.watch(appliedRevision + 1, this::storeEntries)
-                                .map(this::dispatchAppropriateMetaStorageWatch)
-                                .orElseGet(() -> CompletableFuture.completedFuture(null))
-                );
-    }
-
-    /**
-     * Store entries with appropriate associated revision.
-     *
-     * @param entries to store.
-     * @param revision associated revision.
-     */
-    private void storeEntries(Collection<IgniteBiTuple<ByteArray, byte[]>> entries, long revision) {
-        appliedRevision()
-                .thenCompose(appliedRevision -> {
-                    if (revision <= appliedRevision) {
-                        throw new MetaStorageException(DEPLOYING_WATCH_ERR, String.format(
-                                "Current revision (%d) must be greater than the revision in the Vault (%d)",
-                                revision, appliedRevision
-                        ));
-                    }
-
-                    Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(entries.size() + 1);
-
-                    batch.put(APPLIED_REV, longToBytes(revision));
-
-                    entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
-
-                    return vaultMgr.putAll(batch);
-                })
-                .join();
+        appliedRevision = revision;
     }
 
     // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
@@ -801,9 +722,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         /** Inner cursor future. */
         private final CompletableFuture<Cursor<T>> innerCursorFut;
 
-        /** Inner iterator future. */
-        private final CompletableFuture<Iterator<T>> innerIterFut;
-
         /**
          * Constructor.
          *
@@ -811,27 +729,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
          */
         CursorWrapper(CompletableFuture<Cursor<T>> innerCursorFut) {
             this.innerCursorFut = innerCursorFut;
-            this.innerIterFut = innerCursorFut.thenApply(Iterable::iterator);
         }
 
         /** {@inheritDoc} */
         @Override
         public void close() {
-            try {
-                innerCursorFut.thenAccept(cursor -> {
-                    try {
-                        cursor.close();
-                    } catch (RuntimeException e) {
-                        throw new MetaStorageException(CURSOR_CLOSING_ERR, e);
-                    }
-                }).get();
-            } catch (ExecutionException e) {
-                throw new IgniteInternalException("Exception while closing a cursor", e);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-
-                throw new IgniteInternalException("Interrupted while closing a cursor", e);
-            }
+            get(innerCursorFut.thenAccept(Cursor::close), CURSOR_CLOSING_ERR);
         }
 
         /** {@inheritDoc} */
@@ -842,11 +745,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             }
 
             try {
-                try {
-                    return innerIterFut.thenApply(Iterator::hasNext).get();
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
-                }
+                return get(innerCursorFut.thenApply(Iterator::hasNext), CURSOR_EXECUTION_ERR);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -860,48 +759,22 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             }
 
             try {
-                try {
-                    return innerIterFut.thenApply(Iterator::next).get();
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new MetaStorageException(CURSOR_EXECUTION_ERR, e);
-                }
+                return get(innerCursorFut.thenApply(Iterator::next), CURSOR_EXECUTION_ERR);
             } finally {
                 busyLock.leaveBusy();
             }
         }
-    }
 
-    /**
-     * Dispatches appropriate meta storage watch method according to inferred watch criterion.
-     *
-     * @param aggregatedWatch Aggregated watch.
-     * @return Future, which will be completed after new watch registration finished.
-     */
-    private CompletableFuture<IgniteUuid> dispatchAppropriateMetaStorageWatch(AggregatedWatch aggregatedWatch) {
-        if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.CollectionCriterion) {
-            var criterion = (KeyCriterion.CollectionCriterion) aggregatedWatch.keyCriterion();
+        private <R> R get(CompletableFuture<R> future, int errorCode) {
+            try {
+                return future.get();
+            } catch (ExecutionException e) {
+                throw new MetaStorageException(errorCode, e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
 
-            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
-                    criterion.keys(),
-                    aggregatedWatch.revision(),
-                    aggregatedWatch.listener()));
-        } else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.ExactCriterion) {
-            var criterion = (KeyCriterion.ExactCriterion) aggregatedWatch.keyCriterion();
-
-            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
-                    criterion.key(),
-                    aggregatedWatch.revision(),
-                    aggregatedWatch.listener()));
-        } else if (aggregatedWatch.keyCriterion() instanceof KeyCriterion.RangeCriterion) {
-            var criterion = (KeyCriterion.RangeCriterion) aggregatedWatch.keyCriterion();
-
-            return metaStorageSvcFut.thenCompose(metaStorageSvc -> metaStorageSvc.watch(
-                    criterion.from(),
-                    criterion.to(),
-                    aggregatedWatch.revision(),
-                    aggregatedWatch.listener()));
-        } else {
-            throw new UnsupportedOperationException("Unsupported type of criterion");
+                throw new MetaStorageException(errorCode, e);
+            }
         }
     }
 }

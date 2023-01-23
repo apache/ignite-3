@@ -51,6 +51,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -710,7 +711,12 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+    public CompletableFuture<Void> finishRebalancePartition(
+            int partitionId,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig
+    ) {
         return inBusyLock(busyLock, () -> {
             RocksDbMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
 
@@ -725,7 +731,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             try (WriteBatch writeBatch = new WriteBatch()) {
-                mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+                mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm, raftGroupConfig);
 
                 getHashIndexStorages(partitionId).forEach(RocksDbHashIndexStorage::finishRebalance);
                 getSortedIndexStorages(partitionId).forEach(RocksDbSortedIndexStorage::finishRebalance);

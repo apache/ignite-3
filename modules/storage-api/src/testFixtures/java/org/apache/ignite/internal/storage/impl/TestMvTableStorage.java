@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -307,7 +308,12 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+    public CompletableFuture<Void> finishRebalancePartition(
+            int partitionId,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig
+    ) {
         checkPartitionId(partitionId);
 
         CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
@@ -324,7 +330,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
         return rebalanceFuture
                 .thenAccept(unused -> {
-                    partitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm);
+                    partitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm, raftGroupConfig);
 
                     testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);
 

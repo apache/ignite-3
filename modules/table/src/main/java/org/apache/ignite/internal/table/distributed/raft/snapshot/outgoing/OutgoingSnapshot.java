@@ -31,7 +31,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -328,7 +328,7 @@ public class OutgoingSnapshot {
 
         for (int i = rowVersionsN2O.size() - 1; i >= 0; i--) {
             ReadResult version = rowVersionsN2O.get(i);
-            BinaryRow row = version.binaryRow();
+            TableRow row = version.tableRow();
 
             buffers.add(row == null ? null : row.byteBuffer());
 
