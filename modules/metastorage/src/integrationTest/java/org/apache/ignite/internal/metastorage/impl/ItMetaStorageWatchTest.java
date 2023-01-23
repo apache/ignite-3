@@ -99,6 +99,7 @@ public class ItMetaStorageWatchTest {
 
             when(vaultManager.get(any())).thenReturn(CompletableFuture.completedFuture(null));
             when(vaultManager.put(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+            when(vaultManager.putAll(any())).thenReturn(CompletableFuture.completedFuture(null));
 
             var cmgManager = mock(ClusterManagementGroupManager.class);
 
