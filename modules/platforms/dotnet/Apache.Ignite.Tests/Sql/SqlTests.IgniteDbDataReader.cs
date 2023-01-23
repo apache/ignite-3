@@ -38,6 +38,12 @@ public partial class SqlTests
                                            "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
                                            "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
+    private static readonly LocalDate LocalDate = new(2023, 01, 18);
+
+    private static readonly LocalTime LocalTime = new(09, 28);
+
+    private static readonly LocalDateTime LocalDateTime = new(2023, 01, 18, 09, 29);
+
     [OneTimeSetUp]
     public async Task InsertTestData()
     {
@@ -50,9 +56,9 @@ public partial class SqlTests
             Int64: 5,
             Float: 6.5F,
             Double: 7.5D,
-            Date: new LocalDate(2023, 01, 18),
-            Time: new LocalTime(09, 28),
-            DateTime: new LocalDateTime(2023, 01, 18, 09, 29),
+            Date: LocalDate,
+            Time: LocalTime,
+            DateTime: LocalDateTime,
             Timestamp: Instant.FromUnixTimeSeconds(123),
             Blob: new byte[] { 1, 2 },
             Decimal: 8.7M);
@@ -109,7 +115,7 @@ public partial class SqlTests
         Assert.AreEqual(6.5f, reader.GetFloat("FLOAT"));
         Assert.AreEqual(7.5d, reader.GetDouble("DOUBLE"));
         Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetDateTime("DATE"));
-        Assert.AreEqual(new LocalTime(09, 28), reader.GetFieldValue<LocalTime>("TIME"));
+        Assert.AreEqual(LocalTime, reader.GetFieldValue<LocalTime>("TIME"));
         Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
         Assert.AreEqual(Instant.FromUnixTimeSeconds(123).ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
@@ -138,9 +144,9 @@ public partial class SqlTests
         Assert.AreEqual(5, reader.GetFieldValue<long>("INT64"));
         Assert.AreEqual(6.5f, reader.GetFieldValue<float>("FLOAT"));
         Assert.AreEqual(7.5d, reader.GetFieldValue<double>("DOUBLE"));
-        Assert.AreEqual(new DateTime(2023, 01, 18), reader.GetFieldValue<LocalDate>("DATE"));
-        Assert.AreEqual(new LocalTime(09, 28), reader.GetFieldValue<LocalTime>("TIME"));
-        Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetFieldValue<LocalDateTime>("DATETIME"));
+        Assert.AreEqual(LocalDate, reader.GetFieldValue<LocalDate>("DATE"));
+        Assert.AreEqual(LocalTime, reader.GetFieldValue<LocalTime>("TIME"));
+        Assert.AreEqual(LocalDateTime, reader.GetFieldValue<LocalDateTime>("DATETIME"));
         Assert.AreEqual(Instant.FromUnixTimeSeconds(123), reader.GetFieldValue<Instant>("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetFieldValue<decimal>("DECIMAL"));
         Assert.AreEqual(new byte[] { 1, 2 }, reader.GetFieldValue<byte[]>("BLOB"));
