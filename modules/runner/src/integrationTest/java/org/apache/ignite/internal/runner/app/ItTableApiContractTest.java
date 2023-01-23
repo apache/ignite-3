@@ -121,7 +121,8 @@ public class ItTableApiContractTest extends AbstractBasicIntegrationTest {
         assertThrowsExactly(TransactionException.class, () -> recordView.upsert(null, Tuple.create().set("name", "k1").set("balance", 2)));
         assertThrowsExactly(TransactionException.class, () -> recordView.get(null, Tuple.create().set("name", "k1")));
         assertThrowsExactly(TransactionException.class, () -> recordView.delete(null, Tuple.create().set("name", "k1")));
-        assertThrowsExactly(TransactionException.class, () -> recordView.deleteExact(null, Tuple.create().set("name", "k1").set("balance", 1)));
+        assertThrowsExactly(TransactionException.class,
+                () -> recordView.deleteExact(null, Tuple.create().set("name", "k1").set("balance", 1)));
         assertThrowsExactly(TransactionException.class, () -> recordView.replace(null, Tuple.create().set("name", "k1").set("balance", 2)));
 
         tx.rollback();
