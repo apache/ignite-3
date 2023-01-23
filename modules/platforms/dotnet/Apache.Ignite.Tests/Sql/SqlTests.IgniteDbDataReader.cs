@@ -400,9 +400,13 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestGetName()
+    public async Task TestGetName()
     {
-        Assert.Fail("TODO");
+        using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+
+        Assert.AreEqual("KEY", reader.GetName(0));
+        Assert.AreEqual("STR", reader.GetName(1));
+        Assert.AreEqual("DECIMAL", reader.GetName(13));
     }
 
     [Test]
