@@ -1030,16 +1030,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return TableRowConverter.fromBinaryRow(binaryRow, rowConverter);
     }
 
+    private static TableRow tableRow(TestKey key, TestValue value) {
+        return TableRowConverter.fromBinaryRow(binaryRow(key, value), rowConverter);
+    }
+
     protected static BinaryRow binaryRow(int i) {
         try {
             return kvMarshaller.marshal(new TestKey(i, "k" + i), new TestValue(i, "v" + i));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
-    }
-
-    private static TableRow tableRow(TestKey key, TestValue value) {
-        return TableRowConverter.fromBinaryRow(binaryRow(key, value), rowConverter);
     }
 
     private static BinaryRow binaryRow(TestKey key, TestValue value) {
