@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-#include "cluster_connection.h"
+#include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/detail/logger_wrapper.h"
 
-#include <ignite/network/codec.h>
-#include <ignite/network/codec_data_filter.h>
-#include <ignite/network/length_prefix_codec.h>
-#include <ignite/network/network.h>
-#include <ignite/protocol/writer.h>
+#include "ignite/network/codec.h"
+#include "ignite/network/codec_data_filter.h"
+#include "ignite/network/length_prefix_codec.h"
+#include "ignite/network/network.h"
+#include "ignite/protocol/writer.h"
 
 #include <iterator>
 
@@ -30,7 +31,7 @@ namespace ignite::detail {
 cluster_connection::cluster_connection(ignite_client_configuration configuration)
     : m_configuration(std::move(configuration))
     , m_pool()
-    , m_logger(m_configuration.get_logger())
+    , m_logger(std::make_shared<logger_wrapper>(m_configuration.get_logger()))
     , m_generator(std::random_device()()) {
 }
 
