@@ -67,6 +67,12 @@ public:
      * @param message Debug message.
      */
     virtual void log_debug(std::string_view message) = 0;
+
+    /**
+     * Check whether debug is enabled.
+     * @return
+     */
+    [[nodiscard]] virtual bool is_debug_enabled() const = 0;
 };
 
 } // namespace ignite

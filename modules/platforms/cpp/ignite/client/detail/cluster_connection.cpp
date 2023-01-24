@@ -113,7 +113,8 @@ void cluster_connection::on_connection_closed(uint64_t id, std::optional<ignite_
 }
 
 void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
-    m_logger->log_debug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
 
     std::shared_ptr<node_connection> connection = find_client(id);
     if (!connection)
@@ -155,7 +156,8 @@ std::shared_ptr<node_connection> cluster_connection::find_client(uint64_t id) {
 }
 
 void cluster_connection::on_message_sent(uint64_t id) {
-    m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
 }
 
 void cluster_connection::remove_client(uint64_t id) {
