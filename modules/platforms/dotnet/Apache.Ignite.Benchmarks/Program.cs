@@ -18,12 +18,12 @@
 namespace Apache.Ignite.Benchmarks;
 
 using BenchmarkDotNet.Running;
-using Proto.BinaryTuple;
+using Sql;
 
 internal static class Program
 {
     private static void Main()
     {
-        BenchmarkRunner.Run<BinaryTupleReaderBenchmarks>();
+        BenchmarkRunner.Run<ResultSetBenchmarks>();
     }
 }

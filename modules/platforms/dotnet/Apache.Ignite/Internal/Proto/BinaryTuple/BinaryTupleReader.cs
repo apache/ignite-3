@@ -464,6 +464,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public byte[]? GetBytesNullable(int index) => IsNull(index) ? null : GetBytes(index);
 
         /// <summary>
+        /// Gets bytes.
+        /// </summary>
+        /// <param name="index">Index.</param>
+        /// <returns>Value.</returns>
+        public ReadOnlySpan<byte> GetBytesSpan(int index) => Seek(index);
+
+        /// <summary>
         /// Gets an object value according to the specified type.
         /// </summary>
         /// <param name="index">Index.</param>
