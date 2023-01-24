@@ -104,8 +104,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         LOG.info("Copier is started for the partition [{}]", createPartitionInfo());
 
-        joinFuture = new CompletableFuture<>();
-
         rebalanceFuture = partitionSnapshotStorage.partition().startRebalance()
                 .thenCompose(unused -> {
                     ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
@@ -119,15 +117,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
                 });
 
-        rebalanceFuture.handle((unused, throwable) -> completesRebalance(throwable))
-                .thenCompose(Function.identity())
-                .whenComplete((unused, throwable) -> {
-                    if (throwable == null) {
-                        joinFuture.complete(null);
-                    } else {
-                        joinFuture.completeExceptionally(throwable);
-                    }
-                });
+        joinFuture = rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
     }
 
     @Override
@@ -337,7 +327,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      *
      * @param throwable Error occurred while rebalancing the partition storages, {@code null} means that the rebalancing was successful.
      */
-    private CompletableFuture<Void> completesRebalance(@Nullable Throwable throwable) {
+    private CompletableFuture<Void> completeRebalance(@Nullable Throwable throwable) {
         if (canceled) {
             return partitionSnapshotStorage.partition().abortRebalance();
         }
