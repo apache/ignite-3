@@ -79,7 +79,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         // Track how many times a page was forgotten (when emptying a Data Page). We need it to be able to poll while
         // awaiting till a page finally gets freed (as MV and index data destruction is async). We don't use verify()
-        // for this end because it throws an AssertionError if the expectation is not satisfied, which is not convenient.
+        // for this end because it throws an AssertionError if the expectation is not satisfied, and it is pretty ugly
+        // to catch and analyze an AssertionError.
         doAnswer(invocation -> pagesForgottenByEvictionTracker.incrementAndGet())
                 .when(pageEvictionTracker).forgetPage(anyLong());
     }
