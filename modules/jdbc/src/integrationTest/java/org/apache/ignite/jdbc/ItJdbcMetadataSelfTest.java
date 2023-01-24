@@ -81,13 +81,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         assertEquals(2, meta.getColumnCount());
 
-        assertEquals(OTHER, meta.getColumnType(1));
-        assertEquals(meta.getColumnTypeName(1), "OTHER");
-        assertEquals(meta.getColumnClassName(1), "java.lang.Void");
+        assertEquals(NULL, meta.getColumnType(1));
+        assertEquals("NULL", meta.getColumnTypeName(1));
+        assertEquals("java.lang.Void", meta.getColumnClassName(1));
 
-        assertEquals(OTHER, meta.getColumnType(2));
-        assertEquals(meta.getColumnTypeName(2), "OTHER");
-        assertEquals(meta.getColumnClassName(2), "java.lang.Void");
+        assertEquals(NULL, meta.getColumnType(2));
+        assertEquals("NULL", meta.getColumnTypeName(2));
+        assertEquals("java.lang.Void", meta.getColumnClassName(2));
     }
 
     @Test
@@ -109,15 +109,15 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals("name".toUpperCase(), meta.getColumnName(1).toUpperCase());
         assertEquals("name".toUpperCase(), meta.getColumnLabel(1).toUpperCase());
         assertEquals(VARCHAR, meta.getColumnType(1));
-        assertEquals(meta.getColumnTypeName(1), "VARCHAR");
-        assertEquals(meta.getColumnClassName(1), "java.lang.String");
+        assertEquals("VARCHAR", meta.getColumnTypeName(1));
+        assertEquals("java.lang.String", meta.getColumnClassName(1));
 
         assertEquals("Organization".toUpperCase(), meta.getTableName(2).toUpperCase());
         assertEquals("id".toUpperCase(), meta.getColumnName(2).toUpperCase());
         assertEquals("orgId".toUpperCase(), meta.getColumnLabel(2).toUpperCase());
         assertEquals(INTEGER, meta.getColumnType(2));
-        assertEquals(meta.getColumnTypeName(2), "INTEGER");
-        assertEquals(meta.getColumnClassName(2), "java.lang.Integer");
+        assertEquals("INTEGER", meta.getColumnTypeName(2));
+        assertEquals("java.lang.Integer", meta.getColumnClassName(2));
     }
 
     @Test
@@ -140,15 +140,15 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             assertEquals("DECIMAL_COL", meta.getColumnName(1).toUpperCase());
             assertEquals("DECIMAL_COL", meta.getColumnLabel(1).toUpperCase());
             assertEquals(DECIMAL, meta.getColumnType(1));
-            assertEquals(meta.getColumnTypeName(1), "DECIMAL");
-            assertEquals(meta.getColumnClassName(1), "java.math.BigDecimal");
+            assertEquals("DECIMAL", meta.getColumnTypeName(1));
+            assertEquals("java.math.BigDecimal", meta.getColumnClassName(1));
 
             assertEquals("METATEST", meta.getTableName(2).toUpperCase());
             assertEquals("DATE_COL", meta.getColumnName(2).toUpperCase());
             assertEquals("DATE_COL", meta.getColumnLabel(2).toUpperCase());
             assertEquals(DATE, meta.getColumnType(2));
-            assertEquals(meta.getColumnTypeName(2), "DATE");
-            assertEquals(meta.getColumnClassName(2), "java.sql.Date");
+            assertEquals("DATE", meta.getColumnTypeName(2));
+            assertEquals("java.sql.Date", meta.getColumnClassName(2));
         } finally {
             stmt.execute("DROP TABLE METATEST;");
         }
@@ -231,15 +231,15 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             if ("ID".equals(name)) {
                 assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
+                assertEquals("INTEGER", rs.getString("TYPE_NAME"));
                 assertEquals(0, rs.getInt("NULLABLE"));
             } else if ("NAME".equals(name)) {
                 assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "VARCHAR");
+                assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
             } else if ("BIGDATA".equals(name)) {
                 assertEquals(DECIMAL, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "DECIMAL");
+                assertEquals("DECIMAL", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
                 assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
                 assertEquals(20, rs.getInt("COLUMN_SIZE"));
@@ -275,11 +275,11 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             if ("NAME".equals(name)) {
                 assertEquals(VARCHAR, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "VARCHAR");
+                assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
             } else if ("AGE".equals(name)) {
                 assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
+                assertEquals("INTEGER", rs.getString("TYPE_NAME"));
                 assertEquals(1, rs.getInt("NULLABLE"));
             } else if ("ORGID".equals(name)) {
                 assertEquals(INTEGER, rs.getInt("DATA_TYPE"));
@@ -344,7 +344,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         int cnt = 0;
 
         while (rs.next()) {
-            assertEquals(rs.getString("COLUMN_NAME"), "ORGID");
+            assertEquals("ORGID", rs.getString("COLUMN_NAME"));
 
             cnt++;
         }
