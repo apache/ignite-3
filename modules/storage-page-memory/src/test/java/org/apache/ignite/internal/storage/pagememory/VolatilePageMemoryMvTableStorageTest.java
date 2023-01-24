@@ -22,13 +22,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -60,8 +58,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private final PageEvictionTracker pageEvictionTracker = spy(PageEvictionTrackerNoOp.INSTANCE);
 
-    private final AtomicInteger pagesForgottenByEvictionTracker = new AtomicInteger();
-
     @BeforeEach
     void setUp(
             @InjectConfiguration
@@ -70,19 +66,12 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
                     "mock.tables.foo{ partitions = 512, dataStorage.name = " + VolatilePageMemoryStorageEngine.ENGINE_NAME + "}"
             )
             TablesConfiguration tablesConfig
-    ) throws Exception {
+    ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         initialize(new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker), tablesConfig);
-
-        // Track how many times a page was forgotten (when emptying a Data Page). We need it to be able to poll while
-        // awaiting till a page finally gets freed (as MV and index data destruction is async). We don't use verify()
-        // for this end because it throws an AssertionError if the expectation is not satisfied, and it is pretty ugly
-        // to catch and analyze an AssertionError.
-        doAnswer(invocation -> pagesForgottenByEvictionTracker.incrementAndGet())
-                .when(pageEvictionTracker).forgetPage(anyLong());
     }
 
     @Test
@@ -107,9 +96,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         // Make sure that some page storing row versions gets emptied (so we can be sure that row versions
         // get removed).
-        assertTrue(waitForCondition(() -> pagesForgottenByEvictionTracker.get() > 0, 5_000));
-
-        verify(pageEvictionTracker, times(1)).forgetPage(anyLong());
+        verify(pageEvictionTracker, timeout(5_000)).forgetPage(anyLong());
     }
 
     private void insertOneRow(MvPartitionStorage partitionStorage) {
@@ -179,9 +166,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         // Make sure that some page storing index columns gets emptied (so we can be sure that index columns
         // get removed).
-        assertTrue(waitForCondition(() -> pagesForgottenByEvictionTracker.get() > 0, 5_000));
-
-        verify(pageEvictionTracker, times(1)).forgetPage(anyLong());
+        verify(pageEvictionTracker, timeout(5_000)).forgetPage(anyLong());
     }
 
     @Test
