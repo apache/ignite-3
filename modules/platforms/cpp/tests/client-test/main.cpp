@@ -16,6 +16,7 @@
  */
 
 #include "ignite_runner.h"
+#include "ignite_runner_suite.h"
 #include "test_utils.h"
 
 #include <ignite/common/ignite_error.h>
@@ -58,6 +59,14 @@ void set_process_abort_handler(std::function<void(int)> handler) {
     signal(SIGSEGV, signal_handler);
 }
 
+void wait_node_startup(std::chrono::seconds timeout) {
+    using namespace ignite;
+    for (auto addr : ignite_runner_suite::NODE_ADDRS) {
+        ignite_client_configuration cfg{addr};
+        auto client = ignite_client::start(cfg, timeout);
+    }
+}
+
 int main(int argc, char **argv) {
     if (ignite::single_node_mode())
         std::cout << "Tests run in a single-node mode." << std::endl;
@@ -75,8 +84,7 @@ int main(int argc, char **argv) {
     try {
         runner.start();
 
-        // TODO: Implement node startup await
-        std::this_thread::sleep_for(std::chrono::seconds(60));
+        wait_node_startup(std::chrono::seconds(60));
 
         ::testing::InitGoogleTest(&argc, argv);
         [[maybe_unused]] int run_res = RUN_ALL_TESTS();

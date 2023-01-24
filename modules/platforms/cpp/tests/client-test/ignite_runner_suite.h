@@ -36,7 +36,7 @@ using namespace std::string_view_literals;
  * Test suite.
  */
 class ignite_runner_suite : public ::testing::Test {
-protected:
+public:
     static constexpr std::initializer_list<std::string_view> SINGLE_NODE_ADDR = {"127.0.0.1:10942"sv};
     static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
