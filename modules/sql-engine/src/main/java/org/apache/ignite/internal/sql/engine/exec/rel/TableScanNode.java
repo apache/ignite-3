@@ -19,17 +19,19 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.util.SubscriptionUtils;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,25 +75,20 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        Supplier<Publisher<RowT>>[] partPublishers = new Supplier[parts.length];
-
         boolean roTx = context().transactionTime() != null;
 
-        for (int i = 0; i < parts.length; i++) {
-            int idx = i;
-            partPublishers[idx] = () -> {
-                Publisher<BinaryRow> pub;
-                if (roTx) {
-                    pub = physTable.scan(parts[idx], context().transactionTime(), context().localNode());
-                } else {
-                    pub = physTable.scan(parts[idx], context().transaction());
-                }
+        Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
+                Arrays.stream(parts).iterator(), part -> {
+            Publisher<BinaryRow> pub;
+            if (roTx) {
+                pub = physTable.scan(part, context().transactionTime(), context().localNode());
+            } else {
+                pub = physTable.scan(part, context().transaction());
+            }
 
-                return convertPublisher(pub);
-            };
-        }
+            return convertPublisher(pub);
+        });
 
-        return SubscriptionUtils.concat(partPublishers);
+        return SubscriptionUtils.concat(it);
     }
-
 }

@@ -228,7 +228,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Start execute query and check all passed to the builder asserts.
+     * Executes the query and validates any asserts passed to the builder.
      *
      * @param qry Query to execute.
      * @return Instance of QueryChecker.
@@ -238,7 +238,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Start execute query with given transaction and check all passed to the builder asserts.
+     * Executes the query with the given transaction and validates any asserts passed to the builder.
      *
      * @param tx Transaction.
      * @param qry Query to execute.

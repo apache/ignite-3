@@ -356,7 +356,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkMixedTransactions(planMatcher);
     }
 
-
     /** Check correctness of rw and ro transactions for index scan. */
     @Test
     public void checkMixedTransactionsForIndex() throws Exception {
