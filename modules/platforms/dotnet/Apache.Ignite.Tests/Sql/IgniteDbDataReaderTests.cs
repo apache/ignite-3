@@ -619,11 +619,14 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     [Test]
     public async Task TestDataTableLoad()
     {
-        await using var reader = await ExecuteReader();
+        await using var reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
 
         // This calls GetSchemaTable underneath.
         var dt = new DataTable();
         dt.Load(reader);
+
+        Assert.AreEqual(14, dt.Columns.Count);
+        Assert.AreEqual(9, dt.Rows.Count);
     }
 
     private async Task<IgniteDbDataReader> ExecuteReader()
