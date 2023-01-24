@@ -480,12 +480,26 @@ public partial class SqlTests
     }
 
     [Test]
-    public async Task TestIsClosed()
+    public async Task TestClose()
     {
         await using var reader = await ExecuteReader();
         Assert.IsFalse(reader.IsClosed);
 
         await reader.CloseAsync();
+        Assert.IsTrue(reader.IsClosed);
+    }
+
+    [Test]
+    public async Task TestReadAllRowsClosesReader()
+    {
+        await using var reader = await ExecuteReader();
+        Assert.IsFalse(reader.IsClosed);
+
+        while (await reader.ReadAsync())
+        {
+            // No-op.
+        }
+
         Assert.IsTrue(reader.IsClosed);
     }
 
