@@ -463,7 +463,9 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 
         _pageRowIndex++;
         _pageRowOffset += _pageRowSize;
-        _pageRowSize = _pageEnumerator.Current.GetReader(_pageRowOffset).ReadBinaryHeader();
+
+        var reader = _pageEnumerator.Current.GetReader(_pageRowOffset);
+        _pageRowSize = reader.ReadBinaryHeader() + reader.Consumed;
 
         return true;
     }
