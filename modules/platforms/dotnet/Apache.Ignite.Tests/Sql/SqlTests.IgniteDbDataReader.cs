@@ -451,9 +451,17 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestGetChars()
+    public async Task TestGetChars()
     {
-        Assert.Fail("TODO");
+        await using var reader = await ExecuteReader();
+
+        var len = reader.GetChars("STR", 0, null!, 0, 0);
+        var chars = new char[len];
+        var count = reader.GetChars("STR", 1, chars, 1, 2);
+
+        Assert.AreEqual(3, len);
+        Assert.AreEqual(2, count);
+        CollectionAssert.AreEqual(new[] { (char)0, '-', '2' }, chars);
     }
 
     [Test]
