@@ -36,16 +36,7 @@ public class AffinityServiceTest {
     @Test
     public void testCalculatedAssignmentHappyPath() {
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
-                Arrays.asList(
-                        new ClusterNode(
-                                UUID.randomUUID().toString(), "node0",
-                                new NetworkAddress("localhost", 8080)
-                        ),
-                        new ClusterNode(
-                                UUID.randomUUID().toString(), "node1",
-                                new NetworkAddress("localhost", 8081)
-                        )
-                ),
+                Arrays.asList("node0", "node1"),
                 10,
                 3
         );

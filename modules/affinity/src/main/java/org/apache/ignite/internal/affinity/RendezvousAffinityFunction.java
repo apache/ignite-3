@@ -59,7 +59,7 @@ public class RendezvousAffinityFunction {
     private static final IgniteLogger LOG = Loggers.forClass(RendezvousAffinityFunction.class);
 
     /** Comparator. */
-    private static final Comparator<IgniteBiTuple<Long, ClusterNode>> COMPARATOR = new HashComparator();
+    private static final Comparator<IgniteBiTuple<Long, String>> COMPARATOR = new HashComparator();
 
     /** Maximum number of partitions. */
     public static final int MAX_PARTITIONS_COUNT = 65000;
@@ -89,13 +89,13 @@ public class RendezvousAffinityFunction {
      * @param aggregator        Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    public static <T extends Collection<ClusterNode>> T assignPartition(
+    public static <T extends Collection<String>> T assignPartition(
             int part,
-            List<ClusterNode> nodes,
+            List<String> nodes,
             int replicas,
-            Map<String, Collection<ClusterNode>> neighborhoodCache,
+            Map<String, Collection<String>> neighborhoodCache,
             boolean exclNeighbors,
-            BiPredicate<ClusterNode, T> nodeFilter,
+            BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
     ) {
         if (nodes.size() <= 1) {
@@ -106,58 +106,56 @@ public class RendezvousAffinityFunction {
             return res;
         }
 
-        IgniteBiTuple<Long, ClusterNode>[] hashArr =
-                (IgniteBiTuple<Long, ClusterNode>[]) new IgniteBiTuple[nodes.size()];
+        IgniteBiTuple<Long, String>[] hashArr =
+                (IgniteBiTuple<Long, String>[]) new IgniteBiTuple[nodes.size()];
 
         for (int i = 0; i < nodes.size(); i++) {
-            ClusterNode node = nodes.get(i);
+            String node = nodes.get(i);
 
-            Object nodeHash = resolveNodeHash(node);
-
-            long hash = hash(nodeHash.hashCode(), part);
+            long hash = hash(node.hashCode(), part);
 
             hashArr[i] = new IgniteBiTuple<>(hash, node);
         }
 
         final int effectiveReplicas = replicas == Integer.MAX_VALUE ? nodes.size() : Math.min(replicas, nodes.size());
 
-        Iterable<ClusterNode> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
+        Iterable<String> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
 
         // REPLICATED cache case
         if (replicas == Integer.MAX_VALUE) {
             return replicatedAssign(nodes, sortedNodes, aggregator);
         }
 
-        Iterator<ClusterNode> it = sortedNodes.iterator();
+        Iterator<String> it = sortedNodes.iterator();
 
         T res = aggregator.apply(effectiveReplicas);
 
-        Collection<ClusterNode> allNeighbors = new HashSet<>();
+        Collection<String> allNeighbors = new HashSet<>();
 
-        ClusterNode first = it.next();
+        String first = it.next();
 
         res.add(first);
 
         if (exclNeighbors) {
-            allNeighbors.addAll(neighborhoodCache.get(first.id()));
+            allNeighbors.addAll(neighborhoodCache.get(first));//first.id()
         }
 
         // Select another replicas.
         if (replicas > 1) {
             while (it.hasNext() && res.size() < effectiveReplicas) {
-                ClusterNode node = it.next();
+                String node = it.next();
 
                 if (exclNeighbors) {
                     if (!allNeighbors.contains(node)) {
                         res.add(node);
 
-                        allNeighbors.addAll(neighborhoodCache.get(node.id()));
+                        allNeighbors.addAll(neighborhoodCache.get(node));//node.id()
                     }
                 } else if (nodeFilter == null || nodeFilter.test(node, res)) {
                     res.add(node);
 
                     if (exclNeighbors) {
-                        allNeighbors.addAll(neighborhoodCache.get(node.id()));
+                        allNeighbors.addAll(neighborhoodCache.get(node));//node.id()
                     }
                 }
             }
@@ -170,7 +168,7 @@ public class RendezvousAffinityFunction {
             it.next();
 
             while (it.hasNext() && res.size() < effectiveReplicas) {
-                ClusterNode node = it.next();
+                String node = it.next();
 
                 if (!res.contains(node)) {
                     res.add(node);
@@ -198,15 +196,15 @@ public class RendezvousAffinityFunction {
      * @param aggregator  Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    private static <T extends Collection<ClusterNode>> T replicatedAssign(List<ClusterNode> nodes,
-            Iterable<ClusterNode> sortedNodes, IntFunction<T> aggregator) {
-        ClusterNode first = sortedNodes.iterator().next();
+    private static <T extends Collection<String>> T replicatedAssign(List<String> nodes,
+            Iterable<String> sortedNodes, IntFunction<T> aggregator) {
+        String first = sortedNodes.iterator().next();
 
         T res = aggregator.apply(nodes.size());
 
         res.add(first);
 
-        for (ClusterNode n : nodes) {
+        for (String n : nodes) {
             if (!n.equals(first)) {
                 res.add(n);
             }
@@ -250,12 +248,12 @@ public class RendezvousAffinityFunction {
      * @param nodeFilter              Filter for nodes.
      * @return List nodes by partition.
      */
-    public static List<List<ClusterNode>> assignPartitions(
-            Collection<ClusterNode> currentTopologySnapshot,
+    public static List<List<String>> assignPartitions(
+            Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
             boolean exclNeighbors,
-            BiPredicate<ClusterNode, List<ClusterNode>> nodeFilter
+            BiPredicate<String, List<String>> nodeFilter
     ) {
         return assignPartitions(currentTopologySnapshot, partitions, replicas, exclNeighbors, nodeFilter, ArrayList::new);
     }
@@ -271,12 +269,12 @@ public class RendezvousAffinityFunction {
      * @param aggregator              Function that creates a collection for the partition assignments.
      * @return List nodes by partition.
      */
-    public static <T extends Collection<ClusterNode>> List<T> assignPartitions(
-            Collection<ClusterNode> currentTopologySnapshot,
+    public static <T extends Collection<String>> List<T> assignPartitions(
+            Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
             boolean exclNeighbors,
-            BiPredicate<ClusterNode, T> nodeFilter,
+            BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
@@ -285,9 +283,9 @@ public class RendezvousAffinityFunction {
 
         List<T> assignments = new ArrayList<>(partitions);
 
-        Map<String, Collection<ClusterNode>> neighborhoodCache = exclNeighbors ? neighbors(currentTopologySnapshot) : null;
+        Map<String, Collection<String>> neighborhoodCache = exclNeighbors ? neighbors(currentTopologySnapshot) : null;
 
-        List<ClusterNode> nodes = new ArrayList<>(currentTopologySnapshot);
+        List<String> nodes = new ArrayList<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
             T partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter, aggregator);
@@ -304,15 +302,15 @@ public class RendezvousAffinityFunction {
      * @param topSnapshot Topology snapshot.
      * @return Neighbors map.
      */
-    public static Map<String, Collection<ClusterNode>> neighbors(Collection<ClusterNode> topSnapshot) {
-        Map<String, Collection<ClusterNode>> macMap = new HashMap<>(topSnapshot.size(), 1.0f);
+    public static Map<String, Collection<String>> neighbors(Collection<String> topSnapshot) {
+        Map<String, Collection<String>> macMap = new HashMap<>(topSnapshot.size(), 1.0f);
 
         // Group by mac addresses.
-        for (ClusterNode node : topSnapshot) {
+        for (String node : topSnapshot) {
             String macs = String.valueOf(node.hashCode());
             //node.attribute(IgniteNodeAttributes.ATTR_MACS);
 
-            Collection<ClusterNode> nodes = macMap.get(macs);
+            Collection<String> nodes = macMap.get(macs);
 
             if (nodes == null) {
                 macMap.put(macs, nodes = new HashSet<>());
@@ -321,11 +319,11 @@ public class RendezvousAffinityFunction {
             nodes.add(node);
         }
 
-        Map<String, Collection<ClusterNode>> neighbors = new HashMap<>(topSnapshot.size(), 1.0f);
+        Map<String, Collection<String>> neighbors = new HashMap<>(topSnapshot.size(), 1.0f);
 
-        for (Collection<ClusterNode> group : macMap.values()) {
-            for (ClusterNode node : group) {
-                neighbors.put(node.id(), group);
+        for (Collection<String> group : macMap.values()) {
+            for (String node : group) {
+                neighbors.put(node, group);//node.id()
             }
         }
 
@@ -335,24 +333,24 @@ public class RendezvousAffinityFunction {
     /**
      * Hash comparator.
      */
-    private static class HashComparator implements Comparator<IgniteBiTuple<Long, ClusterNode>>, Serializable {
+    private static class HashComparator implements Comparator<IgniteBiTuple<Long, String>>, Serializable {
         /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
         /** {@inheritDoc} */
         @Override
-        public int compare(IgniteBiTuple<Long, ClusterNode> o1, IgniteBiTuple<Long, ClusterNode> o2) {
+        public int compare(IgniteBiTuple<Long, String> o1, IgniteBiTuple<Long, String> o2) {
             return o1.get1() < o2.get1() ? -1 : o1.get1() > o2.get1() ? 1 :
-                    o1.get2().name().compareTo(o2.get2().name());
+                    o1.get2().compareTo(o2.get2());
         }
     }
 
     /**
      * Sorts the initial array with linear sort algorithm array.
      */
-    private static class LazyLinearSortedContainer implements Iterable<ClusterNode> {
+    private static class LazyLinearSortedContainer implements Iterable<String> {
         /** Initial node-hash array. */
-        private final IgniteBiTuple<Long, ClusterNode>[] arr;
+        private final IgniteBiTuple<Long, String>[] arr;
 
         /** Count of the sorted elements. */
         private int sorted;
@@ -363,7 +361,7 @@ public class RendezvousAffinityFunction {
          * @param arr                Node / partition hash list.
          * @param needFirstSortedCnt Estimate count of elements to return by iterator.
          */
-        LazyLinearSortedContainer(IgniteBiTuple<Long, ClusterNode>[] arr, int needFirstSortedCnt) {
+        LazyLinearSortedContainer(IgniteBiTuple<Long, String>[] arr, int needFirstSortedCnt) {
             this.arr = arr;
 
             if (needFirstSortedCnt > (int) Math.log(arr.length)) {
@@ -375,14 +373,14 @@ public class RendezvousAffinityFunction {
 
         /** {@inheritDoc} */
         @Override
-        public Iterator<ClusterNode> iterator() {
+        public Iterator<String> iterator() {
             return new SortIterator();
         }
 
         /**
          * Sorting iterator.
          */
-        private class SortIterator implements Iterator<ClusterNode> {
+        private class SortIterator implements Iterator<String> {
             /** Index of the first unsorted element. */
             private int cur;
 
@@ -394,7 +392,7 @@ public class RendezvousAffinityFunction {
 
             /** {@inheritDoc} */
             @Override
-            public ClusterNode next() {
+            public String next() {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
@@ -403,7 +401,7 @@ public class RendezvousAffinityFunction {
                     return arr[cur++].get2();
                 }
 
-                IgniteBiTuple<Long, ClusterNode> min = arr[cur];
+                IgniteBiTuple<Long, String> min = arr[cur];
 
                 int minIdx = cur;
 

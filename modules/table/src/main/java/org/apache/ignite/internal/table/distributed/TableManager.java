@@ -479,7 +479,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 for (int part = 0; part < partCnt; part++) {
                                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), part);
 
-                                    futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, clusterNodes, tableView.replicas(),
+                                    futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
                                             evt.entryEvent().newEntry().revision(), metaStorageMgr, part);
                                 }
                             }
@@ -670,7 +670,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 for (int i = 0; i < partCnt; i++) {
                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                    futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId, baselineMgr.nodes(), newReplicas,
+                    futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
+                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
 
@@ -1282,7 +1283,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private Set<Assignment> calculateAssignments(TableConfiguration tableCfg, int partNum) {
-        return AffinityUtils.calculateAssignmentForPartition(baselineMgr.nodes(), partNum, tableCfg.value().replicas());
+        return AffinityUtils.calculateAssignmentForPartition(
+                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                partNum,
+                tableCfg.value().replicas()
+        );
     }
 
     /**
@@ -1342,7 +1347,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                baselineMgr.nodes(),
+                                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                                 tableChange.partitions(),
                                 tableChange.replicas())));
                     });
@@ -2065,7 +2070,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 RebalanceUtil.handleReduceChanged(
                         metaStorageMgr,
-                        baselineMgr.nodes(),
+                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                         tblCfg.value().replicas(),
                         partitionNumber,
                         replicaGrpId,

@@ -89,7 +89,7 @@ public class RebalanceUtil {
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName, TablePartitionId partId, Collection<ClusterNode> baselineNodes,
+            String tableName, TablePartitionId partId, Collection<String> consistentIds,
             int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
@@ -99,7 +99,7 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(consistentIds, partNum, replicas);
 
         byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
 
@@ -348,7 +348,7 @@ public class RebalanceUtil {
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<ClusterNode> baselineNodes,
+    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> baselineNodes,
             int replicas, int partNum, TablePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();

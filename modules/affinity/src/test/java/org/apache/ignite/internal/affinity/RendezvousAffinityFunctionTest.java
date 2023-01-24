@@ -57,13 +57,13 @@ public class RendezvousAffinityFunctionTest {
 
         int replicas = 4;
 
-        List<ClusterNode> clusterNodes = prepareNetworkTopology(nodes);
+        List<String> clusterNodes = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
         int ideal = (parts * replicas) / nodes;
 
-        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
+        List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
                 clusterNodes,
                 parts,
                 replicas,
@@ -71,12 +71,12 @@ public class RendezvousAffinityFunctionTest {
                 null
         );
 
-        HashMap<ClusterNode, ArrayList<Integer>> assignmentByNode = new HashMap<>(nodes);
+        HashMap<String, ArrayList<Integer>> assignmentByNode = new HashMap<>(nodes);
 
         int part = 0;
 
-        for (List<ClusterNode> partNodes : assignment) {
-            for (ClusterNode node : partNodes) {
+        for (List<String> partNodes : assignment) {
+            for (String node : partNodes) {
                 ArrayList<Integer> nodeParts = assignmentByNode.get(node);
 
                 if (nodeParts == null) {
@@ -89,7 +89,7 @@ public class RendezvousAffinityFunctionTest {
             part++;
         }
 
-        for (ClusterNode node : clusterNodes) {
+        for (String node : clusterNodes) {
             ArrayList<Integer> nodeParts = assignmentByNode.get(node);
 
             assertNotNull(nodeParts);
@@ -104,12 +104,9 @@ public class RendezvousAffinityFunctionTest {
     }
 
     @NotNull
-    private List<ClusterNode> prepareNetworkTopology(int nodes) {
-        var addr = new NetworkAddress("127.0.0.1", 121212);
-
+    private List<String> prepareNetworkTopology(int nodes) {
         return IntStream.range(0, nodes)
                 .mapToObj(i -> "Node " + i)
-                .map(name -> new ClusterNode(UUID.randomUUID().toString(), name, addr))
                 .collect(Collectors.toUnmodifiableList());
     }
 
@@ -121,11 +118,11 @@ public class RendezvousAffinityFunctionTest {
 
         int replicas = 4;
 
-        List<ClusterNode> clusterNodes = prepareNetworkTopology(nodes);
+        List<String> clusterNodes = prepareNetworkTopology(nodes);
 
         assertTrue(parts > nodes, "Partitions should be more that nodes");
 
-        List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
+        List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
                 clusterNodes,
                 parts,
                 replicas,
