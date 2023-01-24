@@ -120,13 +120,7 @@ public partial class SqlTests
         Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
         Assert.AreEqual(Instant.ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
-
-        var bytesLen = reader.GetBytes("BLOB", 0, null!, 0, 0);
-        var byteArr = new byte[bytesLen];
-
-        Assert.AreEqual(2, bytesLen);
-        Assert.AreEqual(2, reader.GetBytes("BLOB", 0L, byteArr, 0, (int)bytesLen));
-        Assert.AreEqual(Bytes, byteArr);
+        Assert.AreEqual(2, reader.GetBytes("BLOB", 0, null!, 0, 0));
     }
 
     [Test]
@@ -448,6 +442,28 @@ public partial class SqlTests
         await using var reader = await ExecuteReader();
 
         Assert.Throws<NotSupportedException>(() => reader.GetChar("KEY"));
+    }
+
+    [Test]
+    public async Task TestGetBytes()
+    {
+        await using var reader = await ExecuteReader();
+
+        var bytesLen = reader.GetBytes(name: "BLOB", dataOffset: 0, buffer: null!, bufferOffset: 0, length: 0);
+        var bytes = new byte[bytesLen];
+
+        Assert.AreEqual(2, bytesLen);
+        Assert.AreEqual(2, reader.GetBytes(name: "BLOB", dataOffset: 0L, buffer: bytes, bufferOffset: 0, length: (int)bytesLen));
+        Assert.AreEqual(Bytes, bytes);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            reader.GetBytes(ordinal: 0, dataOffset: -1, buffer: null, bufferOffset: 0, length: 0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            reader.GetBytes(ordinal: 0, dataOffset: 0, buffer: bytes, bufferOffset: 10, length: 0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            reader.GetBytes(ordinal: 0, dataOffset: 0, buffer: bytes, bufferOffset: 0, length: 10));
     }
 
     [Test]
