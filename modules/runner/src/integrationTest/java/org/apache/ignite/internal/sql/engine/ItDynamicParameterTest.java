@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTypeUtils.toSqlType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -33,7 +32,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
@@ -137,35 +135,37 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void testExplainWithDynamicParameters() {
-        assertQuery("EXPLAIN PLAN FOR SELECT * FROM t1 WHERE id > ?").skipExplain(true).check();
+    public void testUnspecifiedDynamicParameterInExplain() {
+        assertUnexpectedNumberOfParameters("EXPLAIN PLAN FOR SELECT * FROM t1 WHERE id > ?");
+    }
+
+    @Test
+    public void testDynamicParametersInExplain() {
+        sql("EXPLAIN PLAN FOR SELECT * FROM t1 WHERE id > ?", 1);
     }
 
     @Test
     public void testUnspecifiedDynamicParameterInSelectList() {
-        assertIllegalDynamicParameter("SELECT COALESCE(?)");
-        assertIllegalDynamicParameter("SELECT * FROM (VALUES(1, 2, ?)) t1");
+        assertUnexpectedNumberOfParameters("SELECT COALESCE(?)");
+        assertUnexpectedNumberOfParameters("SELECT * FROM (VALUES(1, 2, ?)) t1");
     }
 
     @Test
     public void testUnspecifiedDynamicParameterInInsert() {
-        // not nullable column
-        assertIllegalDynamicParameter("INSERT INTO t1 VALUES(1, ?, 3)");
-        // nullable column
-        assertIllegalDynamicParameter("INSERT INTO t1 VALUES(1, 2, ?)");
+        assertUnexpectedNumberOfParameters("INSERT INTO t1 VALUES(1, 2, ?)");
     }
 
     @Test
     public void testUnspecifiedDynamicParameterInUpdate() {
         // column value
-        assertIllegalDynamicParameter("UPDATE t1 SET val1=? WHERE id = 1");
+        assertUnexpectedNumberOfParameters("UPDATE t1 SET val1=? WHERE id = 1");
         // predicate
-        assertIllegalDynamicParameter("UPDATE t1 SET val1=10 WHERE id = ?");
+        assertUnexpectedNumberOfParameters("UPDATE t1 SET val1=10 WHERE id = ?");
     }
 
     @Test
     public void testUnspecifiedDynamicParameterInDelete() {
-        assertIllegalDynamicParameter("DELETE FROM t1 WHERE id = ? AND val1=1");
+        assertUnexpectedNumberOfParameters("DELETE FROM t1 WHERE id = ? AND val1=1");
     }
 
     @Test
@@ -248,21 +248,11 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
         }
     }
 
-    private static void assertIllegalDynamicParameter(String query, Object... params) {
-        CompletionException clientError = assertThrows(CompletionException.class, () -> {
-            assertQuery(query).withParams(params).check();
-        }, "query: " + query);
-
-        CalciteContextException err = assertInstanceOf(CalciteContextException.class, clientError.getCause());
-        assertThat("query: " + query, err.getMessage(), containsString("Illegal use of dynamic parameter"));
-    }
-
     private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
-        CompletionException clientError = assertThrows(CompletionException.class, () -> {
+        CalciteContextException err = assertThrows(CalciteContextException.class, () -> {
             assertQuery(query).withParams(params).check();
         }, "query: " + query);
 
-        CalciteContextException err = assertInstanceOf(CalciteContextException.class, clientError.getCause());
         assertThat("query: " + query, err.getMessage(), containsString("Unexpected number of query parameters"));
     }
 }

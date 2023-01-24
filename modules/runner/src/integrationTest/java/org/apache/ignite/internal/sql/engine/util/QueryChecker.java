@@ -410,17 +410,6 @@ public abstract class QueryChecker {
     }
 
     /**
-     * Specifies whether to skip plan checks in {@link #check()} or not. By default plan checks are always made.
-     *
-     * @param skipExplain whether to skip plan checkst.
-     * @return this
-     */
-    public QueryChecker skipExplain(boolean skipExplain) {
-        this.skipExplain = skipExplain;
-        return this;
-    }
-
-    /**
      * Run checks.
      */
     public void check() {
