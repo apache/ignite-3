@@ -455,13 +455,22 @@ public partial class SqlTests
     {
         await using var reader = await ExecuteReader();
 
-        var len = reader.GetChars("STR", 0, null!, 0, 0);
+        var len = reader.GetChars(name: "STR", dataOffset: 0, buffer: null!, bufferOffset: 0, length: 0);
         var chars = new char[len];
-        var count = reader.GetChars("STR", 1, chars, 1, 2);
+        var count = reader.GetChars(name: "STR", dataOffset: 1, buffer: chars, bufferOffset: 1, length: 2);
 
         Assert.AreEqual(3, len);
         Assert.AreEqual(2, count);
         Assert.AreEqual(new[] { (char)0, '-', '1' }, chars);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            reader.GetChars(ordinal: 0, dataOffset: -1, buffer: null, bufferOffset: 0, length: 0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            reader.GetChars(ordinal: 0, dataOffset: 0, buffer: chars, bufferOffset: 10, length: 0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            reader.GetChars(ordinal: 0, dataOffset: 0, buffer: chars, bufferOffset: 0, length: 10));
     }
 
     [Test]
