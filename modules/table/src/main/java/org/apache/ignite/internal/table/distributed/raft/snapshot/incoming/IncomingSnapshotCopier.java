@@ -131,9 +131,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             try {
                 fut.get();
             } catch (CancellationException e) {
-                if (!isOk()) {
-                    setError(RaftError.ECANCELED, "Copier is cancelled");
-                }
+                // Ignored.
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause();
 
@@ -154,6 +152,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         busyLock.block();
 
         LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());
+
+        if (!isOk()) {
+            setError(RaftError.ECANCELED, "Copier is cancelled");
+        }
 
         CompletableFuture<?> fut = rebalanceFuture;
 
