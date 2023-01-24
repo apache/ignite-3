@@ -152,6 +152,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         this.lastAppliedTerm = lastAppliedTerm;
     }
 
+    @Override
+    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
+
+        if (!goingToDestroy) {
+            // If we are going to destroy after closure, we should retain indices because the destruction logic
+            // will need to destroy them as well. It will clean the maps after it starts the destruction.
+
+            resourcesToClose.add(hashIndexes::clear);
+            resourcesToClose.add(sortedIndexes::clear);
+        }
+
+        return resourcesToClose;
+    }
+
     /**
      * Cleans data backing this partition. Indices are destroyed, but index desscriptors are
      * not removed from this partition so that they can be refilled with data later.
