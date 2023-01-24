@@ -38,6 +38,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
@@ -338,6 +339,22 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
+            ClusterNode leaderNode,
+            long leaderTerm,
+            @Nullable UUID indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode,
             @NotNull UUID indexId,
@@ -374,6 +391,20 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
+            ClusterNode leaderNode,
+            long leaderTerm,
+            UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode,
             @NotNull UUID indexId,
@@ -386,6 +417,12 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public List<String> assignments() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<IgniteBiTuple<String, Long>> leaderAssignmentsWithTerm() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

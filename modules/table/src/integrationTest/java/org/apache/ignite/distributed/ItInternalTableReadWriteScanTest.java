@@ -18,17 +18,43 @@
 package org.apache.ignite.distributed;
 
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
+ * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
  */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     /** {@inheritDoc} */
     @Override
     protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
-        return internalTbl.scan(part, tx);
+        if (tx == null) {
+            return internalTbl.scan(part, null);
+        }
+
+        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(
+                new TablePartitionId(internalTbl.tableId(), part));
+
+        return internalTbl.scan(part, tx.id(), leaderWithTerm.get1(), leaderWithTerm.get2(), null, null, null, 0, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected InternalTransaction startTx() {
+        InternalTransaction tx = internalTbl.txManager().begin();
+
+        TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).getPartId());
+        RaftGroupService raftSvc = internalTbl.partitionRaftGroupService(tblPartId.getPartId());
+        long term = raftSvc.refreshAndGetLeaderWithTerm().join().term();
+
+        tx.assignCommitPartition(tblPartId);
+        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.leaderAssignment(tblPartId.getPartId()), term));
+
+        return tx;
     }
 }

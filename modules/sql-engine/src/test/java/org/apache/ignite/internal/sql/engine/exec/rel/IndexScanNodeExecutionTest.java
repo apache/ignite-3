@@ -337,13 +337,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         //CHECKSTYLE:OFF:Indentation
         Mockito.doAnswer(invocation -> {
                     if (key != null) {
-                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(4));
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 })
                 .when(hashIndexMock)
-                .lookup(Mockito.anyInt(), any(), any(), any());
+                .lookup(Mockito.anyInt(), any(), any(), Mockito.anyLong(), any(), any());
         //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = mock(IgniteIndex.class);
@@ -382,15 +382,15 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         //CHECKSTYLE:OFF:Indentation
         Mockito.doAnswer(invocation -> {
                     if (lowerBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(4));
                     }
                     if (upperBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(5));
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 }).when(sortedIndexMock)
-                .scan(Mockito.anyInt(), any(), any(), any(), Mockito.anyInt(), any());
+                .scan(Mockito.anyInt(), any(), any(), Mockito.anyLong(), any(), any(), Mockito.anyInt(), any());
         //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = mock(IgniteIndex.class);
@@ -438,6 +438,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 index,
                 new TestTable(rowType, schemaDescriptor),
                 new int[]{0, 2},
+                new long[]{1, 1},
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
                 null,

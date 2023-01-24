@@ -1199,6 +1199,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
+        public Publisher<BinaryRow> lookup(int partId, UUID txId, ClusterNode leaderNode, long leaderTerm, BinaryTuple key,
+                @Nullable BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
@@ -1213,6 +1220,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient,
                 @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
+            throw new AssertionError("Should not be called");
+        }
+
+        @Override
+        public Publisher<BinaryRow> scan(int partId, UUID txId, ClusterNode leaderNode, long leaderTerm,
+                @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags,
+                @Nullable BitSet columnsToInclude) {
             throw new AssertionError("Should not be called");
         }
     }
@@ -1261,6 +1275,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, UUID txId, ClusterNode leaderNode, long leaderTerm, BinaryTuple key,
+                @Nullable BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
