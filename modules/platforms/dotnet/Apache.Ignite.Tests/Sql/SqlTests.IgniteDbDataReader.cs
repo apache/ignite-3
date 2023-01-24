@@ -480,12 +480,22 @@ public partial class SqlTests
     }
 
     [Test]
-    public async Task TestClose()
+    [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
+    [SuppressMessage("ReSharper", "MethodHasAsyncOverload", Justification = "Testing sync method.")]
+    public async Task TestClose([Values(true, false)] bool async)
     {
         await using var reader = await ExecuteReader();
         Assert.IsFalse(reader.IsClosed);
 
-        await reader.CloseAsync();
+        if (async)
+        {
+            await reader.CloseAsync();
+        }
+        else
+        {
+            reader.Close();
+        }
+
         Assert.IsTrue(reader.IsClosed);
     }
 
