@@ -19,10 +19,10 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -59,6 +59,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final int[] parts;
 
+    private final long[] terms;
+
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
 
@@ -73,6 +75,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
      * @param parts Partition numbers to scan.
+     * @param terms Raft terms of the partition group leaders.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -85,6 +88,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
+            long[] terms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -94,10 +98,12 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
+        assert ctx.transactionId() == null || parts.length == terms.length;
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
         this.parts = parts;
+        this.terms = terms;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -117,21 +123,24 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
-        Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                Arrays.stream(parts).iterator(),
-                part -> partitionPublisher(part, cond)
-        );
+        boolean readOnlyTx = context().transactionTime() != null;
+        List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
+
+        for (int i = 0; i < parts.length; i++) {
+            publishers.add(partitionPublisher(parts[i], readOnlyTx ? -1 : terms[i], cond));
+        }
 
         if (comp != null) {
-            return SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, it);
+            return SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, publishers.iterator());
         } else {
-            return SubscriptionUtils.concat(it);
+            return SubscriptionUtils.concat(publishers.iterator());
         }
     }
 
-    private Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> partitionPublisher(int part, long term, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
-        boolean roTx = context().transactionTime() != null;
+        boolean readOnlyTx = context().transactionTime() != null;
+        boolean readWriteTx = context().transactionId() != null;
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -148,7 +157,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            if (roTx) {
+            if (readOnlyTx) {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
                         context().transactionTime(),
@@ -158,7 +167,20 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         flags,
                         requiredColumns
                 );
+            } else if (readWriteTx) {
+                pub = ((SortedIndex) schemaIndex.index()).scan(
+                        part,
+                        context().transactionId(),
+                        context().localNode(),
+                        term,
+                        lower,
+                        upper,
+                        flags,
+                        requiredColumns
+                );
             } else {
+                // TODO IGNITE-17952 this block should me removed.
+                // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
                         context().transaction(),
@@ -174,7 +196,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
             BinaryTuple key = toBinaryTuple(cond.lower());
 
-            if (roTx) {
+            if (readOnlyTx) {
                 pub = schemaIndex.index().lookup(
                         part,
                         context().transactionTime(),
@@ -182,7 +204,18 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         key,
                         requiredColumns
                 );
+            } else if (readWriteTx) {
+                pub = schemaIndex.index().lookup(
+                        part,
+                        context().transactionId(),
+                        context().localNode(),
+                        term,
+                        key,
+                        requiredColumns
+                );
             } else {
+                // TODO IGNITE-17952 this block should me removed.
+                // Workaround to make RW lookup work from tx coordinator.
                 pub = schemaIndex.index().lookup(
                         part,
                         context().transaction(),

@@ -71,6 +71,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -221,6 +222,7 @@ public class StopCalciteModuleTest {
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
+        when(tbl.leaderAssignmentsWithTerm()).thenReturn(Arrays.asList(new IgniteBiTuple<>("NODE_NAME", -1L)));
 
         when(txManager.begin()).thenReturn(mock(InternalTransaction.class));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));

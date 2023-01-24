@@ -220,11 +220,6 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
                     ex.getCause().getMessage(),
                     containsString("Failed to enlist read-write operation into read-only transaction"));
         });
-
-        TransactionException ex = assertThrows(TransactionException.class, () -> internalTbl.scan(0, tx));
-        assertThat(
-                ex.getMessage(),
-                containsString("Failed to enlist read-write operation into read-only transaction"));
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.network.annotations.Marshallable;
@@ -55,4 +56,10 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      */
     @Marshallable
     @Nullable HybridTimestamp txTime();
+
+    /**
+     * Read write transaction id or null if this is read only transaction.
+     */
+    @Marshallable
+    @Nullable UUID txId();
 }

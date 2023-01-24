@@ -53,8 +53,30 @@ public interface Index<DescriptorT extends IndexDescriptor> {
      * @param key Key to lookup.
      * @param columns Columns to include.
      * @return A cursor from resulting rows.
+     * @deprecated Use {@link #lookup(int, UUID, ClusterNode, long, BinaryTuple, BitSet)} instead.
      */
+    @Deprecated
     Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns);
+
+    /**
+     * Returns cursor for the values corresponding to the given key.
+     *
+     * @param partId Partition id.
+     * @param txId Transaction id.
+     * @param leaderNode Raft group leader node that must handle given get request.
+     * @param leaderTerm Raft group leader term.
+     * @param key Key to lookup.
+     * @param columns Columns to include.
+     * @return A cursor from resulting rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            ClusterNode leaderNode,
+            long leaderTerm,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    );
 
     /**
      * Returns cursor for the values corresponding to the given key.
