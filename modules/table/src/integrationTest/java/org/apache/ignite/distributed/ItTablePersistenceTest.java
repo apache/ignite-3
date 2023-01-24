@@ -285,7 +285,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new TestPartitionDataStorage(testMpPartStorage),
                             storageUpdateHandler,
                             new TestTxStateStorage(),
-                            txManager,
                             new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
                     );
 

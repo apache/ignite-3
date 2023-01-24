@@ -433,7 +433,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 new TestTxStateStorage(),
-                                txManagers.get(assignment),
                                 safeTime
                         ),
                         RaftGroupEventsListener.noopLsnr

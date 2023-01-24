@@ -96,8 +96,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -210,7 +208,6 @@ public class PartitionCommandListenerTest {
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
-                new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock),
                 safeTimeTracker
         );
     }
@@ -303,7 +300,6 @@ public class PartitionCommandListenerTest {
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
-                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
                 new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
         );
 

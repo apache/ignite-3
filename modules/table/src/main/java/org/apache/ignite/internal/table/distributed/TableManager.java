@@ -777,7 +777,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                             partitionDataStorage,
                                                             storageUpdateHandler,
                                                             txStatePartitionStorage,
-                                                            txManager,
                                                             safeTime
                                                     ),
                                                     new RebalanceRaftGroupEventsListener(
@@ -1861,7 +1860,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 txStatePartitionStorage,
-                                txManager,
                                 safeTime
                         );
 

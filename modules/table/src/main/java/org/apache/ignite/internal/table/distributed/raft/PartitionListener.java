@@ -54,7 +54,6 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -78,9 +77,6 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
 
-    /** Transaction manager. */
-    private final TxManager txManager;
-
     /** Rows that were inserted, updated or removed. */
     private final HashMap<UUID, Set<RowId>> txsPendingRowIds = new HashMap<>();
 
@@ -91,20 +87,17 @@ public class PartitionListener implements RaftGroupListener {
      * The constructor.
      *
      * @param partitionDataStorage The storage.
-     * @param txManager Transaction manager.
      * @param safeTime Safe time tracker.
      */
     public PartitionListener(
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
-            TxManager txManager,
             PendingComparableValuesTracker<HybridTimestamp> safeTime
     ) {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
-        this.txManager = txManager;
         this.safeTime = safeTime;
 
         // TODO: IGNITE-18502 Implement a pending update storage
