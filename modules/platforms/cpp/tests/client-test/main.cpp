@@ -16,6 +16,8 @@
  */
 
 #include "ignite_runner.h"
+#include "ignite_runner_suite.h"
+#include "test_utils.h"
 
 #include <ignite/common/ignite_error.h>
 
@@ -57,22 +59,19 @@ void set_process_abort_handler(std::function<void(int)> handler) {
     signal(SIGSEGV, signal_handler);
 }
 
-/**
- * Run prior to any other tests.
- */
-void before_all() {
-    ignite::IgniteRunner runner;
-
-    runner.start();
-
-    // Five minutes should be enough but feel free to increase.
-    runner.join(std::chrono::minutes(5));
-    runner.stop();
+void wait_node_startup(std::chrono::seconds timeout) {
+    using namespace ignite;
+    for (auto addr : ignite_runner_suite::NODE_ADDRS) {
+        ignite_client_configuration cfg{addr};
+        auto client = ignite_client::start(cfg, timeout);
+    }
 }
 
 int main(int argc, char **argv) {
-    int res = 0;
-    before_all();
+    if (ignite::single_node_mode())
+        std::cout << "Tests run in a single-node mode." << std::endl;
+    else
+        std::cout << "Tests run in a multi-node mode." << std::endl;
 
     ignite::IgniteRunner runner;
 
@@ -85,17 +84,18 @@ int main(int argc, char **argv) {
     try {
         runner.start();
 
-        // TODO: Implement node startup await
-        std::this_thread::sleep_for(std::chrono::seconds(20));
+        wait_node_startup(std::chrono::seconds(60));
 
         ::testing::InitGoogleTest(&argc, argv);
-        res = RUN_ALL_TESTS();
+        [[maybe_unused]] int run_res = RUN_ALL_TESTS();
     } catch (const std::exception &err) {
         std::cout << "Uncaught error: " << err.what() << std::endl;
+        return 1;
     } catch (...) {
         std::cout << "Unknown uncaught error" << std::endl;
+        return 2;
     }
     runner.stop();
 
-    return res;
+    return 0;
 }

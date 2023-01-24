@@ -17,47 +17,52 @@
 
 #pragma once
 
-#include <string_view>
+#include "ignite/client/ignite_logger.h"
 
-namespace ignite {
+#include <memory>
 
-/**
- * Ignite logger interface.
- *
- * User can implement this class to use preferred logger with Ignite client.
- */
-class ignite_logger {
+namespace ignite::detail {
+
+/** Protocol version. */
+class logger_wrapper : public ignite_logger {
 public:
-    // Default
-    ignite_logger() = default;
-    virtual ~ignite_logger() = default;
-
-    // Deleted.
-    ignite_logger(ignite_logger &&) = delete;
-    ignite_logger(const ignite_logger &) = delete;
-    ignite_logger &operator=(ignite_logger &&) = delete;
-    ignite_logger &operator=(const ignite_logger &) = delete;
+    /**
+     * Constructor.
+     *
+     * @param logger Logger.
+     */
+    logger_wrapper(std::shared_ptr<ignite_logger> logger)
+        : m_logger(std::move(logger)) {}
 
     /**
      * Used to log error messages.
      *
      * @param message Error message.
      */
-    virtual void log_error(std::string_view message) = 0;
+    void log_error(std::string_view message) override {
+        if (m_logger)
+            m_logger->log_error(message);
+    }
 
     /**
      * Used to log warning messages.
      *
      * @param message Warning message.
      */
-    virtual void log_warning(std::string_view message) = 0;
+    void log_warning(std::string_view message) override {
+        if (m_logger)
+            m_logger->log_warning(message);
+    }
 
     /**
      * Used to log info messages.
      *
      * @param message Info message.
      */
-    virtual void log_info(std::string_view message) = 0;
+    void log_info(std::string_view message) override {
+        if (m_logger)
+            m_logger->log_info(message);
+    }
 
     /**
      * Used to log debug messages.
@@ -66,13 +71,22 @@ public:
      *
      * @param message Debug message.
      */
-    virtual void log_debug(std::string_view message) = 0;
+    void log_debug(std::string_view message) override {
+        if (m_logger)
+            m_logger->log_debug(message);
+    }
 
     /**
      * Check whether debug is enabled.
      * @return
      */
-    [[nodiscard]] virtual bool is_debug_enabled() const = 0;
+    [[nodiscard]] bool is_debug_enabled() const override {
+        return m_logger && m_logger->is_debug_enabled();
+    }
+
+private:
+    /** Logger. */
+    std::shared_ptr<ignite_logger> m_logger;
 };
 
-} // namespace ignite
+} // namespace ignite::detail

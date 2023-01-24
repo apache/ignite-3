@@ -38,7 +38,7 @@ protected:
     void SetUp() override {
         clear_table1();
 
-        ignite_client_configuration cfg{NODE_ADDRS};
+        ignite_client_configuration cfg{get_node_addrs()};
         cfg.set_logger(get_logger());
 
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
