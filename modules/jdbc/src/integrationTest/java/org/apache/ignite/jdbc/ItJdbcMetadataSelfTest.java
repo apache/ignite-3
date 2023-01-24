@@ -21,7 +21,6 @@ import static java.sql.Types.DATE;
 import static java.sql.Types.DECIMAL;
 import static java.sql.Types.INTEGER;
 import static java.sql.Types.NULL;
-import static java.sql.Types.OTHER;
 import static java.sql.Types.VARCHAR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
