@@ -21,10 +21,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
@@ -39,21 +41,6 @@ public interface PartitionAccess {
      * Returns the key that uniquely identifies the corresponding partition.
      */
     PartitionKey partitionKey();
-
-    /**
-     * Destroys and recreates the multi-versioned partition storage.
-     *
-     * @return Future that will complete when the partition is recreated.
-     * @throws StorageException If an error has occurred during the partition destruction.
-     */
-    CompletableFuture<Void> reCreateMvPartitionStorage() throws StorageException;
-
-    /**
-     * Destroys and recreates the TX state partition storage.
-     *
-     * @throws StorageException If an error has occurred during destruction of the transaction state storage for the partition.
-     */
-    void reCreateTxStatePartitionStorage() throws StorageException;
 
     /**
      * Creates a cursor to scan all meta of transactions.
@@ -125,11 +112,6 @@ public interface PartitionAccess {
     void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp);
 
     /**
-     * Updates the last applied index, term, and RAFT configuration.
-     */
-    void updateLastApplied(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
-
-    /**
      * Returns the minimum applied index of the partition storages.
      */
     long minLastAppliedIndex();
@@ -148,4 +130,68 @@ public interface PartitionAccess {
      * Returns the maximum applied term of the partition storages.
      */
     long maxLastAppliedTerm();
+
+    /**
+     * Prepares partition storages for rebalancing.
+     * <ul>
+     *     <li>Cancels all current operations (including cursors) with storages and waits for their completion;</li>
+     *     <li>Cleans up storages;</li>
+     *     <li>Sets the last applied index and term to {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and the RAFT group configuration to
+     *     {@code null};</li>
+     *     <li>Only the following methods will be available:<ul>
+     *         <li>{@link #partitionKey()};</li>
+     *         <li>{@link #minLastAppliedIndex()};</li>
+     *         <li>{@link #maxLastAppliedIndex()};</li>
+     *         <li>{@link #minLastAppliedTerm()};</li>
+     *         <li>{@link #maxLastAppliedTerm()};</li>
+     *         <li>{@link #committedGroupConfiguration()};</li>
+     *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
+     *         <li>{@link #addWrite(RowId, TableRow, UUID, UUID, int)};</li>
+     *         <li>{@link #addWriteCommitted(RowId, TableRow, HybridTimestamp)}.</li>
+     *     </ul></li>
+     * </ul>
+     *
+     * <p>This method must be called before every rebalance and ends with a call to one of the methods:
+     * <ul>
+     *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalance(long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.</li>
+     * </ul>
+     *
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to start rebalancing.
+     */
+    CompletableFuture<Void> startRebalance();
+
+    /**
+     * Aborts rebalancing of the partition storages.
+     * <ul>
+     *     <li>Cleans up storages;</li>
+     *     <li>Resets the last applied index, term, and RAFT group configuration;</li>
+     *     <li>All methods will be available.</li>
+     * </ul>
+     *
+     * <p>If rebalance has not started, then nothing will happen.
+     *
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to abort rebalancing.
+     */
+    CompletableFuture<Void> abortRebalance();
+
+    /**
+     * Completes rebalancing of the partition storages.
+     * <ul>
+     *     <li>Cleans up storages;</li>
+     *     <li>Updates the last applied index, term, and RAFT group configuration;</li>
+     *     <li>All methods will be available.</li>
+     * </ul>
+     *
+     * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
+     *
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
+     * @param raftGroupConfig RAFT group configuration.
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
+     */
+    CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
 }

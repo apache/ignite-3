@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import static org.apache.ignite.internal.table.distributed.TableManager.FULL_RABALANCING_STARTED;
-
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +27,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -75,36 +72,6 @@ public class PartitionAccessImpl implements PartitionAccess {
     @Override
     public PartitionKey partitionKey() {
         return partitionKey;
-    }
-
-    @Override
-    public CompletableFuture<Void> reCreateMvPartitionStorage() throws StorageException {
-        assert mvTableStorage.getMvPartition(partitionId()) != null : "table=" + tableName() + ", part=" + partitionId();
-
-        // TODO: IGNITE-18030 - actually recreate or do in a different way
-        //return mvTableStorage.destroyPartition(partId())
-        return CompletableFuture.completedFuture(null)
-                .thenApply(unused -> {
-                    MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(partitionId());
-
-                    mvPartitionStorage.runConsistently(() -> {
-                        mvPartitionStorage.lastApplied(FULL_RABALANCING_STARTED, 0);
-
-                        return null;
-                    });
-
-                    return null;
-                });
-    }
-
-    @Override
-    public void reCreateTxStatePartitionStorage() throws StorageException {
-        assert txStateTableStorage.getTxStateStorage(partitionId()) != null : "table=" + tableName() + ", part=" + partitionId();
-
-        // TODO: IGNITE-18030 - actually recreate or do in a different way
-        //txStateTableStorage.destroyTxStateStorage(partId());
-
-        txStateTableStorage.getOrCreateTxStateStorage(partitionId()).lastApplied(FULL_RABALANCING_STARTED, 0);
     }
 
     private int partitionId() {
@@ -167,22 +134,6 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void updateLastApplied(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
-        MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
-        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
-
-        mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-
-            txStateStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-
-            mvPartitionStorage.committedGroupConfiguration(raftGroupConfig);
-
-            return null;
-        });
-    }
-
-    @Override
     public long minLastAppliedIndex() {
         return Math.min(
                 getMvPartitionStorage(partitionId()).lastAppliedIndex(),
@@ -211,6 +162,39 @@ public class PartitionAccessImpl implements PartitionAccess {
         return Math.max(
                 getMvPartitionStorage(partitionId()).lastAppliedTerm(),
                 getTxStateStorage(partitionId()).lastAppliedTerm()
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalance() {
+        // TODO: IGNITE-18619 Fix this bullshit, we should have already waited for the indexes to be created
+        indexes.get();
+
+        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
+
+        return CompletableFuture.allOf(
+                mvTableStorage.startRebalancePartition(partitionId()),
+                txStateStorage.startRebalance()
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalance() {
+        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
+
+        return CompletableFuture.allOf(
+                mvTableStorage.abortRebalancePartition(partitionId()),
+                txStateStorage.abortRebalance()
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
+        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
+
+        return CompletableFuture.allOf(
+                mvTableStorage.finishRebalancePartition(partitionId(), lastAppliedIndex, lastAppliedTerm, raftGroupConfig),
+                txStateStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm)
         );
     }
 
