@@ -153,11 +153,26 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     /**
+     * Cleans data backing this partition. Indices are destroyed, but index desscriptors are
+     * not removed from this partition so that they can be refilled with data later.
+     */
+    public void cleanStructuresData() {
+        destroyStructures(false);
+    }
+
+    /**
+     * Destroys internal structures (including indices) backing this partition.
+     */
+    public void destroyStructures() {
+        destroyStructures(true);
+    }
+
+    /**
      * Destroys internal structures (including indices) backing this partition.
      *
      * @param removeIndexDescriptors Whether indices should be completely removed, not just their contents destroyed.
      */
-    public void destroyStructures(boolean removeIndexDescriptors) {
+    private void destroyStructures(boolean removeIndexDescriptors) {
         startMvDataDestruction();
         startIndexMetaTreeDestruction();
 
