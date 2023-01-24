@@ -118,6 +118,23 @@ namespace Apache.Ignite.Benchmarks.Sql
             }
         }
 
+        [Benchmark]
+        public async Task DbDataReader()
+        {
+            await using var reader = await _client!.Sql.ExecuteReaderAsync(null, "select 1");
+            var rows = new List<int>(1100);
+
+            while (await reader.ReadAsync())
+            {
+                rows.Add(reader.GetInt32(0));
+            }
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
         private record Rec(int Id);
     }
 }
