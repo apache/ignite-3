@@ -389,6 +389,7 @@ public class ExecutionServiceImplTest {
         var executionService = new ExecutionServiceImpl<>(
                 clusterNode,
                 messageService,
+                null,
                 (single, filter) -> single ? List.of(nodeNames.get(ThreadLocalRandom.current().nextInt(nodeNames.size()))) : nodeNames,
                 schemaManagerMock,
                 mock(DdlCommandHandler.class),

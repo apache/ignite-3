@@ -44,6 +44,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
@@ -80,6 +81,8 @@ import org.junit.jupiter.api.condition.OS;
 public class PlannerTest extends AbstractPlannerTest {
     private static List<String> NODES;
 
+    private static List<NodeWithTerm> NODES_WITH_TERM;
+
     /**
      * Init.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -87,9 +90,13 @@ public class PlannerTest extends AbstractPlannerTest {
     @BeforeAll
     public static void init() {
         NODES = new ArrayList<>(4);
+        NODES_WITH_TERM = new ArrayList<>(4);
 
         for (int i = 0; i < 4; i++) {
-            NODES.add(UUID.randomUUID().toString());
+            String nodeName = UUID.randomUUID().toString();
+
+            NODES.add(nodeName);
+            NODES_WITH_TERM.add(new NodeWithTerm(nodeName, 0L));
         }
     }
 
@@ -111,11 +118,11 @@ public class PlannerTest extends AbstractPlannerTest {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2),
-                        select(NODES, 2, 0),
-                        select(NODES, 0, 1),
-                        select(NODES, 1, 2)
+                        select(NODES_WITH_TERM, 0, 1),
+                        select(NODES_WITH_TERM, 1, 2),
+                        select(NODES_WITH_TERM, 2, 0),
+                        select(NODES_WITH_TERM, 0, 1),
+                        select(NODES_WITH_TERM, 1, 2)
                 ));
             }
 
@@ -132,11 +139,11 @@ public class PlannerTest extends AbstractPlannerTest {
                     .build(), "PROJECT") {
             @Override public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                    select(NODES, 0, 1),
-                    select(NODES, 1, 2),
-                    select(NODES, 2, 0),
-                    select(NODES, 0, 1),
-                    select(NODES, 1, 2)));
+                    select(NODES_WITH_TERM, 0, 1),
+                    select(NODES_WITH_TERM, 1, 2),
+                    select(NODES_WITH_TERM, 2, 0),
+                    select(NODES_WITH_TERM, 0, 1),
+                    select(NODES_WITH_TERM, 1, 2)));
             }
 
             @Override public IgniteDistribution distribution() {
@@ -293,10 +300,10 @@ public class PlannerTest extends AbstractPlannerTest {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 1, 2),
-                        select(NODES, 2, 3),
-                        select(NODES, 3, 0),
-                        select(NODES, 0, 1)
+                        select(NODES_WITH_TERM, 1, 2),
+                        select(NODES_WITH_TERM, 2, 3),
+                        select(NODES_WITH_TERM, 3, 0),
+                        select(NODES_WITH_TERM, 0, 1)
                 ));
             }
 
@@ -374,9 +381,9 @@ public class PlannerTest extends AbstractPlannerTest {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 0),
-                        select(NODES, 1),
-                        select(NODES, 2)
+                        select(NODES_WITH_TERM, 0),
+                        select(NODES_WITH_TERM, 1),
+                        select(NODES_WITH_TERM, 2)
                 ));
             }
 
@@ -456,9 +463,9 @@ public class PlannerTest extends AbstractPlannerTest {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
                 return ColocationGroup.forAssignments(Arrays.asList(
-                        select(NODES, 1),
-                        select(NODES, 2),
-                        select(NODES, 3)
+                        select(NODES_WITH_TERM, 1),
+                        select(NODES_WITH_TERM, 2),
+                        select(NODES_WITH_TERM, 3)
                 ));
             }
 

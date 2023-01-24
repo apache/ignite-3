@@ -85,6 +85,19 @@ public class HashIndex implements Index<IndexDescriptor> {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
+            ClusterNode leaderNode,
+            long leaderTerm,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    ) {
+        return table.lookup(partId, txId, leaderNode, leaderTerm, id, key, columns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
             HybridTimestamp timestamp,
             ClusterNode recipientNode,
             BinaryTuple key,
