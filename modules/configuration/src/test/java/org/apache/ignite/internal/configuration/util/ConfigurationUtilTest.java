@@ -45,6 +45,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -806,6 +807,26 @@ public class ConfigurationUtilTest {
         assertEquals(List.of(), removeLastKey(List.of()));
         assertEquals(List.of(), removeLastKey(List.of("0")));
         assertEquals(List.of("0"), removeLastKey(List.of("0", "1")));
+    }
+
+    /**
+     * Tests that {@link ConfigurationUtil#addDefaults} copies the tree when adding default values.
+     */
+    @Test
+    void testAddDefaultsPurity() {
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange) parentNode;
+
+        parentChange.changeElements(elements -> elements.create("name", element -> {}));
+
+        NamedListNode<?> beforeDefaults = find(List.of("elements"), parentNode, true);
+
+        addDefaults(parentNode);
+
+        NamedListNode<?> afterDefaults = find(List.of("elements"), parentNode, true);
+
+        assertNotSame(afterDefaults, beforeDefaults);
     }
 
     /**
