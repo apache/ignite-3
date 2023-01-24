@@ -38,46 +38,46 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 
 /**
- * ExchangeServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Message-based implementation of {@link ExchangeService} interface.
+ *
+ * <p>Provides simple methods of interaction with the mailbox, hiding all the machinery to send and receive messages.
  */
 public class ExchangeServiceImpl implements ExchangeService {
     private static final IgniteLogger LOG = Loggers.forClass(ExchangeServiceImpl.class);
-
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     private final MailboxRegistry mailboxRegistry;
-
-    private final MessageService msgSrvc;
+    private final MessageService messageService;
 
     /**
-     * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates the object.
+     *
+     * @param mailboxRegistry A registry of mailboxes created on the node.
+     * @param messageService A messaging service to exchange messages between mailboxes.
      */
     public ExchangeServiceImpl(
-            ClusterNode localNode,
-            QueryTaskExecutor taskExecutor,
             MailboxRegistry mailboxRegistry,
-            MessageService msgSrvc
+            MessageService messageService
     ) {
         this.mailboxRegistry = mailboxRegistry;
-        this.msgSrvc = msgSrvc;
+        this.messageService = messageService;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchRequestMessage) m), SqlQueryMessageGroup.QUERY_BATCH_REQUEST);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
+        messageService.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
+        messageService.register((n, m) -> onMessage(n, (QueryBatchRequestMessage) m), SqlQueryMessageGroup.QUERY_BATCH_REQUEST);
+        messageService.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
 
     /** {@inheritDoc} */
     @Override
     public <RowT> void sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
             boolean last, List<RowT> rows) throws IgniteInternalCheckedException {
-        msgSrvc.send(
+        messageService.send(
                 nodeName,
                 FACTORY.queryBatchMessage()
                         .queryId(qryId)
@@ -94,7 +94,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     @Override
     public void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches)
             throws IgniteInternalCheckedException {
-        msgSrvc.send(
+        messageService.send(
                 nodeName,
                 FACTORY.queryBatchRequestMessage()
                         .queryId(queryId)
@@ -108,7 +108,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public void closeQuery(String nodeName, UUID qryId) throws IgniteInternalCheckedException {
-        msgSrvc.send(
+        messageService.send(
                 nodeName,
                 FACTORY.queryCloseMessage()
                         .queryId(qryId)
@@ -119,7 +119,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public void closeInbox(String nodeName, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
-        msgSrvc.send(
+        messageService.send(
                 nodeName,
                 FACTORY.inboxCloseMessage()
                         .queryId(qryId)
@@ -132,7 +132,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public void sendError(String nodeName, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException {
-        msgSrvc.send(
+        messageService.send(
                 nodeName,
                 FACTORY.errorMessage()
                         .queryId(qryId)
@@ -145,7 +145,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public boolean alive(String nodeName) {
-        return msgSrvc.alive(nodeName);
+        return messageService.alive(nodeName);
     }
 
     private void onMessage(String nodeName, InboxCloseMessage msg) {

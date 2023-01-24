@@ -204,6 +204,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         return true;
     }
 
+    @SuppressWarnings("LabeledStatement")
     private void pushOrdered() throws Exception {
         if (!checkAllBuffsReady(remoteSources.iterator())) {
             for (RemoteSource<RowT> remote : remoteSources) {
@@ -230,25 +231,28 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
         inLoop = true;
         try {
+            loop:
             while (requested > 0 && !heap.isEmpty()) {
                 checkState();
 
-                RemoteSource<RowT> buf = heap.poll().right;
+                RemoteSource<RowT> source = heap.poll().right;
 
                 requested--;
-                downstream().push(buf.remove());
+                downstream().push(source.remove());
 
-                State state = buf.check();
+                State state = source.check();
 
                 switch (state) {
                     case END:
-                        remoteSources.remove(buf);
+                        remoteSources.remove(source);
                         break;
                     case READY:
-                        heap.offer(Pair.of(buf.peek(), buf));
+                        heap.offer(Pair.of(source.peek(), source));
                         break;
                     case WAITING:
-                        break;
+                        // at this point we've drained all received batches from particular source,
+                        // thus we need to wait next batch in order to be able to preserve the ordering
+                        break loop;
                     default:
                         throw unexpected(state);
                 }

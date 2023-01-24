@@ -104,7 +104,7 @@ public class TestNode implements LifecycleAware {
                 topologyService, messagingService, taskExecutor, new IgniteSpinBusyLock()
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
-                topologyService.localMember(), taskExecutor, mailboxRegistry, messageService
+                mailboxRegistry, messageService
         ));
 
         executionService = registerService(new ExecutionServiceImpl<>(

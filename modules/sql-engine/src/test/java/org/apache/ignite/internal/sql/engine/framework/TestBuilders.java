@@ -68,9 +68,9 @@ public class TestBuilders {
         return new ExecutionContextBuilderImpl();
     }
 
-    /** Factory method to create a cluster service for a single node. */
-    public static ClusterService clusterService(String nodeName) {
-        return new TestClusterService(List.of(nodeName)).spawnForNode(nodeName);
+    /** Factory method to create a cluster service factory for cluster consisting of provided nodes. */
+    public static ClusterServiceFactory clusterServiceFactory(List<String> nodes) {
+        return new ClusterServiceFactory(nodes);
     }
 
     /**
@@ -239,7 +239,7 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestCluster build() {
-            var clusterService = new TestClusterService(nodeNames);
+            var clusterService = new ClusterServiceFactory(nodeNames);
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
                 validateTableBuilder(tableBuilder);
@@ -253,7 +253,7 @@ public class TestBuilders {
             var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null));
 
             Map<String, TestNode> nodes = nodeNames.stream()
-                    .map(name -> new TestNode(name, clusterService.spawnForNode(name), schemaManager))
+                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(nodes);
