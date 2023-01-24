@@ -333,9 +333,6 @@ public class PartitionListener implements RaftGroupListener {
 
             txsPendingRowIds.remove(txId);
 
-            // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
-            txManager.changeState(txId, null, cmd.commit() ? COMMITED : ABORTED);
-
             storage.lastApplied(commandIndex, commandTerm);
 
             return null;

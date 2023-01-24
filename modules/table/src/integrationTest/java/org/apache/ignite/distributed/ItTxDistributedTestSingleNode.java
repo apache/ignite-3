@@ -316,18 +316,16 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         String localNodeName = accRaftClients.get(0).clusterService().topologyService().localMember().name();
 
-        TxManager txMgr;
-
         if (startClient()) {
-            txMgr = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock);
+            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock);
         } else {
             // Collocated mode.
-            txMgr = txManagers.get(localNodeName);
+            clientTxManager = txManagers.get(localNodeName);
         }
 
-        assertNotNull(txMgr);
+        assertNotNull(clientTxManager);
 
-        igniteTransactions = new IgniteTransactionsImpl(txMgr);
+        igniteTransactions = new IgniteTransactionsImpl(clientTxManager);
 
         this.accounts = new TableImpl(new InternalTableImpl(
                 accountsName,
@@ -335,12 +333,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 accRaftClients,
                 1,
                 consistentIdToNode,
-                txMgr,
+                clientTxManager,
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
-        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), txMgr.lockManager());
+        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
@@ -348,12 +346,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 custRaftClients,
                 1,
                 consistentIdToNode,
-                txMgr,
+                clientTxManager,
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
-        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), txMgr.lockManager());
+        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
 
         log.info("Tables have been started");
     }
@@ -590,6 +588,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         network.start();
 
         return network;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected TxManager clientTxManager() {
+        return clientTxManager;
     }
 
     /** {@inheritDoc} */
