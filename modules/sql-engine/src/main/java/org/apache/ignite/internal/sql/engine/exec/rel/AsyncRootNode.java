@@ -17,18 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
+
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.sql.CursorClosedException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * An async iterator over the execution tree.
@@ -48,9 +50,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     private final Function<InRowT, OutRowT> converter;
 
+    private final Queue<OutRowT> buff = new ArrayDeque<>(IN_BUFFER_SIZE);
+
     private final AtomicBoolean taskScheduled = new AtomicBoolean();
 
-    private final Queue<PendingRequest<OutRowT>> pendingRequests = new LinkedBlockingQueue<>();
+    private final Queue<PendingRequest<OutRowT>> pendingRequests = new ConcurrentLinkedQueue<>();
 
     private volatile boolean closed = false;
 
@@ -60,26 +64,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      * <p>Note: this variable should be accessed from an execution task only.
      */
     private int waiting;
-
-    /**
-     * Last row that pushed to this downstream.
-     *
-     * <p>{@link org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult} requires information about whether there are more
-     * rows available or not. To meet this requirement, we request an extra row from source at the very first requested batch. Thus,
-     * we have an extra row which should be the very first row of the next batch.
-     *
-     * <p>Note: this variable should be accessed from an execution task only.
-     */
-    private @Nullable OutRowT lastRow;
-
-    /**
-     * Whether the very first batch was already requested or not. See {@link #lastRow} for details.
-     *
-     * <p>Note: this variable should be accessed from an execution task only.
-     *
-     * @see #lastRow
-     */
-    private boolean firstRequest = true;
 
     /**
      * Constructor.
@@ -97,19 +81,9 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public void push(InRowT row) throws Exception {
         assert waiting > 0;
 
-        waiting--;
+        buff.add(converter.apply(row));
 
-        var currentReq = pendingRequests.peek();
-
-        assert currentReq != null;
-
-        if (currentReq.buff.size() < currentReq.requested) {
-            currentReq.buff.add(converter.apply(row));
-        } else {
-            assert waiting == 0;
-
-            lastRow = converter.apply(row);
-
+        if (--waiting == 0) {
             flush();
         }
     }
@@ -120,16 +94,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         assert waiting > 0;
 
         waiting = -1;
-
-        var currentReq = pendingRequests.peek();
-
-        assert currentReq != null;
-
-        if (currentReq.buff.size() < currentReq.requested && lastRow != null) {
-            currentReq.buff.add(lastRow);
-
-            lastRow = null;
-        }
 
         flush();
     }
@@ -214,20 +178,48 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         return cancelFut.thenApply(Function.identity());
     }
 
-    private void flush() {
-        var currentReq = pendingRequests.remove();
+    /**
+     * Starts the execution of the fragment and keeps the result in the intermediate buffer.
+     *
+     * <p>Note: this method must be called by the same thread that will execute the whole fragment.
+     */
+    public void prefetch() {
+        if (waiting == 0) {
+            try {
+                source.request(waiting = IN_BUFFER_SIZE);
+            } catch (Exception ex) {
+                onError(ex);
+            }
+        }
+    }
+
+    private void flush() throws Exception {
+        // flush may be triggered by prefetching, so let's do nothing in this case
+        if (pendingRequests.isEmpty()) {
+            return;
+        }
+
+        PendingRequest<OutRowT> currentReq = pendingRequests.peek();
 
         assert currentReq != null;
 
         taskScheduled.set(false);
 
-        currentReq.fut.complete(new BatchedResult<>(currentReq.buff, waiting != -1 || lastRow != null));
+        while (!buff.isEmpty() && currentReq.buff.size() < currentReq.requested) {
+            currentReq.buff.add(buff.remove());
+        }
 
-        boolean hasMoreRow = waiting != -1 || lastRow != null;
+        boolean hasMoreRows = waiting != -1 || !buff.isEmpty();
 
-        if (hasMoreRow) {
-            scheduleTask();
-        } else {
+        if (currentReq.buff.size() == currentReq.requested || !hasMoreRows) {
+            pendingRequests.remove();
+
+            currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMoreRows));
+        }
+
+        if (waiting == 0) {
+            source.request(waiting = IN_BUFFER_SIZE);
+        } else if (waiting == -1 && buff.isEmpty()) {
             closeAsync();
         }
     }
@@ -237,27 +229,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      */
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
-            var nextTask = pendingRequests.peek();
-
-            assert nextTask != null;
-
-            source.context().execute(() -> {
-                // for the very first request we need to request one extra row
-                // to be able to determine whether there is more rows or not
-                if (firstRequest) {
-                    waiting = nextTask.requested + 1;
-                    firstRequest = false;
-                } else {
-                    waiting = nextTask.requested;
-
-                    assert lastRow != null;
-
-                    nextTask.buff.add(lastRow);
-                    lastRow = null;
-                }
-
-                source.request(waiting);
-            }, source::onError);
+            source.context().execute(this::flush, source::onError);
         }
     }
 
@@ -277,7 +249,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
          */
         private final List<OutRowT> buff;
 
-        public PendingRequest(int requested, CompletableFuture<BatchedResult<OutRowT>> fut) {
+        private PendingRequest(int requested, CompletableFuture<BatchedResult<OutRowT>> fut) {
             this.requested = requested;
             this.fut = fut;
             this.buff = new ArrayList<>(requested);

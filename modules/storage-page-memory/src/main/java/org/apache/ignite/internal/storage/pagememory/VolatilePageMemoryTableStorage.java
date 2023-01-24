@@ -149,20 +149,22 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = ((VolatilePageMemoryMvPartitionStorage) mvPartitionStorage);
 
-        return volatilePartitionStorage.destroyStructures().thenAccept(unused -> {
-            int partitionId = mvPartitionStorage.partitionId();
-            TableView tableView = tableCfg.value();
+        volatilePartitionStorage.cleanStructuresData();
 
-            volatilePartitionStorage.updateDataStructuresOnRebalance(
-                    createVersionChainTree(partitionId, tableView),
-                    createIndexMetaTree(partitionId, tableView)
-            );
-        });
+        int partitionId = mvPartitionStorage.partitionId();
+        TableView tableView = tableCfg.value();
+
+        volatilePartitionStorage.updateDataStructuresOnRebalance(
+                createVersionChainTree(partitionId, tableView),
+                createIndexMetaTree(partitionId, tableView)
+        );
+
+        return completedFuture(null);
     }
 
     @Override
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        mvPartitionStorage.close();
+        mvPartitionStorage.closeForDestruction();
 
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 

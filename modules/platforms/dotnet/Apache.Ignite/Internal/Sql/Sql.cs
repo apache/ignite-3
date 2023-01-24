@@ -62,6 +62,19 @@ namespace Apache.Ignite.Internal.Sql
             throw new NotSupportedException();
         }
 
+        /// <inheritdoc/>
+        public async Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        {
+            var resultSet = await ExecuteAsyncInternal<object>(transaction, statement, _ => null!, args).ConfigureAwait(false);
+
+            if (!resultSet.HasRowSet)
+            {
+                throw new InvalidOperationException($"{nameof(ExecuteReaderAsync)} does not support queries without row set (DDL, DML).");
+            }
+
+            return new IgniteDbDataReader(resultSet);
+        }
+
         /// <summary>
         /// Reads column value.
         /// </summary>
@@ -110,7 +123,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
-        internal async Task<IResultSet<T>> ExecuteAsyncInternal<T>(
+        internal async Task<ResultSet<T>> ExecuteAsyncInternal<T>(
             ITransaction? transaction,
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,

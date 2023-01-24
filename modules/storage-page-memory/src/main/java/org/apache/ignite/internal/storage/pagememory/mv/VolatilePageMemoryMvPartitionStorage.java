@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
@@ -45,6 +47,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryMvPartitionStorage.class);
+
     private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
 
     private final GradualTaskExecutor destructionExecutor;
@@ -148,18 +152,63 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         this.lastAppliedTerm = lastAppliedTerm;
     }
 
-    /**
-     * Destroys internal structures backing this partition.
-     *
-     * @return future that completes when the destruction completes.
-     */
-    public CompletableFuture<Void> destroyStructures() {
-        // TODO: IGNITE-18531 - destroy indices.
+    @Override
+    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
 
+        if (!goingToDestroy) {
+            // If we are going to destroy after closure, we should retain indices because the destruction logic
+            // will need to destroy them as well. It will clean the maps after it starts the destruction.
+
+            resourcesToClose.add(hashIndexes::clear);
+            resourcesToClose.add(sortedIndexes::clear);
+        }
+
+        return resourcesToClose;
+    }
+
+    /**
+     * Cleans data backing this partition. Indices are destroyed, but index desscriptors are
+     * not removed from this partition so that they can be refilled with data later.
+     */
+    public void cleanStructuresData() {
+        destroyStructures(false);
+    }
+
+    /**
+     * Destroys internal structures (including indices) backing this partition.
+     */
+    public void destroyStructures() {
+        destroyStructures(true);
+    }
+
+    /**
+     * Destroys internal structures (including indices) backing this partition.
+     *
+     * @param removeIndexDescriptors Whether indices should be completely removed, not just their contents destroyed.
+     */
+    private void destroyStructures(boolean removeIndexDescriptors) {
+        startMvDataDestruction();
+        startIndexMetaTreeDestruction();
+
+        hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+        sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+
+        if (removeIndexDescriptors) {
+            hashIndexes.clear();
+            sortedIndexes.clear();
+        }
+    }
+
+    private void startMvDataDestruction() {
         try {
-            return destructionExecutor.execute(
+            destructionExecutor.execute(
                     versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
-            );
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Version chains destruction failed in group={}, partition={}", ex, groupId, partitionId);
+                }
+            });
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot destroy MV partition in group=" + groupId + ", partition=" + partitionId, e);
         }
@@ -182,6 +231,20 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             rowVersionFreeList.removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
+        }
+    }
+
+    private void startIndexMetaTreeDestruction() {
+        try {
+            destructionExecutor.execute(
+                    indexMetaTree.startGradualDestruction(null, false)
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Index meta tree destruction failed in group={}, partition={}", ex, groupId, partitionId);
+                }
+            });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy index meta tree in group=" + groupId + ", partition=" + partitionId, e);
         }
     }
 

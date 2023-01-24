@@ -33,7 +33,7 @@ using namespace ignite;
 class sql_test : public ignite_runner_suite {
 protected:
     static void SetUpTestSuite() {
-        ignite_client_configuration cfg{NODE_ADDRS};
+        ignite_client_configuration cfg{get_node_addrs()};
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
@@ -50,7 +50,7 @@ protected:
     }
 
     static void TearDownTestSuite() {
-        ignite_client_configuration cfg{NODE_ADDRS};
+        ignite_client_configuration cfg{get_node_addrs()};
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
@@ -59,7 +59,7 @@ protected:
     }
 
     void SetUp() override {
-        ignite_client_configuration cfg{NODE_ADDRS};
+        ignite_client_configuration cfg{get_node_addrs()};
         cfg.set_logger(get_logger());
 
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));

@@ -60,6 +60,10 @@ public:
             std::cout << "[          ] [ DEBUG ]   " + get_timestamp() + std::string(message) + '\n' << std::flush;
     }
 
+    [[nodiscard]] bool is_debug_enabled() const override {
+        return true;
+    }
+
 private:
     /**
      * Get timestamp in string format.
