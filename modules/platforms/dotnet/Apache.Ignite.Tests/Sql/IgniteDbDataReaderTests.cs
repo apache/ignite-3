@@ -631,6 +631,15 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(9, dt.Rows.Count);
     }
 
+    [Test]
+    public void TestExecuteReaderThrowsOnDmlQuery()
+    {
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Client.Sql.ExecuteReaderAsync(null, "UPDATE TBL_ALL_COLUMNS_SQL SET STR='s' WHERE KEY > 100"));
+
+        Assert.AreEqual("ExecuteReaderAsync does not support queries without row set (DDL, DML).", ex!.Message);
+    }
+
     private async Task<IgniteDbDataReader> ExecuteReader()
     {
         var reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
