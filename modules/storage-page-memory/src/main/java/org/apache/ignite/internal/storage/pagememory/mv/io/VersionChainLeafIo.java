@@ -67,7 +67,7 @@ public final class VersionChainLeafIo extends BplusLeafIo<VersionChainKey> imple
     }
 
     @Override
-    public void visit(long pageAddr, Consumer<VersionChainKey> c) {
+    public void visit(BplusTree<VersionChainKey, ?> tree, long pageAddr, Consumer<VersionChainKey> c) {
         int partitionId = getPartitionId(pageAddr);
 
         int count = getCount(pageAddr);

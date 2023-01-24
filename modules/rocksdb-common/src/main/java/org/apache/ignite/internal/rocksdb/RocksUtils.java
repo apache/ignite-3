@@ -89,18 +89,14 @@ public class RocksUtils {
      * <p>This method tries to increment the least significant byte (in BE order) that is not equal to 0xFF (bytes are treated as
      * unsigned values).
      *
-     * @param array Start of a range of keys (prefix) in RocksDB.
+     * @param prefix Start of a range of keys (prefix) in RocksDB.
      * @return End of a range of keys in RocksDB or {@code null} if all bytes of the prefix are equal to 0xFF.
      */
-    public static byte @Nullable [] incrementArray(byte[] array) {
-        byte[] result = array.clone();
-
-        int i = array.length - 1;
+    public static byte @Nullable [] incrementPrefix(byte[] prefix) {
+        int i = prefix.length - 1;
 
         // Cycle through all bytes that are equal to 0xFF
-        while (i >= 0 && array[i] == -1) {
-            result[i] = 0;
-
+        while (i >= 0 && prefix[i] == -1) {
             i--;
         }
 
@@ -108,6 +104,9 @@ public class RocksUtils {
             // All bytes are equal to 0xFF, increment is not possible
             return null;
         } else {
+            // Copy first i + 1 bytes, remaining bytes can be discarded, because they are equal to 0.
+            byte[] result = Arrays.copyOf(prefix, i + 1);
+
             result[i] += 1;
 
             return result;

@@ -216,4 +216,33 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
                 .returns("val1", 50L)
                 .check();
     }
+
+    @Test
+    public void distinctAggregateWithoutAggregateFunction() {
+        var sql = "select distinct name from person";
+
+        assertQuery(sql)
+                .matches(QueryChecker.matches(".*Colocated.*Aggregate.*Exchange.*"))
+                .returns("Igor")
+                .returns("Ilya")
+                .returns("Roma")
+                .returns(null)
+                .check();
+
+        assertQuery(sql, AggregateType.HASH)
+                .matches(QueryChecker.matches(".*ReduceHashAggregate.*Exchange.*MapHashAggregate.*"))
+                .returns("Igor")
+                .returns("Ilya")
+                .returns("Roma")
+                .returns(null)
+                .check();
+
+        assertQuery(sql, AggregateType.SORT)
+                .matches(QueryChecker.matches(".*ReduceSortAggregate.*Exchange.*MapSortAggregate.*"))
+                .returns("Igor")
+                .returns("Ilya")
+                .returns("Roma")
+                .returns(null)
+                .check();
+    }
 }

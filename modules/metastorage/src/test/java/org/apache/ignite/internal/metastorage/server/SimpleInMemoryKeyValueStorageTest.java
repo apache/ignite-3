@@ -24,6 +24,6 @@ class SimpleInMemoryKeyValueStorageTest extends AbstractKeyValueStorageTest {
     /** {@inheritDoc} */
     @Override
     KeyValueStorage storage() {
-        return new SimpleInMemoryKeyValueStorage();
+        return new SimpleInMemoryKeyValueStorage("test");
     }
 }

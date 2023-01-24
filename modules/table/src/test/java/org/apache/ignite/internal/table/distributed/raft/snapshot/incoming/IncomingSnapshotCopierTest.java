@@ -47,18 +47,18 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowBuilder;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -104,11 +104,12 @@ public class IncomingSnapshotCopierTest {
 
     private static final int TEST_PARTITION = 0;
 
-    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("key", NativeTypes.stringOf(256), false)},
-            new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
-    );
+    private static final int SCHEMA_VERSION = 1;
+
+    private static final BinaryTupleSchema SCHEMA = BinaryTupleSchema.create(new Element[]{
+            new Element(NativeTypes.stringOf(256), false),
+            new Element(NativeTypes.stringOf(256), false)
+    });
 
     private static final HybridClock HYBRID_CLOCK = new HybridClockImpl();
 
@@ -118,7 +119,7 @@ public class IncomingSnapshotCopierTest {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    @InjectConfiguration(value = "mock.tables.foo {}")
+    @InjectConfiguration("mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
 
     private final ClusterNode clusterNode = mock(ClusterNode.class);
@@ -131,7 +132,7 @@ public class IncomingSnapshotCopierTest {
     }
 
     @Test
-    void test() throws Exception {
+    void test() {
         MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
         TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
@@ -270,7 +271,8 @@ public class IncomingSnapshotCopierTest {
                 new PartitionAccessImpl(
                         new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
                         incomingTableStorage,
-                        incomingTxStateTableStorage
+                        incomingTxStateTableStorage,
+                        List::of
                 ),
                 mock(SnapshotMeta.class),
                 executorService
@@ -287,18 +289,18 @@ public class IncomingSnapshotCopierTest {
 
         storage.runConsistently(() -> {
             // Writes committed version.
-            storage.addWriteCommitted(rowIds.get(0), createBinaryRow("k0", "v0"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(1), createBinaryRow("k1", "v1"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(0), createRow("k0", "v0"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(1), createRow("k1", "v1"), HYBRID_CLOCK.now());
 
-            storage.addWriteCommitted(rowIds.get(2), createBinaryRow("k20", "v20"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(2), createBinaryRow("k21", "v21"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(2), createRow("k20", "v20"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(2), createRow("k21", "v21"), HYBRID_CLOCK.now());
 
             // Writes an intent to write (uncommitted version).
-            storage.addWrite(rowIds.get(2), createBinaryRow("k22", "v22"), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
+            storage.addWrite(rowIds.get(2), createRow("k22", "v22"), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
 
             storage.addWrite(
                     rowIds.get(3),
-                    createBinaryRow("k3", "v3"),
+                    createRow("k3", "v3"),
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     TEST_PARTITION
@@ -344,7 +346,7 @@ public class IncomingSnapshotCopierTest {
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             for (ReadResult readResult : readResults) {
-                rowVersions.add(readResult.binaryRow().byteBuffer());
+                rowVersions.add(readResult.tableRow().byteBuffer());
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
@@ -370,8 +372,10 @@ public class IncomingSnapshotCopierTest {
         return responseEntries;
     }
 
-    private static BinaryRow createBinaryRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR, 1, 1).appendString(key).appendString(value).build();
+    private static TableRow createRow(String key, String value) {
+        TableRowBuilder builder = new TableRowBuilder(SCHEMA, SCHEMA_VERSION);
+        builder.appendStringNotNull(key).appendStringNotNull(value);
+        return builder.buildTableRow();
     }
 
     private static void assertEqualsMvRows(MvPartitionStorage expected, MvPartitionStorage actual, List<RowId> rowIds) {
@@ -387,11 +391,11 @@ public class IncomingSnapshotCopierTest {
 
                 String msg = "RowId=" + rowId + ", i=" + i;
 
-                Row expRow = new Row(SCHEMA_DESCRIPTOR, expReadResult.binaryRow());
-                Row actRow = new Row(SCHEMA_DESCRIPTOR, actReadResult.binaryRow());
+                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA.elementCount(), expReadResult.tableRow().tupleSlice());
+                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA.elementCount(), actReadResult.tableRow().tupleSlice());
 
-                assertEquals(expRow.stringValue(0), actRow.stringValue(0), msg);
-                assertEquals(expRow.stringValue(1), actRow.stringValue(1), msg);
+                assertEquals(expTuple.stringValue(0), actTuple.stringValue(0), msg);
+                assertEquals(expTuple.stringValue(1), actTuple.stringValue(1), msg);
 
                 assertEquals(expReadResult.commitTimestamp(), actReadResult.commitTimestamp(), msg);
                 assertEquals(expReadResult.transactionId(), actReadResult.transactionId(), msg);

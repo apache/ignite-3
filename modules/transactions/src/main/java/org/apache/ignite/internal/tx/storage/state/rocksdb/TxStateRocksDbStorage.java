@@ -637,7 +637,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     /**
-     * Tries to close the repository with resources if it hasn't already been closed.
+     * Tries to close the storage with resources if it hasn't already been closed.
      *
      * @return {@code True} if the storage was successfully closed, otherwise the storage has already been closed.
      */
