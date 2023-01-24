@@ -73,7 +73,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
+ * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
 @ExtendWith(MockitoExtension.class)
 public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest {
