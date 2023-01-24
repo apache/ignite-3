@@ -33,6 +33,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -981,6 +982,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             raftClientFutureSupplier = DEFAULT_MOCK_RAFT_FUTURE_SUPPLIER;
 
             HybridTimestamp now = clock.now();
+
+            // Imitation of tx commit.
+            txStateStorage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), now));
 
             CompletableFuture<?> replicaCleanupFut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txCleanupReplicaRequest()
                     .txId(txId)

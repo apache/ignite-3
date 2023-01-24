@@ -44,7 +44,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -200,7 +199,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final Function<Peer, Boolean> isLocalPeerChecker;
 
-    private final ConcurrentMap<UUID, TxCleanupReadyFuture> txCleanupReadyFutures = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, List<CompletableFuture<?>>> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     private final CompletableFuture<SchemaRegistry> schemaFut;
 
@@ -1055,15 +1054,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
 
-        txCleanupReadyFutures.compute(request.txId(), (txId, fut) -> {
-            if (fut == null) {
-                fut = new TxCleanupReadyFuture();
-            }
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18617
+        // This doesn't give 100% guarantees that there will be no garbage in this map. Garbage should be cleared on tx state vacuum.
+        List<CompletableFuture<?>> futs = txCleanupReadyFutures.remove(request.txId());
 
-            fut.locked = true;
-            txUpdateFutures.addAll(fut.futures);
-            return fut;
-        });
+        synchronized (futs) {
+            txUpdateFutures.addAll(futs);
+        }
 
         CompletableFuture<Void> txReadyFuture = txUpdateFutures.isEmpty() ? completedFuture(null)
                 : allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()]));
@@ -1469,25 +1466,23 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Object> applyUpdatingCommand(UUID txId, Supplier<CompletableFuture<Object>> closure) {
-        AtomicReference<CompletableFuture<Object>> resRef = new AtomicReference<>();
+        CompletableFuture<Object> applyCmdFuture;
 
-        txCleanupReadyFutures.compute(txId, (id, fut) -> {
-            if (fut == null) {
-                fut = new TxCleanupReadyFuture();
-            }
+        TxMeta txMeta = txStateStorage.get(txId);
 
-            if (fut.locked) {
-                throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction if already finished.");
-            }
+        if (txMeta != null && (txMeta.txState() == TxState.COMMITED || txMeta.txState() == TxState.ABORTED)) {
+            throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished.");
+        }
 
-            CompletableFuture<Object> applyCmdFuture = closure.get();
-            resRef.set(applyCmdFuture);
-            fut.futures.add(applyCmdFuture);
+        List<CompletableFuture<?>> futs = txCleanupReadyFutures.computeIfAbsent(txId, k -> new ArrayList<>());
 
-            return fut;
-        });
+        synchronized (futs) {
+            applyCmdFuture = closure.get();
 
-        return resRef.get();
+            futs.add(applyCmdFuture);
+        }
+
+        return applyCmdFuture;
     }
 
     /**
@@ -2094,11 +2089,5 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<BinaryConverter> getConverterFuture(int schemaVersion) {
         return schemaFut.thenApply(schemaRegistry -> BinaryConverter.forRow(schemaRegistry.schema(schemaVersion)));
-    }
-
-    private static class TxCleanupReadyFuture {
-        final List<CompletableFuture<?>> futures = new ArrayList<>();
-
-        volatile boolean locked;
     }
 }
