@@ -513,9 +513,45 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestGetFieldType()
+    public async Task TestGetFieldType()
     {
-        Assert.Fail("TODO");
+        await using var reader = await ExecuteReader();
+
+        Assert.AreEqual(typeof(long), reader.GetFieldType(0));
+        Assert.AreEqual(typeof(string), reader.GetFieldType(1));
+        Assert.AreEqual(typeof(sbyte), reader.GetFieldType(2));
+        Assert.AreEqual(typeof(short), reader.GetFieldType(3));
+        Assert.AreEqual(typeof(int), reader.GetFieldType(4));
+        Assert.AreEqual(typeof(long), reader.GetFieldType(5));
+        Assert.AreEqual(typeof(float), reader.GetFieldType(6));
+        Assert.AreEqual(typeof(double), reader.GetFieldType(7));
+        Assert.AreEqual(typeof(LocalDate), reader.GetFieldType(8));
+        Assert.AreEqual(typeof(LocalTime), reader.GetFieldType(9));
+        Assert.AreEqual(typeof(LocalDateTime), reader.GetFieldType(10));
+        Assert.AreEqual(typeof(Instant), reader.GetFieldType(11));
+        Assert.AreEqual(typeof(byte[]), reader.GetFieldType(12));
+        Assert.AreEqual(typeof(decimal), reader.GetFieldType(13));
+    }
+
+    [Test]
+    public async Task TestGetDataTypeName()
+    {
+        await using var reader = await ExecuteReader();
+
+        Assert.AreEqual("bigint", reader.GetDataTypeName(0));
+        Assert.AreEqual("varchar", reader.GetDataTypeName(1));
+        Assert.AreEqual("tinyint", reader.GetDataTypeName(2));
+        Assert.AreEqual("smallint", reader.GetDataTypeName(3));
+        Assert.AreEqual("int", reader.GetDataTypeName(4));
+        Assert.AreEqual("bigint", reader.GetDataTypeName(5));
+        Assert.AreEqual("real", reader.GetDataTypeName(6));
+        Assert.AreEqual("double", reader.GetDataTypeName(7));
+        Assert.AreEqual("date", reader.GetDataTypeName(8));
+        Assert.AreEqual("time", reader.GetDataTypeName(9));
+        Assert.AreEqual("timestamp", reader.GetDataTypeName(10));
+        Assert.AreEqual("timestamp_tz", reader.GetDataTypeName(11));
+        Assert.AreEqual("varbinary", reader.GetDataTypeName(12));
+        Assert.AreEqual("decimal", reader.GetDataTypeName(13));
     }
 
     private async Task<IgniteDbDataReader> ExecuteReader()
