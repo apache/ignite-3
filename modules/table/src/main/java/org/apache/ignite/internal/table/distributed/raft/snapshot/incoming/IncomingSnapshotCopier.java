@@ -229,37 +229,17 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) response);
 
                 for (ResponseEntry entry : snapshotMvDataResponse.rows()) {
-                    if (!busyLock.enterBusy()) {
-                        return completedFuture(null);
-                    }
-
-                    try {
-                        // Let's write all versions for the row ID.
-                        RowId rowId = new RowId(partId(), entry.rowId());
-
-                        for (int i = 0; i < entry.rowVersions().size(); i++) {
-                            HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
-
-                            ByteBuffer rowVersion = entry.rowVersions().get(i);
-
-                            TableRow tableRow = rowVersion == null ? null : new TableRow(rowVersion.rewind());
-
-                            PartitionAccess partition = partitionSnapshotStorage.partition();
-
-                            if (timestamp == null) {
-                                // Writes an intent to write (uncommitted version).
-                                assert entry.txId() != null;
-                                assert entry.commitTableId() != null;
-                                assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
-
-                                partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
-                            } else {
-                                // Writes committed version.
-                                partition.addWriteCommitted(rowId, tableRow, timestamp);
-                            }
+                    // Let's write all versions for the row ID.
+                    for (int i = 0; i < entry.rowVersions().size(); i++) {
+                        if (!busyLock.enterBusy()) {
+                            return completedFuture(null);
                         }
-                    } finally {
-                        busyLock.leaveBusy();
+
+                        try {
+                            writeVersion(entry, i);
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
                     }
                 }
 
@@ -397,5 +377,29 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private String createPartitionInfo() {
         return "tableId=" + partitionSnapshotStorage.partition().partitionKey().tableId() + ", partitionId=" + partId();
+    }
+
+    private void writeVersion(ResponseEntry entry, int i) {
+        RowId rowId = new RowId(partId(), entry.rowId());
+
+        HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
+
+        ByteBuffer rowVersion = entry.rowVersions().get(i);
+
+        TableRow tableRow = rowVersion == null ? null : new TableRow(rowVersion.rewind());
+
+        PartitionAccess partition = partitionSnapshotStorage.partition();
+
+        if (timestamp == null) {
+            // Writes an intent to write (uncommitted version).
+            assert entry.txId() != null;
+            assert entry.commitTableId() != null;
+            assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
+
+            partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+        } else {
+            // Writes committed version.
+            partition.addWriteCommitted(rowId, tableRow, timestamp);
+        }
     }
 }
