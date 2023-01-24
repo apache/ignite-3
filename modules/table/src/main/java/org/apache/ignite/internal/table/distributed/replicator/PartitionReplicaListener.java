@@ -1065,11 +1065,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             futs.finished = true;
         }
 
-        if (txUpdateFutures.isEmpty()) {
-            return completedFuture(null);
-        }
+        CompletableFuture<Void> txReadyFuture = txUpdateFutures.isEmpty() ? completedFuture(null)
+                : allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()]));
 
-        return allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()])).thenCompose(v -> {
+        return txReadyFuture.thenCompose(v -> {
             HybridTimestampMessage timestampMsg = hybridTimestamp(request.commitTimestamp());
 
             TxCleanupCommand txCleanupCmd = msgFactory.txCleanupCommand()
