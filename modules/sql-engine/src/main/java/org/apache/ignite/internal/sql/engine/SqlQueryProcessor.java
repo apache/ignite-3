@@ -199,8 +199,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
-                clusterSrvc.topologyService().localMember(),
-                taskExecutor,
                 mailboxRegistry,
                 msgSrvc
         ));

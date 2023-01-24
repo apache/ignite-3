@@ -19,9 +19,7 @@ package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -54,11 +52,11 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Fork(1)
+@Fork(3)
 @State(Scope.Benchmark)
 public class SqlBenchmark {
-    private final DataProvider<Object[]> dataProvider = new SameRowDataProvider(
-            new Object[] {42, UUID.randomUUID().toString()}, 333
+    private final DataProvider<Object[]> dataProvider = DataProvider.fromRow(
+            new Object[]{42, UUID.randomUUID().toString()}, 3_333
     );
 
     // @formatter:off
@@ -95,7 +93,7 @@ public class SqlBenchmark {
     /** Very simple test to measure performance of minimal possible distributed query. */
     @Benchmark
     public void selectAllSimple(Blackhole bh) {
-        for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(1_000)).items()) {
+        for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
             bh.consume(row);
         }
     }
@@ -113,38 +111,5 @@ public class SqlBenchmark {
                 .build();
 
         new Runner(build).run();
-    }
-
-    private static class SameRowDataProvider implements DataProvider<Object[]> {
-        private final int times;
-        private final Object[] row;
-
-        SameRowDataProvider(Object[] row, int times) {
-            this.times = times;
-            this.row = row;
-        }
-
-        @Override
-        public Iterator<Object[]> iterator() {
-            return new Iterator<>() {
-                private int counter;
-
-                @Override
-                public boolean hasNext() {
-                    return counter < times;
-                }
-
-                @Override
-                public Object[] next() {
-                    if (!hasNext()) {
-                        throw new NoSuchElementException();
-                    }
-
-                    counter++;
-
-                    return row;
-                }
-            };
-        }
     }
 }
