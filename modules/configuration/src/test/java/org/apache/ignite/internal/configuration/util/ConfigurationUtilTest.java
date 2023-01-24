@@ -60,6 +60,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -820,11 +821,11 @@ public class ConfigurationUtilTest {
 
         parentChange.changeElements(elements -> elements.create("name", element -> {}));
 
-        NamedListNode<?> beforeDefaults = find(List.of("elements"), parentNode, true);
+        NamedListView<?> beforeDefaults = parentChange.elements();
 
         addDefaults(parentNode);
 
-        NamedListNode<?> afterDefaults = find(List.of("elements"), parentNode, true);
+        NamedListView<?> afterDefaults = parentChange.elements();
 
         assertNotSame(afterDefaults, beforeDefaults);
     }
