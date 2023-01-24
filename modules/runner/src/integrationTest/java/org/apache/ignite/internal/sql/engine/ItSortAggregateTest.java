@@ -50,7 +50,8 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void mapReduceAggregate() {
-        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedSortAggregateConverterRule') */ ";
+        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedHashAggregateConverterRule', "
+                + "'ColocatedSortAggregateConverterRule') */ ";
 
         var res = sql(
                 appendDisabledRules("SELECT SUM(val0), SUM(val1), grp0 FROM TEST GROUP BY grp0 HAVING SUM(val1) > 10", disabledRules));
@@ -67,7 +68,8 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void correctCollationsOnMapReduceSortAgg() {
-        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedSortAggregateConverterRule') */ ";
+        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedHashAggregateConverterRule', "
+                + "'ColocatedSortAggregateConverterRule') */ ";
 
         var cursors = sql(
                 appendDisabledRules("SELECT PK FROM TEST_ONE_COL_IDX WHERE col0 IN (SELECT col0 FROM TEST_ONE_COL_IDX)", disabledRules));
@@ -169,12 +171,19 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
     public void checkEmptyTable() {
         sql("CREATE TABLE t (a INTEGER, b INTEGER)");
 
-        String disabledRules = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'MapReduceSortAggregateConverterRule', "
+        // Check ColocatedSortAggregate
+        String disabledRules1 = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'MapReduceSortAggregateConverterRule', "
+                + "'ColocatedHashAggregateConverterRule') */ ";
+
+        // Check MapReduceSortAggregate
+        String disabledRules2 = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedSortAggregateConverterRule', "
                 + "'ColocatedHashAggregateConverterRule') */ ";
 
         try {
-            assertQuery(appendDisabledRules("SELECT min(b) FROM t GROUP BY a", disabledRules))
-                    .returnNothing().check();
+            for (String disabledRules : List.of(disabledRules1, disabledRules2)) {
+                assertQuery(appendDisabledRules("SELECT min(b) FROM t GROUP BY a", disabledRules))
+                        .returnNothing().check();
+            }
         } finally {
             sql("DROP TABLE t");
         }

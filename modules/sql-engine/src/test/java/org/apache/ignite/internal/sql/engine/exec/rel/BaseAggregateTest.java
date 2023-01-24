@@ -28,6 +28,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -604,6 +605,63 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         assertArrayEquals(row(0, new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(10))), root.next());
 
         assertFalse(root.hasNext());
+    }
+
+    /**
+     * Test verifies that after rewind all groups are properly initialized.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void countOfEmptyWithRewind(TestAggregateType testAgg) {
+        ExecutionContext<Object[]> ctx = executionContext();
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, Collections.emptyList());
+
+        AggregateCall call = AggregateCall.create(
+                SqlStdOperatorTable.COUNT,
+                false,
+                false,
+                false,
+                ImmutableIntList.of(),
+                -1,
+                null,
+                RelCollations.EMPTY,
+                tf.createJavaType(int.class),
+                null
+        );
+
+        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
+
+        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+
+        SingleNode<Object[]> aggChain = createAggregateNodesChain(
+                testAgg,
+                ctx,
+                grpSets,
+                call,
+                rowType,
+                aggRowType,
+                rowFactory(),
+                scan
+        );
+
+        for (int i = 0; i < 2; i++) {
+            RootNode<Object[]> root = new RootNode<>(ctx) {
+                /** {@inheritDoc} */
+                @Override public void close() {
+                    // NO-OP
+                }
+            };
+
+            root.register(aggChain);
+
+            assertTrue(root.hasNext());
+            assertArrayEquals(row(0), root.next());
+            assertFalse(root.hasNext());
+
+            aggChain.rewind();
+        }
     }
 
     protected SingleNode<Object[]> createAggregateNodesChain(

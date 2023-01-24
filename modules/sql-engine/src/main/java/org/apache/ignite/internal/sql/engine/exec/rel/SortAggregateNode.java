@@ -85,9 +85,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         this.grpSet = grpSet;
         this.comp = comp;
 
-        if ((type == AggregateType.REDUCE || type == AggregateType.SINGLE) && accFactory != null && grpSet.isEmpty()) {
-            grp = new Group(OBJECT_EMPTY_ARRAY);
-        }
+        init();
     }
 
     /** {@inheritDoc} */
@@ -124,11 +122,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         waiting--;
 
         if (grp != null) {
-            int cmp = 0;
-
-            if (comp != null) {
-                cmp = comp.compare(row, prevRow);
-            }
+            int cmp = comp.compare(row, prevRow);
 
             if (cmp == 0) {
                 grp.add(row);
@@ -189,6 +183,16 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         waiting = 0;
         grp = null;
         prevRow = null;
+
+        init();
+    }
+
+    private void init() {
+        // Initializes aggregates for case when no any rows will be added into the aggregate to have 0 as result.
+        // Doesn't do it for MAP type due to we don't want send from MAP node zero results because it looks redundant.
+        if ((type == AggregateType.REDUCE || type == AggregateType.SINGLE) && accFactory != null && grpSet.isEmpty()) {
+            grp = new Group(OBJECT_EMPTY_ARRAY);
+        }
     }
 
     /** {@inheritDoc} */
