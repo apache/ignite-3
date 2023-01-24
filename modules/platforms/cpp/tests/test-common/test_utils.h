@@ -40,7 +40,7 @@ std::optional<std::string> get_env(const std::string& name);
  *
  * @return @c true if tests run in single node mode.
  */
-static bool single_node_mode() {
+inline bool single_node_mode() {
     return ignite::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value();
 }
 
