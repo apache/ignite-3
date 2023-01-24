@@ -443,9 +443,11 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestGetChar()
+    public async Task TestGetChar()
     {
-        Assert.Fail("TODO");
+        await using var reader = await ExecuteReader();
+
+        Assert.Throws<NotSupportedException>(() => reader.GetChar("KEY"));
     }
 
     [Test]
