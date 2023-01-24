@@ -18,14 +18,24 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.junit.jupiter.api.Test;
@@ -38,11 +48,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PartitionAccessImplTest {
     private static final int TEST_PARTITION_ID = 0;
 
-    @Test
-    void testMinMaxLastAppliedIndex(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
-        TableConfiguration tableCfg = tablesConfig.tables().get("foo");
+    @InjectConfiguration("mock.tables.foo {}")
+    private TablesConfiguration tablesConfig;
 
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tableCfg, tablesConfig);
+    @Test
+    void testMinMaxLastAppliedIndex() {
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
@@ -51,7 +62,8 @@ public class PartitionAccessImplTest {
         PartitionAccess partitionAccess = new PartitionAccessImpl(
                 new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
                 mvTableStorage,
-                txStateTableStorage
+                txStateTableStorage,
+                List::of
         );
 
         assertEquals(0, partitionAccess.minLastAppliedIndex());
@@ -80,10 +92,8 @@ public class PartitionAccessImplTest {
     }
 
     @Test
-    void testMinMaxLastAppliedTerm(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
-        TableConfiguration tableCfg = tablesConfig.tables().get("foo");
-
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tableCfg, tablesConfig);
+    void testMinMaxLastAppliedTerm() {
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
@@ -92,7 +102,8 @@ public class PartitionAccessImplTest {
         PartitionAccess partitionAccess = new PartitionAccessImpl(
                 new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
                 mvTableStorage,
-                txStateTableStorage
+                txStateTableStorage,
+                List::of
         );
 
         assertEquals(0, partitionAccess.minLastAppliedTerm());
@@ -118,5 +129,79 @@ public class PartitionAccessImplTest {
 
         assertEquals(15, partitionAccess.minLastAppliedTerm());
         assertEquals(20, partitionAccess.maxLastAppliedTerm());
+    }
+
+    @Test
+    void testAddWrite() {
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
+
+        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
+
+        TableSchemaAwareIndexStorage indexStorage = mock(TableSchemaAwareIndexStorage.class);
+
+        PartitionAccess partitionAccess = new PartitionAccessImpl(
+                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                mvTableStorage,
+                new TestTxStateTableStorage(),
+                () -> List.of(indexStorage)
+        );
+
+        RowId rowId = new RowId(TEST_PARTITION_ID);
+        TableRow tableRow = mock(TableRow.class);
+        UUID txId = UUID.randomUUID();
+        UUID commitTableId = UUID.randomUUID();
+
+        partitionAccess.addWrite(rowId, tableRow, txId, commitTableId, TEST_PARTITION_ID);
+
+        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(tableRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+
+        verify(indexStorage, times(1)).put(eq(tableRow), eq(rowId));
+
+        // Let's check with a null tableRow.
+        tableRow = null;
+
+        reset(mvPartitionStorage, indexStorage);
+
+        partitionAccess.addWrite(rowId, tableRow, txId, commitTableId, TEST_PARTITION_ID);
+
+        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(tableRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+
+        verify(indexStorage, never()).put(eq(tableRow), eq(rowId));
+    }
+
+    @Test
+    void testAddWriteCommitted() {
+        TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
+
+        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
+
+        TableSchemaAwareIndexStorage indexStorage = mock(TableSchemaAwareIndexStorage.class);
+
+        PartitionAccess partitionAccess = new PartitionAccessImpl(
+                new PartitionKey(UUID.randomUUID(), TEST_PARTITION_ID),
+                mvTableStorage,
+                new TestTxStateTableStorage(),
+                () -> List.of(indexStorage)
+        );
+
+        RowId rowId = new RowId(TEST_PARTITION_ID);
+        TableRow tableRow = mock(TableRow.class);
+
+        partitionAccess.addWriteCommitted(rowId, tableRow, HybridTimestamp.MAX_VALUE);
+
+        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(tableRow), eq(HybridTimestamp.MAX_VALUE));
+
+        verify(indexStorage, times(1)).put(eq(tableRow), eq(rowId));
+
+        // Let's check with a null tableRow.
+        tableRow = null;
+
+        reset(mvPartitionStorage, indexStorage);
+
+        partitionAccess.addWriteCommitted(rowId, tableRow, HybridTimestamp.MAX_VALUE);
+
+        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(tableRow), eq(HybridTimestamp.MAX_VALUE));
+
+        verify(indexStorage, never()).put(eq(tableRow), eq(rowId));
     }
 }

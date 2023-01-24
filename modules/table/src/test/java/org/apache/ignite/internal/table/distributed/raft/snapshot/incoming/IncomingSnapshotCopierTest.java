@@ -119,7 +119,7 @@ public class IncomingSnapshotCopierTest {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    @InjectConfiguration(value = "mock.tables.foo {}")
+    @InjectConfiguration("mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
 
     private final ClusterNode clusterNode = mock(ClusterNode.class);
@@ -132,7 +132,7 @@ public class IncomingSnapshotCopierTest {
     }
 
     @Test
-    void test() throws Exception {
+    void test() {
         MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
         TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
@@ -271,7 +271,8 @@ public class IncomingSnapshotCopierTest {
                 new PartitionAccessImpl(
                         new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
                         incomingTableStorage,
-                        incomingTxStateTableStorage
+                        incomingTxStateTableStorage,
+                        List::of
                 ),
                 mock(SnapshotMeta.class),
                 executorService

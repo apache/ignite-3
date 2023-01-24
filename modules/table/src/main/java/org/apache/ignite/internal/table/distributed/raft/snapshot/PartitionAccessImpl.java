@@ -19,8 +19,10 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import static org.apache.ignite.internal.table.distributed.TableManager.FULL_RABALANCING_STARTED;
 
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -29,6 +31,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -47,21 +50,26 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final TxStateTableStorage txStateTableStorage;
 
+    private final Supplier<Collection<TableSchemaAwareIndexStorage>> indexes;
+
     /**
      * Constructor.
      *
      * @param partitionKey Partition key.
      * @param mvTableStorage Multi version table storage.
      * @param txStateTableStorage Table transaction state storage.
+     * @param indexes Index storages supplier.
      */
     public PartitionAccessImpl(
             PartitionKey partitionKey,
             MvTableStorage mvTableStorage,
-            TxStateTableStorage txStateTableStorage
+            TxStateTableStorage txStateTableStorage,
+            Supplier<Collection<TableSchemaAwareIndexStorage>> indexes
     ) {
         this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
         this.txStateTableStorage = txStateTableStorage;
+        this.indexes = indexes;
     }
 
     @Override
@@ -133,18 +141,26 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
+    public void addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
-        mvPartitionStorage.runConsistently(() -> mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId));
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+
+            addToIndexes(row, rowId);
+
+            return null;
+        });
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, TableRow row, HybridTimestamp commitTimestamp) {
+    public void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+
+            addToIndexes(row, rowId);
 
             return null;
         });
@@ -212,5 +228,13 @@ public class PartitionAccessImpl implements PartitionAccess {
         assert txStateStorage != null : IgniteStringFormatter.format("table={}, partitionId={}", tableName(), partitionId);
 
         return txStateStorage;
+    }
+
+    private void addToIndexes(@Nullable TableRow tableRow, RowId rowId) {
+        if (tableRow == null) {
+            return;
+        }
+
+        indexes.get().forEach(index -> index.put(tableRow, rowId));
     }
 }
