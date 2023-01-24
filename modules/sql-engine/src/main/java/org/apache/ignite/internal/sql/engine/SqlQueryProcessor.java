@@ -401,9 +401,20 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
-                    boolean disableSqlDistribution = rwOp || (outerTx != null && !outerTx.isReadOnly());
-                    HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : clock.now();
-                    UUID txId = outerTx == null || disableSqlDistribution ? null : outerTx.id();
+                    HybridTimestamp txTime = null;
+                    UUID txId = null;
+
+                    if (outerTx != null) {
+                        if (outerTx.isReadOnly()) {
+                            txTime = outerTx.readTimestamp();
+                        } else {
+                            txId = outerTx.id();
+                        }
+                    } else if (!rwOp) {
+                        txTime = clock.now();
+                    }
+
+                    boolean disableSqlDistribution = rwOp && txTime == null;
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
