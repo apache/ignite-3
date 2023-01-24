@@ -203,34 +203,6 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         };
     }
 
-    /// <summary>
-    /// Gets the value of the specified column as a <see cref="LocalDate" />.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column.</returns>
-    public LocalDate GetLocalDate(int ordinal) => GetReader(ordinal, typeof(LocalDate)).GetDate(ordinal);
-
-    /// <summary>
-    /// Gets the value of the specified column as a <see cref="LocalTime" />.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column.</returns>
-    public LocalTime GetLocalTime(int ordinal) => GetReader(ordinal, typeof(LocalTime)).GetTime(ordinal);
-
-    /// <summary>
-    /// Gets the value of the specified column as a <see cref="LocalDateTime" />.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column.</returns>
-    public LocalDateTime GetLocalDateTime(int ordinal) => GetReader(ordinal, typeof(LocalDateTime)).GetDateTime(ordinal);
-
-    /// <summary>
-    /// Gets the value of the specified column as a <see cref="Instant" />.
-    /// </summary>
-    /// <param name="ordinal">The zero-based column ordinal.</param>
-    /// <returns>The value of the specified column.</returns>
-    public Instant GetInstant(int ordinal) => GetReader(ordinal, typeof(Instant)).GetTimestamp(ordinal);
-
     /// <inheritdoc/>
     public override decimal GetDecimal(int ordinal)
     {
