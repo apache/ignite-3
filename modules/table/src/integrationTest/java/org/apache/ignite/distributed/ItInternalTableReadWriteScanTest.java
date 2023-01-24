@@ -27,7 +27,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
+ * Tests for {@link InternalTable#scan(int, org.apache.ignite.internal.tx.InternalTransaction)}.
  */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     /** {@inheritDoc} */
