@@ -164,7 +164,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     @Override
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        mvPartitionStorage.close(true);
+        mvPartitionStorage.closeForDestruction();
 
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 

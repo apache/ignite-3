@@ -985,6 +985,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
+    /**
+     * Closes the partition in preparation for its destruction.
+     */
+    public void closeForDestruction() {
+        close(true);
+    }
+
     @Override
     public void close() {
         close(false);
@@ -995,7 +1002,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      *
      * @param goingToDestroy If the closure is in preparation for destruction.
      */
-    public void close(boolean goingToDestroy) {
+    private void close(boolean goingToDestroy) {
         if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
             StorageState state = this.state.get();
 
