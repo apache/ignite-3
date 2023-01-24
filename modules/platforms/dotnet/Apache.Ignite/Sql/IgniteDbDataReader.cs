@@ -98,7 +98,14 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override object this[int ordinal] => GetValue(ordinal);
 
     /// <inheritdoc/>
-    public override object this[string name] => GetValue(Metadata.IndexOf(name));
+    [SuppressMessage(
+        "Design",
+        "CA1065:Do not raise exceptions in unexpected locations",
+        Justification = "Indexer must raise an exception on invalid column name.")]
+    public override object this[string name] =>
+        Metadata.IndexOf(name) is var index and >= 0
+            ? GetValue(index)
+            : throw new InvalidOperationException($"Column '{name}' is not present in this reader.");
 
     /// <inheritdoc />
     public override bool GetBoolean(int ordinal) => GetReader(ordinal, typeof(bool)).GetByteAsBool(ordinal);

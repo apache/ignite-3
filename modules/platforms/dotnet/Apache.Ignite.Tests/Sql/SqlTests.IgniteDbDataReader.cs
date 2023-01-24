@@ -465,9 +465,18 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestIndexers()
+    public async Task TestIndexers()
     {
-        Assert.Fail("TODO");
+        await using var reader = await ExecuteReader();
+
+        Assert.AreEqual(1, reader[0]);
+        Assert.AreEqual(1, reader["KEY"]);
+
+        Assert.AreEqual("v-1", reader[1]);
+        Assert.AreEqual("v-1", reader["STR"]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = reader[100]);
+        Assert.Throws<InvalidOperationException>(() => _ = reader["ABC"]);
     }
 
     [Test]
