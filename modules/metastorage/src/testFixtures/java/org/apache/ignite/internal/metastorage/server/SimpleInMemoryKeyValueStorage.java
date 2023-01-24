@@ -30,20 +30,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
+import java.util.OptionalLong;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.EntryEvent;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
@@ -83,11 +80,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     /** All operations are queued on this lock. */
     private final Object mux = new Object();
 
-    private final List<Watch> watches = new CopyOnWriteArrayList<>();
-
     private boolean areWatchesEnabled = false;
 
-    private LongConsumer revisionCallback;
+    private final WatchProcessor watchProcessor = new WatchProcessor(this::get);
 
     private final ExecutorService watchExecutor;
 
@@ -134,7 +129,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private void updateRevision(long newRevision) {
         rev = newRevision;
 
-        notifyWatches(newRevision);
+        notifyWatches();
     }
 
     /** {@inheritDoc} */
@@ -423,7 +418,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                 ? k -> CMP.compare(keyFrom, k) <= 0
                 : k -> CMP.compare(keyFrom, k) <= 0 && CMP.compare(keyTo, k) > 0;
 
-        watches.add(new Watch(rev, listener, rangePredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, rangePredicate));
     }
 
     @Override
@@ -438,7 +433,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         Predicate<byte[]> exactPredicate = k -> CMP.compare(k, key) == 0;
 
-        watches.add(new Watch(rev, listener, exactPredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, exactPredicate));
     }
 
     @Override
@@ -452,33 +447,28 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         Predicate<byte[]> inPredicate = keySet::contains;
 
-        watches.add(new Watch(rev, listener, inPredicate));
+        watchProcessor.addWatch(new Watch(rev, listener, inPredicate));
     }
 
     @Override
-    public void startWatches(LongConsumer revisionCallback) {
+    public void startWatches(OnRevisionAppliedCallback revisionCallback) {
         synchronized (mux) {
             areWatchesEnabled = true;
 
-            assert this.revisionCallback == null;
-
-            this.revisionCallback = revisionCallback;
+            watchProcessor.setRevisionCallback(revisionCallback);
 
             replayUpdates();
         }
     }
 
     private void replayUpdates() {
-        long minWatchRevision = watches.stream()
-                .mapToLong(Watch::targetRevision)
-                .min()
-                .orElse(-1);
+        OptionalLong minWatchRevision = watchProcessor.minWatchRevision();
 
-        if (minWatchRevision == -1) {
+        if (minWatchRevision.isEmpty()) {
             return;
         }
 
-        revsIdx.tailMap(minWatchRevision)
+        revsIdx.tailMap(minWatchRevision.getAsLong())
                 .forEach((revision, entries) -> {
                     entries.forEach((key, value) -> {
                         var entry = new EntryImpl(key, value.bytes(), revision, value.updateCounter());
@@ -486,59 +476,25 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                         updatedEntries.add(entry);
                     });
 
-                    notifyWatches(revision);
+                    notifyWatches();
                 });
     }
 
-    private void notifyWatches(long revision) {
+    private void notifyWatches() {
         if (!areWatchesEnabled || updatedEntries.isEmpty()) {
             return;
         }
-
-        // Make a local copy of the non-volatile field while we are still under the lock.
-        LongConsumer revisionCallback = this.revisionCallback;
 
         var updatedEntriesCopy = List.copyOf(updatedEntries);
 
         updatedEntries.clear();
 
-        watchExecutor.execute(() -> {
-            for (Watch watch : watches) {
-                var entryEvents = new ArrayList<EntryEvent>();
-
-                for (Entry newEntry : updatedEntriesCopy) {
-                    byte[] newKey = newEntry.key();
-
-                    if (watch.matches(newKey, revision)) {
-                        Entry oldEntry = get(newKey, revision - 1);
-
-                        entryEvents.add(new EntryEvent(oldEntry, newEntry));
-                    }
-                }
-
-                if (!entryEvents.isEmpty()) {
-                    var event = new WatchEvent(entryEvents, revision);
-
-                    try {
-                        watch.onUpdate(event);
-                    } catch (Exception e) {
-                        watch.onError(e);
-
-                        LOG.error("Error occurred when processing a watch event {}, watch will be disabled", e, event);
-
-                        watches.remove(watch);
-                    }
-                }
-            }
-
-            // Watch processing for the new revision is done, notify the revision callback.
-            revisionCallback.accept(revision);
-        });
+        watchExecutor.execute(() -> watchProcessor.notifyWatches(updatedEntriesCopy));
     }
 
     @Override
     public void removeWatch(WatchListener listener) {
-        watches.removeIf(watch -> watch.listener() == listener);
+        watchProcessor.removeWatch(listener);
     }
 
     @Override

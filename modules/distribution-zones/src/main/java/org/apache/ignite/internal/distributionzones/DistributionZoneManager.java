@@ -77,7 +77,6 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -790,8 +789,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     long revision = newEntry.revision();
 
                     byte[] newLogicalTopologyBytes = newEntry.value();
-
-                    vaultMgr.put(new ByteArray(newEntry.key()), newLogicalTopologyBytes).join();
 
                     Set<String> newLogicalTopology = ByteUtils.fromBytes(newLogicalTopologyBytes);
 

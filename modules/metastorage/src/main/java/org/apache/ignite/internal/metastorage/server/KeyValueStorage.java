@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -258,9 +257,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Before calling this method, watches will not receive any updates.
      *
      * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the revision
-     *      as its argument.
+     *      and modified entries (processed by at least one watch) as its argument.
      */
-    void startWatches(LongConsumer revisionCallback);
+    void startWatches(OnRevisionAppliedCallback revisionCallback);
 
     /**
      * Unregisters a watch listener.
