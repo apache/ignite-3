@@ -30,7 +30,7 @@ using NUnit.Framework;
 using Table;
 
 /// <summary>
-/// Tests for SQL API: <see cref="ISql"/>.
+/// Tests for <see cref="ISql.ExecuteReaderAsync"/>.
 /// </summary>
 public class IgniteDbDataReaderTests : IgniteTestsBase
 {
@@ -339,9 +339,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
     public async Task TestIgniteDbDataReaderMultiplePages([Values(true, false)] bool async)
     {
-        var statement = new SqlStatement("select ID, VAL FROM TEST ORDER BY ID", pageSize: 2);
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, statement);
-
+        await using var reader = await ExecuteReader();
         var count = 0;
 
         while (async ? await reader.ReadAsync() : reader.Read())
@@ -364,24 +362,23 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     [Test]
     public async Task TestIgniteDbDataReaderGetColumnSchema([Values(true, false)] bool async)
     {
-        var statement = new SqlStatement("select ID, VAL FROM TEST ORDER BY ID", pageSize: 2);
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, statement);
+        await using var reader = await ExecuteReader();
 
         ReadOnlyCollection<DbColumn> schema = async ? await reader.GetColumnSchemaAsync() : reader.GetColumnSchema();
 
-        Assert.AreEqual(2, schema.Count);
+        Assert.AreEqual(14, schema.Count);
 
-        Assert.AreEqual("ID", schema[0].ColumnName);
+        Assert.AreEqual("KEY", schema[0].ColumnName);
         Assert.AreEqual(0, schema[0].ColumnOrdinal);
         Assert.IsNull(schema[0].ColumnSize);
-        Assert.AreEqual(typeof(int), schema[0].DataType);
-        Assert.AreEqual("int", schema[0].DataTypeName);
+        Assert.AreEqual(typeof(long), schema[0].DataType);
+        Assert.AreEqual("bigint", schema[0].DataTypeName);
         Assert.IsFalse(schema[0].AllowDBNull);
-        Assert.AreEqual(10, schema[0].NumericPrecision);
+        Assert.AreEqual(19, schema[0].NumericPrecision);
         Assert.AreEqual(0, schema[0].NumericScale);
         Assert.IsNotNull((schema[0] as IgniteDbColumn)?.ColumnMetadata);
 
-        Assert.AreEqual("VAL", schema[1].ColumnName);
+        Assert.AreEqual("STR", schema[1].ColumnName);
         Assert.AreEqual(1, schema[1].ColumnOrdinal);
         Assert.IsNull(schema[1].ColumnSize);
         Assert.AreEqual(typeof(string), schema[1].DataType);
