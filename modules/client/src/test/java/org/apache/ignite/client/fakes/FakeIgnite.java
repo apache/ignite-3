@@ -123,7 +123,9 @@ public class FakeIgnite implements Ignite {
                     }
 
                     @Override
-                    public void enlistResultFuture(CompletableFuture<?> resultFuture) {}
+                    public boolean enlistResultFuture(CompletableFuture<?> resultFuture) {
+                        return true;
+                    }
 
                     @Override
                     public void commit() throws TransactionException {

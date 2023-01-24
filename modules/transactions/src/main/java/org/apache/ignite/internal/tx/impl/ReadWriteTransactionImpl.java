@@ -34,6 +34,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
@@ -49,6 +50,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** Enlisted operation futures in this transaction. */
     private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
+
+    private final IgniteSpinBusyLock txOpLock = new IgniteSpinBusyLock();
 
     /** Reference to the partition that stores the transaction state. */
     private final AtomicReference<ReplicationGroupId> commitPartitionRef = new AtomicReference<>();
@@ -93,6 +96,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
+        txOpLock.block();
+
         if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
             return finishFut.get();
         }
@@ -147,8 +152,18 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        enlistedResults.add(resultFuture);
+    public boolean enlistResultFuture(CompletableFuture<?> resultFuture) {
+        if (!txOpLock.enterBusy()) {
+            return false;
+        }
+
+        try {
+            enlistedResults.add(resultFuture);
+        } finally {
+            txOpLock.leaveBusy();
+        }
+
+        return true;
     }
 
     /** {@inheritDoc} */

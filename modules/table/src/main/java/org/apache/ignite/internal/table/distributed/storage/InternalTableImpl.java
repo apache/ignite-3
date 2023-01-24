@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -208,7 +208,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            TX_FAILED_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );
@@ -224,7 +224,11 @@ public class InternalTableImpl implements InternalTable {
 
         IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
 
-        CompletableFuture<R> fut;
+        var fut = new CompletableFuture<R>();
+
+        if (!tx.enlistResultFuture(fut)) {
+            return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction if already finished."));
+        }
 
         if (primaryReplicaAndTerm != null) {
             TablePartitionId commitPart = (TablePartitionId) tx.commitPartition();
@@ -232,19 +236,31 @@ public class InternalTableImpl implements InternalTable {
             ReplicaRequest request = op.apply(commitPart, tx0, partGroupId, primaryReplicaAndTerm.get2());
 
             try {
-                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                replicaSvc.invoke(primaryReplicaAndTerm.get1(), request).whenComplete((o, throwable) -> {
+                    if (throwable != null) {
+                        fut.completeExceptionally(throwable);
+                    }
+
+                    fut.complete((R) o);
+                });
             } catch (PrimaryReplicaMissException e) {
                 throw new TransactionException(e);
             } catch (Throwable e) {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(
+            enlistWithRetry(
                     tx0,
                     partId,
                     (commitPart, term) -> op.apply(commitPart, tx0, partGroupId, term),
                     ATTEMPTS_TO_ENLIST_PARTITION
-            );
+            ).whenComplete((o, throwable) -> {
+                if (throwable != null) {
+                    fut.completeExceptionally(throwable);
+                }
+
+                fut.complete((R) o);
+            });
         }
 
         return postEnlist(fut, implicit, tx0);
@@ -271,7 +287,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            TX_FAILED_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );
@@ -297,7 +313,11 @@ public class InternalTableImpl implements InternalTable {
 
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
 
-            CompletableFuture<Object> fut;
+            var fut = new CompletableFuture<>();
+
+            if (!tx.enlistResultFuture(fut)) {
+                return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction if already finished."));
+            }
 
             if (primaryReplicaAndTerm != null) {
                 TablePartitionId commitPart = (TablePartitionId) tx.commitPartition();
@@ -305,19 +325,31 @@ public class InternalTableImpl implements InternalTable {
                 ReplicaRequest request = op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, primaryReplicaAndTerm.get2());
 
                 try {
-                    fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                    replicaSvc.invoke(primaryReplicaAndTerm.get1(), request).whenComplete((o, throwable) -> {
+                        if (throwable != null) {
+                            fut.completeExceptionally(throwable);
+                        }
+
+                        fut.complete(o);
+                    });
                 } catch (PrimaryReplicaMissException e) {
                     throw new TransactionException(e);
                 } catch (Throwable e) {
                     throw new TransactionException("Failed to invoke the replica request.");
                 }
             } else {
-                fut = enlistWithRetry(
+                enlistWithRetry(
                         tx0,
                         partToRows.getIntKey(),
                         (commitPart, term) -> op.apply(commitPart, partToRows.getValue(), tx0, partGroupId, term),
                         ATTEMPTS_TO_ENLIST_PARTITION
-                );
+                ).whenComplete((o, throwable) -> {
+                    if (throwable != null) {
+                        fut.completeExceptionally(throwable);
+                    }
+
+                    fut.complete(o);
+                });
             }
 
             futures[batchNum++] = fut;
@@ -358,7 +390,11 @@ public class InternalTableImpl implements InternalTable {
 
         IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx.enlistedNodeAndTerm(partGroupId);
 
-        CompletableFuture<Collection<BinaryRow>> fut;
+        var fut = new CompletableFuture<Collection<BinaryRow>>();
+
+        if (!tx.enlistResultFuture(fut)) {
+            return failedFuture(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction if already finished."));
+        }
 
         ReadWriteScanRetrieveBatchReplicaRequestBuilder requestBuilder = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
                 .groupId(partGroupId)
@@ -377,14 +413,27 @@ public class InternalTableImpl implements InternalTable {
             ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
 
             try {
-                fut = replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                replicaSvc.invoke(primaryReplicaAndTerm.get1(), request).whenComplete((o, throwable) -> {
+                    if (throwable != null) {
+                        fut.completeExceptionally(throwable);
+                    }
+
+                    fut.complete((Collection<BinaryRow>) o);
+                });
             } catch (PrimaryReplicaMissException e) {
                 throw new TransactionException(e);
             } catch (Throwable e) {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx, partId, (commitPart, term) -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
+            enlistWithRetry(tx, partId, (commitPart, term) -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION).whenComplete(
+                    (o, throwable) -> {
+                        if (throwable != null) {
+                            fut.completeExceptionally(throwable);
+                        }
+
+                        fut.complete((Collection<BinaryRow>) o);
+                    });
         }
 
         return postEnlist(fut, false, tx);
@@ -471,8 +520,6 @@ public class InternalTableImpl implements InternalTable {
                         throw (RuntimeException) e0;
                     }); // Preserve failed state.
                 } else {
-                    tx0.enlistResultFuture(fut);
-
                     if (implicit) {
                         return tx0.commitAsync()
                                 .exceptionally(ex -> {
@@ -933,7 +980,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             throw new TransactionException(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            TX_FAILED_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );

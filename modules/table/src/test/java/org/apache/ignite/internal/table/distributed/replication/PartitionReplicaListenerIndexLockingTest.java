@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -189,6 +191,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new PendingComparableValuesTracker<>(CLOCK.now()),
                 new TestTxStateStorage(),
                 mock(PlacementDriver.class),
+                new StorageUpdateHandler(
+                        PART_ID,
+                        new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE),
+                        () -> Map.of(pkStorage.get().id(), pkStorage.get())
+                ),
                 peer -> true,
                 CompletableFuture.completedFuture(schemaManager)
         );

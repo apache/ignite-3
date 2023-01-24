@@ -97,6 +97,18 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         // Read with timestamp returns write-intent.
         assertRowMatches(read(rowId, clock.now()), tableRow);
+
+        // Remove write.
+        addWrite(rowId, null, txId);
+
+        // Removed row can't be read.
+        assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
+
+        // Remove write once again.
+        addWrite(rowId, null, txId);
+
+        // Still can't be read.
+        assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
     }
 
     /**
