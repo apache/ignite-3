@@ -95,7 +95,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             } else if (readWriteTx) {
                 pub = physTable.scan(partId, context().transactionId(), context().localNode(), terms[i], null, null, null, 0, null);
             } else {
-                // TODO IGNITE-17952 this block should be removed.
+                // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = physTable.scan(partId, context().transaction());
             }

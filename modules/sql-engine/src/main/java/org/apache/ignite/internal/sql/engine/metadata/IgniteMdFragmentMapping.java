@@ -227,7 +227,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
     private static FragmentMapping getFragmentMapping(long sourceId, ProjectableFilterableTableScan rel, MappingQueryContext ctx) {
         ColocationGroup group = rel.getTable().unwrap(InternalIgniteTable.class).colocationGroup(ctx);
 
-        // TODO IGNITE-17952 the following block should be removed.
+        // TODO IGNITE-17952 The following block should be removed.
         // This condition is kinda workaround to make transactional scan works.
         //
         // For now, scan should be invoked on the node that coordinates the transaction.

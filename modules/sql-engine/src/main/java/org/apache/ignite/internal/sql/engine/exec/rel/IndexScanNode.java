@@ -180,7 +180,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         requiredColumns
                 );
             } else {
-                // TODO IGNITE-17952 this block should be removed.
+                // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
@@ -215,7 +215,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         requiredColumns
                 );
             } else {
-                // TODO IGNITE-17952 this block should be removed.
+                // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW lookup work from tx coordinator.
                 pub = schemaIndex.index().lookup(
                         part,
