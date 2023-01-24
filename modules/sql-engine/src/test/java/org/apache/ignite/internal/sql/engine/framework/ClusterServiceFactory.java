@@ -58,6 +58,12 @@ public class ClusterServiceFactory {
         this.allNodes = allNodes;
     }
 
+    /**
+     * Creates an instance of {@link ClusterService} for a given node.
+     *
+     * @param nodeName A name of the node to create cluster service for.
+     * @return An instance of cluster service.
+     */
     public ClusterService forNode(String nodeName) {
         return new ClusterService() {
             /** {@inheritDoc} */
