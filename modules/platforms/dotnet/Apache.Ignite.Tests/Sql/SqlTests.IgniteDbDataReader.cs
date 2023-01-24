@@ -507,9 +507,16 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestGetEnumerator()
+    public async Task TestGetEnumerator()
     {
-        Assert.Fail("TODO");
+        await using var reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+
+        foreach (DbDataRecord row in reader)
+        {
+            // DbDataRecord delegates to methods in DbDataReader, no need to test everything here.
+            Assert.AreEqual(14, row.FieldCount);
+            Assert.AreEqual("KEY", row.GetName(0));
+        }
     }
 
     [Test]
