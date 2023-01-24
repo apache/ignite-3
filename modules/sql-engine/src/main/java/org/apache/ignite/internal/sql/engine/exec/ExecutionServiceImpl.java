@@ -605,7 +605,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     // Start remote execution.
                     for (Fragment fragment : fragments) {
-                        if (ctx.transactionTime() == null && TraitUtils.distributionEnabled(fragment.root())) {
+                        if (tx != null && !tx.isReadOnly()) {
                             enlistPartitions(fragment, tx);
                         }
 
@@ -657,6 +657,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private void enlistPartitions(Fragment fragment, InternalTransaction tx) {
+            // TODO IGNITE-17952 Next condition should be removed.
+            if (!TraitUtils.distributionEnabled(fragment.root())) {
+                return;
+            }
+
             new IgniteRelShuttle() {
                 @Override
                 public IgniteRel visit(IgniteIndexScan rel) {

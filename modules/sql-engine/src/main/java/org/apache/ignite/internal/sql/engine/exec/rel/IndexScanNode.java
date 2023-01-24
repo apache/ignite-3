@@ -59,6 +59,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final int[] parts;
 
+    /** Raft terms of the partition group leaders. */
     private final long[] terms;
 
     /** Participating columns. */
@@ -88,7 +89,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
-            long[] terms,
+            long @Nullable[] terms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -98,7 +99,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
-        assert ctx.transactionId() == null || parts.length == terms.length;
+        assert ctx.transactionId() == null || terms != null && parts.length == terms.length;
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
@@ -179,7 +180,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         requiredColumns
                 );
             } else {
-                // TODO IGNITE-17952 this block should me removed.
+                // TODO IGNITE-17952 this block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
@@ -214,7 +215,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         requiredColumns
                 );
             } else {
-                // TODO IGNITE-17952 this block should me removed.
+                // TODO IGNITE-17952 this block should be removed.
                 // Workaround to make RW lookup work from tx coordinator.
                 pub = schemaIndex.index().lookup(
                         part,

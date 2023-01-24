@@ -43,6 +43,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final int[] parts;
 
+    /** Raft terms of the partition group leaders. */
     private final long[] terms;
 
     /**
@@ -62,7 +63,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             RowHandler.RowFactory<RowT> rowFactory,
             InternalIgniteTable schemaTable,
             int[] parts,
-            long[] terms,
+            long @Nullable[] terms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
@@ -70,7 +71,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
-        assert ctx.transactionId() == null || parts.length == terms.length;
+        assert ctx.transactionId() == null || terms != null && parts.length == terms.length;
 
         this.physTable = schemaTable.table();
         this.parts = parts;
@@ -94,7 +95,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             } else if (readWriteTx) {
                 pub = physTable.scan(partId, context().transactionId(), context().localNode(), terms[i], null, null, null, 0, null);
             } else {
-                // TODO IGNITE-17952 this block should me removed.
+                // TODO IGNITE-17952 this block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = physTable.scan(partId, context().transaction());
             }
