@@ -41,8 +41,6 @@ using NodaTime;
 [SuppressMessage("Usage", "CA2215:Dispose methods should call base class dispose", Justification = "Base class dispose is empty.")]
 public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
 {
-    // TODO: A method to get bytes into a span. And to get the size?
-    // TODO: Methods to read Ignite-specific types.
     private static readonly Task<bool> TrueTask = Task.FromResult(true);
 
     private readonly ResultSet<object> _resultSet;
@@ -204,6 +202,34 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
             _ => throw GetInvalidColumnTypeException(typeof(DateTime), column)
         };
     }
+
+    /// <summary>
+    /// Gets the value of the specified column as a <see cref="LocalDate" />.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
+    public LocalDate GetLocalDate(int ordinal) => GetReader(ordinal, typeof(LocalDate)).GetDate(ordinal);
+
+    /// <summary>
+    /// Gets the value of the specified column as a <see cref="LocalTime" />.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
+    public LocalTime GetLocalTime(int ordinal) => GetReader(ordinal, typeof(LocalTime)).GetTime(ordinal);
+
+    /// <summary>
+    /// Gets the value of the specified column as a <see cref="LocalDateTime" />.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
+    public LocalDateTime GetLocalDateTime(int ordinal) => GetReader(ordinal, typeof(LocalDateTime)).GetDateTime(ordinal);
+
+    /// <summary>
+    /// Gets the value of the specified column as a <see cref="Instant" />.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The value of the specified column.</returns>
+    public Instant GetInstant(int ordinal) => GetReader(ordinal, typeof(Instant)).GetTimestamp(ordinal);
 
     /// <inheritdoc/>
     public override decimal GetDecimal(int ordinal)
