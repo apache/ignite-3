@@ -124,11 +124,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
-        boolean readOnlyTx = context().transactionTime() != null;
+        boolean readWriteTx = context().transactionId() != null;
         List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
 
         for (int i = 0; i < parts.length; i++) {
-            publishers.add(partitionPublisher(parts[i], readOnlyTx ? -1 : terms[i], cond));
+            publishers.add(partitionPublisher(parts[i], readWriteTx ? terms[i] : -1, cond));
         }
 
         if (comp != null) {
