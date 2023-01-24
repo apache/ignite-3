@@ -21,6 +21,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -318,6 +319,71 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
         }
 
         return _schema;
+    }
+
+    /// <inheritdoc/>
+    public override DataTable GetSchemaTable()
+    {
+        var table = new DataTable("SchemaTable");
+
+        table.Columns.Add("ColumnName", typeof(string));
+        table.Columns.Add("ColumnOrdinal", typeof(int));
+        table.Columns.Add("ColumnSize", typeof(int));
+        table.Columns.Add("NumericPrecision", typeof(int));
+        table.Columns.Add("NumericScale", typeof(int));
+        table.Columns.Add("IsUnique", typeof(bool));
+        table.Columns.Add("IsKey", typeof(bool));
+        table.Columns.Add("BaseServerName", typeof(string));
+        table.Columns.Add("BaseCatalogName", typeof(string));
+        table.Columns.Add("BaseColumnName", typeof(string));
+        table.Columns.Add("BaseSchemaName", typeof(string));
+        table.Columns.Add("BaseTableName", typeof(string));
+        table.Columns.Add("DataType", typeof(Type));
+        table.Columns.Add("AllowDBNull", typeof(bool));
+        table.Columns.Add("ProviderType", typeof(int));
+        table.Columns.Add("IsAliased", typeof(bool));
+        table.Columns.Add("IsExpression", typeof(bool));
+        table.Columns.Add("IsIdentity", typeof(bool));
+        table.Columns.Add("IsAutoIncrement", typeof(bool));
+        table.Columns.Add("IsRowVersion", typeof(bool));
+        table.Columns.Add("IsHidden", typeof(bool));
+        table.Columns.Add("IsLong", typeof(bool));
+        table.Columns.Add("IsReadOnly", typeof(bool));
+        table.Columns.Add("ProviderSpecificDataType", typeof(Type));
+        table.Columns.Add("DataTypeName", typeof(string));
+
+        foreach (var column in GetColumnSchema())
+        {
+            var row = table.NewRow();
+
+            row["ColumnName"] = column.ColumnName;
+            row["ColumnOrdinal"] = column.ColumnOrdinal ?? -1;
+            row["ColumnSize"] = column.ColumnSize ?? -1;
+            row["NumericPrecision"] = column.NumericPrecision ?? 0;
+            row["NumericScale"] = column.NumericScale ?? 0;
+            row["IsUnique"] = column.IsUnique == true;
+            row["IsKey"] = column.IsKey == true;
+            row["BaseServerName"] = string.Empty;
+            row["BaseCatalogName"] = column.BaseCatalogName;
+            row["BaseColumnName"] = column.BaseColumnName;
+            row["BaseSchemaName"] = column.BaseSchemaName;
+            row["BaseTableName"] = column.BaseTableName;
+            row["DataType"] = column.DataType;
+            row["AllowDBNull"] = column.AllowDBNull == null ? DBNull.Value : column.AllowDBNull.Value;
+            row["ProviderType"] = (int)((IgniteDbColumn)column).ColumnMetadata.Type;
+            row["IsAliased"] = column.IsAliased == true;
+            row["IsExpression"] = column.IsExpression == true;
+            row["IsIdentity"] = column.IsIdentity == true;
+            row["IsAutoIncrement"] = column.IsAutoIncrement == true;
+            row["IsRowVersion"] = false;
+            row["IsHidden"] = column.IsHidden == true;
+            row["IsLong"] = column.IsLong == true;
+            row["DataTypeName"] = column.DataTypeName;
+
+            table.Rows.Add(row);
+        }
+
+        return table;
     }
 
     /// <inheritdoc/>

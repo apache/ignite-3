@@ -621,6 +621,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     {
         await using var reader = await ExecuteReader();
 
+        // This calls GetSchemaTable underneath.
         var dt = new DataTable();
         dt.Load(reader);
     }
