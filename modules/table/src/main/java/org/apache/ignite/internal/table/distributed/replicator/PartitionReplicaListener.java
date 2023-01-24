@@ -199,7 +199,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private final Function<Peer, Boolean> isLocalPeerChecker;
 
-    private final ConcurrentMap<UUID, List<CompletableFuture<?>>> txCleanupReadyFutures = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     private final CompletableFuture<SchemaRegistry> schemaFut;
 
@@ -1055,12 +1055,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
-        List<CompletableFuture<?>> futs = txCleanupReadyFutures.computeIfAbsent(request.txId(), k -> new ArrayList<>());
+        TxCleanupReadyFutureList futs = txCleanupReadyFutures.computeIfAbsent(request.txId(), k -> new TxCleanupReadyFutureList());
 
         synchronized (futs) {
-            txUpdateFutures.addAll(futs);
+            txUpdateFutures.addAll(futs.futures);
 
-            futs.clear();
+            futs.futures.clear();
+
+            futs.finished = true;
         }
 
         CompletableFuture<Void> txReadyFuture = txUpdateFutures.isEmpty() ? completedFuture(null)
@@ -1469,18 +1471,16 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> applyUpdatingCommand(UUID txId, Supplier<CompletableFuture<Object>> closure) {
         CompletableFuture<Object> applyCmdFuture;
 
-        List<CompletableFuture<?>> futs = txCleanupReadyFutures.computeIfAbsent(txId, k -> new ArrayList<>());
+        TxCleanupReadyFutureList futs = txCleanupReadyFutures.computeIfAbsent(txId, k -> new TxCleanupReadyFutureList());
 
         synchronized (futs) {
-            TxMeta txMeta = txStateStorage.get(txId);
-
-            if (txMeta != null && (txMeta.txState() == TxState.COMMITED || txMeta.txState() == TxState.ABORTED)) {
+            if (futs.finished) {
                 throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished.");
             }
 
             applyCmdFuture = closure.get();
 
-            futs.add(applyCmdFuture);
+            futs.futures.add(applyCmdFuture);
         }
 
         return applyCmdFuture;
@@ -2090,5 +2090,17 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private CompletableFuture<BinaryConverter> getConverterFuture(int schemaVersion) {
         return schemaFut.thenApply(schemaRegistry -> BinaryConverter.forRow(schemaRegistry.schema(schemaVersion)));
+    }
+
+    /**
+     * Class that stores list of futures for updates that can block tx cleanup, and locked flag.
+     */
+    private static class TxCleanupReadyFutureList {
+        final List<CompletableFuture<?>> futures = new ArrayList<>();
+
+        /**
+         * Whether the transaction is finished and therefore locked for further updates by started cleanup process.
+         */
+        volatile boolean finished;
     }
 }
