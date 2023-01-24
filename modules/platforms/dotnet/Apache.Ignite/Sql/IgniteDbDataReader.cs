@@ -168,7 +168,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
             throw new ArgumentOutOfRangeException($"{nameof(length)} must be between {0} and {buffer.Length - bufferOffset}");
         }
 
-        var span = GetReader(ordinal, typeof(byte[])).GetBytesSpan(ordinal);
+        var span = GetReader(ordinal, typeof(string)).GetBytesSpan(ordinal);
 
         if (buffer == null)
         {

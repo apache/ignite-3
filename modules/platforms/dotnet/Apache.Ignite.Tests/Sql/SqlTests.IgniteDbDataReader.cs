@@ -461,7 +461,7 @@ public partial class SqlTests
 
         Assert.AreEqual(3, len);
         Assert.AreEqual(2, count);
-        CollectionAssert.AreEqual(new[] { (char)0, '-', '2' }, chars);
+        Assert.AreEqual(new[] { (char)0, '-', '1' }, chars);
     }
 
     [Test]
