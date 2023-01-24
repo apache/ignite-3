@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
-import static org.apache.ignite.internal.table.distributed.TableManager.FULL_RABALANCING_STARTED;
-
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -47,56 +47,31 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final TxStateTableStorage txStateTableStorage;
 
+    private final Supplier<Collection<TableSchemaAwareIndexStorage>> indexes;
+
     /**
      * Constructor.
      *
      * @param partitionKey Partition key.
      * @param mvTableStorage Multi version table storage.
      * @param txStateTableStorage Table transaction state storage.
+     * @param indexes Index storages supplier.
      */
     public PartitionAccessImpl(
             PartitionKey partitionKey,
             MvTableStorage mvTableStorage,
-            TxStateTableStorage txStateTableStorage
+            TxStateTableStorage txStateTableStorage,
+            Supplier<Collection<TableSchemaAwareIndexStorage>> indexes
     ) {
         this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
         this.txStateTableStorage = txStateTableStorage;
+        this.indexes = indexes;
     }
 
     @Override
     public PartitionKey partitionKey() {
         return partitionKey;
-    }
-
-    @Override
-    public CompletableFuture<Void> reCreateMvPartitionStorage() throws StorageException {
-        assert mvTableStorage.getMvPartition(partitionId()) != null : "table=" + tableName() + ", part=" + partitionId();
-
-        // TODO: IGNITE-18030 - actually recreate or do in a different way
-        //return mvTableStorage.destroyPartition(partId())
-        return CompletableFuture.completedFuture(null)
-                .thenApply(unused -> {
-                    MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(partitionId());
-
-                    mvPartitionStorage.runConsistently(() -> {
-                        mvPartitionStorage.lastApplied(FULL_RABALANCING_STARTED, 0);
-
-                        return null;
-                    });
-
-                    return null;
-                });
-    }
-
-    @Override
-    public void reCreateTxStatePartitionStorage() throws StorageException {
-        assert txStateTableStorage.getTxStateStorage(partitionId()) != null : "table=" + tableName() + ", part=" + partitionId();
-
-        // TODO: IGNITE-18030 - actually recreate or do in a different way
-        //txStateTableStorage.destroyTxStateStorage(partId());
-
-        txStateTableStorage.getOrCreateTxStateStorage(partitionId()).lastApplied(FULL_RABALANCING_STARTED, 0);
     }
 
     private int partitionId() {
@@ -133,34 +108,26 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
-        MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
-
-        mvPartitionStorage.runConsistently(() -> mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId));
-    }
-
-    @Override
-    public void addWriteCommitted(RowId rowId, TableRow row, HybridTimestamp commitTimestamp) {
+    public void addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+            mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+
+            addToIndexes(row, rowId);
 
             return null;
         });
     }
 
     @Override
-    public void updateLastApplied(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
+    public void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
-        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+            mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
-            txStateStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-
-            mvPartitionStorage.committedGroupConfiguration(raftGroupConfig);
+            addToIndexes(row, rowId);
 
             return null;
         });
@@ -198,6 +165,39 @@ public class PartitionAccessImpl implements PartitionAccess {
         );
     }
 
+    @Override
+    public CompletableFuture<Void> startRebalance() {
+        // TODO: IGNITE-18619 Fix this bullshit, we should have already waited for the indexes to be created
+        indexes.get();
+
+        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
+
+        return CompletableFuture.allOf(
+                mvTableStorage.startRebalancePartition(partitionId()),
+                txStateStorage.startRebalance()
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalance() {
+        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
+
+        return CompletableFuture.allOf(
+                mvTableStorage.abortRebalancePartition(partitionId()),
+                txStateStorage.abortRebalance()
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
+        TxStateStorage txStateStorage = getTxStateStorage(partitionId());
+
+        return CompletableFuture.allOf(
+                mvTableStorage.finishRebalancePartition(partitionId(), lastAppliedIndex, lastAppliedTerm, raftGroupConfig),
+                txStateStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm)
+        );
+    }
+
     private MvPartitionStorage getMvPartitionStorage(int partitionId) {
         MvPartitionStorage mvPartitionStorage = mvTableStorage.getMvPartition(partitionId);
 
@@ -212,5 +212,13 @@ public class PartitionAccessImpl implements PartitionAccess {
         assert txStateStorage != null : IgniteStringFormatter.format("table={}, partitionId={}", tableName(), partitionId);
 
         return txStateStorage;
+    }
+
+    private void addToIndexes(@Nullable TableRow tableRow, RowId rowId) {
+        if (tableRow == null) {
+            return;
+        }
+
+        indexes.get().forEach(index -> index.put(tableRow, rowId));
     }
 }

@@ -173,7 +173,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 int flags,
                 @Nullable BitSet columnsToInclude
         ) {
-            int fillAmount = Math.min(dataAmount - processedPerPart[partId], Commons.IN_BUFFER_SIZE);
+            int fillAmount = Math.min(dataAmount - processedPerPart[partId], batchSize);
 
             Collection<BinaryRow> out = new ArrayList<>(fillAmount);
 

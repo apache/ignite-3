@@ -224,8 +224,25 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         tearDownBase(testInfo);
     }
 
+    /**
+     * Executes the query and validates any asserts passed to the builder.
+     *
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
     protected static QueryChecker assertQuery(String qry) {
-        return new QueryChecker(qry) {
+        return assertQuery(null, qry);
+    }
+
+    /**
+     * Executes the query with the given transaction and validates any asserts passed to the builder.
+     *
+     * @param tx Transaction.
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
+    protected static QueryChecker assertQuery(Transaction tx, String qry) {
+        return new QueryChecker(tx, qry) {
             @Override
             protected QueryProcessor getEngine() {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();

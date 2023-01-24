@@ -41,15 +41,16 @@ public interface ExchangeService extends LifecycleAware {
             List<RowT> rows) throws IgniteInternalCheckedException;
 
     /**
-     * Acknowledges a batch with given ID is processed.
+     * Requests batches from remote source.
      *
-     * @param nodeName Node consistent ID to notify.
-     * @param qryId Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
-     * @param batchId Batch ID.
+     * @param nodeName A consistent identifier of the node to request from.
+     * @param queryId An identifier of the query.
+     * @param fragmentId An identifier of the fragment to request from.
+     * @param exchangeId An identifier of the exchange to request from.
+     * @param amountOfBatches A count of batches to request.
      */
-    void acknowledge(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId) throws IgniteInternalCheckedException;
+    void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches)
+            throws IgniteInternalCheckedException;
 
     /**
      * Sends cancel request.

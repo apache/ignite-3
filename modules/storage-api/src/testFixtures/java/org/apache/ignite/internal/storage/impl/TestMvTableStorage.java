@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.mockito.Mockito.spy;
 
 import java.util.Map;
 import java.util.Objects;
@@ -103,7 +104,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        return partitions.computeIfAbsent(partitionId, TestMvPartitionStorage::new);
+        return partitions.computeIfAbsent(partitionId, partId -> spy(new TestMvPartitionStorage(partId)));
     }
 
     @Override

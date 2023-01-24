@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.pagememory.index.IndexPageTypes
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
 
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -29,9 +30,11 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * {@link BplusLeafIo} implementation for {@link SortedIndexTree}.
@@ -68,5 +71,23 @@ public class SortedIndexTreeLeafIo extends BplusLeafIo<SortedIndexRowKey> implem
         SortedIndexTree sortedIndexTree = (SortedIndexTree) tree;
 
         return getRow(sortedIndexTree.dataPageReader(), sortedIndexTree.partitionId(), pageAddr, idx);
+    }
+
+    @Override
+    public void visit(BplusTree<SortedIndexRowKey, ?> tree, long pageAddr, Consumer<SortedIndexRowKey> c) {
+        SortedIndexTree sortedIndexTree = (SortedIndexTree) tree;
+
+        int count = getCount(pageAddr);
+
+        for (int i = 0; i < count; i++) {
+            SortedIndexRow indexRow;
+            try {
+                indexRow = getRow(sortedIndexTree.dataPageReader(), sortedIndexTree.partitionId(), pageAddr, i);
+            } catch (IgniteInternalCheckedException e) {
+                throw new IgniteInternalException(e);
+            }
+
+            c.accept(indexRow);
+        }
     }
 }

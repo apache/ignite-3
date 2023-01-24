@@ -23,19 +23,28 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,16 +84,19 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
-        assertDestructionCompletes(emptyDataPagesBeforeDestroy);
+        assertMvDataDestructionCompletes(emptyDataPagesBeforeDestroy);
     }
 
-    private void assertDestructionCompletes(long emptyDataPagesBeforeDestroy) throws InterruptedException, IgniteInternalCheckedException {
+    private void assertMvDataDestructionCompletes(long emptyDataPagesBeforeDestroy)
+            throws InterruptedException, IgniteInternalCheckedException {
         assertTrue(waitForCondition(
                 () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
                 5_000
         ));
 
-        verify(pageEvictionTracker, times(1)).forgetPage(anyLong());
+        // Make sure that some page storing row versions gets emptied (so we can be sure that row versions
+        // get removed).
+        verify(pageEvictionTracker, timeout(5_000)).forgetPage(anyLong());
     }
 
     private void insertOneRow(MvPartitionStorage partitionStorage) {
@@ -107,7 +119,102 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
-        assertDestructionCompletes(emptyDataPagesBeforeDestroy);
+        assertMvDataDestructionCompletes(emptyDataPagesBeforeDestroy);
+    }
+
+    @Test
+    void partitionDestructionFreesHashIndexPages() throws Exception {
+        tableStorage.getOrCreateMvPartition(0);
+
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
+
+        indexStorage.put(nonInlinableIndexRow());
+
+        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
+        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+
+        assertThat(tableStorage.destroyPartition(0), willSucceedFast());
+
+        assertIndexDataDestructionCompletes(emptyIndexPagesBeforeDestroy);
+    }
+
+    private static IndexRowImpl nonInlinableIndexRow() {
+        RowId rowId = new RowId(PARTITION_ID);
+
+        BinaryTupleSchema schema = BinaryTupleSchema.create(new Element[]{
+                new Element(NativeTypes.INT32, false),
+                new Element(NativeTypes.stringOf(300), false)
+        });
+
+        ByteBuffer buffer = new BinaryTupleBuilder(schema.elementCount(), schema.hasNullableElements())
+                .appendInt(1)
+                .appendString("a".repeat(300))
+                .build();
+
+        BinaryTuple tuple = new BinaryTuple(schema, buffer);
+
+        return new IndexRowImpl(tuple, rowId);
+    }
+
+    private void assertIndexDataDestructionCompletes(long emptyIndexPagesBeforeDestroy)
+            throws InterruptedException, IgniteInternalCheckedException {
+        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
+        assertTrue(waitForCondition(
+                () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyIndexPagesBeforeDestroy,
+                5_000
+        ));
+
+        // Make sure that some page storing index columns gets emptied (so we can be sure that index columns
+        // get removed).
+        verify(pageEvictionTracker, timeout(5_000)).forgetPage(anyLong());
+    }
+
+    @Test
+    void partitionDestructionFreesSortedIndexPages() throws Exception {
+        tableStorage.getOrCreateMvPartition(0);
+
+        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
+
+        indexStorage.put(nonInlinableIndexRow());
+
+        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
+        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+
+        assertThat(tableStorage.destroyPartition(0), willSucceedFast());
+
+        assertIndexDataDestructionCompletes(emptyIndexPagesBeforeDestroy);
+    }
+
+    @Test
+    void tableStorageDestructionFreesHashIndexPages() throws Exception {
+        tableStorage.getOrCreateMvPartition(0);
+
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
+
+        indexStorage.put(nonInlinableIndexRow());
+
+        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
+        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+
+        assertThat(tableStorage.destroy(), willSucceedFast());
+
+        assertIndexDataDestructionCompletes(emptyIndexPagesBeforeDestroy);
+    }
+
+    @Test
+    void tableStorageDestructionFreesSortedIndexPages() throws Exception {
+        tableStorage.getOrCreateMvPartition(0);
+
+        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
+
+        indexStorage.put(nonInlinableIndexRow());
+
+        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
+        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+
+        assertThat(tableStorage.destroy(), willSucceedFast());
+
+        assertIndexDataDestructionCompletes(emptyIndexPagesBeforeDestroy);
     }
 
     private VolatilePageMemoryDataRegion dataRegion() {
