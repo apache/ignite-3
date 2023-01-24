@@ -498,9 +498,12 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestNextResult()
+    public async Task TestNextResult()
     {
-        Assert.Fail("TODO");
+        await using var reader = await ExecuteReader();
+
+        Assert.Throws<NotSupportedException>(() => reader.NextResult());
+        Assert.ThrowsAsync<NotSupportedException>(() => reader.NextResultAsync());
     }
 
     [Test]
