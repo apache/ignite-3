@@ -153,10 +153,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());
 
-        if (!isOk()) {
-            setError(RaftError.ECANCELED, "Copier is cancelled");
-        }
-
         CompletableFuture<?> fut = rebalanceFuture;
 
         if (fut != null) {
@@ -334,6 +330,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<Void> completeRebalance(@Nullable Throwable throwable) {
         if (!busyLock.enterBusy()) {
+            if (!isOk()) {
+                setError(RaftError.ECANCELED, "Copier is cancelled");
+            }
+
             return partitionSnapshotStorage.partition().abortRebalance();
         }
 
