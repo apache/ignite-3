@@ -486,9 +486,15 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestIsDbNull()
+    public async Task TestIsDbNull()
     {
-        Assert.Fail("TODO");
+        await using var reader = await ExecuteReader();
+        await reader.ReadAsync();
+
+        /* ReSharper disable MethodHasAsyncOverload */
+        Assert.IsFalse(reader.IsDBNull("KEY"));
+        Assert.IsTrue(reader.IsDBNull("BLOB"));
+        /* ReSharper restore MethodHasAsyncOverload */
     }
 
     [Test]
