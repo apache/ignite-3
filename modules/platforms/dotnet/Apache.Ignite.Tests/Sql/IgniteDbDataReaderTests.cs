@@ -76,6 +76,11 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
             Double: double.MinValue);
 
         await PocoAllColumnsSqlNullableView.UpsertAllAsync(null, new[] { pocoAllColumns1, pocoAllColumns2 });
+
+        for (int i = 3; i < 10; i++)
+        {
+            await PocoAllColumnsSqlNullableView.UpsertAsync(null, new(i));
+        }
     }
 
     [Test]
