@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import java.nio.ByteBuffer;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -250,7 +251,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     for (int i = 0; i < entry.rowVersions().size(); i++) {
                         HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
 
-                        TableRow tableRow = new TableRow(entry.rowVersions().get(i).rewind());
+                        ByteBuffer rowVersion = entry.rowVersions().get(i);
+
+                    TableRow tableRow = rowVersion == null ? null : new TableRow(rowVersion.rewind());
 
                         PartitionAccess partition = partitionSnapshotStorage.partition();
 
@@ -260,11 +263,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             assert entry.commitTableId() != null;
                             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-                            partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
-                        } else {
-                            // Writes committed version.
-                            partition.addWriteCommitted(rowId, tableRow, timestamp);
-                        }
+                        partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+                    } else {
+                        // Writes committed version.
+                        partition.addWriteCommitted(rowId, tableRow, timestamp);
                     }
                 }
             } finally {

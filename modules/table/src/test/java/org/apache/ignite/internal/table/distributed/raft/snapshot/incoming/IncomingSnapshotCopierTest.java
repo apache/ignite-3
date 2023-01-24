@@ -266,7 +266,8 @@ public class IncomingSnapshotCopierTest {
                 new PartitionAccessImpl(
                         new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
                         incomingTableStorage,
-                        incomingTxStateTableStorage
+                        incomingTxStateTableStorage,
+                        List::of
                 ),
                 mock(SnapshotMeta.class),
                 executorService

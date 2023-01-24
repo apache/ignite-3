@@ -97,7 +97,7 @@ public interface PartitionAccess {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, TableRow row, UUID txId, UUID commitTableId, int commitPartitionId);
+    void addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
@@ -109,7 +109,7 @@ public interface PartitionAccess {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data.
      */
-    void addWriteCommitted(RowId rowId, TableRow row, HybridTimestamp commitTimestamp);
+    void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp);
 
     /**
      * Returns the minimum applied index of the partition storages.
