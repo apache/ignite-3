@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -401,19 +402,23 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenCompose(sqlNode -> {
                     final boolean rwOp = dataModificationOp(sqlNode);
                     final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : clock.now();
+                    boolean useLocalTrait = rwOp || (outerTx != null && !outerTx.isReadOnly());
+                    UUID txId = outerTx == null || useLocalTrait ? null : outerTx.id();
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(rwOp || (outerTx != null && !outerTx.isReadOnly()) ? Commons.LOCAL_TRAITS_SET :
+                                            .traitDefs(useLocalTrait ? Commons.LOCAL_TRAITS_SET :
                                                     Commons.DISTRIBUTED_TRAITS_SET)
+                                            .traitDefs(Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
                             .transaction(outerTx)
+                            .transactionId(txId)
                             .transactionTime(txTime)
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
@@ -428,7 +433,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
 
                                 BaseQueryContext enrichedContext =
-                                        implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
+                                        implicitTxRequired ? ctx.toBuilder().transaction(implicitTx)
+                                                .transactionId(useLocalTrait ? null : implicitTx.id()).build() : ctx;
 
                                 var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
@@ -497,7 +503,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             // Only rw transactions for now.
             InternalTransaction implicitTx = needStartTx ? txManager.begin() : null;
 
-            final BaseQueryContext ctx = BaseQueryContext.builder()
+            // TODO IGNITE-17952 Set the transaction id of the implicit transaction.
+            BaseQueryContext ctx = BaseQueryContext.builder()
                     .cancel(new QueryCancel())
                     .frameworkConfig(
                             Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)

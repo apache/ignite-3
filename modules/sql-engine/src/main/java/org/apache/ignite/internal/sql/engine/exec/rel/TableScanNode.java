@@ -19,9 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -31,7 +31,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.util.SubscriptionUtils;
-import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,6 +43,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final int[] parts;
 
+    private final long[] terms;
+
     /**
      * Constructor.
      *
@@ -51,6 +52,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
      * @param parts Partition numbers to scan.
+     * @param terms Raft terms of the partition group leaders.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -60,6 +62,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             RowHandler.RowFactory<RowT> rowFactory,
             InternalIgniteTable schemaTable,
             int[] parts,
+            long[] terms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
@@ -67,28 +70,38 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
+        assert ctx.transactionId() == null || parts.length == terms.length;
 
         this.physTable = schemaTable.table();
         this.parts = parts;
+        this.terms = terms;
     }
 
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        boolean roTx = context().transactionTime() != null;
+        boolean readOnlyTx = context().transactionTime() != null;
+        boolean readWriteTx = context().transactionId() != null;
+        List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
 
-        Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                Arrays.stream(parts).iterator(), part -> {
+        for (int i = 0; i < parts.length; i++) {
+            int partId = parts[i];
+
             Publisher<BinaryRow> pub;
-            if (roTx) {
-                pub = physTable.scan(part, context().transactionTime(), context().localNode());
+
+            if (readOnlyTx) {
+                pub = physTable.scan(partId, context().transactionTime(), context().localNode());
+            } else if (readWriteTx) {
+                pub = physTable.scan(partId, context().transactionId(), context().localNode(), terms[i], null, null, null, 0, null);
             } else {
-                pub = physTable.scan(part, context().transaction());
+                // TODO IGNITE-17952 this block should me removed.
+                // Workaround to make RW scan work from tx coordinator.
+                pub = physTable.scan(partId, context().transaction());
             }
 
-            return convertPublisher(pub);
-        });
+            publishers.add(convertPublisher(pub));
+        }
 
-        return SubscriptionUtils.concat(it);
+        return SubscriptionUtils.concat(publishers.iterator());
     }
 }

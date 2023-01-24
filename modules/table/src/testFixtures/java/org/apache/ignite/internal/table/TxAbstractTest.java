@@ -1232,7 +1232,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testScan() throws InterruptedException {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
-        Flow.Publisher<BinaryRow> pub = ((TableImpl) accounts).internalTable().scan(0, null);
+        Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(0, null);
 
         List<Tuple> rows = new ArrayList<>();
 
