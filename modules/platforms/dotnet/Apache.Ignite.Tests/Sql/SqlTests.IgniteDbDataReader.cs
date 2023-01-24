@@ -32,7 +32,7 @@ using Table;
 /// <summary>
 /// Tests for SQL API: <see cref="ISql"/>.
 /// </summary>
-public partial class SqlTests
+public partial class SqlTests // TODO: Make it a separate class, we do not need to reuse anything in SqlTests.
 {
     private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
                                            "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
@@ -171,6 +171,8 @@ public partial class SqlTests
         Assert.AreEqual(Instant, reader.GetFieldValue<Instant>("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetFieldValue<decimal>("DECIMAL"));
         Assert.AreEqual(Bytes, reader.GetFieldValue<byte[]>("BLOB"));
+
+        Assert.Throws<InvalidCastException>(() => reader.GetFieldValue<Array>("TIME"));
     }
 
     [Test]
