@@ -32,7 +32,7 @@ using Table;
 /// <summary>
 /// Tests for <see cref="ISql.ExecuteReaderAsync"/>.
 /// </summary>
-public class IgniteDbDataReaderTests : IgniteTestsBase
+public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test prefixes.
 {
     private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
                                            "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
@@ -614,6 +614,15 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual("timestamp_tz", reader.GetDataTypeName(11));
         Assert.AreEqual("varbinary", reader.GetDataTypeName(12));
         Assert.AreEqual("decimal", reader.GetDataTypeName(13));
+    }
+
+    [Test]
+    public async Task TestDataTableLoad()
+    {
+        await using var reader = await ExecuteReader();
+
+        var dt = new DataTable();
+        dt.Load(reader);
     }
 
     private async Task<IgniteDbDataReader> ExecuteReader()
