@@ -344,24 +344,22 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
     public async Task TestIgniteDbDataReaderMultiplePages([Values(true, false)] bool async)
     {
-        await using var reader = await ExecuteReader();
+        var statement = new SqlStatement(AllColumnsQuery, pageSize: 2);
+        await using var reader = await Client.Sql.ExecuteReaderAsync(null, statement);
+
         var count = 0;
 
         while (async ? await reader.ReadAsync() : reader.Read())
         {
-            var id = reader.GetInt32(0);
-            var val = reader.GetString(1);
-
-            Assert.AreEqual(count, id);
-            Assert.AreEqual($"s-{count}", val);
-
             count++;
+
+            Assert.AreEqual(count, reader.GetInt32(0));
         }
 
         Assert.IsFalse(reader.Read());
         Assert.IsFalse(await reader.ReadAsync());
 
-        Assert.AreEqual(10, count);
+        Assert.AreEqual(9, count);
     }
 
     [Test]
