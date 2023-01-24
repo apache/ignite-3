@@ -32,7 +32,7 @@ using Table;
 /// <summary>
 /// Tests for SQL API: <see cref="ISql"/>.
 /// </summary>
-public partial class SqlTests // TODO: Make it a separate class, we do not need to reuse anything in SqlTests.
+public class IgniteDbDataReaderTests : IgniteTestsBase
 {
     private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
                                            "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
@@ -44,7 +44,7 @@ public partial class SqlTests // TODO: Make it a separate class, we do not need 
 
     private static readonly LocalDateTime LocalDateTime = new(2023, 01, 18, 09, 29);
     private static readonly Instant Instant = Instant.FromUnixTimeSeconds(123);
-    private static readonly byte[] Bytes = new byte[] { 1, 2 };
+    private static readonly byte[] Bytes = { 1, 2 };
 
     [OneTimeSetUp]
     public async Task InsertTestData()

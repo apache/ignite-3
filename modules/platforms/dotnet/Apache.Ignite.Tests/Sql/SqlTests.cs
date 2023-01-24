@@ -28,7 +28,7 @@ namespace Apache.Ignite.Tests.Sql
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
     /// </summary>
-    public partial class SqlTests : IgniteTestsBase
+    public class SqlTests : IgniteTestsBase
     {
         [OneTimeSetUp]
         public async Task CreateTestTable()
