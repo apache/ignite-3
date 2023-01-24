@@ -20,6 +20,7 @@ namespace Apache.Ignite.Benchmarks.Sql
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
     using BenchmarkDotNet.Jobs;
@@ -30,22 +31,14 @@ namespace Apache.Ignite.Benchmarks.Sql
     /// <summary>
     /// Measures SQL result set enumeration with two pages of data (two network requests per enumeration).
     /// <para />
-    /// Results on Intel Core i7-7700HQ, .NET 6, GC = Concurrent Server, Ubuntu 20.04:
-    /// |                         Method |       Mean |    Error |   StdDev | Ratio | RatioSD |   Gen 0 |  Gen 1 | Allocated |
-    /// |------------------------------- |-----------:|---------:|---------:|------:|--------:|--------:|-------:|----------:|
-    /// |                    ToListAsync |   967.2 us | 18.17 us | 17.00 us |  1.00 |    0.00 | 15.6250 |      - |    392 KB |
-    /// |                AsyncEnumerable | 1,172.7 us | 23.41 us | 27.87 us |  1.21 |    0.03 | 15.6250 | 1.9531 |    393 KB |
-    /// |                LinqToListAsync |   786.1 us | 14.94 us | 15.34 us |  0.81 |    0.02 |  2.9297 |      - |     80 KB |
-    /// | LinqSelectOneColumnToListAsync |   677.0 us | 13.42 us | 11.21 us |  0.70 |    0.02 |  1.9531 |      - |     57 KB |.
-    ///
-    /// NEW (TODO DESC):
-    /// |                         Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 |  Gen 1 | Allocated |
-    /// |------------------------------- |---------:|--------:|--------:|------:|--------:|-------:|-------:|----------:|
-    /// |                    ToListAsync | 222.2 us | 2.66 us | 2.49 us |  1.00 |    0.00 | 1.4648 | 0.2441 |    392 KB |
-    /// |                AsyncEnumerable | 264.1 us | 4.10 us | 3.83 us |  1.19 |    0.02 | 1.4648 | 0.4883 |    393 KB |
-    /// |                LinqToListAsync | 181.3 us | 2.48 us | 2.32 us |  0.82 |    0.01 | 0.2441 |      - |     80 KB |
-    /// | LinqSelectOneColumnToListAsync | 159.6 us | 2.70 us | 3.41 us |  0.72 |    0.02 | 0.2441 |      - |     57 KB |
-    /// |                   DbDataReader | 188.2 us | 1.96 us | 1.83 us |  0.85 |    0.01 |      - |      - |     51 KB |.
+    /// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
+    /// |                         Method |     Mean |   Error |  StdDev | Ratio | RatioSD |  Gen 0 | Allocated |
+    /// |------------------------------- |---------:|--------:|--------:|------:|--------:|-------:|----------:|
+    /// |                    ToListAsync | 229.0 us | 3.69 us | 3.45 us |  1.00 |    0.00 | 1.4648 |    392 KB |
+    /// |                AsyncEnumerable | 263.2 us | 5.05 us | 4.72 us |  1.15 |    0.02 | 1.4648 |    393 KB |
+    /// |                LinqToListAsync | 180.1 us | 3.18 us | 2.65 us |  0.79 |    0.02 | 0.2441 |     80 KB |
+    /// | LinqSelectOneColumnToListAsync | 156.0 us | 3.06 us | 4.48 us |  0.68 |    0.02 | 0.2441 |     57 KB |
+    /// |                   DbDataReader | 189.3 us | 1.61 us | 1.51 us |  0.83 |    0.01 |      - |     51 KB |.
     /// </summary>
     [MemoryDiagnoser]
     [SimpleJob(RuntimeMoniker.Net60)]
@@ -133,7 +126,7 @@ namespace Apache.Ignite.Benchmarks.Sql
             await using var reader = await _client!.Sql.ExecuteReaderAsync(null, "select 1");
             var rows = new List<int>(1100);
 
-            while (await reader.ReadAsync())
+            while (await reader.ReadAsync(CancellationToken.None))
             {
                 rows.Add(reader.GetInt32(0));
             }
