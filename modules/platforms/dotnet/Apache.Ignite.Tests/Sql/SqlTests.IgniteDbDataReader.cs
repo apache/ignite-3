@@ -103,8 +103,7 @@ public partial class SqlTests
     [Test]
     public async Task TestIgniteDbDataReaderAllColumnTypes()
     {
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-        await reader.ReadAsync();
+        await using var reader = await ExecuteReader();
 
         Assert.AreEqual(14, reader.FieldCount);
 
@@ -133,8 +132,7 @@ public partial class SqlTests
     [Test]
     public async Task TestIgniteDbDataReaderAllColumnTypesGetFieldValue()
     {
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-        await reader.ReadAsync();
+        await using var reader = await ExecuteReader();
 
         Assert.AreEqual(1, reader.GetFieldValue<long>("KEY"));
         Assert.AreEqual(1, reader.GetFieldValue<int>("KEY"));
@@ -184,8 +182,7 @@ public partial class SqlTests
     [Test]
     public async Task TestIgniteDbDataReaderAllColumnTypesGetFieldValueAsync()
     {
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-        await reader.ReadAsync();
+        await using var reader = await ExecuteReader();
 
         Assert.AreEqual(1, await reader.GetFieldValueAsync<long>("KEY"));
         Assert.AreEqual(1, await reader.GetFieldValueAsync<int>("KEY"));
@@ -235,8 +232,7 @@ public partial class SqlTests
     [Test]
     public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
     {
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-        await reader.ReadAsync();
+        await using var reader = await ExecuteReader();
 
         Assert.AreEqual(2, reader.GetByte("INT8"));
         Assert.AreEqual(2, reader.GetInt16("INT8"));
@@ -317,8 +313,7 @@ public partial class SqlTests
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestIgniteDbDataReaderAllColumnTypesAsIncompatibleTypeThrows()
     {
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-        await reader.ReadAsync();
+        await using var reader = await ExecuteReader();
 
         Test(() => reader.GetBoolean("STR"), "STR", SqlColumnType.String, typeof(bool), typeof(string));
         Test(() => reader.GetString("INT8"), "INT8", SqlColumnType.Int8, typeof(string), typeof(sbyte));
@@ -404,7 +399,8 @@ public partial class SqlTests
     [Test]
     public async Task TestGetName()
     {
-        using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+        // ReSharper disable once UseAwaitUsing (test sync variant)
+        using var reader = await ExecuteReader();
 
         Assert.AreEqual("KEY", reader.GetName(0));
         Assert.AreEqual("STR", reader.GetName(1));
@@ -414,8 +410,7 @@ public partial class SqlTests
     [Test]
     public async Task TestGetValue()
     {
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-        await reader.ReadAsync();
+        await using var reader = await ExecuteReader();
 
         Assert.AreEqual(1, reader.GetValue("KEY"));
         Assert.AreEqual("v-1", reader.GetValue("STR"));
@@ -436,8 +431,7 @@ public partial class SqlTests
     [Test]
     public async Task TestGetValues()
     {
-        await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
-        await reader.ReadAsync();
+        await using var reader = await ExecuteReader();
 
         var values = new object[reader.FieldCount];
         var count = reader.GetValues(values);
@@ -494,5 +488,13 @@ public partial class SqlTests
     public void TestGetFieldType()
     {
         Assert.Fail("TODO");
+    }
+
+    private async Task<IgniteDbDataReader> ExecuteReader()
+    {
+        var reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
+        await reader.ReadAsync();
+
+        return reader;
     }
 }
