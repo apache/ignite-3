@@ -32,7 +32,7 @@ using Table;
 /// <summary>
 /// Tests for <see cref="ISql.ExecuteReaderAsync"/>.
 /// </summary>
-public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test prefixes.
+public class IgniteDbDataReaderTests : IgniteTestsBase
 {
     private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
                                            "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\" " +
@@ -85,7 +85,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
 
     [Test]
     [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed", Justification = "Reviewed.")]
-    public async Task TestIgniteDbDataReader()
+    public async Task TestBasicUsage()
     {
         await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(
             null,
@@ -106,7 +106,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
     }
 
     [Test]
-    public async Task TestIgniteDbDataReaderAllColumnTypes()
+    public async Task TestAllColumnTypes()
     {
         await using var reader = await ExecuteReader();
 
@@ -129,7 +129,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
     }
 
     [Test]
-    public async Task TestIgniteDbDataReaderAllColumnTypesGetFieldValue()
+    public async Task TestAllColumnTypesGetFieldValue()
     {
         await using var reader = await ExecuteReader();
 
@@ -181,7 +181,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
     }
 
     [Test]
-    public async Task TestIgniteDbDataReaderAllColumnTypesGetFieldValueAsync()
+    public async Task TestAllColumnTypesGetFieldValueAsync()
     {
         await using var reader = await ExecuteReader();
 
@@ -231,7 +231,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
     }
 
     [Test]
-    public async Task TestIgniteDbDataReaderAllColumnTypesAsCompatibleTypes()
+    public async Task TestAllColumnTypesAsCompatibleTypes()
     {
         await using var reader = await ExecuteReader();
 
@@ -285,7 +285,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
 
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
-    public async Task TestIgniteDbDataReaderIntFloatColumnsValueOutOfRangeThrows()
+    public async Task TestIntFloatColumnsValueOutOfRangeThrows()
     {
         await using IgniteDbDataReader reader = await Client.Sql.ExecuteReaderAsync(null, AllColumnsQuery);
         await reader.ReadAsync();
@@ -312,7 +312,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
 
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
-    public async Task TestIgniteDbDataReaderAllColumnTypesAsIncompatibleTypeThrows()
+    public async Task TestAllColumnTypesAsIncompatibleTypeThrows()
     {
         await using var reader = await ExecuteReader();
 
@@ -342,7 +342,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
 
     [Test]
     [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
-    public async Task TestIgniteDbDataReaderMultiplePages([Values(true, false)] bool async)
+    public async Task TestMultiplePages([Values(true, false)] bool async)
     {
         var statement = new SqlStatement(AllColumnsQuery, pageSize: 2);
         await using var reader = await Client.Sql.ExecuteReaderAsync(null, statement);
@@ -363,7 +363,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase // TODO: Remove test pref
     }
 
     [Test]
-    public async Task TestIgniteDbDataReaderGetColumnSchema([Values(true, false)] bool async)
+    public async Task TestGetColumnSchema([Values(true, false)] bool async)
     {
         await using var reader = await ExecuteReader();
 
