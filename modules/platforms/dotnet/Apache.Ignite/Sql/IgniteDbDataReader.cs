@@ -81,7 +81,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override bool HasRows => _resultSet.HasRowSet;
 
     /// <inheritdoc/>
-    public override bool IsClosed => false; // TODO: ??
+    public override bool IsClosed => _resultSet.IsDisposed;
 
     /// <summary>
     /// Gets a value indicating the depth of nesting for the current row. Always zero in Ignite.
@@ -339,8 +339,6 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     /// <inheritdoc/>
     public override T GetFieldValue<T>(int ordinal)
     {
-        // TODO: This should be flexible and support standard types like DateTime and also provider-specific DateOnly etc.
-        // TODO: Support all types.
         if (typeof(T) == typeof(string))
         {
             return (T)(object)GetString(ordinal);

@@ -480,9 +480,13 @@ public partial class SqlTests
     }
 
     [Test]
-    public void TestIsClosed()
+    public async Task TestIsClosed()
     {
-        Assert.Fail("TODO");
+        await using var reader = await ExecuteReader();
+        Assert.IsFalse(reader.IsClosed);
+
+        await reader.CloseAsync();
+        Assert.IsTrue(reader.IsClosed);
     }
 
     [Test]
