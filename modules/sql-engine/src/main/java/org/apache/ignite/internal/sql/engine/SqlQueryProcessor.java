@@ -400,27 +400,16 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return nodes.get(0);
                 })
                 .thenCompose(sqlNode -> {
-                    boolean rwOp = dataModificationOp(sqlNode);
-                    HybridTimestamp txTime = null;
-                    UUID txId = null;
-
-                    if (outerTx != null) {
-                        if (outerTx.isReadOnly()) {
-                            txTime = outerTx.readTimestamp();
-                        } else {
-                            txId = outerTx.id();
-                        }
-                    } else if (!rwOp) {
-                        txTime = clock.now();
-                    }
-
-                    boolean disableSqlDistribution = rwOp && txTime == null;
+                    final boolean rwOp = dataModificationOp(sqlNode);
+                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : clock.now();
+                    boolean distributedSqlDisabled = txTime == null;
+                    UUID txId = outerTx == null || distributedSqlDisabled ? null : outerTx.id();
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(disableSqlDistribution ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
+                                            .traitDefs(distributedSqlDisabled ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
                                             .traitDefs(Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
@@ -444,7 +433,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 BaseQueryContext enrichedContext =
                                         implicitTxRequired ? ctx.toBuilder().transaction(implicitTx)
-                                                .transactionId(disableSqlDistribution ? null : implicitTx.id()).build() : ctx;
+                                                .transactionId(distributedSqlDisabled ? null : implicitTx.id()).build() : ctx;
 
                                 var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
