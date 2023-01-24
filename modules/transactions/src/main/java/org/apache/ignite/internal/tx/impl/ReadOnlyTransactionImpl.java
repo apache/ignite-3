@@ -88,8 +88,8 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        // No-op.
+    public boolean enlistResultFuture(CompletableFuture<?> resultFuture) {
+        return true;
     }
 
     /** {@inheritDoc} */

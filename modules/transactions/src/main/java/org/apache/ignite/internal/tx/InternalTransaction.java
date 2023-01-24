@@ -81,7 +81,7 @@ public interface InternalTransaction extends Transaction {
      * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
      *
      * @param resultFuture Operation result future.
+     * @return True if future is enlisted in the transaction otherwise false.
      */
-    @Deprecated
-    void enlistResultFuture(CompletableFuture<?> resultFuture);
+    boolean enlistResultFuture(CompletableFuture<?> resultFuture);
 }
