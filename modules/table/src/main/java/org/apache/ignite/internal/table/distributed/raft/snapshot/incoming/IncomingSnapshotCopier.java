@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -88,6 +91,15 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private volatile CompletableFuture<?> joinFuture;
 
     /**
+     * Futures on updating data of partition storages.
+     *
+     * <p>To avoid a race between canceling the rebalance and loading data to the partition storages.
+     *
+     * <p>NOTE: Must complete without exception.
+     */
+    private final Set<CompletableFuture<?>> modifyStorageFutures = ConcurrentHashMap.newKeySet();
+
+    /**
      * Constructor.
      *
      * @param partitionSnapshotStorage Snapshot storage.
@@ -117,7 +129,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
                 });
 
-        joinFuture = rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
+        joinFuture = rebalanceFuture
+                .handle((unused, throwable) -> completeRebalance(throwable))
+                .thenCompose(Function.identity());
     }
 
     @Override
@@ -220,33 +234,43 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         ).thenComposeAsync(response -> {
             SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) response);
 
-            for (ResponseEntry entry : snapshotMvDataResponse.rows()) {
-                if (canceled) {
-                    return completedFuture(null);
-                }
+            CompletableFuture<Void> modifyStorageFuture = new CompletableFuture<>();
 
-                // Let's write all versions for the row ID.
-                RowId rowId = new RowId(partId(), entry.rowId());
+            modifyStorageFutures.add(modifyStorageFuture);
 
-                for (int i = 0; i < entry.rowVersions().size(); i++) {
-                    HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
+            try {
+                for (ResponseEntry entry : snapshotMvDataResponse.rows()) {
+                    if (canceled) {
+                        return completedFuture(null);
+                    }
 
-                    TableRow tableRow = new TableRow(entry.rowVersions().get(i).rewind());
+                    // Let's write all versions for the row ID.
+                    RowId rowId = new RowId(partId(), entry.rowId());
 
-                    PartitionAccess partition = partitionSnapshotStorage.partition();
+                    for (int i = 0; i < entry.rowVersions().size(); i++) {
+                        HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
 
-                    if (timestamp == null) {
-                        // Writes an intent to write (uncommitted version).
-                        assert entry.txId() != null;
-                        assert entry.commitTableId() != null;
-                        assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
+                        TableRow tableRow = new TableRow(entry.rowVersions().get(i).rewind());
 
-                        partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
-                    } else {
-                        // Writes committed version.
-                        partition.addWriteCommitted(rowId, tableRow, timestamp);
+                        PartitionAccess partition = partitionSnapshotStorage.partition();
+
+                        if (timestamp == null) {
+                            // Writes an intent to write (uncommitted version).
+                            assert entry.txId() != null;
+                            assert entry.commitTableId() != null;
+                            assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
+
+                            partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+                        } else {
+                            // Writes committed version.
+                            partition.addWriteCommitted(rowId, tableRow, timestamp);
+                        }
                     }
                 }
+            } finally {
+                modifyStorageFutures.remove(modifyStorageFuture);
+
+                modifyStorageFuture.complete(null);
             }
 
             if (snapshotMvDataResponse.finish()) {
@@ -288,17 +312,27 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         ).thenComposeAsync(response -> {
             SnapshotTxDataResponse snapshotTxDataResponse = (SnapshotTxDataResponse) response;
 
-            assert snapshotTxDataResponse.txMeta().size() == snapshotTxDataResponse.txIds().size();
+            assert snapshotTxDataResponse.txMeta().size() == snapshotTxDataResponse.txIds().size() : createPartitionInfo();
 
-            for (int i = 0; i < snapshotTxDataResponse.txMeta().size(); i++) {
-                if (canceled) {
-                    return completedFuture(null);
+            CompletableFuture<Void> modifyStorageFuture = new CompletableFuture<>();
+
+            modifyStorageFutures.add(modifyStorageFuture);
+
+            try {
+                for (int i = 0; i < snapshotTxDataResponse.txMeta().size(); i++) {
+                    if (canceled) {
+                        return completedFuture(null);
+                    }
+
+                    partitionSnapshotStorage.partition().addTxMeta(
+                            snapshotTxDataResponse.txIds().get(i),
+                            snapshotTxDataResponse.txMeta().get(i)
+                    );
                 }
+            } finally {
+                modifyStorageFutures.remove(modifyStorageFuture);
 
-                partitionSnapshotStorage.partition().addTxMeta(
-                        snapshotTxDataResponse.txIds().get(i),
-                        snapshotTxDataResponse.txMeta().get(i)
-                );
+                modifyStorageFuture.complete(null);
             }
 
             if (snapshotTxDataResponse.finish()) {
@@ -329,7 +363,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<Void> completeRebalance(@Nullable Throwable throwable) {
         if (canceled) {
-            return partitionSnapshotStorage.partition().abortRebalance();
+            return allOf(modifyStorageFutures.toArray(CompletableFuture[]::new))
+                    .thenCompose(unused -> partitionSnapshotStorage.partition().abortRebalance());
         }
 
         if (throwable != null) {
@@ -339,8 +374,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 setError(RaftError.UNKNOWN, throwable.getMessage());
             }
 
-            return partitionSnapshotStorage.partition().abortRebalance();
+            return allOf(modifyStorageFutures.toArray(CompletableFuture[]::new))
+                    .thenCompose(unused -> partitionSnapshotStorage.partition().abortRebalance());
         }
+
+        assert modifyStorageFutures.isEmpty() : createPartitionInfo();
 
         SnapshotMeta meta = snapshotMeta;
 
