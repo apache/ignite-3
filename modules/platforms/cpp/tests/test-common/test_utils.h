@@ -28,6 +28,23 @@
 namespace ignite {
 
 /**
+ * Get environment variable.
+ *
+ * @param name Variable name.
+ * @return Variable value if it is set, or @c std::nullopt otherwise.
+ */
+std::optional<std::string> get_env(const std::string& name);
+
+/**
+ * Check whether tests run in single node mode.
+ *
+ * @return @c true if tests run in single node mode.
+ */
+static bool single_node_mode() {
+    return ignite::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value();
+}
+
+/**
  * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
  * 1) Check for path provided as argument.
  * 2) Check for environment variable.

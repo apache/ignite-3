@@ -16,6 +16,7 @@
  */
 
 #include "ignite_runner.h"
+#include "test_utils.h"
 
 #include <ignite/common/ignite_error.h>
 
@@ -58,6 +59,11 @@ void set_process_abort_handler(std::function<void(int)> handler) {
 }
 
 int main(int argc, char **argv) {
+    if (ignite::single_node_mode())
+        std::cout << "Tests run in a single-node mode." << std::endl;
+    else
+        std::cout << "Tests run in a multi-node mode." << std::endl;
+
     ignite::IgniteRunner runner;
 
     set_process_abort_handler([&](int signal) {
