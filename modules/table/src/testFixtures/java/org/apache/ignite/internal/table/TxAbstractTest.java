@@ -290,7 +290,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_1 - DELTA, view.get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, view.get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, txManager(accounts).finished());
+        assertEquals(3, txManager(accounts).finished());
     }
 
     /**
@@ -314,7 +314,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, txManager(accounts).finished());
+        assertEquals(3, txManager(accounts).finished());
     }
 
     /**
