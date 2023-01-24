@@ -860,7 +860,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, leaderTerm, leaderNode, indexId, key, null, null, 0, columnsToInclude);
+        return scan(partId, txId, leaderNode, leaderTerm, indexId, key, null, null, 0, columnsToInclude);
     }
 
     /** {@inheritDoc} */
@@ -991,14 +991,14 @@ public class InternalTableImpl implements InternalTable {
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, leaderTerm, leaderNode, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return scan(partId, txId, leaderNode, leaderTerm, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
     }
 
     private Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            long term,
             ClusterNode recipientNode,
+            long term,
             @Nullable UUID indexId,
             @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
