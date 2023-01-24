@@ -141,7 +141,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
+    public void addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {
@@ -154,7 +154,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, TableRow row, HybridTimestamp commitTimestamp) {
+    public void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {
@@ -230,7 +230,11 @@ public class PartitionAccessImpl implements PartitionAccess {
         return txStateStorage;
     }
 
-    private void addToIndexes(TableRow tableRow, RowId rowId) {
+    private void addToIndexes(@Nullable TableRow tableRow, RowId rowId) {
+        if (tableRow == null) {
+            return;
+        }
+
         indexes.get().forEach(index -> index.put(tableRow, rowId));
     }
 }

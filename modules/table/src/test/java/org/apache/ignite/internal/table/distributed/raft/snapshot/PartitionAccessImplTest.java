@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -154,6 +156,17 @@ public class PartitionAccessImplTest {
         verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(tableRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
         verify(indexStorage, times(1)).put(eq(tableRow), eq(rowId));
+
+        // Let's check with a null tableRow.
+        tableRow = null;
+
+        reset(mvPartitionStorage, indexStorage);
+
+        partitionAccess.addWrite(rowId, tableRow, txId, commitTableId, TEST_PARTITION_ID);
+
+        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(tableRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+
+        verify(indexStorage, never()).put(eq(tableRow), eq(rowId));
     }
 
     @Test
@@ -179,5 +192,16 @@ public class PartitionAccessImplTest {
         verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(tableRow), eq(HybridTimestamp.MAX_VALUE));
 
         verify(indexStorage, times(1)).put(eq(tableRow), eq(rowId));
+
+        // Let's check with a null tableRow.
+        tableRow = null;
+
+        reset(mvPartitionStorage, indexStorage);
+
+        partitionAccess.addWriteCommitted(rowId, tableRow, HybridTimestamp.MAX_VALUE);
+
+        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(tableRow), eq(HybridTimestamp.MAX_VALUE));
+
+        verify(indexStorage, never()).put(eq(tableRow), eq(rowId));
     }
 }
