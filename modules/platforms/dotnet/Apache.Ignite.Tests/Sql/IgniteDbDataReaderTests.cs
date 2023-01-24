@@ -49,6 +49,8 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     [OneTimeSetUp]
     public async Task InsertTestData()
     {
+        await Client.Sql.ExecuteAsync(null, "delete from TBL_ALL_COLUMNS_SQL");
+
         var pocoAllColumns1 = new PocoAllColumnsSqlNullable(
             Key: 1,
             Str: "v-1",
