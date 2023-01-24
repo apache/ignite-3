@@ -27,6 +27,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.Watch;
+import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
 /**
@@ -51,7 +52,9 @@ public class WatchListenerInhibitor {
 
         var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager, MetaStorageManagerImpl.class, "storage");
 
-        var watches = (List<Watch>) getFieldValue(storage, RocksDbKeyValueStorage.class, "watches");
+        var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");
+
+        var watches = (List<Watch>) getFieldValue(watchProcessor, WatchProcessor.class, "watches");
 
         return new WatchListenerInhibitor(watches);
     }

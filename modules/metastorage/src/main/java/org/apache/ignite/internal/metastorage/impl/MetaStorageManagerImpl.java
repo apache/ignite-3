@@ -83,7 +83,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     /**
-     * Special key for the vault where the applied revision for {@link MetaStorageManagerImpl#saveRevision} operation is stored.
+     * Special key for the Vault where the applied revision is stored.
      */
     private static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
@@ -98,7 +98,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     private final ClusterManagementGroupManager cmgMgr;
 
     /** Meta storage service. */
-    private volatile CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
+    private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
 
     /** Actual storage for the Metastorage. */
     private final KeyValueStorage storage;
@@ -286,7 +286,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         storage.start();
 
-        this.metaStorageSvcFut = cmgMgr.metaStorageNodes()
+        cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.failedFuture(new NodeStoppingException());
@@ -296,6 +296,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         return initializeMetaStorage(metaStorageNodes);
                     } finally {
                         busyLock.leaveBusy();
+                    }
+                })
+                .whenComplete((service, e) -> {
+                    if (e != null) {
+                        metaStorageSvcFut.completeExceptionally(e);
+                    } else {
+                        metaStorageSvcFut.complete(service);
                     }
                 });
     }
@@ -349,19 +356,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
 
         try {
-            storage.startWatches(revision -> {
-                if (!busyLock.enterBusy()) {
-                    LOG.info("Skipping applying MetaStorage revision because the node is stopping");
-
-                    return;
-                }
-
-                try {
-                    saveRevision(revision);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            });
+            // Meta Storage contract states that all updated entries under a particular revision must be stored in the Vault.
+            storage.startWatches(this::saveUpdatedEntriesToVault);
         } finally {
             busyLock.leaveBusy();
         }
@@ -707,12 +703,30 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Save processed Meta Storage revision.
+     * Saves processed Meta Storage revision and corresponding entries to the Vault.
      */
-    private void saveRevision(long revision) {
-        vaultMgr.put(APPLIED_REV, longToBytes(revision)).join();
+    private void saveUpdatedEntriesToVault(long revision, Collection<Entry> updatedEntries) {
+        assert revision > appliedRevision : "Remote revision " + revision + " is greater than applied revision " + appliedRevision;
 
-        appliedRevision = revision;
+        if (!busyLock.enterBusy()) {
+            LOG.info("Skipping applying MetaStorage revision because the node is stopping");
+
+            return;
+        }
+
+        try {
+            Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(updatedEntries.size() + 1);
+
+            batch.put(APPLIED_REV, longToBytes(revision));
+
+            updatedEntries.forEach(e -> batch.put(new ByteArray(e.key()), e.value()));
+
+            vaultMgr.putAll(batch).join();
+
+            appliedRevision = revision;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.

@@ -96,7 +96,7 @@ public class RocksDbKeyValueStorageTest extends AbstractKeyValueStorageTest {
             }
         });
 
-        storage.startWatches(revision -> {});
+        storage.startWatches((revision, updatedEntries) -> {});
 
         storage.restoreSnapshot(snapshotPath);
 
