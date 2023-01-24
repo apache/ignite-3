@@ -66,7 +66,7 @@ public abstract class QueryChecker {
     /**
      * Ignite table scan matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -77,7 +77,7 @@ public abstract class QueryChecker {
     /**
      * Ignite index scan matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -89,7 +89,7 @@ public abstract class QueryChecker {
     /**
      * Ignite index scan matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @param idxName Index name.
      * @return Matcher.
@@ -102,7 +102,7 @@ public abstract class QueryChecker {
     /**
      * Ignite table|index scan with projects unmatcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -121,8 +121,8 @@ public abstract class QueryChecker {
     /**
      * Ignite table|index scan with projects matcher.
      *
-     * @param schema          Schema name.
-     * @param tblName         Table name.
+     * @param schema Schema name.
+     * @param tblName Table name.
      * @param requiredColumns columns in projection.
      * @return Matcher.
      */
@@ -130,15 +130,15 @@ public abstract class QueryChecker {
         return matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
                 + Arrays.toString(requiredColumns)
-                        .replaceAll("\\[", "")
-                        .replaceAll("]", "") + "\\}\\].*");
+                .replaceAll("\\[", "")
+                .replaceAll("]", "") + "\\}\\].*");
     }
 
     /**
      * Ignite table|index scan with only one project matcher.
      *
-     * @param schema          Schema name.
-     * @param tblName         Table name.
+     * @param schema Schema name.
+     * @param tblName Table name.
      * @param requiredColumns columns in projection.
      * @return Matcher.
      */
@@ -146,14 +146,14 @@ public abstract class QueryChecker {
         return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
                 + Arrays.toString(requiredColumns)
-                        .replaceAll("\\[", "")
-                        .replaceAll("]", "") + "\\}\\].*");
+                .replaceAll("\\[", "")
+                .replaceAll("]", "") + "\\}\\].*");
     }
 
     /**
      * Ignite table|index scan with any project matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -228,8 +228,8 @@ public abstract class QueryChecker {
     /**
      * Ignite any index can matcher.
      *
-     * @param schema   Schema name.
-     * @param tblName  Table name.
+     * @param schema Schema name.
+     * @param tblName Table name.
      * @param idxNames Index names.
      * @return Matcher.
      */
@@ -243,9 +243,11 @@ public abstract class QueryChecker {
         );
     }
 
-    private final String qry;
+    private final String originalQuery;
 
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
+
+    private final ArrayList<String> disabledRules = new ArrayList<>();
 
     private List<List<?>> expectedResult;
 
@@ -271,7 +273,7 @@ public abstract class QueryChecker {
      */
     public QueryChecker(Transaction tx, String qry) {
         this.tx = tx;
-        this.qry = qry;
+        this.originalQuery = qry;
     }
 
     /**
@@ -302,10 +304,23 @@ public abstract class QueryChecker {
     }
 
     /**
+     * Disables rules.
+     *
+     * @param rules Rules to disable.
+     * @return This.
+     */
+    public QueryChecker disableRules(String... rules) {
+        if (rules != null) {
+            Arrays.stream(rules).filter(Objects::nonNull).forEach(disabledRules::add);
+        }
+
+        return this;
+    }
+
+    /**
      * This method add the given row to the list of expected, the order of enumeration does not matter unless {@link #ordered()} is set.
      *
      * @param res Array with values one returning tuple. {@code null} array will be interpreted as single-column-null row.
-     *
      * @return This.
      */
     public QueryChecker returns(Object... res) {
@@ -381,18 +396,28 @@ public abstract class QueryChecker {
      * Run checks.
      */
     public void check() {
-        QueryProcessor queryEngine = getEngine();
+        // Check plan.
+        QueryProcessor qryProc = getEngine();
 
-        SessionId sessionId = queryEngine.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
+        SessionId sessionId = qryProc.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
                 Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
         ));
 
         QueryContext context = tx != null ? QueryContext.of(tx) : QueryContext.of();
 
+        String qry = originalQuery;
+
+        if (!disabledRules.isEmpty()) {
+            assert qry.matches("(?i)^select .*") : "SELECT query was expected: " + originalQuery;
+
+            qry = qry.replaceAll("(?i)^select", "select "
+                    + disabledRules.stream().collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */")));
+        }
         try {
-            // Check plan.
+
             if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
-                CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = queryEngine.querySingleAsync(sessionId,
+
+                CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(sessionId,
                         context, "EXPLAIN PLAN FOR " + qry, params);
                 AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
                 List<List<Object>> explainRes = getAllFromCursor(explainCursor);
@@ -408,10 +433,10 @@ public abstract class QueryChecker {
                 if (exactPlan != null) {
                     assertEquals(exactPlan, actualPlan);
                 }
-            }
 
+            }
             // Check result.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = queryEngine.querySingleAsync(sessionId, context, qry, params);
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = qryProc.querySingleAsync(sessionId, context, qry, params);
             AsyncSqlCursor<List<Object>> cur = await(cursors);
 
             if (expectedColumnNames != null) {
@@ -447,7 +472,7 @@ public abstract class QueryChecker {
                 assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
             }
 
-            List<List<Object>> res = getAllFromCursor(cur);
+            var res = getAllFromCursor(cur);
 
             if (expectedResult != null) {
                 if (!ordered) {
@@ -459,7 +484,7 @@ public abstract class QueryChecker {
                 assertEqualsCollections(expectedResult, res);
             }
         } finally {
-            await(queryEngine.closeSession(sessionId));
+            await(qryProc.closeSession(sessionId));
         }
     }
 

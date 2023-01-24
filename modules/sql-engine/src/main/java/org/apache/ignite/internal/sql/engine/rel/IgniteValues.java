@@ -51,8 +51,9 @@ public class IgniteValues extends Values implements InternalIgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteValues(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));

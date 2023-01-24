@@ -39,7 +39,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -107,7 +106,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
     private DistributionZoneManager prepareDistributionZoneManager() {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of()
@@ -129,8 +128,6 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
         VaultManager vaultMgr = mock(VaultManager.class);
 
         when(vaultMgr.get(any())).thenReturn(completedFuture(null));
-
-        when(metaStorageManager.registerExactWatch(any(), any())).then(invocation -> completedFuture(null));
 
         TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
 
@@ -156,7 +153,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 

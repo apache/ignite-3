@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -54,7 +54,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -108,12 +107,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * revision of {@link #MASTER_KEY}.
      *
      * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
-     * stored {@link MetaStorageManagerImpl#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
+     * stored {@link MetaStorageManager#appliedRevision} value is used instead. This fact has very important side effect: it's no longer
      * possible to use {@link ConditionType#REV_EQUAL} on {@link #MASTER_KEY}
      * in {@link DistributedConfigurationStorage#write(Map, long)}. {@link ConditionType#REV_LESS_OR_EQUAL} must be used instead.
      *
      * @see #MASTER_KEY
-     * @see MetaStorageManagerImpl#APPLIED_REV
      * @see #write(Map, long)
      */
     private final AtomicLong changeId = new AtomicLong(0L);
@@ -196,8 +194,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
-        CompletableFuture<Data> future = vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV)
-                .thenCombine(vaultMgr.get(CONFIGURATION_REVISIONS_KEY), this::resolveRevision)
+        CompletableFuture<Data> future = vaultMgr.get(CONFIGURATION_REVISIONS_KEY)
+                .thenApply(configurationRevision -> resolveRevision(metaStorageMgr.appliedRevision(), configurationRevision))
                 .thenApplyAsync(this::readDataOnRecovery0, threadPool);
 
         return registerFuture(future);
@@ -207,13 +205,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * Resolves current configuration revision based on the saved in the Vault revision of the metastorage and also
      * previous and current revisions of the configuration saved in the Vault.
      *
-     * @param appliedRevEntry Applied revision entry.
+     * @param metaStorageRevision Meta Storage revision.
      * @param revisionsEntry Configuration revisions entry.
      * @return Configuration revision.
      */
-    private long resolveRevision(@Nullable VaultEntry appliedRevEntry, @Nullable VaultEntry revisionsEntry) {
-        long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
-
+    private static long resolveRevision(long metaStorageRevision, @Nullable VaultEntry revisionsEntry) {
         if (revisionsEntry != null) {
             byte[] value = revisionsEntry.value();
             long prevMasterKeyRevision = ByteUtils.bytesToLong(value, 0);
@@ -221,7 +217,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
             // If current master key revision is higher than applied revision, then node failed
             // before applied revision changed, so we have to use previous master key revision
-            return curMasterKeyRevision <= appliedRevision ? curMasterKeyRevision : prevMasterKeyRevision;
+            return curMasterKeyRevision <= metaStorageRevision ? curMasterKeyRevision : prevMasterKeyRevision;
         } else {
             // Configuration has not been updated yet, so it is safe to return 0 as the revision for the master key.
             return 0L;
@@ -302,8 +298,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
             metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
                 @Override
-                public boolean onUpdate(@NotNull WatchEvent events) {
-                    Map<String, Serializable> data = new HashMap<>();
+                public void onUpdate(WatchEvent events) {
+                    var data = new HashMap<String, Serializable>();
 
                     Entry masterKeyEntry = null;
 
@@ -332,13 +328,19 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
                     changeId.set(newChangeId);
 
-                    lsnr.onEntriesChanged(new Data(data, newChangeId)).join();
+                    try {
+                        lsnr.onEntriesChanged(new Data(data, newChangeId)).get();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
 
-                    return true;
+                        throw new StorageException("Interrupted when processing Meta Storage watch", e);
+                    } catch (ExecutionException e) {
+                        throw new StorageException("Error when processing Meta Storage watch", e);
+                    }
                 }
 
                 @Override
-                public void onError(@NotNull Throwable e) {
+                public void onError(Throwable e) {
                     // TODO: need to handle this case and there should some mechanism for registering new watch as far as
                     // TODO: onError unregisters failed watch https://issues.apache.org/jira/browse/IGNITE-14604
                     LOG.warn("Meta storage listener issue", e);

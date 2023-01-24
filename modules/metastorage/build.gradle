@@ -39,6 +39,7 @@ dependencies {
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.mockito.junit
+    testImplementation libs.hamcrest.core
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(":ignite-cluster-management")
@@ -50,6 +51,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-vault'))
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-rocksdb-common')

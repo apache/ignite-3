@@ -519,10 +519,11 @@ public abstract class BplusIo<L> extends PageIo {
     /**
      * Visits the page.
      *
+     * @param tree The tree to which the page belongs.
      * @param pageAddr Page address.
-     * @param c Consumer.
+     * @param c Consumer triggered for each element stored in the page.
      */
-    public void visit(long pageAddr, Consumer<L> c) {
+    public void visit(BplusTree<L, ?> tree, long pageAddr, Consumer<L> c) {
         // No-op.
     }
 

@@ -38,6 +38,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MetaStorageManager extends IgniteComponent {
     /**
+     * Returns the current <em>applied revision</em> of the Meta Storage, that is, the most recent revision of updates that have been
+     * applied on this node.
+     */
+    long appliedRevision();
+
+    /**
      * Retrieves an entry for the given key.
      */
     CompletableFuture<Entry> get(ByteArray key);
@@ -68,8 +74,6 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
      * number.
-     *
-     * <p>Prefix query is a synonym of the range query {@code range(prefixKey, nextKey(prefixKey))}.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
@@ -106,18 +110,16 @@ public interface MetaStorageManager extends IgniteComponent {
      *
      * @param key Prefix to listen to.
      * @param lsnr Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
      */
-    CompletableFuture<Long> registerPrefixWatch(ByteArray key, WatchListener lsnr);
+    void registerPrefixWatch(ByteArray key, WatchListener lsnr);
 
     /**
      * Registers a watch listener for the provided key.
      *
      * @param key Meta Storage key.
      * @param listener Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
      */
-    CompletableFuture<Long> registerExactWatch(ByteArray key, WatchListener listener);
+    void registerExactWatch(ByteArray key, WatchListener listener);
 
     /**
      * Registers a watch listener by a key range.
@@ -125,14 +127,13 @@ public interface MetaStorageManager extends IgniteComponent {
      * @param keyFrom Start of the range (inclusive).
      * @param keyTo End of the range (exclusive) or {@code null} if the range doesn't have an upper bound.
      * @param listener Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
      */
-    CompletableFuture<Long> registerRangeWatch(ByteArray keyFrom, ByteArray keyTo, WatchListener listener);
+    void registerRangeWatch(ByteArray keyFrom, @Nullable ByteArray keyTo, WatchListener listener);
 
     /**
      * Unregisters a watch listener.
      */
-    CompletableFuture<Void> unregisterWatch(long id);
+    void unregisterWatch(WatchListener lsnr);
 
     /**
      * Starts all registered watches.

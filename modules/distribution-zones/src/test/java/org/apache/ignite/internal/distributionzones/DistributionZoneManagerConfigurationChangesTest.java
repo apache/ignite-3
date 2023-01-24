@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -41,7 +42,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -104,7 +104,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     public void setUp() {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of()
@@ -114,8 +114,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
-
-        when(metaStorageManager.registerExactWatch(any(), any())).thenReturn(completedFuture(null));
 
         logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
 
@@ -155,7 +153,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
@@ -236,21 +234,32 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     @Test
-    void testTriggerKeyPropagationAfterZoneUpdate() throws Exception {
+    void testTriggerKeyPropagationAfterDefaultZoneUpdate() throws Exception {
+        testTriggerKeyPropagationAfterZoneUpdate(DEFAULT_ZONE_NAME);
+    }
+
+    @Test
+    void testTriggerKeyPropagationAfterNotDefaultZoneUpdate() throws Exception {
+        testTriggerKeyPropagationAfterZoneUpdate(ZONE_NAME);
+    }
+
+    void testTriggerKeyPropagationAfterZoneUpdate(String zoneName) throws Exception {
         assertNull(keyValueStorage.get(zonesChangeTriggerKey().bytes()).value());
 
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()).get();
+        int triggerKey = 0;
 
-        assertZonesChangeTriggerKey(1);
+        if (!DEFAULT_ZONE_NAME.equals(zoneName)) {
+            distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(zoneName).build()).get();
+
+            assertZonesChangeTriggerKey(++triggerKey);
+        }
 
         distributionZoneManager.alterZone(
-                ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjust(100).build()
+                zoneName,
+                new DistributionZoneConfigurationParameters.Builder(zoneName).dataNodesAutoAdjust(100).build()
         ).get();
 
-        assertZonesChangeTriggerKey(2);
-
-        assertDataNodesForZone(1, nodes);
+        assertZonesChangeTriggerKey(++triggerKey);
     }
 
     @Test

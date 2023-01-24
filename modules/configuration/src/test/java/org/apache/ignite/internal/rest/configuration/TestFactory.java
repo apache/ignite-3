@@ -23,7 +23,6 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.Value;
@@ -57,7 +56,7 @@ public class TestFactory {
 
         var configurationRegistry = new ConfigurationRegistry(
                 List.of(TestRootConfiguration.KEY),
-                Map.of(Value.class, Set.of(validator)),
+                Set.of(validator),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of()

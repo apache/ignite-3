@@ -17,16 +17,11 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.Collections.unmodifiableMap;
-import static java.util.stream.Collectors.flatMapping;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
-import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
@@ -65,14 +60,10 @@ public class CompoundModule implements ConfigurationModule {
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> result = modules.stream()
-                .flatMap(module -> module.validators().entrySet().stream())
-                .collect(groupingBy(
-                        Map.Entry::getKey,
-                        flatMapping(e -> e.getValue().stream(), toUnmodifiableSet())
-                ));
-        return unmodifiableMap(result);
+    public Set<Validator<?, ?>> validators() {
+        return modules.stream()
+                .flatMap(module -> module.validators().stream())
+                .collect(toUnmodifiableSet());
     }
 
     /** {@inheritDoc} */
