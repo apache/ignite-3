@@ -110,7 +110,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <summary>
         /// Gets a value indicating whether this instance is disposed.
         /// </summary>
-        internal bool IsDisposed => _resourceClosed && _bufferReleased > 0;
+        internal bool IsDisposed => (_resourceId == null || _resourceClosed) && _bufferReleased > 0;
 
         /// <inheritdoc/>
         public async ValueTask<List<T>> ToListAsync() =>
