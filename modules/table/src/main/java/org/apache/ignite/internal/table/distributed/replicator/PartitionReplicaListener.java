@@ -2094,7 +2094,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Class that stores list of futures for updates that can block tx cleanup, and locked flag.
+     * Class that stores list of futures for updates that can block tx cleanup, and finished flag.
      */
     private static class TxCleanupReadyFutureList {
         final List<CompletableFuture<?>> futures = new ArrayList<>();
