@@ -1065,10 +1065,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             futs.finished = true;
         }
 
-        CompletableFuture<Void> txReadyFuture = txUpdateFutures.isEmpty() ? completedFuture(null)
-                : allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()]));
+        if (txUpdateFutures.isEmpty()) {
+            return completedFuture(null);
+        }
 
-        return txReadyFuture.thenCompose(v -> {
+        return allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()])).thenCompose(v -> {
             HybridTimestampMessage timestampMsg = hybridTimestamp(request.commitTimestamp());
 
             TxCleanupCommand txCleanupCmd = msgFactory.txCleanupCommand()
@@ -2101,6 +2102,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         /**
          * Whether the transaction is finished and therefore locked for further updates by started cleanup process.
          */
-        volatile boolean finished;
+        boolean finished;
     }
 }
