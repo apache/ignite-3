@@ -1055,11 +1055,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
-        // This doesn't give 100% guarantees that there will be no garbage in this map. Garbage should be cleared on tx state vacuum.
-        List<CompletableFuture<?>> futs = txCleanupReadyFutures.remove(request.txId());
+        List<CompletableFuture<?>> futs = txCleanupReadyFutures.computeIfAbsent(request.txId(), k -> new ArrayList<>());
 
         synchronized (futs) {
             txUpdateFutures.addAll(futs);
+
+            futs.clear();
         }
 
         CompletableFuture<Void> txReadyFuture = txUpdateFutures.isEmpty() ? completedFuture(null)
@@ -1468,15 +1469,15 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> applyUpdatingCommand(UUID txId, Supplier<CompletableFuture<Object>> closure) {
         CompletableFuture<Object> applyCmdFuture;
 
-        TxMeta txMeta = txStateStorage.get(txId);
-
-        if (txMeta != null && (txMeta.txState() == TxState.COMMITED || txMeta.txState() == TxState.ABORTED)) {
-            throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished.");
-        }
-
         List<CompletableFuture<?>> futs = txCleanupReadyFutures.computeIfAbsent(txId, k -> new ArrayList<>());
 
         synchronized (futs) {
+            TxMeta txMeta = txStateStorage.get(txId);
+
+            if (txMeta != null && (txMeta.txState() == TxState.COMMITED || txMeta.txState() == TxState.ABORTED)) {
+                throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished.");
+            }
+
             applyCmdFuture = closure.get();
 
             futs.add(applyCmdFuture);
