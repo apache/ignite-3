@@ -493,8 +493,6 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
                 $"No data exists for the row/column. Reading has not started. Call {nameof(ReadAsync)} or {nameof(Read)}.");
         }
 
-        // TODO: Cache tuple reader header somehow?
-        // TODO: Benchmark this.
         var reader = _pageEnumerator.Current.GetReader(_pageRowOffset);
         var tupleSpan = reader.ReadBinary();
 
