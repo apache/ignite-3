@@ -266,7 +266,7 @@ public class ErrorGroups {
         public static final int TX_UNEXPECTED_STATE_ERR = TX_ERR_GROUP.registerErrorCode(3);
 
         /** Failed to acquire a lock on a key due to a conflict. */
-        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
+        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
 
         /** Failed to acquire a lock on a key within a timeout. */
         public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(6);

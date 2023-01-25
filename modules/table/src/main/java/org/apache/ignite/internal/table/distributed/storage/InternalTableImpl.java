@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
@@ -467,14 +467,14 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean implicit, InternalTransaction tx0) {
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (e != null) {
-                Throwable e0 = wrapReplicationException(e);
+                IgniteException e0 = wrapReplicationException(e);
 
                 return tx0.rollbackAsync().handle((ignored, err) -> {
 
                     if (err != null) {
                         e0.addSuppressed(err);
                     }
-                    throw (RuntimeException) e0;
+                    throw e0;
                 }); // Preserve failed state.
             } else {
                 tx0.enlistResultFuture(fut);
@@ -1366,26 +1366,28 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Wraps {@link ReplicationException} or {@link ConnectException} with {@link TransactionException}.
+     * Casts any exception type to a client exception, wherein {@link ReplicationException} and {@link LockException} are wrapped
+     * to {@link TransactionException}, but another exceptions are wrapped to a common exception.
+     * The method does not wrap an exception if the exception already inherits type of {@link IgniteException}.
      *
-     * @param e {@link ReplicationException} or {@link CompletionException} with cause {@link ConnectException} or {@link TimeoutException}
-     * @return {@link TransactionException}
+     * @param e An instance exception to cast to client side one.
+     * @return {@link IgniteException} An instance of client side exception.
      */
-    private RuntimeException wrapReplicationException(Throwable e) {
+    private IgniteException wrapReplicationException(Throwable e) {
         if (e instanceof CompletionException) {
             e = e.getCause();
         }
 
-        RuntimeException e0;
+        IgniteException e0;
 
         if (e instanceof ReplicationException || e instanceof ConnectException || e instanceof TimeoutException) {
             e0 = withCause(TransactionException::new, TX_REPLICA_UNAVAILABLE_ERR, e);
         } else if (e instanceof LockException) {
             e0 = withCause(TransactionException::new, ACQUIRE_LOCK_ERR, e);
-        } else if (!(e instanceof RuntimeException)) {
-            e0 = withCause(IgniteException::new, UNKNOWN_ERR, e);
+        } else if (!(e instanceof IgniteException)) {
+            e0 = withCause(IgniteException::new, UNEXPECTED_ERR, e);
         } else {
-            e0 = (RuntimeException) e;
+            e0 = (IgniteException) e;
         }
 
         return e0;
