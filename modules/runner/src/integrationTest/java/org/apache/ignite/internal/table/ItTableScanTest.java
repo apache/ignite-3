@@ -505,7 +505,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        var publisher1 =
+        Publisher<BinaryRow> publisher1 =
                 internalTable.scan(0, tx.id(), leaderWithTerm.get1(), leaderWithTerm.get2(), sortedIndexId, null, null, 0, null);
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
