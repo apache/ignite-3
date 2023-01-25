@@ -637,7 +637,6 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     {
         await using var reader = await Client.Sql.ExecuteReaderAsync(null, "SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE KEY > 100");
 
-        // This calls GetSchemaTable underneath.
         var dt = new DataTable();
         dt.Load(reader);
 
@@ -661,6 +660,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         bool readRes = await reader.ReadAsync();
 
         Assert.IsFalse(readRes);
+        Assert.AreEqual(14, reader.FieldCount);
     }
 
     private async Task<IgniteDbDataReader> ExecuteReader()
