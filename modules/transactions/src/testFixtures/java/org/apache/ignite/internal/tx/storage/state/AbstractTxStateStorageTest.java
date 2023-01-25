@@ -288,7 +288,7 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     @Test
-    public void testSuccessRebalance() throws Exception {
+    public void testSuccessRebalance() {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
         // We can't finish rebalance that we haven't started.
