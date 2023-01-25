@@ -99,7 +99,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
-        assert ctx.transactionId() == null || terms != null && parts.length == terms.length;
+        assert ctx.transactionTime() != null || (terms != null && parts.length == terms.length);
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
@@ -124,11 +124,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
-        boolean readWriteTx = context().transactionId() != null;
+        boolean readOnlyTx = context().transactionTime() != null;
         List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
 
         for (int i = 0; i < parts.length; i++) {
-            publishers.add(partitionPublisher(parts[i], readWriteTx ? terms[i] : -1, cond));
+            publishers.add(partitionPublisher(parts[i], readOnlyTx ? -1 : terms[i], cond));
         }
 
         if (comp != null) {
@@ -141,7 +141,6 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     private Publisher<RowT> partitionPublisher(int part, long term, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
         boolean readOnlyTx = context().transactionTime() != null;
-        boolean readWriteTx = context().transactionId() != null;
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -168,7 +167,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         flags,
                         requiredColumns
                 );
-            } else if (readWriteTx) {
+            } else if (context().transactionId() != null) {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
                         context().transactionId(),
@@ -205,7 +204,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         key,
                         requiredColumns
                 );
-            } else if (readWriteTx) {
+            } else if (context().transactionId() != null) {
                 pub = schemaIndex.index().lookup(
                         part,
                         context().transactionId(),

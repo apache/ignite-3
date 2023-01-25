@@ -71,7 +71,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
-        assert ctx.transactionId() == null || terms != null && parts.length == terms.length;
+        assert ctx.transactionTime() != null || (terms != null && parts.length == terms.length);
 
         this.physTable = schemaTable.table();
         this.parts = parts;
@@ -82,7 +82,6 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     @Override
     protected Publisher<RowT> scan() {
         boolean readOnlyTx = context().transactionTime() != null;
-        boolean readWriteTx = context().transactionId() != null;
         List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
 
         for (int i = 0; i < parts.length; i++) {
@@ -92,7 +91,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
             if (readOnlyTx) {
                 pub = physTable.scan(partId, context().transactionTime(), context().localNode());
-            } else if (readWriteTx) {
+            } else if (context().transactionId() != null) {
                 pub = physTable.scan(partId, context().transactionId(), context().localNode(), terms[i], null, null, null, 0, null);
             } else {
                 // TODO IGNITE-17952 This block should be removed.
