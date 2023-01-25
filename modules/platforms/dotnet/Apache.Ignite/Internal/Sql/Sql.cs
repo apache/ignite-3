@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Linq;
     using Proto;
     using Proto.BinaryTuple;
     using Transactions;
@@ -56,10 +57,9 @@ namespace Apache.Ignite.Internal.Sql
             await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
-        {
-            return await ExecuteAsyncInternal(transaction, statement, static cols => GetReaderFactory<T>(cols), args).ConfigureAwait(false);
-        }
+        public async Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
+            await ExecuteAsyncInternal(transaction, statement, static cols => GetReaderFactory<T>(cols), args)
+                .ConfigureAwait(false);
 
         /// <inheritdoc/>
         public async Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
@@ -204,10 +204,7 @@ namespace Apache.Ignite.Internal.Sql
             return row;
         }
 
-        private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols)
-        {
-            // TODO: Reuse LINQ logic here.
-            throw new NotImplementedException();
-        }
+        private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
+            ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
     }
 }

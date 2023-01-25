@@ -61,7 +61,7 @@ internal static class ResultSelector
     /// <param name="options">Options.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Row reader.</returns>
-    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, ResultSelectorOptions options)
+    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression? selectorExpression, ResultSelectorOptions options)
     {
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
