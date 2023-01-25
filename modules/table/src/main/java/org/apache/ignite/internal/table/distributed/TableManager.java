@@ -295,7 +295,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
     /** Watch listener id to unregister the watch listener on {@link }. */
-    private volatile Long watchListenerId;
+    private volatile WatchListener watchListener;
 
     /**
      * Creates a new table manager.
@@ -431,6 +431,48 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
+
+        watchListener = new WatchListener() {
+            @Override
+            public void onUpdate(@NotNull WatchEvent evt) {
+                LOG.info("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
+
+                System.out.println("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
+
+                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
+
+                int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+
+                Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
+
+                for (int i = 0; i < tables.value().size(); i++) {
+                    TableView tableView = tables.value().get(i);
+
+                    int tableZoneId = tableView.zoneId();
+
+                    if (zoneId == tableZoneId) {
+                        TableConfiguration tableCfg = tables.get(tableView.name());
+
+                        int partCnt = tableView.partitions();
+
+                        CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
+
+                        for (int part = 0; part < partCnt; part++) {
+                            TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), part);
+
+                            futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
+                                    evt.entryEvent().newEntry().revision(), metaStorageMgr, part);
+                        }
+                    }
+
+                }
+            }
+
+            @Override
+            public void onError(@NotNull Throwable e) {
+                LOG.warn("Unable to process stable assignments event", e);
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -439,54 +481,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         System.out.println("TableManager start()");
 
         System.out.println("metaStorageMgr " + System.identityHashCode(metaStorageMgr));
-        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), new WatchListener() {
-                    @Override
-                    public boolean onUpdate(@NotNull WatchEvent evt) {
-                        LOG.info("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
-
-                        System.out.println("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
-
-                        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
-
-                        int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
-
-                        Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
-
-                        List<ClusterNode> clusterNodes = nodesIds.stream()
-                                .map(id -> clusterService.topologyService().getByConsistentId(id))
-                                .collect(toList());
-
-                        for (int i = 0; i < tables.value().size(); i++) {
-                            TableView tableView = tables.value().get(i);
-
-                            int tableZoneId = tableView.zoneId();
-
-                            if (zoneId == tableZoneId) {
-                                TableConfiguration tableCfg = tables.get(tableView.name());
-
-                                int partCnt = tableView.partitions();
-
-                                CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
-
-                                for (int part = 0; part < partCnt; part++) {
-                                    TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), part);
-
-                                    futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
-                                            evt.entryEvent().newEntry().revision(), metaStorageMgr, part);
-                                }
-                            }
-
-                        }
-
-                        return true;
-                    }
-
-                    @Override
-                    public void onError(@NotNull Throwable e) {
-                        LOG.warn("Unable to process stable assignments event", e);
-                    }
-                })
-                .thenAccept(id -> watchListenerId = id);
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), watchListener);
 
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
@@ -997,10 +992,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         busyLock.block();
 
-        if (watchListenerId != null) {
-            System.out.println("unregisterWatch");
-            metaStorageMgr.unregisterWatch(watchListenerId);
-        }
+        System.out.println("unregisterWatch");
+        metaStorageMgr.unregisterWatch(watchListener);
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 

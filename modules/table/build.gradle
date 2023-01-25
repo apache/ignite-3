@@ -58,12 +58,14 @@ dependencies {
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-metastorage')
+    testImplementation project(':ignite-cluster-management')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-cluster-management')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit
@@ -95,6 +97,7 @@ dependencies {
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation(project(':ignite-cluster-management'))
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
@@ -103,6 +106,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-raft')))
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
+    integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
     integrationTestImplementation libs.fastutil.core
 }
 
