@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
@@ -326,11 +325,11 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     @Test
-    public void testFailRebalance() throws Exception {
+    public void testFailRebalance() {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
         // Nothing will happen because rebalance has not started.
-        storage.abortRebalance().get(1, SECONDS);
+        assertThat(storage.abortRebalance(), willCompleteSuccessfully());
 
         List<IgniteBiTuple<UUID, TxMeta>> rowsBeforeStartRebalance = List.of(
                 randomTxMetaTuple(1, UUID.randomUUID()),
@@ -355,21 +354,68 @@ public abstract class AbstractTxStateStorageTest {
         // Let's check the storage.
         checkLastApplied(storage, 0, 0, 0);
 
-        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
-            assertThat(scan.stream().collect(toList()), is(empty()));
-        }
+        checkStorageIsEmpty(storage);
     }
 
     @Test
     public void testStartRebalanceForClosedOrDestroedPartition() {
         TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
-        TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
 
         storage0.close();
         storage1.destroy();
 
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::startRebalance);
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage1::startRebalance);
+    }
+
+    @Test
+    void testClear() {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+
+        // Cleaning up on empty storage should not generate errors.
+        assertThat(storage.clear(), willCompleteSuccessfully());
+
+        checkLastApplied(storage, 0, 0, 0);
+        checkStorageIsEmpty(storage);
+
+        List<IgniteBiTuple<UUID, TxMeta>> rows = List.of(
+                randomTxMetaTuple(1, UUID.randomUUID()),
+                randomTxMetaTuple(1, UUID.randomUUID())
+        );
+
+        fillStorage(storage, rows);
+
+        // Cleanup the non-empty storage.
+        assertThat(storage.clear(), willCompleteSuccessfully());
+
+        checkLastApplied(storage, 0, 0, 0);
+        checkStorageIsEmpty(storage);
+    }
+
+    @Test
+    void testCleanOnClosedDestroyedAndRebalancedStorages() {
+        TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+        TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
+        TxStateStorage storage2 = tableStorage.getOrCreateTxStateStorage(2);
+
+        storage0.close();
+        storage1.destroy();
+        assertThat(storage2.startRebalance(), willCompleteSuccessfully());
+
+        try {
+            assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::clear);
+            assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage1::clear);
+            assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage2::clear);
+        } finally {
+            assertThat(storage2.abortRebalance(), willCompleteSuccessfully());
+        }
+    }
+
+    private void checkStorageIsEmpty(TxStateStorage storage) {
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
+            assertThat(scan.stream().collect(toList()), is(empty()));
+        }
     }
 
     private void startRebalanceWithChecks(TxStateStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {
@@ -446,8 +492,7 @@ public abstract class AbstractTxStateStorageTest {
         for (int i = 0; i < rows.size(); i++) {
             IgniteBiTuple<UUID, TxMeta> row = rows.get(i);
 
-            // If even.
-            if ((i & 1) == 0) {
+            if ((i % 2) == 0) {
                 assertTrue(storage.compareAndSet(row.get1(), null, row.get2(), i * 10L, i * 10L));
             } else {
                 storage.put(row.get1(), row.get2());
