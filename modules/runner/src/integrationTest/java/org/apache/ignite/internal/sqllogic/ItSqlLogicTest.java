@@ -153,7 +153,7 @@ public class ItSqlLogicTest {
     private static RestartMode RESTART_CLUSTER;
 
     /** Flag to include '*.test_slow' scripts to tests run. */
-    private static boolean INCLUDE_SLOW = IgniteSystemProperties.getBoolean(SQL_LOGIC_TEST_INCLUDE_SLOW);
+    private static boolean INCLUDE_SLOW;
 
     @BeforeAll
     static void init() {
@@ -267,6 +267,7 @@ public class ItSqlLogicTest {
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
         TIMEOUT = env.timeout();
+        INCLUDE_SLOW = IgniteSystemProperties.getBoolean(SQL_LOGIC_TEST_INCLUDE_SLOW);
     }
 
     private static void restartCluster() throws Exception {

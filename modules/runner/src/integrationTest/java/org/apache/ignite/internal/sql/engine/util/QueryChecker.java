@@ -63,6 +63,8 @@ public abstract class QueryChecker {
 
     private static final Object[] NULL_AS_VARARG = {null};
 
+    private static final List<List<?>> EMPTY_RES = List.of(List.of());
+
     /**
      * Ignite table scan matcher.
      *
@@ -324,6 +326,8 @@ public abstract class QueryChecker {
      * @return This.
      */
     public QueryChecker returns(Object... res) {
+        assert expectedResult != EMPTY_RES : "Erroneous awaiting results mixing, impossible to simultaneously wait something and nothing";
+
         if (expectedResult == null) {
             expectedResult = new ArrayList<>();
         }
@@ -334,6 +338,19 @@ public abstract class QueryChecker {
         }
 
         expectedResult.add(Arrays.asList(res));
+
+        return this;
+    }
+
+    /**
+     * Check that return empty result.
+     *
+     * @return This.
+     */
+    public QueryChecker returnNothing() {
+        assert expectedResult == null : "Erroneous awaiting results mixing, impossible to simultaneously wait nothing and something";
+
+        expectedResult = EMPTY_RES;
 
         return this;
     }
@@ -475,6 +492,12 @@ public abstract class QueryChecker {
             var res = getAllFromCursor(cur);
 
             if (expectedResult != null) {
+                if (Objects.equals(expectedResult, EMPTY_RES)) {
+                    assertEquals(0, res.size(), "Empty result expected");
+
+                    return;
+                }
+
                 if (!ordered) {
                     // Avoid arbitrary order.
                     res.sort(new ListComparator());

@@ -87,7 +87,7 @@ public class Cluster {
 
     private final Path workDir;
 
-    private final String nodeBootstrapConfig;
+    private final String nodeBootstrapConfigTemplate;
 
     /** Cluster nodes. */
     private final List<IgniteImpl> nodes = new CopyOnWriteArrayList<>();
@@ -109,10 +109,10 @@ public class Cluster {
     /**
      * Creates a new cluster with the given bootstrap config.
      */
-    public Cluster(TestInfo testInfo, Path workDir, String nodeBootstrapConfig) {
+    public Cluster(TestInfo testInfo, Path workDir, String nodeBootstrapConfigTemplate) {
         this.testInfo = testInfo;
         this.workDir = workDir;
-        this.nodeBootstrapConfig = nodeBootstrapConfig;
+        this.nodeBootstrapConfigTemplate = nodeBootstrapConfigTemplate;
     }
 
     /**
@@ -149,7 +149,7 @@ public class Cluster {
     public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
-        String config = IgniteStringFormatter.format(nodeBootstrapConfig, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
+        String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
 
         return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)
@@ -203,8 +203,6 @@ public class Cluster {
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
     public IgniteImpl startNode(int index) {
-        checkNodeIndex(index);
-
         IgniteImpl newIgniteNode;
 
         try {
