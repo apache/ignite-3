@@ -593,17 +593,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private AsyncCursor<List<Object>> execute(MultiStepPlan plan) {
             taskExecutor.execute(() -> {
+                // Map fragments.
+                plan.init(mappingSrvc, new MappingQueryContext(localNode.name()));
+
+                List<Fragment> fragments = plan.fragments();
+
+                // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
+                // the case when a non-root fragment will fail before the root is processed.
+                assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
+
+                // Start remote execution.
                 try {
-                    // Map fragments.
-                    plan.init(mappingSrvc, new MappingQueryContext(localNode.name()));
-
-                    List<Fragment> fragments = plan.fragments();
-
-                    // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
-                    // the case when a non-root fragment will fail before the root is processed.
-                    assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
-
-                    // Start remote execution.
                     for (Fragment fragment : fragments) {
                         if (tx != null && !tx.isReadOnly()) {
                             enlistPartitions(fragment, tx);
@@ -627,8 +627,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         }
                     }
                 } catch (Throwable e) {
-                    LOG.error("Query mapping error", e);
-
                     root.thenAccept(root -> root.onError(e));
                 }
             });
