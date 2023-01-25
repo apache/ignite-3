@@ -374,7 +374,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param key Key to search.
      * @param columnsToInclude Row projection.
      * @return {@link Publisher} that reactively notifies about partition rows.
-     * @deprecated Use {@link #lookup(int, UUID, ClusterNode, long, UUID, BinaryTuple, BitSet)} instead.
+     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, ClusterNode, long, UUID, BinaryTuple, BitSet)} instead.
      */
     @Deprecated
     Publisher<BinaryRow> lookup(
