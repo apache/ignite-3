@@ -41,4 +41,11 @@ public interface ConstructableTreeNode {
      * @return Copy of the object.
      */
     ConstructableTreeNode copy();
+
+    /**
+     * Make the node immutable. Following calls of mutating methods on the node should not happen and may result in errors.
+     *
+     * @return {@code true} if node became immutable, {@code false} if it has already been immutable before.
+     */
+    boolean publish();
 }

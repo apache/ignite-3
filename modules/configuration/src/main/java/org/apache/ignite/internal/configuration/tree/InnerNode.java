@@ -40,6 +40,9 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     @Nullable
     private UUID internalId;
 
+    /** Immutability flag. */
+    private boolean immutable = false;
+
     /**
      * Returns internal id of the node.
      */
@@ -202,10 +205,27 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     @Override
     public InnerNode copy() {
         try {
-            return (InnerNode) clone();
+            InnerNode clone = (InnerNode) clone();
+
+            clone.immutable = false;
+
+            return clone;
         } catch (CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    public final void assertMutability() {
+        assert !immutable : "Mutating immutable configuration";
+    }
+
+    @Override
+    public boolean publish() {
+        boolean updated = !immutable;
+
+        immutable = true;
+
+        return updated;
     }
 
     /**

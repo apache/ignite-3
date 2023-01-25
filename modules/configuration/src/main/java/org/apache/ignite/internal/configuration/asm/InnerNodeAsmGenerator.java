@@ -160,6 +160,9 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link InnerNode#internalSchemaTypes}. */
     private static final Method INTERNAL_SCHEMA_TYPES_MTD;
 
+    /** {@link InnerNode#assertMutability()}. */
+    private static final Method ASSERT_MUTABILITY_MTD;
+
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
 
@@ -205,6 +208,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
             INTERNAL_SCHEMA_TYPES_MTD = InnerNode.class.getDeclaredMethod("internalSchemaTypes");
 
+            ASSERT_MUTABILITY_MTD = InnerNode.class.getDeclaredMethod("assertMutability");
         } catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
         }
@@ -696,6 +700,16 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         BytecodeBlock bytecodeBlock = new BytecodeBlock();
 
+        if (classDef == innerNodeClassDef) {
+            bytecodeBlock.append(changeMtd.getThis().invoke(ASSERT_MUTABILITY_MTD));
+        } else {
+            bytecodeBlock.append(
+                    changeMtd.getThis()
+                            .getField(classDef.getType(), "this$0", innerNodeClassDef.getType())
+                            .invoke(ASSERT_MUTABILITY_MTD)
+            );
+        }
+
         if (!schemaFieldType.isPrimitive()) {
             // Objects.requireNonNull(newValue, "change");
             bytecodeBlock.append(invokeStatic(REQUIRE_NON_NULL, changeVar, constantString("change")));
@@ -1086,6 +1100,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         Variable keyVar = constructMtd.getScope().getVariable("key");
         Variable srcVar = constructMtd.getScope().getVariable("src");
 
+        constructMtd.getBody().append(constructMtd.getThis().invoke(ASSERT_MUTABILITY_MTD));
+
         // Create switch for public (common in case polymorphic config) fields only.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructMtd.getScope()).expression(keyVar);
 
@@ -1338,6 +1354,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 type(void.class),
                 arg("key", String.class)
         ).addException(NoSuchElementException.class);
+
+        constructDfltMtd.getBody().append(constructDfltMtd.getThis().invoke(ASSERT_MUTABILITY_MTD));
 
         Variable keyVar = constructDfltMtd.getScope().getVariable("key");
 

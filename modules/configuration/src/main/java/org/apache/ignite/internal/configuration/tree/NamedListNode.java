@@ -69,6 +69,9 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Nullable
     private final String typeIdFieldName;
 
+    /** Immutability flag. */
+    private boolean immutable = false;
+
     /**
      * Default constructor.
      *
@@ -150,6 +153,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> create(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+        assertMutability();
 
         checkNewKey(key);
 
@@ -169,6 +173,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> create(int index, String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+        assertMutability();
 
         if (index < 0 || index > map.size()) {
             throw new IndexOutOfBoundsException(index);
@@ -193,6 +198,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         Objects.requireNonNull(precedingKey, "precedingKey");
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+        assertMutability();
 
         ElementDescriptor precedingElement = map.get(precedingKey);
 
@@ -220,6 +226,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> createOrUpdate(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+        assertMutability();
 
         ElementDescriptor element = map.get(key);
 
@@ -247,6 +254,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> update(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+        assertMutability();
 
         ElementDescriptor element = map.get(key);
 
@@ -270,6 +278,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> rename(String oldKey, String newKey) {
         Objects.requireNonNull(oldKey, "oldKey");
         Objects.requireNonNull(newKey, "newKey");
+        assertMutability();
 
         if (oldKey.equals(newKey)) {
             return this;
@@ -320,6 +329,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public NamedListChange<N, N> delete(String key) {
         Objects.requireNonNull(key, "key");
+        assertMutability();
 
         ElementDescriptor element = map.get(key);
 
@@ -402,6 +412,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @param key Element's key.
      */
     public void forceDelete(String key) {
+        assertMutability();
+
         ElementDescriptor removed = map.remove(key);
 
         if (removed != null) {
@@ -415,6 +427,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @param orderedKeys List of keys in new order. Must have the same set of keys in it.
      */
     public void reorderKeys(List<String> orderedKeys) {
+        assertMutability();
+
         map.reorderKeys(orderedKeys);
     }
 
@@ -422,6 +436,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public void construct(String key, ConfigurationSource src, boolean includeInternal) {
         Objects.requireNonNull(key, "key");
+        assertMutability();
 
         if (src == null) {
             delete(key);
@@ -482,6 +497,19 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public NamedListNode<N> copy() {
         return new NamedListNode<>(this);
+    }
+
+    private void assertMutability() {
+        assert !immutable : "Mutating immutable configuration";
+    }
+
+    @Override
+    public boolean publish() {
+        boolean updated = !immutable;
+
+        immutable = true;
+
+        return updated;
     }
 
     /**
