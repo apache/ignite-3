@@ -80,7 +80,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     ) {
         super(ctx);
 
-        // TODO IGNITE-17952 Only txId (RW transaction) and txTime (RO transaction) are mandatory.
+        // TODO IGNITE-17952 Transaction is not required.
         assert ctx.transactionId() != null || ctx.transactionTime() != null || ctx.transaction() != null : "Transaction not initialized.";
 
         tableRowConverter = row -> schemaTable.toRow(context(), row, rowFactory, requiredColumns);
