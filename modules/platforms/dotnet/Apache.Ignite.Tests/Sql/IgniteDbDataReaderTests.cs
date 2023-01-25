@@ -555,12 +555,13 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     }
 
     [Test]
+    [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
     public async Task TestNextResult()
     {
         await using var reader = await ExecuteReader();
 
-        Assert.Throws<NotSupportedException>(() => reader.NextResult());
-        Assert.ThrowsAsync<NotSupportedException>(() => reader.NextResultAsync());
+        Assert.IsFalse(reader.NextResult());
+        Assert.IsFalse(await reader.NextResultAsync());
     }
 
     [Test]
@@ -641,7 +642,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         dt.Load(reader);
 
         Assert.AreEqual(14, dt.Columns.Count);
-        Assert.AreEqual(9, dt.Rows.Count);
+        Assert.AreEqual(0, dt.Rows.Count);
     }
 
     [Test]
