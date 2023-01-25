@@ -229,7 +229,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
                 // If the store is in the process of rebalancing, then there is no need to update lastAppliedIndex and lastAppliedTerm.
                 // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will
-                // have non-consistent storage. They will be updated to either #abortRebalance() or #finishRebalance(long, long).
+                // have non-consistent storage. They will be updated by either #abortRebalance() or #finishRebalance(long, long).
                 if (state.get() != StorageState.REBALANCE) {
                     writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(commandIndex, commandTerm));
 
@@ -542,7 +542,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
 
         try (WriteBatch writeBatch = new WriteBatch()) {
-            writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS));
+            writeBatch.put(lastAppliedIndexAndTermKey, indexAndTermToBytes(lastAppliedIndex, lastAppliedTerm));
 
             db.write(writeOptions, writeBatch);
 
