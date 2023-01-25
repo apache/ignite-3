@@ -56,4 +56,22 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
 
         await PocoAllColumnsSqlNullableView.UpsertAsync(null, new PocoAllColumnsSqlNullable(100));
     }
+
+    [Test]
+    public async Task TestPrimitiveMapping()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL WHERE INT32 is not null order by 1");
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(Count, rows.Count);
+    }
+
+    [Test]
+    public async Task TestSelectNullIntoPrimitiveType()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(Count, rows.Count);
+    }
 }
