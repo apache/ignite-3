@@ -497,7 +497,7 @@ public abstract class QueryChecker {
 
                     return;
                 }
-                
+
                 if (!ordered) {
                     // Avoid arbitrary order.
                     res.sort(new ListComparator());
