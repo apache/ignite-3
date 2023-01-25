@@ -1,7 +1,6 @@
 # name: test/sql/types/null/test_null.test
 # description: Test standard NULL handling
 # group: [null]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
 
 statement ok
 PRAGMA enable_verification

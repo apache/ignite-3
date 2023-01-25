@@ -1,7 +1,6 @@
 # name: test/sql/function/string/test_repeat.test
 # description: REPEAT test
 # group: [string]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
 
 # test repeat on NULLs
 query TTT

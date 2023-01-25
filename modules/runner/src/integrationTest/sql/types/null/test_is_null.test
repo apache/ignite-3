@@ -1,7 +1,6 @@
 # name: test/sql/types/null/test_is_null.test
 # description: Test IS NULL
 # group: [null]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
 
 statement ok
 CREATE TABLE test (a INTEGER, b INTEGER);
