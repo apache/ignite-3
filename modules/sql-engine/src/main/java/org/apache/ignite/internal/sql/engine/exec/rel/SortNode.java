@@ -41,7 +41,6 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     /**
      * Constructor.
      *
-     *
      * @param ctx  Execution context.
      * @param comp Rows comparator.
      */
