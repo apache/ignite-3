@@ -565,7 +565,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             CompletableFuture<? extends NetworkMessage> fut
     ) {
         if (recoverable(err)) {
-            LOG.warn(
+            LOG.debug(
                     "Recoverable error during the request type={} occurred (will be retried on the randomly selected node): ",
                     err, sentRequest.getClass().getSimpleName()
             );

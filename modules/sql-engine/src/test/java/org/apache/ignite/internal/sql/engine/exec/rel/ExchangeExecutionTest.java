@@ -161,7 +161,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> targetCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
                 .localNode(localNode)
                 .build();
 
@@ -196,7 +196,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, null, null, Long2ObjectMaps.emptyMap()))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, null, null, Long2ObjectMaps.emptyMap()))
                 .localNode(localNode)
                 .build();
 

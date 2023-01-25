@@ -36,7 +36,7 @@ import org.apache.calcite.rex.RexNode;
 /**
  * Relational operator for table function scan.
  */
-public class IgniteTableFunctionScan extends TableFunctionScan implements InternalIgniteRel {
+public class IgniteTableFunctionScan extends TableFunctionScan implements IgniteRel {
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
 

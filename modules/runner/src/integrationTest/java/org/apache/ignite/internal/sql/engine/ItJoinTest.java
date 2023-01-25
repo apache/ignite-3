@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest.JoinType.CORRELATED;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -819,8 +817,7 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
             String sql = "SELECT i1, i4 FROM t11 JOIN t22 ON i1 IS NOT DISTINCT FROM i3";
 
             assertQuery(sql, joinType, indexScan ? "LogicalTableScanConverterRule" : null)
-                    .matches(joinType == CORRELATED ? QueryChecker.containsSubPlan("IgniteHashIndexSpool")
-                            : QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
+                    .matches(QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
                     .matches(indexScan ? QueryChecker.containsIndexScan("PUBLIC", "T11") :
                             QueryChecker.containsTableScan("PUBLIC", "T11"))
                     .returns(1, 1)
@@ -832,8 +829,7 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
             sql = "SELECT i1, i4 FROM t11 JOIN t22 ON i1 IS NOT DISTINCT FROM i3 AND i2 = i4";
 
             assertQuery(sql, joinType, indexScan ? "LogicalTableScanConverterRule" : null)
-                    .matches(joinType == CORRELATED ? QueryChecker.containsSubPlan("IgniteHashIndexSpool")
-                            : QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
+                    .matches(QueryChecker.matches("(?i).*IS NOT DISTINCT.*"))
                     .matches(indexScan ? QueryChecker.containsIndexScan("PUBLIC", "T11") :
                             QueryChecker.containsTableScan("PUBLIC", "T11"))
                     .returns(2, 2)

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.util.Util.unexpected;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
 import java.util.ArrayList;
@@ -28,10 +29,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -54,7 +57,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
     private final @Nullable Comparator<RowT> comp;
 
-    private List<RemoteSource<RowT>> remoteSources;
+    private @Nullable List<RemoteSource<RowT>> remoteSources;
 
     private int requested;
 
@@ -79,6 +82,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             long srcFragmentId
     ) {
         super(ctx);
+
+        assert !nullOrEmpty(srcNodeNames);
+
         this.exchange = exchange;
         this.registry = registry;
         this.srcNodeNames = srcNodeNames;
@@ -133,7 +139,14 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
-        throw new UnsupportedOperationException();
+        remoteSources = null;
+        perNodeBuffers.clear();
+        requested = 0;
+        for (String nodeName : srcNodeNames) {
+            RemoteSource<?> source = getOrCreateBuffer(nodeName);
+
+            source.reset(context().sharedState());
+        }
     }
 
     /**
@@ -324,12 +337,12 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
     }
 
-    private void requestBatches(String nodeName, int cnt) throws IgniteInternalCheckedException {
-        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt);
+    private void requestBatches(String nodeName, int cnt, @Nullable SharedState state) throws IgniteInternalCheckedException {
+        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state);
     }
 
     private RemoteSource<RowT> getOrCreateBuffer(String nodeName) {
-        return perNodeBuffers.computeIfAbsent(nodeName, name -> new RemoteSource<>(cnt -> requestBatches(name, cnt)));
+        return perNodeBuffers.computeIfAbsent(nodeName, name -> new RemoteSource<>((cnt, state) -> requestBatches(name, cnt, state)));
     }
 
     /**
@@ -410,7 +423,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     static final class RemoteSource<RowT> {
         @FunctionalInterface
         private interface BatchRequester {
-            void request(int amountOfBatches) throws IgniteInternalCheckedException;
+            void request(int amountOfBatches, @Nullable SharedState state) throws IgniteInternalCheckedException;
         }
 
         /**
@@ -475,6 +488,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
 
         private final PriorityQueue<Batch<RowT>> batches = new PriorityQueue<>(IO_BATCH_CNT);
+        private final AtomicReference<SharedState> sharedStateHolder = new AtomicReference<>();
 
         private final BatchRequester batchRequester;
 
@@ -487,8 +501,30 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             this.batchRequester = batchRequester;
         }
 
+        /**
+         * Drops all received but not yet processed batches. Accepts the state that should be propagated
+         * to the source on the next {@link #request} invocation.
+         *
+         * @param state State to propagate to the source.
+         */
+        void reset(SharedState state) {
+            sharedStateHolder.set(state);
+            batches.clear();
+
+            this.lastEnqueued = lastRequested;
+            this.state = State.WAITING;
+            this.curr = null;
+        }
+
         /** A handler for batches received from remote source. */
         void onBatchReceived(int id, boolean last, List<RowT> rows) {
+            if (id <= lastEnqueued) {
+                // most probably it's a batch that was prefetched in advance,
+                // but the execution tree has been rewinded, so we just silently
+                // drop it
+                return;
+            }
+
             batches.offer(new Batch<>(id, last, rows));
 
             if (state == State.WAITING && id == lastEnqueued + 1) {
@@ -505,13 +541,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
             // IO_BATCH_CNT should never be less than 1, but we don't have validation
             if (IO_BATCH_CNT <= 1 && inFlightCount == 0) {
-                batchRequester.request(1);
+                batchRequester.request(1, sharedStateHolder.getAndSet(null));
             } else if (IO_BATCH_CNT / 2 >= inFlightCount) {
                 int countOfBatches = IO_BATCH_CNT - inFlightCount;
 
                 lastRequested += countOfBatches;
 
-                batchRequester.request(countOfBatches);
+                batchRequester.request(countOfBatches, sharedStateHolder.getAndSet(null));
             }
         }
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.checkRange;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.List;
@@ -42,12 +41,10 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -92,7 +89,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     private final long startTs;
 
-    private Object[] correlations = new Object[16];
+    private SharedState sharedState = new SharedState();
 
     /**
      * Constructor.
@@ -265,10 +262,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param id Correlation ID.
      * @return Correlated value.
      */
-    public @NotNull Object getCorrelated(int id) {
-        checkRange(correlations, id);
-
-        return correlations[id];
+    public Object correlatedVariable(int id) {
+        return sharedState.correlatedVariable(id);
     }
 
     /**
@@ -277,10 +272,26 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param id Correlation ID.
      * @param value Correlated value.
      */
-    public void setCorrelated(@NotNull Object value, int id) {
-        correlations = Commons.ensureCapacity(correlations, id + 1);
+    public void correlatedVariable(Object value, int id) {
+        sharedState.correlatedVariable(id, value);
+    }
 
-        correlations[id] = value;
+    /**
+     * Updates the state in the context with the given one.
+     *
+     * @param state A state to update with.
+     */
+    public void sharedState(SharedState state) {
+        sharedState = state;
+    }
+
+    /**
+     * Returns the current state.
+     *
+     * @return Current state.
+     */
+    public SharedState sharedState() {
+        return sharedState;
     }
 
     /**

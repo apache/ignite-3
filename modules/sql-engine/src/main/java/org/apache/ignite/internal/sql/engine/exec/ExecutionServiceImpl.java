@@ -595,6 +595,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                         FragmentDescription fragmentDesc = new FragmentDescription(
                                 fragment.fragmentId(),
+                                !fragment.expectsCorrelatesFromOutside(),
                                 plan.mapping(fragment),
                                 plan.target(fragment),
                                 plan.remotes(fragment)

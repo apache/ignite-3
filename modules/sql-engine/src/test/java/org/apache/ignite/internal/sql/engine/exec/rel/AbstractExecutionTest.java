@@ -101,7 +101,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
-        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+        FragmentDescription fragmentDesc = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
 
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));

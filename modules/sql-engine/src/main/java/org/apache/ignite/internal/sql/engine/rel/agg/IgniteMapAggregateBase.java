@@ -66,15 +66,6 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
 
     /** {@inheritDoc} */
     @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits
-    ) {
-        return List.of(Pair.of(nodeTraits, List.of(inputTraits.get(0))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
@@ -86,15 +77,5 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
         }
 
         return List.of(Pair.of(nodeTraits.replace(TraitUtils.distribution(in)), List.of(in)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits
-    ) {
-        return List.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
-                inTraits));
     }
 }

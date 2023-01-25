@@ -116,6 +116,11 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      * <p>Note: this method must be called by the same thread that will execute the whole fragment.
      */
     public void prefetch() {
+        if (!context().description().prefetch()) {
+            // this fragment can't be executed in advance
+            return;
+        }
+
         try {
             checkState();
 
