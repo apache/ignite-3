@@ -99,7 +99,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      * @return A cursor from resulting rows.
      * @see SortedIndex#INCLUDE_LEFT
      * @see SortedIndex#INCLUDE_RIGHT
-     * @deprecated Use {@link #scan(int, UUID, ClusterNode, long, BinaryTuplePrefix, BinaryTuplePrefix, int, BitSet)} instead.
+     * @deprecated IGNITE-17952 Use {@link #scan(int, UUID, ClusterNode, long, BinaryTuplePrefix, BinaryTuplePrefix, int, BitSet)} instead.
      */
     @Deprecated
     Publisher<BinaryRow> scan(

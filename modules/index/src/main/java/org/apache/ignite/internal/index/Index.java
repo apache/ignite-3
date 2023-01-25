@@ -53,7 +53,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
      * @param key Key to lookup.
      * @param columns Columns to include.
      * @return A cursor from resulting rows.
-     * @deprecated Use {@link #lookup(int, UUID, ClusterNode, long, BinaryTuple, BitSet)} instead.
+     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, ClusterNode, long, BinaryTuple, BitSet)} instead.
      */
     @Deprecated
     Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns);
