@@ -47,10 +47,29 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
+    protected static final String FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    },\n"
+            + "    membership: {\n"
+            + "      membershipSyncInterval: 1000,\n"
+            + "      failurePingInterval: 500,\n"
+            + "      scaleCube: {\n"
+            + "        membershipSuspicionMultiplier: 1,\n"
+            + "        failurePingRequestMembers: 1,\n"
+            + "        gossipInterval: 10\n"
+            + "      },\n"
             + "    }\n"
             + "  }\n"
             + "}";
@@ -85,7 +104,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     @BeforeEach
     void startAndInitCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG_TEMPLATE);
+        cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
         cluster.startAndInit(initialNodes());
     }
