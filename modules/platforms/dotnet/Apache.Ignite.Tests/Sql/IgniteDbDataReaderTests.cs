@@ -49,8 +49,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     [OneTimeSetUp]
     public async Task InsertTestData()
     {
-        await Client.Sql.ExecuteAsync(null, $"delete from {TableAllColumnsSqlName}");
-        await Client.Sql.ExecuteAsync(null, $"delete from {TableName}");
+        await Client.Sql.ExecuteAsync(null, "delete from TBL_ALL_COLUMNS_SQL");
 
         var pocoAllColumns1 = new PocoAllColumnsSqlNullable(
             Key: 1,
@@ -633,12 +632,34 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestDataTableLoadEmptyResultSet()
+    {
+        await using var reader = await Client.Sql.ExecuteReaderAsync(null, "SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE KEY > 100");
+
+        // This calls GetSchemaTable underneath.
+        var dt = new DataTable();
+        dt.Load(reader);
+
+        Assert.AreEqual(14, dt.Columns.Count);
+        Assert.AreEqual(9, dt.Rows.Count);
+    }
+
+    [Test]
     public void TestExecuteReaderThrowsOnDmlQuery()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await Client.Sql.ExecuteReaderAsync(null, "UPDATE TBL_ALL_COLUMNS_SQL SET STR='s' WHERE KEY > 100"));
 
         Assert.AreEqual("ExecuteReaderAsync does not support queries without row set (DDL, DML).", ex!.Message);
+    }
+
+    [Test]
+    public async Task TestEmptyResultSet()
+    {
+        await using var reader = await Client.Sql.ExecuteReaderAsync(null, "SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE KEY > 100");
+        bool readRes = await reader.ReadAsync();
+
+        Assert.IsFalse(readRes);
     }
 
     private async Task<IgniteDbDataReader> ExecuteReader()
