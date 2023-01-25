@@ -170,7 +170,8 @@ class DistributionZonesUtil {
 
     /**
      * Deletes data nodes, {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
-     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} values for a zone.
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} values for a zone. Also sets {@code revision} to
+     * {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.

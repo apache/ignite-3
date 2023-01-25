@@ -101,6 +101,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Distribution zones manager.
@@ -208,6 +209,7 @@ public class DistributionZoneManager implements IgniteComponent {
         );
     }
 
+    @TestOnly
     Map<Integer, ZoneState> zonesTimers() {
         return zonesState;
     }
@@ -525,7 +527,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
             zonesState.putIfAbsent(zoneId, zoneState);
 
-            // logicalTopology can be updated concurrently by the watch listener.
             saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), toBytes(logicalTopology));
 
             return completedFuture(null);
@@ -574,6 +575,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
+     * @param dataNodes Data nodes.
      */
     private void saveDataNodesAndUpdateTriggerKeysInMetaStorage(int zoneId, long revision, byte[] dataNodes) {
         if (!busyLock.enterBusy()) {
@@ -885,7 +887,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param zoneCfg Zone's configuration.
      * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
-     * @param removedNodes Nodes that was removed from a topology and should be added to zones data nodes.
+     * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
      */
     private void scheduleTimers(
@@ -908,7 +910,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @param zoneCfg Zone's configuration.
      * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
-     * @param removedNodes Nodes that was removed from a topology and should be added to zones data nodes.
+     * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
      * @param saveDataNodes Function that save nodes to a zone's data nodes.
      */
@@ -927,7 +929,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != Integer.MAX_VALUE) {
             //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-            throw new UnsupportedOperationException("Data nodes Auto Adjust is not supported.");
+            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
         } else {
             if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
                 //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
@@ -944,7 +946,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (!removedNodes.isEmpty() && autoAdjustScaleDown != Integer.MAX_VALUE) {
                 //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
-                throw new UnsupportedOperationException("Data nodes Auto Adjust Scale Down is not supported.");
+                throw new UnsupportedOperationException("Data nodes auto adjust scale down is not supported.");
             }
         }
     }
@@ -1067,7 +1069,7 @@ public class DistributionZoneManager implements IgniteComponent {
     /**
      * Class responsible for storing state for a distribution zone.
      * States are needed to track nodes that we want to add or remove from the data nodes,
-     * schedule and stop scale up and scale down processes.
+     * to schedule and stop scale up and scale down processes.
      */
     static class ZoneState {
         /** Schedule task for a scale up process. */
