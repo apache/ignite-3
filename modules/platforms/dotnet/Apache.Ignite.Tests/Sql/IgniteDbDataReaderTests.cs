@@ -661,6 +661,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
 
         Assert.IsFalse(readRes);
         Assert.AreEqual(14, reader.FieldCount);
+        Assert.IsFalse(reader.HasRows);
     }
 
     private async Task<IgniteDbDataReader> ExecuteReader()
