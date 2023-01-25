@@ -1055,6 +1055,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18632
         TxCleanupReadyFutureList futs = txCleanupReadyFutures.computeIfAbsent(request.txId(), k -> new TxCleanupReadyFutureList());
 
         synchronized (futs) {
@@ -1480,6 +1481,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         TxCleanupReadyFutureList futs = txCleanupReadyFutures.computeIfAbsent(txId, k -> new TxCleanupReadyFutureList());
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18632
         synchronized (futs) {
             if (futs.finished) {
                 throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished.");
