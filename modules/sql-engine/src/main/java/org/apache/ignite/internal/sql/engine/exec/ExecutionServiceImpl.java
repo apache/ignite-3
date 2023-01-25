@@ -602,7 +602,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 // the case when a non-root fragment will fail before the root is processed.
                 assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
 
-                // Start remote execution.
+                // start remote execution
                 try {
                     for (Fragment fragment : fragments) {
                         if (tx != null && !tx.isReadOnly()) {
