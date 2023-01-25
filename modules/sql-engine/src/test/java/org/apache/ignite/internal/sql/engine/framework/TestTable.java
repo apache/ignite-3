@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -74,6 +75,7 @@ public class TestTable implements InternalIgniteTable {
     private final ColocationGroup colocationGroup;
     private final TableDescriptor descriptor;
     private final Map<String, DataProvider<?>> dataProviders;
+    private final Supplier<RuntimeException> mappingExceptionSupplier;
 
 
     /** Constructor. */
@@ -81,12 +83,14 @@ public class TestTable implements InternalIgniteTable {
             TableDescriptor descriptor,
             String name,
             ColocationGroup colocationGroup,
-            double rowCnt
+            double rowCnt,
+            Supplier<RuntimeException> mappingExceptionSupplier
     ) {
         this.descriptor = descriptor;
         this.name = name;
         this.rowCnt = rowCnt;
         this.colocationGroup = colocationGroup;
+        this.mappingExceptionSupplier = mappingExceptionSupplier;
 
         dataProviders = Collections.emptyMap();
     }
@@ -102,6 +106,7 @@ public class TestTable implements InternalIgniteTable {
         this.name = name;
         this.rowCnt = rowCnt;
         this.dataProviders = dataProviders;
+        this.mappingExceptionSupplier = () -> null;
 
         this.colocationGroup = ColocationGroup.forNodes(List.copyOf(dataProviders.keySet()));
     }
@@ -234,6 +239,12 @@ public class TestTable implements InternalIgniteTable {
     /** {@inheritDoc} */
     @Override
     public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+        RuntimeException ex = mappingExceptionSupplier.get();
+
+        if (ex != null) {
+            throw ex;
+        }
+
         return colocationGroup;
     }
 

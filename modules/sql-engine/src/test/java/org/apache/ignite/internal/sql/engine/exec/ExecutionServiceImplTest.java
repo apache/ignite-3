@@ -119,6 +119,7 @@ public class ExecutionServiceImplTest {
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
+    private RuntimeException mappingException;
 
     @BeforeEach
     public void init() {
@@ -248,6 +249,31 @@ public class ExecutionServiceImplTest {
 
             return null;
         }));
+        assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
+    }
+
+    @Test
+    public void testQueryMappingFailure() throws InterruptedException {
+        mappingException = new IllegalStateException("Query mapping error");
+
+        var execService = executionServices.get(0);
+        var ctx = createContext();
+        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        var cursor = execService.executePlan(plan, ctx);
+
+        var batchFut = cursor.requestNextAsync(1);
+
+        await(batchFut.exceptionally(ex -> {
+            assertInstanceOf(CompletionException.class, ex);
+            assertInstanceOf(mappingException.getClass(), ex.getCause());
+            assertEquals(mappingException.getMessage(), ex.getCause().getMessage());
+
+            return null;
+        }));
+
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
@@ -607,7 +633,8 @@ public class ExecutionServiceImplTest {
                 new TableDescriptorImpl(columns, distr),
                 name,
                 ColocationGroup.forNodes(nodeNames),
-                size
+                size,
+                () -> mappingException
         );
     }
 }
