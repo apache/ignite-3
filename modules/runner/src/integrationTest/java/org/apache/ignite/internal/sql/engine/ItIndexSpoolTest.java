@@ -18,22 +18,14 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -102,6 +94,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         for (String name : List.of("TEST0", "TEST1")) {
             sql(String.format("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH replicas=2,partitions=%d", parts));
 
+            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
             waitForIndex(name + "_PK");
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
@@ -109,21 +102,5 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
 
             insertData(name, List.of("ID", "JID", "VAL"), dataRows);
         }
-    }
-
-    private static void waitForIndex(String indexName) throws InterruptedException {
-        // FIXME: Wait for the index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the PK index.
-        assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
-                10_000)
-        );
-    }
-
-    private static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
-        return ((IgniteImpl) node).clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .indexes()
-                .get(indexName.toUpperCase());
     }
 }
