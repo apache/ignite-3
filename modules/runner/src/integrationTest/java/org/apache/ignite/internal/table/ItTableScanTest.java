@@ -799,7 +799,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
         InternalTable table = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
         RaftGroupService raftSvc = table.partitionRaftGroupService(partId);
-        long term = raftSvc.refreshAndGetLeaderWithTerm().join().term();
+        long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
 
         tx.assignCommitPartition(tblPartId);
         tx.enlist(tblPartId, new IgniteBiTuple<>(table.leaderAssignment(partId), term));
