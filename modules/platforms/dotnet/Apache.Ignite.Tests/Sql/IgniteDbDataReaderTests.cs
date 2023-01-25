@@ -555,12 +555,13 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     }
 
     [Test]
+    [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Testing sync method.")]
     public async Task TestNextResult()
     {
         await using var reader = await ExecuteReader();
 
-        Assert.Throws<NotSupportedException>(() => reader.NextResult());
-        Assert.ThrowsAsync<NotSupportedException>(() => reader.NextResultAsync());
+        Assert.IsFalse(reader.NextResult());
+        Assert.IsFalse(await reader.NextResultAsync());
     }
 
     [Test]
@@ -632,12 +633,35 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestDataTableLoadEmptyResultSet()
+    {
+        await using var reader = await Client.Sql.ExecuteReaderAsync(null, "SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE KEY > 100");
+
+        var dt = new DataTable();
+        dt.Load(reader);
+
+        Assert.AreEqual(14, dt.Columns.Count);
+        Assert.AreEqual(0, dt.Rows.Count);
+    }
+
+    [Test]
     public void TestExecuteReaderThrowsOnDmlQuery()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await Client.Sql.ExecuteReaderAsync(null, "UPDATE TBL_ALL_COLUMNS_SQL SET STR='s' WHERE KEY > 100"));
 
         Assert.AreEqual("ExecuteReaderAsync does not support queries without row set (DDL, DML).", ex!.Message);
+    }
+
+    [Test]
+    public async Task TestEmptyResultSet()
+    {
+        await using var reader = await Client.Sql.ExecuteReaderAsync(null, "SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE KEY > 100");
+        bool readRes = await reader.ReadAsync();
+
+        Assert.IsFalse(readRes);
+        Assert.AreEqual(14, reader.FieldCount);
+        Assert.IsFalse(reader.HasRows);
     }
 
     private async Task<IgniteDbDataReader> ExecuteReader()
