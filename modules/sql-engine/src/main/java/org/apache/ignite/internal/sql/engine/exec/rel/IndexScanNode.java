@@ -167,23 +167,23 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         flags,
                         requiredColumns
                 );
-            } else if (context().transactionId() != null) {
+            } else if (context().transaction() != null) {
+                // TODO IGNITE-17952 This block should be removed.
+                // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
-                        context().transactionId(),
-                        context().localNode(),
-                        term,
+                        context().transaction(),
                         lower,
                         upper,
                         flags,
                         requiredColumns
                 );
             } else {
-                // TODO IGNITE-17952 This block should be removed.
-                // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
-                        context().transaction(),
+                        context().transactionId(),
+                        context().localNode(),
+                        term,
                         lower,
                         upper,
                         flags,
@@ -204,21 +204,21 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         key,
                         requiredColumns
                 );
-            } else if (context().transactionId() != null) {
-                pub = schemaIndex.index().lookup(
-                        part,
-                        context().transactionId(),
-                        context().localNode(),
-                        term,
-                        key,
-                        requiredColumns
-                );
-            } else {
+            } else if (context().transaction() != null) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW lookup work from tx coordinator.
                 pub = schemaIndex.index().lookup(
                         part,
                         context().transaction(),
+                        key,
+                        requiredColumns
+                );
+            } else {
+                pub = schemaIndex.index().lookup(
+                        part,
+                        context().transactionId(),
+                        context().localNode(),
+                        term,
                         key,
                         requiredColumns
                 );
