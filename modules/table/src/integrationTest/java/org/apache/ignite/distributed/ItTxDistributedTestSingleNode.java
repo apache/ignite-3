@@ -93,6 +93,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -148,6 +149,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected Int2ObjectOpenHashMap<RaftGroupService> accRaftClients;
 
     protected Int2ObjectOpenHashMap<RaftGroupService> custRaftClients;
+
+    protected Map<String, TxStateStorage> txStateStorages;
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
@@ -253,6 +256,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        txStateStorages = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
@@ -299,6 +303,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             txMgr.start();
 
             txManagers.put(node.name(), txMgr);
+
+            txStateStorages.put(node.name(), new TestTxStateStorage());
         }
 
         log.info("Raft servers have been started");
@@ -389,7 +395,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             for (String assignment : partAssignments) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
-                var txStateStorage = new TestTxStateStorage();
+                var txStateStorage = txStateStorages.get(assignment);
                 var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
@@ -432,7 +438,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         new PartitionListener(
                                 partitionDataStorage,
                                 storageUpdateHandler,
-                                new TestTxStateStorage(),
+                                txStateStorage,
                                 safeTime
                         ),
                         RaftGroupEventsListener.noopLsnr
