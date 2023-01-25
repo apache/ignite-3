@@ -131,13 +131,19 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public void destroy() {
         closed = true;
 
-        clear();
+        clear0();
     }
 
     /**
      * Removes all index data.
      */
     public void clear() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        clear0();
+    }
+
+    private void clear0() {
         index.clear();
     }
 
@@ -163,7 +169,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
         rebalance = true;
 
-        clear();
+        clear0();
     }
 
     /**
@@ -178,7 +184,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
         rebalance = false;
 
-        clear();
+        clear0();
     }
 
     /**
