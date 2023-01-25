@@ -61,7 +61,13 @@ public partial class LinqTests : IgniteTestsBase
     [OneTimeSetUp]
     public async Task InsertData()
     {
-        foreach (var tableName in new[] { TableName, TableDateTimeName, TableDoubleName, TableFloatName, TableDecimalName })
+        var tableNames = new[]
+        {
+            TableName, TableDateTimeName, TableDoubleName, TableFloatName, TableDecimalName, TableInt8Name,
+            TableInt16Name, TableInt32Name, TableInt64Name
+        };
+
+        foreach (var tableName in tableNames)
         {
             await Client.Sql.ExecuteAsync(null, "delete from " + tableName);
         }
