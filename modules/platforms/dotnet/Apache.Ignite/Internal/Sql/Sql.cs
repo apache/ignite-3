@@ -56,10 +56,9 @@ namespace Apache.Ignite.Internal.Sql
             await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        public async Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
         {
-            // TODO: IGNITE-17333 SQL ResultSet object mapping
-            throw new NotSupportedException();
+            return await ExecuteAsyncInternal(transaction, statement, static cols => GetReaderFactory<T>(cols), args).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -203,6 +202,12 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             return row;
+        }
+
+        private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols)
+        {
+            // TODO: Reuse LINQ logic here.
+            throw new NotImplementedException();
         }
     }
 }
