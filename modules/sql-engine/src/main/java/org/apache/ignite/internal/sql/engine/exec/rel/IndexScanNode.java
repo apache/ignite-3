@@ -124,11 +124,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
-        boolean readOnlyTx = context().transactionTime() != null;
+        boolean roTx = context().transactionTime() != null;
         List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
 
         for (int i = 0; i < parts.length; i++) {
-            publishers.add(partitionPublisher(parts[i], readOnlyTx ? -1 : terms[i], cond));
+            publishers.add(partitionPublisher(parts[i], roTx ? -1 : terms[i], cond));
         }
 
         if (comp != null) {
@@ -140,7 +140,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private Publisher<RowT> partitionPublisher(int part, long term, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
-        boolean readOnlyTx = context().transactionTime() != null;
+        boolean roTx = context().transactionTime() != null;
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -157,7 +157,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            if (readOnlyTx) {
+            if (roTx) {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
                         context().transactionTime(),
@@ -196,7 +196,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
             BinaryTuple key = toBinaryTuple(cond.lower());
 
-            if (readOnlyTx) {
+            if (roTx) {
                 pub = schemaIndex.index().lookup(
                         part,
                         context().transactionTime(),

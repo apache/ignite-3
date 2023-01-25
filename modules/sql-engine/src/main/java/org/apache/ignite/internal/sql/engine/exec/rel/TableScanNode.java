@@ -81,7 +81,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        boolean readOnlyTx = context().transactionTime() != null;
+        boolean roTx = context().transactionTime() != null;
         List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
 
         for (int i = 0; i < parts.length; i++) {
@@ -89,7 +89,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
             Publisher<BinaryRow> pub;
 
-            if (readOnlyTx) {
+            if (roTx) {
                 pub = physTable.scan(partId, context().transactionTime(), context().localNode());
             } else if (context().transaction() != null) {
                 // TODO IGNITE-17952 This block should be removed.
