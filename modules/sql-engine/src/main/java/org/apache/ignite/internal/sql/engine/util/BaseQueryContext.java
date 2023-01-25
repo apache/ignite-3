@@ -195,7 +195,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.parameters = parameters;
         this.tx = tx;
         this.txTs = txTs;
-        this.txId = txId;
+        this.txId = txId == null && tx != null ? tx.id() : txId;
         this.plannerTimeout = plannerTimeout;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
