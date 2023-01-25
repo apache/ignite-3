@@ -113,6 +113,7 @@ internal static class ILGeneratorExtensions
 
         if (fromUnderlying != null && toUnderlying == null)
         {
+            // TODO: Throw better exception, including column name.
             var loc = il.DeclareLocal(from);
             il.Emit(OpCodes.Stloc, loc);
             il.Emit(OpCodes.Ldloca, loc);
