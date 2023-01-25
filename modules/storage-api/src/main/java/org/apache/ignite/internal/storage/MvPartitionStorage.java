@@ -248,4 +248,12 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     @Override
     void close();
+
+    /**
+     * Бла-бла.
+     */
+    // TODO: IGNITE-18603 документировать, реализовать, протестировать
+    default CompletableFuture<Void> clear() {
+        return CompletableFuture.completedFuture(null);
+    }
 }

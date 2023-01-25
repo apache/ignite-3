@@ -316,12 +316,7 @@ public abstract class AbstractTxStateStorageTest {
         // Let's check the storage.
         checkLastApplied(storage, 30, 30, 50);
 
-        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
-            assertThat(
-                    scan.stream().collect(toList()),
-                    containsInAnyOrder(rowsOnRebalance.toArray(new IgniteBiTuple[0]))
-            );
-        }
+        checkStorageContainsRows(storage, rowsOnRebalance);
     }
 
     @Test
@@ -412,9 +407,18 @@ public abstract class AbstractTxStateStorageTest {
         }
     }
 
-    private void checkStorageIsEmpty(TxStateStorage storage) {
+    private static void checkStorageIsEmpty(TxStateStorage storage) {
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
             assertThat(scan.stream().collect(toList()), is(empty()));
+        }
+    }
+
+    protected static void checkStorageContainsRows(TxStateStorage storage, List<IgniteBiTuple<UUID, TxMeta>> expRows) {
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
+            assertThat(
+                    scan.stream().collect(toList()),
+                    containsInAnyOrder(expRows.toArray(new IgniteBiTuple[0]))
+            );
         }
     }
 

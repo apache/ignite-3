@@ -133,28 +133,10 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             byte[] indexAndTermBytes = readLastAppliedIndexAndTerm(readOptions);
 
             if (indexAndTermBytes != null) {
-                long lastAppliedIndex = bytesToLong(indexAndTermBytes);
+                lastAppliedIndex = bytesToLong(indexAndTermBytes);
+                lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
 
-                if (lastAppliedIndex == REBALANCE_IN_PROGRESS) {
-                    try (WriteBatch writeBatch = new WriteBatch()) {
-                        clearStorageData(writeBatch);
-
-                        writeBatch.delete(lastAppliedIndexAndTermKey);
-
-                        db.write(writeOptions, writeBatch);
-                    } catch (Exception e) {
-                        throw new IgniteInternalException(
-                                TX_STATE_STORAGE_REBALANCE_ERR,
-                                IgniteStringFormatter.format("Failed to clear storage: [{}]", createStorageInfo()),
-                                e
-                        );
-                    }
-                } else {
-                    this.lastAppliedIndex = lastAppliedIndex;
-                    persistedIndex = lastAppliedIndex;
-
-                    lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
-                }
+                persistedIndex = lastAppliedIndex;
             }
 
             return null;

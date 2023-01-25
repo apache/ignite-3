@@ -548,10 +548,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     /** Removes all entries from this storage. */
-    public synchronized void clear() {
+    @Override
+    public synchronized CompletableFuture<Void> clear() {
         map.clear();
 
         gcQueue.clear();
+
+        // TODO: IGNITE-18603 исправить?
+        return CompletableFuture.completedFuture(null);
     }
 
     private void checkStorageClosed() {
