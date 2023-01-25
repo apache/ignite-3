@@ -410,7 +410,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
                                             .traitDefs(distributedSqlDisabled ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
-                                            .traitDefs(Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
