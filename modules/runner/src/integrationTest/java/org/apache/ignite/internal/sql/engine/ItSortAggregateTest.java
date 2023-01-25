@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.Locale;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.BeforeAll;
@@ -172,16 +173,17 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
         sql("CREATE TABLE t (a INTEGER, b INTEGER)");
 
         // Check ColocatedSortAggregate
-        String disabledRules1 = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'MapReduceSortAggregateConverterRule', "
-                + "'ColocatedHashAggregateConverterRule') */ ";
+        String[] disabledRules1 = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+                "ColocatedHashAggregateConverterRule"};
 
         // Check MapReduceSortAggregate
-        String disabledRules2 = " /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule', 'ColocatedSortAggregateConverterRule', "
-                + "'ColocatedHashAggregateConverterRule') */ ";
+        String[] disabledRules2 = {"MapReduceHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
+                "ColocatedHashAggregateConverterRule"};
 
         try {
-            for (String disabledRules : List.of(disabledRules1, disabledRules2)) {
-                assertQuery(appendDisabledRules("SELECT min(b) FROM t GROUP BY a", disabledRules))
+            for (String[] disabledRules : List.of(disabledRules1, disabledRules2)) {
+                assertQuery("SELECT min(b) FROM t GROUP BY a")
+                        .disableRules(disabledRules)
                         .returnNothing().check();
             }
         } finally {

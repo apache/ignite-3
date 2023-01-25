@@ -492,6 +492,12 @@ public abstract class QueryChecker {
             var res = getAllFromCursor(cur);
 
             if (expectedResult != null) {
+                if (Objects.equals(expectedResult, EMPTY_RES)) {
+                    assertEquals(0, res.size(), "Empty result expected");
+
+                    return;
+                }
+                
                 if (!ordered) {
                     // Avoid arbitrary order.
                     res.sort(new ListComparator());
