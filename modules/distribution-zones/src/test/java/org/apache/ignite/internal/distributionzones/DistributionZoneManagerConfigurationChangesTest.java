@@ -19,8 +19,8 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
@@ -47,9 +47,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -308,17 +308,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         assertZoneScaleUpChangeTriggerKey(1, 1);
 
         assertZonesChangeTriggerKey(1, 1);
-    }
-
-    @Test
-    void testDataNodesPropagationAfterZoneCreation1() throws Exception {
-        assertDataNodesForZone(1, null);
-
-        distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(100).build()).get();
-
-        assertDataNodesForZone(1, nodes);
-
-        assertZoneScaleUpChangeTriggerKey(1, 1);
     }
 
     @Test

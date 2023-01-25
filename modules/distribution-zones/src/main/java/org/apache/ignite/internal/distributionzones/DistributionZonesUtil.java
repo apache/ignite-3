@@ -38,8 +38,10 @@ class DistributionZonesUtil {
     /** Key prefix for zone's data nodes. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
+    /** Key prefix for zone's scale up change trigger key. */
     private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX = "distributionZone.scaleUp.change.trigger.";
 
+    /** Key prefix for zone's scale down change trigger key. */
     private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX = "distributionZone.scaleDown.change.trigger.";
 
     /** Key prefix for zones' logical topology nodes. */
@@ -63,17 +65,26 @@ class DistributionZonesUtil {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
     }
 
-    /** The key, needed for processing the event about zone's create and delete was triggered only once. */
+    /**
+     * The key needed for processing an event about zone's creation and deletion.
+     * With this key we can be sure that event was triggered only once.
+     */
     static ByteArray zonesChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX + zoneId);
     }
 
-    /** */
+    /**
+     * The key needed for processing an event about zone's data node propagation on scale up.
+     * With this key we can be sure that event was triggered only once.
+     */
     static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
-    /** */
+    /**
+     * The key needed for processing an event about zone's data node propagation on scale down.
+     * With this key we can be sure that event was triggered only once.
+     */
     static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
     }
@@ -139,9 +150,18 @@ class DistributionZonesUtil {
         ).yield(true);
     }
 
-    static Update updateDataNodesAndTriggerKeys(int zoneId, long revision, byte[] dataNodes) {
+    /**
+     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
+     * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
+     *
+     * @param zoneId Distribution zone id
+     * @param revision Revision of the event.
+     * @param nodes Data nodes.
+     * @return Update command for the meta storage.
+     */
+    static Update updateDataNodesAndTriggerKeys(int zoneId, long revision, byte[] nodes) {
         return ops(
-                put(zoneDataNodesKey(zoneId), dataNodes),
+                put(zoneDataNodesKey(zoneId), nodes),
                 put(zoneScaleUpChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
                 put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision)),
                 put(zonesChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))

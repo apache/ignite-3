@@ -39,6 +39,9 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test scenarios for the distribution zone schedulers.
+ */
 public class DistributionZonesSchedulersTest {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZonesSchedulersTest.class);
 

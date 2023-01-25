@@ -27,12 +27,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -48,7 +48,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
@@ -80,7 +79,6 @@ import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -105,6 +103,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
+/**
+ * Test scenarios for the distribution zone scale up.
+ */
 public class DistributionZoneManagerScaleUpTest {
     private static final String ZONE_NAME = "zone1";
 
@@ -180,19 +181,20 @@ public class DistributionZoneManagerScaleUpTest {
 
         clusterCfgMgr.start();
 
-        mockVaultAppliedRevision(0);
+        mockVaultAppliedRevision(1);
 
         when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
+        when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
 
-        when(metaStorageManager.registerExactWatch(any(), any())).then(invocation -> {
+        doAnswer(invocation -> {
             watchListener = invocation.getArgument(1);
 
-            return completedFuture(null);
-        });;
+            return null;
+        }).when(metaStorageManager).registerExactWatch(any(), any());
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
@@ -647,24 +649,6 @@ public class DistributionZoneManagerScaleUpTest {
         assertZoneScaleUpChangeTriggerKey(1, 1);
     }
 
-    private BiFunction<Integer, Long, CompletableFuture<Void>> saveDataNodesWithLatches(CountDownLatch in1, CountDownLatch out1) {
-        return (zoneId, revision) -> {
-//            try {
-                in1.countDown();
-//            } catch (InterruptedException e) {
-//                fail();
-//            }
-
-            return testSaveDataNodesOnScaleUp(zoneId, revision).thenRun(() -> {
-                try {
-                    out1.await();
-                } catch (InterruptedException e) {
-                    fail();
-                }
-            });
-        };
-    }
-
     private CompletableFuture<Void> testSaveDataNodesOnScaleUp(int zoneId, long revision) {
         return distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(zoneId, revision);
     }
@@ -721,9 +705,7 @@ public class DistributionZoneManagerScaleUpTest {
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        // TODO: remove this as part of https://issues.apache.org/jira/browse/IGNITE-18397
-        when(vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV))
-                .thenReturn(completedFuture(new VaultEntry(MetaStorageManagerImpl.APPLIED_REV, longToBytes(revision))));
+        when(metaStorageManager.appliedRevision()).thenReturn(revision);
     }
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {
