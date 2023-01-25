@@ -91,12 +91,12 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
             if (readOnlyTx) {
                 pub = physTable.scan(partId, context().transactionTime(), context().localNode());
-            } else if (context().transactionId() != null) {
-                pub = physTable.scan(partId, context().transactionId(), context().localNode(), terms[i], null, null, null, 0, null);
-            } else {
+            } else if (context().transaction() != null) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = physTable.scan(partId, context().transaction());
+            } else {
+                pub = physTable.scan(partId, context().transactionId(), context().localNode(), terms[i], null, null, null, 0, null);
             }
 
             publishers.add(convertPublisher(pub));
