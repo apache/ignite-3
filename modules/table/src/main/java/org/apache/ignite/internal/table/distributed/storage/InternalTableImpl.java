@@ -1265,7 +1265,7 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                onClose.apply(t == null ? completedFuture(null) : CompletableFuture.failedFuture(t)).handle((ignore, th) -> {
+                onClose.apply(t == null ? completedFuture(null) : failedFuture(t)).handle((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {
@@ -1292,6 +1292,8 @@ public class InternalTableImpl implements InternalTable {
 
                         return;
                     } else {
+                        assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
+
                         binaryRows.forEach(subscriber::onNext);
                     }
 

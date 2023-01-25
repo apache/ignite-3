@@ -347,14 +347,14 @@ public class ExecutionServiceImplTest {
 
         var messageService = node.messageService();
         var mailboxRegistry = new MailboxRegistryImpl();
-        var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
 
-        var exchangeService = new ExchangeServiceImpl(clusterNode, taskExecutor, mailboxRegistry, messageService);
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
         when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
 
+        var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
         var executionService = new ExecutionServiceImpl<>(
                 clusterNode,
                 messageService,

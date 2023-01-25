@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -80,7 +81,6 @@ import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -174,12 +174,13 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         mockVaultAppliedRevision(1);
 
         when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
+        when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
 
-        when(metaStorageManager.registerExactWatch(any(), any())).then(invocation -> {
+        doAnswer(invocation -> {
             watchListener = invocation.getArgument(1);
 
-            return completedFuture(null);
-        });
+            return null;
+        }).when(metaStorageManager).registerExactWatch(any(), any());
 
         mockDefaultZoneConfiguration();
         mockDefaultZoneView();
@@ -187,7 +188,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
@@ -591,8 +592,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        // TODO: remove this as part of https://issues.apache.org/jira/browse/IGNITE-18397
-        when(vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV))
-                .thenReturn(completedFuture(new VaultEntry(MetaStorageManagerImpl.APPLIED_REV, longToBytes(revision))));
+        when(metaStorageManager.appliedRevision()).thenReturn(revision);
     }
 }

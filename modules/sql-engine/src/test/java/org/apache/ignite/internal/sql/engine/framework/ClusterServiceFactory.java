@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * Auxiliary object to create the associated {@link MessagingService}
  * and {@link TopologyService} for each node in the cluster.
  */
-class TestClusterService {
+public class ClusterServiceFactory {
     private final List<String> allNodes;
 
     private final Map<String, LocalMessagingService> messagingServicesByNode = new ConcurrentHashMap<>();
@@ -54,11 +54,17 @@ class TestClusterService {
      *
      * @param allNodes A collection of nodes to create cluster service from.
      */
-    TestClusterService(List<String> allNodes) {
+    ClusterServiceFactory(List<String> allNodes) {
         this.allNodes = allNodes;
     }
 
-    ClusterService spawnForNode(String nodeName) {
+    /**
+     * Creates an instance of {@link ClusterService} for a given node.
+     *
+     * @param nodeName A name of the node to create cluster service for.
+     * @return An instance of cluster service.
+     */
+    public ClusterService forNode(String nodeName) {
         return new ClusterService() {
             /** {@inheritDoc} */
             @Override

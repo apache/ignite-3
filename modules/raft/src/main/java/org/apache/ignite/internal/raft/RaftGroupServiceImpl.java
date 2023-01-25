@@ -363,7 +363,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> addLearners(List<Peer> learners) {
+    public CompletableFuture<Void> addLearners(Collection<Peer> learners) {
         Peer leader = this.leader;
 
         if (leader == null) {

@@ -179,10 +179,10 @@ public interface RaftGroupService {
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param learners List of learners.
+     * @param learners Collection of learners.
      * @return A future.
      */
-    CompletableFuture<Void> addLearners(List<Peer> learners);
+    CompletableFuture<Void> addLearners(Collection<Peer> learners);
 
     /**
      * Removes learners.

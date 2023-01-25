@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.Collection;
+import org.apache.ignite.internal.metastorage.Entry;
 
 /**
- * QueryBatchAcknowledgeMessage interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Interface for declaring callbacks that get called after all Meta Storage watches have been notified of a particular revision.
  */
-@Transferable(value = SqlQueryMessageGroup.QUERY_BATCH_ACK)
-public interface QueryBatchAcknowledgeMessage extends ExecutionContextAwareMessage {
+@FunctionalInterface
+public interface OnRevisionAppliedCallback {
     /**
-     * Get exchange ID.
+     * Notifies of completion of processing of Meta Storage watches for a particular revision.
+     *
+     * @param revision Revision.
+     * @param updatedEntries Entries that have been modified under this revision and processed by at least one watch.
      */
-    long exchangeId();
-
-    /**
-     * Get batch ID.
-     */
-    int batchId();
+    void onRevisionApplied(long revision, Collection<Entry> updatedEntries);
 }

@@ -28,6 +28,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
@@ -52,6 +56,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of Sorted index storage using Page Memory.
  */
 public class PageMemorySortedIndexStorage implements SortedIndexStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
+
     /** Index descriptor. */
     private final SortedIndexDescriptor descriptor;
 
@@ -431,5 +437,37 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     private String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
+    }
+
+    /**
+     * Starts destruction of the data stored by this index partition.
+     *
+     * @param executor {@link GradualTaskExecutor} on which to destroy.
+     * @throws StorageException If something goes wrong.
+     */
+    public void startDestructionOn(GradualTaskExecutor executor) throws StorageException {
+        try {
+            executor.execute(
+                    sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false)
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Sorted index " + descriptor.id() + " destruction has failed", ex);
+                }
+            });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy sorted index " + indexDescriptor().id(), e);
+        }
+    }
+
+    private void removeIndexColumns(SortedIndexRow indexRow) {
+        if (indexRow.indexColumns().link() != PageIdUtils.NULL_LINK) {
+            try {
+                freeList.removeDataRowByLink(indexRow.indexColumns().link());
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Cannot destroy sorted index " + indexDescriptor().id(), e);
+            }
+
+            indexRow.indexColumns().link(PageIdUtils.NULL_LINK);
+        }
     }
 }

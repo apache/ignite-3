@@ -15,37 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.jetbrains.annotations.Nullable;
+dependencies {
+    implementation project(':ignite-metastorage-api')
 
-/**
- * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
- */
-public class BinaryRowAndRowId {
-    /** Binary row. */
-    private final @Nullable BinaryRow binaryRow;
+    implementation project(':ignite-core')
 
-    /** Row id. */
-    private final RowId rowId;
-
-    /**
-     * Constructor.
-     *
-     * @param binaryRow Binary row.
-     * @param rowId Row id.
-     */
-    public BinaryRowAndRowId(@Nullable BinaryRow binaryRow, RowId rowId) {
-        this.binaryRow = binaryRow;
-        this.rowId = rowId;
-    }
-
-    public @Nullable BinaryRow binaryRow() {
-        return binaryRow;
-    }
-
-    public RowId rowId() {
-        return rowId;
-    }
+    implementation libs.jetbrains.annotations
 }
+
+description = 'ignite-placement-driver'

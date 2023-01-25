@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.rocksdb;
 
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -109,5 +112,24 @@ class RocksUtilsTest {
         };
 
         abstract void closeAll(@Nullable AbstractNativeReference ref1, @Nullable AbstractNativeReference ref2);
+    }
+
+    @Test
+    void testIncrementPrefix() {
+        byte[] incremented = incrementPrefix(new byte[] {0, 1, Byte.MAX_VALUE});
+
+        assertThat(incremented, is(new byte[] {0, 1, Byte.MIN_VALUE}));
+
+        incremented = incrementPrefix(new byte[] {0, 1, -1});
+
+        assertThat(incremented, is(new byte[] {0, 2}));
+
+        incremented = incrementPrefix(new byte[] {0, -1, -1});
+
+        assertThat(incremented, is(new byte[] {1}));
+
+        incremented = incrementPrefix(new byte[] {-1, -1, -1});
+
+        assertThat(incremented, is(nullValue()));
     }
 }

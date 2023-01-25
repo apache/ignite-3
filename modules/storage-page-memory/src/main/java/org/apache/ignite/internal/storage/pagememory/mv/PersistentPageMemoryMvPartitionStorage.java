@@ -233,33 +233,37 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         busy(() -> {
-            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
-
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
-            UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
-
-            byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
-
-            replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
-
-            try {
-                if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                    long configPageId = blobStorage.addBlob(groupConfigBytes);
-
-                    meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
-                } else {
-                    blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
-                }
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
-            } finally {
-                replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
-            }
+            committedGroupConfigurationBusy(config);
 
             return null;
         });
+    }
+
+    private void committedGroupConfigurationBusy(RaftGroupConfiguration config) {
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
+
+        CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
+        UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
+
+        byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
+
+        replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
+
+        try {
+            if (meta.lastReplicationProtocolGroupConfigFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                long configPageId = blobStorage.addBlob(groupConfigBytes);
+
+                meta.lastReplicationProtocolGroupConfigFirstPageId(lastCheckpointId, configPageId);
+            } else {
+                blobStorage.updateBlob(meta.lastReplicationProtocolGroupConfigFirstPageId(), groupConfigBytes);
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot save committed group configuration, groupId=" + groupId + ", partitionId=" + groupId, e);
+        } finally {
+            replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
+        }
     }
 
     @Nullable
@@ -286,8 +290,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    protected List<AutoCloseable> getResourcesToClose() {
-        List<AutoCloseable> resourcesToClose = super.getResourcesToClose();
+    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
+
+        resourcesToClose.add(hashIndexes::clear);
+        resourcesToClose.add(sortedIndexes::clear);
 
         resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 
@@ -395,5 +402,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexMetaTree::close,
                 blobStorage::close
         );
+    }
+
+    @Override
+    public void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        committedGroupConfigurationBusy(config);
     }
 }

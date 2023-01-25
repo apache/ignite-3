@@ -626,8 +626,6 @@ public class KeyValueViewOperationsTest {
         Mockito.when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS));
-
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
@@ -668,6 +666,8 @@ public class KeyValueViewOperationsTest {
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
                 valCols
         );
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())

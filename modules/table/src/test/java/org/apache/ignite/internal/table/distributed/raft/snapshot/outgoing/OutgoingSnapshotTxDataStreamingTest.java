@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
@@ -59,12 +57,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutgoingSnapshotTxDataStreamingTest {
     @Mock
     private PartitionAccess partitionAccess;
-
-    @Mock
-    private MvPartitionStorage mvPartitionStorage;
-
-    @Mock
-    private TxStateStorage txStateStorage;
 
     private OutgoingSnapshot snapshot;
 
@@ -87,17 +79,14 @@ class OutgoingSnapshotTxDataStreamingTest {
     void createTestInstance() {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
-        lenient().when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
-        lenient().when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
-
-        lenient().when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+        lenient().when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
     }
 
     @Test
     void sendsTxDataFromStorage() {
-        configureStorageToHaveExactly(txId1, meta1, txId2, meta2);
+        configurePartitionAccessToHaveExactly(txId1, meta1, txId2, meta2);
 
         SnapshotTxDataResponse response = getTxDataResponse(Integer.MAX_VALUE);
 
@@ -114,8 +103,8 @@ class OutgoingSnapshotTxDataStreamingTest {
         assertThat(response.txMeta().get(1).commitTimestamp(), is(meta2.commitTimestamp()));
     }
 
-    private void configureStorageToHaveExactly(UUID txId1, TxMeta meta1, UUID txId2, TxMeta meta2) {
-        when(txStateStorage.scan()).thenReturn(Cursor.fromBareIterator(
+    private void configurePartitionAccessToHaveExactly(UUID txId1, TxMeta meta1, UUID txId2, TxMeta meta2) {
+        when(partitionAccess.getAllTxMeta()).thenReturn(Cursor.fromBareIterator(
                 List.of(new IgniteBiTuple<>(txId1, meta1), new IgniteBiTuple<>(txId2, meta2)).iterator())
         );
 
@@ -139,15 +128,15 @@ class OutgoingSnapshotTxDataStreamingTest {
         return snapshot.handleSnapshotTxDataRequest(request);
     }
 
-    private void configureStorageToBeEmpty() {
-        when(txStateStorage.scan()).thenReturn(Cursor.fromBareIterator(emptyIterator()));
+    private void configurePartitionAccessToBeEmpty() {
+        when(partitionAccess.getAllTxMeta()).thenReturn(Cursor.fromBareIterator(emptyIterator()));
 
         snapshot.freezeScopeUnderMvLock();
     }
 
     @Test
     void finalTxDataChunkHasFinishTrue() {
-        configureStorageToBeEmpty();
+        configurePartitionAccessToBeEmpty();
 
         SnapshotTxDataResponse response = getTxDataResponse(Integer.MAX_VALUE);
 
@@ -156,7 +145,7 @@ class OutgoingSnapshotTxDataStreamingTest {
 
     @Test
     void txDataHandlingRespectsBatchSizeHintForMessagesFromPartition() {
-        configureStorageToHaveExactly(txId1, meta1, txId2, meta2);
+        configurePartitionAccessToHaveExactly(txId1, meta1, txId2, meta2);
 
         SnapshotTxDataResponse response = getTxDataResponse(1);
 
@@ -165,7 +154,7 @@ class OutgoingSnapshotTxDataStreamingTest {
 
     @Test
     void txDataResponseThatIsNotLastHasFinishFalse() {
-        configureStorageToHaveExactly(txId1, meta1, txId2, meta2);
+        configurePartitionAccessToHaveExactly(txId1, meta1, txId2, meta2);
 
         SnapshotTxDataResponse response = getTxDataResponse(1);
 
@@ -173,10 +162,10 @@ class OutgoingSnapshotTxDataStreamingTest {
     }
 
     @Test
-    void closesCursorWhenTxDataIsExhaustedInPartition() throws Exception {
+    void closesCursorWhenTxDataIsExhaustedInPartition() {
         Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = spy(Cursor.fromBareIterator(emptyIterator()));
 
-        when(txStateStorage.scan()).thenReturn(cursor);
+        when(partitionAccess.getAllTxMeta()).thenReturn(cursor);
         snapshot.freezeScopeUnderMvLock();
 
         getTxDataResponse(Integer.MAX_VALUE);

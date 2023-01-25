@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
@@ -56,6 +57,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -103,7 +105,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -170,8 +171,8 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private volatile Set<String> logicalTopology;
 
-    /** Watch listener id to unregister the watch listener on {@link DistributionZoneManager#stop()}. */
-    private volatile Long watchListenerId;
+    /** Watch listener. Needed to unregister it on {@link DistributionZoneManager#stop()}. */
+    private final WatchListener watchListener;
 
     /**
      * Creates a new distribution zone manager.
@@ -195,6 +196,8 @@ public class DistributionZoneManager implements IgniteComponent {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
+
+        this.watchListener = createMetastorageListener();
 
         logicalTopology = Collections.emptySet();
 
@@ -487,9 +490,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
-            registerMetaStorageWatchListener()
-                    .thenAccept(ignore -> initDataNodesFromVaultManager())
-                    .thenAccept(ignore -> initLogicalTopologyAndVersionInMetaStorageOnStart());
+            metaStorageManager.registerExactWatch(zonesLogicalTopologyKey(), watchListener);
+
+            initDataNodesFromVaultManager();
+
+            initLogicalTopologyAndVersionInMetaStorageOnStart();
         } finally {
             busyLock.leaveBusy();
         }
@@ -506,9 +511,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         logicalTopologyService.removeEventListener(topologyEventListener);
 
-        if (watchListenerId != null) {
-            metaStorageManager.unregisterWatch(watchListenerId);
-        }
+        metaStorageManager.unregisterWatch(watchListener);
 
         shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
@@ -785,49 +788,36 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            // TODO: Remove this call as part of https://issues.apache.org/jira/browse/IGNITE-18397
-            vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV)
-                    .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()))
-                    .thenAccept(vaultAppliedRevision -> {
+            long appliedRevision = metaStorageManager.appliedRevision();
+
+            vaultMgr.get(zonesLogicalTopologyKey())
+                    .thenAccept(vaultEntry -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
                         }
 
                         try {
-                            vaultMgr.get(zonesLogicalTopologyKey())
-                                    .thenAccept(vaultEntry -> {
-                                        if (!busyLock.enterBusy()) {
-                                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-                                        }
+                            if (vaultEntry != null && vaultEntry.value() != null) {
+                                logicalTopology = fromBytes(vaultEntry.value());
 
-                                        try {
-                                            if (vaultEntry != null && vaultEntry.value() != null) {
-                                                logicalTopology = fromBytes(vaultEntry.value());
+                                // init keys and data nodes for default zone
+                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                        DEFAULT_ZONE_ID,
+                                        appliedRevision,
+                                        vaultEntry.value()
+                                );
 
-                                                // init keys and data nodes for default zone
-                                                saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                        DEFAULT_ZONE_ID,
-                                                        vaultAppliedRevision,
-                                                        vaultEntry.value()
-                                                );
+                                zonesConfiguration.distributionZones().value().namedListKeys()
+                                        .forEach(zoneName -> {
+                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
-                                                zonesConfiguration.distributionZones().value().namedListKeys()
-                                                        .forEach(zoneName -> {
-                                                            int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId()
-                                                                    .value();
-
-                                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
-                                                                    zoneId,
-                                                                    vaultAppliedRevision,
-                                                                    vaultEntry.value()
-                                                            );
-
-                                                        });
-                                            }
-                                        } finally {
-                                            busyLock.leaveBusy();
-                                        }
-                                    });
+                                            saveDataNodesAndUpdateTriggerKeysInMetaStorage(
+                                                    zoneId,
+                                                    appliedRevision,
+                                                    vaultEntry.value()
+                                            );
+                                        });
+                            }
                         } finally {
                             busyLock.leaveBusy();
                         }
@@ -837,65 +827,57 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
-    /**
-     * Registers {@link WatchListener} which updates data nodes of distribution zones on logical topology changing event.
-     *
-     * @return Future representing pending completion of the operation.
-     */
-    private CompletableFuture<?> registerMetaStorageWatchListener() {
-        return metaStorageManager.registerExactWatch(zonesLogicalTopologyKey(), new WatchListener() {
-                    @Override
-                    public boolean onUpdate(@NotNull WatchEvent evt) {
-                        if (!busyLock.enterBusy()) {
-                            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-                        }
+    private WatchListener createMetastorageListener() {
+        return new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                }
 
-                        try {
-                            assert evt.single() : "Expected an event with one entry but was an event with several entries with keys: "
-                                    + evt.entryEvents().stream().map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key())
-                                    .collect(toList());
+                try {
+                    assert evt.single() : "Expected an event with one entry but was an event with several entries with keys: "
+                            + evt.entryEvents().stream().map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key())
+                            .collect(toList());
 
-                            Entry newEntry = evt.entryEvent().newEntry();
+                    Entry newEntry = evt.entryEvent().newEntry();
 
-                            long revision = newEntry.revision();
+                    long revision = newEntry.revision();
 
-                            byte[] newLogicalTopologyBytes = newEntry.value();
+                    byte[] newLogicalTopologyBytes = newEntry.value();
 
-                            Set<String> newLogicalTopology = fromBytes(newLogicalTopologyBytes);
+                    Set<String> newLogicalTopology = fromBytes(newLogicalTopologyBytes);
 
-                            Set<String> removedNodes =
-                                    logicalTopology.stream().filter(node -> !newLogicalTopology.contains(node)).collect(toSet());
+                    Set<String> removedNodes =
+                            logicalTopology.stream().filter(node -> !newLogicalTopology.contains(node)).collect(toSet());
 
-                            Set<String> addedNodes =
-                                    newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toSet());
+                    Set<String> addedNodes =
+                            newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toSet());
 
-                            logicalTopology = newLogicalTopology;
+                    logicalTopology = newLogicalTopology;
 
-                            NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
-                                    zonesConfiguration.distributionZones();
+                    NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
+                            zonesConfiguration.distributionZones();
 
-                            for (int i = 0; i < zones.value().size(); i++) {
-                                DistributionZoneView zoneView = zones.value().get(i);
+                    for (int i = 0; i < zones.value().size(); i++) {
+                        DistributionZoneView zoneView = zones.value().get(i);
 
-                                scheduleTimers(zoneView, addedNodes, removedNodes, revision);
-                            }
-
-                            DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
-
-                            scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
-
-                            return true;
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
+                        scheduleTimers(zoneView, addedNodes, removedNodes, revision);
                     }
 
-                    @Override
-                    public void onError(@NotNull Throwable e) {
-                        LOG.warn("Unable to process logical topology event", e);
-                    }
-                })
-                .thenAccept(id -> watchListenerId = id);
+                    DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
+
+                    scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process logical topology event", e);
+            }
+        };
     }
 
     private void scheduleTimers(

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -33,13 +34,22 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
@@ -48,15 +58,15 @@ import org.hamcrest.core.SubstringMatcher;
  * Query checker.
  */
 public abstract class QueryChecker {
-    /** Partition release timeout. */
-    private static final long PART_RELEASE_TIMEOUT = 5_000L;
+    /** Timeout should be big enough to prevent premature session expiration. */
+    private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
     private static final Object[] NULL_AS_VARARG = {null};
 
     /**
      * Ignite table scan matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -67,7 +77,7 @@ public abstract class QueryChecker {
     /**
      * Ignite index scan matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -79,7 +89,7 @@ public abstract class QueryChecker {
     /**
      * Ignite index scan matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @param idxName Index name.
      * @return Matcher.
@@ -92,7 +102,7 @@ public abstract class QueryChecker {
     /**
      * Ignite table|index scan with projects unmatcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -111,8 +121,8 @@ public abstract class QueryChecker {
     /**
      * Ignite table|index scan with projects matcher.
      *
-     * @param schema          Schema name.
-     * @param tblName         Table name.
+     * @param schema Schema name.
+     * @param tblName Table name.
      * @param requiredColumns columns in projection.
      * @return Matcher.
      */
@@ -120,15 +130,15 @@ public abstract class QueryChecker {
         return matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
                 + Arrays.toString(requiredColumns)
-                        .replaceAll("\\[", "")
-                        .replaceAll("]", "") + "\\}\\].*");
+                .replaceAll("\\[", "")
+                .replaceAll("]", "") + "\\}\\].*");
     }
 
     /**
      * Ignite table|index scan with only one project matcher.
      *
-     * @param schema          Schema name.
-     * @param tblName         Table name.
+     * @param schema Schema name.
+     * @param tblName Table name.
      * @param requiredColumns columns in projection.
      * @return Matcher.
      */
@@ -136,14 +146,14 @@ public abstract class QueryChecker {
         return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
                 + Arrays.toString(requiredColumns)
-                        .replaceAll("\\[", "")
-                        .replaceAll("]", "") + "\\}\\].*");
+                .replaceAll("\\[", "")
+                .replaceAll("]", "") + "\\}\\].*");
     }
 
     /**
      * Ignite table|index scan with any project matcher.
      *
-     * @param schema  Schema name.
+     * @param schema Schema name.
      * @param tblName Table name.
      * @return Matcher.
      */
@@ -218,8 +228,8 @@ public abstract class QueryChecker {
     /**
      * Ignite any index can matcher.
      *
-     * @param schema   Schema name.
-     * @param tblName  Table name.
+     * @param schema Schema name.
+     * @param tblName Table name.
      * @param idxNames Index names.
      * @return Matcher.
      */
@@ -233,9 +243,11 @@ public abstract class QueryChecker {
         );
     }
 
-    private final String qry;
+    private final String originalQuery;
 
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
+
+    private final ArrayList<String> disabledRules = new ArrayList<>();
 
     private List<List<?>> expectedResult;
 
@@ -251,13 +263,17 @@ public abstract class QueryChecker {
 
     private String exactPlan;
 
+    private Transaction tx;
+
     /**
      * Constructor.
      *
+     * @param tx Transaction.
      * @param qry Query.
      */
-    public QueryChecker(String qry) {
-        this.qry = qry;
+    public QueryChecker(Transaction tx, String qry) {
+        this.tx = tx;
+        this.originalQuery = qry;
     }
 
     /**
@@ -288,10 +304,23 @@ public abstract class QueryChecker {
     }
 
     /**
+     * Disables rules.
+     *
+     * @param rules Rules to disable.
+     * @return This.
+     */
+    public QueryChecker disableRules(String... rules) {
+        if (rules != null) {
+            Arrays.stream(rules).filter(Objects::nonNull).forEach(disabledRules::add);
+        }
+
+        return this;
+    }
+
+    /**
      * This method add the given row to the list of expected, the order of enumeration does not matter unless {@link #ordered()} is set.
      *
      * @param res Array with values one returning tuple. {@code null} array will be interpreted as single-column-null row.
-     *
      * @return This.
      */
     public QueryChecker returns(Object... res) {
@@ -370,70 +399,92 @@ public abstract class QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry, params);
+        SessionId sessionId = qryProc.createSession(SESSION_IDLE_TIMEOUT, PropertiesHolder.fromMap(
+                Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
+        ));
 
-        var explainCursor = explainCursors.get(0).join();
-        var explainRes = getAllFromCursor(explainCursor);
-        String actualPlan = (String) explainRes.get(0).get(0);
+        QueryContext context = tx != null ? QueryContext.of(tx) : QueryContext.of();
 
-        if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-            for (Matcher<String> matcher : planMatchers) {
-                assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
+        String qry = originalQuery;
+
+        if (!disabledRules.isEmpty()) {
+            assert qry.matches("(?i)^select .*") : "SELECT query was expected: " + originalQuery;
+
+            qry = qry.replaceAll("(?i)^select", "select "
+                    + disabledRules.stream().collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */")));
+        }
+        try {
+
+            if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
+
+                CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(sessionId,
+                        context, "EXPLAIN PLAN FOR " + qry, params);
+                AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
+                List<List<Object>> explainRes = getAllFromCursor(explainCursor);
+
+                String actualPlan = (String) explainRes.get(0).get(0);
+
+                if (!CollectionUtils.nullOrEmpty(planMatchers)) {
+                    for (Matcher<String> matcher : planMatchers) {
+                        assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
+                    }
+                }
+
+                if (exactPlan != null) {
+                    assertEquals(exactPlan, actualPlan);
+                }
+
             }
-        }
+            // Check result.
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = qryProc.querySingleAsync(sessionId, context, qry, params);
+            AsyncSqlCursor<List<Object>> cur = await(cursors);
 
-        if (exactPlan != null) {
-            assertEquals(exactPlan, actualPlan);
-        }
+            if (expectedColumnNames != null) {
+                List<String> colNames = cur.metadata().columns().stream()
+                        .map(ColumnMetadata::name)
+                        .collect(Collectors.toList());
 
-        // Check result.
-        var cursors = qryProc.queryAsync("PUBLIC", qry, params);
-
-        var cur = cursors.get(0).join();
-
-        if (expectedColumnNames != null) {
-            List<String> colNames = cur.metadata().columns().stream()
-                    .map(ColumnMetadata::name)
-                    .collect(Collectors.toList());
-
-            assertThat("Column names don't match", colNames, equalTo(expectedColumnNames));
-        }
-
-        if (expectedColumnTypes != null) {
-            List<Type> colTypes = cur.metadata().columns().stream()
-                    .map(ColumnMetadata::type)
-                    .map(ColumnType::columnTypeToClass)
-                    .collect(Collectors.toList());
-
-            assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
-        }
-
-        if (metadataMatchers != null) {
-            List<ColumnMetadata> columnMetadata = cur.metadata().columns();
-
-            Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
-            Iterator<MetadataMatcher> matcherIterator = metadataMatchers.iterator();
-
-            while (matcherIterator.hasNext() && valueIterator.hasNext()) {
-                MetadataMatcher matcher = matcherIterator.next();
-                ColumnMetadata actualElement = valueIterator.next();
-
-                matcher.check(actualElement);
+                assertThat("Column names don't match", colNames, equalTo(expectedColumnNames));
             }
 
-            assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
-        }
+            if (expectedColumnTypes != null) {
+                List<Type> colTypes = cur.metadata().columns().stream()
+                        .map(ColumnMetadata::type)
+                        .map(ColumnType::columnTypeToClass)
+                        .collect(Collectors.toList());
 
-        var res = getAllFromCursor(cur);
-
-        if (expectedResult != null) {
-            if (!ordered) {
-                // Avoid arbitrary order.
-                res.sort(new ListComparator());
-                expectedResult.sort(new ListComparator());
+                assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
             }
 
-            assertEqualsCollections(expectedResult, res);
+            if (metadataMatchers != null) {
+                List<ColumnMetadata> columnMetadata = cur.metadata().columns();
+
+                Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
+                Iterator<MetadataMatcher> matcherIterator = metadataMatchers.iterator();
+
+                while (matcherIterator.hasNext() && valueIterator.hasNext()) {
+                    MetadataMatcher matcher = matcherIterator.next();
+                    ColumnMetadata actualElement = valueIterator.next();
+
+                    matcher.check(actualElement);
+                }
+
+                assertEquals(metadataMatchers.size(), columnMetadata.size(), "Column metadata doesn't match");
+            }
+
+            var res = getAllFromCursor(cur);
+
+            if (expectedResult != null) {
+                if (!ordered) {
+                    // Avoid arbitrary order.
+                    res.sort(new ListComparator());
+                    expectedResult.sort(new ListComparator());
+                }
+
+                assertEqualsCollections(expectedResult, res);
+            }
+        } finally {
+            await(qryProc.closeSession(sessionId));
         }
     }
 

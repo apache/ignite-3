@@ -46,14 +46,16 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
@@ -79,6 +81,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -142,13 +145,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static TopologyService topologySrv = mock(TopologyService.class);
 
     /** Default reflection marshaller factory. */
-    protected static MarshallerFactory marshallerFactory;
+    private static MarshallerFactory marshallerFactory;
 
     /** Schema descriptor for tests. */
-    protected static SchemaDescriptor schemaDescriptor;
+    private static SchemaDescriptor schemaDescriptor;
 
     /** Key-value marshaller for tests. */
-    protected static KvMarshaller<TestKey, TestValue> kvMarshaller;
+    private static KvMarshaller<TestKey, TestValue> kvMarshaller;
+
+    /** Row converter for tests. */
+    private static BinaryConverter rowConverter;
 
     /** Partition replication listener to test. */
     private static PartitionReplicaListener partitionReplicaListener;
@@ -217,16 +223,29 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID sortedIndexId = UUID.randomUUID();
         UUID hashIndexId = UUID.randomUUID();
 
-        BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
-                new Element(NativeTypes.BYTES, false)
+        schemaDescriptor = new SchemaDescriptor(1, new Column[]{
+                new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
+        }, new Column[]{
+                new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
         });
 
-        Function<BinaryRow, BinaryTuple> row2tuple = tableRow -> new BinaryTuple(pkSchema, ((BinaryRow) tableRow).keySlice());
+        rowConverter = BinaryConverter.forRow(schemaDescriptor);
+
+        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+        BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
+
+        BinaryConverter keyConverter = BinaryConverter.forKey(schemaDescriptor);
+        Function<BinaryRow, BinaryTuple> row2tuple = keyConverter::toTuple;
+
+        var rowConverter = new TableRowConverter(tupleSchema, indexSchema);
 
         pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 pkIndexId,
                 new TestHashIndexStorage(null),
-                row2tuple
+                row2tuple,
+                rowConverter::toTuple
         ));
 
         sortedIndexStorage = new TableSchemaAwareIndexStorage(
@@ -234,6 +253,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
                         new SortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
                 ))),
+                row -> null,
                 row -> null
         );
 
@@ -242,6 +262,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TestHashIndexStorage(new HashIndexDescriptor(hashIndexId, List.of(
                         new HashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
                 ))),
+                row -> null,
                 row -> null
         );
 
@@ -251,6 +272,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, lockManager, null, row2tuple);
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2tuple);
 
+        DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
                 mockRaftClient,
@@ -266,18 +288,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 safeTimeClock,
                 txStateStorage,
                 placementDriver,
-                peer -> localNode.name().equals(peer.consistentId())
+                peer -> localNode.name().equals(peer.consistentId()),
+                CompletableFuture.completedFuture(schemaManager)
         );
 
         marshallerFactory = new ReflectionMarshallerFactory();
-
-        schemaDescriptor = new SchemaDescriptor(1, new Column[]{
-                new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        }, new Column[]{
-                new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        });
 
         sortedIndexBinarySchema = BinaryTupleSchema.createSchema(schemaDescriptor, new int[]{2 /* intVal column */});
 
@@ -364,11 +379,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testReadOnlySingleRowReplicaRequestCommittedResult() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
-        BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
+        TableRow testTableRow = tableRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        pkStorage.get().put(testBinaryKey, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
+        pkStorage.get().put(testTableRow, rowId);
+        testMvPartitionStorage.addWrite(rowId, testTableRow, txId, tblId, partId);
         testMvPartitionStorage.commitWrite(rowId, clock.now());
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
@@ -387,12 +402,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testReadOnlySingleRowReplicaRequestResolveWriteIntentCommitted() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
-        BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
+        TableRow testTableRow = tableRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
         txState = TxState.COMMITED;
 
-        pkStorage.get().put(testBinaryKey, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
+        pkStorage.get().put(testTableRow, rowId);
+        testMvPartitionStorage.addWrite(rowId, testTableRow, txId, tblId, partId);
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
@@ -410,11 +425,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testReadOnlySingleRowReplicaRequestResolveWriteIntentPending() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
-        BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
+        TableRow testTableRow = tableRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
 
-        pkStorage.get().put(testBinaryKey, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
+        pkStorage.get().put(testTableRow, rowId);
+        testMvPartitionStorage.addWrite(rowId, testTableRow, txId, tblId, partId);
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
@@ -432,12 +447,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testReadOnlySingleRowReplicaRequestResolveWriteIntentAborted() throws Exception {
         UUID txId = Timestamp.nextVersion().toUuid();
         BinaryRow testBinaryKey = nextBinaryKey();
-        BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
+        TableRow testTableRow = tableRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(partId);
         txState = TxState.ABORTED;
 
-        pkStorage.get().put(testBinaryKey, rowId);
-        testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, tblId, partId);
+        pkStorage.get().put(testTableRow, rowId);
+        testMvPartitionStorage.addWrite(rowId, testTableRow, txId, tblId, partId);
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
                 .groupId(grpId)
@@ -463,7 +478,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
                     new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
-            BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
+            TableRow storeRow = tableRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
             sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
@@ -570,7 +585,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
                     new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
-            BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
+            TableRow storeRow = tableRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
             sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
@@ -672,7 +687,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             BinaryTuple indexedValue = new BinaryTuple(sortedIndexBinarySchema,
                     new BinaryTupleBuilder(1, false).appendInt(indexedVal).build());
-            BinaryRow storeRow = binaryRow(key(nextBinaryKey()), testValue);
+            TableRow storeRow = tableRow(key(nextBinaryKey()), testValue);
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, tblId, partId);
             hashIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
@@ -758,7 +773,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return new BinaryTuple(sortedIndexBinarySchema, tuple);
     }
 
-    protected static BinaryRow nextBinaryKey() {
+    private static BinaryRow nextBinaryKey() {
         try {
             int nextInt = (int) System.nanoTime();
 
@@ -768,7 +783,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
-    protected static BinaryRow binaryRow(TestKey key, TestValue value) {
+    private static TableRow tableRow(TestKey key, TestValue value) {
+        return TableRowConverter.fromBinaryRow(binaryRow(key, value), rowConverter);
+    }
+
+    private static BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
             return kvMarshaller.marshal(key, value);
         } catch (MarshallerException e) {
@@ -776,7 +795,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
-    protected static TestKey key(BinaryRow binaryRow) {
+    private static TestKey key(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
@@ -784,7 +803,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
     }
 
-    protected static TestValue value(BinaryRow binaryRow) {
+    private static TestValue value(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {

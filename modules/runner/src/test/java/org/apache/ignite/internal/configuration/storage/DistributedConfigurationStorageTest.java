@@ -45,7 +45,7 @@ import org.junit.jupiter.api.BeforeEach;
 public class DistributedConfigurationStorageTest extends ConfigurationStorageTest {
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
-    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage();
+    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage("test");
 
     private final MetaStorageManager metaStorageManager = mockMetaStorageManager();
 

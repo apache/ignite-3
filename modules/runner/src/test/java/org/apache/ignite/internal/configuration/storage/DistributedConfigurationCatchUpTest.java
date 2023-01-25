@@ -21,6 +21,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -42,8 +43,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -124,7 +123,7 @@ public class DistributedConfigurationCatchUpTest {
         vaultManager.put(MetaStorageMockWrapper.TEST_KEY, new byte[]{4, 1, 2, 3, 4}).get();
 
         // This emulates a change in MetaStorage that is not related to the configuration.
-        vaultManager.put(MetaStorageManagerImpl.APPLIED_REV, ByteUtils.longToBytes(2)).get();
+        when(wrapper.mock.appliedRevision()).thenReturn(1L);
 
         storage = storage(wrapper);
 
@@ -196,11 +195,11 @@ public class DistributedConfigurationCatchUpTest {
                     .then(invocation -> triggerStorageListener());
 
             // This captures the listener.
-            when(mock.registerPrefixWatch(any(), any())).then(invocation -> {
+            doAnswer(invocation -> {
                 lsnr = invocation.getArgument(1);
 
-                return CompletableFuture.completedFuture(null);
-            });
+                return null;
+            }).when(mock).registerPrefixWatch(any(), any());
         }
 
         /**

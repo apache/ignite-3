@@ -169,14 +169,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
-    /**
-     * The special value of the last applied index to indicate the beginning of a full data rebalancing.
-     *
-     * @see MvPartitionStorage#lastAppliedIndex()
-     * @see TxStateStorage#lastAppliedIndex()
-     */
-    public static final long FULL_RABALANCING_STARTED = -1;
-
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     // TODO get rid of this in future? IGNITE-17307
@@ -755,7 +747,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
-                                                partitionKey(internalTbl, partId)
+                                                partitionKey(internalTbl, partId),
+                                                table
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -836,7 +829,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     safeTime,
                                                     txStateStorage,
                                                     placementDriver,
-                                                    this::isLocalPeer
+                                                    this::isLocalPeer,
+                                                    schemaManager.schemaRegistry(causalityToken, tblId)
                                             )
                                     );
                                 } catch (NodeStoppingException ex) {
@@ -906,7 +900,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private RaftGroupOptions groupOptionsForPartition(
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
-            PartitionKey partitionKey
+            PartitionKey partitionKey,
+            TableImpl tableImpl
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -922,7 +917,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
                 clusterService.topologyService(),
                 outgoingSnapshotsManager,
-                new PartitionAccessImpl(partitionKey, mvTableStorage, txStateTableStorage),
+                new PartitionAccessImpl(
+                        partitionKey,
+                        mvTableStorage,
+                        txStateTableStorage,
+                        () -> tableImpl.indexStorageAdapters(partitionKey.partitionId()).get().values()
+                ),
                 incomingSnapshotsExecutor
         ));
 
@@ -1765,7 +1765,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private void registerRebalanceListeners() {
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
-            public boolean onUpdate(@NotNull WatchEvent evt) {
+            public void onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
                     throw new IgniteInternalException(new NodeStoppingException());
                 }
@@ -1776,7 +1776,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     Entry pendingAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
                     if (pendingAssignmentsWatchEvent.value() == null) {
-                        return true;
+                        return;
                     }
 
                     int partId = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
@@ -1837,7 +1837,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
-                                partitionKey(internalTable, partId)
+                                partitionKey(internalTable, partId),
+                                tbl
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -1890,7 +1891,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             safeTime,
                                             txStatePartitionStorage,
                                             placementDriver,
-                                            TableManager.this::isLocalPeer
+                                            TableManager.this::isLocalPeer,
+                                            completedFuture(schemaManager.schemaRegistry(tblId))
                                     )
                             );
                         } catch (NodeStoppingException e) {
@@ -1901,7 +1903,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // Do not change peers of the raft group if this is a stale event.
                     // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
                     if (pendingAssignmentsWatchEvent.revision() < pendingAssignmentsEntry.revision()) {
-                        return true;
+                        return;
                     }
 
                     RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
@@ -1916,22 +1918,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         partGrpSvc.changePeersAsync(pendingConfiguration, leaderWithTerm.term()).join();
                     }
-
-                    return true;
                 } finally {
                     busyLock.leaveBusy();
                 }
             }
 
             @Override
-            public void onError(@NotNull Throwable e) {
+            public void onError(Throwable e) {
                 LOG.warn("Unable to process pending assignments event", e);
             }
         });
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
-            public boolean onUpdate(@NotNull WatchEvent evt) {
+            public void onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
                     throw new IgniteInternalException(new NodeStoppingException());
                 }
@@ -1942,7 +1942,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
                     if (stableAssignmentsWatchEvent.value() == null) {
-                        return true;
+                        return;
                     }
 
                     int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
@@ -1973,22 +1973,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             // no-op
                         }
                     }
-
-                    return true;
                 } finally {
                     busyLock.leaveBusy();
                 }
             }
 
             @Override
-            public void onError(@NotNull Throwable e) {
+            public void onError(Throwable e) {
                 LOG.warn("Unable to process stable assignments event", e);
             }
         });
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
             @Override
-            public boolean onUpdate(@NotNull WatchEvent evt) {
+            public void onUpdate(WatchEvent evt) {
                 byte[] key = evt.entryEvent().newEntry().key();
 
                 int partitionNumber = extractPartitionNumber(key);
@@ -2008,12 +2006,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         replicaGrpId,
                         evt
                 );
-
-                return true;
             }
 
             @Override
-            public void onError(@NotNull Throwable e) {
+            public void onError(Throwable e) {
                 LOG.warn("Unable to process switch reduce event", e);
             }
         });
@@ -2047,18 +2043,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future that will complete when the operation completes.
      */
     private CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(MvTableStorage mvTableStorage, int partitionId) {
-        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor)
-                .thenCompose(storage -> {
-                    if (storage.persistedIndex() != FULL_RABALANCING_STARTED) {
-                        // If a full rebalance did not happen, then we return the storage as is.
-                        return completedFuture(storage);
-                    } else {
-                        // A full rebalance was started but not completed, so the partition must be recreated to remove the garbage.
-                        return mvTableStorage
-                                .destroyPartition(partitionId)
-                                .thenApplyAsync(unused -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor);
-                    }
-                });
+        // TODO: IGNITE-18603 Clear if TxStateStorage hasn't been rebalanced yet
+        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor);
     }
 
     /**
@@ -2071,15 +2057,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partId Partition ID.
      */
     private static TxStateStorage getOrCreateTxStateStorage(TxStateTableStorage txStateTableStorage, int partId) {
-        TxStateStorage txStatePartitionStorage = txStateTableStorage.getOrCreateTxStateStorage(partId);
-
-        // If a full rebalance did not happen, then we return the storage as is.
-        if (txStatePartitionStorage.persistedIndex() != FULL_RABALANCING_STARTED) {
-            return txStatePartitionStorage;
-        }
-
-        txStateTableStorage.destroyTxStateStorage(partId);
-
+        // TODO: IGNITE-18603 Clear if MvPartitionStorage hasn't been rebalanced yet
         return txStateTableStorage.getOrCreateTxStateStorage(partId);
     }
 

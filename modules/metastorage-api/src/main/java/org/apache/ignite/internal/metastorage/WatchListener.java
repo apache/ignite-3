@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage;
 
-import org.jetbrains.annotations.NotNull;
-
 /**
  * The listener which receives and handles watch updates.
  */
@@ -26,16 +24,14 @@ public interface WatchListener {
     /**
      * The method will be called on each meta storage update.
      *
-     * @param evt A single event or a batch. The batch always contains updates for specific revision.
-     * @return {@code True} if listener must continue event handling. If returns {@code false} then the listener and corresponding watch
-     *      will be unregistered.
+     * @param event A single event or a batch. The batch always contains updates for specific revision.
      */
-    boolean onUpdate(@NotNull WatchEvent evt);
+    void onUpdate(WatchEvent event);
 
     /**
      * The method will be called in case of an error occurred. The listener and corresponding watch will be unregistered.
      *
      * @param e Exception.
      */
-    void onError(@NotNull Throwable e);
+    void onError(Throwable e);
 }

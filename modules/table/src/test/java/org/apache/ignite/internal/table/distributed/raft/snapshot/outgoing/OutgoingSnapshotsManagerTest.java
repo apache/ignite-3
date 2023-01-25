@@ -26,12 +26,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.network.MessagingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -40,9 +37,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class OutgoingSnapshotsManagerTest {
-    @Mock
-    private MessagingService messagingService;
-
     @InjectMocks
     private OutgoingSnapshotsManager manager;
 
@@ -69,13 +63,9 @@ class OutgoingSnapshotsManagerTest {
 
     @Test
     void startsSnapshot() {
-        MvPartitionStorage mvPartitionStorage = mock(MvPartitionStorage.class);
-
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
-        when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
-        when(partitionAccess.txStatePartitionStorage()).thenReturn(mock(TxStateStorage.class));
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         OutgoingSnapshot snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
 

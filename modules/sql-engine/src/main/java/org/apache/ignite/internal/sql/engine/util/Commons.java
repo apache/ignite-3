@@ -128,6 +128,9 @@ public final class Commons {
 
     public static final int IN_BUFFER_SIZE = 512;
 
+    public static final int IO_BATCH_SIZE = 256;
+    public static final int IO_BATCH_COUNT = 4;
+
     /**
      * The number of elements to be prefetched from each partition when scanning the sorted index.
      * The higher the value, the fewer calls to the upstream will be, but at the same time, the bigger
