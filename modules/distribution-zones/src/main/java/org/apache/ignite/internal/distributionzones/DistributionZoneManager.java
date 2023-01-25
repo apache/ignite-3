@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -57,9 +58,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
@@ -203,6 +203,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
                 new ThreadPoolExecutor.DiscardPolicy()
         );
+    }
+
+    Map<Integer, ZoneState> zonesTimers() {
+        return zonesTimers;
     }
 
     /**
@@ -664,7 +668,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         try {
-            Set<String> topologyFromCmg = newTopology.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
+            Set<String> topologyFromCmg = newTopology.nodes().stream().map(ClusterNode::name).collect(toSet());
 
             Condition updateCondition;
 
@@ -728,7 +732,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             byte[] topVerFromMetaStorage = topVerEntry.value();
 
                             if (topVerFromMetaStorage == null || bytesToLong(topVerFromMetaStorage) < topologyVersionFromCmg) {
-                                Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(Collectors.toSet());
+                                Set<String> topologyFromCmg = snapshot.nodes().stream().map(ClusterNode::name).collect(toSet());
 
                                 Condition topologyVersionCondition = topVerFromMetaStorage == null
                                         ? notExists(zonesLogicalTopologyVersionKey()) :
@@ -859,11 +863,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             Set<String> newLogicalTopology = fromBytes(newLogicalTopologyBytes);
 
-                            List<String> removedNodes =
-                                    logicalTopology.stream().filter(node -> !newLogicalTopology.contains(node)).collect(toList());
+                            Set<String> removedNodes =
+                                    logicalTopology.stream().filter(node -> !newLogicalTopology.contains(node)).collect(toSet());
 
-                            List<String> addedNodes =
-                                    newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toList());
+                            Set<String> addedNodes =
+                                    newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toSet());
 
                             logicalTopology = newLogicalTopology;
 
@@ -896,8 +900,25 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private void scheduleTimers(
             DistributionZoneView zoneCfg,
-            List<String> addedNodes, List<String> removedNodes,
+            Set<String> addedNodes,
+            Set<String> removedNodes,
             long revision
+    ) {
+        scheduleTimers(
+                zoneCfg,
+                addedNodes,
+                removedNodes,
+                revision,
+                this::saveDataNodesToMetaStorageOnScaleUp
+        );
+    }
+
+    void scheduleTimers(
+            DistributionZoneView zoneCfg,
+            Set<String> addedNodes,
+            Set<String> removedNodes,
+            long revision,
+            BiFunction<Integer, Long, CompletableFuture<Void>> saveDataNodes
     ) {
         int autoAdjust = zoneCfg.dataNodesAutoAdjust();
         int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown();
@@ -911,12 +932,12 @@ public class DistributionZoneManager implements IgniteComponent {
         } else {
             if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
                 //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
-                zonesTimers.get(zoneId).addNodesToDataNodes(new HashSet<>(addedNodes), revision);
+                zonesTimers.get(zoneId).addNodesToDataNodes(addedNodes, revision);
 
                 zonesTimers.get(zoneId).rescheduleScaleUp(
                         autoAdjustScaleUp,
                         () -> CompletableFuture.supplyAsync(
-                                () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, revision),
+                                () -> saveDataNodes.apply(zoneId, revision),
                                 Runnable::run
                         )
                 );
@@ -963,7 +984,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Unique id of a zone
      * @param revision Revision of an event that has triggered this method.
      */
-    private CompletableFuture<Void> saveDataNodesToMetaStorageOnScaleUp(int zoneId, long revision) {
+    CompletableFuture<Void> saveDataNodesToMetaStorageOnScaleUp(int zoneId, long revision) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -1046,11 +1067,11 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     static class ZoneState {
-        private Timer scaleUp;
+        private ScheduledFuture<?> scaleUpTask;
 
-        private Timer scaleDown;
+        private ScheduledFuture<?> scaleDownTask;
 
-        private ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap;
+        private final ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap;
 
         private final ScheduledExecutorService executor;
 
@@ -1059,33 +1080,42 @@ public class DistributionZoneManager implements IgniteComponent {
             topologyAugmentationMap = new ConcurrentSkipListMap<>();
         }
 
+        ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap() {
+            return topologyAugmentationMap;
+        }
+
         /**
          * Reschedules existing task, if it is not started yet, or schedules new one, if the current task cannot be canceled.
          * If the provided {@code runnable} is null, then just tries to reschedule existing task, if it is not started yet, or
          * do nothing otherwise.
          *
-         * @param delayMs Delay to start runnable.
+         * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
          */
-        synchronized void rescheduleScaleUp(long delayMs, Runnable runnable) {
-            if (scaleUp == null) {
-                    scaleUp = new Timer(runnable, executor);
+        synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
+            if (scaleUpTask != null) {
+                scaleUpTask.cancel(false);
             }
 
-            scaleUp.schedule(delayMs);
+            scaleUpTask = executor.schedule(runnable, delay, TimeUnit.SECONDS);
         }
 
-        synchronized void rescheduleScaleDown(long delayMs, @Nullable Runnable runnable) {
+        synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
             //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
+            if (scaleDownTask != null) {
+                scaleDownTask.cancel(false);
+            }
+
+            scaleDownTask = executor.schedule(runnable, delay, TimeUnit.SECONDS);
         }
 
         synchronized void stopTimers() {
-            if (scaleUp != null) {
-                scaleUp.stop();
+            if (scaleUpTask != null) {
+                scaleUpTask.cancel(false);
             }
 
-            if (scaleDown != null) {
-                scaleDown.stop();
+            if (scaleDownTask != null) {
+                scaleDownTask.cancel(false);
             }
         }
 
@@ -1123,66 +1153,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     .stream()
                     .filter(a -> a.addition == addition)
                     .flatMap(a -> a.nodeNames.stream())
-                    .collect(Collectors.toSet());
+                    .collect(toSet());
         }
 
         private void cleanUp(long toKey) {
             //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
-        }
-    }
-
-    static class Timer implements Runnable {
-        private final Runnable runnable;
-
-        ScheduledFuture<?> task;
-
-        ScheduledExecutorService executor;
-
-        ReentrantLock startedLock = new ReentrantLock();
-
-        volatile boolean running;
-
-        Timer(Runnable runnable, ScheduledExecutorService executor) {
-            this.runnable = runnable;
-
-            this.executor = executor;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void run() {
-            runnable.run();
-        }
-
-        private boolean tryToRescheduleNotRunningTask(long delay) {
-            if (task != null && !task.isDone()) {
-                if (startedLock.tryLock()) {
-                    try {
-                        if (!running) {
-                            task.cancel(true);
-
-                            task = executor.schedule(this, delay, TimeUnit.MILLISECONDS);
-
-                            return true;
-                        }
-                    } finally {
-                        startedLock.unlock();
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private void schedule(long delay) {
-            if (task != null) {
-                task.cancel(false);
-            }
-
-            task = executor.schedule(this, delay, TimeUnit.MILLISECONDS);
-        }
-
-        private void stop() {
-            task.cancel(false);
         }
     }
 

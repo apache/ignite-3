@@ -49,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -71,7 +72,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
-import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
@@ -165,7 +165,8 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                 tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
-                vaultMgr
+                vaultMgr,
+                "node"
         );
 
         clusterCfgMgr.start();
@@ -302,7 +303,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                 for (SingleEntryResponse e : resp.entries()) {
                     ByteArray key = new ByteArray(e.key());
 
-                    res.put(key, new EntryImpl(key, e.value(), e.revision(), e.updateCounter()));
+                    res.put(key, new EntryImpl(key.bytes(), e.value(), e.revision(), e.updateCounter()));
                 }
 
                 return res;
@@ -345,6 +346,9 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
+        nodes = Set.of("node1", "node2", "node3");
+
+        // Scale up just adds node to data nodes
         checkDataNodesOfZone(DEFAULT_ZONE_ID, nodes);
 
         //third event
@@ -353,8 +357,11 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         watchListenerOnUpdate(nodes, 4);
 
-        verify(keyValueStorage, timeout(1000).times(4)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
+        nodes = Set.of("node1", "node2", "node3");
+
+        // Scale up wasn't triggered
         checkDataNodesOfZone(DEFAULT_ZONE_ID, nodes);
     }
 
@@ -391,7 +398,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     void testStaleVaultRevisionOnZoneManagerStart() {
         long revision = 100;
 
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(revision));
+        keyValueStorage.put(zonesChangeTriggerKey(0).bytes(), longToBytes(revision));
 
         Set<String> nodes = Set.of("node1", "node2");
 
@@ -548,7 +555,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private DistributionZoneView mockDefaultZoneView() {
-        DistributionZoneView defaultZone = mockZoneView(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
+        DistributionZoneView defaultZone = mockZoneView(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, Integer.MAX_VALUE, 0,
                 Integer.MAX_VALUE);
 
         DistributionZonesView zonesView = mock(DistributionZonesView.class);
@@ -560,7 +567,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private DistributionZoneConfiguration mockZoneWithAutoAdjustScaleUp(int scaleUp) {
-        return mockZone(1, ZONE_NAME_1, Integer.MAX_VALUE, scaleUp, Integer.MAX_VALUE);
+        return mockZoneConfiguration(1, ZONE_NAME_1, Integer.MAX_VALUE, scaleUp, Integer.MAX_VALUE);
     }
 
 

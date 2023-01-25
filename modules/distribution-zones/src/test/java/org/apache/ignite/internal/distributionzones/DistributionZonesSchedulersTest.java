@@ -72,7 +72,7 @@ public class DistributionZonesSchedulersTest {
 
         assertEquals(1L, latch.getCount());
 
-        fn.accept(100L, latch::countDown);
+        fn.accept(0L, latch::countDown);
 
         latch.await();
 
@@ -96,13 +96,11 @@ public class DistributionZonesSchedulersTest {
     private static void testReScheduleNotStartedTask(BiConsumer<Long, Runnable> fn) {
         Runnable runnable = mock(Runnable.class);
 
-        fn.accept(300L, runnable);
+        fn.accept(1L, runnable);
 
-        verify(runnable, after(100).never()).run();
+        fn.accept(0L, runnable);
 
-        fn.accept(50L, runnable);
-
-        verify(runnable, after(400).times(1)).run();
+        verify(runnable, after(1200).times(1)).run();
     }
 
     @Test
@@ -126,15 +124,15 @@ public class DistributionZonesSchedulersTest {
 
         assertEquals(1L, latch.getCount());
 
-        fn.accept(50L, latch::countDown);
+        fn.accept(0L, latch::countDown);
 
-        latch.await(1, TimeUnit.SECONDS);
+        latch.await(1000, TimeUnit.MILLISECONDS);
 
-        fn.accept(100L, () -> {
+        fn.accept(0L, () -> {
             flag.set(true);
         });
 
-        assertTrue(waitForCondition(() -> 0L == latch.getCount(), 1000));
-        assertTrue(waitForCondition(flag::get, 1000));
+        assertTrue(waitForCondition(() -> 0L == latch.getCount(), 1500));
+        assertTrue(waitForCondition(flag::get, 1500));
     }
 }
