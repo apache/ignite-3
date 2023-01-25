@@ -2044,10 +2044,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(MvTableStorage mvTableStorage, int partitionId) {
         // TODO: IGNITE-18633 Should clean both MvPartitionStorage and TxStateStorage if the rebalance for one of them has not ended
+        // TODO: IGNITE-18633 Also think about waiting for index stores for a partition, see PartitionAccessImpl.startRebalance
         return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor)
                 .thenCompose(mvPartitionStorage -> {
                     if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS) {
-                        return mvPartitionStorage.clear().thenApply(unused -> mvPartitionStorage);
+                        return mvTableStorage.clearPartition(partitionId).thenApply(unused -> mvPartitionStorage);
                     } else {
                         return completedFuture(mvPartitionStorage);
                     }

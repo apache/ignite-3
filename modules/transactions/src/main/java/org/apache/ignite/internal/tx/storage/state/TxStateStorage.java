@@ -207,8 +207,8 @@ public interface TxStateStorage extends ManuallyCloseable {
      *
      * @return Future of transaction state storage cleanup.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_STOPPED_ERR} if the storage is closed or destroyed.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} if the storage is process of rebalance.
-     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} if storage in progress of cleanup or if failed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} if the storage in process of rebalance.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} if the storage in progress of cleanup or if failed.
      */
     CompletableFuture<Void> clear();
 }
