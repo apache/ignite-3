@@ -549,7 +549,14 @@ public class DistributionZoneManager implements IgniteComponent {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
             int zoneId = ctx.newValue().zoneId();
 
-            int oldScaleUp = ctx.oldValue().dataNodesAutoAdjustScaleUp();
+            int oldScaleUp;
+
+            // ctx.oldValue() could be null for the default zone on a first start.
+            if (ctx.oldValue() == null) {
+                oldScaleUp = Integer.MAX_VALUE;
+            } else {
+                oldScaleUp = ctx.oldValue().dataNodesAutoAdjustScaleUp();
+            }
 
             int newScaleUp = ctx.newValue().dataNodesAutoAdjustScaleUp();
 
