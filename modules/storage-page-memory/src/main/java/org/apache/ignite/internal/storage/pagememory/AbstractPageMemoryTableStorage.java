@@ -412,6 +412,21 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         });
     }
 
+    @Override
+    public CompletableFuture<Void> clearPartition(int partitionId) {
+        return inBusyLock(busyLock, () -> {
+            AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
+
+            if (mvPartitionStorage == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            // TODO: IGNITE-18603 реализовать
+
+            return completedFuture(null);
+        });
+    }
+
     /**
      * Clears the partition multi-version storage and all its indexes, updates their internal data structures such as {@link BplusTree},
      * {@link FreeList} and {@link ReuseList}.

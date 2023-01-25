@@ -280,8 +280,5 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws StorageRebalanceException If a multi-version partition storage and its indexes in process of rebalance.
      * @throws StorageException If a multi-version partition storage and its indexes in progress of cleanup or if failed.
      */
-    // TODO: IGNITE-18603 документировать, реализовать, протестировать
-    default CompletableFuture<Void> clearPartition(int partitionId) {
-        return CompletableFuture.completedFuture(null);
-    }
+    CompletableFuture<Void> clearPartition(int partitionId);
 }

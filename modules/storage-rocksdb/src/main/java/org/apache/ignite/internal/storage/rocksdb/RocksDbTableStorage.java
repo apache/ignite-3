@@ -748,6 +748,21 @@ public class RocksDbTableStorage implements MvTableStorage {
         });
     }
 
+    @Override
+    public CompletableFuture<Void> clearPartition(int partitionId) {
+        return inBusyLock(busyLock, () -> {
+            RocksDbMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
+
+            if (mvPartitionStorage == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            // TODO: IGNITE-18603 реализовать
+
+            return completedFuture(null);
+        });
+    }
+
     /**
      * Returns table name.
      */
