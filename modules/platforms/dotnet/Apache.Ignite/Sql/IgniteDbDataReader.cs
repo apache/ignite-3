@@ -77,7 +77,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override int RecordsAffected => checked((int)_resultSet.AffectedRows);
 
     /// <inheritdoc/>
-    public override bool HasRows => _resultSet.HasRowSet;
+    public override bool HasRows => _resultSet.HasRows;
 
     /// <inheritdoc/>
     public override bool IsClosed => _resultSet.IsDisposed;
