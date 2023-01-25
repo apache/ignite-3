@@ -164,7 +164,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         IgnitionManager.stop(nodeToStop);
 
-        listenerInhibitor.stopWithoutResend();
+        listenerInhibitor.stopInhibit();
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))

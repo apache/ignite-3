@@ -36,6 +36,8 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
@@ -102,15 +104,11 @@ public abstract class BaseMvStoragesTest {
         kBinaryConverter = null;
     }
 
-    protected static BinaryRow binaryKey(TestKey key) {
-        try {
-            return kvMarshaller.marshal(key);
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
+    protected static TableRow tableRow(TestKey key, TestValue value) {
+        return TableRowConverter.fromBinaryRow(binaryRow(key, value), kvBinaryConverter);
     }
 
-    protected static BinaryRow binaryRow(TestKey key, TestValue value) {
+    private static BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
             return kvMarshaller.marshal(key, value);
         } catch (MarshallerException e) {
@@ -118,7 +116,8 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected static IndexRow indexRow(IndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
+
+    protected static IndexRow indexRow(IndexDescriptor indexDescriptor, TableRow tableRow, RowId rowId) {
         int[] columnIndexes = indexDescriptor.columns().stream()
                 .mapToInt(indexColumnDescriptor -> {
                     Column column = schemaDescriptor.column(indexColumnDescriptor.name());
@@ -129,15 +128,15 @@ public abstract class BaseMvStoragesTest {
                 })
                 .toArray();
 
-        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createSchema(schemaDescriptor, columnIndexes);
-
-        BinaryConverter binaryTupleConverter = new BinaryConverter(schemaDescriptor, binaryTupleSchema, false);
-
-        return new IndexRowImpl(binaryTupleConverter.toTuple(binaryRow), rowId);
+        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+        BinaryTupleSchema indexSchema = BinaryTupleSchema.createSchema(schemaDescriptor, columnIndexes);
+        TableRowConverter converter = new TableRowConverter(tupleSchema, indexSchema);
+        return new IndexRowImpl(converter.toTuple(tableRow), rowId);
     }
 
-    protected static TestKey key(BinaryRow binaryRow) {
+    protected static TestKey key(TableRow tableRow) {
         try {
+            BinaryRow binaryRow = kvBinaryConverter.fromTuple(tableRow.tupleSlice());
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
@@ -145,20 +144,21 @@ public abstract class BaseMvStoragesTest {
     }
 
     @Nullable
-    protected static TestValue value(BinaryRow binaryRow) {
+    protected static TestValue value(TableRow tableRow) {
         try {
+            BinaryRow binaryRow = kvBinaryConverter.fromTuple(tableRow.tupleSlice());
             return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
     }
 
-    protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {
-        if (binaryRow == null) {
+    protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable TableRow tableRow) {
+        if (tableRow == null) {
             return null;
         }
 
-        return new IgniteBiTuple<>(key(binaryRow), value(binaryRow));
+        return new IgniteBiTuple<>(key(tableRow), value(tableRow));
     }
 
     protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable ReadResult readResult) {
@@ -166,13 +166,13 @@ public abstract class BaseMvStoragesTest {
             return null;
         }
 
-        BinaryRow binaryRow = readResult.binaryRow();
+        TableRow tableRow = readResult.tableRow();
 
-        if (binaryRow == null) {
+        if (tableRow == null) {
             return null;
         }
 
-        return new IgniteBiTuple<>(key(binaryRow), value(binaryRow));
+        return new IgniteBiTuple<>(key(tableRow), value(tableRow));
     }
 
     protected static List<IgniteBiTuple<TestKey, TestValue>> drainToList(Cursor<ReadResult> cursor) {
@@ -181,7 +181,7 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
+    protected final void assertRowMatches(TableRow rowUnderQuestion, TableRow expectedRow) {
         assertThat(rowUnderQuestion, is(notNullValue()));
         assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }

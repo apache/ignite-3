@@ -20,30 +20,27 @@ package org.apache.ignite.internal.metastorage.command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Watch command for MetaStorageCommandListener that subscribes on meta storage updates matching the parameters.
+ * Raft command for getting all Meta Storage keys that start with a given prefix.
  */
-@Transferable(MetastorageCommandsMessageGroup.WATCH_RANGE_KEYS)
-public interface WatchRangeKeysCommand extends WriteCommand {
-    /**
-     * Returns start key of range (inclusive). Couldn't be {@code null}.
-     */
-    byte @Nullable [] keyFrom();
+@Transferable(MetastorageCommandsMessageGroup.PREFIX)
+public interface PrefixCommand extends WriteCommand {
+    /** Default value for {@link #batchSize}. */
+    int DEFAULT_BATCH_SIZE = 100;
 
     /**
-     * Returns end key of range (exclusive). Could be {@code null}.
+     * Returns key prefix.
      */
-    byte @Nullable [] keyTo();
+    byte[] prefix();
 
     /**
-     * Returns start revision inclusive. {@code 0} - all revisions.
+     * Returns the upper bound for entry revision.
      */
-    long revision();
+    long revUpperBound();
 
     /**
-     * Returns id of the node that requests range.
+     * Returns the originating node ID.
      */
     String requesterNodeId();
 
@@ -51,4 +48,14 @@ public interface WatchRangeKeysCommand extends WriteCommand {
      * Returns id of cursor that is associated with the current command.
      */
     IgniteUuid cursorId();
+
+    /**
+     * Returns the boolean value indicating whether this command is supposed to include tombstone entries into the cursor.
+     */
+    boolean includeTombstones();
+
+    /**
+     * Returns maximum size of the batch that is sent in single response message.
+     */
+    int batchSize();
 }

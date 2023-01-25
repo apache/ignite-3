@@ -17,10 +17,21 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.ReadResult;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Small abstractions for partition storages that includes only methods, mandatory for the snapshot storage.
@@ -32,27 +43,155 @@ public interface PartitionAccess {
     PartitionKey partitionKey();
 
     /**
-     * Returns the multi-versioned partition storage.
-     */
-    MvPartitionStorage mvPartitionStorage();
-
-    /**
-     * Returns transaction state storage for the partition.
-     */
-    TxStateStorage txStatePartitionStorage();
-
-    /**
-     * Destroys and recreates the multi-versioned partition storage.
+     * Creates a cursor to scan all meta of transactions.
      *
-     * @return Future that will complete when the partition is recreated.
-     * @throws StorageException If an error has occurred during the partition destruction.
+     * <p>All metas that exist at the time the method is called will be returned, in transaction ID order as an unsigned 128 bit integer.
      */
-    CompletableFuture<MvPartitionStorage> reCreateMvPartitionStorage() throws StorageException;
+    Cursor<IgniteBiTuple<UUID, TxMeta>> getAllTxMeta();
 
     /**
-     * Destroys and recreates the multi-versioned partition storage.
+     * Adds transaction meta.
      *
-     * @throws StorageException If an error has occurred during transaction state storage for the partition destruction.
+     * @param txId Transaction ID.
+     * @param txMeta Transaction meta.
      */
-    TxStateStorage reCreateTxStatePartitionStorage() throws StorageException;
+    void addTxMeta(UUID txId, TxMeta txMeta);
+
+    /**
+     * Returns an existing row ID that is greater than or equal to the lower bound, {@code null} if not found.
+     *
+     * @param lowerBound Lower bound.
+     * @throws StorageException If failed to read data.
+     */
+    @Nullable RowId closestRowId(RowId lowerBound);
+
+    /**
+     * Scans all versions of a single row.
+     *
+     * <p>{@link ReadResult#newestCommitTimestamp()} is NOT filled by this method for intents having preceding committed
+     * versions.
+     *
+     * @param rowId Row id.
+     * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
+     * @throws StorageException If failed to read data.
+     */
+    Cursor<ReadResult> getAllRowVersions(RowId rowId) throws StorageException;
+
+    /**
+     * Returns committed RAFT group configuration corresponding to the write command with the highest applied index, {@code null} if it was
+     * never saved.
+     */
+    @Nullable RaftGroupConfiguration committedGroupConfiguration();
+
+    /**
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id. In details: - if there is no
+     * uncommitted version, a new uncommitted version is added - if there is an uncommitted version belonging to the same transaction, it
+     * gets replaced by the given version - if there is an uncommitted version belonging to a different transaction,
+     * {@link TxIdMismatchException} is thrown
+     *
+     * @param rowId Row id.
+     * @param row Table row to update. Key only row means value removal.
+     * @param txId Transaction id.
+     * @param commitTableId Commit table id.
+     * @param commitPartitionId Commit partitionId.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @throws StorageException If failed to write data.
+     */
+    void addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId);
+
+    /**
+     * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
+     * uncommitted version, this method may fail with a system exception (this method should not be called if there is already something
+     * uncommitted for the given row).
+     *
+     * @param rowId Row id.
+     * @param row Table row to update. Key only row means value removal.
+     * @param commitTimestamp Timestamp to associate with committed value.
+     * @throws StorageException If failed to write data.
+     */
+    void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp);
+
+    /**
+     * Returns the minimum applied index of the partition storages.
+     */
+    long minLastAppliedIndex();
+
+    /**
+     * Returns the minimum applied term of the partition storages.
+     */
+    long minLastAppliedTerm();
+
+    /**
+     * Returns the maximum applied index of the partition storages.
+     */
+    long maxLastAppliedIndex();
+
+    /**
+     * Returns the maximum applied term of the partition storages.
+     */
+    long maxLastAppliedTerm();
+
+    /**
+     * Prepares partition storages for rebalancing.
+     * <ul>
+     *     <li>Cancels all current operations (including cursors) with storages and waits for their completion;</li>
+     *     <li>Cleans up storages;</li>
+     *     <li>Sets the last applied index and term to {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and the RAFT group configuration to
+     *     {@code null};</li>
+     *     <li>Only the following methods will be available:<ul>
+     *         <li>{@link #partitionKey()};</li>
+     *         <li>{@link #minLastAppliedIndex()};</li>
+     *         <li>{@link #maxLastAppliedIndex()};</li>
+     *         <li>{@link #minLastAppliedTerm()};</li>
+     *         <li>{@link #maxLastAppliedTerm()};</li>
+     *         <li>{@link #committedGroupConfiguration()};</li>
+     *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
+     *         <li>{@link #addWrite(RowId, TableRow, UUID, UUID, int)};</li>
+     *         <li>{@link #addWriteCommitted(RowId, TableRow, HybridTimestamp)}.</li>
+     *     </ul></li>
+     * </ul>
+     *
+     * <p>This method must be called before every rebalance and ends with a call to one of the methods:
+     * <ul>
+     *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalance(long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.</li>
+     * </ul>
+     *
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to start rebalancing.
+     */
+    CompletableFuture<Void> startRebalance();
+
+    /**
+     * Aborts rebalancing of the partition storages.
+     * <ul>
+     *     <li>Cleans up storages;</li>
+     *     <li>Resets the last applied index, term, and RAFT group configuration;</li>
+     *     <li>All methods will be available.</li>
+     * </ul>
+     *
+     * <p>If rebalance has not started, then nothing will happen.
+     *
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to abort rebalancing.
+     */
+    CompletableFuture<Void> abortRebalance();
+
+    /**
+     * Completes rebalancing of the partition storages.
+     * <ul>
+     *     <li>Cleans up storages;</li>
+     *     <li>Updates the last applied index, term, and RAFT group configuration;</li>
+     *     <li>All methods will be available.</li>
+     * </ul>
+     *
+     * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
+     *
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
+     * @param raftGroupConfig RAFT group configuration.
+     * @return Future of the operation.
+     * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
+     */
+    CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
 }

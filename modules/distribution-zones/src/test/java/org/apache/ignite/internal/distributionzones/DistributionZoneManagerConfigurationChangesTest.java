@@ -42,7 +42,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -105,7 +104,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     public void setUp() {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of()
@@ -115,8 +114,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
         MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
-
-        when(metaStorageManager.registerExactWatch(any(), any())).thenReturn(completedFuture(null));
 
         logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
 
@@ -156,7 +153,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 

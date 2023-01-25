@@ -189,7 +189,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throws StorageException {
         PersistentPageMemoryDataStorageView dataStorageView = (PersistentPageMemoryDataStorageView) tableCfg.dataStorage().value();
 
-        return new PersistentPageMemoryTableStorage(this, tableCfg, regions.get(dataStorageView.dataRegion()), tablesCfg);
+        return new PersistentPageMemoryTableStorage(tableCfg, tablesCfg, this, regions.get(dataStorageView.dataRegion()));
     }
 
     /**

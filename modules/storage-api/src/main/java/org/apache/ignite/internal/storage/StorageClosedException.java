@@ -26,9 +26,18 @@ public class StorageClosedException extends StorageException {
     private static final long serialVersionUID = -7988332521347221109L;
 
     /**
-     * Constructor.
+     * Default constructor.
      */
     public StorageClosedException() {
-        super(Storage.ALREADY_CLOSED_ERR, "Storage is already closed");
+        this("Storage is already closed");
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public StorageClosedException(String message) {
+        super(Storage.ALREADY_CLOSED_ERR, message);
     }
 }

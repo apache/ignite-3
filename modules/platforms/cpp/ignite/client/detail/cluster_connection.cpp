@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-#include "cluster_connection.h"
+#include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/detail/logger_wrapper.h"
 
-#include <ignite/network/codec.h>
-#include <ignite/network/codec_data_filter.h>
-#include <ignite/network/length_prefix_codec.h>
-#include <ignite/network/network.h>
-#include <ignite/protocol/writer.h>
+#include "ignite/network/codec.h"
+#include "ignite/network/codec_data_filter.h"
+#include "ignite/network/length_prefix_codec.h"
+#include "ignite/network/network.h"
+#include "ignite/protocol/writer.h"
 
 #include <iterator>
 
@@ -30,7 +31,7 @@ namespace ignite::detail {
 cluster_connection::cluster_connection(ignite_client_configuration configuration)
     : m_configuration(std::move(configuration))
     , m_pool()
-    , m_logger(m_configuration.get_logger())
+    , m_logger(std::make_shared<logger_wrapper>(m_configuration.get_logger()))
     , m_generator(std::random_device()()) {
 }
 
@@ -113,7 +114,8 @@ void cluster_connection::on_connection_closed(uint64_t id, std::optional<ignite_
 }
 
 void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
-    m_logger->log_debug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
 
     std::shared_ptr<node_connection> connection = find_client(id);
     if (!connection)
@@ -155,7 +157,8 @@ std::shared_ptr<node_connection> cluster_connection::find_client(uint64_t id) {
 }
 
 void cluster_connection::on_message_sent(uint64_t id) {
-    m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
 }
 
 void cluster_connection::remove_client(uint64_t id) {

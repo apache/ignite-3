@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,6 +73,16 @@ public class Cluster {
     /** Timeout for SQL queries (in milliseconds). */
     private static final int QUERY_TIMEOUT_MS = 10_000;
 
+    /** Default nodes bootstrap configuration pattern. */
+    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "{\n"
+            + "  \"network\": {\n"
+            + "    \"port\":{},\n"
+            + "    \"nodeFinder\":{\n"
+            + "      \"netClusterNodes\": [ {} ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
     private final TestInfo testInfo;
 
     private final Path workDir;
@@ -83,11 +94,20 @@ public class Cluster {
 
     private volatile boolean started = false;
 
+    private volatile boolean stopped = false;
+
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
 
     /**
-     * Creates a new instance.
+     * Creates a new cluster with a default bootstrap config.
+     */
+    public Cluster(TestInfo testInfo, Path workDir) {
+        this(testInfo, workDir, DEFAULT_NODE_BOOTSTRAP_CFG);
+    }
+
+    /**
+     * Creates a new cluster with the given bootstrap config.
      */
     public Cluster(TestInfo testInfo, Path workDir, String nodeBootstrapConfig) {
         this.testInfo = testInfo;
@@ -115,20 +135,45 @@ public class Cluster {
 
         for (CompletableFuture<IgniteImpl> future : futures) {
             assertThat(future, willCompleteSuccessfully());
-
-            nodes.add(future.join());
         }
 
         started = true;
     }
 
-    private CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
+    /**
+     * Start a cluster node and return its startup future.
+     *
+     * @param nodeIndex Index of the nodex to start.
+     * @return Future that will be completed when the node starts.
+     */
+    public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
         String config = IgniteStringFormatter.format(nodeBootstrapConfig, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
 
         return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
-                .thenApply(IgniteImpl.class::cast);
+                .thenApply(IgniteImpl.class::cast)
+                .thenApply(ignite -> {
+                    synchronized (nodes) {
+                        while (nodes.size() < nodeIndex) {
+                            nodes.add(null);
+                        }
+
+                        if (nodes.size() < nodeIndex + 1) {
+                            nodes.add(ignite);
+                        } else {
+                            nodes.set(nodeIndex, ignite);
+                        }
+                    }
+
+                    if (stopped) {
+                        // Make sure we stop even a node that finished starting after the cluster has been stopped.
+
+                        IgnitionManager.stop(ignite.name());
+                    }
+
+                    return ignite;
+                });
     }
 
     /**
@@ -172,7 +217,7 @@ public class Cluster {
             throw new RuntimeException(e);
         }
 
-        nodes.set(index, newIgniteNode);
+        assertEquals(newIgniteNode, nodes.get(index));
 
         return newIgniteNode;
     }
@@ -283,7 +328,15 @@ public class Cluster {
      * Shuts down the  cluster by stopping all its nodes.
      */
     public void shutdown() {
-        runningNodes().forEach(node -> IgnitionManager.stop(node.name()));
+        stopped = true;
+
+        List<IgniteImpl> nodesToStop;
+
+        synchronized (nodes) {
+            nodesToStop = runningNodes().collect(toList());
+        }
+
+        nodesToStop.forEach(node -> IgnitionManager.stop(node.name()));
     }
 
     /**

@@ -52,7 +52,7 @@ public partial class LinqTests
             "select cast(_T0.VAL as tinyint) as BYTE, cast(_T0.VAL as smallint) as SHORT, cast(_T0.VAL as bigint) as LONG, " +
             "(cast(_T0.VAL as real) / ?) as FLOAT, (cast(_T0.VAL as double) / ?) as DOUBLE " +
             "from PUBLIC.TBL_INT32 as _T0 " +
-            "order by (cast(_T0.VAL as bigint)) desc",
+            "order by cast(_T0.VAL as bigint) desc",
             query.ToString());
     }
 
@@ -82,7 +82,7 @@ public partial class LinqTests
             "select _T0.KEY, _T0.VAL, _T1.VAL " +
             "from PUBLIC.TBL_FLOAT as _T0 " +
             "inner join PUBLIC.TBL_INT8 as _T1 on (cast(_T1.KEY as real) = _T0.KEY) " +
-            "order by (_T0.KEY) desc",
+            "order by _T0.KEY desc",
             query.ToString());
     }
 }

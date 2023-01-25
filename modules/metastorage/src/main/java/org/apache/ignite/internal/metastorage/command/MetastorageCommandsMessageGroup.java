@@ -97,11 +97,8 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link RangeCommand}. */
     short RANGE = 60;
 
-    /** Message type for {@link WatchExactKeysCommand}. */
-    short WATCH_EXACT_KEYS = 70;
-
-    /** Message type for {@link WatchRangeKeysCommand}. */
-    short WATCH_RANGE_KEYS = 71;
+    /** Message type for {@link PrefixCommand}. */
+    short PREFIX = 61;
 
     /** Message type for {@link CursorHasNextCommand}. */
     short CURSOR_HAS_NEXT = 80;

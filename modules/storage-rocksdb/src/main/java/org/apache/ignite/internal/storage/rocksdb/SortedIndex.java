@@ -25,6 +25,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
 
@@ -90,5 +91,14 @@ class SortedIndex implements ManuallyCloseable {
     @Override
     public void close() {
         indexCf.handle().close();
+    }
+
+    /**
+     * Returns sorted index storage for partition.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable RocksDbSortedIndexStorage get(int partitionId) {
+        return storages.get(partitionId);
     }
 }

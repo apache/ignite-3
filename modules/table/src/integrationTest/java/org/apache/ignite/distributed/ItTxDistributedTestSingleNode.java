@@ -62,11 +62,12 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -305,8 +306,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         UUID accTblId = UUID.randomUUID();
         UUID custTblId = UUID.randomUUID();
 
-        accRaftClients = startTable(accountsName, accTblId);
-        custRaftClients = startTable(customersName, custTblId);
+        accRaftClients = startTable(accTblId, ACCOUNTS_SCHEMA);
+        custRaftClients = startTable(custTblId, CUSTOMERS_SCHEMA);
 
         log.info("Partition groups have been started");
 
@@ -357,12 +358,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /**
      * Starts a table.
      *
-     * @param name The name.
      * @param tblId Table id.
+     * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    protected Int2ObjectOpenHashMap<RaftGroupService> startTable(String name, UUID tblId)
-            throws Exception {
+    private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
@@ -399,20 +399,22 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 UUID indexId = UUID.randomUUID();
 
-                BinaryTupleSchema pkSchema = BinaryTupleSchema.create(new Element[]{
-                        new Element(NativeTypes.BYTES, false)
-                });
+                BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+                BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
 
-                Function<BinaryRow, BinaryTuple> row2tuple =
-                        tableRow -> new BinaryTuple(pkSchema, tableRow.keySlice());
+                BinaryConverter binaryRowConverter = BinaryConverter.forKey(schemaDescriptor);
+                Function<BinaryRow, BinaryTuple> binaryRow2Tuple = binaryRowConverter::toTuple;
+
+                var rowConverter = new TableRowConverter(tupleSchema, indexSchema);
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
                         new TestHashIndexStorage(null),
-                        row2tuple
+                        binaryRow2Tuple,
+                        rowConverter::toTuple
                 ));
 
-                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2tuple);
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), binaryRow2Tuple);
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
@@ -434,6 +436,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ).thenAccept(
                         raftSvc -> {
                             try {
+                                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tblId, partId),
                                         new PartitionReplicaListener(
@@ -451,7 +454,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 safeTime,
                                                 txStateStorage,
                                                 placementDriver,
-                                                peer -> assignment.equals(peer.consistentId())
+                                                peer -> assignment.equals(peer.consistentId()),
+                                                CompletableFuture.completedFuture(schemaManager)
                                         )
                                 );
                             } catch (NodeStoppingException e) {

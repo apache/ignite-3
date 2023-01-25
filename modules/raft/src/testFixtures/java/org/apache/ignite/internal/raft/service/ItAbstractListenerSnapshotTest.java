@@ -46,6 +46,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -193,7 +194,16 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Set up a raft group service
         RaftGroupService service = prepareRaftGroup(testInfo);
 
-        beforeFollowerStop(service);
+        CompletableFuture<Void> refreshLeaderFuture = service.refreshLeader()
+                .thenCompose(v -> {
+                    if (service.leader() == null) {
+                        return service.refreshLeader();
+                    } else {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                });
+
+        assertThat(refreshLeaderFuture, willCompleteSuccessfully());
 
         // Select any node that is not the leader of the group
         JraftServerImpl toStop = servers.stream()
@@ -201,13 +211,15 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 .findAny()
                 .orElseThrow();
 
+        beforeFollowerStop(service, toStop);
+
         var nodeId = new RaftNodeId(raftGroupId(), toStop.localPeers(raftGroupId()).get(0));
 
         // Get the path to that node's raft directory
         Path serverDataPath = toStop.getServerDataPath(nodeId);
 
         // Get the path to that node's RocksDB key-value storage
-        Path dbPath = getListenerPersistencePath(getListener(toStop, raftGroupId()));
+        Path dbPath = getListenerPersistencePath(getListener(toStop, raftGroupId()), toStop);
 
         int stopIdx = servers.indexOf(toStop);
 
@@ -222,7 +234,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
 
-        afterFollowerStop(service);
+        afterFollowerStop(service, toStop);
 
         // Create another raft snapshot
         service.snapshot(service.leader()).get();
@@ -256,17 +268,19 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Interacts with the raft group before a follower is stopped.
      *
      * @param service Raft group service.
+     * @param server Raft server that is going to be stopped.
      * @throws Exception If failed.
      */
-    public abstract void beforeFollowerStop(RaftGroupService service) throws Exception;
+    public abstract void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception;
 
     /**
      * Interacts with the raft group after a follower is stopped.
      *
      * @param service Raft group service.
+     * @param server Raft server that has been stopped.
      * @throws Exception If failed.
      */
-    public abstract void afterFollowerStop(RaftGroupService service) throws Exception;
+    public abstract void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception;
 
     /**
      * Interacts with a raft group after the leader has captured a snapshot.
@@ -290,9 +304,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * Returns path to the group's persistence.
      *
      * @param listener Raft group listener.
+     * @param server Raft server, where the listener has been registered.
      * @return Path to the group's persistence.
      */
-    public abstract Path getListenerPersistencePath(T listener);
+    public abstract Path getListenerPersistencePath(T listener, RaftServer server);
 
     /**
      * Creates raft group listener.

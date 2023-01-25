@@ -29,8 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -56,11 +56,11 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -138,14 +138,14 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage()
+                    new SimpleInMemoryKeyValueStorage(name())
             );
 
             // create a custom storage implementation that is able to "lose" some storage updates
             var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager) {
                 /** {@inheritDoc} */
                 @Override
-                public synchronized void registerConfigurationListener(@NotNull ConfigurationStorageListener listener) {
+                public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
                     super.registerConfigurationListener(changedEntries -> {
                         if (receivesUpdates) {
                             return listener.onEntriesChanged(changedEntries);
@@ -158,7 +158,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
             distributedCfgManager = new ConfigurationManager(
                     List.of(DistributedConfiguration.KEY),
-                    Map.of(),
+                    Set.of(),
                     distributedCfgStorage,
                     List.of(),
                     List.of()
@@ -168,14 +168,18 @@ public class ItDistributedConfigurationPropertiesTest {
         /**
          * Starts the created components.
          */
-        void start() throws Exception {
+        void start() {
             vaultManager.start();
 
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
             // deploy watches to propagate data from the metastore into the vault
-            metaStorageManager.deployWatches();
+            try {
+                metaStorageManager.deployWatches();
+            } catch (NodeStoppingException e) {
+                throw new RuntimeException(e);
+            }
 
             distributedCfgManager.start();
         }
@@ -205,7 +209,7 @@ public class ItDistributedConfigurationPropertiesTest {
         }
 
         String name() {
-            return clusterService.topologyService().localMember().name();
+            return clusterService.localConfiguration().getName();
         }
     }
 
@@ -240,8 +244,7 @@ public class ItDistributedConfigurationPropertiesTest {
                 raftConfiguration
         );
 
-        firstNode.start();
-        secondNode.start();
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::start);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
     }
@@ -285,7 +288,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
         assertThat(firstValue.value(), is("bar"));
         assertThat(directProxy(secondValue).value(), is("bar"));
-        assertTrue(waitForCondition(() -> "bar".equals(secondValue.value()), 100));
+        assertTrue(waitForCondition(() -> "bar".equals(secondValue.value()), 1000));
 
         // disable storage updates on the second node. This way the new values will never be propagated into the
         // configuration storage

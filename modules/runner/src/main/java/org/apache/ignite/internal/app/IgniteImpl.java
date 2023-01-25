@@ -27,6 +27,8 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
@@ -95,6 +98,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -185,6 +189,9 @@ public class IgniteImpl implements Ignite {
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
+
+    /** Placement driver manager. */
+    private final PlacementDriverManager placementDriverMgr;
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
@@ -335,8 +342,10 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 cmgMgr,
                 raftMgr,
-                new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
+                new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
         );
+
+        placementDriverMgr = new PlacementDriverManager(metaStorageMgr);
 
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
@@ -517,6 +526,8 @@ public class IgniteImpl implements Ignite {
      *         {@code workDir} specified by the user.
      */
     public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
+        ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
+
         try {
             metricManager.registerSource(new JvmMetricSource());
 
@@ -565,6 +576,7 @@ public class IgniteImpl implements Ignite {
                         try {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
+                                    placementDriverMgr,
                                     clusterCfgMgr,
                                     metricManager,
                                     distributionZoneManager,
@@ -584,8 +596,8 @@ public class IgniteImpl implements Ignite {
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
-                    })
-                    .thenCompose(v -> {
+                    }, startupExecutor)
+                    .thenComposeAsync(v -> {
                         LOG.info("Components started, performing recovery");
 
                         // Recovery future must be created before configuration listeners are triggered.
@@ -595,7 +607,7 @@ public class IgniteImpl implements Ignite {
                         );
 
                         return notifyConfigurationListeners()
-                                .thenCompose(t -> {
+                                .thenComposeAsync(t -> {
                                     // Deploy all registered watches because all components are ready and have registered their listeners.
                                     try {
                                         metaStorageMgr.deployWatches();
@@ -604,30 +616,36 @@ public class IgniteImpl implements Ignite {
                                     }
 
                                     return recoveryFuture;
-                                });
-                    })
+                                }, startupExecutor);
+                    }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
-                    .thenCompose(v -> {
+                    .thenComposeAsync(v -> {
                         LOG.info("Recovery complete, finishing join");
 
                         return cmgMgr.onJoinReady();
-                    })
-                    .thenRun(() -> {
+                    }, startupExecutor)
+                    .thenRunAsync(() -> {
                         try {
                             // Transfer the node to the STARTED state.
                             lifecycleManager.onStartComplete();
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
-                    })
-                    .handle((v, e) -> {
+                    }, startupExecutor)
+                    .handleAsync((v, e) -> {
                         if (e != null) {
                             throw handleStartException(e);
                         }
 
-                        return this;
+                        return (Ignite) this;
+                    }, startupExecutor)
+                    // Moving to the common pool on purpose to close the startup pool and proceed user's code in the common pool.
+                    .whenCompleteAsync((res, ex) -> {
+                        startupExecutor.shutdownNow();
                     });
         } catch (Throwable e) {
+            startupExecutor.shutdownNow();
+
             throw handleStartException(e);
         }
     }

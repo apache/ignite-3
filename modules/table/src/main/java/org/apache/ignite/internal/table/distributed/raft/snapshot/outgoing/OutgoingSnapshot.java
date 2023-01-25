@@ -31,7 +31,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -148,23 +148,17 @@ public class OutgoingSnapshot {
         try {
             frozenMeta = takeSnapshotMeta();
 
-            txDataCursor = partition.txStatePartitionStorage().scan();
+            txDataCursor = partition.getAllTxMeta();
         } finally {
             releaseMvLock();
         }
     }
 
     private SnapshotMeta takeSnapshotMeta() {
-        long lastAppliedIndex = Math.max(
-                partition.mvPartitionStorage().lastAppliedIndex(),
-                partition.txStatePartitionStorage().lastAppliedIndex()
-        );
-        long lastAppliedTerm = Math.max(
-                partition.mvPartitionStorage().lastAppliedTerm(),
-                partition.txStatePartitionStorage().lastAppliedTerm()
-        );
+        long lastAppliedIndex = partition.maxLastAppliedIndex();
+        long lastAppliedTerm = partition.maxLastAppliedTerm();
 
-        RaftGroupConfiguration config = partition.mvPartitionStorage().committedGroupConfiguration();
+        RaftGroupConfiguration config = partition.committedGroupConfiguration();
 
         assert config != null : "Configuration should never be null when installing a snapshot";
 
@@ -292,11 +286,11 @@ public class OutgoingSnapshot {
         }
 
         if (!startedToReadMvPartition) {
-            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId);
+            lastRowId = partition.closestRowId(lastRowId);
 
             startedToReadMvPartition = true;
         } else {
-            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId.increment());
+            lastRowId = partition.closestRowId(lastRowId.increment());
         }
 
         if (!finishedMvData()) {
@@ -334,7 +328,7 @@ public class OutgoingSnapshot {
 
         for (int i = rowVersionsN2O.size() - 1; i >= 0; i--) {
             ReadResult version = rowVersionsN2O.get(i);
-            BinaryRow row = version.binaryRow();
+            TableRow row = version.tableRow();
 
             buffers.add(row == null ? null : row.byteBuffer());
 
@@ -358,7 +352,7 @@ public class OutgoingSnapshot {
     }
 
     private List<ReadResult> readRowVersionsN2O(RowId rowId) {
-        try (Cursor<ReadResult> versions = partition.mvPartitionStorage().scanVersions(rowId)) {
+        try (Cursor<ReadResult> versions = partition.getAllRowVersions(rowId)) {
             return versions.stream().collect(toList());
         }
     }

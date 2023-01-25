@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import static org.mockito.Mockito.spy;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -31,7 +33,7 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
     private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
 
     @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) {
-        return storages.computeIfAbsent(partitionId, k -> new TestTxStateStorage());
+        return storages.computeIfAbsent(partitionId, k -> spy(new TestTxStateStorage()));
     }
 
     @Override

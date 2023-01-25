@@ -23,9 +23,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -193,37 +194,81 @@ public interface KeyValueStorage extends ManuallyCloseable {
     Cursor<Entry> range(byte[] keyFrom, byte[] keyTo, long revUpperBound, boolean includeTombstones);
 
     /**
+     * Retrieves entries for the given key prefix in lexicographic order.
+     *
+     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(byte[] prefix, boolean includeTombstones);
+
+    /**
+     * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
+     * number.
+     *
+     * @param prefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
+     * @param revUpperBound Upper bound of revision.
+     * @param includeTombstones Whether to include tombstone entries.
+     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     */
+    Cursor<Entry> prefix(byte[] prefix, long revUpperBound, boolean includeTombstones);
+
+    /**
      * Creates subscription on updates of entries corresponding to the given keys range and starting from the given revision number.
      *
      * @param keyFrom Start key of range (inclusive).
      * @param keyTo   Last key of range (exclusive).
      * @param rev     Start revision number.
-     * @return Cursor by update events.
      */
-    Cursor<WatchEvent> watch(byte[] keyFrom, byte @Nullable [] keyTo, long rev);
+    void watchRange(byte[] keyFrom, byte @Nullable [] keyTo, long rev, WatchListener listener);
 
     /**
-     * Creates subscription on updates of entries corresponding to the given keys range (where upper bound is unlimited) and starting from
-     * the given revision number.
+     * Registers a watch listener by a key prefix.
      *
-     * @param key Start key of range (inclusive).
-     * @param rev Start revision number.
-     * @return Cursor by update events.
+     * @param prefix Prefix to listen to.
+     * @param rev Starting Meta Storage revision.
+     * @param listener Listener which will be notified for each update.
      */
-    Cursor<WatchEvent> watch(byte[] key, long rev);
+    void watchPrefix(byte[] prefix, long rev, WatchListener listener);
 
     /**
-     * Creates subscription on updates of entries corresponding to the given keys collection and starting from the given revision number.
+     * Registers a watch listener for the provided key.
      *
-     * @param keys Collection of keys
-     * @param rev  Start revision number.
-     * @return Cursor by update events.
+     * @param key Meta Storage key.
+     * @param rev Starting Meta Storage revision.
+     * @param listener Listener which will be notified for each update.
      */
-    Cursor<WatchEvent> watch(Collection<byte[]> keys, long rev);
+    void watchExact(byte[] key, long rev, WatchListener listener);
+
+    /**
+     * Registers a watch listener for the provided keys.
+     *
+     * @param keys Meta Storage keys.
+     * @param rev Starting Meta Storage revision.
+     * @param listener Listener which will be notified for each update.
+     */
+    void watchExact(Collection<byte[]> keys, long rev, WatchListener listener);
+
+    /**
+     * Starts all registered watches.
+     *
+     * <p>Before calling this method, watches will not receive any updates.
+     *
+     * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the revision
+     *      and modified entries (processed by at least one watch) as its argument.
+     */
+    void startWatches(OnRevisionAppliedCallback revisionCallback);
+
+    /**
+     * Unregisters a watch listener.
+     */
+    void removeWatch(WatchListener listener);
 
     /**
      * Compacts storage (removes tombstones).
-     * TODO: IGNITE-16444 Сorrect compaction for Metastorage.
+     * TODO: IGNITE-16444 Correct compaction for Metastorage.
      */
     void compact();
 

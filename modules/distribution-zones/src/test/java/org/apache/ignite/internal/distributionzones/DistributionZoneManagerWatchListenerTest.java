@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -45,7 +46,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -60,6 +60,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -71,7 +72,6 @@ import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -94,7 +94,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests distribution zones logical topology changes and reaction to that changes.
  */
-//TODO: IGNITE-18121 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
+//TODO: IGNITE-18564 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
 public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME_1 = "zone1";
 
@@ -116,7 +116,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     public void setUp() {
         clusterCfgMgr = new ConfigurationManager(
                 List.of(DistributionZonesConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of()
@@ -162,19 +162,21 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         mockVaultAppliedRevision(1);
 
         when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
+        when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
 
-        when(metaStorageManager.registerExactWatch(any(), any())).then(invocation -> {
+        doAnswer(invocation -> {
             watchListener = invocation.getArgument(1);
 
-            return completedFuture(null);
-        });
+            return null;
+        }).when(metaStorageManager).registerExactWatch(any(), any());
 
-        mockDefaultZone();
+        mockDefaultZoneConfiguration();
+        mockDefaultZoneView();
         mockEmptyZonesList();
 
         AtomicLong raftIndex = new AtomicLong();
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage());
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
@@ -400,7 +402,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         when(namedListView.namedListKeys()).thenReturn(names);
     }
 
-    private DistributionZoneConfiguration mockZone(
+    private DistributionZoneConfiguration mockZoneConfiguration(
             Integer zoneId,
             String name,
             Integer dataNodesAutoAdjustTime,
@@ -432,15 +434,45 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         return distributionZoneConfiguration;
     }
 
-    private DistributionZoneConfiguration mockZoneWithAutoAdjust() {
-        return mockZone(1, ZONE_NAME_1, 100, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    private DistributionZoneView mockZoneView(
+            Integer zoneId,
+            String name,
+            Integer dataNodesAutoAdjustTime,
+            Integer dataNodesAutoAdjustScaleUpTime,
+            Integer dataNodesAutoAdjustScaleDownTime
+    ) {
+        DistributionZoneView distributionZoneView = mock(DistributionZoneView.class);
+
+        when(distributionZoneView.name()).thenReturn(name);
+        when(distributionZoneView.zoneId()).thenReturn(zoneId);
+        when(distributionZoneView.dataNodesAutoAdjust()).thenReturn(dataNodesAutoAdjustTime);
+        when(distributionZoneView.dataNodesAutoAdjustScaleUp()).thenReturn(dataNodesAutoAdjustScaleUpTime);
+        when(distributionZoneView.dataNodesAutoAdjustScaleDown()).thenReturn(dataNodesAutoAdjustScaleDownTime);
+
+        return distributionZoneView;
     }
 
-    private DistributionZoneConfiguration mockDefaultZone() {
-        DistributionZoneConfiguration defaultZone = mockZone(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
+    private DistributionZoneConfiguration mockZoneWithAutoAdjust() {
+        return mockZoneConfiguration(1, ZONE_NAME_1, 100, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    }
+
+    private DistributionZoneConfiguration mockDefaultZoneConfiguration() {
+        DistributionZoneConfiguration defaultZone = mockZoneConfiguration(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
                 Integer.MAX_VALUE);
 
         when(zonesConfiguration.defaultDistributionZone()).thenReturn(defaultZone);
+
+        return defaultZone;
+    }
+
+    private DistributionZoneView mockDefaultZoneView() {
+        DistributionZoneView defaultZone = mockZoneView(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
+                Integer.MAX_VALUE);
+
+        DistributionZonesView zonesView = mock(DistributionZonesView.class);
+
+        when(zonesView.defaultDistributionZone()).thenReturn(defaultZone);
+        when(zonesConfiguration.value()).thenReturn(zonesView);
 
         return defaultZone;
     }
@@ -465,8 +497,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private void mockVaultAppliedRevision(long revision) {
-        // TODO: remove this as part of https://issues.apache.org/jira/browse/IGNITE-18397
-        when(vaultMgr.get(MetaStorageManagerImpl.APPLIED_REV))
-                .thenReturn(completedFuture(new VaultEntry(MetaStorageManagerImpl.APPLIED_REV, longToBytes(revision))));
+        when(metaStorageManager.appliedRevision()).thenReturn(revision);
     }
 }

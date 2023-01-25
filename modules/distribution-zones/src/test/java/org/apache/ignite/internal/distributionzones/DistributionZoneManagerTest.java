@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -68,7 +68,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private final ConfigurationRegistry registry = new ConfigurationRegistry(
             List.of(DistributionZonesConfiguration.KEY),
-            Map.of(),
+            Set.of(),
             new TestConfigurationStorage(DISTRIBUTED),
             List.of(),
             List.of()
@@ -235,7 +235,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         testUpdateZone(ZONE_NAME);
     }
 
-    public void testUpdateZone(String zoneName) throws Exception {
+    private void testUpdateZone(String zoneName) throws Exception {
         if (DEFAULT_ZONE_NAME.equals(zoneName)) {
             distributionZoneManager.alterZone(
                             zoneName,

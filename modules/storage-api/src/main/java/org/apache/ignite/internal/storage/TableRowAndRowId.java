@@ -15,30 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.sql;
+package org.apache.ignite.internal.storage;
+
+import org.apache.ignite.internal.schema.TableRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Enumerates the options for CREATE ZONE statement.
+ * Wrapper that holds both {@link TableRow} and {@link RowId}. {@link TableRow} is null for tombstones.
  */
-public enum IgniteSqlCreateZoneOptionEnum {
-    /** Number of partitions. */
-    PARTITIONS,
+public class TableRowAndRowId {
+    /** Table row. */
+    private final @Nullable TableRow tableRow;
 
-    /** Number of replicas. */
-    REPLICAS,
+    /** Row id. */
+    private final RowId rowId;
 
-    /** Affinity function name. */
-    AFFINITY_FUNCTION,
+    /**
+     * Constructor.
+     *
+     * @param tableRow Table row.
+     * @param rowId Row id.
+     */
+    public TableRowAndRowId(@Nullable TableRow tableRow, RowId rowId) {
+        this.tableRow = tableRow;
+        this.rowId = rowId;
+    }
 
-    /** An expression to filter data nodes. */
-    DATA_NODES_FILTER,
+    public @Nullable TableRow tableRow() {
+        return tableRow;
+    }
 
-    /** Data nodes auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST,
-
-    /** Data nodes scale up auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_UP,
-
-    /** Data nodes scale down auto adjust timeout. */
-    DATA_NODES_AUTO_ADJUST_SCALE_DOWN
+    public RowId rowId() {
+        return rowId;
+    }
 }

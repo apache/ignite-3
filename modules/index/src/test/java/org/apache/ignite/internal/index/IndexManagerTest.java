@@ -57,7 +57,6 @@ import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableValidator;
 import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -66,7 +65,6 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCall
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
@@ -111,8 +109,7 @@ public class IndexManagerTest {
     public static void setUp() throws Exception {
         confRegistry = new ConfigurationRegistry(
                 List.of(TablesConfiguration.KEY),
-                Map.of(IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE),
-                        TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
+                Set.of(IndexValidatorImpl.INSTANCE, TableValidatorImpl.INSTANCE),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(ExtendedTableConfigurationSchema.class),
                 List.of(

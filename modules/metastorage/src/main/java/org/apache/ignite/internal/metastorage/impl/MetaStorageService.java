@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -31,7 +30,6 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,12 +50,12 @@ public interface MetaStorageService {
     /**
      * Retrieves an entry for the given key and the revision upper bound.
      *
-     * @param key           The key. Couldn't be {@code null}.
+     * @param key The key. Couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revisions. Must be positive.
      * @return An entry for the given key and maximum revision limited by {@code revUpperBound}. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
-     *                                   getting future result.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction. Will be thrown on getting
+     *      future result.
      * @see ByteArray
      * @see Entry
      */
@@ -77,12 +75,12 @@ public interface MetaStorageService {
     /**
      * Retrieves entries for given keys and the revision upper bound.
      *
-     * @param keys          The set of keys. Couldn't be {@code null} or empty. Set elements couldn't be {@code null}.
+     * @param keys The set of keys. Couldn't be {@code null} or empty. Set elements couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revisions. Must be positive.
      * @return A map of entries for given keys and maximum revision limited by {@code revUpperBound}. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
-     *                                   getting future result.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction. Will be thrown on getting
+     *      future result.
      * @see ByteArray
      * @see Entry
      */
@@ -91,7 +89,7 @@ public interface MetaStorageService {
     /**
      * Inserts or updates an entry with the given key and the given value.
      *
-     * @param key   The key. Couldn't be {@code null}.
+     * @param key The key. Couldn't be {@code null}.
      * @param value The value. Couldn't be {@code null}.
      * @return Completed future.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
@@ -103,7 +101,7 @@ public interface MetaStorageService {
     /**
      * Inserts or updates an entry with the given key and the given value and retrieves a previous entry for the given key.
      *
-     * @param key   The key. Couldn't be {@code null}.
+     * @param key The key. Couldn't be {@code null}.
      * @param value The value. Couldn't be {@code null}.
      * @return A previous entry for the given key. Couldn't be {@code null}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
@@ -185,8 +183,8 @@ public interface MetaStorageService {
      * <p>Conditional update could be treated as <i>if(condition)-then(success)-else(failure)</i> expression.</p>
      *
      * @param condition The condition.
-     * @param success   The update which will be applied in case of condition evaluation yields {@code true}.
-     * @param failure   The update which will be applied in case of condition evaluation yields {@code false}.
+     * @param success The update which will be applied in case of condition evaluation yields {@code true}.
+     * @param failure The update which will be applied in case of condition evaluation yields {@code false}.
      * @return Future result {@code true} if {@code success} update was applied, otherwise {@code false}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @see ByteArray
@@ -202,8 +200,8 @@ public interface MetaStorageService {
      * <p>Conditional update could be treated as <i>if(condition)-then(success)-else(failure)</i> expression.</p>
      *
      * @param condition The condition.
-     * @param success   The updates which will be applied in case of condition evaluation yields {@code true}.
-     * @param failure   The updates which will be applied in case of condition evaluation yields {@code false}.
+     * @param success The updates which will be applied in case of condition evaluation yields {@code true}.
+     * @param failure The updates which will be applied in case of condition evaluation yields {@code false}.
      * @return Future result {@code true} if {@code success} update was applied, otherwise {@code false}.
      * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
      * @see ByteArray
@@ -214,12 +212,11 @@ public interface MetaStorageService {
     CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
 
     /**
-     * Invoke, which supports nested conditional statements.
-     * For detailed docs about construction of new if statement, look at {@link If} javadocs.
+     * Invoke, which supports nested conditional statements. For detailed docs about construction of new if statement, look at {@link If}
+     * javadocs.
      *
      * @param iif {@link If} statement to invoke
      * @return execution result
-     *
      * @see If
      * @see StatementResult
      */
@@ -229,12 +226,12 @@ public interface MetaStorageService {
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision
      * number.
      *
-     * @param keyFrom       Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo         End key of range (exclusive). Could be {@code null}.
+     * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
+     * @param keyTo End key of range (exclusive). Could be {@code null}.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
      * @return Cursor built upon entries corresponding to the given range and revision.
      * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
@@ -244,13 +241,13 @@ public interface MetaStorageService {
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision
      * number.
      *
-     * @param keyFrom           Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo             End key of range (exclusive). Could be {@code null}.
-     * @param revUpperBound     The upper bound for entry revision. {@code -1} means latest revision.
+     * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
+     * @param keyTo End key of range (exclusive). Could be {@code null}.
+     * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
      * @param includeTombstones Whether to include tombstone entries.
      * @return Cursor built upon entries corresponding to the given range and revision.
      * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
@@ -261,87 +258,40 @@ public interface MetaStorageService {
      * {@code revUpperBound == -1}.
      *
      * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo   End key of range (exclusive). Could be {@code null}.
+     * @param keyTo End key of range (exclusive). Could be {@code null}.
      * @return Cursor built upon entries corresponding to the given range and revision.
      * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
     Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 
     /**
-     * Retrieves entries for the given key range in lexicographic order. Short cut for
-     * {@link #range(ByteArray, ByteArray, long, boolean)} where {@code revUpperBound == -1}.
+     * Retrieves entries for the given key range in lexicographic order. Short cut for {@link #range(ByteArray, ByteArray, long, boolean)}
+     * where {@code revUpperBound == -1}.
      *
-     * @param keyFrom           Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo             End key of range (exclusive). Could be {@code null}.
+     * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
+     * @param keyTo End key of range (exclusive). Could be {@code null}.
      * @param includeTombstones Whether to include tombstone entries.
      * @return Cursor built upon entries corresponding to the given range and revision.
      * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
     Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones);
 
     /**
-     * Subscribes on meta storage updates matching the parameters.
+     * Retrieves entries for keys starting with the given prefix in lexicographic order.
      *
-     * @param keyFrom  Start key of range (inclusive). Could be {@code null}.
-     * @param keyTo    End key of range (exclusive). Could be {@code null}.
-     * @param revision Start revision inclusive. {@code 0} - all revisions, {@code -1} - latest revision (accordingly to current meta
-     *                 storage state).
-     * @param lsnr     Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
-     *                                   getting future result.
-     * @see ByteArray
-     * @see Entry
+     * @param prefix Key prefix.
+     * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
+     * @return Cursor built upon entries corresponding to the given key prefix and revision.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      */
-    CompletableFuture<IgniteUuid> watch(@Nullable ByteArray keyFrom, @Nullable ByteArray keyTo, long revision, WatchListener lsnr);
-
-    /**
-     * Subscribes on meta storage updates for the given key.
-     *
-     * @param key      The target key. Couldn't be {@code null}.
-     * @param revision Start revision inclusive. {@code 0} - all revisions, {@code -1} - latest revision (accordingly to current meta
-     *                 storage state).
-     * @param lsnr     Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
-     *                                   getting future result.
-     * @see ByteArray
-     * @see Entry
-     */
-    CompletableFuture<IgniteUuid> watch(ByteArray key, long revision, WatchListener lsnr);
-
-    /**
-     * Subscribes on meta storage updates for given keys.
-     *
-     * @param keys     Set of target keys. Couldn't be {@code null} or empty.
-     * @param revision Start revision inclusive. {@code 0} - all revision, {@code -1} - latest revision (accordingly to current meta storage
-     *                 state).
-     * @param lsnr     Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #stopWatch} method in order to cancel subscription.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @throws CompactedException        If the desired revisions are removed from the storage due to a compaction. Will be thrown on
-     *                                   getting future result.
-     * @see ByteArray
-     * @see Entry
-     */
-    CompletableFuture<IgniteUuid> watch(Set<ByteArray> keys, long revision, WatchListener lsnr);
-
-    /**
-     * Cancels subscription for the given identifier.
-     *
-     * @param id Subscription identifier.
-     * @return Completed future in case of operation success. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     */
-    CompletableFuture<Void> stopWatch(IgniteUuid id);
+    Cursor<Entry> prefix(ByteArray prefix, long revUpperBound);
 
     /**
      * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).

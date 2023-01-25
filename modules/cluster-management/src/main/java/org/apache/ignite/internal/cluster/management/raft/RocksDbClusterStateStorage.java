@@ -110,7 +110,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
                 var batch = new WriteBatch();
                 var options = new WriteOptions();
         ) {
-            byte[] endKey = RocksUtils.incrementArray(prefix);
+            byte[] endKey = RocksUtils.incrementPrefix(prefix);
 
             assert endKey != null : Arrays.toString(prefix);
 
@@ -151,7 +151,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer) {
-        byte[] upperBound = RocksUtils.incrementArray(prefix);
+        byte[] upperBound = RocksUtils.incrementPrefix(prefix);
 
         Slice upperBoundSlice = upperBound == null ? null : new Slice(upperBound);
 
