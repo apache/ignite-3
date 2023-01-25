@@ -450,7 +450,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
                     .txTime(ctx.transactionTime())
-                    .txId(ctx.transaction() != null ? ctx.transaction().id() : null)
+                    .txId(ctx.transactionId())
                     .build();
 
             var fut = new CompletableFuture<Void>();
