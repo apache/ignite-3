@@ -132,11 +132,4 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     public void testDestroyTableStorage() throws Exception {
         super.testDestroyTableStorage();
     }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testRestartStoragesAfterFailDuringRebalance() {
-        super.testRestartStoragesAfterFailDuringRebalance();
-    }
 }

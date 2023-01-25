@@ -598,6 +598,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     public void testRestartStoragesAfterFailDuringRebalance() {
+        // TODO: IGNITE-18063 перепишем немного
+
         assumeFalse(tableStorage.isVolatile());
 
         MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
@@ -605,7 +607,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
         List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows = List.of(
-                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now())
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
         );
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);

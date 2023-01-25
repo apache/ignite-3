@@ -670,7 +670,10 @@ public class RocksDbTableStorage implements MvTableStorage {
                 return completedFuture(null);
             } catch (RocksDBException e) {
                 throw new StorageRebalanceException(
-                        "Error when trying to start rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                        IgniteStringFormatter.format(
+                                "Error when trying to start rebalancing storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
                         e
                 );
             }
@@ -703,7 +706,10 @@ public class RocksDbTableStorage implements MvTableStorage {
                 return completedFuture(null);
             } catch (RocksDBException e) {
                 throw new StorageRebalanceException(
-                        "Error when trying to abort rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                        IgniteStringFormatter.format(
+                                "Error when trying to abort rebalancing storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
                         e
                 );
             }
@@ -741,7 +747,10 @@ public class RocksDbTableStorage implements MvTableStorage {
                 return completedFuture(null);
             } catch (RocksDBException e) {
                 throw new StorageRebalanceException(
-                        "Error when trying to finish rebalancing storage: " + mvPartitionStorage.createStorageInfo(),
+                        IgniteStringFormatter.format(
+                                "Error when trying to finish rebalancing storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
                         e
                 );
             }
@@ -757,7 +766,35 @@ public class RocksDbTableStorage implements MvTableStorage {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            // TODO: IGNITE-18603 реализовать
+            List<RocksDbHashIndexStorage> hashIndexStorages = getHashIndexStorages(partitionId);
+            List<RocksDbSortedIndexStorage> sortedIndexStorages = getSortedIndexStorages(partitionId);
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.startCleanup(writeBatch);
+
+                for (RocksDbHashIndexStorage hashIndexStorage : hashIndexStorages) {
+                    hashIndexStorage.startCleanup(writeBatch);
+                }
+
+                for (RocksDbSortedIndexStorage sortedIndexStorage : sortedIndexStorages) {
+                    sortedIndexStorage.startCleanup(writeBatch);
+                }
+
+                db.write(writeOptions, writeBatch);
+            } catch (RocksDBException e) {
+                throw new StorageException(
+                        IgniteStringFormatter.format(
+                                "Error when trying to cleanup storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
+                        e
+                );
+            } finally {
+                mvPartitionStorage.finishCleanup();
+
+                hashIndexStorages.forEach(RocksDbHashIndexStorage::finishCleanup);
+                sortedIndexStorages.forEach(RocksDbSortedIndexStorage::finishCleanup);
+            }
 
             return completedFuture(null);
         });

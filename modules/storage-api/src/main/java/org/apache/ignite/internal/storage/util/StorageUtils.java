@@ -81,6 +81,8 @@ public class StorageUtils {
                 throw new StorageClosedException(createStorageClosedErrorMessage(storageInfo));
             case REBALANCE:
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
+            case CLEANUP:
+                throw new StorageException(IgniteStringFormatter.format("Storage in the process of cleanup: [{}]", storageInfo));
             default:
                 throw new StorageException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
         }
