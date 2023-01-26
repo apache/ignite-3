@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,11 +65,10 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
         tx.commit();
 
         assertTrue(waitForCondition(
-                () -> txManagers.values().stream()
-                        .filter(txManager -> txManager.state(txId) != null && txManager.state(txId)
-                                .equals(TxState.COMMITED))
-                        .collect(Collectors.toList())
-                        .size() >= 2,
+                () -> txStateStorages.values().stream()
+                        .map(txStateStorage -> txStateStorage.get(txId))
+                        .filter(txMeta -> txMeta != null && txMeta.txState() == TxState.COMMITED)
+                        .count() >= 2,
                 5_000));
     }
 }

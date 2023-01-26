@@ -57,6 +57,8 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.TxManager;
@@ -275,12 +277,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     var testMpPartStorage = new TestMvPartitionStorage(0);
 
+                    PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
+
+                    StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorage, Map::of);
+
                     PartitionListener listener = new PartitionListener(
                             new TestPartitionDataStorage(testMpPartStorage),
+                            storageUpdateHandler,
                             new TestTxStateStorage(),
-                            txManager,
-                            Map::of,
-                            0,
                             new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
                     );
 

@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -83,6 +84,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -94,8 +96,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -200,12 +200,14 @@ public class PartitionCommandListenerTest {
 
         safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
+        Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.id(), pkStorage);
+
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorage, indexes);
+
         commandListener = new PartitionListener(
                 partitionDataStorage,
+                storageUpdateHandler,
                 txStateStorage,
-                new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock),
-                () -> Map.of(pkStorage.id(), pkStorage),
-                PARTITION_ID,
                 safeTimeTracker
         );
     }
@@ -290,12 +292,14 @@ public class PartitionCommandListenerTest {
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
+        Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.id(), pkStorage);
+
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PARTITION_ID, partitionDataStorage, indexes);
+
         PartitionListener testCommandListener = new PartitionListener(
                 partitionDataStorage,
+                storageUpdateHandler,
                 txStateStorage,
-                new TxManagerImpl(replicaService, new HeapLockManager(), new HybridClockImpl()),
-                () -> Map.of(pkStorage.id(), pkStorage),
-                PARTITION_ID,
                 new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0))
         );
 
@@ -577,8 +581,8 @@ public class PartitionCommandListenerTest {
         invokeBatchedCommand(msgFactory.updateAllCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.getTableId())
-                                .partitionId(commitPartId.getPartId())
+                                .tableId(commitPartId.tableId())
+                                .partitionId(commitPartId.partitionId())
                                 .build())
                 .rowsToUpdate(rows)
                 .txId(txId)
@@ -613,8 +617,8 @@ public class PartitionCommandListenerTest {
         invokeBatchedCommand(msgFactory.updateAllCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.getTableId())
-                                .partitionId(commitPartId.getPartId())
+                                .tableId(commitPartId.tableId())
+                                .partitionId(commitPartId.partitionId())
                                 .build())
                 .rowsToUpdate(rows)
                 .txId(txId)
@@ -647,8 +651,8 @@ public class PartitionCommandListenerTest {
         invokeBatchedCommand(msgFactory.updateAllCommand()
                 .tablePartitionId(
                         msgFactory.tablePartitionIdMessage()
-                                .tableId(commitPartId.getTableId())
-                                .partitionId(commitPartId.getPartId())
+                                .tableId(commitPartId.tableId())
+                                .partitionId(commitPartId.partitionId())
                                 .build())
                 .rowsToUpdate(keyRows)
                 .txId(txId)

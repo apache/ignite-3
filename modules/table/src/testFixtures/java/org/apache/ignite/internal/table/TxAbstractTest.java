@@ -115,6 +115,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     protected IgniteTransactions igniteTransactions;
 
+    protected TxManager clientTxManager;
+
     /**
      * Initialize the test state.
      */
@@ -290,7 +292,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_1 - DELTA, view.get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, view.get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, txManager(accounts).finished());
+        assertEquals(5, clientTxManager().finished());
     }
 
     /**
@@ -314,7 +316,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
 
-        assertEquals(5, txManager(accounts).finished());
+        assertEquals(5, clientTxManager().finished());
     }
 
     /**
@@ -1641,6 +1643,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     private Tuple makeValue(String name) {
         return Tuple.create().set("name", name);
     }
+
+    /**
+     * Get a client tx manager.
+     *
+     * @return TX manager.
+     */
+    protected abstract TxManager clientTxManager();
 
     /**
      * Get a tx manager on a partition leader.
