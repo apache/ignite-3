@@ -176,12 +176,23 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public void TestDuplicateColumnNameMappingThrowsException()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+            await Client.Sql.ExecuteAsync<DuplicateColumnRec>(null, "select * from TBL_ALL_COLUMNS_SQL where key = 3"));
+
+        var expected = "Column 'KEY' maps to more than one field of type " +
+                       "Apache.Ignite.Tests.Sql.SqlResultSetObjectMappingTests+DuplicateColumnRec: " +
+                       "Int32 <Key2>k__BackingField and Int32 <Key>k__BackingField";
+
+        Assert.AreEqual(expected, ex!.Message);
     }
 
+    // ReSharper disable NotAccessedPositionalProperty.Local
+    // ReSharper disable ClassNeverInstantiated.Local
     private record struct StructRec([property: Column("KEY")] int Id, string Str);
 
     private record EmptyRec;
 
     private record IntRec(int Int32);
+
+    private record DuplicateColumnRec(int Key, [property: Column("KEY")] int Key2);
 }
