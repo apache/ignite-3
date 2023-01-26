@@ -345,7 +345,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         return qctx.transactionTime();
     }
 
-    /** Read write transaction id. */
+    /** Transaction id. */
     public UUID transactionId() {
         return qctx.transactionId();
     }
