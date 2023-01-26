@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
@@ -101,7 +102,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
 
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
-                        .transactionId(UUID.randomUUID())
+                        .transaction(new TransferredTxAttributesHolder(UUID.randomUUID(), null))
                         .logger(log)
                         .build(),
                 taskExecutor,
@@ -110,8 +111,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 "fake-test-node",
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
-                Map.of(),
-                null
+                Map.of()
         );
     }
 
