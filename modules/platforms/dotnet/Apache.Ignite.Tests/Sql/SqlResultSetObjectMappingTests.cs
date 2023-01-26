@@ -196,6 +196,18 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestCompatibleTypeMapping()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<ConvertTypeRec>(
+            null,
+            "select Key, Int8, Double, Float from TBL_ALL_COLUMNS_SQL where key = 3");
+
+        var row = await resultSet.SingleAsync();
+
+        Assert.AreEqual(new ConvertTypeRec(3, 9.5f, 8.5d, 4), row);
+    }
+
+    [Test]
     public void TestDuplicateColumnNameMappingThrowsException()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
@@ -221,4 +233,6 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     private record CustomRec(int UserId, string Name);
 
     private record NotMappedRec(int Key, [property: NotMapped] string? Str);
+
+    private record ConvertTypeRec(sbyte Key, float Double, double Float, long Int8);
 }
