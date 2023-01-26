@@ -40,7 +40,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         {
             var poco = new PocoAllColumnsSqlNullable(
                 i,
-                "v -" + i,
+                "v-" + i,
                 (sbyte)(i + 1),
                 (short)(i + 2),
                 i + 3,
@@ -61,14 +61,38 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestPrimitiveMapping()
+    public async Task TestSelectOneColumnAsPrimitiveType()
     {
-        var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL WHERE INT32 is not null order by 1");
+        var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL where INT32 is not null order by 1");
         var rows = await resultSet.ToListAsync();
 
         Assert.AreEqual(Count, rows.Count);
         Assert.AreEqual(3, rows.First());
         Assert.AreEqual(7, rows.Last());
+    }
+
+    [Test]
+    public async Task TestSelectAllColumns()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<PocoAllColumnsSqlNullable>(null, "select * from TBL_ALL_COLUMNS_SQL order by 1");
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(Count + 1, rows.Count);
+
+        Assert.AreEqual(1, rows[1].Key);
+        Assert.AreEqual("v-1", rows[1].Str);
+        Assert.AreEqual(2, rows[1].Int8);
+        Assert.AreEqual(3, rows[1].Int16);
+        Assert.AreEqual(4, rows[1].Int32);
+        Assert.AreEqual(5, rows[1].Int64);
+        Assert.AreEqual(6.5f, rows[1].Float);
+        Assert.AreEqual(7.5d, rows[1].Double);
+        Assert.AreEqual(new LocalDate(2022, 12, 2), rows[1].Date);
+        Assert.AreEqual(new LocalTime(11, 38, 2), rows[1].Time);
+        Assert.AreEqual(new LocalDateTime(2022, 12, 19, 11, 2), rows[1].DateTime);
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(2), rows[1].Timestamp);
+        Assert.AreEqual(new byte[] { 1, 2 }, rows[1].Blob);
+        Assert.AreEqual(8.7m, rows[1].Decimal);
     }
 
     [Test]
@@ -99,7 +123,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     public void TestSelectNullIntoIncompatiblePrimitiveTypeThrows()
     {
         var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
-            await Client.Sql.ExecuteAsync<Guid>(null, "select INT32 from TBL_ALL_COLUMNS_SQL WHERE INT32 is not null"));
+            await Client.Sql.ExecuteAsync<Guid>(null, "select INT32 from TBL_ALL_COLUMNS_SQL where INT32 is not null"));
 
         Assert.AreEqual("Conversion from System.Int32 to System.Guid is not supported (column 'INT32').", ex!.Message);
     }
