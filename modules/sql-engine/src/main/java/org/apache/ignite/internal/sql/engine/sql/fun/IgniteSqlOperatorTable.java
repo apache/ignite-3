@@ -56,7 +56,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      * Replacement for NULL values in search bounds. Required to distinguish searchable NULL values
      * (for example, 'a IS NULL' condition) and not searchable NULL values (for example, 'a = NULL' condition).
      *
-     * Note: System function, cannot be used by user.
+     * <p>Note: System function, cannot be used by user.
      */
     public static final SqlFunction NULL_BOUND =
             new SqlFunction(
@@ -71,7 +71,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      * Least of two arguments. Unlike LEAST, which is converted to CASE WHEN THEN END clause, this function
      * is natively implemented.
      *
-     * Note: System function, cannot be used by user.
+     * <p>Note: System function, cannot be used by user.
      */
     public static final SqlFunction LEAST2 =
             new SqlFunction(
@@ -86,7 +86,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      * Greatest of two arguments. Unlike GREATEST, which is converted to CASE WHEN THEN END clause, this function
      * is natively implemented.
      *
-     * Note: System function, cannot be used by user.
+     * <p>Note: System function, cannot be used by user.
      */
     public static final SqlFunction GREATEST2 =
             new SqlFunction(

@@ -467,20 +467,20 @@ public class RexUtils {
 
                 List<SearchBounds> bounds = expandSargToBounds(fc, cluster, fldType, prevComplexity, sarg, ref);
 
-                if (bounds == null)
+                if (bounds == null) {
                     continue;
+                }
 
                 if (bounds.size() == 1) {
                     if (bounds.get(0) instanceof RangeBounds && collFldPreds.size() > 1) {
                         // Try to merge bounds.
                         boolean ascDir = !fc.getDirection().isDescending();
-                        RangeBounds rangeBounds = (RangeBounds)bounds.get(0);
+                        RangeBounds rangeBounds = (RangeBounds) bounds.get(0);
                         if (rangeBounds.lowerBound() != null) {
                             if (lowerBound != null && lowerBound != nullBound) {
                                 lowerBound = leastOrGreatest(builder, !ascDir, lowerBound, rangeBounds.lowerBound());
                                 lowerInclude |= rangeBounds.lowerInclude();
-                            }
-                            else {
+                            } else {
                                 lowerBound = rangeBounds.lowerBound();
                                 lowerInclude = rangeBounds.lowerInclude();
                             }
@@ -491,8 +491,7 @@ public class RexUtils {
                             if (upperBound != null && upperBound != nullBound) {
                                 upperBound = leastOrGreatest(builder, ascDir, upperBound, rangeBounds.upperBound());
                                 upperInclude |= rangeBounds.upperInclude();
-                            }
-                            else {
+                            } else {
                                 upperBound = rangeBounds.upperBound();
                                 upperInclude = rangeBounds.upperInclude();
                             }
@@ -500,9 +499,9 @@ public class RexUtils {
                         }
 
                         continue;
-                    }
-                    else
+                    } else {
                         return bounds.get(0);
+                    }
                 }
 
                 return new MultiBounds(pred, bounds);
@@ -527,8 +526,7 @@ public class RexUtils {
                             lowerCond = pred;
                             lowerBound = val;
                             lowerInclude = includeBound;
-                        }
-                        else {
+                        } else {
                             lowerBound = leastOrGreatest(builder, lessCondition, lowerBound, val);
                             lowerInclude |= includeBound;
                             lowerCond = lessOrGreater(builder, lessCondition, lowerInclude, ref, lowerBound);
@@ -538,8 +536,7 @@ public class RexUtils {
                             upperCond = pred;
                             upperBound = val;
                             upperInclude = includeBound;
-                        }
-                        else {
+                        } else {
                             upperBound = leastOrGreatest(builder, lessCondition, upperBound, val);
                             upperInclude |= includeBound;
                             upperCond = lessOrGreater(builder, lessCondition, upperInclude, ref, upperBound);
@@ -587,8 +584,9 @@ public class RexUtils {
         int complexity = prevComplexity * sarg.complexity();
 
         // Limit amount of search bounds tuples.
-        if (complexity > MAX_SEARCH_BOUNDS_COMPLEXITY)
+        if (complexity > MAX_SEARCH_BOUNDS_COMPLEXITY) {
             return null;
+        }
 
         RexBuilder builder = builder(cluster);
 
@@ -601,10 +599,11 @@ public class RexUtils {
             List<RexCall> calls = new ArrayList<>(conjunctions.size());
 
             for (RexNode rexNode : conjunctions) {
-                if (isSupportedTreeComparison(rexNode))
-                    calls.add((RexCall)rexNode);
-                else // Cannot filter using this predicate (NOT_EQUALS for example), give a chance to other predicates.
+                if (isSupportedTreeComparison(rexNode)) {
+                    calls.add((RexCall) rexNode);
+                } else { // Cannot filter using this predicate (NOT_EQUALS for example), give a chance to other predicates.
                     return null;
+                }
             }
 
             bounds.add(createBounds(fc, calls, cluster, fldType, complexity));
@@ -628,9 +627,9 @@ public class RexUtils {
             RexNode arg0,
             RexNode arg1
     ) {
-        return builder.makeCall(less ?
-                        (includeBound ? SqlStdOperatorTable.LESS_THAN_OR_EQUAL : SqlStdOperatorTable.LESS_THAN) :
-                        (includeBound ? SqlStdOperatorTable.GREATER_THAN_OR_EQUAL : SqlStdOperatorTable.GREATER_THAN),
+        return builder.makeCall(less
+                        ? (includeBound ? SqlStdOperatorTable.LESS_THAN_OR_EQUAL : SqlStdOperatorTable.LESS_THAN)
+                        : (includeBound ? SqlStdOperatorTable.GREATER_THAN_OR_EQUAL : SqlStdOperatorTable.GREATER_THAN),
                 arg0, arg1);
     }
 

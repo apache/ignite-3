@@ -52,7 +52,7 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#getCorrelated(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "getCorrelated", int.class),
 
-    /** See {@link ExecutionContext#nullBound()} */
+    /** See {@link ExecutionContext#nullBound()}. */
     CONTEXT_NULL_BOUND(ExecutionContext.class, "nullBound"),
 
     /** See {@link SingleScalar#execute(ExecutionContext, Object, Object)}. */
@@ -83,10 +83,10 @@ public enum IgniteMethod {
     /** See {@link IgniteSqlFunctions#currentTime(DataContext)}. */
     CURRENT_TIME(IgniteSqlFunctions.class, "currentTime", DataContext.class),
 
-    /** See {@link IgniteSqlFunctions#least2(Object, Object)} */
+    /** See {@link IgniteSqlFunctions#least2(Object, Object)}. */
     LEAST2(IgniteSqlFunctions.class, "least2", Object.class, Object.class),
 
-    /** See {@link IgniteSqlFunctions#greatest2(Object, Object)} */
+    /** See {@link IgniteSqlFunctions#greatest2(Object, Object)}. */
     GREATEST2(IgniteSqlFunctions.class, "greatest2", Object.class, Object.class),
 
     /** See {@link Objects#equals(Object, Object)}. */

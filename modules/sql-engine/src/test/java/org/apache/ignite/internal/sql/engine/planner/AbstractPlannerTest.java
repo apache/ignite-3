@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
@@ -67,7 +68,9 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -103,6 +106,8 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -1269,5 +1274,44 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
+    }
+
+    void assertBounds(String sql, IgniteSchema schema, Predicate<SearchBounds>... predicates) throws Exception {
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
+                .and(scan -> matchBounds(scan.searchBounds(), predicates))));
+    }
+
+    boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
+        for (int i = 0; i < predicates.length; i++) {
+            if (!predicates[i].test(searchBounds.get(i))) {
+                lastErrorMsg = "Not expected bounds: " + searchBounds.get(i);
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    Predicate<SearchBounds> range(Object lower, Object upper, boolean lowerInclude, boolean upperInclude) {
+        return b -> b instanceof RangeBounds &&
+                matchValue(lower, ((RangeBounds)b).lowerBound()) &&
+                matchValue(upper, ((RangeBounds)b).upperBound()) &&
+                lowerInclude == ((RangeBounds)b).lowerInclude() &&
+                upperInclude == ((RangeBounds)b).upperInclude();
+    }
+
+    private boolean matchValue(Object val, RexNode bound) {
+        if (val == null || bound == null)
+            return val == bound;
+
+        bound = RexUtil.removeCast(bound);
+
+        return Objects.toString(val).equals(Objects.toString(
+                bound instanceof RexLiteral ? ((RexLiteral)bound).getValueAs(val.getClass()) : bound));
+    }
+
+    Predicate<SearchBounds> empty() {
+        return Objects::isNull;
     }
 }

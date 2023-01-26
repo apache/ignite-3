@@ -175,18 +175,19 @@ public class IgniteSqlFunctions {
         return leastOrGreatest(false, arg0, arg1);
     }
 
-    /** */
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
-        if (arg0 == null || arg1 == null)
+        if (arg0 == null || arg1 == null) {
             return null;
+        }
 
         assert arg0 instanceof Comparable && arg1 instanceof Comparable :
                 "Unexpected class [arg0=" + arg0.getClass().getName() + ", arg1=" + arg1.getClass().getName() + ']';
 
-        if (((Comparable<Object>) arg0).compareTo(arg1) < 0)
+        if (((Comparable<Object>) arg0).compareTo(arg1) < 0) {
             return least ? arg0 : arg1;
-        else
+        } else {
             return least ? arg1 : arg0;
+        }
     }
 
     /**
