@@ -482,6 +482,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
     private void notifyWatches() {
         if (!areWatchesEnabled || updatedEntries.isEmpty()) {
+            updatedEntries.clear();
+
             return;
         }
 

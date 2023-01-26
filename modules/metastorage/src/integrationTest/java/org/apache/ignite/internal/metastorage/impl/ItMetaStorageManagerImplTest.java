@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBeCancelledFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -41,14 +42,13 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -78,9 +78,11 @@ public class ItMetaStorageManagerImplTest {
 
     private ClusterService clusterService;
 
-    private RaftManager raftManager;
+    private Loza raftManager;
 
-    private MetaStorageManager metaStorageManager;
+    private KeyValueStorage storage;
+
+    private MetaStorageManagerImpl metaStorageManager;
 
     @BeforeEach
     void setUp(TestInfo testInfo, @WorkDirectory Path workDir, @InjectConfiguration RaftConfiguration raftConfiguration)
@@ -98,7 +100,7 @@ public class ItMetaStorageManagerImplTest {
         when(cmgManager.metaStorageNodes())
                 .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
 
-        var storage = new RocksDbKeyValueStorage(clusterService.localConfiguration().getName(), workDir.resolve("metastorage"));
+        storage = new RocksDbKeyValueStorage(clusterService.localConfiguration().getName(), workDir.resolve("metastorage"));
 
         metaStorageManager = new MetaStorageManagerImpl(
                 vaultManager,
@@ -235,5 +237,44 @@ public class ItMetaStorageManagerImplTest {
             @Override
             public void onError(Throwable e) {}
         };
+    }
+
+    @Test
+    void testMetaStorageStopClosesRaftService() throws Exception {
+        MetaStorageServiceImpl svc = metaStorageManager.metaStorageServiceFuture().join();
+
+        metaStorageManager.stop();
+
+        CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
+
+        assertThat(fut, willBeCancelledFast());
+    }
+
+    @Test
+    void testMetaStorageStopBeforeRaftServiceStarted() throws Exception {
+        metaStorageManager.stop(); // Close MetaStorage that is created in setUp.
+
+        ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
+
+        Set<String> msNodes = Set.of(clusterService.localConfiguration().getName());
+        CompletableFuture<Set<String>> cmgFut = new CompletableFuture<>();
+
+        when(cmgManager.metaStorageNodes()).thenReturn(cmgFut);
+
+        metaStorageManager = new MetaStorageManagerImpl(
+                vaultManager,
+                clusterService,
+                cmgManager,
+                raftManager,
+                storage
+        );
+
+        metaStorageManager.stop();
+
+        // Unblock the future so raft service can be initialized. Although the future should be cancelled already by the
+        // stop method.
+        cmgFut.complete(msNodes);
+
+        assertThat(metaStorageManager.metaStorageServiceFuture(), willBeCancelledFast());
     }
 }

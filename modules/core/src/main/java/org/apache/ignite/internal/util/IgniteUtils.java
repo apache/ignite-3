@@ -49,6 +49,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -906,6 +907,30 @@ public class IgniteUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Cancels the future and runs a consumer on future's result if it was completed before the cancellation.
+     * Does nothing if future is cancelled or completed exceptionally.
+     *
+     * @param future Future.
+     * @param consumer Consumer that accepts future's result.
+     * @param <T> Future's result type.
+     */
+    public static <T> void cancelOrConsume(CompletableFuture<T> future, Consumer<T> consumer) {
+        future.cancel(true);
+
+        if (future.isCancelled() || future.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert future.isDone();
+
+        T res = future.join();
+
+        assert res != null;
+
+        consumer.accept(res);
     }
 
     /**
