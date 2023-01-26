@@ -368,7 +368,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 idx,
                 tbl,
                 group.partitions(ctx.localNode().name()),
-                ctx.transactionTime() == null ? group::partitionLeaderTerm : null,
+                ctx.transaction().isReadOnly() ? null : group::partitionLeaderTerm,
                 comp,
                 ranges,
                 filters,
@@ -406,7 +406,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 tbl,
                 group.partitions(ctx.localNode().name()),
-                ctx.transactionTime() == null ? group::partitionLeaderTerm : null,
+                ctx.transaction().isReadOnly() ? null : group::partitionLeaderTerm,
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
