@@ -146,7 +146,8 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
                 tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
-                vaultMgr
+                vaultMgr,
+                "node"
         );
 
         clusterCfgMgr.start();
