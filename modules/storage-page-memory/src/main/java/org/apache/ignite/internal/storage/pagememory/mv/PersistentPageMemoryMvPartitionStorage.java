@@ -104,6 +104,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         DataRegion<PersistentPageMemory> dataRegion = tableStorage.dataRegion();
 
+        this.meta = meta;
+        persistedIndex = meta.lastAppliedIndex();
+
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
             public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
@@ -122,8 +125,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 persistedIndex = meta.metaSnapshot(progress.id()).lastAppliedIndex();
             }
         }, dataRegion);
-
-        this.meta = meta;
 
         blobStorage = new BlobStorage(
                 rowVersionFreeList,

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -395,10 +394,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             int partitionId = groupPartitionId.getPartitionId();
 
-            PartitionMeta meta = getOrCreatePartitionMeta(
-                    groupPartitionId,
-                    ensurePartitionFilePageStoreExists(tableView, groupPartitionId)
-            );
+            PartitionMeta meta = getOrCreatePartitionMetaOnCreatePartition(groupPartitionId);
 
             inCheckpointLock(() -> {
                 RowVersionFreeList rowVersionFreeList = createRowVersionFreeList(tableView, partitionId, pageMemory, meta);
@@ -485,7 +481,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     /**
-     * Creates or receives partition meta from a file, if the rebalancing has not finished in time, the file page store will be recreated.
+     * Creates or receives partition meta from a file.
      *
      * <p>Safe to use without a checkpointReadLock as we read the meta directly without using {@link PageMemory}.
      *
@@ -496,27 +492,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         FilePageStore filePageStore = ensurePartitionFilePageStoreExists(tableView, groupPartitionId);
 
-        PartitionMeta partitionMeta = getOrCreatePartitionMeta(groupPartitionId, filePageStore);
-
-        if (partitionMeta.lastAppliedIndex() == REBALANCE_IN_PROGRESS) {
-            try {
-                // TODO: IGNITE-18565 We need to return a CompletableFuture
-                destroyPartitionPhysically(groupPartitionId).get(10, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new StorageException(
-                        IgniteStringFormatter.format(
-                                "Error when physically destroying a partition: [table={}, partitionId={}]",
-                                getTableName(),
-                                groupPartitionId.getPartitionId()
-                        ),
-                        e
-                );
-            }
-
-            return getOrCreatePartitionMeta(groupPartitionId, ensurePartitionFilePageStoreExists(tableView, groupPartitionId));
-        } else {
-            return partitionMeta;
-        }
+        return getOrCreatePartitionMeta(groupPartitionId, filePageStore);
     }
 
     private void waitPartitionToBeDestroyed(int partitionId) {

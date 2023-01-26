@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
@@ -593,15 +592,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
     }
 
-    /**
-     * Checks that if we restart the storages after a crash in the middle of a rebalance, the storages will be empty.
-     */
     @Test
-    public void testRestartStoragesAfterFailDuringRebalance() {
-        // TODO: IGNITE-18063 перепишем немного
-
-        assumeFalse(tableStorage.isVolatile());
-
+    public void testRestartStoragesOnMiddleOfRebalance() {
         MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
@@ -635,10 +627,16 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
-        // Let's check the repositories: they should be empty.
-        checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+        if (tableStorage.isVolatile()) {
+            // Let's check the repositories: they should be empty.
+            checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+            checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        } else {
+            checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+
+            checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        }
     }
 
     @Test
