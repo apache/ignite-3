@@ -61,7 +61,7 @@ public abstract class DistributionFunction {
         return false;
     }
 
-    public static DistributionFunction affinity(UUID tableId, Object zoneId) {
+    public static DistributionFunction affinity(UUID tableId, int zoneId) {
         return new AffinityDistribution(tableId, zoneId);
     }
 
@@ -245,7 +245,7 @@ public abstract class DistributionFunction {
     public static final class AffinityDistribution extends HashDistribution {
         private final UUID tableId;
 
-        private final Object zoneId;
+        private final int zoneId;
 
         /**
          * Constructor.
@@ -253,7 +253,7 @@ public abstract class DistributionFunction {
          * @param tableId Table ID.
          * @param zoneId  Distribution zone ID.
          */
-        private AffinityDistribution(UUID tableId, Object zoneId) {
+        private AffinityDistribution(UUID tableId, int zoneId) {
             this.zoneId = zoneId;
             this.tableId = tableId;
         }
@@ -268,7 +268,7 @@ public abstract class DistributionFunction {
             return tableId;
         }
 
-        public Object zoneId() {
+        public int zoneId() {
             return zoneId;
         }
 

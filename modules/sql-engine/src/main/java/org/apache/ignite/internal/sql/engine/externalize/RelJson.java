@@ -670,7 +670,7 @@ class RelJson {
 
         if (tableIdStr != null) {
             UUID tableId = UUID.fromString(tableIdStr);
-            Object zoneId = map.get("zoneId");
+            int zoneId = (Integer) map.get("zoneId");
 
             return IgniteDistributions.affinity((List<Integer>) map.get("keys"), tableId, zoneId);
         }
