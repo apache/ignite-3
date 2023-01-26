@@ -218,7 +218,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
                 () -> {
                     boolean raftNodeStarted = loza.localNodes().stream().anyMatch(nodeId -> {
                         if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
+                            return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
                         }
 
                         return false;
