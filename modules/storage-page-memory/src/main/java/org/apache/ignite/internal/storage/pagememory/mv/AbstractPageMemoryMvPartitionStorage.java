@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ge
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalancedState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableState;
 
 import java.nio.ByteBuffer;
@@ -526,7 +526,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowId.partitionId() == partitionId : rowId;
 
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             VersionChain currentChain = findVersionChain(rowId);
 
@@ -616,7 +616,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowId.partitionId() == partitionId : rowId;
 
         busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             VersionChain currentVersionChain = findVersionChain(rowId);
 
@@ -670,7 +670,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowId.partitionId() == partitionId : rowId;
 
         busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             VersionChain currentChain = findVersionChain(rowId);
 

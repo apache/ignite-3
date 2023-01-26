@@ -30,6 +30,6 @@ public enum StorageState {
     /** Storage is in the process of rebalancing. */
     REBALANCE,
 
-    /** Storage in the process of cleanup. */
+    /** Storage is in the process of cleanup. */
     CLEANUP
 }

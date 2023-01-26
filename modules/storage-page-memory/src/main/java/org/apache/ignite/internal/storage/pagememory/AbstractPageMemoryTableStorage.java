@@ -430,12 +430,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 mvPartitionStorage.finishCleanup();
 
                 throw e;
-            } catch (Exception e) {
+            } catch (Throwable t) {
                 mvPartitionStorage.finishCleanup();
 
                 throw new StorageException(
                         IgniteStringFormatter.format("Failed to cleanup storage: [{}]", mvPartitionStorage.createStorageInfo()),
-                        e
+                        t
                 );
             }
         });

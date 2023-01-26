@@ -465,7 +465,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         try (WriteBatch writeBatch = new WriteBatch()) {
             clearStorageData(writeBatch);
 
-            updateLastAppliedAndPersistentIndex(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+            updateLastAppliedAndPersistedIndex(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
             db.write(writeOptions, writeBatch);
 
@@ -520,7 +520,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
 
         try (WriteBatch writeBatch = new WriteBatch()) {
-            updateLastAppliedAndPersistentIndex(writeBatch, lastAppliedIndex, lastAppliedTerm);
+            updateLastAppliedAndPersistedIndex(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
             db.write(writeOptions, writeBatch);
 
@@ -548,7 +548,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         try (WriteBatch writeBatch = new WriteBatch()) {
             clearStorageData(writeBatch);
 
-            updateLastAppliedAndPersistentIndex(writeBatch, 0, 0);
+            updateLastAppliedAndPersistedIndex(writeBatch, 0, 0);
 
             db.write(writeOptions, writeBatch);
 
@@ -577,7 +577,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         this.lastAppliedTerm = lastAppliedTerm;
     }
 
-    private void updateLastAppliedAndPersistentIndex(
+    private void updateLastAppliedAndPersistedIndex(
             WriteBatch writeBatch,
             long lastAppliedIndex,
             long lastAppliedTerm
@@ -676,7 +676,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         /** Storage is in the process of being rebalanced. */
         REBALANCE,
 
-        /** Storage in the process of cleanup. */
+        /** Storage is in the process of cleanup. */
         CLEANUP
     }
 }

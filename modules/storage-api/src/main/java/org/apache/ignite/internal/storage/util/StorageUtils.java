@@ -59,7 +59,7 @@ public class StorageUtils {
      * @throws StorageClosedException If the storage is closed.
      * @throws StorageException For other {@link StorageState}.
      */
-    public static void throwExceptionIfStorageNotInRunnableOrRebalancedState(StorageState state, Supplier<String> storageInfoSupplier) {
+    public static void throwExceptionIfStorageNotInRunnableOrRebalanceState(StorageState state, Supplier<String> storageInfoSupplier) {
         if (state != StorageState.RUNNABLE && state != StorageState.REBALANCE) {
             throwExceptionDependingOnStorageState(state, storageInfoSupplier.get());
         }
@@ -158,6 +158,6 @@ public class StorageUtils {
     }
 
     private static String createStorageInProcessOfCleanupErrorMessage(String storageInfo) {
-        return IgniteStringFormatter.format("Storage in the process of cleanup: [{}]", storageInfo);
+        return IgniteStringFormatter.format("Storage is in the process of cleanup: [{}]", storageInfo);
     }
 }

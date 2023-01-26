@@ -260,13 +260,14 @@ public interface MvTableStorage extends ManuallyCloseable {
     );
 
     /**
-     * Clears a partition and all associated indices.
+     * Clears a partition and all associated indices. After the cleaning is completed, a partition and all associated indices will be fully
+     * available.
      * <ul>
      *     <li>Cancels all current operations (including cursors) of a {@link MvPartitionStorage multi-version partition storage} and its
      *     associated indexes ({@link HashIndexStorage} and {@link SortedIndexStorage}) and waits for their completion;</li>
-     *     <li>Does not allow operations to be performed (exceptions will be thrown) of a multi-version partition storage and its indexes
+     *     <li>Does not allow operations on a multi-version partition storage and its indexes to be performed (exceptions will be thrown)
      *     until the cleaning is completed;</li>
-     *     <li>Clear a multi-version partition storage and its indexes;</li>
+     *     <li>Clears a multi-version partition storage and its indexes;</li>
      *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()},
      *     {@link MvPartitionStorage#persistedIndex()} to {@code 0} and {@link MvPartitionStorage#committedGroupConfiguration()} to
      *     {@code null};</li>
@@ -274,11 +275,12 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     multi-version partition storage and its indexes.</li>
      * </ul>
      *
-     * @return Future of cleanup a multi-version partition storage and its indexes.
+     * @return Future of cleanup of a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
-     * @throws StorageClosedException If a multi-version partition storage and its indexes is closed or destroyed.
-     * @throws StorageRebalanceException If a multi-version partition storage and its indexes in process of rebalance.
-     * @throws StorageException If a multi-version partition storage and its indexes in progress of cleanup or if failed.
+     * @throws StorageClosedException If a multi-version partition storage and its indexes is already closed or destroyed.
+     * @throws StorageRebalanceException If a multi-version partition storage and its indexes are in process of rebalance.
+     * @throws StorageException StorageException If a multi-version partition storage and its indexes are in progress of cleanup or failed
+     *      for another reason.
      */
     CompletableFuture<Void> clearPartition(int partitionId);
 }

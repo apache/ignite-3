@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalancedState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableState;
 
 import java.util.List;
@@ -138,7 +138,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             checkpointTimeoutLock.checkpointReadLock();
 
@@ -153,7 +153,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public CompletableFuture<Void> flush() {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
 
@@ -177,7 +177,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public long lastAppliedIndex() {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             return meta.lastAppliedIndex();
         });
@@ -186,7 +186,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public long lastAppliedTerm() {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             return meta.lastAppliedTerm();
         });
@@ -216,7 +216,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public long persistedIndex() {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             return persistedIndex;
         });
@@ -226,7 +226,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Nullable
     public RaftGroupConfiguration committedGroupConfiguration() {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
             try {
                 replicationProtocolGroupConfigReadWriteLock.readLock().lock();
