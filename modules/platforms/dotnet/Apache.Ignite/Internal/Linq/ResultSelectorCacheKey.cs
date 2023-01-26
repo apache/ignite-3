@@ -95,6 +95,11 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
             {
                 return false;
             }
+
+            if (Columns[i].Nullable != other.Columns[i].Nullable)
+            {
+                return false;
+            }
         }
 
         return true;
@@ -116,6 +121,7 @@ internal readonly struct ResultSelectorCacheKey<T> : IEquatable<ResultSelectorCa
         {
             hash.Add(column.Type);
             hash.Add(column.Scale);
+            hash.Add(column.Nullable);
         }
 
         return hash.ToHashCode();
