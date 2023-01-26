@@ -366,8 +366,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             colocationColumns.add(column.columnOrder());
         }
 
-        // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
-        IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
+        IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.internalTable().zoneId());
 
         return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors, distribution),

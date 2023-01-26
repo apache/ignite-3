@@ -66,6 +66,13 @@ public interface InternalTable extends ManuallyCloseable {
     String name();
 
     /**
+     * Gets distribution zone id for the table.
+     *
+     * @return Distribution zone id as UUID.
+     */
+    int zoneId();
+
+    /**
      * Asynchronously gets a row with same key columns values as given one from the table.
      *
      * @param keyRow Row with key columns set.

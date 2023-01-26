@@ -111,6 +111,9 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private final UUID tableId;
 
+    /** Distribution zone identifier. */
+    private final int zoneId;
+
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
 
@@ -140,8 +143,10 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param tableName Table name.
      * @param tableId Table id.
+     * @param zoneId Distribution zone id.
      * @param partMap Map partition id to raft group.
      * @param partitions Partitions.
+     * @param clusterNodeResolver Node resolver.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
      * @param txStateStorage Transaction state storage.
@@ -151,6 +156,7 @@ public class InternalTableImpl implements InternalTable {
     public InternalTableImpl(
             String tableName,
             UUID tableId,
+            int zoneId,
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             Function<String, ClusterNode> clusterNodeResolver,
@@ -162,6 +168,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
+        this.zoneId = zoneId;
         this.partitionMap = partMap;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
@@ -189,6 +196,12 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public UUID tableId() {
         return tableId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int zoneId() {
+        return zoneId;
     }
 
     /** {@inheritDoc} */

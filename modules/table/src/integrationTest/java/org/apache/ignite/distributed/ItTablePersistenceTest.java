@@ -135,6 +135,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
+                1,
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
@@ -161,6 +162,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
+                0,
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
@@ -193,6 +195,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
+                0,
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,

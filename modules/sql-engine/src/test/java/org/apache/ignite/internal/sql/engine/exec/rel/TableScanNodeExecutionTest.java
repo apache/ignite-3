@@ -147,6 +147,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
             super(
                     "test",
                     UUID.randomUUID(),
+                    0,
                     Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
                     addr -> mock(ClusterNode.class),

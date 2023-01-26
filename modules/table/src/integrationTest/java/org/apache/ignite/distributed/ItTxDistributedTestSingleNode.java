@@ -336,6 +336,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         this.accounts = new TableImpl(new InternalTableImpl(
                 accountsName,
                 accTblId,
+                1,
                 accRaftClients,
                 1,
                 consistentIdToNode,
@@ -349,6 +350,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
                 custTblId,
+                1,
                 custRaftClients,
                 1,
                 consistentIdToNode,

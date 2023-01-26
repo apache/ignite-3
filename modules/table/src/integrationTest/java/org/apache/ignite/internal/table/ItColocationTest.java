@@ -223,6 +223,7 @@ public class ItColocationTest {
         INT_TABLE = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
+                1,
                 partRafts,
                 PARTS,
                 name -> clusterNode,

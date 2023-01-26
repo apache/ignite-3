@@ -169,6 +169,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         super(
                 "test",
                 UUID.randomUUID(),
+                1,
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),
@@ -319,7 +320,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String name() {
+    public String name() {
         return null;
     }
 
