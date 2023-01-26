@@ -122,7 +122,7 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public Statement build() {
-        // TODO IGNITE-16952
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18647
         return new StatementImpl(query);
     }
 }
