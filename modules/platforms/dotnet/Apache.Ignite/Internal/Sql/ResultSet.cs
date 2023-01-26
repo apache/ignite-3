@@ -78,6 +78,7 @@ namespace Apache.Ignite.Internal.Sql
             if (HasRowSet)
             {
                 _buffer = buf.Slice(reader.Consumed);
+                HasRows = reader.ReadArrayHeader() > 0;
             }
             else
             {
@@ -111,6 +112,11 @@ namespace Apache.Ignite.Internal.Sql
         /// Gets a value indicating whether this instance is disposed.
         /// </summary>
         internal bool IsDisposed => (_resourceId == null || _resourceClosed) && _bufferReleased > 0;
+
+        /// <summary>
+        /// Gets a value indicating whether this result set has any rows in it.
+        /// </summary>
+        internal bool HasRows { get; }
 
         /// <inheritdoc/>
         public async ValueTask<List<T>> ToListAsync() =>

@@ -245,7 +245,7 @@ internal static class ResultSelector
                         // Create nullable with default non-zero value.
                         var local = il.DeclareLocal(underlyingType);
                         il.Emit(OpCodes.Ldloca_S, local);
-                        il.Emit(OpCodes.Initobj, targetType); // Load default value into local.
+                        il.Emit(OpCodes.Initobj, underlyingType); // Load default value into local.
                         il.Emit(OpCodes.Ldloc, local); // Load local value onto stack for constructor call.
                         il.Emit(OpCodes.Newobj, targetType.GetConstructor(new[] { underlyingType })!);
                     }

@@ -321,14 +321,10 @@ public class ConfigurationUtil {
             /** {@inheritDoc} */
             @Override
             public Object visitInnerNode(String key, InnerNode innerNode) {
+                // Copy or create the element.
+                node.construct(key, EMPTY_CFG_SRC, true);
+
                 InnerNode childNode = node.traverseChild(key, innerNodeVisitor(), true);
-
-                // Instantiate field in destination node before doing something else.
-                if (childNode == null) {
-                    node.construct(key, EMPTY_CFG_SRC, true);
-
-                    childNode = node.traverseChild(key, innerNodeVisitor(), true);
-                }
 
                 addDefaults(childNode);
 
@@ -338,6 +334,9 @@ public class ConfigurationUtil {
             /** {@inheritDoc} */
             @Override
             public Object visitNamedListNode(String key, NamedListNode<?> namedList) {
+                // Copy or create the element.
+                node.construct(key, EMPTY_CFG_SRC, true);
+
                 namedList = node.traverseChild(key, namedListNodeVisitor(), true);
 
                 for (String namedListKey : namedList.namedListKeys()) {

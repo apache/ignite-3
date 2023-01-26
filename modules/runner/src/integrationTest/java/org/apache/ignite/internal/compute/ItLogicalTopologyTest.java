@@ -37,7 +37,6 @@ import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration tests for functionality of logical topology events subscription.
@@ -64,13 +63,13 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
     }
 
     @Test
-    void receivesLogicalTopologyEvents(TestInfo testInfo) throws Exception {
+    void receivesLogicalTopologyEvents() throws Exception {
         IgniteImpl entryNode = node(0);
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
         // Checking that onAppeared() is received.
-        Ignite secondIgnite = startNode(1, testInfo);
+        Ignite secondIgnite = startNode(1);
 
         assertTrue(waitForCondition(() -> !events.isEmpty(), 10_000));
 
@@ -83,7 +82,7 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
         assertThat(firstEvent.topologyVersion, is(2L));
 
         // Checking that onDisappeared() is received.
-        stopNode(1, testInfo);
+        stopNode(1);
 
         assertTrue(waitForCondition(() -> events.size() > 1, 10_000));
 
@@ -97,14 +96,14 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
     }
 
     @Test
-    void receivesLogicalTopologyEventsCausedByNodeRestart(TestInfo testInfo) throws Exception {
+    void receivesLogicalTopologyEventsCausedByNodeRestart() throws Exception {
         IgniteImpl entryNode = node(0);
 
-        Ignite secondIgnite = startNode(1, testInfo);
+        Ignite secondIgnite = startNode(1);
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
-        restartNode(1, testInfo);
+        restartNode(1);
 
         waitForCondition(() -> events.size() >= 2, 10_000);
 
@@ -124,10 +123,10 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
     }
 
     @Test
-    void nodeReturnedToPhysicalTopologyReturnsToLogicalTopology(TestInfo testInfo) throws Exception {
+    void nodeReturnedToPhysicalTopologyReturnsToLogicalTopology() throws Exception {
         IgniteImpl entryNode = node(0);
 
-        IgniteImpl secondIgnite = startNode(1, testInfo);
+        IgniteImpl secondIgnite = startNode(1);
 
         makeSecondNodeDisappearForFirstNode(entryNode, secondIgnite);
 

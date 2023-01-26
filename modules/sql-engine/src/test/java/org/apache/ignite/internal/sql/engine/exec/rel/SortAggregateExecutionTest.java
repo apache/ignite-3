@@ -54,8 +54,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         ImmutableBitSet grpSet = first(grpSets);
 
-        assert !grpSet.isEmpty() : "Not applicable for sort aggregate";
-
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
@@ -63,6 +61,10 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(scan);
+
+        if (grpSet.isEmpty() && cmp == null) {
+            cmp = (k1, k2) -> 0;
+        }
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
@@ -93,8 +95,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         ImmutableBitSet grpSet = first(grpSets);
 
-        assert !grpSet.isEmpty() : "Not applicable for sort aggregate";
-
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
@@ -102,6 +102,10 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(scan);
+
+        if (grpSet.isEmpty() && cmp == null) {
+            cmp = (k1, k2) -> 0;
+        }
 
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
@@ -124,6 +128,10 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         RelCollation rdcCollation = RelCollations.of(reduceGrpFields);
 
         Comparator<Object[]> rdcCmp = ctx.expressionFactory().comparator(rdcCollation);
+
+        if (grpSet.isEmpty() && rdcCmp == null) {
+            rdcCmp = (k1, k2) -> 0;
+        }
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,

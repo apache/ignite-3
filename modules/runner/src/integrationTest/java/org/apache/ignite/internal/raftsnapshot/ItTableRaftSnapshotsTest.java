@@ -60,6 +60,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEn
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -95,8 +96,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("resource")
 @ExtendWith(WorkDirectoryExtension.class)
 @Timeout(90)
-// TODO: IGNITE-18465- extend AbstractClusterIntegrationTest
-class ItTableRaftSnapshotsTest {
+class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     /**
@@ -140,6 +140,16 @@ class ItTableRaftSnapshotsTest {
     @Timeout(60)
     void shutdownCluster() {
         cluster.shutdown();
+    }
+
+    @BeforeEach
+    public void setup(TestInfo testInfo) throws Exception {
+        setupBase(testInfo, workDir);
+    }
+
+    @AfterEach
+    public void tearDown(TestInfo testInfo) throws Exception {
+        tearDownBase(testInfo);
     }
 
     /**
