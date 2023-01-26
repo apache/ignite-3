@@ -57,9 +57,6 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
     ) {
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
 
-        assert !TraitUtils.collation(traitSet).isDefault();
-        assert !groupSet.isEmpty() && groupSets.size() == 1;
-
         collation = TraitUtils.collation(traitSet);
     }
 
@@ -73,7 +70,6 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
         collation = input.getCollation();
 
         assert Objects.nonNull(collation);
-        assert !collation.isDefault();
     }
 
     /** {@inheritDoc} */

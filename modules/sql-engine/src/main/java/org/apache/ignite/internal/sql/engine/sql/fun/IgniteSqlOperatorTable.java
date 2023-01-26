@@ -93,6 +93,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         // Aggregates.
         register(SqlStdOperatorTable.COUNT);
         register(SqlStdOperatorTable.SUM);
+        register(SqlStdOperatorTable.SUM0);
         register(SqlStdOperatorTable.AVG);
         register(SqlStdOperatorTable.MIN);
         register(SqlStdOperatorTable.MAX);

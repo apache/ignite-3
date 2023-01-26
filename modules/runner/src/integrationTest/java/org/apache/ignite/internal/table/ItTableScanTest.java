@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -95,12 +94,8 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
     public void beforeTest() throws InterruptedException {
         TableImpl table = getOrCreateTable();
 
-        // FIXME: Wait for the sorted index to be created on all nodes,
-        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the sorted index.
-        assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(ItTableScanTest::getSortedIndexConfig).allMatch(Objects::nonNull),
-                10_000)
-        );
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        waitForIndex(SORTED_IDX);
 
         loadData(table);
     }

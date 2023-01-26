@@ -24,6 +24,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * AbstractIgniteConverterRule.
@@ -45,6 +46,7 @@ public abstract class AbstractIgniteConverterRule<T extends RelNode> extends Con
 
     /** {@inheritDoc} */
     @Override
+    @Nullable
     public final RelNode convert(RelNode rel) {
         return convert(rel.getCluster().getPlanner(), rel.getCluster().getMetadataQuery(), (T) rel);
     }
@@ -57,5 +59,6 @@ public abstract class AbstractIgniteConverterRule<T extends RelNode> extends Con
      * @param rel     Rel node.
      * @return Physical rel.
      */
+    @Nullable
     protected abstract PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, T rel);
 }
