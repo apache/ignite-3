@@ -752,7 +752,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             return partitionDataStorageFut
                                     .thenCompose(s -> storageUpdateHandlerFut)
-                                    .thenCompose(s -> getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId))
+                                    .thenCompose(s -> getOrCreateTxStateStorage(internalTbl.txStateStorage(), partId))
                                     .thenAcceptAsync(txStatePartitionStorage -> {
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
