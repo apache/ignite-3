@@ -19,12 +19,13 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.List;
+import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import java.util.function.IntToLongFunction;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -59,8 +60,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final int[] parts;
 
-    /** Raft terms of the partition group leaders. */
-    private final long[] terms;
+    /** Term of the partition group leader. */
+    private final @Nullable IntToLongFunction partGroupTerm;
 
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
@@ -76,7 +77,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
      * @param parts Partition numbers to scan.
-     * @param terms Raft terms of the partition group leaders.
+     * @param partGroupTerm Term of the partition group leader.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -89,7 +90,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
             int[] parts,
-            long @Nullable[] terms,
+            @Nullable IntToLongFunction partGroupTerm,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -99,12 +100,12 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
-        assert ctx.transactionTime() != null || (terms != null && parts.length == terms.length);
+        assert ctx.transactionTime() != null || partGroupTerm != null;
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
         this.parts = parts;
-        this.terms = terms;
+        this.partGroupTerm = partGroupTerm;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -124,21 +125,19 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     }
 
     private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
-        boolean roTx = context().transactionTime() != null;
-        List<Publisher<? extends RowT>> publishers = new ArrayList<>(parts.length);
-
-        for (int i = 0; i < parts.length; i++) {
-            publishers.add(partitionPublisher(parts[i], roTx ? -1 : terms[i], cond));
-        }
+        Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
+                Arrays.stream(parts).iterator(),
+                part -> partitionPublisher(part, cond)
+        );
 
         if (comp != null) {
-            return SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, publishers.iterator());
+            return SubscriptionUtils.orderedMerge(comp, Commons.SORTED_IDX_PART_PREFETCH_SIZE, it);
         } else {
-            return SubscriptionUtils.concat(publishers.iterator());
+            return SubscriptionUtils.concat(it);
         }
     }
 
-    private Publisher<RowT> partitionPublisher(int part, long term, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
         boolean roTx = context().transactionTime() != null;
 
@@ -183,7 +182,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         part,
                         context().transactionId(),
                         context().localNode(),
-                        term,
+                        partGroupTerm.applyAsLong(part),
                         lower,
                         upper,
                         flags,
@@ -218,7 +217,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         part,
                         context().transactionId(),
                         context().localNode(),
-                        term,
+                        partGroupTerm.applyAsLong(part),
                         key,
                         requiredColumns
                 );
