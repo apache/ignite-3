@@ -300,10 +300,8 @@ public class ColocationGroup implements Serializable {
      * @return Raft group leader term.
      */
     public long partitionLeaderTerm(int partId) {
-        NodeWithTerm nodeWithTerm = first(assignments.get(partId));
+        List<NodeWithTerm> assignment = assignments.get(partId);
 
-        assert nodeWithTerm != null : "part=" + partId;
-
-        return nodeWithTerm.term();
+        return assignment.get(0).term();
     }
 }
