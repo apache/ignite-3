@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
@@ -162,6 +163,23 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(1, row.Id);
         Assert.AreEqual("v1", row.Name);
     }
+
+    [Test]
+    public async Task TestRecordStructMapping()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<StructRec>(null, "select * from TBL_ALL_COLUMNS_SQL where key = 3");
+        var row = await resultSet.SingleAsync();
+
+        Assert.AreEqual(new StructRec(3, "v-3"), row);
+    }
+
+    [Test]
+    public void TestDuplicateColumnNameMappingThrowsException()
+    {
+        Assert.Fail("TODO");
+    }
+
+    private record struct StructRec([property: Column("KEY")] int Id, string Str);
 
     private record EmptyRec;
 
