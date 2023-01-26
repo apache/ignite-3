@@ -167,6 +167,9 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
+        // TODO: IGNITE-18619 Fix it, we should have already waited for the indexes to be created
+        indexes.get();
+
         TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
         return CompletableFuture.allOf(

@@ -2052,13 +2052,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates or gets partition stores. If one of the storages has not completed the rebalance, then the storages are cleared. Also waiting
-     * for the creation of all partition indexes.
+     * Creates or gets partition stores. If one of the storages has not completed the rebalance, then the storages are cleared.
      *
      * @param table Table.
      * @param partitionId Partition ID.
      * @return Future of creating or getting partition stores.
      */
+    // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     private CompletableFuture<PartitionStoragesHolder> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         return CompletableFuture
                 .supplyAsync(() -> {
@@ -2073,12 +2073,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return completedFuture(new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
                     }
                 }, ioExecutor)
-                .thenCompose(Function.identity())
-                .thenApplyAsync(partitionStoragesHolder -> {
-                    // TODO: IGNITE-18619 This needs to be redone or fix
-                    table.indexStorageAdapters(partitionId).get();
-
-                    return partitionStoragesHolder;
-                }, ioExecutor);
+                .thenCompose(Function.identity());
     }
 }
