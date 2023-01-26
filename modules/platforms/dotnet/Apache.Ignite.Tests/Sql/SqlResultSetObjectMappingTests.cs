@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Sql;
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NodaTime;
@@ -34,6 +35,8 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [OneTimeSetUp]
     public async Task InsertData()
     {
+        await Client.Sql.ExecuteAsync(null, "delete from " + TableAllColumnsSqlName);
+
         for (int i = 0; i < Count; i++)
         {
             var poco = new PocoAllColumnsSqlNullable(
@@ -65,6 +68,8 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         var rows = await resultSet.ToListAsync();
 
         Assert.AreEqual(Count, rows.Count);
+        Assert.AreEqual(3, rows.First());
+        Assert.AreEqual(7, rows.Last());
     }
 
     [Test]
@@ -78,5 +83,17 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(
             "Can not read NULL from column 'INT32' of type 'System.Nullable`1[System.Int32]' into type 'System.Int32'.",
             ex!.Message);
+    }
+
+    [Test]
+    public async Task TestValueTupleMapping()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<(int, string)>(
+            null,
+            "select INT32, STR from TBL_ALL_COLUMNS_SQL WHERE INT32 is not null order by 1");
+
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(Count, rows.Count);
     }
 }
