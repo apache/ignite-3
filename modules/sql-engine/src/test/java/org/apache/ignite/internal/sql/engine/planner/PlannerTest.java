@@ -488,8 +488,8 @@ public class PlannerTest extends AbstractPlannerTest {
 
     /** String representation of LEAST or GREATEST operator converted to CASE. */
     private String leastOrGreatest(boolean least, String val0, String val1, String type) {
-        return "CASE(OR(IS NULL(" + val0 + "), IS NULL(" + val1 + ")), null:" + type + ", " + (least ? '<' : '>') +
-                '(' + val0 + ", " + val1 + "), " + val0 + ", " + val1 + ')';
+        return "CASE(OR(IS NULL(" + val0 + "), IS NULL(" + val1 + ")), null:" + type + ", " + (least ? '<' : '>')
+                + '(' + val0 + ", " + val1 + "), " + val0 + ", " + val1 + ')';
     }
 
     @Test

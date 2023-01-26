@@ -1295,15 +1295,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     Predicate<SearchBounds> range(Object lower, Object upper, boolean lowerInclude, boolean upperInclude) {
         return b -> b instanceof RangeBounds &&
-                matchValue(lower, ((RangeBounds)b).lowerBound()) &&
-                matchValue(upper, ((RangeBounds)b).upperBound()) &&
-                lowerInclude == ((RangeBounds)b).lowerInclude() &&
-                upperInclude == ((RangeBounds)b).upperInclude();
+                matchValue(lower, ((RangeBounds) b).lowerBound())
+                && matchValue(upper, ((RangeBounds) b).upperBound())
+                && lowerInclude == ((RangeBounds) b).lowerInclude()
+                && upperInclude == ((RangeBounds) b).upperInclude();
     }
 
     private boolean matchValue(Object val, RexNode bound) {
-        if (val == null || bound == null)
+        if (val == null || bound == null) {
             return val == bound;
+        }
 
         bound = RexUtil.removeCast(bound);
 
