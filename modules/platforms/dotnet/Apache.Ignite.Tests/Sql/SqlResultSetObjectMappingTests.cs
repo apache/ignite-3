@@ -93,6 +93,8 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(Instant.FromUnixTimeSeconds(2), rows[1].Timestamp);
         Assert.AreEqual(new byte[] { 1, 2 }, rows[1].Blob);
         Assert.AreEqual(8.7m, rows[1].Decimal);
+
+        Assert.AreEqual(new PocoAllColumnsSqlNullable(100), rows[Count]);
     }
 
     [Test]
