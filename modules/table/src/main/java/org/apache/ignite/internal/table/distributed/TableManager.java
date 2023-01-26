@@ -700,10 +700,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
-                CompletableFuture<MvPartitionStorage> mvPartitionStorageFut = getOrCreateMvPartition(internalTbl.storage(), partId);
+                CompletableFuture<PartitionStoragesHolder> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
-                CompletableFuture<PartitionDataStorage> partitionDataStorageFut = mvPartitionStorageFut
-                        .thenApply(mvPartitionStorage -> partitionDataStorage(mvPartitionStorage, internalTbl, partId));
+                CompletableFuture<PartitionDataStorage> partitionDataStorageFut = partitionStoragesFut
+                        .thenApply(partitionStoragesHolder -> partitionDataStorage(partitionStoragesHolder.getMvPartitionStorage(),
+                                internalTbl, partId));
 
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
                         .thenApply(storage -> new StorageUpdateHandler(partId, storage, table.indexStorageAdapters(partId)));
@@ -712,7 +713,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
-                    startGroupFut = mvPartitionStorageFut.thenComposeAsync(mvPartitionStorage -> {
+                    startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStoragesHolder -> {
+                        MvPartitionStorage mvPartitionStorage = partitionStoragesHolder.getMvPartitionStorage();
+
                         boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
 
                         CompletableFuture<Boolean> fut;
@@ -753,8 +756,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             return partitionDataStorageFut
                                     .thenCompose(s -> storageUpdateHandlerFut)
-                                    .thenCompose(s -> getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId))
-                                    .thenAcceptAsync(txStatePartitionStorage -> {
+                                    .thenAcceptAsync(storageUpdateHandler -> {
+                                        TxStateStorage txStatePartitionStorage = partitionStoragesHolder.getTxStateStorage();
+
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
@@ -767,7 +771,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
 
                                         PartitionDataStorage partitionDataStorage = partitionDataStorageFut.join();
-                                        StorageUpdateHandler storageUpdateHandler = storageUpdateHandlerFut.join();
 
                                         try {
                                             // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
@@ -818,12 +821,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            CompletableFuture<TxStateStorage> txStateStorageFuture =
-                                    getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId);
-
                             StorageUpdateHandler storageUpdateHandler = storageUpdateHandlerFut.join();
 
-                            return mvPartitionStorageFut.thenAcceptBoth(txStateStorageFuture, (partitionStorage, txStateStorage) -> {
+                            return partitionStoragesFut.thenAccept(partitionStoragesHolder -> {
+                                MvPartitionStorage partitionStorage = partitionStoragesHolder.getMvPartitionStorage();
+                                TxStateStorage txStateStorage = partitionStoragesHolder.getTxStateStorage();
+
                                 try {
                                     replicaMgr.startReplica(replicaGrpId,
                                             new PartitionReplicaListener(
@@ -1843,12 +1846,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                     if (shouldStartLocalServices) {
-                        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
+                        PartitionStoragesHolder partitionStoragesHolder = getOrCreatePartitionStorages(tbl, partId).join();
+
+                        MvPartitionStorage mvPartitionStorage = partitionStoragesHolder.getMvPartitionStorage();
+                        TxStateStorage txStatePartitionStorage = partitionStoragesHolder.getTxStateStorage();
+
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
                         StorageUpdateHandler storageUpdateHandler =
                                 new StorageUpdateHandler(partId, partitionDataStorage, tbl.indexStorageAdapters(partId));
-
-                        TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId);
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
