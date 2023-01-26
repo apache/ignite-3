@@ -90,6 +90,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -383,13 +384,17 @@ public class ExecutionServiceImplTest {
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
+        var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+
+        var topologyService = mock(TopologyService.class);
+
+        when(topologyService.localMember()).thenReturn(clusterNode);
+
         when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
 
-        var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
         var executionService = new ExecutionServiceImpl<>(
-                clusterNode,
                 messageService,
-                null,
+                topologyService,
                 (single, filter) -> single ? List.of(nodeNames.get(ThreadLocalRandom.current().nextInt(nodeNames.size()))) : nodeNames,
                 schemaManagerMock,
                 mock(DdlCommandHandler.class),
