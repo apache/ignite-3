@@ -58,6 +58,8 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         }
 
         await PocoAllColumnsSqlNullableView.UpsertAsync(null, new PocoAllColumnsSqlNullable(100));
+
+        await PocoView.UpsertAsync(null, new Poco { Key = 1, Val = "v1" });
     }
 
     [Test]
@@ -137,6 +139,16 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
             await Client.Sql.ExecuteAsync<EmptyRec>(null, "select INT32, STR from TBL_ALL_COLUMNS_SQL"));
 
         Assert.AreEqual($"Can't map '{typeof(EmptyRec)}' to columns 'Int32 INT32, String STR'. Matching fields not found.", ex!.Message);
+    }
+
+    [Test]
+    public async Task TestCustomColumnNameMapping()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<PocoCustomNames>(null, "select * from TBL1 where key = 1");
+        var row = await resultSet.SingleAsync();
+
+        Assert.AreEqual(1, row.Id);
+        Assert.AreEqual("v1", row.Name);
     }
 
     private record EmptyRec;

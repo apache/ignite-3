@@ -113,7 +113,6 @@ internal static class ILGeneratorExtensions
 
         if (fromUnderlying != null && toUnderlying == null)
         {
-            // TODO: Throw better exception, including column name.
             var emitNullException = il.DefineLabel();
             var end = il.DefineLabel();
 
