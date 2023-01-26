@@ -69,7 +69,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
         int[] parts = {0, 1, 2};
-        long[] terms = {1, 1, 1};
 
         int probingCnt = 50;
 
@@ -90,7 +89,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             dataAmount = size;
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, terms, null, null, null);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, p -> 1, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
