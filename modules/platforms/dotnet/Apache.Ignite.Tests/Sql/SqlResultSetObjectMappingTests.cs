@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Sql;
 
+using System;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NodaTime;
@@ -67,11 +68,15 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestSelectNullIntoPrimitiveType()
+    public async Task TestSelectNullIntoNonNullablePrimitiveTypeThrows()
     {
+        // TODO: Same test with a field.
         var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
-        var rows = await resultSet.ToListAsync();
 
-        Assert.AreEqual(Count, rows.Count);
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await resultSet.ToListAsync());
+
+        Assert.AreEqual(
+            "Can not read NULL from column 'INT32' of type 'System.Nullable`1[System.Int32]' into type 'System.Int32'.",
+            ex!.Message);
     }
 }
