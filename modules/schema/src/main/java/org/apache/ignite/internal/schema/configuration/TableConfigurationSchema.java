@@ -54,7 +54,7 @@ public class TableConfigurationSchema {
 
     /** Distribution zone id. */
     @Value(hasDefault = true)
-    public int zoneId = 1;
+    public int zoneId = 0;
 
     /** Data storage configuration. */
     @KnownDataStorage
