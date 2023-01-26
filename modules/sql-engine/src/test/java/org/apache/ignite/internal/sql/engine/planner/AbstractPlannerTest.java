@@ -1308,7 +1308,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         bound = RexUtil.removeCast(bound);
 
         return Objects.toString(val).equals(Objects.toString(
-                bound instanceof RexLiteral ? ((RexLiteral)bound).getValueAs(val.getClass()) : bound));
+                bound instanceof RexLiteral ? ((RexLiteral) bound).getValueAs(val.getClass()) : bound));
     }
 
     Predicate<SearchBounds> empty() {
