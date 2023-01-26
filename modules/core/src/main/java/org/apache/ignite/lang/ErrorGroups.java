@@ -269,22 +269,22 @@ public class ErrorGroups {
         public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
 
         /** Failed to acquire a lock on a key within a timeout. */
-        public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(6);
+        public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(5);
 
         /** Failed to commit a transaction. */
-        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(7);
+        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(6);
 
         /** Failed to rollback a transaction. */
-        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
+        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(7);
 
         /** Failed to enlist read-write operation into read-only transaction. */
-        public static final int TX_FAILED_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode(9);
+        public static final int TX_FAILED_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode(8);
 
         /** The error happens when the replica is not ready to handle a request. */
-        public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode(10);
+        public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode(9);
 
         /** Tx state storage rebalancing error. */
-        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(11);
+        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(10);
     }
 
     /** Replicator error group. */
