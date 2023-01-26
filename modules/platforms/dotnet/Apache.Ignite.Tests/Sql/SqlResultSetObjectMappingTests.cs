@@ -109,10 +109,10 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public void TestNoMatchingFieldThrows()
     {
-        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
-            await Client.Sql.ExecuteAsync<EmptyRec>(null, "select INT32 from TBL_ALL_COLUMNS_SQL"));
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+            await Client.Sql.ExecuteAsync<EmptyRec>(null, "select INT32, STR from TBL_ALL_COLUMNS_SQL"));
 
-        Assert.AreEqual("Conversion from System.Int32 to System.Guid is not supported (column 'INT32').", ex!.Message);
+        Assert.AreEqual($"Can't map '{typeof(EmptyRec)}' to columns 'Int32 INT32, String STR'. Matching fields not found.", ex!.Message);
     }
 
     private record EmptyRec;
