@@ -1,7 +1,6 @@
 # name: test/sql/function/numeric/test_truncate.test
 # description: Test TRUNCATE function
 # group: [numeric]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
 
 query T
 SELECT TRUNCATE(-123.345)

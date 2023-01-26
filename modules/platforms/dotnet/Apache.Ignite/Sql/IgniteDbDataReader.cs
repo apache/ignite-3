@@ -77,7 +77,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override int RecordsAffected => checked((int)_resultSet.AffectedRows);
 
     /// <inheritdoc/>
-    public override bool HasRows => _resultSet.HasRowSet;
+    public override bool HasRows => _resultSet.HasRows;
 
     /// <inheritdoc/>
     public override bool IsClosed => _resultSet.IsDisposed;
@@ -290,7 +290,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     public override bool IsDBNull(int ordinal) => GetReader().IsNull(ordinal);
 
     /// <inheritdoc/>
-    public override bool NextResult() => throw new NotSupportedException("Batched result sets are not supported.");
+    public override bool NextResult() => false;
 
     /// <inheritdoc/>
     public override bool Read() => ReadNextRowInCurrentPage() || FetchNextPage().GetAwaiter().GetResult();
@@ -520,18 +520,18 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
             return false;
         }
 
-        ReadFirstRowInCurrentPage();
+        return ReadFirstRowInCurrentPage();
 
-        return true;
-
-        void ReadFirstRowInCurrentPage()
+        bool ReadFirstRowInCurrentPage()
         {
             var reader = _pageEnumerator.Current.GetReader();
 
             _pageRowCount = reader.ReadArrayHeader();
             _pageRowOffset = reader.Consumed;
-            _pageRowSize = reader.ReadBinaryHeader() + reader.Consumed - _pageRowOffset;
             _pageRowIndex = 0;
+            _pageRowSize = (_pageRowCount > 0 ? reader.ReadBinaryHeader() : 0) + reader.Consumed - _pageRowOffset;
+
+            return _pageRowCount > 0;
         }
     }
 }

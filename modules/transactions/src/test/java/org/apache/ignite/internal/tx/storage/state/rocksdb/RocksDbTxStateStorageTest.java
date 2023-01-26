@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 
@@ -66,8 +67,6 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     void testRestartStorageInProgressOfRebalance() throws Exception {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
-        storage.startRebalance().get(1, TimeUnit.SECONDS);
-
         fillStorage(
                 storage,
                 List.of(randomTxMetaTuple(1, UUID.randomUUID()), randomTxMetaTuple(1, UUID.randomUUID()))
@@ -75,7 +74,8 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
         storage.flush().get(10, TimeUnit.SECONDS);
 
-        storage.finishRebalance(10, 15).get(1, TimeUnit.SECONDS);
+        // We emulate the situation that the rebalancing did not have time to end.
+        storage.lastApplied(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
         tableStorage.stop();
 

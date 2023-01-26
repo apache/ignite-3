@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.sql.fun.SqlAvgAggFunction;
 import org.apache.calcite.sql.fun.SqlCountAggFunction;
+import org.apache.calcite.sql.fun.SqlMinMaxAggFunction;
 import org.apache.calcite.sql.fun.SqlSumAggFunction;
 
 /**
@@ -38,7 +39,8 @@ public class PlanUtils {
             if (call.isDistinct()
                     && (call.getAggregation() instanceof SqlCountAggFunction
                     || call.getAggregation() instanceof SqlAvgAggFunction
-                    || call.getAggregation() instanceof SqlSumAggFunction)) {
+                    || call.getAggregation() instanceof SqlSumAggFunction
+                    || call.getAggregation() instanceof SqlMinMaxAggFunction)) {
                 return true;
             }
         }

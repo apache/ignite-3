@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -208,7 +208,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            TX_FAILED_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );
@@ -271,7 +271,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             return failedFuture(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            TX_FAILED_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );
@@ -933,7 +933,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             throw new TransactionException(
                     new TransactionException(
-                            TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR,
+                            TX_FAILED_READ_WRITE_OPERATION_ERR,
                             "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
                     )
             );

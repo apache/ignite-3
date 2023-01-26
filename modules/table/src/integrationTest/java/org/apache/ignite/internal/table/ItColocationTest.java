@@ -196,8 +196,8 @@ public class ItColocationTest {
 
                 return r.run(MSG_FACTORY.updateAllCommand()
                                 .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.getTableId())
-                                        .partitionId(commitPartId.getPartId())
+                                        .tableId(commitPartId.tableId())
+                                        .partitionId(commitPartId.partitionId())
                                         .build()
                                 )
                             .rowsToUpdate(rows)
@@ -209,8 +209,8 @@ public class ItColocationTest {
                 return r.run(MSG_FACTORY.updateCommand()
                         .tablePartitionId(
                                 MSG_FACTORY.tablePartitionIdMessage()
-                                        .tableId(commitPartId.getTableId())
-                                        .partitionId(commitPartId.getPartId())
+                                        .tableId(commitPartId.tableId())
+                                        .partitionId(commitPartId.partitionId())
                                         .build()
                         )
                         .rowUuid(Timestamp.nextVersion().toUuid())

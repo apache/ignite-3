@@ -25,6 +25,7 @@ import static java.sql.Types.DECIMAL;
 import static java.sql.Types.DOUBLE;
 import static java.sql.Types.FLOAT;
 import static java.sql.Types.INTEGER;
+import static java.sql.Types.NULL;
 import static java.sql.Types.OTHER;
 import static java.sql.Types.SMALLINT;
 import static java.sql.Types.TIME;
@@ -358,6 +359,8 @@ public class JdbcColumnMeta extends Response {
             return DATE;
         } else if (BigDecimal.class.getName().equals(cls)) {
             return DECIMAL;
+        } else if (Void.class.getName().equals(cls)) {
+            return NULL;
         } else {
             return OTHER;
         }
@@ -396,6 +399,8 @@ public class JdbcColumnMeta extends Response {
             return "DATE";
         } else if (BigDecimal.class.getName().equals(cls)) {
             return "DECIMAL";
+        } else if (Void.class.getName().equals(cls)) {
+            return "NULL";
         } else {
             return "OTHER";
         }
