@@ -103,7 +103,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 tablesConfiguration,
                 null,
                 null,
-                null
+                null,
+                "node"
         );
     }
 
