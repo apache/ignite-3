@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongList;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -295,26 +293,12 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * Returns a list of raft group leader terms for partitions on the given node.
+     * Returns a raft group leader term.
      *
-     * @param nodeName Cluster node consistent ID.
-     * @return List of raft group leader terms for partitions on the given node.
+     * @param partId Partition ID.
+     * @return Raft group leader term.
      */
-    public long[] terms(String nodeName) {
-        LongList terms = new LongArrayList();
-
-        for (int p = 0; p < assignments.size(); p++) {
-            List<NodeWithTerm> assignment = assignments.get(p);
-
-            NodeWithTerm nodeWithTerm = first(assignment);
-
-            assert nodeWithTerm != null : "part=" + p;
-
-            if (Objects.equals(nodeName, nodeWithTerm.name())) {
-                terms.add(nodeWithTerm.term());
-            }
-        }
-
-        return terms.toLongArray();
+    public long partitionLeaderTerm(int partId) {
+        return first(assignments.get(partId)).term();
     }
 }

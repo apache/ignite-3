@@ -438,7 +438,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 index,
                 new TestTable(rowType, schemaDescriptor),
                 new int[]{0, 2},
-                new long[]{1, 1},
+                p -> 1,
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
                 null,
