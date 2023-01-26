@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -61,6 +65,11 @@ public class ItImplicitCastsTest extends AbstractBasicIntegrationTest {
 
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 != T12.c2").check();
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 IS DISTINCT FROM T12.c2").check();
+    }
+
+    @Test
+    public void testCaseWhenExpressionWithMixedParametersIsIllegal() {
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, 'b')").check());
     }
 
     private static Stream<ColumnPair> columnPairs() {

@@ -44,9 +44,5 @@ CREATE TABLE test3 (a INTEGER, b INTEGER);
 statement ok
 INSERT INTO test3 VALUES (null, 22), (12, null), (13, 22)
 
-query T
-SELECT COALESCE(CAST(a AS VARCHAR), 11) FROM test3 ORDER BY a;
-----
-12
-13
-11
+statement error: Illegal mixing of types in CASE or COALESCE statement
+SELECT COALESCE(CAST(a AS VARCHAR), 11) FROM test3 ORDER BY a
