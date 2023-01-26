@@ -187,6 +187,15 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestNotMappedPropertyIsNotUpdated()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<NotMappedRec>(null, "select * from TBL_ALL_COLUMNS_SQL where key = 3");
+        var row = await resultSet.SingleAsync();
+
+        Assert.AreEqual(new NotMappedRec(3, null), row);
+    }
+
+    [Test]
     public void TestDuplicateColumnNameMappingThrowsException()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
@@ -210,4 +219,6 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     private record DuplicateColumnRec(int Key, [property: Column("KEY")] int Key2);
 
     private record CustomRec(int UserId, string Name);
+
+    private record NotMappedRec(int Key, [property: NotMapped] string? Str);
 }
