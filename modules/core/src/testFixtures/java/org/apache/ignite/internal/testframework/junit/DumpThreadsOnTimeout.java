@@ -51,6 +51,7 @@ public class DumpThreadsOnTimeout implements TestExecutionExceptionHandler, Life
 
     private static void handleThrowable(Throwable throwable, String category) throws Throwable {
         if (isJunitMethodTimeout(throwable)) {
+            // We take throwable.getMessage() because TimeoutExtension puts a description of 'what has timed out' to it.
             System.out.println(category + " " + throwable.getMessage() + ", dumping threads");
 
             dumpThreadsToStdout();
