@@ -180,7 +180,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                             s.onNext(bbRow);
                         }
 
-                        if (processedPerPart[partId] >= dataAmount) {
+                        if (processedPerPart[partId] == dataAmount) {
                             s.onComplete();
                         }
                     }

@@ -156,7 +156,7 @@ public class ColocationGroup implements Serializable {
                 List<List<NodeWithTerm>> assignments0 = new ArrayList<>(assignments.size());
 
                 for (int i = 0; i < assignments.size(); i++) {
-                    List<NodeWithTerm> assignment = filter(assignments.get(i), new HashSet<>(nodeNames));
+                    List<NodeWithTerm> assignment = filterByNodeNames(assignments.get(i), new HashSet<>(nodeNames));
 
                     if (assignment.isEmpty()) { // TODO check with partition filters
                         throw new ColocationMappingException("Failed to map fragment to location. "
@@ -215,12 +215,12 @@ public class ColocationGroup implements Serializable {
         return intersection;
     }
 
-    private List<NodeWithTerm> filter(List<NodeWithTerm> assignment, Set<String> filter) {
-        List<NodeWithTerm> res = new ArrayList<>();
-
+    private List<NodeWithTerm> filterByNodeNames(List<NodeWithTerm> assignment, Set<String> filter) {
         if (nullOrEmpty(assignment) || nullOrEmpty(filter)) {
             return Collections.emptyList();
         }
+
+        List<NodeWithTerm> res = new ArrayList<>();
 
         for (NodeWithTerm nodeWithTerm : assignment) {
             if (!filter.contains(nodeWithTerm.name())) {
@@ -234,8 +234,9 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a new colocation group using only primary assignments.
+     *
+     * @return Colocation group with primary assignments.
      */
     public ColocationGroup finalaze() {
         if (assignments != null) {
@@ -252,7 +253,7 @@ public class ColocationGroup implements Serializable {
             return new ColocationGroup(sourceIds, new ArrayList<>(nodes), assignments);
         }
 
-        return nodeNames == null ? this : forNodes0(nodeNames);
+        return mapToNodes(nodeNames);
     }
 
     /**
