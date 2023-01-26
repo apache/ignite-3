@@ -154,7 +154,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc
     ) {
         return new ExecutionServiceImpl<>(
-                topSrvc.localMember(),
                 msgSrvc,
                 topSrvc,
                 new MappingServiceImpl(topSrvc),
@@ -176,7 +175,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ExecutionServiceImpl(
-            ClusterNode localNode,
             MessageService msgSrvc,
             TopologyService topSrvc,
             MappingService mappingSrvc,
@@ -187,7 +185,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc,
             ImplementorFactory<RowT> implementorFactory
     ) {
-        this.localNode = localNode;
+        this.localNode = topSrvc.localMember();
         this.handler = handler;
         this.msgSrvc = msgSrvc;
         this.mappingSrvc = mappingSrvc;
