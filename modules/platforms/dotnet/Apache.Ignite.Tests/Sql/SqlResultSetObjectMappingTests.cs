@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests.Sql;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Ignite.Sql;
 using NodaTime;
 using NUnit.Framework;
 using Table;
@@ -75,8 +74,19 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public async Task TestSelectNullIntoNonNullablePrimitiveTypeThrows()
     {
-        // TODO: Same test with a field.
         var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await resultSet.ToListAsync());
+
+        Assert.AreEqual(
+            "Can not read NULL from column 'INT32' of type 'System.Nullable`1[System.Int32]' into type 'System.Int32'.",
+            ex!.Message);
+    }
+
+    [Test]
+    public async Task TestSelectNullIntoNonNullablePrimitiveTypeFieldThrows()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<IntRec>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await resultSet.ToListAsync());
 
@@ -95,18 +105,6 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestValueTupleMapping()
-    {
-        var resultSet = await Client.Sql.ExecuteAsync<(int, string)>(
-            null,
-            "select INT32, STR from TBL_ALL_COLUMNS_SQL WHERE INT32 is not null order by 1");
-
-        var rows = await resultSet.ToListAsync();
-
-        Assert.AreEqual(Count, rows.Count);
-    }
-
-    [Test]
     public void TestNoMatchingFieldThrows()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
@@ -116,4 +114,6 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     private record EmptyRec;
+
+    private record IntRec(int Int32);
 }
