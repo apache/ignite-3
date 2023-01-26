@@ -488,7 +488,7 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
 
         ExecutionContext<Object[]> ectx =
                 new ExecutionContext<>(BaseQueryContext.builder().logger(log).build(), null, null, null,
-                        null, null, ArrayRowHandler.INSTANCE, null, null);
+                        null, null, ArrayRowHandler.INSTANCE, null);
 
         ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, typeFactory, SqlConformanceEnum.DEFAULT);
 

@@ -61,5 +61,5 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      * Transaction id.
      */
     @Marshallable
-    @Nullable UUID txId();
+    UUID txId();
 }

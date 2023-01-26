@@ -80,6 +80,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -210,11 +211,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             BaseQueryContext ctx,
             MultiStepPlan plan
     ) {
-        DistributedQueryManager queryManager;
+        DistributedQueryManager queryManager = new DistributedQueryManager(ctx, ctx.transaction());
 
-        InternalTransaction tx = ctx.transaction();
-
-        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager = new DistributedQueryManager(ctx, tx));
+        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager);
 
         assert old == null;
 
@@ -233,8 +232,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .build()
                 )
                 .logger(LOG)
-                .transactionTime(txTime)
-                .transactionId(txId)
+                .transaction(new TransferredTxAttributesHolder(txId, txTime))
                 .build();
     }
 
@@ -447,8 +445,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .root(fragment.serialized())
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
-                    .txTime(ctx.transactionTime())
-                    .txId(ctx.transactionId())
+                    .txTime(ctx.transaction().readTimestamp())
+                    .txId(ctx.transaction().id())
                     .build();
 
             var fut = new CompletableFuture<Void>();
@@ -553,8 +551,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeName,
                     desc,
                     handler,
-                    Commons.parametersMap(ctx.parameters()),
-                    tx
+                    Commons.parametersMap(ctx.parameters())
             );
         }
 

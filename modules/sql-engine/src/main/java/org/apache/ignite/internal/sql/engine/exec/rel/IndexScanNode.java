@@ -41,6 +41,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Contract;
@@ -100,7 +102,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
-        assert ctx.transactionTime() != null || partGroupTerm != null;
+        assert ctx.transaction().isReadOnly() || partGroupTerm != null;
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
@@ -139,7 +141,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
-        boolean roTx = context().transactionTime() != null;
+        InternalTransaction tx = context().transaction();
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -156,22 +158,22 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            if (roTx) {
+            if (tx.isReadOnly()) {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
-                        context().transactionTime(),
+                        tx.readTimestamp(),
                         context().localNode(),
                         lower,
                         upper,
                         flags,
                         requiredColumns
                 );
-            } else if (context().transaction() != null) {
+            } else if (!(tx instanceof TransferredTxAttributesHolder)) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
-                        context().transaction(),
+                        tx,
                         lower,
                         upper,
                         flags,
@@ -180,7 +182,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             } else {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
-                        context().transactionId(),
+                        tx.id(),
                         context().localNode(),
                         partGroupTerm.applyAsLong(part),
                         lower,
@@ -195,27 +197,27 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
             BinaryTuple key = toBinaryTuple(cond.lower());
 
-            if (roTx) {
+            if (tx.isReadOnly()) {
                 pub = schemaIndex.index().lookup(
                         part,
-                        context().transactionTime(),
+                        tx.readTimestamp(),
                         context().localNode(),
                         key,
                         requiredColumns
                 );
-            } else if (context().transaction() != null) {
+            } else if (!(tx instanceof TransferredTxAttributesHolder)) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW lookup work from tx coordinator.
                 pub = schemaIndex.index().lookup(
                         part,
-                        context().transaction(),
+                        tx,
                         key,
                         requiredColumns
                 );
             } else {
                 pub = schemaIndex.index().lookup(
                         part,
-                        context().transactionId(),
+                        tx.id(),
                         context().localNode(),
                         partGroupTerm.applyAsLong(part),
                         key,

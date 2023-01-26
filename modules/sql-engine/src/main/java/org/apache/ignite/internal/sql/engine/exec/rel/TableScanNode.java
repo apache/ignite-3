@@ -30,7 +30,9 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
@@ -73,7 +75,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
         assert !nullOrEmpty(parts);
-        assert ctx.transactionTime() != null || partGroupTerm != null;
+        assert ctx.transaction().isReadOnly() || partGroupTerm != null;
 
         this.physTable = schemaTable.table();
         this.parts = parts;
@@ -83,21 +85,19 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        boolean roTx = context().transactionTime() != null;
-
+        InternalTransaction tx = context().transaction();
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 Arrays.stream(parts).iterator(), part -> {
             Publisher<BinaryRow> pub;
 
-            if (roTx) {
-                pub = physTable.scan(part, context().transactionTime(), context().localNode());
-            } else if (context().transaction() != null) {
+            if (tx.isReadOnly()) {
+                pub = physTable.scan(part, tx.readTimestamp(), context().localNode());
+            } else if (!(tx instanceof TransferredTxAttributesHolder)) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
-                pub = physTable.scan(part, context().transaction());
+                pub = physTable.scan(part, tx);
             } else {
-                pub = physTable.scan(part, context().transactionId(), context().localNode(), partGroupTerm.applyAsLong(part), null, null,
-                        null, 0, null);
+                pub = physTable.scan(part, tx.id(), context().localNode(), partGroupTerm.applyAsLong(part), null, null, null, 0, null);
             }
 
             return convertPublisher(pub);
