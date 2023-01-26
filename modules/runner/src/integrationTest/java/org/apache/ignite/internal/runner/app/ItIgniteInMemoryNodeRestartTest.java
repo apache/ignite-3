@@ -210,7 +210,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(
                 () -> loza.localNodes().stream().anyMatch(nodeId -> {
                     if (nodeId.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
+                        return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
                     }
 
                     return true;
@@ -251,7 +251,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(
                 () -> loza.localNodes().stream().anyMatch(nodeId -> {
                     if (nodeId.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
+                        return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
                     }
 
                     return true;
@@ -294,7 +294,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
             assertTrue(IgniteTestUtils.waitForCondition(
                     () -> loza.localNodes().stream().anyMatch(nodeId -> {
                         if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).getTableId().equals(tableId);
+                            return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
                         }
 
                         return true;
