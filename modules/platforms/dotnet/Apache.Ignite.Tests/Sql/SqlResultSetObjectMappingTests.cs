@@ -107,9 +107,13 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestNoMatchingFieldThrows()
+    public void TestNoMatchingFieldThrows()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await Client.Sql.ExecuteAsync<EmptyRec>(null, "select INT32 from TBL_ALL_COLUMNS_SQL"));
+
+        Assert.AreEqual("Conversion from System.Int32 to System.Guid is not supported (column 'INT32').", ex!.Message);
     }
+
+    private record EmptyRec;
 }
