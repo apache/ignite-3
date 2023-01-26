@@ -162,10 +162,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final InternalTransaction tx;
 
-    private final HybridTimestamp txTs;
-
-    private final UUID txId;
-
     private CalciteCatalogReader catalogReader;
 
     private long plannerTimeout;
@@ -180,8 +176,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
             Object[] parameters,
             IgniteLogger log,
             InternalTransaction tx,
-            HybridTimestamp txTs,
-            UUID txId,
             long plannerTimeout
     ) {
         super(Contexts.chain(cfg.getContext()));
@@ -194,8 +188,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.cancel = cancel;
         this.parameters = parameters;
         this.tx = tx;
-        this.txTs = txTs;
-        this.txId = txId == null && tx != null ? tx.id() : txId;
         this.plannerTimeout = plannerTimeout;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
@@ -249,14 +241,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return tx;
     }
 
-    public HybridTimestamp transactionTime() {
-        return txTs;
-    }
-
-    public UUID transactionId() {
-        return txId;
-    }
-
     public long plannerTimeout() {
         return plannerTimeout;
     }
@@ -298,9 +282,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
                 .logger(log)
                 .cancel(cancel)
                 .parameters(parameters)
-                .transaction(tx)
-                .transactionTime(txTs)
-                .transactionId(txId);
+                .transaction(tx);
     }
 
     /**
@@ -368,23 +350,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder transactionTime(HybridTimestamp txTs) {
-            this.txTs = txTs;
-            return this;
-        }
-
-        public Builder transactionId(UUID txId) {
-            this.txId = txId;
-            return this;
-        }
-
         public Builder plannerTimeout(long plannerTimeout) {
             this.plannerTimeout = plannerTimeout;
             return this;
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, txTs, txId, plannerTimeout);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, plannerTimeout);
         }
     }
 }

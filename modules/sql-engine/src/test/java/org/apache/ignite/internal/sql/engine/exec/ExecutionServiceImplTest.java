@@ -82,6 +82,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -388,6 +389,7 @@ public class ExecutionServiceImplTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
+                .transaction(new TransferredTxAttributesHolder(UUID.randomUUID(), null))
                 .logger(LOG)
                 .build();
     }
