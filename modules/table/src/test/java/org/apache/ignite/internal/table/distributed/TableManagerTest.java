@@ -345,8 +345,6 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testApiTableManagerOnStop() {
-        when(msm.registerPrefixWatch(any(), any())).thenReturn(completedFuture(1L));
-
         createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
@@ -396,8 +394,6 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testInternalApiTableManagerOnStop() {
-        when(msm.registerPrefixWatch(any(), any())).thenReturn(completedFuture(1L));
-
         createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
@@ -605,7 +601,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         Iterator itMock = mock(Iterator.class);
         when(itMock.hasNext()).thenReturn(false);
         when(msm.prefix(any())).thenReturn(cursorMocked);
-        when(msm.registerPrefixWatch(any(), any())).thenReturn(completedFuture(1L));
         when(cursorMocked.iterator()).thenReturn(itMock);
     }
 
