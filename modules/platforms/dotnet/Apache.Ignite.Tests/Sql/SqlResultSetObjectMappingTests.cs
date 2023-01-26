@@ -86,6 +86,15 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestSelectNullIntoIncompatiblePrimitiveTypeThrows()
+    {
+        var ex = Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await Client.Sql.ExecuteAsync<Guid>(null, "select INT32 from TBL_ALL_COLUMNS_SQL WHERE INT32 is not null"));
+
+        Assert.AreEqual("Conversion from System.Int32 to System.Guid is not supported (column 'INT32').", ex!.Message);
+    }
+
+    [Test]
     public async Task TestValueTupleMapping()
     {
         var resultSet = await Client.Sql.ExecuteAsync<(int, string)>(
@@ -95,5 +104,12 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         var rows = await resultSet.ToListAsync();
 
         Assert.AreEqual(Count, rows.Count);
+    }
+
+    [Test]
+    public async Task TestNoMatchingFieldThrows()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
     }
 }
