@@ -410,7 +410,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
                 IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
-                ((PersistentPageMemoryMvPartitionStorage) mvPartitionStorage).updateDataStructuresOnRebalance(
+                ((PersistentPageMemoryMvPartitionStorage) mvPartitionStorage).updateDataStructures(
                         meta,
                         rowVersionFreeList,
                         indexColumnsFreeList,

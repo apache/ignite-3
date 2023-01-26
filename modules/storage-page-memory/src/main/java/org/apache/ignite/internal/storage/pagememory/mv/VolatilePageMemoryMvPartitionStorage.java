@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalancedState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableState;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +35,6 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
@@ -93,28 +94,44 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return busy(closure::execute);
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+
+            return closure.execute();
+        });
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        return busy(() -> completedFuture(null));
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+
+            return completedFuture(null);
+        });
     }
 
     @Override
     public long lastAppliedIndex() {
-        return busy(() -> lastAppliedIndex);
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+
+            return lastAppliedIndex;
+        });
     }
 
     @Override
     public long lastAppliedTerm() {
-        return busy(() -> lastAppliedTerm);
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+
+            return lastAppliedTerm;
+        });
     }
 
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
 
             this.lastAppliedIndex = lastAppliedIndex;
             this.lastAppliedTerm = lastAppliedTerm;
@@ -125,18 +142,26 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     public long persistedIndex() {
-        return busy(() -> lastAppliedIndex);
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+
+            return lastAppliedIndex;
+        });
     }
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return busy(() -> groupConfig);
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalancedState(state.get(), this::createStorageInfo);
+
+            return groupConfig;
+        });
     }
 
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         busy(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
 
             groupConfig = config;
 
@@ -194,6 +219,10 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
         sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
 
+        lastAppliedIndex = 0;
+        lastAppliedTerm = 0;
+        groupConfig = null;
+
         if (removeIndexDescriptors) {
             hashIndexes.clear();
             sortedIndexes.clear();
@@ -249,35 +278,35 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    List<AutoCloseable> getResourcesToCloseOnRebalance() {
+    List<AutoCloseable> getResourcesToCloseOnCleanup() {
         return List.of(versionChainTree::close, indexMetaTree::close);
     }
 
     /**
-     * Updates the internal data structures of the storage and its indexes on rebalance.
+     * Updates the internal data structures of the storage and its indexes on rebalance or cleanup.
      *
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
-     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     * @throws StorageException If failed.
      */
-    public void updateDataStructuresOnRebalance(
+    public void updateDataStructures(
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree
     ) {
-        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
 
         for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
-            indexStorage.updateDataStructuresOnRebalance(
+            indexStorage.updateDataStructures(
                     indexFreeList,
                     createHashIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
             );
         }
 
         for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
-            indexStorage.updateDataStructuresOnRebalance(
+            indexStorage.updateDataStructures(
                     indexFreeList,
                     createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
             );

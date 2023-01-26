@@ -697,7 +697,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThrows(StorageClosedException.class, () -> tableStorage.clearPartition(PARTITION_ID));
             assertThrows(StorageRebalanceException.class, () -> tableStorage.clearPartition(PARTITION_ID + 1));
         } finally {
-            tableStorage.abortRebalancePartition(PARTITION_ID + 1);
+            assertThat(tableStorage.abortRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
         }
     }
 

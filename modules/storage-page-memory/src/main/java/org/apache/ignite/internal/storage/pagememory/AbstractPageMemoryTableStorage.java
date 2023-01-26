@@ -421,9 +421,23 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
-            // TODO: IGNITE-18603 реализовать
+            try {
+                mvPartitionStorage.startCleanup();
 
-            return completedFuture(null);
+                return clearStorageAndUpdateDataStructures(mvPartitionStorage)
+                        .whenComplete((unused, throwable) -> mvPartitionStorage.finishCleanup());
+            } catch (StorageException e) {
+                mvPartitionStorage.finishCleanup();
+
+                throw e;
+            } catch (Exception e) {
+                mvPartitionStorage.finishCleanup();
+
+                throw new StorageException(
+                        IgniteStringFormatter.format("Failed to cleanup storage: [{}]", mvPartitionStorage.createStorageInfo()),
+                        e
+                );
+            }
         });
     }
 
