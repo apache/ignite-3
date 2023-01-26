@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Sql;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Sql;
 using NodaTime;
 using NUnit.Framework;
 using Table;
@@ -71,6 +72,17 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
         Assert.AreEqual(Count, rows.Count);
         Assert.AreEqual(3, rows.First());
         Assert.AreEqual(7, rows.Last());
+    }
+
+    [Test]
+    public async Task TestSelectOneColumnAsRecord()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<IntRec>(null, "select INT32 from TBL_ALL_COLUMNS_SQL where INT32 is not null order by 1");
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(Count, rows.Count);
+        Assert.AreEqual(3, rows.First().Int32);
+        Assert.AreEqual(7, rows.Last().Int32);
     }
 
     [Test]
