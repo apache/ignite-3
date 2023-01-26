@@ -131,6 +131,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.PartitionStoragesHolder;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -703,7 +704,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
-                    startGroupFut = getOrCreateMvPartition(internalTbl.storage(), partId).thenComposeAsync(mvPartitionStorage -> {
+                    startGroupFut = getOrCreatePartitionStorages(table, partId).thenComposeAsync(partitionStoragesHolder -> {
+                        MvPartitionStorage mvPartitionStorage = partitionStoragesHolder.getMvPartitionStorage();
+
                         boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
 
                         CompletableFuture<Boolean> fut;
@@ -742,7 +745,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            return getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId)
+                            return completedFuture(partitionStoragesHolder.getTxStateStorage())
                                     .thenAcceptAsync(txStatePartitionStorage -> {
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
@@ -805,13 +808,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            CompletableFuture<MvPartitionStorage> partitionStorageFuture =
-                                    getOrCreateMvPartition(internalTbl.storage(), partId);
+                            CompletableFuture<PartitionStoragesHolder> partitionStoragesFuture
+                                    = getOrCreatePartitionStorages(table, partId);
 
-                            CompletableFuture<TxStateStorage> txStateStorageFuture =
-                                    getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId);
+                            return partitionStoragesFuture.thenAccept(partitionStoragesHolder -> {
+                                MvPartitionStorage partitionStorage = partitionStoragesHolder.getMvPartitionStorage();
+                                TxStateStorage txStateStorage = partitionStoragesHolder.getTxStateStorage();
 
-                            return partitionStorageFuture.thenAcceptBoth(txStateStorageFuture, (partitionStorage, txStateStorage) -> {
                                 try {
                                     replicaMgr.startReplica(replicaGrpId,
                                             new PartitionReplicaListener(
@@ -1830,9 +1833,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                     if (shouldStartLocalServices) {
-                        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
+                        PartitionStoragesHolder partitionStoragesHolder = getOrCreatePartitionStorages(tbl, partId).join();
 
-                        TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId);
+                        MvPartitionStorage mvPartitionStorage = partitionStoragesHolder.getMvPartitionStorage();
+                        TxStateStorage txStatePartitionStorage = partitionStoragesHolder.getTxStateStorage();
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
@@ -2032,42 +2036,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
     }
 
-    /**
-     * Returns or creates multi-versioned partition storage.
-     *
-     * <p>If a full rebalance has not been completed for a partition, it will be recreated to remove any garbage that might have been left
-     * in when the rebalance was interrupted.
-     *
-     * @param mvTableStorage Multi-versioned table storage.
-     * @param partitionId Partition ID.
-     * @return Future that will complete when the operation completes.
-     */
-    private CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(MvTableStorage mvTableStorage, int partitionId) {
-        // TODO: IGNITE-18603 Clear if TxStateStorage hasn't been rebalanced yet
-        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor);
-    }
-
-    /**
-     * Returns or creates transaction state storage for a partition.
-     *
-     * <p>If a full rebalance has not been completed for a partition, it will be recreated to remove any garbage that might have been left
-     * in when the rebalance was interrupted.
-     *
-     * @param txStateTableStorage Transaction state storage for a table.
-     * @param partId Partition ID.
-     */
-    private static TxStateStorage getOrCreateTxStateStorage(TxStateTableStorage txStateTableStorage, int partId) {
-        // TODO: IGNITE-18603 Clear if MvPartitionStorage hasn't been rebalanced yet
-        return txStateTableStorage.getOrCreateTxStateStorage(partId);
-    }
-
-    /**
-     * Async version of {@link #getOrCreateTxStateStorage}.
-     */
-    private CompletableFuture<TxStateStorage> getOrCreateTxStateStorageAsync(TxStateTableStorage txStateTableStorage, int partId) {
-        return CompletableFuture.supplyAsync(() -> getOrCreateTxStateStorage(txStateTableStorage, partId), ioExecutor);
-    }
-
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
         var peers = new HashSet<String>();
         var learners = new HashSet<String>();
@@ -2081,5 +2049,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return PeersAndLearners.fromConsistentIds(peers, learners);
+    }
+
+    /**
+     * Creates or gets partition stores. If one of the storages has not completed the rebalance, then the storages are cleared. Also waiting
+     * for the creation of all partition indexes.
+     *
+     * @param table Table.
+     * @param partitionId Partition ID.
+     * @return Future of creating or getting partition stores.
+     */
+    private CompletableFuture<PartitionStoragesHolder> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
+        return CompletableFuture
+                .supplyAsync(() -> {
+                    MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getOrCreateMvPartition(partitionId);
+                    TxStateStorage txStateStorage = table.internalTable().txStateStorage().getOrCreateTxStateStorage(partitionId);
+
+                    if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
+                            || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
+                        // TODO: IGNITE-18633 вот тут надо будет запустить очистку а после этого вернуть хранилища
+                        return completedFuture(new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
+                    } else {
+                        return completedFuture(new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
+                    }
+                }, ioExecutor)
+                .thenCompose(Function.identity())
+                .thenApplyAsync(partitionStoragesHolder -> {
+                    // TODO: IGNITE-18619 This needs to be redone or fix
+                    table.indexStorageAdapters(partitionId).get();
+
+                    return partitionStoragesHolder;
+                }, ioExecutor);
     }
 }
