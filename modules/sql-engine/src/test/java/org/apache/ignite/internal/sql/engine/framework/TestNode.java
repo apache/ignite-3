@@ -109,7 +109,6 @@ public class TestNode implements LifecycleAware {
         ));
 
         executionService = registerService(new ExecutionServiceImpl<>(
-                topologyService.localMember(),
                 messageService,
                 topologyService,
                 new MappingServiceImpl(topologyService),
