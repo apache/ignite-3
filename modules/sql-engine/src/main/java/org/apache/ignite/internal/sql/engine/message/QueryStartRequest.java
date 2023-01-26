@@ -58,7 +58,7 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     @Nullable HybridTimestamp txTime();
 
     /**
-     * Read write transaction id or null if this is read only transaction.
+     * Transaction id.
      */
     @Marshallable
     @Nullable UUID txId();
