@@ -165,6 +165,19 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestSqlAliasColumnNameMapping()
+    {
+        var resultSet = await Client.Sql.ExecuteAsync<CustomRec>(
+            null,
+            "select key as UserId, str as Name from TBL_ALL_COLUMNS_SQL where key = 2");
+
+        var row = await resultSet.SingleAsync();
+
+        Assert.AreEqual(2, row.UserId);
+        Assert.AreEqual("v-2", row.Name);
+    }
+
+    [Test]
     public async Task TestRecordStructMapping()
     {
         var resultSet = await Client.Sql.ExecuteAsync<StructRec>(null, "select * from TBL_ALL_COLUMNS_SQL where key = 3");
@@ -195,4 +208,6 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     private record IntRec(int Int32);
 
     private record DuplicateColumnRec(int Key, [property: Column("KEY")] int Key2);
+
+    private record CustomRec(int UserId, string Name);
 }
