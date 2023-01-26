@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -164,7 +165,7 @@ namespace Apache.Ignite.Tests
 
                 if (res == 0)
                 {
-                    throw new Exception("Connection lost");
+                    throw new ConnectionLostException();
                 }
 
                 received += res;
@@ -401,6 +402,11 @@ namespace Apache.Ignite.Tests
                 }
                 catch (Exception e)
                 {
+                    if (e is SocketException or ConnectionLostException)
+                    {
+                        continue;
+                    }
+
                     Console.WriteLine("Error in FakeServer: " + e);
                 }
             }
@@ -588,6 +594,12 @@ namespace Apache.Ignite.Tests
 
                 handler.Disconnect(true);
             }
+        }
+
+        [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
+        [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]
+        private class ConnectionLostException : Exception
+        {
         }
     }
 }
