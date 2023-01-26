@@ -1025,7 +1025,6 @@ public class InternalTableImpl implements InternalTable {
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
                             .batchSize(batchSize)
-                            .timestamp(clock.now())
                             .term(term)
                             .build();
 
