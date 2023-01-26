@@ -24,13 +24,16 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Test for {@link IgniteStripedLock}.
  */
+@Timeout(value = 10, unit = TimeUnit.MINUTES)
 public class IgniteStripedLockSelfTest {
     private static final int STRIPE_COUNT = 16;
 
