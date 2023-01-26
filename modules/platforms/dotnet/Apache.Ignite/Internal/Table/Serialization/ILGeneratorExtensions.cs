@@ -113,11 +113,30 @@ internal static class ILGeneratorExtensions
 
         if (fromUnderlying != null && toUnderlying == null)
         {
-            var loc = il.DeclareLocal(from);
-            il.Emit(OpCodes.Stloc, loc);
-            il.Emit(OpCodes.Ldloca, loc);
+            var emitNullException = il.DefineLabel();
+            var end = il.DefineLabel();
+
+            var fromLoc = il.DeclareLocal(from);
+            il.Emit(OpCodes.Stloc, fromLoc);
+
+            // Check null.
+            il.Emit(OpCodes.Ldloca, fromLoc);
+            il.Emit(OpCodes.Call, from.GetMethod("get_HasValue")!);
+            il.Emit(OpCodes.Brfalse, emitNullException);
+
+            // Not null: unwrap.
+            il.Emit(OpCodes.Ldloca, fromLoc);
             il.Emit(OpCodes.Call, from.GetMethod("get_Value")!);
             EmitConvertTo(il, fromUnderlying, to, columnName);
+            il.Emit(OpCodes.Br, end);
+
+            // Null: throw.
+            il.MarkLabel(emitNullException);
+            il.Emit(OpCodes.Ldstr, $"Can not read NULL from column '{columnName}' of type '{from}' into type '{to}'.");
+            il.Emit(OpCodes.Newobj, typeof(InvalidOperationException).GetConstructor(new[] { typeof(string) })!);
+            il.Emit(OpCodes.Throw);
+
+            il.MarkLabel(end);
             return;
         }
 

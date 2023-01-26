@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -95,7 +96,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
             }
 
             return matcher.matches(res);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        } catch (InterruptedException | ExecutionException | TimeoutException | CancellationException e) {
             if (causeOfFail != null) {
                 assertTrue(hasCause(e, causeOfFail, null));
 
@@ -150,10 +151,9 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     }
 
     /**
-     * Creates a matcher that matches a future that completes successfully and decently fast.
+     * Creates a matcher that matches a future that completes exceptionally and decently fast.
      *
-     * @param cause If {@code null}, the future should be completed successfully, otherwise it specifies the class of cause
-     *                    throwable.
+     * @param cause The class of cause throwable.
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willFailFast(Class<? extends Throwable> cause) {
@@ -161,16 +161,37 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     }
 
     /**
-     * Creates a matcher that matches a future that completes successfully with any result within the given timeout.
+     * Creates a matcher that matches a future that completes exceptionally within the given timeout.
      *
      * @param time Timeout.
      * @param timeUnit Time unit for timeout.
-     * @param cause If {@code null}, the future should be completed successfully, otherwise it specifies the class of cause
-     *                    throwable.
+     * @param cause The class of cause throwable.
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willFailIn(int time, TimeUnit timeUnit, Class<? extends Throwable> cause) {
+        assert cause != null;
+
         return new CompletableFutureMatcher<>(anything(), time, timeUnit, cause);
+    }
+
+    /**
+     * Creates a matcher that matches a future that will be cancelled and decently fast.
+     *
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willBeCancelledFast() {
+        return willBeCancelledIn(1, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that will be cancelled within the given timeout.
+     *
+     * @param time Timeout.
+     * @param timeUnit Time unit for timeout.
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willBeCancelledIn(int time, TimeUnit timeUnit) {
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit, CancellationException.class);
     }
 
     /**

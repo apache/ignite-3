@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Linq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -61,7 +62,7 @@ internal static class ResultSelector
     /// <param name="options">Options.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Row reader.</returns>
-    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression selectorExpression, ResultSelectorOptions options)
+    public static RowReader<T> Get<T>(IReadOnlyList<IColumnMetadata> columns, Expression? selectorExpression, ResultSelectorOptions options)
     {
         // Anonymous type projections use a constructor call. But user-defined types can also be used with constructor call.
         if (selectorExpression is NewExpression newExpr)
@@ -172,15 +173,21 @@ internal static class ResultSelector
             skipVisibility: true);
 
         var il = method.GetILGenerator();
-
         var resObj = il.DeclareAndInitLocal(typeof(T));
+
+        int mappedCount = 0;
 
         for (var index = 0; index < columns.Count; index++)
         {
             var col = columns[index];
 
-            EmitFieldRead(il, resObj, col, index, defaultAsNull);
+            if (EmitFieldRead(il, resObj, col, index, defaultAsNull))
+            {
+                mappedCount++;
+            }
         }
+
+        ValidateMappedCount(mappedCount, typeof(T), columns);
 
         il.Emit(OpCodes.Ldloc_0); // res
         il.Emit(OpCodes.Ret);
@@ -288,11 +295,11 @@ internal static class ResultSelector
         il.MarkLabel(endParamLabel);
     }
 
-    private static void EmitFieldRead(ILGenerator il, LocalBuilder targetObj, IColumnMetadata col, int colIndex, bool defaultAsNull)
+    private static bool EmitFieldRead(ILGenerator il, LocalBuilder targetObj, IColumnMetadata col, int colIndex, bool defaultAsNull)
     {
         if (targetObj.LocalType.GetFieldByColumnName(col.Name) is not { } field)
         {
-            return;
+            return false;
         }
 
         Label endFieldLabel = il.DefineLabel();
@@ -322,6 +329,22 @@ internal static class ResultSelector
         il.Emit(OpCodes.Stfld, field); // res.field = value
 
         il.MarkLabel(endFieldLabel);
+
+        return true;
+    }
+
+    private static void ValidateMappedCount(int mappedCount, Type type, IEnumerable<IColumnMetadata> columns)
+    {
+        if (mappedCount > 0)
+        {
+            return;
+        }
+
+        var columnStr = string.Join(", ", columns.Select(x => x.Type + " " + x.Name));
+
+        throw new IgniteClientException(
+            ErrorGroups.Client.Configuration,
+            $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
     }
 
     private static long GetNextId() => Interlocked.Increment(ref _idCounter);

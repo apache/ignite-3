@@ -5,10 +5,12 @@ Translates C# LINQ expressions into Ignite-specific SQL.
 
 ## Async
 
-LINQ provider uses underlying `Sql` API, which is fully async. While users can call sync methods like `ToList()`, `First()`, `Sum()`, etc, this will lead to thread blocking, which is not ideal for scalability.
+LINQ provider uses underlying `Sql` API, which is fully async. 
+While users can call sync methods like `ToList()`, `First()`, `Sum()`, etc, this will lead to thread blocking, which is not ideal for scalability.
 
-* Recommended approach is to use `ToResultSetAsync()` async extension method.
-* Later we should also provide `ToListAsync()`, `FirstAsync()`, `SumAsync()` and other extension methods (IGNITE-18084, inspired by EF Core).
+To retrieve LINQ results asynchronously, `IgniteQueryableExtensions` class provides extension methods:  
+* Universal `ToResultSetAsync()`, which returns Ignite-specific generic `IResultSet`.
+* Async variants for all standard methods: `ToListAsync`, `ToDictionaryAsync`, `FirstAsync`, `SumAsync`, etc.
 
 
 ## User Type Mapping

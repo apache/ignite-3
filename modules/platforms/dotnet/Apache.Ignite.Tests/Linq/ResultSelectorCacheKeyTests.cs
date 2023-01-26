@@ -50,7 +50,7 @@ public class ResultSelectorCacheKeyTests
         var columns2 = GetColumns();
 
         // Change everything except type and scale.
-        columns2[0] = columns2[0] with { Name = "foo", Nullable = false, Origin = new ColumnOrigin("a", "b", "c"), Precision = 123 };
+        columns2[0] = columns2[0] with { Name = "foo", Origin = new ColumnOrigin("a", "b", "c"), Precision = 123 };
 
         var key1 = new ResultSelectorCacheKey<object>(target, columns);
         var key2 = new ResultSelectorCacheKey<object>(target, columns2);

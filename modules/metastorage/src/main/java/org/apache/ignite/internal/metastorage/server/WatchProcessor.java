@@ -87,7 +87,7 @@ public class WatchProcessor {
     }
 
     /**
-     * Notifies registed watch about an update event.
+     * Notifies registered watch about an update event.
      */
     public void notifyWatches(List<Entry> updatedEntries) {
         // Revision must be the same for all entries.
