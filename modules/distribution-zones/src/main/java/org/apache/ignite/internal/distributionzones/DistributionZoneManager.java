@@ -146,7 +146,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Map with states for distribution zones. States are needed to track nodes that we want to add or remove from the data nodes,
      * schedule and stop scale up and scale down processes.
      */
-    private final Map<Integer, ZoneState> zonesState = new ConcurrentHashMap<>();
+    private final Map<Integer, ZoneState> zonesState;
 
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
@@ -199,6 +199,8 @@ public class DistributionZoneManager implements IgniteComponent {
         this.vaultMgr = vaultMgr;
 
         this.watchListener = createMetastorageListener();
+
+        zonesState = new ConcurrentHashMap<>();
 
         logicalTopology = Collections.emptySet();
 
