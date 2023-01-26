@@ -29,6 +29,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
@@ -200,7 +201,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        resources.close();
+        ForkJoinPool.commonPool().execute(resources::close);
         igniteTables.removeAssignmentsChangeListener(this::onPartitionAssignmentChanged);
 
         super.channelInactive(ctx);
