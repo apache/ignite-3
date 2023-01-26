@@ -137,6 +137,18 @@ namespace Apache.Ignite.Benchmarks.Sql
             }
         }
 
+        [Benchmark]
+        public async Task ObjectMappingOneColumnToListAsync()
+        {
+            await using var resultSet = await _client!.Sql.ExecuteAsync<int>(null, "select 1");
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
         private record Rec(int Id);
     }
 }
