@@ -467,7 +467,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean implicit, InternalTransaction tx0) {
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (e != null) {
-                IgniteException e0 = wrapReplicationException(e);
+                RuntimeException e0 = wrapReplicationException(e);
 
                 return tx0.rollbackAsync().handle((ignored, err) -> {
 
@@ -1368,26 +1368,26 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Casts any exception type to a client exception, wherein {@link ReplicationException} and {@link LockException} are wrapped
      * to {@link TransactionException}, but another exceptions are wrapped to a common exception.
-     * The method does not wrap an exception if the exception already inherits type of {@link IgniteException}.
+     * The method does not wrap an exception if the exception already inherits type of {@link RuntimeException}.
      *
      * @param e An instance exception to cast to client side one.
      * @return {@link IgniteException} An instance of client side exception.
      */
-    private IgniteException wrapReplicationException(Throwable e) {
+    private RuntimeException wrapReplicationException(Throwable e) {
         if (e instanceof CompletionException) {
             e = e.getCause();
         }
 
-        IgniteException e0;
+        RuntimeException e0;
 
         if (e instanceof ReplicationException || e instanceof ConnectException || e instanceof TimeoutException) {
             e0 = withCause(TransactionException::new, TX_REPLICA_UNAVAILABLE_ERR, e);
         } else if (e instanceof LockException) {
             e0 = withCause(TransactionException::new, ACQUIRE_LOCK_ERR, e);
-        } else if (!(e instanceof IgniteException)) {
+        } else if (!(e instanceof RuntimeException)) {
             e0 = withCause(IgniteException::new, UNEXPECTED_ERR, e);
         } else {
-            e0 = (IgniteException) e;
+            e0 = (RuntimeException) e;
         }
 
         return e0;
