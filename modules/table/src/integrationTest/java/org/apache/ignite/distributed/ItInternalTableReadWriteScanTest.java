@@ -49,12 +49,12 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
     protected InternalTransaction startTx() {
         InternalTransaction tx = internalTbl.txManager().begin();
 
-        TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).getPartId());
-        RaftGroupService raftSvc = internalTbl.partitionRaftGroupService(tblPartId.getPartId());
+        TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
+        RaftGroupService raftSvc = internalTbl.partitionRaftGroupService(tblPartId.partitionId());
         long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
 
         tx.assignCommitPartition(tblPartId);
-        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.leaderAssignment(tblPartId.getPartId()), term));
+        tx.enlist(tblPartId, new IgniteBiTuple<>(internalTbl.leaderAssignment(tblPartId.partitionId()), term));
 
         return tx;
     }
