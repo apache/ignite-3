@@ -139,13 +139,13 @@ public class ColocationHashTests : IgniteTestsBase
         }
     }
 
-    private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr)
+    private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
         using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider());
 
         foreach (var obj in arr)
         {
-            builder.AppendObjectWithType(obj);
+            builder.AppendObjectWithType(obj, timePrecision, timestampPrecision);
         }
 
         return (builder.Build().ToArray(), builder.Hash);
@@ -153,7 +153,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
     {
-        var (bytes, hash) = WriteAsBinaryTuple(keys);
+        var (bytes, hash) = WriteAsBinaryTuple(keys, timePrecision, timestampPrecision);
 
         var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
 

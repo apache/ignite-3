@@ -691,16 +691,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a time.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendTime(LocalTime value)
+        /// <param name="precision">Precision.</param>
+        public void AppendTime(LocalTime value, int precision = 9) // TODO: Propagate precision up the stack
         {
             if (ShouldHash())
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Hash32(value, precision, _hash);
             }
 
             if (value != default)
             {
-                PutTime(value);
+                PutTime(value, precision);
             }
 
             OnWrite();
@@ -710,7 +711,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a time.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendTimeNullable(LocalTime? value)
+        /// <param name="precision">Precision.</param>
+        public void AppendTimeNullable(LocalTime? value, int precision = 9) // TODO: Propagate precision up the stack
         {
             if (value == null)
             {
@@ -718,7 +720,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                AppendTime(value.Value);
+                AppendTime(value.Value, precision);
             }
         }
 
@@ -736,7 +738,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (value != BinaryTupleCommon.DefaultDateTime)
             {
                 PutDate(value.Date);
-                PutTime(value.TimeOfDay);
+                PutTime(value.TimeOfDay, 9); // TODO
             }
 
             OnWrite();
@@ -963,8 +965,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends an object.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendObjectWithType(object? value)
+        /// <param name="timePrecision">Time precision.</param>
+        /// <param name="timestampPrecision">Timestamp precision.</param>
+        public void AppendObjectWithType(object? value, int timePrecision = 9, int timestampPrecision = 6)
         {
+            // TODO: Constants for default precision values
             switch (value)
             {
                 case null:
@@ -1036,7 +1041,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 case LocalTime localTime:
                     AppendTypeAndScale(ClientDataType.Time);
-                    AppendTime(localTime);
+                    AppendTime(localTime, timePrecision);
                     break;
 
                 case LocalDateTime localDateTime:
@@ -1306,12 +1311,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
         }
 
-        private void PutTime(LocalTime value)
+        private void PutTime(LocalTime value, int precision)
         {
             long hour = value.Hour;
             long minute = value.Minute;
             long second = value.Second;
-            long nanos = value.NanosecondOfSecond;
+            long nanos = precision > 3 ? value.NanosecondOfSecond : 0;
 
             if ((nanos % 1000) != 0)
             {
