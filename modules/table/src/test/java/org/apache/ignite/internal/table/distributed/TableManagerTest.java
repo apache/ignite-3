@@ -56,12 +56,12 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -147,7 +147,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Schema manager. */
     @Mock
-    private BaselineManager bm;
+    private DistributionZoneManager dzm;
 
     /** Topology service. */
     @Mock
@@ -718,7 +718,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 replicaMgr,
                 null,
                 null,
-                bm,
+                dzm,
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),

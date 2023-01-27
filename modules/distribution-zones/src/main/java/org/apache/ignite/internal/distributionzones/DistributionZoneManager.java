@@ -37,9 +37,11 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -139,6 +141,8 @@ public class DistributionZoneManager implements IgniteComponent {
      *  It's enough to mark this field by volatile because we don't update the collection after it is assigned to the field.
      */
     private volatile Set<String> logicalTopology;
+
+    private final Map<Integer, Set<String>> dataNodes = new ConcurrentHashMap<>();
 
     /** Watch listener. Needed to unregister it on {@link DistributionZoneManager#stop()}. */
     private final WatchListener watchListener;
@@ -814,11 +818,15 @@ public class DistributionZoneManager implements IgniteComponent {
                         DistributionZoneView zoneView = zones.value().get(i);
 
                         scheduleTimers(zoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
+
+                        dataNodes.put(zoneView.zoneId(), newLogicalTopology);
                     }
 
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
+
+                    dataNodes.put(defaultZoneView.zoneId(), newLogicalTopology);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -829,6 +837,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.warn("Unable to process logical topology event", e);
             }
         };
+    }
+
+    public Set<String> getDataNodes(int zoneId) {
+        return dataNodes.get(zoneId);
     }
 
     private void scheduleTimers(

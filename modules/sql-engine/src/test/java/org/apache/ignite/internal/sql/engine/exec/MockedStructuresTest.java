@@ -44,7 +44,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -110,7 +109,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Schema manager. */
     @Mock
-    private BaselineManager bm;
+    private DistributionZoneManager dzm;
 
     /** Topology service. */
     @Mock
@@ -555,7 +554,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 null,
                 null,
                 null,
-                bm,
+                dzm,
                 ts,
                 tm,
                 dataStorageManager,
