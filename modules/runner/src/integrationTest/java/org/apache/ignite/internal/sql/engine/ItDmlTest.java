@@ -97,8 +97,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16529")
-    public void mergeOpChangePrimaryKey() {
+    public void failMergeOpOnChangePrimaryKey() {
         clearAndPopulateMergeTable1();
 
         clearAndPopulateMergeTable2();
@@ -107,13 +106,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = src.b, k1 = src.k1 "
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b) VALUES (src.k1, src.k2, src.a, src.b)";
 
-        sql(sql);
-
-        assertQuery("SELECT * FROM test2 ORDER BY k1")
-                .returns(222, 222, 1, 300, null)
-                .returns(111, 333, 0, 100, "")
-                .returns(444, 444, 2, 200, null)
-                .check();
+        assertThrows(CalciteContextException.class, () -> sql(sql));
     }
 
     @Test
