@@ -92,11 +92,30 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"portRange\": 5,\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
+            + "  network: {\n"
+            + "    port:{},\n"
+            + "    portRange: 5,\n"
+            + "    nodeFinder:{\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
+    protected static final String FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    },\n"
+            + "    membership: {\n"
+            + "      membershipSyncInterval: 1000,\n"
+            + "      failurePingInterval: 500,\n"
+            + "      scaleCube: {\n"
+            + "        membershipSuspicionMultiplier: 1,\n"
+            + "        failurePingRequestMembers: 1,\n"
+            + "        gossipInterval: 10\n"
+            + "      },\n"
             + "    }\n"
             + "  }\n"
             + "}";
@@ -201,13 +220,17 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
                     String nodeName = testNodeName(testInfo, i);
                     CLUSTER_NODE_NAMES.add(nodeName);
 
-                    String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
+                    String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate(), BASE_PORT + i, connectNodeAddr);
 
                     NODE_CONFIGS.put(nodeName, config);
 
                     return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
                 })
                 .collect(toList());
+    }
+
+    protected String nodeBootstrapConfigTemplate() {
+        return NODE_BOOTSTRAP_CFG;
     }
 
     protected void initializeCluster(String metaStorageNodeName) {
