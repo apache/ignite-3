@@ -294,8 +294,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
-    /** Watch listener id to unregister the watch listener on {@link }. */
-    private volatile WatchListener watchListener;
+    /** The watch listener which trigger a rebalance on updating data nodes of distribution zones. */
+    private volatile WatchListener zoneWatchListener;
 
     /**
      * Creates a new table manager.
@@ -432,7 +432,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
 
-        watchListener = new WatchListener() {
+        zoneWatchListener = new WatchListener() {
             @Override
             public void onUpdate(@NotNull WatchEvent evt) {
                 LOG.info("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
@@ -453,18 +453,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     if (zoneId == tableZoneId) {
                         TableConfiguration tableCfg = tables.get(tableView.name());
 
-                        int partCnt = tableView.partitions();
+                        for (int part = 0; part < tableView.partitions(); part++) {
+                            UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
-                        CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
+                            TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
-                        for (int part = 0; part < partCnt; part++) {
-                            TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tableCfg).id().value(), part);
-
-                            futures[part] = updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
+                            updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
                                     evt.entryEvent().newEntry().revision(), metaStorageMgr, part);
                         }
                     }
-
                 }
             }
 
@@ -481,7 +478,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         System.out.println("TableManager start()");
 
         System.out.println("metaStorageMgr " + System.identityHashCode(metaStorageMgr));
-        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), watchListener);
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), zoneWatchListener);
 
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
@@ -1005,7 +1002,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         busyLock.block();
 
         System.out.println("unregisterWatch");
-        metaStorageMgr.unregisterWatch(watchListener);
+        metaStorageMgr.unregisterWatch(zoneWatchListener);
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
