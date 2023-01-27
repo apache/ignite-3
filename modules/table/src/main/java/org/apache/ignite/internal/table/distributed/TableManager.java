@@ -2083,8 +2083,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
                             || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
-                        // TODO: IGNITE-18633 вот тут надо будет запустить очистку а после этого вернуть хранилища
-                        return completedFuture(new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
+                        return CompletableFuture.allOf(
+                                table.internalTable().storage().clearPartition(partitionId),
+                                txStateStorage.clear()
+                        ).thenApply(unused -> new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
                     } else {
                         return completedFuture(new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
                     }
