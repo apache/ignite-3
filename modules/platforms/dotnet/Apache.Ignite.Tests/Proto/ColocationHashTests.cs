@@ -102,15 +102,15 @@ public class ColocationHashTests : IgniteTestsBase
     [Test]
     [TestCaseSource(nameof(TestCases))]
     public async Task TestSingleKeyColocationHashIsSameOnServerAndClient(object key) =>
-        await AssertClientAndServerHashesAreEqual(key);
+        await AssertClientAndServerHashesAreEqual(keys: key);
 
     [Test]
     public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
     {
         for (var i = 0; i < TestCases.Length; i++)
         {
-            await AssertClientAndServerHashesAreEqual(TestCases.Take(i + 1).ToArray());
-            await AssertClientAndServerHashesAreEqual(TestCases.Skip(i).ToArray());
+            await AssertClientAndServerHashesAreEqual(keys: TestCases.Take(i + 1).ToArray());
+            await AssertClientAndServerHashesAreEqual(keys: TestCases.Skip(i).ToArray());
         }
     }
 
@@ -126,20 +126,20 @@ public class ColocationHashTests : IgniteTestsBase
         return (builder.Build().ToArray(), builder.Hash);
     }
 
-    private async Task AssertClientAndServerHashesAreEqual(params object[] keys)
+    private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
     {
         var (bytes, hash) = WriteAsBinaryTuple(keys);
 
-        var serverHash = await GetServerHash(bytes, keys.Length);
+        var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
 
         Assert.AreEqual(serverHash, hash, string.Join(", ", keys));
     }
 
-    private async Task<int> GetServerHash(byte[] bytes, int count)
+    private async Task<int> GetServerHash(byte[] bytes, int count, int timePrecision, int timestampPrecision)
     {
         var nodes = await Client.GetClusterNodesAsync();
 
-        return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes);
+        return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes, timePrecision, timestampPrecision);
     }
 
     private class TestIndexProvider : IHashedColumnIndexProvider
