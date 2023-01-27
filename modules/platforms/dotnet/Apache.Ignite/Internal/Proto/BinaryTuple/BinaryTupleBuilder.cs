@@ -694,6 +694,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="precision">Precision.</param>
         public void AppendTime(LocalTime value, int precision = 9) // TODO: Propagate precision up the stack
         {
+            // TODO: Adjust value according to precision before hashing/writing?
             if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(value, precision, _hash);
