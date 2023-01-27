@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -47,7 +48,7 @@ import org.apache.ignite.network.ClusterService;
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
  */
-public class CmgRaftService {
+public class CmgRaftService implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
@@ -193,9 +194,9 @@ public class CmgRaftService {
     }
 
     /**
-     * Returns a list of consistent IDs of the voting nodes of the CMG.
+     * Returns a set of consistent IDs of the voting nodes of the CMG.
      *
-     * @return List of consistent IDs of the voting nodes of the CMG.
+     * @return Set of consistent IDs of the voting nodes of the CMG.
      */
     public Set<String> nodeNames() {
         List<Peer> peers = raftService.peers();
@@ -234,5 +235,10 @@ public class CmgRaftService {
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(currentPeers, newLearners);
 
         return raftService.changePeersAsync(newConfiguration, term);
+    }
+
+    @Override
+    public void close() {
+        raftService.shutdown();
     }
 }

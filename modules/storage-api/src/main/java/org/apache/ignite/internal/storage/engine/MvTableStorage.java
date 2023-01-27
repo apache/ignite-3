@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigura
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -257,4 +258,29 @@ public interface MvTableStorage extends ManuallyCloseable {
             long lastAppliedTerm,
             RaftGroupConfiguration raftGroupConfig
     );
+
+    /**
+     * Clears a partition and all associated indices. After the cleaning is completed, a partition and all associated indices will be fully
+     * available.
+     * <ul>
+     *     <li>Cancels all current operations (including cursors) of a {@link MvPartitionStorage multi-version partition storage} and its
+     *     associated indexes ({@link HashIndexStorage} and {@link SortedIndexStorage}) and waits for their completion;</li>
+     *     <li>Does not allow operations on a multi-version partition storage and its indexes to be performed (exceptions will be thrown)
+     *     until the cleaning is completed;</li>
+     *     <li>Clears a multi-version partition storage and its indexes;</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()},
+     *     {@link MvPartitionStorage#persistedIndex()} to {@code 0} and {@link MvPartitionStorage#committedGroupConfiguration()} to
+     *     {@code null};</li>
+     *     <li>Once cleanup a multi-version partition storage and its indexes is complete (success or error), allows to perform all with a
+     *     multi-version partition storage and its indexes.</li>
+     * </ul>
+     *
+     * @return Future of cleanup of a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
+     * @throws StorageClosedException If a multi-version partition storage and its indexes is already closed or destroyed.
+     * @throws StorageRebalanceException If a multi-version partition storage and its indexes are in process of rebalance.
+     * @throws StorageException StorageException If a multi-version partition storage and its indexes are in progress of cleanup or failed
+     *      for another reason.
+     */
+    CompletableFuture<Void> clearPartition(int partitionId);
 }

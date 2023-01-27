@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRI
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -46,8 +48,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -1060,6 +1064,24 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public int partition(BinaryRowEx keyRow) {
         return partId(keyRow);
+    }
+
+    /**
+     * Returns map of partition -> list of peers and learners of that partition.
+     */
+    @TestOnly
+    public Map<Integer, List<String>> peersAndLearners() {
+        awaitLeaderInitialization();
+
+        return partitionMap.int2ObjectEntrySet().stream()
+                .collect(Collectors.toMap(Entry::getIntKey, e -> {
+                    RaftGroupService service = e.getValue();
+                    return Stream.of(service.peers(), service.learners())
+                            .filter(Objects::nonNull)
+                            .flatMap(Collection::stream)
+                            .map(Peer::consistentId)
+                            .collect(Collectors.toList());
+                }));
     }
 
     /**

@@ -323,7 +323,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                saveLastApplied(requireWriteBatch(), lastAppliedIndex, lastAppliedTerm);
+                savePendingLastApplied(requireWriteBatch(), lastAppliedIndex, lastAppliedTerm);
 
                 return null;
             } catch (RocksDBException e) {
@@ -332,7 +332,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private void saveLastApplied(AbstractWriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+    private void savePendingLastApplied(
+            AbstractWriteBatch writeBatch,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) throws RocksDBException {
         writeBatch.put(meta, lastAppliedIndexKey, longToBytes(lastAppliedIndex));
         writeBatch.put(meta, lastAppliedTermKey, longToBytes(lastAppliedTerm));
 
@@ -1477,7 +1481,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         busyLock.block();
 
         try {
-            clearStorageOnRebalance(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+            clearStorage(writeBatch, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to start rebalancing storage: " + createStorageInfo(), e);
         } finally {
@@ -1496,7 +1500,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         try {
-            clearStorageOnRebalance(writeBatch, 0, 0);
+            clearStorage(writeBatch, 0, 0);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -1513,7 +1517,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         try {
-            saveLastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+            saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
             saveRaftGroupConfigurationOnRebalance(writeBatch, raftGroupConfig);
         } catch (RocksDBException e) {
@@ -1521,16 +1525,19 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    private void clearStorageOnRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
-        saveLastAppliedOnRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm);
+    private void clearStorage(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+        saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
+
+        pendingGroupConfig = null;
+        lastGroupConfig = null;
 
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.delete(meta, partitionIdKey(partitionId));
         writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
     }
 
-    private void saveLastAppliedOnRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
-        saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
+    private void saveLastApplied(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {
+        savePendingLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
@@ -1542,5 +1549,30 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         saveRaftGroupConfiguration(writeBatch, config);
 
         this.lastGroupConfig = config;
+    }
+
+    /**
+     * Prepares the storage for cleanup.
+     *
+     * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.
+     */
+    void startCleanup(WriteBatch writeBatch) throws RocksDBException {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        clearStorage(writeBatch, 0, 0);
+    }
+
+    /**
+     * Finishes cleanup up the storage.
+     */
+    void finishCleanup() {
+        if (state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE)) {
+            busyLock.unblock();
+        }
     }
 }

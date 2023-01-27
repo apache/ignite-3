@@ -314,6 +314,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(commandsFactory.cursorsCloseCommand().nodeId(nodeId).build());
     }
 
+    @Override
+    public void close() {
+        metaStorageRaftGrpSvc.shutdown();
+    }
+
     private static List<OperationInfo> toOperationInfos(Collection<Operation> ops, MetaStorageCommandsFactory commandsFactory) {
         List<OperationInfo> res = new ArrayList<>(ops.size());
 

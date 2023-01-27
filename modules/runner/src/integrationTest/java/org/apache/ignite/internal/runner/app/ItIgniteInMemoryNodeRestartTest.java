@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -206,15 +208,32 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         Loza loza = restartingNode.raftManager();
 
+        String restartingNodeConsistentId = restartingNode.name();
+
+        TableImpl restartingTable = (TableImpl) restartingNode.tables().table(TABLE_NAME);
+        InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
+
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
-                () -> loza.localNodes().stream().anyMatch(nodeId -> {
-                    if (nodeId.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
+                () -> {
+                    boolean raftNodeStarted = loza.localNodes().stream().anyMatch(nodeId -> {
+                        if (nodeId.groupId() instanceof TablePartitionId) {
+                            return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
+                        }
+
+                        return false;
+                    });
+
+                    if (!raftNodeStarted) {
+                        return false;
                     }
 
-                    return true;
-                }),
+                    Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
+
+                    List<String> partitionAssignments = assignments.get(0);
+
+                    return partitionAssignments.contains(restartingNodeConsistentId);
+                },
                 TimeUnit.SECONDS.toMillis(10)
         ));
 

@@ -344,4 +344,29 @@ public class RocksDbHashIndexStorage implements HashIndexStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
     }
+
+    /**
+     * Prepares the storage for cleanup.
+     *
+     * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.
+     */
+    public void startCleanup(WriteBatch writeBatch) throws RocksDBException {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        destroyData(writeBatch);
+    }
+
+    /**
+     * Finishes cleanup up the storage.
+     */
+    public void finishCleanup() {
+        if (state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE)) {
+            busyLock.unblock();
+        }
+    }
 }

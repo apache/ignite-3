@@ -38,7 +38,9 @@ namespace Apache.Ignite.Benchmarks.Sql
     /// |                AsyncEnumerable | 263.2 us | 5.05 us | 4.72 us |  1.15 |    0.02 | 1.4648 |    393 KB |
     /// |                LinqToListAsync | 180.1 us | 3.18 us | 2.65 us |  0.79 |    0.02 | 0.2441 |     80 KB |
     /// | LinqSelectOneColumnToListAsync | 156.0 us | 3.06 us | 4.48 us |  0.68 |    0.02 | 0.2441 |     57 KB |
-    /// |                   DbDataReader | 189.3 us | 1.61 us | 1.51 us |  0.83 |    0.01 |      - |     51 KB |.
+    /// |                   DbDataReader | 189.3 us | 1.61 us | 1.51 us |  0.83 |    0.01 |      - |     51 KB |
+    /// |       ObjectMappingToListAsync | 165.8 us | 3.28 us | 3.07 us |  0.74 |    0.02 | 0.2441 |     76 KB |
+    /// |    PrimitiveMappingToListAsync | 121.2 us | 2.41 us | 4.10 us |  0.54 |    0.02 |      - |     48 KB |.
     /// </summary>
     [MemoryDiagnoser]
     [SimpleJob(RuntimeMoniker.Net60)]
@@ -130,6 +132,30 @@ namespace Apache.Ignite.Benchmarks.Sql
             {
                 rows.Add(reader.GetInt32(0));
             }
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
+        public async Task ObjectMappingToListAsync()
+        {
+            await using var resultSet = await _client!.Sql.ExecuteAsync<Rec>(null, "select 1");
+            var rows = await resultSet.ToListAsync();
+
+            if (rows.Count != 1012)
+            {
+                throw new Exception("Wrong count");
+            }
+        }
+
+        [Benchmark]
+        public async Task PrimitiveMappingToListAsync()
+        {
+            await using var resultSet = await _client!.Sql.ExecuteAsync<int>(null, "select 1");
+            var rows = await resultSet.ToListAsync();
 
             if (rows.Count != 1012)
             {

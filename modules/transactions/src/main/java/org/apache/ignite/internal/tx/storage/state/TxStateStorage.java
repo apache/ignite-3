@@ -194,4 +194,22 @@ public interface TxStateStorage extends ManuallyCloseable {
      *      has failed.
      */
     CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm);
+
+    /**
+     * Clears transaction state storage. After the cleaning is completed, the storage will be fully available.
+     * <ul>
+     *     <li>Cancels all current operations (including cursors) with storage and waits for their completion;</li>
+     *     <li>Does not allow operations to be performed (exceptions will be thrown) with the storage until the cleaning is completed;</li>
+     *     <li>Clears storage;</li>
+     *     <li>Sets the {@link #lastAppliedIndex()}, {@link #lastAppliedTerm()} and {@link #persistedIndex()} to {@code 0};</li>
+     *     <li>Once the storage cleanup is complete (success or error), allows to perform all storage operations.</li>
+     * </ul>
+     *
+     * @return Future of transaction state storage cleanup.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_STOPPED_ERR} if the storage is closed or destroyed.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} if the storage is in process of rebalance.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} if the storage is in progress of cleanup or failed for
+     *      another reason.
+     */
+    CompletableFuture<Void> clear();
 }
