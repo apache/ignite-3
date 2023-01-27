@@ -26,8 +26,7 @@ public class LockException extends TransactionInternalCheckedException {
     /**
      * Creates a new instance of LockException with the given message.
      *
-     * @param code Full error code. {@link org.apache.ignite.lang.ErrorGroups.Transactions#RELEASE_LOCK_ERR},
-     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
+     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
      *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
      * @param msg The detail message.
      */
@@ -39,8 +38,7 @@ public class LockException extends TransactionInternalCheckedException {
      * Creates a new exception of LockException with the given trace id, error code, detail message and cause.
      *
      * @param traceId Unique identifier of this exception.
-     * @param code Full error code. {@link org.apache.ignite.lang.ErrorGroups.Transactions#RELEASE_LOCK_ERR},
-     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR}
+     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
      *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
