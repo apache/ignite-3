@@ -131,7 +131,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.table.distributed.storage.PartitionStoragesHolder;
+import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -700,10 +700,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
 
-                CompletableFuture<PartitionStoragesHolder> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
+                CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
                 CompletableFuture<PartitionDataStorage> partitionDataStorageFut = partitionStoragesFut
-                        .thenApply(partitionStoragesHolder -> partitionDataStorage(partitionStoragesHolder.getMvPartitionStorage(),
+                        .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
                                 internalTbl, partId));
 
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
@@ -713,8 +713,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
                 if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
-                    startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStoragesHolder -> {
-                        MvPartitionStorage mvPartitionStorage = partitionStoragesHolder.getMvPartitionStorage();
+                    startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
+                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
 
                         boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
 
@@ -757,7 +757,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             return partitionDataStorageFut
                                     .thenCompose(s -> storageUpdateHandlerFut)
                                     .thenAcceptAsync(storageUpdateHandler -> {
-                                        TxStateStorage txStatePartitionStorage = partitionStoragesHolder.getTxStateStorage();
+                                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
@@ -823,9 +823,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             StorageUpdateHandler storageUpdateHandler = storageUpdateHandlerFut.join();
 
-                            return partitionStoragesFut.thenAccept(partitionStoragesHolder -> {
-                                MvPartitionStorage partitionStorage = partitionStoragesHolder.getMvPartitionStorage();
-                                TxStateStorage txStateStorage = partitionStoragesHolder.getTxStateStorage();
+                            return partitionStoragesFut.thenAccept(partitionStorages -> {
+                                MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
+                                TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
 
                                 try {
                                     replicaMgr.startReplica(replicaGrpId,
@@ -1846,10 +1846,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                     if (shouldStartLocalServices) {
-                        PartitionStoragesHolder partitionStoragesHolder = getOrCreatePartitionStorages(tbl, partId).join();
+                        PartitionStorages partitionStorages = getOrCreatePartitionStorages(tbl, partId).join();
 
-                        MvPartitionStorage mvPartitionStorage = partitionStoragesHolder.getMvPartitionStorage();
-                        TxStateStorage txStatePartitionStorage = partitionStoragesHolder.getTxStateStorage();
+                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
+                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
                         StorageUpdateHandler storageUpdateHandler =
@@ -2075,7 +2075,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future of creating or getting partition stores.
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
-    private CompletableFuture<PartitionStoragesHolder> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
+    private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         return CompletableFuture
                 .supplyAsync(() -> {
                     MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getOrCreateMvPartition(partitionId);
@@ -2086,9 +2086,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return CompletableFuture.allOf(
                                 table.internalTable().storage().clearPartition(partitionId),
                                 txStateStorage.clear()
-                        ).thenApply(unused -> new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
+                        ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
                     } else {
-                        return completedFuture(new PartitionStoragesHolder(mvPartitionStorage, txStateStorage));
+                        return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
                     }
                 }, ioExecutor)
                 .thenCompose(Function.identity());

@@ -23,7 +23,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 /**
  * Partition storages holder.
  */
-public class PartitionStoragesHolder {
+public class PartitionStorages {
     private final MvPartitionStorage mvPartitionStorage;
 
     private final TxStateStorage txStateStorage;
@@ -34,7 +34,7 @@ public class PartitionStoragesHolder {
      * @param mvPartitionStorage Multi-versioned storage.
      * @param txStateStorage Transaction state storage.
      */
-    public PartitionStoragesHolder(MvPartitionStorage mvPartitionStorage, TxStateStorage txStateStorage) {
+    public PartitionStorages(MvPartitionStorage mvPartitionStorage, TxStateStorage txStateStorage) {
         this.mvPartitionStorage = mvPartitionStorage;
         this.txStateStorage = txStateStorage;
     }
