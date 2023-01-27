@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -204,7 +205,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         zonesState = new ConcurrentHashMap<>();
 
-        logicalTopology = Collections.emptySet();
+        logicalTopology = emptySet();
 
         executor = new ScheduledThreadPoolExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
@@ -904,7 +905,9 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     public Set<String> getDataNodes(int zoneId) {
-        return dataNodes.get(zoneId);
+        Set<String> result = dataNodes.get(zoneId);
+
+        return result != null ? result : emptySet();
     }
 
     /**
