@@ -24,6 +24,7 @@ namespace ignite {
 
 bool is_fixed_size_type(ignite_type t) {
     switch (t) {
+        case ignite_type::BOOLEAN:
         case ignite_type::INT8:
         case ignite_type::INT16:
         case ignite_type::INT32:
@@ -35,14 +36,17 @@ bool is_fixed_size_type(ignite_type t) {
         case ignite_type::TIME:
         case ignite_type::DATETIME:
         case ignite_type::TIMESTAMP:
+        case ignite_type::PERIOD:
+        case ignite_type::DURATION:
             return true;
         default:
             return false;
     }
 }
 
-SizeT get_type_size(ignite_type t) {
+data_size_t get_type_size(ignite_type t) {
     switch (t) {
+        case ignite_type::BOOLEAN:
         case ignite_type::INT8:
             return 1;
         case ignite_type::INT16:
@@ -60,16 +64,18 @@ SizeT get_type_size(ignite_type t) {
         case ignite_type::DATE:
             return 3;
         case ignite_type::TIME:
-            return 5;
+            return 6;
         case ignite_type::DATETIME:
-            return 8;
+            return 9;
         case ignite_type::TIMESTAMP:
-            return 10;
+        case ignite_type::PERIOD:
+        case ignite_type::DURATION:
+            return 12;
         case ignite_type::BITMASK:
         case ignite_type::NUMBER:
         case ignite_type::DECIMAL:
         case ignite_type::STRING:
-        case ignite_type::BINARY:
+        case ignite_type::BYTE_ARRAY:
             /* Only fixed size types are supported for now. */
             throw std::logic_error("Can't get size of variable-size type id " + std::to_string(static_cast<int>(t)));
         default:

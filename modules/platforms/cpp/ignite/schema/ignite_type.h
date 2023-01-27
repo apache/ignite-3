@@ -24,31 +24,71 @@
 namespace ignite {
 
 /**
- * @brief Supported types for stored objects.
+ * @brief Supported types for column data.
  *
  * @note type of enum value is int, size is same as sizeof(int).
  */
 enum class ignite_type {
-    INT8 = 1, /**< 1-byte signed integer. */
-    INT16 = 2, /**< 2-byte signed integer. */
-    INT32 = 3, /**< 4-byte signed integer. */
-    INT64 = 4, /**< 8-byte signed integer. */
-    FLOAT = 5, /**< 4-byte floating-point number. */
-    DOUBLE = 6, /**< 8-byte floating-point number. */
-    DECIMAL = 7, /**< Variable-length fixed-point number. */
-    UUID = 8, /**< UUID (16 bytes). */
-    STRING = 9, /**< A UTF-8 encoded string. */
-    BINARY = 10, /**< Variable-size byte array. */
-    BITMASK = 11, /**< A fixed-length bitmask of n bits. */
-    DATE = 12, /**< A timezone-free date encoded into 3 bytes as a year (1 sign bit + 14 bits), month
-               (4 bits), day (5 bits). */
-    TIME = 13, /**< A timezone-free time encoded into 5 bytes as padding (3 bits), hour
-               (5 bits), minute (6 bits), second (6 bits), microsecond (20 bits). */
-    DATETIME = 14, /**< A timezone-free datetime encoded into 8 bytes as (date, time). */
-    TIMESTAMP = 15, /**< Number of microseconds since Jan 1, 1970 00:00:00.000000 (with no
-                    timezone) encoded into 10 bytes. */
-    NUMBER = 16, /**< Variable-length integer number (optionally bound by n bytes in size). */
-    LAST /**< Can be used internally for input data range checks. */
+     /** Boolean. */
+    BOOLEAN = 0,
+
+    /** 8-bit signed integer. */
+    INT8 = 1,
+
+    /** 16-bit signed integer. */
+    INT16 = 2,
+
+    /** 32-bit signed integer. */
+    INT32 = 3,
+
+    /** 64-bit signed integer. */
+    INT64 = 4,
+
+    /** 32-bit single-precision floating-point number. */
+    FLOAT = 5,
+
+    /** 64-bit double-precision floating-point number. */
+    DOUBLE = 6,
+
+    /** A decimal fixed-point number. */
+    DECIMAL = 7,
+
+    /** Timezone-free date. */
+    DATE = 8,
+
+    /** Timezone-free time with precision. */
+    TIME = 9,
+
+    /** Timezone-free datetime. */
+    DATETIME = 10,
+
+    /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
+    TIMESTAMP = 11,
+
+    /** 128-bit UUID. */
+    UUID = 12,
+
+    /** Bit mask. */
+    BITMASK = 13,
+
+    /** String. */
+    STRING = 14,
+
+    /** Binary data. */
+    BYTE_ARRAY = 15,
+    BINARY = BYTE_ARRAY,
+
+    /** Date interval. */
+    PERIOD = 16,
+
+    /** Time interval. */
+    DURATION = 17,
+
+    /** Number. */
+    NUMBER = 18,
+
+    /** Undefined. */
+    UNDEFINED
 };
 
 /**
@@ -66,7 +106,7 @@ bool is_fixed_size_type(ignite_type t);
  * @param t Type to investigate.
  * @return Size in bytes.
  */
-SizeT get_type_size(ignite_type t);
+data_size_t get_type_size(ignite_type t);
 
 /**
  * @brief Writes a ignite_type value to an output stream.

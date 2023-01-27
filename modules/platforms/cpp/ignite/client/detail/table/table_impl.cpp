@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/table/table_impl.h"
+#include "table_impl.h"
+
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/table/table.h"

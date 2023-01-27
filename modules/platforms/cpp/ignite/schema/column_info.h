@@ -25,16 +25,19 @@ namespace ignite {
  * @brief Basic column info.
  */
 struct column_info {
-    ignite_type dataType;
+    /** Data type of the values in this column. */
+    ignite_type type;
+
+    /** True if the column values may be NULL, false otherwise. */
     bool nullable;
 
-    bool hasFixedSize() const { return is_fixed_size_type(dataType); }
+    bool has_fixed_size() const { return is_fixed_size_type(type); }
 
-    size_t getFixedSize() const { return get_type_size(dataType); }
+    size_t get_fixed_size() const { return get_type_size(type); }
 
-    bool operator==(const column_info &other) const { return dataType == other.dataType && nullable == other.nullable; }
+    bool operator==(const column_info &other) const noexcept { return type == other.type && nullable == other.nullable; }
 
-    bool operator!=(const column_info &other) const { return !(operator==(other)); }
+    bool operator!=(const column_info &other) const noexcept { return !(operator==(other)); }
 };
 
 } // namespace ignite

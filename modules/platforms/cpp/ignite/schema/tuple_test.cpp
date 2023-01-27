@@ -103,7 +103,7 @@ std::string read_tuple(std::optional<bytes_view> data) {
 struct SchemaDescriptor {
     std::vector<column_info> columns;
 
-    [[nodiscard]] IntT length() const { return IntT(columns.size()); }
+    [[nodiscard]] number_t length() const { return number_t(columns.size()); }
 
     [[nodiscard]] binary_tuple_schema to_tuple_schema() const {
         return binary_tuple_schema({columns.begin(), columns.end()});
@@ -706,7 +706,7 @@ TEST(tuple, TinyVarlenFormatOverflowMedium) { // NOLINT(cert-err58-cpp)
         EXPECT_EQ(1, next->size());
         EXPECT_EQ(i, read_tuple<int8_t>(next.value()));
     }
-    for (IntT i = 4; i < schema.length(); i++) {
+    for (number_t i = 4; i < schema.length(); i++) {
         auto next = tp.get_next();
         EXPECT_TRUE(next.has_value());
         EXPECT_EQ(0, next.value().size());
@@ -970,7 +970,7 @@ TEST(tuple, TupleWriteRead) { // NOLINT(cert-err58-cpp)
     schema.columns.emplace_back(column_info{ignite_type::INT8, false});
 
     for (bool nullable : {false, true}) {
-        for (IntT i = 0; i < schema.length(); i++) {
+        for (number_t i = 0; i < schema.length(); i++) {
             schema.columns[i].nullable = nullable;
         }
 
@@ -1043,7 +1043,7 @@ TEST(tuple, Int8TupleWriteRead) { // NOLINT(cert-err58-cpp)
     schema.columns.emplace_back(column_info{ignite_type::INT8, false});
 
     for (bool nullable : {false, true}) {
-        for (IntT i = 0; i < schema.length(); i++) {
+        for (number_t i = 0; i < schema.length(); i++) {
             schema.columns[i].nullable = nullable;
         }
 
@@ -1220,7 +1220,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         binary_tuple_parser tp(schema.length(), tuple);
 
         EXPECT_EQ(100500, read_tuple<int32_t>(tp.get_next()));
-        for (IntT i = 1; i < schema.length(); i++) {
+        for (number_t i = 1; i < schema.length(); i++) {
             EXPECT_EQ(value, read_tuple<std::string>(tp.get_next()));
         }
     }
@@ -1259,7 +1259,7 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         binary_tuple_parser tp(schema.length(), tuple);
 
         EXPECT_EQ(100500, read_tuple<int32_t>(tp.get_next()));
-        for (IntT i = 1; i < schema.length(); i++) {
+        for (number_t i = 1; i < schema.length(); i++) {
             EXPECT_EQ(value, read_tuple<std::string>(tp.get_next()));
         }
     }

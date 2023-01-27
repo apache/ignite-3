@@ -35,7 +35,7 @@ namespace ignite::detail {
  * @return Matching client data type.
  */
 inline ignite_type ignite_type_from_int(std::int32_t val) {
-    if (val < 1 || val >= std::int32_t(ignite_type::LAST))
+    if (val < 1 || val >= std::int32_t(ignite_type::UNDEFINED))
         throw ignite_error("Value is out of range for Ignite type: " + std::to_string(val));
     return ignite_type(val);
 }
