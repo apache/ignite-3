@@ -32,6 +32,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Holder of {@link InternalTransaction#id() id} and {@link InternalTransaction#readTimestamp() readTimestamp} transaction attributes
  * that are passed to remote nodes during sql query execution.
+ *
+ * TODO IGNITE-17952 This class must not implement the transaction interface.
  */
 public class TransferredTxAttributesHolder implements InternalTransaction {
     /** Transaction id. */
