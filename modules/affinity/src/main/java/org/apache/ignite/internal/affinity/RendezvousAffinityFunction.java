@@ -33,7 +33,6 @@ import java.util.function.IntFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Affinity function for partitioned table based on Highest Random Weight algorithm. This function supports the following configuration:
@@ -66,16 +65,6 @@ public class RendezvousAffinityFunction {
 
     /** Exclude neighbors warning. */
     private static boolean exclNeighborsWarn;
-
-    /**
-     * Resolves node hash.
-     *
-     * @param node Cluster node;
-     * @return Node hash.
-     */
-    public static Object resolveNodeHash(ClusterNode node) {
-        return node.name();
-    }
 
     /**
      * Returns collection of nodes for specified partition.
@@ -137,7 +126,7 @@ public class RendezvousAffinityFunction {
         res.add(first);
 
         if (exclNeighbors) {
-            allNeighbors.addAll(neighborhoodCache.get(first));//first.id()
+            allNeighbors.addAll(neighborhoodCache.get(first));
         }
 
         // Select another replicas.
@@ -149,13 +138,13 @@ public class RendezvousAffinityFunction {
                     if (!allNeighbors.contains(node)) {
                         res.add(node);
 
-                        allNeighbors.addAll(neighborhoodCache.get(node));//node.id()
+                        allNeighbors.addAll(neighborhoodCache.get(node));
                     }
                 } else if (nodeFilter == null || nodeFilter.test(node, res)) {
                     res.add(node);
 
                     if (exclNeighbors) {
-                        allNeighbors.addAll(neighborhoodCache.get(node));//node.id()
+                        allNeighbors.addAll(neighborhoodCache.get(node));
                     }
                 }
             }
@@ -323,7 +312,7 @@ public class RendezvousAffinityFunction {
 
         for (Collection<String> group : macMap.values()) {
             for (String node : group) {
-                neighbors.put(node, group);//node.id()
+                neighbors.put(node, group);
             }
         }
 
