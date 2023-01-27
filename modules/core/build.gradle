@@ -35,6 +35,8 @@ dependencies {
     testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit
 
+    testFixturesAnnotationProcessor libs.auto.service
+
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.junit.testkit
@@ -43,6 +45,7 @@ dependencies {
     testFixturesImplementation libs.junit5.impl
     testFixturesImplementation libs.junit5.params
     testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.auto.service.annotations
 }
 
 test {
