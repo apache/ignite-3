@@ -19,6 +19,9 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,7 +40,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
-import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +53,8 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.OperationType;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -93,7 +93,7 @@ public abstract class AbstractKeyValueStorageTest {
     abstract KeyValueStorage storage();
 
     @Test
-    public void put() {
+    public void testPut() {
         byte[] key = key(1);
         byte[] val = keyValue(1, 1);
 
@@ -615,7 +615,7 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
-    public void remove() {
+    public void testRemove() {
         byte[] key = key(1);
         byte[] val = keyValue(1, 1);
 
@@ -1099,8 +1099,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new RevisionCondition(RevisionCondition.Type.EQUAL, key1, 1),
-                List.of(Operation.put(key1, val12), Operation.put(key2, val2)),
-                List.of(Operation.put(key3, val3))
+                List.of(put(new ByteArray(key1), val12), put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
         );
 
         // "Success" branch is applied.
@@ -1152,8 +1152,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new RevisionCondition(RevisionCondition.Type.EQUAL, key1, 2),
-                List.of(Operation.put(key3, val3)),
-                List.of(Operation.put(key1, val12), Operation.put(key2, val2))
+                List.of(put(new ByteArray(key3), val3)),
+                List.of(put(new ByteArray(key1), val12), put(new ByteArray(key2), val2))
         );
 
         // "Failure" branch is applied.
@@ -1205,8 +1205,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.EXISTS, key1),
-                List.of(Operation.put(key1, val12), Operation.put(key2, val2)),
-                List.of(Operation.put(key3, val3))
+                List.of(put(new ByteArray(key1), val12), put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
         );
 
         // "Success" branch is applied.
@@ -1258,8 +1258,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.EXISTS, key3),
-                List.of(Operation.put(key3, val3)),
-                List.of(Operation.put(key1, val12), Operation.put(key2, val2))
+                List.of(put(new ByteArray(key3), val3)),
+                List.of(put(new ByteArray(key1), val12), put(new ByteArray(key2), val2))
         );
 
         // "Failure" branch is applied.
@@ -1311,8 +1311,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key2),
-                List.of(Operation.put(key1, val12), Operation.put(key2, val2)),
-                List.of(Operation.put(key3, val3))
+                List.of(put(new ByteArray(key1), val12), put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
         );
 
         // "Success" branch is applied.
@@ -1364,10 +1364,10 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key1),
-                List.of(Operation.put(key3, val3)),
+                List.of(put(new ByteArray(key3), val3)),
                 List.of(
-                        Operation.put(key1, val12),
-                        Operation.put(key2, val2)
+                        put(new ByteArray(key1), val12),
+                        put(new ByteArray(key2), val2)
                 )
         );
 
@@ -1420,8 +1420,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new TombstoneCondition(key1),
-                List.of(Operation.put(key2, val2)),
-                List.of(Operation.put(key3, val3))
+                List.of(put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
         );
 
         // "Success" branch is applied.
@@ -1472,8 +1472,8 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new TombstoneCondition(key1),
-                List.of(Operation.put(key2, val2)),
-                List.of(Operation.put(key3, val3))
+                List.of(put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
         );
 
         // "Failure" branch is applied.
@@ -1526,10 +1526,10 @@ public abstract class AbstractKeyValueStorageTest {
         boolean branch = storage.invoke(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val11),
                 List.of(
-                        Operation.put(key1, val12),
-                        Operation.put(key2, val2)
+                        put(new ByteArray(key1), val12),
+                        put(new ByteArray(key2), val2)
                 ),
-                List.of(Operation.put(key3, val3))
+                List.of(put(new ByteArray(key3), val3))
         );
 
         // "Success" branch is applied.
@@ -1581,10 +1581,10 @@ public abstract class AbstractKeyValueStorageTest {
 
         boolean branch = storage.invoke(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val12),
-                List.of(Operation.put(key3, val3)),
+                List.of(put(new ByteArray(key3), val3)),
                 List.of(
-                        Operation.put(key1, val12),
-                        Operation.put(key2, val2)
+                        put(new ByteArray(key1), val12),
+                        put(new ByteArray(key2), val2)
                 )
         );
 
@@ -1637,8 +1637,8 @@ public abstract class AbstractKeyValueStorageTest {
         // No-op.
         boolean branch = storage.invoke(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val1),
-                List.of(new Operation(OperationType.NO_OP, null, null)),
-                List.of(new Operation(OperationType.NO_OP, null, null))
+                List.of(Operations.noop()),
+                List.of(Operations.noop())
         );
 
         assertTrue(branch);
@@ -1651,10 +1651,10 @@ public abstract class AbstractKeyValueStorageTest {
         branch = storage.invoke(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val1),
                 List.of(
-                        Operation.put(key2, val2),
-                        Operation.put(key3, val3)
+                        put(new ByteArray(key2), val2),
+                        put(new ByteArray(key3), val3)
                 ),
-                List.of(new Operation(OperationType.NO_OP, null, null))
+                List.of(Operations.noop())
         );
 
         assertTrue(branch);
@@ -1685,10 +1685,10 @@ public abstract class AbstractKeyValueStorageTest {
         branch = storage.invoke(
                 new ValueCondition(ValueCondition.Type.EQUAL, key1, val1),
                 List.of(
-                        new Operation(OperationType.REMOVE, key2, null),
-                        new Operation(OperationType.REMOVE, key3, null)
+                        remove(new ByteArray(key2)),
+                        remove(new ByteArray(key3))
                 ),
-                List.of(new Operation(OperationType.NO_OP, null, null))
+                List.of(Operations.noop())
         );
 
         assertTrue(branch);
@@ -1762,22 +1762,16 @@ public abstract class AbstractKeyValueStorageTest {
 
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
-                new Statement(
-                        new If(
-                                new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                                new Statement(
-                                        new Update(List.of(Operation.put(key1, rval1)), new StatementResult(1))),
-                                new Statement(
-                                        new Update(
-                                                List.of(Operation.put(key1, rval1),
-                                                        new Operation(OperationType.REMOVE, key2, null)),
-                                                new StatementResult(2))))),
-                new Statement(new Update(List.of(Operation.put(key3, rval3)), new StatementResult(3)))
+                new Statement(new If(
+                        new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                        new Statement(ops(put(new ByteArray(key1), rval1)).yield(1)),
+                        new Statement(ops(put(new ByteArray(key1), rval1), remove(new ByteArray(key2))).yield(2)))),
+                new Statement(ops(put(new ByteArray(key3), rval3)).yield(3))
         );
 
         StatementResult branch = storage.invoke(iif);
 
-        assertEquals(1, ByteBuffer.wrap(branch.bytes()).getInt());
+        assertEquals(1, branch.getAsInt());
 
         assertEquals(4, storage.revision());
         assertEquals(4, storage.updateCounter());
@@ -1847,16 +1841,15 @@ public abstract class AbstractKeyValueStorageTest {
 
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
-                new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                        new Statement(new Update(List.of(Operation.put(key1, rval1)), new StatementResult(1))),
-                        new Statement(new Update(
-                                List.of(Operation.put(key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
-                                new StatementResult(2))))),
-                new Statement(new Update(List.of(Operation.put(key3, rval3)), new StatementResult(3))));
+                new Statement(new If(
+                        new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                        new Statement(ops(put(new ByteArray(key1), rval1)).yield()),
+                        new Statement(ops(put(new ByteArray(key1), rval1), remove(new ByteArray(key2))).yield(2)))),
+                new Statement(ops(put(new ByteArray(key3), rval3)).yield(3)));
 
         StatementResult branch = storage.invoke(iif);
 
-        assertEquals(2, ByteBuffer.wrap(branch.bytes()).getInt());
+        assertEquals(2, branch.getAsInt());
 
         assertEquals(5, storage.revision());
         assertEquals(6, storage.updateCounter());
@@ -1917,16 +1910,15 @@ public abstract class AbstractKeyValueStorageTest {
 
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
-                new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                        new Statement(new Update(List.of(Operation.put(key1, rval1)), new StatementResult(1))),
-                        new Statement(new Update(
-                                List.of(Operation.put(key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
-                                new StatementResult(2))))),
-                new Statement(new Update(List.of(Operation.put(key3, rval3)), new StatementResult(3))));
+                new Statement(new If(
+                        new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                        new Statement(ops(put(new ByteArray(key1), rval1)).yield(1)),
+                        new Statement(ops(put(new ByteArray(key1), rval1), remove(new ByteArray(key2))).yield(2)))),
+                new Statement(ops(put(new ByteArray(key3), rval3)).yield(3)));
 
         StatementResult branch = storage.invoke(iif);
 
-        assertEquals(3, ByteBuffer.wrap(branch.bytes()).getInt());
+        assertEquals(3, branch.getAsInt());
 
         assertEquals(3, storage.revision());
         assertEquals(3, storage.updateCounter());

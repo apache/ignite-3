@@ -142,6 +142,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
+            + "  network.membership: {\n"
+            + "    membershipSyncInterval: 1000,\n"
+            + "    failurePingInterval: 500,\n"
+            + "    scaleCube: {\n"
+            + "      membershipSuspicionMultiplier: 1,\n"
+            + "      failurePingRequestMembers: 1,\n"
+            + "      gossipInterval: 10\n"
+            + "    },\n"
+            + "  }\n"
             + "}";
 
     @InjectConfiguration
