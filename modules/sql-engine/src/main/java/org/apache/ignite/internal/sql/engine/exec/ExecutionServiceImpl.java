@@ -583,36 +583,26 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     // start remote execution
                     for (Fragment fragment : fragments) {
-                        try {
-                            if (fragment.rootFragment()) {
-                                assert rootFragmentId == null;
+                        if (fragment.rootFragment()) {
+                            assert rootFragmentId == null;
 
-                                rootFragmentId = fragment.fragmentId();
-                            }
+                            rootFragmentId = fragment.fragmentId();
+                        }
 
-                            FragmentDescription fragmentDesc = new FragmentDescription(
-                                    fragment.fragmentId(),
-                                    plan.mapping(fragment),
-                                    plan.target(fragment),
-                                    plan.remotes(fragment)
-                            );
+                        FragmentDescription fragmentDesc = new FragmentDescription(
+                                fragment.fragmentId(),
+                                plan.mapping(fragment),
+                                plan.target(fragment),
+                                plan.remotes(fragment)
+                        );
 
-                            for (String nodeName : fragmentDesc.nodeNames()) {
-                                sendFragment(nodeName, fragment, fragmentDesc);
-                            }
-                        } catch (Throwable t0) {
-                            if (fragment.rootFragment()) {
-                                throw t0;
-                            }
-
-                            root.thenAccept(exec -> exec.onError(t0));
-
-                            break;
+                        for (String nodeName : fragmentDesc.nodeNames()) {
+                            sendFragment(nodeName, fragment, fragmentDesc);
                         }
                     }
                 } catch (Throwable t) {
                     if (!root.completeExceptionally(t)) {
-                        root.thenAccept(exec -> exec.onError(t));
+                        root.thenAccept(root -> root.onError(t));
                     }
                 }
             });
