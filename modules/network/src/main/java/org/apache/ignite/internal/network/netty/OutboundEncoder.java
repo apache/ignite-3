@@ -96,14 +96,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.serializationService = serializationService;
             this.msg = outObject.networkMessage();
 
-            if (!outObject.descriptors().isEmpty()) {
-                List<ClassDescriptorMessage> descriptors = outObject.descriptors();
+            List<ClassDescriptorMessage> outDescriptors = outObject.descriptors().stream()
+                    .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
+                    .collect(Collectors.toList());
 
-                descriptors = descriptors.stream()
-                        .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
-                        .collect(Collectors.toList());
-
-                this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(descriptors).build();
+            if (!outDescriptors.isEmpty()) {
+                this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(outDescriptors).build();
                 short groupType = this.descriptors.groupType();
                 short messageType = this.descriptors.messageType();
                 descriptorSerializer = serializationService.createMessageSerializer(groupType, messageType);

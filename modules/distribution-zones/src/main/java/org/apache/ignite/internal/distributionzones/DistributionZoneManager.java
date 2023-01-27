@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -85,7 +86,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.schema.configuration.TableChange;
@@ -598,7 +599,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(zoneId, revision, dataNodes);
 
-            If iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
+            Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
 
             metaStorageManager.invoke(iif).thenAccept(res -> {
                 if (res.getAsBoolean()) {
@@ -628,7 +629,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Update removeKeysUpd = deleteDataNodesAndUpdateTriggerKeys(zoneId, revision);
 
-            If iif = If.iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
+            Iif iif = iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
 
             metaStorageManager.invoke(iif).thenAccept(res -> {
                 if (res.getAsBoolean()) {
@@ -693,7 +694,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 updateCondition = value(zonesLogicalTopologyVersionKey()).eq(ByteUtils.longToBytes(newTopology.version() - 1));
             }
 
-            If iff = If.iif(
+            Iif iff = iif(
                     updateCondition,
                     updateLogicalTopologyAndVersion(topologyFromCmg, newTopology.version()),
                     ops().yield(false)
@@ -752,7 +753,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                         ? notExists(zonesLogicalTopologyVersionKey()) :
                                         value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
 
-                                If iff = If.iif(topologyVersionCondition,
+                                Iif iff = iif(topologyVersionCondition,
                                         updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
                                         ops().yield(false)
                                 );
@@ -1042,7 +1043,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(zoneId, revision, toBytes(newDataNodes));
 
-                If iif = If.iif(
+                Iif iif = iif(
                         triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
                         dataNodesAndTriggerKeyUpd,
                         ops().yield(false)

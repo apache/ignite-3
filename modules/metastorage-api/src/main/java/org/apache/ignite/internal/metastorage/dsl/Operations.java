@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import java.util.Arrays;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+
+import java.nio.ByteBuffer;
+import java.util.List;
 import org.apache.ignite.lang.ByteArray;
 
 /**
@@ -29,11 +32,13 @@ import org.apache.ignite.lang.ByteArray;
  * @see Update
  */
 public final class Operations {
+    private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
+
     /** No-op operation singleton. */
-    private static final Operation NO_OP = Operation.noOp();
+    private static final Operation NO_OP = MSG_FACTORY.operation().operationType(OperationType.NO_OP.ordinal()).build();
 
     /** Operations. */
-    private final Operation[] operations;
+    private final List<Operation> operations;
 
     /**
      * Constructs new operations batch.
@@ -41,7 +46,7 @@ public final class Operations {
      * @param operations operations.
      */
     private Operations(Operation... operations) {
-        this.operations = operations;
+        this.operations = List.of(operations);
     }
 
     /**
@@ -51,7 +56,14 @@ public final class Operations {
      * @return update statement.
      */
     public Update yield(boolean result) {
-        return new Update(Arrays.asList(operations), new StatementResult(result));
+        StatementResult statementResult = MSG_FACTORY.statementResult()
+                .result(new byte[] {(byte) (result ? 1 : 0)})
+                .build();
+
+        return MSG_FACTORY.update()
+                .operations(operations)
+                .result(statementResult)
+                .build();
     }
 
     /**
@@ -61,7 +73,14 @@ public final class Operations {
      * @return update statement.
      */
     public Update yield(int result) {
-        return new Update(Arrays.asList(operations), new StatementResult(result));
+        StatementResult statementResult = MSG_FACTORY.statementResult()
+                .result(ByteBuffer.allocate(Integer.BYTES).putInt(result).array())
+                .build();
+
+        return MSG_FACTORY.update()
+                .operations(operations)
+                .result(statementResult)
+                .build();
     }
 
     /**
@@ -70,11 +89,18 @@ public final class Operations {
      * @return update statement.
      */
     public Update yield() {
-        return new Update(Arrays.asList(operations), new StatementResult(new byte[]{}));
+        StatementResult statementResult = MSG_FACTORY.statementResult()
+                .result(BYTE_EMPTY_ARRAY)
+                .build();
+
+        return MSG_FACTORY.update()
+                .operations(operations)
+                .result(statementResult)
+                .build();
     }
 
     /**
-     * Shortcut to create new batch of operations, for dsl-like API, see {@link If}.
+     * Shortcut to create new batch of operations, for dsl-like API, see {@link Iif}.
      *
      * @param operations operations.
      * @return batch of operations.
@@ -90,7 +116,10 @@ public final class Operations {
      * @return Operation of type <i>remove</i>.
      */
     public static Operation remove(ByteArray key) {
-        return Operation.remove(key.bytes());
+        return MSG_FACTORY.operation()
+                .key(key.bytes())
+                .operationType(OperationType.REMOVE.ordinal())
+                .build();
     }
 
     /**
@@ -101,7 +130,11 @@ public final class Operations {
      * @return Operation of type <i>put</i>.
      */
     public static Operation put(ByteArray key, byte[] value) {
-        return Operation.put(key.bytes(), value);
+        return MSG_FACTORY.operation()
+                .key(key.bytes())
+                .value(value)
+                .operationType(OperationType.PUT.ordinal())
+                .build();
     }
 
     /**

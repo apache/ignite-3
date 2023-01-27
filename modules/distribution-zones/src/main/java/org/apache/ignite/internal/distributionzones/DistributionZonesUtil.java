@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.and;
-import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
