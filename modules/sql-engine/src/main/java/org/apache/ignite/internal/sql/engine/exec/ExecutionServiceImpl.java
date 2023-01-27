@@ -611,9 +611,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         }
                     }
                 } catch (Throwable t) {
-                    LOG.error("An error occurred while executing the query.", t);
-
-                    root.completeExceptionally(t);
+                    if (!root.completeExceptionally(t)) {
+                        root.thenAccept(exec -> exec.onError(t));
+                    }
                 }
             });
 
