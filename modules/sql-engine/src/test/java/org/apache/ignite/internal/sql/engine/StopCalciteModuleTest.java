@@ -168,7 +168,7 @@ public class StopCalciteModuleTest {
             return null;
         }).when(tableManager).listen(eq(TableEvent.CREATE), any());
 
-        RowAssembler asm = new RowAssembler(schemaReg.schema(), 0, 0, 0, 0);
+        RowAssembler asm = new RowAssembler(schemaReg.schema());
 
         asm.appendInt(0);
         asm.appendInt(0);

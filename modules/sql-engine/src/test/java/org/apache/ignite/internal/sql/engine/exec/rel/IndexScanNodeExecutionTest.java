@@ -487,7 +487,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     }
 
     private BinaryRow convertToRow(SchemaDescriptor schemaDescriptor, Object[] row) {
-        RowAssembler asm = new RowAssembler(schemaDescriptor, 0, 1);
+        RowAssembler asm = new RowAssembler(schemaDescriptor);
 
         for (int i = 0; i < row.length; i++) {
             RowAssembler.writeValue(asm, schemaDescriptor.column(i), row[i]);

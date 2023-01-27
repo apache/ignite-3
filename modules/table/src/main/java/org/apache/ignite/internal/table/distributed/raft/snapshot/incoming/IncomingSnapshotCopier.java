@@ -28,7 +28,8 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -386,7 +387,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         ByteBuffer rowVersion = entry.rowVersions().get(i);
 
-        TableRow tableRow = rowVersion == null ? null : new TableRow(rowVersion.rewind());
+        BinaryRow binaryRow = rowVersion == null ? null : new ByteBufferRow(rowVersion.rewind());
 
         PartitionAccess partition = partitionSnapshotStorage.partition();
 
@@ -396,10 +397,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             assert entry.commitTableId() != null;
             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-            partition.addWrite(rowId, tableRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+            partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, tableRow, timestamp);
+            partition.addWriteCommitted(rowId, binaryRow, timestamp);
         }
     }
 }

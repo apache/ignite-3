@@ -45,7 +45,8 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -139,7 +140,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     private static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
-    private static final ByteOrder TABLE_ROW_BYTE_ORDER = TableRow.ORDER;
+    private static final ByteOrder TABLE_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
 
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
@@ -446,14 +447,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException {
         return busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
             ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
-            TableRow res = null;
+            BinaryRow res = null;
 
             try {
                 // Check concurrent transaction data.
@@ -467,7 +468,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 if (previousValue != null) {
                     validateTxId(previousValue, txId);
 
-                    res = wrapValueIntoTableRow(previousValue, true);
+                    res = wrapValueIntoBinaryRow(previousValue, true);
                 }
 
                 if (row == null) {
@@ -499,11 +500,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Writes a tuple of transaction id and a row bytes, using "row prefix" of a key array as a storage key.
      *
      * @param keyArray Array that has partition id and row id in its prefix.
-     * @param row Table row, not null.
+     * @param row Binary row, not null.
      * @param txId Transaction id.
      * @throws RocksDBException If write failed.
      */
-    private void writeUnversioned(byte[] keyArray, TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    private void writeUnversioned(byte[] keyArray, BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws RocksDBException {
         @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
@@ -522,13 +523,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         writeBatch.put(cf, copyOf(keyArray, ROW_PREFIX_SIZE), value.array());
     }
 
-    private static byte[] rowBytes(TableRow row) {
+    private static byte[] rowBytes(BinaryRow row) {
         //TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
         return row.bytes();
     }
 
     @Override
-    public @Nullable TableRow abortWrite(RowId rowId) throws StorageException {
+    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
@@ -549,7 +550,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // Perform unconditional remove for the key without associated timestamp.
                 writeBatch.delete(cf, keyBytes);
 
-                return wrapValueIntoTableRow(previousValue, true);
+                return wrapValueIntoBinaryRow(previousValue, true);
             } catch (RocksDBException e) {
                 throw new StorageException("Failed to roll back insert/update", e);
             }
@@ -590,7 +591,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
         busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
@@ -1119,20 +1120,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     /**
-     * Converts raw byte array representation of the value into a table row.
+     * Converts raw byte array representation of the value into a binary row.
      *
      * @param valueBytes Value bytes as read from the storage.
      * @param valueHasTxData Whether the value has a transaction id prefix in it.
-     * @return Table row instance or {@code null} if value is a tombstone.
+     * @return Binary row instance or {@code null} if value is a tombstone.
      */
-    private static @Nullable TableRow wrapValueIntoTableRow(byte[] valueBytes, boolean valueHasTxData) {
+    private static @Nullable BinaryRow wrapValueIntoBinaryRow(byte[] valueBytes, boolean valueHasTxData) {
         if (isTombstone(valueBytes, valueHasTxData)) {
             return null;
         }
 
         return valueHasTxData
-                ? new TableRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(TABLE_ROW_BYTE_ORDER))
-                : new TableRow(valueBytes);
+                ? new ByteBufferRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(TABLE_ROW_BYTE_ORDER))
+                : new ByteBufferRow(valueBytes);
     }
 
     /**
@@ -1149,12 +1150,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         UUID commitTableId = bytesToUuid(valueBytes, TABLE_ID_OFFSET);
         int commitPartitionId = GridUnsafe.getShort(valueBytes, GridUnsafe.BYTE_ARR_OFF + PARTITION_ID_OFFSET) & 0xFFFF;
 
-        TableRow row;
+        BinaryRow row;
 
         if (isTombstone(valueBytes, true)) {
             row = null;
         } else {
-            row = new TableRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(TABLE_ROW_BYTE_ORDER));
+            row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).position(VALUE_OFFSET).slice().order(TABLE_ROW_BYTE_ORDER));
         }
 
         return ReadResult.createFromWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, newestCommitTs);
@@ -1173,7 +1174,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             return ReadResult.empty(rowId);
         }
 
-        return ReadResult.createFromCommitted(rowId, new TableRow(valueBytes), rowCommitTimestamp);
+        return ReadResult.createFromCommitted(rowId, new ByteBufferRow(valueBytes), rowCommitTimestamp);
     }
 
     /**
@@ -1230,7 +1231,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         @Override
-        public @Nullable TableRow committed(HybridTimestamp timestamp) {
+        public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
             return busy(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), RocksDbMvPartitionStorage.this::createStorageInfo);
 
@@ -1250,7 +1251,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     return null;
                 }
 
-                return readResult.tableRow();
+                return readResult.binaryRow();
             });
         }
 
