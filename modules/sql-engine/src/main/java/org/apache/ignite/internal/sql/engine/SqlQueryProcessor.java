@@ -401,21 +401,18 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
-                    InternalTransaction outerTx0 =
-                            outerTx != null || rwOp ? outerTx : new TransferredTxAttributesHolder(UUID.randomUUID(), clock.now());
+                    boolean useDistributedTraits = outerTx != null ? outerTx.isReadOnly() : !rwOp;
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(outerTx0 != null && outerTx0.isReadOnly() ? Commons.DISTRIBUTED_TRAITS_SET
-                                                    : Commons.LOCAL_TRAITS_SET)
+                                            .traitDefs(useDistributedTraits ? Commons.DISTRIBUTED_TRAITS_SET : Commons.LOCAL_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
-                            .transaction(outerTx0)
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
@@ -426,17 +423,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 boolean implicitTxRequired = outerTx == null && rwOp;
 
-                                InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
+                                InternalTransaction tx = implicitTxRequired ? txManager.begin()
+                                        : outerTx != null ? outerTx : new TransferredTxAttributesHolder(UUID.randomUUID(), clock.now());
 
-                                BaseQueryContext enrichedContext =
-                                        implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
+                                BaseQueryContext enrichedContext = ctx.toBuilder().transaction(tx).build();
 
                                 var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
                                 return new AsyncSqlCursorImpl<>(
                                         SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                         plan.metadata(),
-                                        implicitTx,
+                                        implicitTxRequired ? tx : null,
                                         new AsyncCursor<List<Object>>() {
                                             @Override
                                             public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
