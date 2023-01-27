@@ -46,7 +46,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -82,7 +81,7 @@ public class RebalanceUtil {
      *
      * @param tableName Table name.
      * @param partId Unique identifier of a partition.
-     * @param baselineNodes Nodes in baseline.
+     * @param consistentIds Consistent id of nodes.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.

@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Stateless affinity utils that produces helper methods for an affinity assignments calculation.
@@ -54,7 +53,7 @@ public class AffinityUtils {
     /**
      * Calculates affinity assignments for a single partition.
      *
-     * @param baselineNodes Nodes.
+     * @param consistentIds Consistent id of nodes.
      * @param partition Partition id.
      * @param replicas Replicas count.
      * @return List of assignments.

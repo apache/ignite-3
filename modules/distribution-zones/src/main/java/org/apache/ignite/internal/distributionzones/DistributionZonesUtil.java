@@ -64,6 +64,12 @@ public class DistributionZonesUtil {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
     }
 
+    /**
+     * Extract zone id from a distribution zone data nodes key.
+     *
+     * @param key Key.
+     * @return Zone id.
+     */
     public static int extractZoneId(byte[] key) {
         var strKey = new String(key, StandardCharsets.UTF_8);
 

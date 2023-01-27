@@ -1,5 +1,39 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.Cluster.NodeKnockout.PARTITION_NETWORK;
+import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -8,7 +42,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -18,7 +51,6 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,26 +59,9 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.Cluster.NodeKnockout.PARTITION_NETWORK;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
+/**
+ * Test suite for rebalance process.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 @Timeout(90)
 public class ItDistributionZonesTest {
@@ -160,34 +175,34 @@ public class ItDistributionZonesTest {
 
     private boolean waitAssingments(List<Set<Integer>> nodes) throws InterruptedException {
         return waitForCondition(() -> {
-                    for (int i = 0; i < nodes.size(); i++) {
-                        Set<Integer> excpectedAssignments = nodes.get(i);
+            for (int i = 0; i < nodes.size(); i++) {
+                Set<Integer> excpectedAssignments = nodes.get(i);
 
-                        ExtendedTableConfiguration table =
-                                (ExtendedTableConfiguration) cluster.node(i)
-                                        .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
+                ExtendedTableConfiguration table =
+                        (ExtendedTableConfiguration) cluster.node(i)
+                                .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
 
-                        byte[] assignmentsBytes = table.assignments().value();
+                byte[] assignmentsBytes = table.assignments().value();
 
-                        Set<String> assignments;
+                Set<String> assignments;
 
-                        if (assignmentsBytes != null) {
-                            assignments = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0)
-                                    .stream().map(assignment -> assignment.consistentId()).collect(Collectors.toSet());
-                        } else {
-                            assignments = Collections.emptySet();
-                        }
+                if (assignmentsBytes != null) {
+                    assignments = ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0)
+                            .stream().map(assignment -> assignment.consistentId()).collect(Collectors.toSet());
+                } else {
+                    assignments = Collections.emptySet();
+                }
 
-                        LOG.info("Assignments for node " + i + ": " + assignments);
+                LOG.info("Assignments for node " + i + ": " + assignments);
 
-                        if (!(excpectedAssignments.size() == assignments.size())
-                                || !excpectedAssignments.stream().allMatch(node -> assignments.contains(cluster.node(node).name()))) {
-                            return false;
-                        }
-                    }
+                if (!(excpectedAssignments.size() == assignments.size())
+                        || !excpectedAssignments.stream().allMatch(node -> assignments.contains(cluster.node(node).name()))) {
+                    return false;
+                }
+            }
 
-                    return true;
-                },
+            return true;
+        },
                 5000);
     }
 
