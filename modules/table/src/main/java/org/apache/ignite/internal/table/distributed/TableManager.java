@@ -752,7 +752,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             return partitionDataStorageFut
                                     .thenCompose(s -> storageUpdateHandlerFut)
-                                    .thenCompose(s -> getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId))
+                                    .thenCompose(s -> getOrCreateTxStateStorage(internalTbl.txStateStorage(), partId))
                                     .thenAcceptAsync(txStatePartitionStorage -> {
                                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                                 internalTbl.storage(),
@@ -818,7 +818,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             }
 
                             CompletableFuture<TxStateStorage> txStateStorageFuture =
-                                    getOrCreateTxStateStorageAsync(internalTbl.txStateStorage(), partId);
+                                    getOrCreateTxStateStorage(internalTbl.txStateStorage(), partId);
 
                             StorageUpdateHandler storageUpdateHandler = storageUpdateHandlerFut.join();
 
@@ -1847,7 +1847,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         StorageUpdateHandler storageUpdateHandler =
                                 new StorageUpdateHandler(partId, partitionDataStorage, tbl.indexStorageAdapters(partId));
 
-                        TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId);
+                        TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId).join();
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
@@ -2057,8 +2057,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future that will complete when the operation completes.
      */
     private CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(MvTableStorage mvTableStorage, int partitionId) {
-        // TODO: IGNITE-18603 Clear if TxStateStorage hasn't been rebalanced yet
-        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor);
+        // TODO: IGNITE-18633 Should clean both MvPartitionStorage and TxStateStorage if the rebalance for one of them has not ended
+        // TODO: IGNITE-18633 Also think about waiting for index stores for a partition, see PartitionAccessImpl.startRebalance
+        return CompletableFuture.supplyAsync(() -> mvTableStorage.getOrCreateMvPartition(partitionId), ioExecutor)
+                .thenCompose(mvPartitionStorage -> {
+                    if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS) {
+                        return mvTableStorage.clearPartition(partitionId).thenApply(unused -> mvPartitionStorage);
+                    } else {
+                        return completedFuture(mvPartitionStorage);
+                    }
+                });
     }
 
     /**
@@ -2068,18 +2076,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * in when the rebalance was interrupted.
      *
      * @param txStateTableStorage Transaction state storage for a table.
-     * @param partId Partition ID.
+     * @param partitionId Partition ID.
+     * @return Future that will complete when the operation completes.
      */
-    private static TxStateStorage getOrCreateTxStateStorage(TxStateTableStorage txStateTableStorage, int partId) {
-        // TODO: IGNITE-18603 Clear if MvPartitionStorage hasn't been rebalanced yet
-        return txStateTableStorage.getOrCreateTxStateStorage(partId);
-    }
-
-    /**
-     * Async version of {@link #getOrCreateTxStateStorage}.
-     */
-    private CompletableFuture<TxStateStorage> getOrCreateTxStateStorageAsync(TxStateTableStorage txStateTableStorage, int partId) {
-        return CompletableFuture.supplyAsync(() -> getOrCreateTxStateStorage(txStateTableStorage, partId), ioExecutor);
+    private CompletableFuture<TxStateStorage> getOrCreateTxStateStorage(TxStateTableStorage txStateTableStorage, int partitionId) {
+        // TODO: IGNITE-18633 Should clean both MvPartitionStorage and TxStateStorage if the rebalance for one of them has not ended
+        return CompletableFuture.supplyAsync(() -> txStateTableStorage.getOrCreateTxStateStorage(partitionId), ioExecutor)
+                .thenCompose(txStateStorage -> {
+                    if (txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
+                        return txStateStorage.clear().thenApply(unused -> txStateStorage);
+                    } else {
+                        return completedFuture(txStateStorage);
+                    }
+                });
     }
 
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {

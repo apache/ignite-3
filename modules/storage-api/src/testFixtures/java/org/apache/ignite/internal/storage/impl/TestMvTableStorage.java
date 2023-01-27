@@ -339,6 +339,24 @@ public class TestMvTableStorage implements MvTableStorage {
                 });
     }
 
+    @Override
+    public CompletableFuture<Void> clearPartition(int partitionId) {
+        checkPartitionId(partitionId);
+
+        TestMvPartitionStorage mvPartitionStorage = partitions.get(partitionId);
+
+        if (mvPartitionStorage == null) {
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+
+        mvPartitionStorage.clear();
+
+        testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::clear);
+        testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::clear);
+
+        return completedFuture(null);
+    }
+
     private void checkPartitionId(int partitionId) {
         Integer partitions = tableCfg.partitions().value();
 
