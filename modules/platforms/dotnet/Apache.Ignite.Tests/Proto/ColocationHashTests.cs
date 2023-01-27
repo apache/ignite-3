@@ -101,21 +101,47 @@ public class ColocationHashTests : IgniteTestsBase
 
     [Test]
     [TestCaseSource(nameof(TestCases))]
-    public async Task TestSingleKeyColocationHashIsSameOnServerAndClient(object key)
+    public async Task TestSingleKeyColocationHashIsSameOnServerAndClient(object key) =>
+        await AssertClientAndServerHashesAreEqual(keys: key);
+
+    [Test]
+    public async Task TestLocalTimeColocationHashIsSameOnServerAndClient(
+        [Values(0, 1, 4, 9)] int timePrecision,
+        [Values(0, 1, 3, 6)] int timestampPrecision)
     {
-        for (int timestampPrecision = 0; timestampPrecision <= 6; timestampPrecision++)
+        await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, keys: new LocalTime(1, 2, 3, 999));
+    }
+
+    [Test]
+    public async Task TestLocalDateTimeColocationHashIsSameOnServerAndClient(
+        [Values(0, 1, 4, 9)] int timePrecision,
+        [Values(0, 1, 3, 6)] int timestampPrecision)
+    {
+        await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, keys: new LocalDateTime(2022, 01, 27, 1, 2, 3, 999));
+    }
+
+    [Test]
+    public async Task TestTimestampColocationHashIsSameOnServerAndClient(
+        [Values(0, 1, 4, 9)] int timePrecision,
+        [Values(0, 1, 3, 6)] int timestampPrecision)
+    {
+        await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, keys: Instant.FromDateTimeUtc(DateTime.UtcNow));
+    }
+
+    [Test]
+    public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
+    {
+        for (var i = 0; i < TestCases.Length; i++)
         {
-            for (int timePrecision = 0; timePrecision <= 9; timePrecision++)
-            {
-                await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, keys: key);
-            }
+            await AssertClientAndServerHashesAreEqual(keys: TestCases.Take(i + 1).ToArray());
+            await AssertClientAndServerHashesAreEqual(keys: TestCases.Skip(i).ToArray());
         }
     }
 
     [Test]
-    public async Task TestMultiKeyColocationHashIsSameOnServerAndClient(
-        [Values(0, 1, 9)] int timePrecision,
-        [Values(0, 1, 6)] int timestampPrecision)
+    public async Task TestMultiKeyColocationHashIsSameOnServerAndClientCustomTimePrecision(
+        [Values(0, 1, 4, 9)] int timePrecision,
+        [Values(0, 1, 3, 6)] int timestampPrecision)
     {
         for (var i = 0; i < TestCases.Length; i++)
         {
@@ -136,13 +162,16 @@ public class ColocationHashTests : IgniteTestsBase
         return (builder.Build().ToArray(), builder.Hash);
     }
 
-    private async Task AssertClientAndServerHashesAreEqual(int timePrecision, int timestampPrecision, params object[] keys)
+    private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
     {
         var (bytes, hash) = WriteAsBinaryTuple(keys);
 
         var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
 
-        Assert.AreEqual(serverHash, hash, string.Join(", ", keys));
+        Assert.AreEqual(
+            serverHash,
+            hash,
+            $"Time precision: {timePrecision}, timestamp precision: {timestampPrecision}, keys: {string.Join(", ", keys)}");
     }
 
     private async Task<int> GetServerHash(byte[] bytes, int count, int timePrecision, int timestampPrecision)
