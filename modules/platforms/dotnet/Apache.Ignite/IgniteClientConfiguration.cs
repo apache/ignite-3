@@ -37,7 +37,7 @@ namespace Apache.Ignite
         /// <summary>
         /// Default socket timeout.
         /// </summary>
-        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(5);
+        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Default heartbeat interval.
