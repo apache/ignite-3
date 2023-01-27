@@ -96,7 +96,7 @@ namespace Apache.Ignite
         /// <para />
         /// -1 means infinite timeout.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:05")]
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>
