@@ -353,6 +353,9 @@ public class PlatformTestNodeRunner {
         public Integer execute(JobExecutionContext context, Object... args) {
             var columnCount = (int) args[0];
             var buf = (byte[]) args[1];
+            var timePrecision = (int)args[2];
+            var timestampPrecision = (int)args[3];
+
             var columns = new Column[columnCount];
             var tuple = Tuple.create(columnCount);
             var reader = new BinaryTupleReader(columnCount * 3, buf);
@@ -426,17 +429,17 @@ public class PlatformTestNodeRunner {
                         break;
 
                     case ClientDataType.TIME:
-                        columns[i] = new Column(i, colName, NativeTypes.time(9), false);
+                        columns[i] = new Column(i, colName, NativeTypes.time(timePrecision), false);
                         tuple.set(colName, reader.timeValue(valIdx));
                         break;
 
                     case ClientDataType.DATETIME:
-                        columns[i] = new Column(i, colName, NativeTypes.datetime(9), false);
+                        columns[i] = new Column(i, colName, NativeTypes.datetime(timePrecision), false);
                         tuple.set(colName, reader.dateTimeValue(valIdx));
                         break;
 
                     case ClientDataType.TIMESTAMP:
-                        columns[i] = new Column(i, colName, NativeTypes.timestamp(), false);
+                        columns[i] = new Column(i, colName, NativeTypes.timestamp(timestampPrecision), false);
                         tuple.set(colName, reader.timestampValue(valIdx));
                         break;
 

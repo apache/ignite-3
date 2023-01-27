@@ -101,16 +101,26 @@ public class ColocationHashTests : IgniteTestsBase
 
     [Test]
     [TestCaseSource(nameof(TestCases))]
-    public async Task TestSingleKeyColocationHashIsSameOnServerAndClient(object key) =>
-        await AssertClientAndServerHashesAreEqual(keys: key);
+    public async Task TestSingleKeyColocationHashIsSameOnServerAndClient(object key)
+    {
+        for (int timestampPrecision = 0; timestampPrecision <= 6; timestampPrecision++)
+        {
+            for (int timePrecision = 0; timePrecision <= 9; timePrecision++)
+            {
+                await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, keys: key);
+            }
+        }
+    }
 
     [Test]
-    public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
+    public async Task TestMultiKeyColocationHashIsSameOnServerAndClient(
+        [Values(0, 1, 9)] int timePrecision,
+        [Values(0, 1, 6)] int timestampPrecision)
     {
         for (var i = 0; i < TestCases.Length; i++)
         {
-            await AssertClientAndServerHashesAreEqual(keys: TestCases.Take(i + 1).ToArray());
-            await AssertClientAndServerHashesAreEqual(keys: TestCases.Skip(i).ToArray());
+            await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, TestCases.Take(i + 1).ToArray());
+            await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, TestCases.Skip(i).ToArray());
         }
     }
 
@@ -126,7 +136,7 @@ public class ColocationHashTests : IgniteTestsBase
         return (builder.Build().ToArray(), builder.Hash);
     }
 
-    private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
+    private async Task AssertClientAndServerHashesAreEqual(int timePrecision, int timestampPrecision, params object[] keys)
     {
         var (bytes, hash) = WriteAsBinaryTuple(keys);
 
