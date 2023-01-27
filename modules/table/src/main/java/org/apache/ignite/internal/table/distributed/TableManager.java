@@ -76,9 +76,9 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -216,7 +216,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final ReplicaService replicaSvc;
 
     /** Baseline manager. */
-    private final BaselineManager baselineMgr;
+    private final DistributionZoneManager distributionZoneMgr;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -307,7 +307,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param replicaMgr Replica manager.
      * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
-     * @param baselineMgr Baseline manager.
+     * @param distributionZoneMgr Baseline manager.
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
@@ -323,7 +323,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
-            BaselineManager baselineMgr,
+            DistributionZoneManager distributionZoneMgr,
             TopologyService topologyService,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
@@ -337,7 +337,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.tablesCfg = tablesCfg;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
-        this.baselineMgr = baselineMgr;
+        this.distributionZoneMgr = distributionZoneMgr;
         this.replicaMgr = replicaMgr;
         this.lockMgr = lockMgr;
         this.replicaSvc = replicaSvc;
@@ -655,7 +655,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
-                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
+                            distributionZoneMgr.getDataNodes(tblCfg.zoneId().value()), newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
 
@@ -1286,7 +1286,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private Set<Assignment> calculateAssignments(TableConfiguration tableCfg, int partNum) {
         return AffinityUtils.calculateAssignmentForPartition(
-                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                distributionZoneMgr.getDataNodes(tableCfg.zoneId().value()),
                 partNum,
                 tableCfg.value().replicas()
         );
@@ -1349,7 +1349,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                                distributionZoneMgr.getDataNodes(tableChange.zoneId()),
                                 tableChange.partitions(),
                                 tableChange.replicas())));
                     });
@@ -2072,7 +2072,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 RebalanceUtil.handleReduceChanged(
                         metaStorageMgr,
-                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                        distributionZoneMgr.getDataNodes(tblCfg.zoneId().value()),
                         tblCfg.value().replicas(),
                         partitionNumber,
                         replicaGrpId,

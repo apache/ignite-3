@@ -38,13 +38,15 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -435,7 +437,7 @@ public class ItRebalanceDistributedTest {
 
         private final TableManager tableManager;
 
-        private final BaselineManager baselineMgr;
+        private final DistributionZoneManager zoneMgr;
 
         private final ConfigurationManager nodeCfgMgr;
 
@@ -552,10 +554,20 @@ public class ItRebalanceDistributedTest {
                             dir.resolve("storage"),
                             null));
 
-            baselineMgr = new BaselineManager(
-                    clusterCfgMgr,
+            DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                    .getConfiguration(DistributionZonesConfiguration.KEY);
+
+            LogicalTopologyServiceImpl topologyService =
+                    new LogicalTopologyServiceImpl(logicalTopologyService, cmgManager);
+
+            zoneMgr = new DistributionZoneManager(
+                    zonesConfiguration,
+                    tablesCfg,
                     metaStorageManager,
-                    clusterService);
+                    topologyService,
+                    vaultManager,
+                    name
+            );
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
@@ -568,7 +580,7 @@ public class ItRebalanceDistributedTest {
                     Mockito.mock(ReplicaManager.class),
                     Mockito.mock(LockManager.class),
                     replicaSvc,
-                    baselineMgr,
+                    zoneMgr,
                     clusterService.topologyService(),
                     txManager,
                     dataStorageMgr,
@@ -595,7 +607,7 @@ public class ItRebalanceDistributedTest {
                     clusterCfgMgr,
                     replicaManager,
                     txManager,
-                    baselineMgr,
+                    zoneMgr,
                     dataStorageMgr,
                     schemaManager,
                     tableManager

@@ -148,6 +148,8 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private final Map<Integer, ZoneState> zonesState;
 
+    private final Map<Integer, Set<String>> dataNodes = new ConcurrentHashMap<>();
+
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
@@ -880,11 +882,15 @@ public class DistributionZoneManager implements IgniteComponent {
                         DistributionZoneView zoneView = zones.value().get(i);
 
                         scheduleTimers(zoneView, addedNodes, removedNodes, revision);
+
+                        dataNodes.put(zoneView.zoneId(), newLogicalTopology);
                     }
 
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
+
+                    dataNodes.put(defaultZoneView.zoneId(), newLogicalTopology);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -895,6 +901,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 LOG.warn("Unable to process logical topology event", e);
             }
         };
+    }
+
+    public Set<String> getDataNodes(int zoneId) {
+        return dataNodes.get(zoneId);
     }
 
     /**
