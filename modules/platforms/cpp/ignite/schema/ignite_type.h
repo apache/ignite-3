@@ -29,7 +29,7 @@ namespace ignite {
  * @note type of enum value is int, size is same as sizeof(int).
  */
 enum class ignite_type {
-     /** Boolean. */
+    /** Boolean. */
     BOOLEAN = 0,
 
     /** 8-bit signed integer. */

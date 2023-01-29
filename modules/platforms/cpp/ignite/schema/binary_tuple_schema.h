@@ -100,7 +100,9 @@ public:
      * @param index Tuple element index.
      * @return Offset of the required byte relative to the tuple start.
      */
-    static constexpr data_size_t get_null_offset(number_t index) noexcept { return binary_tuple_header::SIZE + index / 8; }
+    static constexpr data_size_t get_null_offset(number_t index) noexcept {
+        return binary_tuple_header::SIZE + index / 8;
+    }
 
     /**
      * @brief Gets a null-bit mask corresponding to a given tuple element.

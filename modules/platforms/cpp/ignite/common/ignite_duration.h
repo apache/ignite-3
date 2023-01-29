@@ -143,4 +143,3 @@ constexpr bool operator>=(const ignite_duration &lhs, const ignite_duration &rhs
 }
 
 } // namespace ignite
-

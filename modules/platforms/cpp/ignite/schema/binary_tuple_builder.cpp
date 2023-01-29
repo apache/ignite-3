@@ -156,7 +156,7 @@ void binary_tuple_builder::append_bool(bytes_view bytes) {
 }
 
 void binary_tuple_builder::append_bool(bool value) {
-    static std::byte true_byte {1};
+    static std::byte true_byte{1};
     data_size_t size = gauge_bool(value);
     append_bytes({&true_byte, size});
 }
@@ -432,7 +432,7 @@ void binary_tuple_builder::append_period(const ignite_period &value) {
             bytes::store<endian::LITTLE>(next_value, std::uint8_t(value.get_years()));
             bytes::store<endian::LITTLE>(next_value + 1, std::uint8_t(value.get_months()));
             bytes::store<endian::LITTLE>(next_value + 2, std::uint8_t(value.get_days()));
-        } if (size == 6) {
+        } else if (size == 6) {
             bytes::store<endian::LITTLE>(next_value, std::uint16_t(value.get_years()));
             bytes::store<endian::LITTLE>(next_value + 2, std::uint16_t(value.get_months()));
             bytes::store<endian::LITTLE>(next_value + 4, std::uint16_t(value.get_days()));

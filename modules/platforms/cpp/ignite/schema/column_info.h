@@ -35,7 +35,9 @@ struct column_info {
 
     size_t get_fixed_size() const { return get_type_size(type); }
 
-    bool operator==(const column_info &other) const noexcept { return type == other.type && nullable == other.nullable; }
+    bool operator==(const column_info &other) const noexcept {
+        return type == other.type && nullable == other.nullable;
+    }
 
     bool operator!=(const column_info &other) const noexcept { return !(operator==(other)); }
 };
