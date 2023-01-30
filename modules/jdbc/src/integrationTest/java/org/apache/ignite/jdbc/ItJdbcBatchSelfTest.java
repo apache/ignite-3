@@ -158,7 +158,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals(0, updCnts.length, "Invalid update counts size");
 
-            if (!e.getMessage().contains("Given statement type does not match that declared by JDBC driver")) {
+            if (!e.getMessage().contains("Unexpected number of query parameters. Provided 1 but there is only 0 dynamic parameter(s).")) {
                 log.error("Invalid exception: ", e);
 
                 fail();

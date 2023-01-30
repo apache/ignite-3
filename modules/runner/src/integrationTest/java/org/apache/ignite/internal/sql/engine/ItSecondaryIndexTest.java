@@ -261,7 +261,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testIndexedFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId>21")
-                .withParams(3)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
