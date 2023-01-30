@@ -96,7 +96,7 @@ public class PlannerTest extends AbstractPlannerTest {
             String nodeName = UUID.randomUUID().toString();
 
             NODES.add(nodeName);
-            NODES_WITH_TERM.add(new NodeWithTerm(nodeName, 0L));
+            NODES_WITH_TERM.add(new NodeWithTerm(nodeName));
         }
     }
 
@@ -907,6 +907,6 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     private static MappingQueryContext mapContext(String locNodeId) {
-        return new MappingQueryContext(locNodeId);
+        return new MappingQueryContext(locNodeId, true);
     }
 }
