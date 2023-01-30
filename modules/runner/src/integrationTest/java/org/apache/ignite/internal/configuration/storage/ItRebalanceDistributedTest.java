@@ -565,8 +565,7 @@ public class ItRebalanceDistributedTest {
                     tablesCfg,
                     metaStorageManager,
                     topologyService,
-                    vaultManager,
-                    name
+                    vaultManager
             );
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
