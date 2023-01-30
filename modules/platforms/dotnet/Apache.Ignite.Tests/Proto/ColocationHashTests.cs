@@ -109,6 +109,17 @@ public class ColocationHashTests : IgniteTestsBase
         await AssertClientAndServerHashesAreEqual(keys: key);
 
     [Test]
+    public async Task TestSingleKeyColocationHashIsSameOnServerAndClientCustomTimePrecision(
+        [Values(0, 1, 4, 9)] int timePrecision,
+        [Values(0, 1, 3, 6)] int timestampPrecision)
+    {
+        foreach (var t in TestCases)
+        {
+            await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, t);
+        }
+    }
+
+    [Test]
     public async Task TestLocalTimeColocationHashIsSameOnServerAndClient([Values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)] int timePrecision) =>
         await AssertClientAndServerHashesAreEqual(timePrecision, keys: new LocalTime(1, 2, 3, 999));
 
