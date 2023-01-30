@@ -157,27 +157,41 @@ public class ColocationHashTests : IgniteTestsBase
 
     private static int WriteAsIgniteTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
-        var t = new IgniteTuple();
+        var igniteTuple = new IgniteTuple();
         int i = 0;
 
         foreach (var obj in arr)
         {
-            t["c-" + i++] = obj;
+            igniteTuple["c-" + i++] = obj;
         }
 
         var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(_ => true));
 
         try
         {
-            var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
-            var schema = new Schema(0, arr.Count, columns);
-            TupleSerializerHandler.Instance.Write(ref builder, t, schema, arr.Count, new byte[arr.Count].AsSpan());
+            var schema = GetSchema(arr, timePrecision, timestampPrecision);
+            var noValueSet = new byte[arr.Count].AsSpan();
+
+            TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, arr.Count, noValueSet);
             return builder.Hash;
         }
         finally
         {
             builder.Dispose();
         }
+    }
+
+    private static int WriteAsPoco(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
+    {
+        // TODO
+        return 0;
+    }
+
+    private static Schema GetSchema(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
+    {
+        var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
+
+        return new Schema(Version: 0, arr.Count, columns);
     }
 
     private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
@@ -198,12 +212,6 @@ public class ColocationHashTests : IgniteTestsBase
         };
 
         return new Column("c-" + schemaIndex, colType, false, true, true, schemaIndex, 0, precision);
-    }
-
-    private static int WriteAsPoco(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
-    {
-        // TODO
-        return 0;
     }
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
