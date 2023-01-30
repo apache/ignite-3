@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
@@ -85,6 +86,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItCmgRaftServiceTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -130,7 +134,12 @@ public class ItCmgRaftServiceTest {
                     raftService = raftManager.startRaftGroupNode(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
-                            new CmgRaftGroupListener(raftStorage, new LogicalTopologyImpl(raftStorage), term -> {}),
+                            new CmgRaftGroupListener(
+                                    raftStorage,
+                                    new LogicalTopologyImpl(raftStorage),
+                                    clusterManagementConfiguration,
+                                    term -> {}
+                            ),
                             RaftGroupEventsListener.noopLsnr
                     );
                 }

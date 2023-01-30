@@ -38,6 +38,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
@@ -82,6 +83,9 @@ public class ItDistributedConfigurationPropertiesTest {
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -130,7 +134,8 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterService,
                     raftManager,
                     clusterStateStorage,
-                    logicalTopologyService
+                    logicalTopologyService,
+                    clusterManagementConfiguration
             );
 
             metaStorageManager = new MetaStorageManagerImpl(

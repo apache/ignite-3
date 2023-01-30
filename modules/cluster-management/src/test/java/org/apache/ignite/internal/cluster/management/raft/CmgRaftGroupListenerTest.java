@@ -40,11 +40,14 @@ import java.util.Set;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -52,18 +55,23 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the {@link CmgRaftGroupListener}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class CmgRaftGroupListenerTest {
+    @InjectConfiguration
+    private ClusterManagementConfiguration clusterManagementConfiguration;
+
     private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
 
     private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);
 
     private final LogicalTopology logicalTopology = spy(new LogicalTopologyImpl(storage));
 
-    private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
+    private CmgRaftGroupListener listener;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -82,6 +90,8 @@ public class CmgRaftGroupListenerTest {
     @BeforeEach
     void setUp() {
         storage.start();
+
+        listener = new CmgRaftGroupListener(storage, logicalTopology, clusterManagementConfiguration, onLogicalTopologyChanged);
     }
 
     @AfterEach

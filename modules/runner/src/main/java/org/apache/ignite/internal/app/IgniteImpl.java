@@ -38,6 +38,7 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
@@ -332,7 +333,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,
-                logicalTopology
+                logicalTopology,
+                nodeCfgMgr.configurationRegistry().getConfiguration(ClusterManagementConfiguration.KEY)
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
