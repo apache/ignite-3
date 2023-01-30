@@ -28,7 +28,6 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -60,8 +59,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -435,19 +432,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             when(rangeIterable.size()).thenReturn(1);
         }
 
-        // Assignment for 3 partitions. Partition 0 and 2 belong to the local node.
-        List<List<NodeWithTerm>> assignments = Arrays.asList(
-                Collections.singletonList(new NodeWithTerm(ectx.localNode().name())),
-                Collections.singletonList(new NodeWithTerm("Some other node")),
-                Collections.singletonList(new NodeWithTerm(ectx.localNode().name()))
-        );
-
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
                 ectx,
                 ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
                 new TestTable(rowType, schemaDescriptor),
-                ColocationGroup.forAssignments(assignments),
+                new int[]{0, 2},
+                p -> 1,
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
                 null,
