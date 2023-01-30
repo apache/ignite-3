@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Cluster management configuration schema.
@@ -29,16 +30,19 @@ import org.apache.ignite.configuration.annotation.Value;
 public class ClusterManagementConfigurationSchema {
     /** Invoke timeout used by Cluster Management module (ms). */
     @Value(hasDefault = true)
+    @Range(min = 1)
     public long networkInvokeTimeout = 500;
 
     /**
      * Delay between a moment a node drops out from the physical topology and when it gets removed from the logical topology (ms).
      */
     @Value(hasDefault = true)
+    @Range(min = 0)
     // TODO: IGNITE-18630 - change this to a sensible default.
     public long failoverTimeout = 0;
 
     /** Maximum amount of time a validated node that has not yet completed the join is allowed to remain validated (ms). */
     @Value(hasDefault = true)
+    @Range(min = 1)
     public long incompleteJoinTimeout = TimeUnit.HOURS.toMillis(1);
 }
