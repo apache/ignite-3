@@ -21,6 +21,7 @@ using System;
 using System.Buffers.Binary;
 using System.Numerics;
 using NodaTime;
+using Table;
 
 /// <summary>
 /// Hash function based on MurmurHash3
@@ -112,7 +113,7 @@ internal static class HashUtils
     /// <returns>Resulting hash.</returns>
     public static int Hash32(LocalTime data, int precision, int seed)
     {
-        var nanos = precision > 3 ? (long)data.NanosecondOfSecond : 0;
+        var nanos = (long)TemporalTypes.TruncateTo(data.NanosecondOfSecond, precision);
 
         return Hash32(nanos, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
     }

@@ -122,7 +122,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     [Test]
     public async Task TestLocalTimeColocationHashIsSameOnServerAndClient([Values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)] int timePrecision) =>
-        await AssertClientAndServerHashesAreEqual(timePrecision, keys: new LocalTime(1, 2, 3, 999));
+        await AssertClientAndServerHashesAreEqual(timePrecision, keys: LocalTime.FromHourMinuteSecondNanosecond(11, 33, 44, 123_456));
 
     [Test]
     public async Task TestLocalDateTimeColocationHashIsSameOnServerAndClient([Values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)] int timePrecision) =>

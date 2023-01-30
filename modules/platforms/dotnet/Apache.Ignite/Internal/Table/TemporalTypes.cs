@@ -68,7 +68,7 @@ internal static class TemporalTypes
     /// <param name="nanos">Nanoseconds.</param>
     /// <param name="precision">Precision.</param>
     /// <returns>Normalized nanoseconds.</returns>
-    private static int TruncateTo(int nanos, int precision) =>
+    public static int TruncateTo(int nanos, int precision) =>
         precision switch
         {
             0 => 0,
