@@ -25,7 +25,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import java.util.function.IntToLongFunction;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -37,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
@@ -60,10 +60,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowHandler.RowFactory<RowT> factory;
 
-    private final int[] parts;
-
-    /** Term of the partition group leader. */
-    private final @Nullable IntToLongFunction partGroupTerm;
+    private final ColocationGroup mapping;
 
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
@@ -78,8 +75,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param parts Partition numbers to scan.
-     * @param partGroupTerm Term of the partition group leader.
+     * @param mapping Target mapping.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -91,8 +87,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
-            int[] parts,
-            @Nullable IntToLongFunction partGroupTerm,
+            ColocationGroup mapping,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -101,13 +96,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     ) {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
-        assert !nullOrEmpty(parts);
-        assert ctx.transaction().isReadOnly() || partGroupTerm != null;
+        assert !nullOrEmpty(mapping.partitions(ctx.localNode().name()));
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
-        this.parts = parts;
-        this.partGroupTerm = partGroupTerm;
+        this.mapping = mapping;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -119,6 +112,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
+        int[] parts = mapping.partitions(context().localNode().name());
+
         if (rangeConditions != null) {
             return SubscriptionUtils.concat(new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(parts, cond)));
         } else {
@@ -184,7 +179,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         part,
                         tx.id(),
                         context().localNode(),
-                        partGroupTerm.applyAsLong(part),
+                        mapping.partitionLeaderTerm(part),
                         lower,
                         upper,
                         flags,
@@ -219,7 +214,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         part,
                         tx.id(),
                         context().localNode(),
-                        partGroupTerm.applyAsLong(part),
+                        mapping.partitionLeaderTerm(part),
                         key,
                         requiredColumns
                 );
