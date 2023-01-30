@@ -209,7 +209,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         mockMetastore();
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
-            function.apply(0L).join();
+            await(function.apply(0L));
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
                 log.info("Notify about revision: {}", newStorageRevision);

@@ -214,7 +214,7 @@ public class IgniteSqlApiTest {
     }
 
     @Test
-    public void mixSqlAndTableApiInTx() {
+    public void mixSqlAndTableApiInTx() throws Exception {
         // Create table.
         Session sess = igniteSql.createSession();
         sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
@@ -226,7 +226,7 @@ public class IgniteSqlApiTest {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 2), Tuple.create().set("val", "str2"))
                     .thenAccept(r -> tx.commit());
-        }).join();
+        }).get();
 
         ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
         assertTrue(rs.hasNext());
@@ -243,7 +243,7 @@ public class IgniteSqlApiTest {
                     .thenAccept(r -> tx.rollback());
 
             Mockito.verify(tx, Mockito.times(1)).rollback();
-        }).join();
+        }).get();
 
         rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 2);
         assertFalse(rs.hasNext());
