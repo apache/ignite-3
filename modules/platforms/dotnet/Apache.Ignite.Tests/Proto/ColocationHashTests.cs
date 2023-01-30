@@ -174,11 +174,11 @@ public class ColocationHashTests : IgniteTestsBase
     private static int WriteAsIgniteTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
         var igniteTuple = new IgniteTuple();
-        int i = 0;
+        int i = 1;
 
         foreach (var obj in arr)
         {
-            igniteTuple["c-" + i++] = obj;
+            igniteTuple["m_Item" + i++] = obj;
         }
 
         var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(_ => true));
@@ -250,7 +250,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
 
-        return new Column("c-" + schemaIndex, colType, false, true, true, schemaIndex, Scale: scale, precision);
+        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, true, schemaIndex, Scale: scale, precision);
     }
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
