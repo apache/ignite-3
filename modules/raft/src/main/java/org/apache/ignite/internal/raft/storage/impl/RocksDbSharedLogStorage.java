@@ -68,6 +68,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         RocksDB.loadLibrary();
     }
 
+    private final boolean sync;
+
     /**
      * An empty write context.
      */
@@ -171,9 +173,9 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.groupEndPrefix = (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
         this.groupStartBound = new Slice(groupStartPrefix);
         this.groupEndBound = new Slice(groupEndPrefix);
+        this.sync = raftOptions.isSync();
 
         this.writeOptions = new WriteOptions();
-        this.writeOptions.setSync(raftOptions.isSync());
     }
 
     /** {@inheritDoc} */
@@ -411,7 +413,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                 this.db.put(this.dataHandle, this.writeOptions, createKey(logIndex), newValueBytes);
                 writeCtx.joinAll();
                 if (newValueBytes != valueBytes) {
-                    doSync();
+                    doSync(db.getLatestSequenceNumber());
                 }
                 return true;
             } catch (RocksDBException | IOException e) {
@@ -448,7 +450,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             }
 
             writeCtx.joinAll();
-            doSync();
         });
 
         if (ret) {
@@ -557,6 +558,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
             template.execute(batch);
             this.db.write(this.writeOptions, batch);
+
+            doSync(db.getLatestSequenceNumber());
         } catch (RocksDBException e) {
             LOG.error("Execute batch failed with rocksdb exception.", e);
             return false;
@@ -628,8 +631,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         return ks;
     }
 
-    private void doSync() throws IOException, InterruptedException {
-        onSync();
+    private void doSync(long latestSequenceNumber) throws RocksDBException, InterruptedException {
+        onSync(latestSequenceNumber);
     }
 
     protected WriteContext newWriteContext() {
@@ -649,11 +652,25 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         return value;
     }
 
+    private final Object mux = new Object();
+    private long latestSequenceNumber;
+
     /**
      * Called when sync data into file system.
      */
     @SuppressWarnings("RedundantThrows")
-    protected void onSync() throws IOException, InterruptedException {
+    protected void onSync(long latestSequenceNumber) throws RocksDBException, InterruptedException {
+        if (!sync) {
+            return;
+        }
+
+        synchronized (mux) {
+            if (this.latestSequenceNumber < latestSequenceNumber) {
+                this.latestSequenceNumber = db.getLatestSequenceNumber();
+
+                db.syncWal();
+            }
+        }
     }
 
     /**
