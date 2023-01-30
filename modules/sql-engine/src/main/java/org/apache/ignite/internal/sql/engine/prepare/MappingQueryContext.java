@@ -29,19 +29,15 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public class MappingQueryContext {
     private final String locNodeName;
 
-    private final boolean readOnlyOp;
-
     private RelOptCluster cluster;
 
     /**
      * Constructor.
      *
      * @param locNodeName Local node consistent ID.
-     * @param readOnlyOp {@code True} if it is a mapping for a read-only operation.
      */
-    public MappingQueryContext(String locNodeName, boolean readOnlyOp) {
+    public MappingQueryContext(String locNodeName) {
         this.locNodeName = locNodeName;
-        this.readOnlyOp = readOnlyOp;
     }
 
     /** Creates a cluster. */
@@ -58,9 +54,5 @@ public class MappingQueryContext {
 
     public String locNodeName() {
         return locNodeName;
-    }
-
-    public boolean readOnlyOperation() {
-        return readOnlyOp;
     }
 }
