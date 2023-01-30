@@ -157,7 +157,7 @@ public class TemporalTypesHelper {
         time |= localTime.getMinute() << SECONDS_FIELD_LENGTH;
         time |= localTime.getSecond();
 
-        int fractional = truncateTo(type.precision(), localTime.getNano());
+        int fractional = truncateTo(localTime.getNano(), type.precision());
 
         return ((long) time << 32) | fractional;
     }
@@ -256,11 +256,11 @@ public class TemporalTypesHelper {
     /**
      * Normalize to given precision and truncate to meaningful time unit.
      *
+     * @param nanos Seconds' fractional part.
      * @param precision Precision.
-     * @param nanos     Seconds' fractional part.
      * @return Truncated fractional seconds (millis, micros or nanos).
      */
-    private static int truncateTo(int precision, int nanos) {
+    private static int truncateTo(int nanos, int precision) {
         switch (precision) {
             case 0:
                 return 0;
