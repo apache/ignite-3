@@ -642,7 +642,7 @@ public class ExecutionServiceImplTest {
         ) {
             @Override
             public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                // Verify that the exception thrown during the mapping phase is handled properly.
+                // Make sure the exception is handled properly if it occurs during the mapping phase.
                 if (mappingException != null) {
                     throw mappingException;
                 }
