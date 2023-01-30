@@ -198,11 +198,23 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var colType = value switch
         {
+            sbyte => ClientDataType.Int8,
+            short => ClientDataType.Int16,
+            int => ClientDataType.Int32,
+            long => ClientDataType.Int64,
+            float => ClientDataType.Float,
+            double => ClientDataType.Double,
+            decimal => ClientDataType.Decimal,
+            Guid => ClientDataType.Uuid,
+            byte[] => ClientDataType.Bytes,
+            string => ClientDataType.String,
+            BigInteger => ClientDataType.Number,
+            BitArray => ClientDataType.BitMask,
             LocalTime => ClientDataType.Time,
             LocalDate => ClientDataType.Date,
             LocalDateTime => ClientDataType.DateTime,
             Instant => ClientDataType.Timestamp,
-            _ => ClientDataType.Int8 // TODO: All types.
+            _ => throw new Exception("Unknown type: " + value.GetType())
         };
 
         var precision = colType switch
