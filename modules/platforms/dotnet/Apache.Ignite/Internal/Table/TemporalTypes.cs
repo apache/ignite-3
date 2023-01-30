@@ -43,9 +43,9 @@ internal static class TemporalTypes
             1 => (nanos / 100_000_000) * 100_000_000, // 100ms precision.
             2 => (nanos / 10_000_000) * 10_000_000, // 10ms precision.
             3 => (nanos / 1_000_000) * 1_000_000, // 1ms precision.
-            4 => (nanos / 100_000) * 100_000, // 100μs precision.
-            5 => (nanos / 10_000) * 10_000, // 10μs precision.
-            6 => (nanos / 1_000) * 1_000, // 1μs precision.
+            4 => (nanos / 100_000) * 100_000, // 100us precision.
+            5 => (nanos / 10_000) * 10_000, // 10us precision.
+            6 => (nanos / 1_000) * 1_000, // 1us precision.
             7 => (nanos / 100) * 100, // 100ns precision.
             8 => (nanos / 10) * 10, // 10ns precision.
             9 => nanos, // 1ns precision
