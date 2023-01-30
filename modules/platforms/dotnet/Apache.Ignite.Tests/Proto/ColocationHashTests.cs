@@ -200,6 +200,7 @@ public class ColocationHashTests : IgniteTestsBase
         {
             LocalTime => ClientDataType.Time,
             LocalDate => ClientDataType.Date,
+            LocalDateTime => ClientDataType.DateTime,
             Instant => ClientDataType.Timestamp,
             _ => ClientDataType.Int8 // TODO: All types.
         };
@@ -207,6 +208,7 @@ public class ColocationHashTests : IgniteTestsBase
         var precision = colType switch
         {
             ClientDataType.Time => timePrecision,
+            ClientDataType.DateTime => timePrecision,
             ClientDataType.Timestamp => timestampPrecision,
             _ => 0
         };
