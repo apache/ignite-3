@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
+import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -252,8 +253,12 @@ public class ExecutionServiceImplTest {
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
+    /**
+     * A query initialization is failed on the initiator during the mapping phase.
+     * Need to verify that the exception is handled properly.
+     */
     @Test
-    public void testQueryMappingFailure() throws InterruptedException {
+    public void testQueryMappingFailure() {
         mappingException = new IllegalStateException("Query mapping error");
 
         var execService = executionServices.get(0);
@@ -633,8 +638,17 @@ public class ExecutionServiceImplTest {
                 new TableDescriptorImpl(columns, distr),
                 name,
                 ColocationGroup.forNodes(nodeNames),
-                size,
-                () -> mappingException
-        );
+                size
+        ) {
+            @Override
+            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+                // Verify that the exception thrown during the mapping phase is handled properly.
+                if (mappingException != null) {
+                    throw mappingException;
+                }
+
+                return super.colocationGroup(ctx);
+            }
+        };
     }
 }
