@@ -90,7 +90,8 @@ public class ColocationHashTests : IgniteTestsBase
         new LocalDate(2, 1, 1),
         new LocalDate(1, 1, 1),
         default(LocalDate),
-        new LocalTime(9, 8, 7),
+        new LocalTime(9, 8, 7, 6),
+        LocalTime.FromHourMinuteSecondNanosecond(hour: 1, minute: 2, second: 3, nanosecondWithinSecond: 456789),
         LocalTime.Midnight,
         LocalTime.Noon,
         LocalDateTime.FromDateTime(DateTime.UtcNow).TimeOfDay,
@@ -110,7 +111,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     [Test]
     public async Task TestSingleKeyColocationHashIsSameOnServerAndClientCustomTimePrecision(
-        [Values(0, 1, 4, 9)] int timePrecision,
+        [Values(0, 1, 3, 4, 5, 6, 7, 8, 9)] int timePrecision,
         [Values(0, 1, 3, 6)] int timestampPrecision)
     {
         foreach (var t in TestCases)
@@ -144,7 +145,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     [Test]
     public async Task TestMultiKeyColocationHashIsSameOnServerAndClientCustomTimePrecision(
-        [Values(0, 1, 4, 9)] int timePrecision,
+        [Values(0, 1, 4, 5, 6, 7, 8, 9)] int timePrecision,
         [Values(0, 1, 3, 6)] int timestampPrecision)
     {
         for (var i = 0; i < TestCases.Length; i++)
