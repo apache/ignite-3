@@ -1952,12 +1952,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(new NodeStoppingException());
-                }
-
-                try {
-                    assert evt.single();
+                inBusyLock(busyLock, () -> {
+                    assert evt.single() : evt;
 
                     Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
@@ -1965,19 +1961,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return;
                     }
 
-                    int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-                    UUID tblId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+                    int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
+                    UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
-                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, part);
+                    TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
                     Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
-                    byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId),
-                            stableAssignmentsWatchEvent.revision()).join().value();
+                    byte[] pendingAssignmentsFromMetaStorage = metaStorageMgr.get(
+                            pendingPartAssignmentsKey(replicaGrpId),
+                            stableAssignmentsWatchEvent.revision()
+                    ).join().value();
 
-                    Set<Assignment> pendingAssignments = pendingFromMetastorage == null
+                    Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null
                             ? Set.of()
-                            : ByteUtils.fromBytes(pendingFromMetastorage);
+                            : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
 
                     String localMemberName = clusterService.topologyService().localMember().name();
 
@@ -1985,17 +1983,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
 
                     if (shouldStopLocalServices) {
+                        TableImpl table = tablesByIdVv.latest().get(tableId);
+
+                        CompletableFuture<Void> destroyMvPartitionStorageFuture
+                                = table.internalTable().storage().destroyPartition(partitionId);
+
+                        table.internalTable().txStateStorage().destroyTxStateStorage(partitionId);
+
+                        // Necessary evil.
+                        destroyMvPartitionStorageFuture.join();
+
                         try {
                             raftMgr.stopRaftNodes(replicaGrpId);
 
-                            replicaMgr.stopReplica(new TablePartitionId(tblId, part));
+                            replicaMgr.stopReplica(new TablePartitionId(tableId, partitionId));
                         } catch (NodeStoppingException e) {
                             // no-op
                         }
                     }
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                });
             }
 
             @Override
