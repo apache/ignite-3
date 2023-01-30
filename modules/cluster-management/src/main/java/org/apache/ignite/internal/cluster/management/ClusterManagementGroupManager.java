@@ -610,7 +610,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             if (physicalTopologyNode == null || !physicalTopologyNode.id().equals(node.id())) {
                 raftService.removeFromCluster(Set.of(node));
             }
-        }, configuration.logicalTopologyRemovalDelayAfterDisappearance().value(), TimeUnit.MILLISECONDS);
+        }, configuration.failoverTimeout().value(), TimeUnit.MILLISECONDS);
     }
 
     private void sendClusterState(CmgRaftService raftService, ClusterNode node) {

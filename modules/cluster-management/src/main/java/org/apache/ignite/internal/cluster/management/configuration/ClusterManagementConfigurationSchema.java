@@ -36,7 +36,7 @@ public class ClusterManagementConfigurationSchema {
      */
     @Value(hasDefault = true)
     // TODO: IGNITE-18630 - change this to a sensible default.
-    public long logicalTopologyRemovalDelayAfterDisappearance = 0;
+    public long failoverTimeout = 0;
 
     /** Maximum amount of time a validated node that has not yet completed the join is allowed to remain validated (ms). */
     @Value(hasDefault = true)

@@ -91,13 +91,13 @@ public class MockNode {
         when(rpcInstallSnapshotTimeoutValue.value()).thenReturn(10);
 
         ClusterManagementConfiguration clusterManagementConfiguration = mock(ClusterManagementConfiguration.class);
-        ConfigurationValue<Long> logicalTopologyRemovalDelayAfterDisappearanceValue = mock(ConfigurationValue.class);
+        ConfigurationValue<Long> failoverTimeoutValue = mock(ConfigurationValue.class);
         ConfigurationValue<Long> networkInvokeTimeoutValue = mock(ConfigurationValue.class);
         ConfigurationValue<Long> incompleteJoinTimeoutValue = mock(ConfigurationValue.class);
 
-        when(clusterManagementConfiguration.logicalTopologyRemovalDelayAfterDisappearance())
-                .thenReturn(logicalTopologyRemovalDelayAfterDisappearanceValue);
-        when(logicalTopologyRemovalDelayAfterDisappearanceValue.value()).thenReturn(0L);
+        when(clusterManagementConfiguration.failoverTimeout())
+                .thenReturn(failoverTimeoutValue);
+        when(failoverTimeoutValue.value()).thenReturn(0L);
 
         when(clusterManagementConfiguration.networkInvokeTimeout()).thenReturn(networkInvokeTimeoutValue);
         when(networkInvokeTimeoutValue.value()).thenReturn(500L);
