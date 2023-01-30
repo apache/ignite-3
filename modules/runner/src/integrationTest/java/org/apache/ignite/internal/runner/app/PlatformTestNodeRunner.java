@@ -353,8 +353,8 @@ public class PlatformTestNodeRunner {
         public Integer execute(JobExecutionContext context, Object... args) {
             var columnCount = (int) args[0];
             var buf = (byte[]) args[1];
-            var timePrecision = (int)args[2];
-            var timestampPrecision = (int)args[3];
+            var timePrecision = (int) args[2];
+            var timestampPrecision = (int) args[3];
 
             var columns = new Column[columnCount];
             var tuple = Tuple.create(columnCount);
