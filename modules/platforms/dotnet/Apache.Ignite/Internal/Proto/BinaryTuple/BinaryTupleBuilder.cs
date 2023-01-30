@@ -728,7 +728,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a date and time.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendDateTime(LocalDateTime value)
+        /// <param name="precision">Precision.</param>
+        public void AppendDateTime(LocalDateTime value, int precision)
         {
             if (ShouldHash())
             {
@@ -738,7 +739,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (value != BinaryTupleCommon.DefaultDateTime)
             {
                 PutDate(value.Date);
-                PutTime(value.TimeOfDay, 9); // TODO
+                PutTime(value.TimeOfDay, precision);
             }
 
             OnWrite();
@@ -748,7 +749,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a date and time.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendDateTimeNullable(LocalDateTime? value)
+        /// <param name="precision">Precision.</param>
+        public void AppendDateTimeNullable(LocalDateTime? value, int precision)
         {
             if (value == null)
             {
@@ -756,7 +758,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                AppendDateTime(value.Value);
+                AppendDateTime(value.Value, precision);
             }
         }
 
@@ -764,24 +766,18 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a timestamp (instant).
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendTimestamp(Instant value)
+        /// <param name="precision">Precision.</param>
+        public void AppendTimestamp(Instant value, int precision)
         {
-            if (value != default)
-            {
-                var (seconds, nanos) = PutTimestamp(value);
+            var (seconds, nanos) = value != default ? PutTimestamp(value, precision) : (0, 0);
 
-                if (ShouldHash())
-                {
-                    _hash = HashUtils.Hash32(seconds, _hash);
-                    _hash = HashUtils.Hash32((long)nanos, _hash);
-                }
-            }
-            else
+            if (ShouldHash())
             {
-                if (ShouldHash())
+                _hash = HashUtils.Hash32(seconds, _hash);
+
+                if (precision != 0)
                 {
-                    _hash = HashUtils.Hash32(0L, _hash);
-                    _hash = HashUtils.Hash32(0L, _hash);
+                    _hash = HashUtils.Hash32((long)nanos, _hash);
                 }
             }
 
@@ -792,7 +788,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends a timestamp (instant).
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendTimestampNullable(Instant? value)
+        /// <param name="precision">Precision.</param>
+        public void AppendTimestampNullable(Instant? value, int precision)
         {
             if (value == null)
             {
@@ -800,7 +797,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                AppendTimestamp(value.Value);
+                AppendTimestamp(value.Value, precision);
             }
         }
 
@@ -950,11 +947,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case ClientDataType.DateTime:
-                    AppendDateTime((LocalDateTime)value);
+                    AppendDateTime((LocalDateTime)value, precision);
                     break;
 
                 case ClientDataType.Timestamp:
-                    AppendTimestamp((Instant)value);
+                    AppendTimestamp((Instant)value, precision);
                     break;
 
                 default:
@@ -968,9 +965,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="value">Value.</param>
         /// <param name="timePrecision">Time precision.</param>
         /// <param name="timestampPrecision">Timestamp precision.</param>
-        public void AppendObjectWithType(object? value, int timePrecision = 9, int timestampPrecision = 6)
+        public void AppendObjectWithType(
+            object? value,
+            int timePrecision = ClientDataTypeCommon.MaxTimePrecision,
+            int timestampPrecision = ClientDataTypeCommon.DefaultTimestampPrecision)
         {
-            // TODO: Constants for default precision values
             switch (value)
             {
                 case null:
@@ -1047,12 +1046,12 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 case LocalDateTime localDateTime:
                     AppendTypeAndScale(ClientDataType.DateTime);
-                    AppendDateTime(localDateTime);
+                    AppendDateTime(localDateTime, timePrecision);
                     break;
 
                 case Instant instant:
                     AppendTypeAndScale(ClientDataType.Timestamp);
-                    AppendTimestamp(instant);
+                    AppendTimestamp(instant, timestampPrecision);
                     break;
 
                 case BitArray bitArray:
@@ -1233,7 +1232,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Advance(actualBytes);
         }
 
-        private (long Seconds, int Nanos) PutTimestamp(Instant value)
+        private (long Seconds, int Nanos) PutTimestamp(Instant value, int precision)
         {
             // Logic taken from
             // https://github.com/nodatime/nodatime.serialization/blob/main/src/NodaTime.Serialization.Protobuf/NodaExtensions.cs#L69
@@ -1245,7 +1244,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             PutLong(seconds);
 
-            if (nanos != 0)
+            if (nanos != 0 && precision != 0)
             {
                 PutInt(nanos);
             }
