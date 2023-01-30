@@ -121,9 +121,10 @@ internal static class HashUtils
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
+    /// <param name="precision">Precision.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDateTime data, int seed) => Hash32(data.TimeOfDay, 9, Hash32(data.Date, seed)); // TODO: Propagate precision
+    public static int Hash32(LocalDateTime data, int precision, int seed) => Hash32(data.TimeOfDay, precision, Hash32(data.Date, seed));
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {

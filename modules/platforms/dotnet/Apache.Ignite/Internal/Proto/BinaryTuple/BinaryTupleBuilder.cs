@@ -733,7 +733,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         {
             if (ShouldHash())
             {
-                _hash = HashUtils.Hash32(value, _hash);
+                _hash = HashUtils.Hash32(value, precision, _hash);
             }
 
             if (value != BinaryTupleCommon.DefaultDateTime)
