@@ -282,7 +282,9 @@ public class IgniteImpl implements Ignite {
                 modules.local().polymorphicSchemaExtensions()
         );
 
-        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
+        ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
+
+        NetworkConfiguration networkConfiguration = nodeConfigRegistry.getConfiguration(NetworkConfiguration.KEY);
 
         MessageSerializationRegistry serializationRegistry = createSerializationRegistry(serviceProviderClassLoader);
 
@@ -299,14 +301,14 @@ public class IgniteImpl implements Ignite {
         computeComponent = new ComputeComponentImpl(
                 this,
                 clusterSvc.messagingService(),
-                nodeCfgMgr.configurationRegistry().getConfiguration(ComputeConfiguration.KEY)
+                nodeConfigRegistry.getConfiguration(ComputeConfiguration.KEY)
         );
 
         clock = new HybridClockImpl();
 
         raftMgr = new Loza(
                 clusterSvc,
-                nodeCfgMgr.configurationRegistry().getConfiguration(RaftConfiguration.KEY),
+                nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY),
                 workDir,
                 clock
         );
@@ -334,7 +336,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
-                nodeCfgMgr.configurationRegistry().getConfiguration(ClusterManagementConfiguration.KEY)
+                nodeConfigRegistry.getConfiguration(ClusterManagementConfiguration.KEY)
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -359,9 +361,11 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        metricManager.configure(clusterCfgMgr.configurationRegistry().getConfiguration(MetricConfiguration.KEY));
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
+        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
+
+        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry
                 .getConfiguration(DistributionZonesConfiguration.KEY);
 
         restComponent = createRestComponent(name);
@@ -375,7 +379,7 @@ public class IgniteImpl implements Ignite {
         );
 
         Consumer<Function<Long, CompletableFuture<?>>> registry =
-                c -> clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(c::apply);
+                c -> clusterConfigRegistry.listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
@@ -383,13 +387,13 @@ public class IgniteImpl implements Ignite {
 
         Path storagePath = getPartitionsStorePath(workDir);
 
-        TablesConfiguration tablesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
                 tablesConfiguration,
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterCfgMgr.configurationRegistry(),
+                        clusterConfigRegistry,
                         storagePath,
                         longJvmPauseDetector
                 )
@@ -454,7 +458,7 @@ public class IgniteImpl implements Ignite {
                 qryEngine,
                 distributedTblMgr,
                 new IgniteTransactionsImpl(txManager),
-                nodeCfgMgr.configurationRegistry(),
+                nodeConfigRegistry,
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
