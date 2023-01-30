@@ -30,7 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.util.IgniteIntList;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -270,13 +270,13 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * Returns List of partitions to scan on the given node.
+     * Returns list of pairs containing the partition number to scan on the given node with the corresponding raft group term.
      *
      * @param nodeName Cluster node consistent ID.
-     * @return List of partitions to scan on the given node.
+     * @return List of pairs containing the partition number to scan on the given node with the corresponding raft group term.
      */
-    public int[] partitions(String nodeName) {
-        IgniteIntList parts = new IgniteIntList(assignments.size());
+    public List<IgniteBiTuple<Integer, Long>> partitionsWithTerms(String nodeName) {
+        List<IgniteBiTuple<Integer, Long>> partsWithTerms = new ArrayList<>();
 
         for (int p = 0; p < assignments.size(); p++) {
             List<NodeWithTerm> assignment = assignments.get(p);
@@ -286,22 +286,10 @@ public class ColocationGroup implements Serializable {
             assert nodeWithTerm != null : "part=" + p;
 
             if (Objects.equals(nodeName, nodeWithTerm.name())) {
-                parts.add(p);
+                partsWithTerms.add(new IgniteBiTuple<>(p, nodeWithTerm.term()));
             }
         }
 
-        return parts.array();
-    }
-
-    /**
-     * Returns a raft group leader term.
-     *
-     * @param partId Partition ID.
-     * @return Raft group leader term.
-     */
-    public long partitionLeaderTerm(int partId) {
-        List<NodeWithTerm> assignment = assignments.get(partId);
-
-        return assignment.get(0).term();
+        return partsWithTerms;
     }
 }
