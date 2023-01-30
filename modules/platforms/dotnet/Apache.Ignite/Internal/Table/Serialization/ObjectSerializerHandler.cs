@@ -123,9 +123,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
-                else if (col.Type == ClientDataType.Time)
+                else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
                 {
-                    // TODO: DateTime, Timestamp
                     il.Emit(OpCodes.Ldc_I4, col.Precision);
                 }
 
@@ -167,9 +166,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
-                    else if (col.Type == ClientDataType.Time)
+                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
                     {
-                        // TODO: DateTime, Timestamp
                         il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
 
@@ -248,9 +246,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
                     }
-                    else if (col.Type == ClientDataType.Time)
+                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
                     {
-                        // TODO: DateTime, Timestamp
                         il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
 
