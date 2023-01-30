@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.metadata;
 
 import java.io.Serializable;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Tuple representing raft group leader node consistent name with current term.
@@ -57,8 +56,17 @@ public class NodeWithTerm implements Serializable {
      * @param name Raft group leader node name.
      * @param term Raft group leader term.
      */
-    public NodeWithTerm(@Nullable String name, Long term) {
+    public NodeWithTerm(String name, Long term) {
         this.name = name;
         this.term = term;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param name Raft group leader node name.
+     */
+    public NodeWithTerm(String name) {
+        this(name, -1L);
     }
 }
