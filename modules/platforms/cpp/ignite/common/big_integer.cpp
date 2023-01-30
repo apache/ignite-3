@@ -17,9 +17,9 @@
 
 #include "big_integer.h"
 
-#include <ignite/common/bits.h>
-#include <ignite/common/bytes.h>
-#include <ignite/common/ignite_error.h>
+#include "bits.h"
+#include "bytes.h"
+#include "ignite_error.h"
 
 #include <algorithm>
 #include <array>

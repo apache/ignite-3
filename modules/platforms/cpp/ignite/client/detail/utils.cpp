@@ -208,6 +208,13 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
             return std::string(reinterpret_cast<const char *>(val.data()), val.size());
         case ignite_type::BINARY:
             return std::vector<std::byte>(val);
+        case ignite_type::DATE:
+        case ignite_type::TIME:
+        case ignite_type::DATETIME:
+        case ignite_type::TIMESTAMP:
+        case ignite_type::DECIMAL:
+        case ignite_type::NUMBER:
+        case ignite_type::BITMASK:
         default:
             // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");

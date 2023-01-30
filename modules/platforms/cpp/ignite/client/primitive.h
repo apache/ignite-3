@@ -41,80 +41,80 @@ public:
      *
      * @param value Value.
      */
-    primitive(bool value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(bool value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int8_t value.
      *
      * @param value Value.
      */
-    primitive(std::int8_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int8_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int16_t value.
      *
      * @param value Value.
      */
-    primitive(std::int16_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int16_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int32_t value.
      *
      * @param value Value.
      */
-    primitive(std::int32_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int32_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int64_t value.
      *
      * @param value Value.
      */
-    primitive(std::int64_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int64_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for float value.
      *
      * @param value Value.
      */
-    primitive(float value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(float value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for double value.
      *
      * @param value Value.
      */
-    primitive(double value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(double value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for UUID value.
      *
      * @param value Value.
      */
-    primitive(uuid value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(uuid value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for string value.
      *
      * @param value Value.
      */
-    primitive(std::string value)
-        : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
+    primitive(std::string value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
 
     /**
      * Constructor for byte array value.
      *
      * @param value Value.
      */
-    primitive(std::vector<std::byte> value)
-        : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
+    primitive(std::vector<std::byte> value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
 
     /**
      * Constructor for byte array value.

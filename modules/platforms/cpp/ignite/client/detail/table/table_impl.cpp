@@ -66,6 +66,13 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t i
         case ignite_type::BINARY:
             builder.claim(SizeT(tuple.get<std::vector<std::byte>>(index).size()));
             break;
+        case ignite_type::BITMASK:
+        case ignite_type::DATE:
+        case ignite_type::TIME:
+        case ignite_type::DATETIME:
+        case ignite_type::TIMESTAMP:
+        case ignite_type::DECIMAL:
+        case ignite_type::NUMBER:
         default:
             // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
@@ -112,6 +119,13 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
         case ignite_type::BINARY:
             builder.append(typ, tuple.get<std::vector<std::byte>>(index));
             break;
+        case ignite_type::BITMASK:
+        case ignite_type::DATE:
+        case ignite_type::TIME:
+        case ignite_type::DATETIME:
+        case ignite_type::TIMESTAMP:
+        case ignite_type::DECIMAL:
+        case ignite_type::NUMBER:
         default:
             // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
