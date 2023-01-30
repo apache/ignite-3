@@ -225,7 +225,10 @@ public class ColocationHashTests : IgniteTestsBase
             _ => 0
         };
 
-        return new Column("c-" + schemaIndex, colType, false, true, true, schemaIndex, 0, precision);
+        // TODO: Which decimal scale do we need?
+        var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
+
+        return new Column("c-" + schemaIndex, colType, false, true, true, schemaIndex, Scale: scale, precision);
     }
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
