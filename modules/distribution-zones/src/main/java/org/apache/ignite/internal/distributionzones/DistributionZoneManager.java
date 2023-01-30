@@ -44,7 +44,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
@@ -841,8 +840,15 @@ public class DistributionZoneManager implements IgniteComponent {
         };
     }
 
+    /**
+     *
+     * @param zoneId Zone id.
+     * @return Consistent ids of nodes.
+     */
     public Set<String> getDataNodes(int zoneId) {
-        return dataNodes.get(zoneId);
+        Set<String> nodes = dataNodes.get(zoneId);
+
+        return nodes != null ? nodes : Collections.emptySet();
     }
 
     private void scheduleTimers(
