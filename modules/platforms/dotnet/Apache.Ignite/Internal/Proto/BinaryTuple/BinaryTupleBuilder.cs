@@ -774,11 +774,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (ShouldHash())
             {
                 _hash = HashUtils.Hash32(seconds, _hash);
-
-                if (precision != 0)
-                {
-                    _hash = HashUtils.Hash32((long)nanos, _hash);
-                }
+                _hash = HashUtils.Hash32((long)nanos, _hash);
             }
 
             OnWrite();
@@ -1247,9 +1243,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (nanos != 0 && precision != 0)
             {
                 PutInt(nanos);
+                return (seconds, nanos);
             }
 
-            return (seconds, nanos);
+            return (seconds, 0);
         }
 
         private void PutDuration(Duration value)
