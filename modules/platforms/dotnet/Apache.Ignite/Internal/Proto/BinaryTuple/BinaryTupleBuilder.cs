@@ -712,7 +712,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="precision">Precision.</param>
-        public void AppendTimeNullable(LocalTime? value, int precision = 9) // TODO: Propagate precision up the stack
+        public void AppendTimeNullable(LocalTime? value, int precision)
         {
             if (value == null)
             {

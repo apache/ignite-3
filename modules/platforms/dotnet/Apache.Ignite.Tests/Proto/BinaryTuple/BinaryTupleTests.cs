@@ -738,8 +738,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendNumberNullable(null);
                     b.AppendDateNullable(date);
                     b.AppendDateNullable(null);
-                    b.AppendTimeNullable(dateTime.TimeOfDay);
-                    b.AppendTimeNullable(null);
+                    b.AppendTimeNullable(dateTime.TimeOfDay, ClientDataTypeCommon.MaxTimePrecision);
+                    b.AppendTimeNullable(null, ClientDataTypeCommon.DefaultTimePrecision);
                     b.AppendDateTimeNullable(dateTime);
                     b.AppendDateTimeNullable(null);
                     b.AppendTimestampNullable(Instant.FromDateTimeUtc(utcNow));
