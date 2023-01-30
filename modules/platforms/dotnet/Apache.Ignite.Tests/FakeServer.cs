@@ -360,8 +360,9 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ClientDataType.Uuid);
                 writer.Write(true); // Key.
@@ -381,8 +382,9 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ClientDataType.Uuid);
                 writer.Write(true); // Key.
