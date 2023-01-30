@@ -237,7 +237,7 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
         if (!TraitUtils.distributionEnabled(rel)) {
             List<List<NodeWithTerm>> fakeAssignments = new ArrayList<>(group.assignments().size());
             for (int i = 0; i < group.assignments().size(); i++) {
-                fakeAssignments.add(List.of(new NodeWithTerm(ctx.locNodeName(), -1L)));
+                fakeAssignments.add(List.of(new NodeWithTerm(ctx.locNodeName())));
             }
 
             group = ColocationGroup.forAssignments(fakeAssignments);
