@@ -123,6 +123,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
+                else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                {
+                    il.Emit(OpCodes.Ldc_I4, col.Precision);
+                }
 
                 il.Emit(OpCodes.Call, directWriteMethod);
 
@@ -161,6 +165,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     if (col.Type == ClientDataType.Decimal)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
+                    }
+                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    {
+                        il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
@@ -237,6 +245,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     if (col.Type == ClientDataType.Decimal)
                     {
                         il.Emit(OpCodes.Ldc_I4, col.Scale);
+                    }
+                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    {
+                        il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
