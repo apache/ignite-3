@@ -516,7 +516,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void pageSequence() throws ExecutionException, InterruptedException {
+    public void pageSequence() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
@@ -556,7 +556,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void errors() {
+    public void errors() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
@@ -591,15 +591,15 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // No result set error.
         {
-            AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)").join();
+            AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)").get();
             assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
                     "Query has no result set");
         }
 
         // Cursor closed error.
         {
-            AsyncResultSet ars = ses.executeAsync(null, "SELECT * FROM TEST").join();
-            ars.closeAsync().toCompletableFuture().join();
+            AsyncResultSet ars = ses.executeAsync(null, "SELECT * FROM TEST").get();
+            ars.closeAsync().toCompletableFuture().get();
             assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), CursorClosedException.class);
         }
     }
@@ -634,7 +634,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void batch() {
+    public void batch() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
@@ -646,7 +646,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             args.add(i, i);
         }
 
-        long[] batchRes = ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join();
+        long[] batchRes = ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).get();
 
         Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
 
@@ -689,7 +689,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join()
+                () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args))
         );
 
         assertInstanceOf(SqlBatchException.class, ex.getCause());
