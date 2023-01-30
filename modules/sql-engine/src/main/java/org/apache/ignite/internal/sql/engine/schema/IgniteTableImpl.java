@@ -30,7 +30,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -227,7 +226,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     /** {@inheritDoc} */
     @Override
     public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        return partitionedGroup(!ctx.readOnlyOperation());
+        return partitionedGroup();
     }
 
     /** {@inheritDoc} */
@@ -482,12 +481,11 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.DELETE_ROW);
     }
 
-    private ColocationGroup partitionedGroup(boolean collectLeaderTerms) {
-        Stream<NodeWithTerm> assignmentsStream = collectLeaderTerms
-                ? table.leaderAssignmentsWithTerm().stream().map(leadAndTerm -> new NodeWithTerm(leadAndTerm.get1(), leadAndTerm.get2()))
-                : table.assignments().stream().map(NodeWithTerm::new);
-
-        List<List<NodeWithTerm>> assignments = assignmentsStream.map(Collections::singletonList).collect(Collectors.toList());
+    private ColocationGroup partitionedGroup() {
+        List<List<NodeWithTerm>> assignments = table.leaderAssignmentsWithTerm().stream()
+                .map(leaderWithTerm -> new NodeWithTerm(leaderWithTerm.get1(), leaderWithTerm.get2()))
+                .map(Collections::singletonList)
+                .collect(Collectors.toList());
 
         return ColocationGroup.forAssignments(assignments);
     }
