@@ -20,12 +20,16 @@ namespace Apache.Ignite.Tests.Proto;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using System.Threading.Tasks;
 using Ignite.Table;
+using Internal.Buffers;
 using Internal.Proto;
 using Internal.Proto.BinaryTuple;
+using Internal.Proto.MsgPack;
 using Internal.Table;
 using Internal.Table.Serialization;
 using NodaTime;
@@ -193,10 +197,17 @@ public class ColocationHashTests : IgniteTestsBase
         }
     }
 
-    private static int WriteAsPoco(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
+    [SuppressMessage("ReSharper", "UnusedMember.Local", Justification = "Used by reflection.")]
+    private static int WriteAsPoco<T>(T obj, int timePrecision, int timestampPrecision)
     {
-        // TODO
-        return 0;
+        var poco = Tuple.Create(obj);
+        IRecordSerializerHandler<Tuple<T>> handler = new ObjectSerializerHandler<Tuple<T>>();
+        var schema = GetSchema(new object[] { obj! }, timePrecision, timestampPrecision);
+
+        using var buf = new PooledArrayBuffer();
+        var writer = new MsgPackWriter(buf);
+
+        return handler.Write(ref writer, schema, poco, computeHash: true);
     }
 
     private static Schema GetSchema(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
@@ -244,10 +255,8 @@ public class ColocationHashTests : IgniteTestsBase
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
     {
-        // TODO: Test POCO and IgniteTuple serialization here as well.
         var (bytes, clientHash) = WriteAsBinaryTuple(keys, timePrecision, timestampPrecision);
         var clientHash2 = WriteAsIgniteTuple(keys, timePrecision, timestampPrecision);
-        var clientHash3 = WriteAsPoco(keys, timePrecision, timestampPrecision);
 
         var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
 
@@ -255,6 +264,15 @@ public class ColocationHashTests : IgniteTestsBase
 
         Assert.AreEqual(serverHash, clientHash, $"Server hash mismatch. {msg}");
         Assert.AreEqual(clientHash, clientHash2, $"IgniteTuple hash mismatch. {msg}");
+
+        if (keys.Length == 1)
+        {
+            var obj = keys[0];
+            var method = GetType().GetMethod("WriteAsPoco", BindingFlags.Static | BindingFlags.NonPublic)!.MakeGenericMethod(obj.GetType());
+            var clientHash3 = (int)method.Invoke(null, new[] { obj, timePrecision, timestampPrecision })!;
+
+            Assert.AreEqual(clientHash, clientHash3, $"Poco hash mismatch. {msg}");
+        }
     }
 
     private async Task<int> GetServerHash(byte[] bytes, int count, int timePrecision, int timestampPrecision)
