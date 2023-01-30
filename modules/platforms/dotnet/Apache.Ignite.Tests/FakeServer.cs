@@ -340,19 +340,20 @@ namespace Apache.Ignite.Tests
             if (tableId == ExistingTableId)
             {
                 writer.WriteArrayHeader(1); // Columns.
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("ID");
                 writer.Write((int)ClientDataType.Int32);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
             }
             else if (tableId == CompositeKeyTableId)
             {
                 writer.WriteArrayHeader(2); // Columns.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ClientDataType.String);
                 writer.Write(true); // Key.
@@ -367,12 +368,13 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
             }
             else if (tableId == CustomColocationKeyTableId)
             {
                 writer.WriteArrayHeader(2); // Columns.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ClientDataType.String);
                 writer.Write(true); // Key.
@@ -387,6 +389,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // Nullable.
                 writer.Write(false); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
             }
 
             Send(handler, requestId, arrayBufferWriter);
