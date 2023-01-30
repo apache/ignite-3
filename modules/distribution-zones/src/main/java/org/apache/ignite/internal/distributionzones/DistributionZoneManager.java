@@ -761,14 +761,20 @@ public class DistributionZoneManager implements IgniteComponent {
                             if (vaultEntry != null && vaultEntry.value() != null) {
                                 logicalTopology = ByteUtils.fromBytes(vaultEntry.value());
 
+                                Set<String> newLogicalTopology = ByteUtils.fromBytes(vaultEntry.value());
+
                                 zonesConfiguration.distributionZones().value().namedListKeys()
                                         .forEach(zoneName -> {
                                             int zoneId = zonesConfiguration.distributionZones().get(zoneName).zoneId().value();
 
                                             saveDataNodesToMetaStorage(zoneId, vaultEntry.value(), appliedRevision);
+
+                                            dataNodes.put(zoneId, newLogicalTopology);
                                         });
 
                                 saveDataNodesToMetaStorage(DEFAULT_ZONE_ID, vaultEntry.value(), appliedRevision);
+
+                                dataNodes.put(DEFAULT_ZONE_ID, newLogicalTopology);
                             }
                         } finally {
                             busyLock.leaveBusy();
@@ -818,15 +824,11 @@ public class DistributionZoneManager implements IgniteComponent {
                         DistributionZoneView zoneView = zones.value().get(i);
 
                         scheduleTimers(zoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
-
-                        dataNodes.put(zoneView.zoneId(), newLogicalTopology);
                     }
 
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, newLogicalTopologyBytes, revision);
-
-                    dataNodes.put(defaultZoneView.zoneId(), newLogicalTopology);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -855,17 +857,27 @@ public class DistributionZoneManager implements IgniteComponent {
 
         int zoneId = zoneCfg.zoneId();
 
+        Set<String> newLogicalTopology = ByteUtils.fromBytes(newLogicalTopologyBytes);
+
         if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != Integer.MAX_VALUE) {
             //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
             saveDataNodesToMetaStorage(
                     zoneId, newLogicalTopologyBytes, revision
             );
+
+            dataNodes.put(zoneCfg.zoneId(), newLogicalTopology);
+
+            System.out.println("scheduleTimers1: " + zoneCfg.zoneId() + ", " + newLogicalTopology);
         } else {
             if (!addedNodes.isEmpty() && autoAdjustScaleUp != Integer.MAX_VALUE) {
                 //TODO: IGNITE-18121 Create scale up scheduler with dataNodesAutoAdjustScaleUp timer.
                 saveDataNodesToMetaStorage(
                         zoneId, newLogicalTopologyBytes, revision
                 );
+
+                dataNodes.put(zoneCfg.zoneId(), newLogicalTopology);
+
+                System.out.println("scheduleTimers2: " + zoneCfg.zoneId() + ", " + newLogicalTopology);
             }
 
             if (!removedNodes.isEmpty() && autoAdjustScaleDown != Integer.MAX_VALUE) {
@@ -873,6 +885,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 saveDataNodesToMetaStorage(
                         zoneId, newLogicalTopologyBytes, revision
                 );
+
+                dataNodes.put(zoneCfg.zoneId(), newLogicalTopology);
+
+                System.out.println("scheduleTimers3: " + zoneCfg.zoneId() + ", " + newLogicalTopology);
             }
         }
     }

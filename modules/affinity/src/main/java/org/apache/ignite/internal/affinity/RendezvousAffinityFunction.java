@@ -285,6 +285,8 @@ public class RendezvousAffinityFunction {
 
         Map<String, Collection<String>> neighborhoodCache = exclNeighbors ? neighbors(currentTopologySnapshot) : null;
 
+        System.out.println("qwer " + currentTopologySnapshot);
+
         List<String> nodes = new ArrayList<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
