@@ -48,7 +48,7 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void eventsAreFiredWhenIndexesCreatedAndDropped() {
+    public void eventsAreFiredWhenIndexesCreatedAndDropped() throws Exception {
         Ignite ignite = CLUSTER_NODES.get(0);
         IndexManager indexManager = ((IgniteImpl) ignite).indexManager();
 
@@ -71,7 +71,7 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
         indexManager.createIndexAsync("PUBLIC", "INAME", "TNAME", true, tableIndexChange ->
-                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")).join();
+                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")).get();
 
         UUID createdIndexId;
         {
@@ -87,7 +87,7 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        indexManager.dropIndexAsync("PUBLIC", "INAME", true).join();
+        indexManager.dropIndexAsync("PUBLIC", "INAME", true).get();
 
         {
             IndexEventParameters params = await(indexDroppedFuture);
