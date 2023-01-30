@@ -1,0 +1,61 @@
+# name: test/sql/_runner/self.test
+# description: Tests for SqlScriptRunner.
+# group: [self_test]
+# prefixed with _ so they will run first.
+
+statement ok
+PRAGMA enable_verification
+
+# check null value
+statement ok
+PRAGMA null=X
+
+query I
+SELECT NULL
+----
+X
+
+# check query
+query I
+SELECT 1
+----
+1
+
+# error w/o message
+statement error
+SELECT...
+
+# error with message
+# checks whether a message from an exception contains the given substring
+statement error: From line 1, column 8 to line 1, column 10: Column 'COL' not found in any table
+SELECT col
+
+# error with message
+# CAVEAT: currently it collapses multiple spaces inside a error message into one.
+statement error: From line 1,    column 8
+SELECT col
+
+
+# skipif <engine>
+
+skipif ignite3
+statement ok
+SELECT...
+
+skipif ignite3
+query I
+SELECT 1
+----
+2
+
+# onlyif <engine>
+
+onlyif ignite3
+statement ok
+SELECT 1
+
+onlyif ignite3
+query I
+SELECT 2
+----
+2
