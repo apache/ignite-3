@@ -169,7 +169,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         try
         {
-            var columns = arr.Select((_, ci) => new Column("c-" + ci, ClientDataType.Time, false, true, true, ci, 0)).ToArray();
+            var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
             var schema = new Schema(0, arr.Count, columns);
             TupleSerializerHandler.Instance.Write(ref builder, t, schema, arr.Count, new byte[arr.Count].AsSpan());
             return builder.Hash;
@@ -178,6 +178,26 @@ public class ColocationHashTests : IgniteTestsBase
         {
             builder.Dispose();
         }
+    }
+
+    private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
+    {
+        var colType = value switch
+        {
+            LocalTime => ClientDataType.Time,
+            LocalDate => ClientDataType.Date,
+            Instant => ClientDataType.Timestamp,
+            _ => ClientDataType.Int8 // TODO: All types.
+        };
+
+        var precision = colType switch
+        {
+            ClientDataType.Time => timePrecision,
+            ClientDataType.Timestamp => timestampPrecision,
+            _ => 0
+        };
+
+        return new Column("c-" + schemaIndex, colType, false, true, true, schemaIndex, 0, precision);
     }
 
     private static int WriteAsPoco(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
