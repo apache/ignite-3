@@ -527,12 +527,12 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var reader = BuildAndRead(
                 (ref BinaryTupleBuilder b) =>
                 {
-                    b.AppendTime(default);
-                    b.AppendTime(val);
-                    b.AppendTime(LocalTime.MinValue);
-                    b.AppendTime(LocalTime.MaxValue);
-                    b.AppendTime(LocalTime.Midnight);
-                    b.AppendTime(LocalTime.Noon);
+                    b.AppendTime(default, 0);
+                    b.AppendTime(val, ClientDataTypeCommon.MaxTimePrecision);
+                    b.AppendTime(LocalTime.MinValue, ClientDataTypeCommon.MaxTimePrecision);
+                    b.AppendTime(LocalTime.MaxValue, ClientDataTypeCommon.MaxTimePrecision);
+                    b.AppendTime(LocalTime.Midnight, ClientDataTypeCommon.DefaultTimePrecision);
+                    b.AppendTime(LocalTime.Noon, ClientDataTypeCommon.DefaultTimePrecision);
                 },
                 6);
 
