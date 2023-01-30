@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
-
-import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import java.util.function.IntToLongFunction;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -45,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,10 +58,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowHandler.RowFactory<RowT> factory;
 
-    private final int[] parts;
-
-    /** Term of the partition group leader. */
-    private final @Nullable IntToLongFunction partGroupTerm;
+    /** List of pairs containing the partition number to scan with the corresponding raft group term. */
+    private final Collection<IgniteBiTuple<Integer, Long>> partsWithTerms;
 
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
@@ -78,8 +74,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param parts Partition numbers to scan.
-     * @param partGroupTerm Term of the partition group leader.
+     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding raft group term.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -91,8 +86,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
-            int[] parts,
-            @Nullable IntToLongFunction partGroupTerm,
+            Collection<IgniteBiTuple<Integer, Long>> partsWithTerms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -101,13 +95,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     ) {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
-        assert !nullOrEmpty(parts);
-        assert ctx.transaction().isReadOnly() || partGroupTerm != null;
+        assert partsWithTerms != null && !partsWithTerms.isEmpty();
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
-        this.parts = parts;
-        this.partGroupTerm = partGroupTerm;
+        this.partsWithTerms = partsWithTerms;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -120,16 +112,17 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     @Override
     protected Publisher<RowT> scan() {
         if (rangeConditions != null) {
-            return SubscriptionUtils.concat(new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(parts, cond)));
+            return SubscriptionUtils.concat(
+                    new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(partsWithTerms, cond)));
         } else {
-            return indexPublisher(parts, null);
+            return indexPublisher(partsWithTerms, null);
         }
     }
 
-    private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> indexPublisher(Collection<IgniteBiTuple<Integer, Long>> partsWithTerms, @Nullable RangeCondition<RowT> cond) {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                Arrays.stream(parts).iterator(),
-                part -> partitionPublisher(part, cond)
+                partsWithTerms.iterator(),
+                partWithTerm -> partitionPublisher(partWithTerm, cond)
         );
 
         if (comp != null) {
@@ -139,9 +132,10 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         }
     }
 
-    private Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> partitionPublisher(IgniteBiTuple<Integer, Long> partWithTerm, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
         InternalTransaction tx = context().transaction();
+        int part = partWithTerm.get1();
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -184,7 +178,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         part,
                         tx.id(),
                         context().localNode(),
-                        partGroupTerm.applyAsLong(part),
+                        partWithTerm.get2(),
                         lower,
                         upper,
                         flags,
@@ -219,7 +213,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         part,
                         tx.id(),
                         context().localNode(),
-                        partGroupTerm.applyAsLong(part),
+                        partWithTerm.get2(),
                         key,
                         requiredColumns
                 );

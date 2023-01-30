@@ -22,10 +22,13 @@ import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -49,6 +52,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -68,7 +72,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
-        int[] parts = {0, 1, 2};
+        List<IgniteBiTuple<Integer, Long>> partsWithTerms = Stream.of(0, 1, 2)
+                .map(p -> new IgniteBiTuple<>(p, -1L))
+                .collect(Collectors.toList());
 
         int probingCnt = 50;
 
@@ -89,7 +95,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             dataAmount = size;
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, p -> 1, null, null, null);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, partsWithTerms, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
@@ -102,7 +108,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 ++cnt;
             }
 
-            assertEquals(sizes[i++] * parts.length, cnt);
+            assertEquals(sizes[i++] * partsWithTerms.size(), cnt);
         }
     }
 
