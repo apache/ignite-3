@@ -24,11 +24,11 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import java.util.function.IntToLongFunction;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.table.InternalTable;
@@ -45,10 +45,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** Table that provides access to underlying data. */
     private final InternalTable physTable;
 
-    private final int[] parts;
-
-    /** Term of the partition group leader. */
-    private final @Nullable IntToLongFunction partGroupTerm;
+    private final ColocationGroup mapping;
 
     /**
      * Constructor.
@@ -56,8 +53,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param parts Partition numbers to scan.
-     * @param partGroupTerm Term of the partition group leader.
+     * @param mapping Target mapping.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -66,26 +62,25 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             InternalIgniteTable schemaTable,
-            int[] parts,
-            @Nullable IntToLongFunction partGroupTerm,
+            ColocationGroup mapping,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
-        assert !nullOrEmpty(parts);
-        assert ctx.transaction().isReadOnly() || partGroupTerm != null;
+        assert !nullOrEmpty(mapping.partitions(ctx.localNode().name()));
 
         this.physTable = schemaTable.table();
-        this.parts = parts;
-        this.partGroupTerm = partGroupTerm;
+        this.mapping = mapping;
     }
 
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
         InternalTransaction tx = context().transaction();
+        int[] parts = mapping.partitions(context().localNode().name());
+
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 Arrays.stream(parts).iterator(), part -> {
             Publisher<BinaryRow> pub;
@@ -97,7 +92,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
                 // Workaround to make RW scan work from tx coordinator.
                 pub = physTable.scan(part, tx);
             } else {
-                pub = physTable.scan(part, tx.id(), context().localNode(), partGroupTerm.applyAsLong(part), null, null, null, 0, null);
+                pub = physTable.scan(part, tx.id(), context().localNode(), mapping.partitionLeaderTerm(part), null, null, null, 0, null);
             }
 
             return convertPublisher(pub);

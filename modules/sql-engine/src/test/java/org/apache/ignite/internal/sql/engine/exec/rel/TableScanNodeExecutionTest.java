@@ -21,11 +21,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -36,6 +40,8 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -82,6 +88,12 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
+        List<List<NodeWithTerm>> assignments = Arrays.stream(parts)
+                .mapToObj(v -> Collections.singletonList(new NodeWithTerm(ctx.localNode().name())))
+                .collect(Collectors.toList());
+
+        ColocationGroup mapping = ColocationGroup.forAssignments(assignments);
+
         int i = 0;
 
         for (int size : sizes) {
@@ -89,7 +101,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             dataAmount = size;
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, p -> 1, null, null, null);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, mapping, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
