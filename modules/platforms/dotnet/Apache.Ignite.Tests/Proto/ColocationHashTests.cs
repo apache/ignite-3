@@ -237,7 +237,6 @@ public class ColocationHashTests : IgniteTestsBase
             _ => 0
         };
 
-        // TODO: Which decimal scale do we need?
         var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
 
         return new Column("c-" + schemaIndex, colType, false, true, true, schemaIndex, Scale: scale, precision);
