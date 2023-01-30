@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -214,7 +215,7 @@ public class IgniteSqlApiTest {
     }
 
     @Test
-    public void mixSqlAndTableApiInTx() throws Exception {
+    public void mixSqlAndTableApiInTx() {
         // Create table.
         Session sess = igniteSql.createSession();
         sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
@@ -222,16 +223,16 @@ public class IgniteSqlApiTest {
 
         KeyValueView<Tuple, Tuple> tbl = getTable();
 
-        igniteTx.beginAsync().thenAccept(tx -> {
+        await(igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 2), Tuple.create().set("val", "str2"))
                     .thenAccept(r -> tx.commit());
-        }).get();
+        }));
 
         ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
         assertTrue(rs.hasNext());
 
-        igniteTx.beginAsync().thenAccept(tx -> {
+        await(igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 3), Tuple.create().set("val", "NewValue"))
                     .thenApply(f -> {
@@ -243,7 +244,7 @@ public class IgniteSqlApiTest {
                     .thenAccept(r -> tx.rollback());
 
             Mockito.verify(tx, Mockito.times(1)).rollback();
-        }).get();
+        }));
 
         rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 2);
         assertFalse(rs.hasNext());

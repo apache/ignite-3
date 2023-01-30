@@ -516,7 +516,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void pageSequence() throws Exception {
+    public void pageSequence() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
@@ -525,15 +525,15 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
-        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
+        AsyncResultSet ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID"));
         var p0 = ars0.currentPage();
-        AsyncResultSet ars1 = ars0.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet ars1 = await(ars0.fetchNextPage().toCompletableFuture());
         var p1 = ars1.currentPage();
-        AsyncResultSet ars2 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet ars2 = await(ars1.fetchNextPage().toCompletableFuture());
         var p2 = ars2.currentPage();
-        AsyncResultSet ars3 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet ars3 = await(ars1.fetchNextPage().toCompletableFuture());
         var p3 = ars3.currentPage();
-        AsyncResultSet ars4 = ars0.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet ars4 = await(ars0.fetchNextPage().toCompletableFuture());
         var p4 = ars4.currentPage();
 
         assertSame(ars0, ars1);
@@ -546,7 +546,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 .collect(Collectors.toList());
 
         TestPageProcessor pageProc = new TestPageProcessor(ROW_COUNT - res.size());
-        ars4.fetchNextPage().thenCompose(pageProc).toCompletableFuture().get();
+        await(ars4.fetchNextPage().thenCompose(pageProc).toCompletableFuture());
 
         res.addAll(pageProc.result());
 
