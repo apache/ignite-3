@@ -121,8 +121,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterManagementConfiguration configuration;
 
-    private long networkInvokeTimeoutMillis;
-
     /** Local state. */
     private final LocalStateStorage localStateStorage;
 
@@ -193,8 +191,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     @Override
     public void start() {
-        networkInvokeTimeoutMillis = configuration.networkInvokeTimeout().value();
-
         synchronized (raftServiceLock) {
             raftService = recoverLocalState();
         }
@@ -654,7 +650,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void sendWithRetry(ClusterNode node, NetworkMessage msg, CompletableFuture<Void> result, int attempts) {
-        clusterService.messagingService().invoke(node, msg, networkInvokeTimeoutMillis)
+        clusterService.messagingService().invoke(node, msg, configuration.networkInvokeTimeout().value())
                 .whenComplete((response, e) -> {
                     if (e == null) {
                         result.complete(null);
