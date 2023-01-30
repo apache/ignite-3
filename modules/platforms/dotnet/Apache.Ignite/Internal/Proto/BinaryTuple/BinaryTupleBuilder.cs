@@ -1237,7 +1237,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             // See discussion: https://github.com/nodatime/nodatime/issues/1644#issuecomment-1260524451
             long seconds = value.ToUnixTimeSeconds();
             Duration remainder = value - Instant.FromUnixTimeSeconds(seconds);
-            int nanos = precision != 0 ? (int)remainder.NanosecondOfDay : 0;
+            int nanos = TemporalTypes.NormalizeNanos((int)remainder.NanosecondOfDay, precision);
 
             PutLong(seconds);
 
