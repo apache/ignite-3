@@ -153,6 +153,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
     {
+        // TODO: Test POCO and IgniteTuple serialization here as well.
         var (bytes, hash) = WriteAsBinaryTuple(keys, timePrecision, timestampPrecision);
 
         var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
