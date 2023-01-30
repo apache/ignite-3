@@ -26,16 +26,6 @@ using Proto;
 internal static class TemporalTypes
 {
     /// <summary>
-    /// Default <see cref="ClientDataType.Timestamp"/> type precision: microseconds.
-    /// </summary>
-    public const int DefaultTimestampPrecision = 6;
-
-    /// <summary>
-    /// Default <see cref="ClientDataType.Time"/> type precision: seconds.
-    /// </summary>
-    public const int DefaultTimePrecision = 0;
-
-    /// <summary>
     /// Max <see cref="ClientDataType.Time"/> type precision.
     /// </summary>
     public const int MaxTimePrecision = 9;

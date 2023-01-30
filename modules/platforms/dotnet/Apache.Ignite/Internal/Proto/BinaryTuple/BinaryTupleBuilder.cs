@@ -877,7 +877,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="colType">Column type.</param>
         /// <param name="scale">Decimal scale.</param>
         /// <param name="precision">Precision.</param>
-        public void AppendObject(object? value, ClientDataType colType, int scale = 0, int precision = 0)
+        public void AppendObject(object? value, ClientDataType colType, int scale = 0, int precision = TemporalTypes.MaxTimePrecision)
         {
             if (value == null)
             {
@@ -965,7 +965,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public void AppendObjectWithType(
             object? value,
             int timePrecision = TemporalTypes.MaxTimePrecision,
-            int timestampPrecision = TemporalTypes.DefaultTimestampPrecision)
+            int timestampPrecision = TemporalTypes.MaxTimePrecision)
         {
             switch (value)
             {
