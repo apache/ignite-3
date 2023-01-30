@@ -1313,7 +1313,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             long hour = value.Hour;
             long minute = value.Minute;
             long second = value.Second;
-            long nanos = precision > 3 ? value.NanosecondOfSecond : 0;
+            long nanos = TemporalTypes.NormalizeNanos(value.NanosecondOfSecond, precision);
 
             if ((nanos % 1000) != 0)
             {

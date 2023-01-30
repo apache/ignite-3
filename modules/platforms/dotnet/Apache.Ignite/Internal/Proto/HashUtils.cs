@@ -113,7 +113,7 @@ internal static class HashUtils
     /// <returns>Resulting hash.</returns>
     public static int Hash32(LocalTime data, int precision, int seed)
     {
-        var nanos = (long)TemporalTypes.TruncateTo(data.NanosecondOfSecond, precision);
+        var nanos = (long)TemporalTypes.NormalizeNanos(data.NanosecondOfSecond, precision);
 
         return Hash32(nanos, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
     }
