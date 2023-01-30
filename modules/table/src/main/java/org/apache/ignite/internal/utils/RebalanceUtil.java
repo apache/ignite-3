@@ -81,7 +81,7 @@ public class RebalanceUtil {
      *
      * @param tableName Table name.
      * @param partId Unique identifier of a partition.
-     * @param consistentIds Consistent id of nodes.
+     * @param consistentIds Consistent ids of nodes.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.

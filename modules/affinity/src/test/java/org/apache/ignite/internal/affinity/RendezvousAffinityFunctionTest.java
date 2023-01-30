@@ -49,27 +49,27 @@ public class RendezvousAffinityFunctionTest {
 
     @Test
     public void testPartitionDistribution() {
-        int nodes = 50;
+        int nodeCount = 50;
 
         int parts = 10_000;
 
         int replicas = 4;
 
-        List<String> clusterNodes = prepareNetworkTopology(nodes);
+        List<String> nodes = prepareNetworkTopology(nodeCount);
 
-        assertTrue(parts > nodes, "Partitions should be more that nodes");
+        assertTrue(parts > nodeCount, "Partitions should be more that nodes");
 
-        int ideal = (parts * replicas) / nodes;
+        int ideal = (parts * replicas) / nodeCount;
 
         List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
-                clusterNodes,
+                nodes,
                 parts,
                 replicas,
                 false,
                 null
         );
 
-        HashMap<String, ArrayList<Integer>> assignmentByNode = new HashMap<>(nodes);
+        HashMap<String, ArrayList<Integer>> assignmentByNode = new HashMap<>(nodeCount);
 
         int part = 0;
 
@@ -87,7 +87,7 @@ public class RendezvousAffinityFunctionTest {
             part++;
         }
 
-        for (String node : clusterNodes) {
+        for (String node : nodes) {
             ArrayList<Integer> nodeParts = assignmentByNode.get(node);
 
             assertNotNull(nodeParts);
@@ -110,18 +110,18 @@ public class RendezvousAffinityFunctionTest {
 
     @Test
     public void serializeAssignment() {
-        int nodes = 50;
+        int nodeCount = 50;
 
         int parts = 10_000;
 
         int replicas = 4;
 
-        List<String> clusterNodes = prepareNetworkTopology(nodes);
+        List<String> nodes = prepareNetworkTopology(nodeCount);
 
-        assertTrue(parts > nodes, "Partitions should be more that nodes");
+        assertTrue(parts > nodeCount, "Partitions should be more that nodes");
 
         List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
-                clusterNodes,
+                nodes,
                 parts,
                 replicas,
                 false,

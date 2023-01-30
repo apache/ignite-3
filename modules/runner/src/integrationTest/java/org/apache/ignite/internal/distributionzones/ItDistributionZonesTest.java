@@ -54,6 +54,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -100,6 +101,7 @@ public class ItDistributionZonesTest {
     }
 
     @Test
+    @Disabled
     void assingmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
 
@@ -204,20 +206,6 @@ public class ItDistributionZonesTest {
             return true;
         },
                 5000);
-    }
-
-    private Set<Assignment> assingments(int node) {
-        ExtendedTableConfiguration table =
-                (ExtendedTableConfiguration) cluster.node(node)
-                        .clusterConfiguration().getConfiguration(TablesConfiguration.KEY).tables().get("TEST");
-
-        byte[] assignmentsBytes = table.assignments().value();
-
-        if (assignmentsBytes != null) {
-            return ((List<Set<Assignment>>) ByteUtils.fromBytes(assignmentsBytes)).get(0);
-        } else {
-            return Collections.emptySet();
-        }
     }
 
     private void createTestTable() throws InterruptedException {

@@ -295,7 +295,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
     /** The watch listener which trigger a rebalance on updating data nodes of distribution zones. */
-    private volatile WatchListener zoneWatchListener;
+    private volatile WatchListener zonesWatchListener;
 
     /**
      * Creates a new table manager.
@@ -432,13 +432,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
 
-        zoneWatchListener = new WatchListener() {
+        zonesWatchListener = new WatchListener() {
             @Override
             public void onUpdate(@NotNull WatchEvent evt) {
-                LOG.info("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
-
-                System.out.println("TableManager WatchListener onUpdate: " + ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
-
                 NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
 
                 int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
@@ -475,10 +471,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
-        System.out.println("TableManager start()");
-
-        System.out.println("metaStorageMgr " + System.identityHashCode(metaStorageMgr));
-        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), zoneWatchListener);
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), zonesWatchListener);
 
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
@@ -1001,8 +994,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         busyLock.block();
 
-        System.out.println("unregisterWatch");
-        metaStorageMgr.unregisterWatch(zoneWatchListener);
+        metaStorageMgr.unregisterWatch(zonesWatchListener);
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 

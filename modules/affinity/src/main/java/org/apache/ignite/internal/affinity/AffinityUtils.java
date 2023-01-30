@@ -47,16 +47,16 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return affinityNodes.stream().map(AffinityUtils::clusterNodesToAssignments).collect(toList());
+        return affinityNodes.stream().map(AffinityUtils::consistentIdsToAssignments).collect(toList());
     }
 
     /**
      * Calculates affinity assignments for a single partition.
      *
-     * @param consistentIds Consistent id of nodes.
+     * @param consistentIds Consistent ids of nodes.
      * @param partition Partition id.
      * @param replicas Replicas count.
-     * @return List of assignments.
+     * @return Set of assignments.
      */
     public static Set<Assignment> calculateAssignmentForPartition(Collection<String> consistentIds, int partition, int replicas) {
         Set<String> affinityNodes = RendezvousAffinityFunction.assignPartition(
@@ -69,10 +69,10 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return clusterNodesToAssignments(affinityNodes);
+        return consistentIdsToAssignments(affinityNodes);
     }
 
-    private static Set<Assignment> clusterNodesToAssignments(Collection<String> nodes) {
+    private static Set<Assignment> consistentIdsToAssignments(Collection<String> nodes) {
         return nodes.stream().map(node -> Assignment.forPeer(node)).collect(toSet());
     }
 }
