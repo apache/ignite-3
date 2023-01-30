@@ -27,8 +27,8 @@
 #include <ignite/common/ignite_period.h>
 #include <ignite/common/ignite_time.h>
 #include <ignite/common/ignite_timestamp.h>
+#include <ignite/common/ignite_type.h>
 #include <ignite/common/uuid.h>
-#include <ignite/schema/ignite_type.h>
 
 #include <cstdint>
 #include <optional>

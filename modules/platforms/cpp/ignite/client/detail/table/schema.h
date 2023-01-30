@@ -18,8 +18,8 @@
 #pragma once
 
 #include "ignite/common/ignite_error.h"
+#include "ignite/common/ignite_type.h"
 #include "ignite/protocol/utils.h"
-#include "ignite/schema/ignite_type.h"
 
 #include <msgpack.h>
 

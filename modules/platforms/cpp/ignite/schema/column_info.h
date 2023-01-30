@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ignite_type.h"
+#include <ignite/common/ignite_type.h>
 
 namespace ignite {
 
@@ -30,10 +30,6 @@ struct column_info {
 
     /** True if the column values may be NULL, false otherwise. */
     bool nullable;
-
-    bool has_fixed_size() const { return is_fixed_size_type(type); }
-
-    size_t get_fixed_size() const { return get_type_size(type); }
 
     bool operator==(const column_info &other) const noexcept {
         return type == other.type && nullable == other.nullable;

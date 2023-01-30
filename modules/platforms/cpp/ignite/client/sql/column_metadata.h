@@ -18,7 +18,7 @@
 #pragma once
 
 #include "ignite/client/sql/column_origin.h"
-#include "ignite/schema/ignite_type.h"
+#include "ignite/common/ignite_type.h"
 
 #include <cstdint>
 #include <string>

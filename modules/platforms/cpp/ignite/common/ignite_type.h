@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "types.h"
-
 #include <ostream>
 
 namespace ignite {
@@ -90,23 +88,6 @@ enum class ignite_type {
     /** Undefined. */
     UNDEFINED
 };
-
-/**
- * @brief Returns true if type has fixed size in bytes.
- *
- * @param t Type to investigate.
- * @return true if type has fixed size.
- * @return false if type has variable size.
- */
-bool is_fixed_size_type(ignite_type t);
-
-/**
- * @brief Returns size of type if it has fixed size.
- *
- * @param t Type to investigate.
- * @return Size in bytes.
- */
-data_size_t get_type_size(ignite_type t);
 
 /**
  * @brief Writes a ignite_type value to an output stream.

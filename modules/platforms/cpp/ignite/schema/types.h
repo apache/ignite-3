@@ -25,7 +25,7 @@
 
 namespace ignite {
 
-/** C++ version of java int. Used as a column number, etc. */
+/** C++ version of Java int. Used as a column number, etc. */
 using number_t = int32_t;
 
 /** Data size for columns and entire rows too. */

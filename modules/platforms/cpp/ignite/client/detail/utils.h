@@ -25,7 +25,6 @@
 #include "ignite/protocol/writer.h"
 #include "ignite/schema/binary_tuple_builder.h"
 #include "ignite/schema/binary_tuple_parser.h"
-#include "ignite/schema/ignite_type.h"
 
 namespace ignite::detail {
 

@@ -36,6 +36,7 @@ set(PUBLIC_HEADERS
     ignite_result.h
     ignite_time.h
     ignite_timestamp.h
+    ignite_type.h
     uuid.h
 )
 
