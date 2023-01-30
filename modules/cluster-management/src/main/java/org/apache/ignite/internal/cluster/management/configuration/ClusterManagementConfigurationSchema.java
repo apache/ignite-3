@@ -35,6 +35,7 @@ public class ClusterManagementConfigurationSchema {
      * Delay between a moment a node drops out from the physical topology and when it gets removed from the logical topology (ms).
      */
     @Value(hasDefault = true)
+    // TODO: IGNITE-18630 - change this to a sensible default.
     public long logicalTopologyRemovalDelayAfterDisappearance = 0;
 
     /** Maximum amount of time a validated node that has not yet completed the join is allowed to remain validated (ms). */
