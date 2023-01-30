@@ -162,7 +162,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         foreach (var obj in arr)
         {
-            t["v-" + i++] = obj;
+            t["c-" + i++] = obj;
         }
 
         var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(_ => true));
