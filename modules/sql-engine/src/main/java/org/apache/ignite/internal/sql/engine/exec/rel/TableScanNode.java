@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
-
-import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import java.util.function.IntToLongFunction;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -35,6 +32,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,10 +43,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** Table that provides access to underlying data. */
     private final InternalTable physTable;
 
-    private final int[] parts;
-
-    /** Term of the partition group leader. */
-    private final @Nullable IntToLongFunction partGroupTerm;
+    /** List of pairs containing the partition number to scan with the corresponding raft group term. */
+    private final Collection<IgniteBiTuple<Integer, Long>> partsWithTerms;
 
     /**
      * Constructor.
@@ -56,8 +52,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param parts Partition numbers to scan.
-     * @param partGroupTerm Term of the partition group leader.
+     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding raft group term.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -66,20 +61,17 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             InternalIgniteTable schemaTable,
-            int[] parts,
-            @Nullable IntToLongFunction partGroupTerm,
+            Collection<IgniteBiTuple<Integer, Long>> partsWithTerms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
-        assert !nullOrEmpty(parts);
-        assert ctx.transaction().isReadOnly() || partGroupTerm != null;
+        assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
         this.physTable = schemaTable.table();
-        this.parts = parts;
-        this.partGroupTerm = partGroupTerm;
+        this.partsWithTerms = partsWithTerms;
     }
 
     /** {@inheritDoc} */
@@ -87,17 +79,18 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     protected Publisher<RowT> scan() {
         InternalTransaction tx = context().transaction();
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                Arrays.stream(parts).iterator(), part -> {
+                partsWithTerms.iterator(), partWithTerm -> {
             Publisher<BinaryRow> pub;
+            int partId = partWithTerm.get1();
 
             if (tx.isReadOnly()) {
-                pub = physTable.scan(part, tx.readTimestamp(), context().localNode());
+                pub = physTable.scan(partId, tx.readTimestamp(), context().localNode());
             } else if (!(tx instanceof TransferredTxAttributesHolder)) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
-                pub = physTable.scan(part, tx);
+                pub = physTable.scan(partId, tx);
             } else {
-                pub = physTable.scan(part, tx.id(), context().localNode(), partGroupTerm.applyAsLong(part), null, null, null, 0, null);
+                pub = physTable.scan(partId, tx.id(), context().localNode(), partWithTerm.get2(), null, null, null, 0, null);
             }
 
             return convertPublisher(pub);
