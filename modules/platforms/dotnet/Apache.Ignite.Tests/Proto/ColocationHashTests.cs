@@ -23,7 +23,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
+using Ignite.Table;
+using Internal.Proto;
 using Internal.Proto.BinaryTuple;
+using Internal.Table;
+using Internal.Table.Serialization;
 using NodaTime;
 using NUnit.Framework;
 
@@ -141,7 +145,7 @@ public class ColocationHashTests : IgniteTestsBase
 
     private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
-        using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider());
+        using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2));
 
         foreach (var obj in arr)
         {
@@ -151,17 +155,50 @@ public class ColocationHashTests : IgniteTestsBase
         return (builder.Build().ToArray(), builder.Hash);
     }
 
+    private static int WriteAsIgniteTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
+    {
+        var t = new IgniteTuple();
+        int i = 0;
+
+        foreach (var obj in arr)
+        {
+            t["v-" + i++] = obj;
+        }
+
+        var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(_ => true));
+
+        try
+        {
+            var columns = arr.Select((_, ci) => new Column("c-" + ci, ClientDataType.Time, false, true, true, ci, 0)).ToArray();
+            var schema = new Schema(0, arr.Count, columns);
+            TupleSerializerHandler.Instance.Write(ref builder, t, schema, arr.Count, new byte[arr.Count].AsSpan());
+            return builder.Hash;
+        }
+        finally
+        {
+            builder.Dispose();
+        }
+    }
+
+    private static int WriteAsPoco(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
+    {
+        // TODO
+        return 0;
+    }
+
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
     {
         // TODO: Test POCO and IgniteTuple serialization here as well.
-        var (bytes, hash) = WriteAsBinaryTuple(keys, timePrecision, timestampPrecision);
+        var (bytes, clientHash) = WriteAsBinaryTuple(keys, timePrecision, timestampPrecision);
+        var clientHash2 = WriteAsIgniteTuple(keys, timePrecision, timestampPrecision);
+        var clientHash3 = WriteAsPoco(keys, timePrecision, timestampPrecision);
 
         var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
 
-        Assert.AreEqual(
-            serverHash,
-            hash,
-            $"Time precision: {timePrecision}, timestamp precision: {timestampPrecision}, keys: {string.Join(", ", keys)}");
+        var msg = $"Time precision: {timePrecision}, timestamp precision: {timestampPrecision}, keys: {string.Join(", ", keys)}";
+
+        Assert.AreEqual(serverHash, clientHash, $"Server hash mismatch. {msg}");
+        Assert.AreEqual(clientHash, clientHash2, $"IgniteTuple hash mismatch. {msg}");
     }
 
     private async Task<int> GetServerHash(byte[] bytes, int count, int timePrecision, int timestampPrecision)
@@ -171,8 +208,8 @@ public class ColocationHashTests : IgniteTestsBase
         return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes, timePrecision, timestampPrecision);
     }
 
-    private class TestIndexProvider : IHashedColumnIndexProvider
+    private record TestIndexProvider(Func<int, bool> Delegate) : IHashedColumnIndexProvider
     {
-        public bool IsHashedColumnIndex(int index) => index % 3 == 2;
+        public bool IsHashedColumnIndex(int index) => Delegate(index);
     }
 }
