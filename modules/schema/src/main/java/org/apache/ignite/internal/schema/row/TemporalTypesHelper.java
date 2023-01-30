@@ -223,15 +223,15 @@ public class TemporalTypesHelper {
                 break;
             }
             case 4: {
-                nanos = (nanos / 100_000) * 100_000; // 100mcs precision.
+                nanos = (nanos / 100_000) * 100_000; // 100μs precision.
                 break;
             }
             case 5: {
-                nanos = (nanos / 10_000) * 10_000; // 10mcs precision.
+                nanos = (nanos / 10_000) * 10_000; // 10μs precision.
                 break;
             }
             case 6: {
-                nanos = (nanos / 1_000) * 1_000; // 1mcs precision.
+                nanos = (nanos / 1_000) * 1_000; // 1μs precision.
                 break;
             }
             case 7: {
@@ -272,13 +272,13 @@ public class TemporalTypesHelper {
                 return nanos / 1_000_000; // 1ms precision.
             }
             case 4: {
-                return (nanos / 100_000) * 100; // 100mcs precision.
+                return (nanos / 100_000) * 100; // 100μs precision.
             }
             case 5: {
-                return (nanos / 10_000) * 10; // 10mcs precision.
+                return (nanos / 10_000) * 10; // 10μs precision.
             }
             case 6: {
-                return nanos / 1_000; // 1mcs precision.
+                return nanos / 1_000; // 1μs precision.
             }
             case 7: {
                 return (nanos / 100) * 100; // 100ns precision.

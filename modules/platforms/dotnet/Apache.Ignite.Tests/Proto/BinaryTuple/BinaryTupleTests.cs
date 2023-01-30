@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
     using System.Numerics;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
+    using Internal.Table;
     using NodaTime;
     using NUnit.Framework;
 
@@ -528,11 +529,11 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 (ref BinaryTupleBuilder b) =>
                 {
                     b.AppendTime(default, 0);
-                    b.AppendTime(val, ClientDataTypeCommon.MaxTimePrecision);
-                    b.AppendTime(LocalTime.MinValue, ClientDataTypeCommon.MaxTimePrecision);
-                    b.AppendTime(LocalTime.MaxValue, ClientDataTypeCommon.MaxTimePrecision);
-                    b.AppendTime(LocalTime.Midnight, ClientDataTypeCommon.DefaultTimePrecision);
-                    b.AppendTime(LocalTime.Noon, ClientDataTypeCommon.DefaultTimePrecision);
+                    b.AppendTime(val, TemporalTypes.MaxTimePrecision);
+                    b.AppendTime(LocalTime.MinValue, TemporalTypes.MaxTimePrecision);
+                    b.AppendTime(LocalTime.MaxValue, TemporalTypes.MaxTimePrecision);
+                    b.AppendTime(LocalTime.Midnight, TemporalTypes.DefaultTimePrecision);
+                    b.AppendTime(LocalTime.Noon, TemporalTypes.DefaultTimePrecision);
                 },
                 6);
 
@@ -553,9 +554,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 (ref BinaryTupleBuilder b) =>
                 {
                     b.AppendDateTime(default, 0);
-                    b.AppendDateTime(val, ClientDataTypeCommon.MaxTimePrecision);
-                    b.AppendDateTime(LocalDateTime.MaxIsoValue, ClientDataTypeCommon.MaxTimePrecision);
-                    b.AppendDateTime(LocalDateTime.MinIsoValue, ClientDataTypeCommon.MaxTimePrecision);
+                    b.AppendDateTime(val, TemporalTypes.MaxTimePrecision);
+                    b.AppendDateTime(LocalDateTime.MaxIsoValue, TemporalTypes.MaxTimePrecision);
+                    b.AppendDateTime(LocalDateTime.MinIsoValue, TemporalTypes.MaxTimePrecision);
                 },
                 4);
 
@@ -574,11 +575,11 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                 (ref BinaryTupleBuilder b) =>
                 {
                     b.AppendTimestamp(default, 0);
-                    b.AppendTimestamp(val, ClientDataTypeCommon.DefaultTimestampPrecision);
-                    b.AppendTimestamp(Instant.MaxValue, ClientDataTypeCommon.DefaultTimestampPrecision);
-                    b.AppendTimestamp(Instant.MinValue, ClientDataTypeCommon.DefaultTimestampPrecision);
-                    b.AppendTimestamp(NodaConstants.BclEpoch, ClientDataTypeCommon.DefaultTimestampPrecision);
-                    b.AppendTimestamp(NodaConstants.JulianEpoch, ClientDataTypeCommon.DefaultTimestampPrecision);
+                    b.AppendTimestamp(val, TemporalTypes.DefaultTimestampPrecision);
+                    b.AppendTimestamp(Instant.MaxValue, TemporalTypes.DefaultTimestampPrecision);
+                    b.AppendTimestamp(Instant.MinValue, TemporalTypes.DefaultTimestampPrecision);
+                    b.AppendTimestamp(NodaConstants.BclEpoch, TemporalTypes.DefaultTimestampPrecision);
+                    b.AppendTimestamp(NodaConstants.JulianEpoch, TemporalTypes.DefaultTimestampPrecision);
                 },
                 6);
 
@@ -738,11 +739,11 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendNumberNullable(null);
                     b.AppendDateNullable(date);
                     b.AppendDateNullable(null);
-                    b.AppendTimeNullable(dateTime.TimeOfDay, ClientDataTypeCommon.MaxTimePrecision);
-                    b.AppendTimeNullable(null, ClientDataTypeCommon.DefaultTimePrecision);
-                    b.AppendDateTimeNullable(dateTime, ClientDataTypeCommon.DefaultTimestampPrecision);
+                    b.AppendTimeNullable(dateTime.TimeOfDay, TemporalTypes.MaxTimePrecision);
+                    b.AppendTimeNullable(null, TemporalTypes.DefaultTimePrecision);
+                    b.AppendDateTimeNullable(dateTime, TemporalTypes.DefaultTimestampPrecision);
                     b.AppendDateTimeNullable(null, 0);
-                    b.AppendTimestampNullable(Instant.FromDateTimeUtc(utcNow), ClientDataTypeCommon.DefaultTimestampPrecision);
+                    b.AppendTimestampNullable(Instant.FromDateTimeUtc(utcNow), TemporalTypes.DefaultTimestampPrecision);
                     b.AppendTimestampNullable(null, 0);
                     b.AppendDurationNullable(Duration.FromMinutes(1));
                     b.AppendDurationNullable(null);
@@ -817,8 +818,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObject(bytes, ClientDataType.Bytes);
                     b.AppendObject(LocalTime.FromMinutesSinceMidnight(123), ClientDataType.Time);
                     b.AppendObject(date, ClientDataType.Date);
-                    b.AppendObject(dateTime, ClientDataType.DateTime, precision: ClientDataTypeCommon.MaxTimePrecision);
-                    b.AppendObject(Instant.FromDateTimeUtc(utcNow), ClientDataType.Timestamp, precision: ClientDataTypeCommon.DefaultTimestampPrecision);
+                    b.AppendObject(dateTime, ClientDataType.DateTime, precision: TemporalTypes.MaxTimePrecision);
+                    b.AppendObject(Instant.FromDateTimeUtc(utcNow), ClientDataType.Timestamp, precision: TemporalTypes.DefaultTimestampPrecision);
                 },
                 17);
 

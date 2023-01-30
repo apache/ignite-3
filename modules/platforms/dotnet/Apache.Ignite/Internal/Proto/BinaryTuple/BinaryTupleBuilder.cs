@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Runtime.InteropServices;
     using Buffers;
     using NodaTime;
+    using Table;
 
     /// <summary>
     /// Binary tuple builder.
@@ -963,8 +964,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="timestampPrecision">Timestamp precision.</param>
         public void AppendObjectWithType(
             object? value,
-            int timePrecision = ClientDataTypeCommon.MaxTimePrecision,
-            int timestampPrecision = ClientDataTypeCommon.DefaultTimestampPrecision)
+            int timePrecision = TemporalTypes.MaxTimePrecision,
+            int timestampPrecision = TemporalTypes.DefaultTimestampPrecision)
         {
             switch (value)
             {
