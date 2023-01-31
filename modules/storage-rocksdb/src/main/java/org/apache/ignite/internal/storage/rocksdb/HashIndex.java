@@ -56,7 +56,7 @@ class HashIndex {
      * Removes all data associated with the index.
      */
     void destroy() {
-        storages.forEach((partitionId, storage) -> storage.destroy());
+        storages.values().forEach(RocksDbHashIndexStorage::destroy);
     }
 
     /**
@@ -82,5 +82,13 @@ class HashIndex {
      */
     @Nullable RocksDbHashIndexStorage get(int partitionId) {
         return storages.get(partitionId);
+    }
+
+
+    /**
+     * Closes all index storages.
+     */
+    void close() {
+        storages.values().forEach(RocksDbHashIndexStorage::close);
     }
 }
