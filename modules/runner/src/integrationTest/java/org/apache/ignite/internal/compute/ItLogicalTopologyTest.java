@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.BootstrapConfigTemplateMethod;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -168,6 +170,27 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
                 secondIgnite.node().name().equals(recipientConsistentId) && message instanceof ScaleCubeMessage);
 
         assertTrue(secondIgniteDisappeared.await(10, TimeUnit.SECONDS), "Did not see second node leaving in time");
+    }
+
+    @Test
+    @BootstrapConfigTemplateMethod("templateWithVeryLongDelayToRemoveFromLogicalTopology")
+    void nodeDoesNotLeaveLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        stopNode(1);
+
+        assertFalse(waitForCondition(() -> events.size() > 1, 3_000));
+
+        assertThat(events, is(empty()));
+    }
+
+    private static String templateWithVeryLongDelayToRemoveFromLogicalTopology() {
+        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
+                .replace("cluster.failoverTimeout: 0", "cluster.failoverTimeout: 1000000");
     }
 
     private static class Event {
