@@ -166,6 +166,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
+    private int stoppedNodeIndex;
+
     @BeforeEach
     @Override
     public void beforeTest(TestInfo testInfo) {
@@ -184,18 +186,24 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17817 Use Replica layer with new transaction protocol.
         TableConfiguration tableCfg = tablesCfg.tables().get("foo");
-/*        StorageEngine storageEngine = new RocksDbStorageEngine(engineConfig, workDir);
-        storageEngine.start();
-        MvTableStorage tableStorage = storageEngine.createMvTable(tableCfg, tablesCfg);*/
-        MvTableStorage tableStorage = new TestMvTableStorage(tableCfg, tablesCfg);
 
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorages.get(0), Map::of);
+        MvTableStorage tableStorage = new TestMvTableStorage(tableCfg, tablesCfg);
 
         PartitionReplicaListener partitionReplicaListener = mock(PartitionReplicaListener.class);
         when(partitionReplicaListener.invoke(any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
             if (req instanceof ReadWriteSingleRowReplicaRequest) {
                 ReadWriteSingleRowReplicaRequest req0 = (ReadWriteSingleRowReplicaRequest) req;
+
+                if (req0.requestType() == RequestType.RW_GET) {
+                    int storageIndex = stoppedNodeIndex == 0 ? 1 : 0;
+                    MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
+                    Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(partitionStorage);
+                    RowId rowId = primaryIndex.get(req0.binaryRow().keySlice());
+                    BinaryRow row = rowConverter.fromTuple(partitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow().tupleSlice());
+                    return completedFuture(row);
+                }
+
                 BinaryRow binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRow() : null;
                 TableRow tableRow = binaryRow == null ? null : TableRowConverter.fromBinaryRow(binaryRow, rowConverter);
                 UpdateCommand cmd = msgFactory.updateCommand()
@@ -310,6 +318,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         // Put deleted data again
         table.upsert(FIRST_VALUE, null).get();
 
+        this.stoppedNodeIndex = stoppedNodeIndex;
+
         mvTableStorages.get(stoppedNodeIndex).stop();
         paths.remove(partListeners.get(stoppedNodeIndex));
     }
@@ -333,22 +343,24 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         table.upsert(SECOND_VALUE, null).get();
 
-        //assertNotNull(table.get(SECOND_KEY, null).join());
+        assertNotNull(table.get(SECOND_KEY, null).join());
     }
 
     /** {@inheritDoc} */
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
         MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
-        Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(storage);
-
-        Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
-        Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
-
         return () -> {
+            Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(storage);
+
+            Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
+            Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
+
             RowId rowId = primaryIndex.get(key.keySlice());
 
-            assertNotNull(rowId, "No rowId in storage");
+            if (rowId == null) {
+                return false;
+            }
 
             ReadResult read = storage.read(rowId, HybridTimestamp.MAX_VALUE);
 
@@ -366,9 +378,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
 
         while (rowId != null) {
-            BinaryRow binaryRow = rowConverter.fromTuple(storage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow().tupleSlice());
-            if (binaryRow != null) {
-                result.put(binaryRow.keySlice(), rowId);
+            TableRow tableRow = storage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow();
+
+            if (tableRow != null) {
+                BinaryRow binaryRow = rowConverter.fromTuple(tableRow.tupleSlice());
+                if (binaryRow != null) {
+                    result.put(binaryRow.keySlice(), rowId);
+                }
             }
 
             RowId incremented = rowId.increment();
