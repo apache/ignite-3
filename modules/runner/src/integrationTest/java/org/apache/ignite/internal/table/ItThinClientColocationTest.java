@@ -71,7 +71,7 @@ public class ItThinClientColocationTest {
             var val = generateValueByType(i, type.spec());
             assertNotNull(val);
 
-            var tuple = Tuple.create().set("col0", val);
+            var tuple = Tuple.create().set(columnName, val);
             var clientHash = ClientTupleSerializer.getColocationHash(clientSchema, tuple);
 
             var serverRow = marsh.marshal(tuple);
