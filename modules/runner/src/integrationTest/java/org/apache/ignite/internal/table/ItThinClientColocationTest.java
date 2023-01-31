@@ -44,28 +44,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests that client and server have matching colocation logic.
  */
 public class ItThinClientColocationTest {
-    @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
+    @ParameterizedTest()
     @MethodSource("nativeTypes")
-    public void test(NativeType type)
+    public void testClientAndServerColocationHashesAreSame(NativeType type)
             throws TupleMarshallerException {
         var columnName = "col1";
-        var colocationColumns = new String[]{columnName};
-        var column = new Column(columnName, type, false);
-        var columns = new Column[]{column};
-        var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
-        var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
-
-        var clientColumn = new ClientColumn(
-                columnName,
-                ClientTableCommon.getClientDataType(type.spec()),
-                false,
-                true,
-                true,
-                0,
-                ClientTableCommon.getDecimalScale(type),
-                ClientTableCommon.getPrecision(type));
-
-        ClientSchema clientSchema = new ClientSchema(0, new ClientColumn[]{clientColumn});
+        var marsh = tupleMarshaller(type, columnName);
+        var clientSchema = clientSchema(type, columnName);
 
         for (int i = 0; i < 10; i++) {
             var val = generateValueByType(i, type.spec());
@@ -79,6 +64,30 @@ public class ItThinClientColocationTest {
 
             assertEquals(serverHash, clientHash);
         }
+    }
+
+    private static ClientSchema clientSchema(NativeType type, String columnName) {
+        var clientColumn = new ClientColumn(
+                columnName,
+                ClientTableCommon.getClientDataType(type.spec()),
+                false,
+                true,
+                true,
+                0,
+                ClientTableCommon.getDecimalScale(type),
+                ClientTableCommon.getPrecision(type));
+
+        ClientSchema clientSchema = new ClientSchema(0, new ClientColumn[]{clientColumn});
+        return clientSchema;
+    }
+
+    private static TupleMarshallerImpl tupleMarshaller(NativeType type, String columnName) {
+        var colocationColumns = new String[]{columnName};
+        var column = new Column(columnName, type, false);
+        var columns = new Column[]{column};
+        var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
+        var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        return marsh;
     }
 
     private static Stream<Arguments> nativeTypes() {
