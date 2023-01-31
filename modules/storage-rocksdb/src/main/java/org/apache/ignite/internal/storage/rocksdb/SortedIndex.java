@@ -19,12 +19,14 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
@@ -90,9 +92,14 @@ class SortedIndex implements ManuallyCloseable {
 
     @Override
     public void close() {
-        storages.values().forEach(RocksDbSortedIndexStorage::close);
-
-        indexCf.handle().close();
+        try {
+            IgniteUtils.closeAll(Stream.concat(
+                    storages.values().stream().map(index -> index::close),
+                    Stream.of(() -> indexCf.handle().close())
+            ));
+        } catch (Exception e) {
+            throw new StorageException("Failed to close index storages: " + descriptor.id(), e);
+        }
     }
 
     /**

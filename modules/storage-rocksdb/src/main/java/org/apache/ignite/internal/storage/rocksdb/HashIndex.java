@@ -20,9 +20,11 @@ package org.apache.ignite.internal.storage.rocksdb;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
@@ -84,11 +86,14 @@ class HashIndex {
         return storages.get(partitionId);
     }
 
-
     /**
      * Closes all index storages.
      */
     void close() {
-        storages.values().forEach(RocksDbHashIndexStorage::close);
+        try {
+            IgniteUtils.closeAll(storages.values().stream().map(index -> index::close));
+        } catch (Exception e) {
+            throw new StorageException("Failed to close index storages: " + descriptor.id(), e);
+        }
     }
 }
