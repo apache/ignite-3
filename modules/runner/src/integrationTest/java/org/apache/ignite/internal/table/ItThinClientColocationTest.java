@@ -18,13 +18,24 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.table.ItPublicApiColocationTest.generateValueByType;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.util.Arrays;
 import java.util.stream.Stream;
+import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
+import org.apache.ignite.internal.client.table.ClientColumn;
+import org.apache.ignite.internal.client.table.ClientSchema;
+import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -35,11 +46,38 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItThinClientColocationTest {
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("nativeTypes")
-    public void test(NativeType type) {
-        // TODO: Compare ClientTupleSerializer.getColocationHash and marshaller.marshal(t).colocationHash for various data types.
+    public void test(NativeType type)
+            throws TupleMarshallerException {
+        var columnName = "col1";
+        var colocationColumns = new String[]{columnName};
+        var column = new Column(columnName, type, false);
+        var columns = new Column[]{column};
+        var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
+        var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+
+        var clientColumn = new ClientColumn(
+                columnName,
+                ClientTableCommon.getClientDataType(type.spec()),
+                false,
+                true,
+                true,
+                0,
+                ClientTableCommon.getDecimalScale(type),
+                ClientTableCommon.getPrecision(type));
+
+        ClientSchema clientSchema = new ClientSchema(0, new ClientColumn[]{clientColumn});
+
         for (int i = 0; i < 10; i++) {
             var val = generateValueByType(i, type.spec());
             assertNotNull(val);
+
+            var tuple = Tuple.create().set("col0", val);
+            var clientHash = ClientTupleSerializer.getColocationHash(clientSchema, tuple);
+
+            var serverRow = marsh.marshal(tuple);
+            var serverHash = serverRow.colocationHash();
+
+            assertEquals(serverHash, clientHash);
         }
     }
 
