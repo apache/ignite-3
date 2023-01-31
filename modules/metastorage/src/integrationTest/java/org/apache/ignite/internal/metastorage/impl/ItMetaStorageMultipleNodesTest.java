@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -65,6 +66,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.DefaultMessagingService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -77,6 +79,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
+    @InjectConfiguration
+    private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration cmgConfiguration;
+
     private static class Node {
         private final VaultManager vaultManager;
 
@@ -90,7 +98,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         private final MetaStorageManagerImpl metaStorageManager;
 
-        Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
+        Node(ClusterService clusterService, Path dataPath) {
             this.clusterService = clusterService;
 
             this.vaultManager = new VaultManager(new InMemoryVaultService());
@@ -111,7 +119,8 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     clusterService,
                     raftManager,
                     clusterStateStorage,
-                    logicalTopology
+                    logicalTopology,
+                    cmgConfiguration
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(
@@ -156,10 +165,10 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     .thenApply(learners -> learners.stream().map(Peer::consistentId).collect(toSet()));
         }
 
-        void startDroppingMessagesTo(Node recipient) {
+        void startDroppingMessagesTo(Node recipient, Class<? extends NetworkMessage> msgType) {
             ((DefaultMessagingService) clusterService.messagingService())
                     .dropMessages((recipientConsistentId, message) ->
-                            recipient.name().equals(recipientConsistentId) && message instanceof ScaleCubeMessage);
+                            recipient.name().equals(recipientConsistentId) && msgType.isInstance(message));
         }
 
         void stopDroppingMessages() {
@@ -169,15 +178,12 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
     private final List<Node> nodes = new ArrayList<>();
 
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
-
     private Node startNode(TestInfo testInfo) throws NodeStoppingException {
         var nodeFinder = new StaticNodeFinder(List.of(new NetworkAddress("localhost", 10_000)));
 
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, 10_000 + nodes.size(), nodeFinder);
 
-        var node = new Node(clusterService, raftConfiguration, workDir);
+        var node = new Node(clusterService, workDir);
 
         node.start();
 
@@ -326,7 +332,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         assertThat(firstNode.getMetaStorageLearners(), willBe(Set.of(secondNode.name())));
 
         // Make first node lose the second node from the Physical and Logical topologies.
-        firstNode.startDroppingMessagesTo(secondNode);
+        firstNode.startDroppingMessagesTo(secondNode, ScaleCubeMessage.class);
 
         assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), 10_000));
 

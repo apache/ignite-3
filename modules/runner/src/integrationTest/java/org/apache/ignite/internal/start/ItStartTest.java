@@ -18,40 +18,38 @@
 package org.apache.ignite.internal.start;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
-@ExtendWith(WorkDirectoryExtension.class)
-class ItStartTest {
+class ItStartTest extends IgniteAbstractTest {
     private Cluster cluster;
-
-    @WorkDirectory
-    private Path workDir;
 
     private TestInfo testInfo;
 
@@ -102,7 +100,7 @@ class ItStartTest {
     }
 
     private String startThreadNamePrefix() {
-        return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%start-";
+        return "%" + testNodeName(testInfo, 0) + "%start-";
     }
 
     private static LoggingProbe installProbe(Expectation expectation) {
@@ -151,6 +149,23 @@ class ItStartTest {
                 .collect(toList());
 
         assertThat(aliveStartThreads, is(empty()));
+    }
+
+    @Test
+    void testStartFailsWhenMetaStorageLearnerIsNotAdded() {
+        String firstNodeName = testNodeName(testInfo, 0);
+        String secondNodeName = testNodeName(testInfo, 1);
+
+        CompletableFuture<IgniteImpl> firstNode = cluster.startClusterNode(0);
+        CompletableFuture<IgniteImpl> secondNode = cluster.startClusterNode(1);
+
+        IgnitionImpl.getStartedNode(secondNodeName)
+                .dropMessages((consistentId, message) -> message instanceof AddLearnersRequest);
+
+        IgnitionManager.init(firstNodeName, List.of(firstNodeName), "test");
+
+        assertThat(firstNode, willCompleteSuccessfully());
+        assertThat(secondNode, willFailIn(2, TimeUnit.SECONDS, IllegalArgumentException.class));
     }
 
     private static class Expectation {

@@ -40,6 +40,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of an entry point for handling grid lifecycle.
@@ -171,6 +172,12 @@ public class IgnitionImpl implements Ignition {
         } catch (NodeStoppingException e) {
             throw new IgniteException("Node stop detected during init", e);
         }
+    }
+
+    @TestOnly
+    @Nullable
+    public static IgniteImpl getStartedNode(String nodeName) {
+        return readyForInitNodes.get(nodeName);
     }
 
     private static ClassLoader defaultServiceClassLoader() {
