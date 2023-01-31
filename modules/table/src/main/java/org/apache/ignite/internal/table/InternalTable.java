@@ -34,7 +34,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
@@ -302,8 +302,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
-     * @param leaderNode Raft group leader node that must handle given get request.
-     * @param leaderTerm Raft group leader term.
+     * @param recipient Primary replica that will handle given get request.
      * @param lowerBound Lower search bound.
      * @param upperBound Upper search bound.
      * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
@@ -313,8 +312,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             @Nullable UUID indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -391,8 +389,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
-     * @param leaderNode Raft group leader node that must handle given get request.
-     * @param leaderTerm Raft group leader term.
+     * @param recipient Primary replica that will handle given get request.
      * @param indexId Index id.
      * @param key Key to search.
      * @param columnsToInclude Row projection.
@@ -401,8 +398,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             UUID indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
@@ -426,11 +422,11 @@ public interface InternalTable extends ManuallyCloseable {
     List<String> assignments();
 
     /**
-     * Gets a list of current table leader assignments with raft term.
+     * Gets a list of current primary replicas for each partition.
      *
-     * @return List of current leader assignments with raft term.
+     * @return List of current primary replicas for each partition.
      */
-    List<IgniteBiTuple<String, Long>> leaderAssignmentsWithTerm();
+    List<PrimaryReplica> primaryReplicas();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if

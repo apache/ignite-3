@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,7 +54,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
      * @param key Key to lookup.
      * @param columns Columns to include.
      * @return A cursor from resulting rows.
-     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, ClusterNode, long, BinaryTuple, BitSet)} instead.
+     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, PrimaryReplica, BinaryTuple, BitSet)}  instead.
      */
     @Deprecated
     Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns);
@@ -63,8 +64,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
      *
      * @param partId Partition id.
      * @param txId Transaction id.
-     * @param leaderNode Raft group leader node that must handle given get request.
-     * @param leaderTerm Raft group leader term.
+     * @param recipient Primary replica that will handle given get request.
      * @param key Key to lookup.
      * @param columns Columns to include.
      * @return A cursor from resulting rows.
@@ -72,8 +72,7 @@ public interface Index<DescriptorT extends IndexDescriptor> {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             BinaryTuple key,
             @Nullable BitSet columns
     );

@@ -482,8 +482,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     }
 
     private ColocationGroup partitionedGroup() {
-        List<List<NodeWithTerm>> assignments = table.leaderAssignmentsWithTerm().stream()
-                .map(leaderWithTerm -> new NodeWithTerm(leaderWithTerm.get1(), leaderWithTerm.get2()))
+        List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
+                .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
                 .map(Collections::singletonList)
                 .collect(Collectors.toList());
 

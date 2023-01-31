@@ -52,6 +52,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -166,8 +167,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         public Publisher<BinaryRow> scan(
                 int partId,
                 UUID txId,
-                ClusterNode leaderNode,
-                long leaderTerm,
+                PrimaryReplica recipient,
                 @Nullable UUID indexId,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,

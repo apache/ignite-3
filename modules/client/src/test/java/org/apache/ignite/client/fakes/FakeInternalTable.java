@@ -38,7 +38,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
@@ -340,8 +340,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             @Nullable UUID indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -392,8 +391,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             UUID indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
@@ -422,7 +420,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public List<IgniteBiTuple<String, Long>> leaderAssignmentsWithTerm() {
+    public List<PrimaryReplica> primaryReplicas() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

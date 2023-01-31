@@ -32,6 +32,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -90,7 +91,9 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
                 // Workaround to make RW scan work from tx coordinator.
                 pub = physTable.scan(partId, tx);
             } else {
-                pub = physTable.scan(partId, tx.id(), context().localNode(), partWithTerm.get2(), null, null, null, 0, null);
+                PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.get2());
+
+                pub = physTable.scan(partId, tx.id(), recipient, null, null, null, 0, null);
             }
 
             return convertPublisher(pub);
