@@ -106,7 +106,7 @@ public class CheckpointTimeoutLockTest {
     void testCheckpointReadLockWithWriteLockHeldByCurrentThread() {
         CheckpointReadWriteLock readWriteLock = newReadWriteLock();
 
-        timeoutLock = new CheckpointTimeoutLock(readWriteLock, 1, () -> true, mock(Checkpointer.class));
+        timeoutLock = new CheckpointTimeoutLock(readWriteLock, 1_000, () -> true, mock(Checkpointer.class));
 
         timeoutLock.start();
 
@@ -140,7 +140,7 @@ public class CheckpointTimeoutLockTest {
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
         CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(readWriteLock0, 0, () -> true, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(readWriteLock1, 1, () -> true, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(readWriteLock1, 100, () -> true, mock(Checkpointer.class));
 
         try {
             timeoutLock0.start();
@@ -154,12 +154,12 @@ public class CheckpointTimeoutLockTest {
             CompletableFuture<?> readLockFuture0 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock0));
             CompletableFuture<?> readLockFuture1 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock1));
 
-            assertTrue(startThreadLatch.await(100, MILLISECONDS));
+            assertTrue(startThreadLatch.await(1_000, MILLISECONDS));
 
             // For the Windows case, getting a read lock can take up to 100 ms.
-            assertThrows(TimeoutException.class, () -> readLockFuture0.get(100, MILLISECONDS));
+            assertThrows(TimeoutException.class, () -> readLockFuture0.get(1_000, MILLISECONDS));
 
-            ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(100, MILLISECONDS));
+            ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(1_000, MILLISECONDS));
 
             assertThat(exception.getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
         } finally {
@@ -176,7 +176,7 @@ public class CheckpointTimeoutLockTest {
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
         CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(readWriteLock0, 0, () -> true, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(readWriteLock1, 1, () -> true, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(readWriteLock1, 100, () -> true, mock(Checkpointer.class));
 
         try {
             timeoutLock0.start();
@@ -211,16 +211,16 @@ public class CheckpointTimeoutLockTest {
             assertTrue(startThreadLatch.await(100, MILLISECONDS));
 
             // For the Windows case, getting a read lock can take up to 100 ms.
-            assertThrows(TimeoutException.class, () -> readLockFuture0.get(100, MILLISECONDS));
+            assertThrows(TimeoutException.class, () -> readLockFuture0.get(1_000, MILLISECONDS));
 
-            ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(100, MILLISECONDS));
+            ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(1_000, MILLISECONDS));
 
             assertThat(exception.getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
 
             writeUnlock(readWriteLock0);
             writeUnlock(readWriteLock1);
 
-            assertTrue(interruptedThreadLatch.await(100, MILLISECONDS));
+            assertTrue(interruptedThreadLatch.await(1_000, MILLISECONDS));
         } finally {
             writeUnlock(readWriteLock0);
             writeUnlock(readWriteLock1);
