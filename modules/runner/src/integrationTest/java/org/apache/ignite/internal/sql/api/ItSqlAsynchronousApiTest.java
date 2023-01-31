@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -687,17 +686,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             }
         }
 
-        CompletionException ex = assertThrows(
-                CompletionException.class,
+        SqlBatchException ex = assertThrows(
+                SqlBatchException.class,
                 () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args))
         );
 
-        assertInstanceOf(SqlBatchException.class, ex.getCause());
-        SqlBatchException batchEx = (SqlBatchException) ex.getCause();
-
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, batchEx.code());
-        assertEquals(err, batchEx.updateCounters().length);
-        IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+        assertEquals(err, ex.updateCounters().length);
+        IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
     }
 
     private static void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) throws Exception {
