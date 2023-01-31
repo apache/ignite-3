@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
@@ -338,13 +339,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         //CHECKSTYLE:OFF:Indentation
         Mockito.doAnswer(invocation -> {
                     if (key != null) {
-                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(4));
+                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 })
                 .when(hashIndexMock)
-                .lookup(Mockito.anyInt(), any(), any(), Mockito.anyLong(), any(), any());
+                .lookup(Mockito.anyInt(), (UUID) any(), any(), any(), any());
         //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = mock(IgniteIndex.class);
@@ -383,15 +384,15 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         //CHECKSTYLE:OFF:Indentation
         Mockito.doAnswer(invocation -> {
                     if (lowerBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(4));
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
                     }
                     if (upperBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(5));
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(4));
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 }).when(sortedIndexMock)
-                .scan(Mockito.anyInt(), any(), any(), Mockito.anyLong(), any(), any(), Mockito.anyInt(), any());
+                .scan(Mockito.anyInt(), (UUID) any(), any(), any(), any(), Mockito.anyInt(), any());
         //CHECKSTYLE:ON:Indentation
 
         IgniteIndex indexMock = mock(IgniteIndex.class);

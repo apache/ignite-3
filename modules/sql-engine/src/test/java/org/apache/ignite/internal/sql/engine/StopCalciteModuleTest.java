@@ -36,6 +36,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -71,7 +72,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -135,6 +136,8 @@ public class StopCalciteModuleTest {
 
     private final TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
+    private final ClusterNode localNode = new ClusterNode("mock-node-id", NODE_NAME, null);
+
     /**
      * Before.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -143,9 +146,7 @@ public class StopCalciteModuleTest {
     public void before(TestInfo testInfo) {
         when(clusterSrvc.messagingService()).thenReturn(msgSrvc);
         when(clusterSrvc.topologyService()).thenReturn(topologySrvc);
-
-        ClusterNode node = new ClusterNode("mock-node-id", NODE_NAME, null);
-        when(topologySrvc.localMember()).thenReturn(node);
+        when(topologySrvc.localMember()).thenReturn(localNode);
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
                 1,
@@ -222,7 +223,7 @@ public class StopCalciteModuleTest {
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
-        when(tbl.leaderAssignmentsWithTerm()).thenReturn(Arrays.asList(new IgniteBiTuple<>("NODE_NAME", -1L)));
+        when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 
         when(txManager.begin()).thenReturn(mock(InternalTransaction.class));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));

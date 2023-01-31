@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,8 +45,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      *
      * @param partId Partition.
      * @param txId Transaction id.
-     * @param leaderNode Raft group leader node that must handle given get request.
-     * @param leaderTerm Raft group leader term.
+     * @param recipient Primary replica that will handle given get request.
      * @param leftBound Left bound of range.
      * @param rightBound Right bound of range.
      * @param flags A mask that defines whether to include bounds into the final result or not.
@@ -57,8 +57,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             @Nullable BinaryTuplePrefix leftBound,
             @Nullable BinaryTuplePrefix rightBound,
             int flags,
@@ -99,7 +98,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      * @return A cursor from resulting rows.
      * @see SortedIndex#INCLUDE_LEFT
      * @see SortedIndex#INCLUDE_RIGHT
-     * @deprecated IGNITE-17952 Use {@link #scan(int, UUID, ClusterNode, long, BinaryTuplePrefix, BinaryTuplePrefix, int, BitSet)} instead.
+     * @deprecated IGNITE-17952 Use {@link #scan(int, UUID, PrimaryReplica, BinaryTuplePrefix, BinaryTuplePrefix, int, BitSet)} instead.
      */
     @Deprecated
     Publisher<BinaryRow> scan(

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 
@@ -38,10 +39,10 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
             return internalTbl.scan(part, null);
         }
 
-        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(
-                new TablePartitionId(internalTbl.tableId(), part));
+        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(internalTbl.tableId(), part));
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
 
-        return internalTbl.scan(part, tx.id(), leaderWithTerm.get1(), leaderWithTerm.get2(), null, null, null, 0, null);
+        return internalTbl.scan(part, tx.id(), recipient, null, null, null, 0, null);
     }
 
     /** {@inheritDoc} */

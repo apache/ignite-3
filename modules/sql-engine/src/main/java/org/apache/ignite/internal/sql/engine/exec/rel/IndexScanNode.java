@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -177,8 +178,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         part,
                         tx.id(),
-                        context().localNode(),
-                        partWithTerm.get2(),
+                        new PrimaryReplica(context().localNode(), partWithTerm.get2()),
                         lower,
                         upper,
                         flags,
@@ -212,8 +212,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 pub = schemaIndex.index().lookup(
                         part,
                         tx.id(),
-                        context().localNode(),
-                        partWithTerm.get2(),
+                        new PrimaryReplica(context().localNode(), partWithTerm.get2()),
                         key,
                         requiredColumns
                 );

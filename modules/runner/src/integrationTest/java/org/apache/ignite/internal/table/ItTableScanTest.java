@@ -60,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.ClusterNode;
@@ -126,8 +127,9 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx1.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
 
-        Publisher<BinaryRow> publisher =
-                internalTable.scan(partId, tx1.id(), leaderWithTerm.get1(), leaderWithTerm.get2(), sortedIndexId, null, null, 0, null);
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+
+        Publisher<BinaryRow> publisher = internalTable.scan(partId, tx1.id(), recipient, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -473,8 +475,9 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
 
-        Publisher<BinaryRow> publisher =
-                internalTable.scan(partId, tx.id(), leaderWithTerm.get1(), leaderWithTerm.get2(), sortedIndexId, null, null, 0, null);
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+
+        Publisher<BinaryRow> publisher = internalTable.scan(partId, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -500,8 +503,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        Publisher<BinaryRow> publisher1 =
-                internalTable.scan(0, tx.id(), leaderWithTerm.get1(), leaderWithTerm.get2(), sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher1 = internalTable.scan(0, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
 
@@ -533,12 +535,12 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         InternalTransaction tx = startTxWithEnlistedPartition(partId);
         IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
 
         Publisher<BinaryRow> publisher = internalTable.scan(
                 partId,
                 tx.id(),
-                leaderWithTerm.get1(),
-                leaderWithTerm.get2(),
+                recipient,
                 soredIndexId,
                 lowBound,
                 upperBound,
@@ -561,8 +563,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
         Publisher<BinaryRow> publisher1 = internalTable.scan(
                 partId,
                 tx.id(),
-                leaderWithTerm.get1(),
-                leaderWithTerm.get2(),
+                recipient,
                 soredIndexId,
                 lowBound,
                 upperBound,
