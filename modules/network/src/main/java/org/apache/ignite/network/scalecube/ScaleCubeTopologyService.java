@@ -245,7 +245,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService implements 
     }
 
     @Override
-    public @Nullable ClusterNode discoveredNodeByConsistentId(String consistentId) {
+    public Collection<ClusterNode> allDiscoveredMembers() {
+        return Collections.unmodifiableCollection(consistentIdToDtMemberMap.values());
+    }
+
+    @Override
+    public @Nullable ClusterNode discoveredMemberByConsistentId(String consistentId) {
         return consistentIdToDtMemberMap.get(consistentId);
     }
 

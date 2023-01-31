@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.discovery;
 
+import java.util.Collection;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,12 +36,24 @@ public interface DiscoveryTopologyService {
     void addDiscoveryEventListener(DiscoveryTopologyEventListener listener);
 
     /**
+     * Returns a list of all discovered cluster members, including the local member itself.
+     *
+     * @return List of all discovered cluster members.
+     */
+    Collection<ClusterNode> allDiscoveredMembers();
+
+    /**
      * Returns a cluster node (discovered by a discovery mechanism) by its consistent id.
      *
      * @param consistentId Consistent id.
      * @return The node or {@code null} if the node has not yet been discovered or is offline.
      */
-    @Nullable ClusterNode discoveredNodeByConsistentId(String consistentId);
+    @Nullable ClusterNode discoveredMemberByConsistentId(String consistentId);
 
+    /**
+     * Removes a member from the physical topology.
+     *
+     * @param memberToRemove Member to remove.
+     */
     void removeFromPhysicalTopology(ClusterNode memberToRemove);
 }

@@ -41,9 +41,9 @@ public interface TopologyService {
     ClusterNode localMember();
 
     /**
-     * Returns a list of all discovered cluster members, including the local member itself.
+     * Returns a list of all cluster members that are considered reachable for messaging, including the local member itself.
      *
-     * @return List of all discovered cluster members.
+     * @return List of all cluster members that are considered reachable for messaging.
      */
     Collection<ClusterNode> allMembers();
 

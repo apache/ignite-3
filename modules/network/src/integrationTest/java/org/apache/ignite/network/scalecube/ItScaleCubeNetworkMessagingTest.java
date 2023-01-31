@@ -389,6 +389,10 @@ class ItScaleCubeNetworkMessagingTest {
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, TimeUnit.SECONDS);
         assertTrue(aliceShutdownReceived);
+
+        Collection<ClusterNode> networkMembers = ((DiscoveryTopologyService) bob.topologyService()).allDiscoveredMembers();
+
+        assertEquals(1, networkMembers.size());
     }
 
     /**

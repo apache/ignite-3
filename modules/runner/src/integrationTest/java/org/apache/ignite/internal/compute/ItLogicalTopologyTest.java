@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.BootstrapConfigTemplateMethod;
+import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -147,7 +148,6 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
                 if (appearedNode.name().equals(secondIgnite.name())) {
                     secondIgniteAppeared.countDown();
                 }
-
             }
         });
 
@@ -183,9 +183,10 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
-        stopNode(1);
+        // Knock the node out without allowing it to say good bye.
+        cluster.knockOutNode(1, NodeKnockout.PARTITION_NETWORK);
 
-        assertFalse(waitForCondition(() -> events.size() > 1, 3_000));
+        assertFalse(waitForCondition(() -> !events.isEmpty(), 3_000));
 
         assertThat(events, is(empty()));
     }
@@ -193,6 +194,27 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
     private static String templateWithVeryLongDelayToRemoveFromLogicalTopology() {
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
                 .replace("cluster.failoverTimeout: 0", "cluster.failoverTimeout: 1000000");
+    }
+
+    @Test
+    @BootstrapConfigTemplateMethod("templateWithVeryLongDelayToRemoveFromLogicalTopology")
+    void nodeLeavesLogicalTopologyOnStop() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        stopNode(1);
+
+        assertTrue(waitForCondition(() -> !events.isEmpty(), 10_000), "Did not see any events in time");
+
+        assertThat(events, hasSize(1));
+
+        Event leaveEvent = events.get(0);
+
+        assertFalse(leaveEvent.appeared);
+        assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
     }
 
     @Test

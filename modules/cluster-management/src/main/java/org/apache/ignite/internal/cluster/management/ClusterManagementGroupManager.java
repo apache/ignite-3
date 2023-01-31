@@ -88,6 +88,9 @@ import org.jetbrains.annotations.TestOnly;
 public class ClusterManagementGroupManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
+    /** How much time to have for sending a bye-bye in the form of 'logical topology leave' on stop. */
+    private static final long GRACEFUL_LEAVE_TIMEOUT_MILLIS = 1_000;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -384,15 +387,16 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private CompletableFuture<CmgRaftService> updateLogicalTopology(CmgRaftService service) {
         return service.logicalTopology()
                 .thenCompose(logicalTopology -> {
-                    Set<String> physicalTopologyIds = clusterService.topologyService().allMembers()
+                    Set<String> discoveredMembersIds = discoveryTopologyService.allDiscoveredMembers()
                             .stream()
                             .map(ClusterNode::id)
                             .collect(toSet());
 
                     Set<ClusterNode> nodesToRemove = logicalTopology.nodes().stream()
-                            .filter(node -> !physicalTopologyIds.contains(node.id()))
+                            .filter(node -> !discoveredMembersIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
+                    // TODO: IGNITE-18681 - respect removal timeout.
                     return nodesToRemove.isEmpty() ? completedFuture(null) : service.removeFromCluster(nodesToRemove);
                 })
                 .thenApply(v -> service);
@@ -612,7 +616,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private void scheduleRemoveFromLogicalTopology(CmgRaftService raftService, ClusterNode node) {
         scheduledExecutor.schedule(() -> {
-            ClusterNode discoveredNode = discoveryTopologyService.discoveredNodeByConsistentId(node.name());
+            ClusterNode discoveredNode = discoveryTopologyService.discoveredMemberByConsistentId(node.name());
 
             if (discoveredNode == null || !discoveredNode.id().equals(node.id())) {
                 raftService.removeFromCluster(Set.of(node));
@@ -673,6 +677,26 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         scheduledExecutor.schedule(() -> sendWithRetry(node, msg, result, attempts - 1), 500, TimeUnit.MILLISECONDS);
                     }
                 });
+    }
+
+    @Override
+    public void beforeNodeStop() {
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+
+        if (serviceFuture != null) {
+            tryToLeaveLogicalTopologyGracefully(serviceFuture);
+        }
+    }
+
+    private void tryToLeaveLogicalTopologyGracefully(CompletableFuture<CmgRaftService> serviceFuture) {
+        serviceFuture.thenCompose(service -> service.removeFromCluster(Set.of(clusterService.topologyService().localMember())))
+                .orTimeout(GRACEFUL_LEAVE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .exceptionally(ex -> {
+                    LOG.info("Was not able to send a bye-bye in time", ex);
+
+                    return null;
+                })
+                .join();
     }
 
     @Override
