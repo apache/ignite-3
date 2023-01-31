@@ -456,6 +456,13 @@ public class ClientTupleSerializer {
         return tx != null ? null : schema -> getColocationHash(schema, mapper, rec);
     }
 
+    /**
+     * Gets colocation hash for the specified tuple.
+     *
+     * @param schema Schema.
+     * @param rec Tuple.
+     * @return Colocation hash.
+     */
     public static Integer getColocationHash(ClientSchema schema, Tuple rec) {
         var hashCalc = new HashCalculator();
 
