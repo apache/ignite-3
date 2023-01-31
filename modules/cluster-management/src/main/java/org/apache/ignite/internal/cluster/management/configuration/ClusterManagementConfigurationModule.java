@@ -15,20 +15,27 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table
-{
-    using Proto;
+package org.apache.ignite.internal.cluster.management.configuration;
 
-    /// <summary>
-    /// Schema column.
-    /// </summary>
-    internal record Column(
-        string Name,
-        ClientDataType Type,
-        bool IsNullable,
-        bool IsColocation,
-        bool IsKey,
-        int SchemaIndex,
-        int Scale,
-        int Precision);
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
+
+/**
+ * Configuration module for Cluster Management configs.
+ */
+@AutoService(ConfigurationModule.class)
+public class ClusterManagementConfigurationModule implements ConfigurationModule {
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.LOCAL;
+    }
+
+    @Override
+    public Collection<RootKey<?, ?>> rootKeys() {
+        return List.of(ClusterManagementConfiguration.KEY);
+    }
 }

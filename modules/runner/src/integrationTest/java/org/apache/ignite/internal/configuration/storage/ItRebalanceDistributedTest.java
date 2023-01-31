@@ -40,6 +40,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -128,6 +129,9 @@ public class ItRebalanceDistributedTest {
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @WorkDirectory
     private Path workDir;
@@ -501,7 +505,8 @@ public class ItRebalanceDistributedTest {
                     clusterService,
                     raftManager,
                     clusterStateStorage,
-                    logicalTopologyService
+                    logicalTopologyService,
+                    clusterManagementConfiguration
             );
 
             metaStorageManager = new MetaStorageManagerImpl(

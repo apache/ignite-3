@@ -20,10 +20,18 @@ namespace Apache.Ignite.Tests.Proto;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using System.Threading.Tasks;
+using Ignite.Table;
+using Internal.Buffers;
+using Internal.Proto;
 using Internal.Proto.BinaryTuple;
+using Internal.Proto.MsgPack;
+using Internal.Table;
+using Internal.Table.Serialization;
 using NodaTime;
 using NUnit.Framework;
 
@@ -86,7 +94,8 @@ public class ColocationHashTests : IgniteTestsBase
         new LocalDate(2, 1, 1),
         new LocalDate(1, 1, 1),
         default(LocalDate),
-        new LocalTime(9, 8, 7),
+        new LocalTime(9, 8, 7, 6),
+        LocalTime.FromHourMinuteSecondNanosecond(hour: 1, minute: 2, second: 3, nanosecondWithinSecond: 456789),
         LocalTime.Midnight,
         LocalTime.Noon,
         LocalDateTime.FromDateTime(DateTime.UtcNow).TimeOfDay,
@@ -102,48 +111,179 @@ public class ColocationHashTests : IgniteTestsBase
     [Test]
     [TestCaseSource(nameof(TestCases))]
     public async Task TestSingleKeyColocationHashIsSameOnServerAndClient(object key) =>
-        await AssertClientAndServerHashesAreEqual(key);
+        await AssertClientAndServerHashesAreEqual(keys: key);
+
+    [Test]
+    public async Task TestSingleKeyColocationHashIsSameOnServerAndClientCustomTimePrecision(
+        [Values(0, 1, 3, 4, 5, 6, 7, 8, 9)] int timePrecision,
+        [Values(0, 1, 3, 6)] int timestampPrecision)
+    {
+        foreach (var t in TestCases)
+        {
+            await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, t);
+        }
+    }
+
+    [Test]
+    public async Task TestLocalTimeColocationHashIsSameOnServerAndClient([Values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)] int timePrecision) =>
+        await AssertClientAndServerHashesAreEqual(timePrecision, keys: LocalTime.FromHourMinuteSecondNanosecond(11, 33, 44, 123_456));
+
+    [Test]
+    public async Task TestLocalDateTimeColocationHashIsSameOnServerAndClient([Values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)] int timePrecision) =>
+        await AssertClientAndServerHashesAreEqual(timePrecision, keys: new LocalDateTime(2022, 01, 27, 1, 2, 3, 999));
+
+    [Test]
+    public async Task TestTimestampColocationHashIsSameOnServerAndClient(
+        [Values(0, 1, 2, 3, 4, 5, 6)] int timestampPrecision) =>
+        await AssertClientAndServerHashesAreEqual(timestampPrecision: timestampPrecision, keys: Instant.FromDateTimeUtc(DateTime.UtcNow));
 
     [Test]
     public async Task TestMultiKeyColocationHashIsSameOnServerAndClient()
     {
         for (var i = 0; i < TestCases.Length; i++)
         {
-            await AssertClientAndServerHashesAreEqual(TestCases.Take(i + 1).ToArray());
-            await AssertClientAndServerHashesAreEqual(TestCases.Skip(i).ToArray());
+            await AssertClientAndServerHashesAreEqual(keys: TestCases.Take(i + 1).ToArray());
+            await AssertClientAndServerHashesAreEqual(keys: TestCases.Skip(i).ToArray());
         }
     }
 
-    private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr)
+    [Test]
+    public async Task TestMultiKeyColocationHashIsSameOnServerAndClientCustomTimePrecision(
+        [Values(0, 1, 4, 5, 6, 7, 8, 9)] int timePrecision,
+        [Values(0, 1, 3, 6)] int timestampPrecision)
     {
-        using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider());
+        for (var i = 0; i < TestCases.Length; i++)
+        {
+            await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, TestCases.Take(i + 1).ToArray());
+            await AssertClientAndServerHashesAreEqual(timePrecision, timestampPrecision, TestCases.Skip(i).ToArray());
+        }
+    }
+
+    private static (byte[] Bytes, int Hash) WriteAsBinaryTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
+    {
+        using var builder = new BinaryTupleBuilder(arr.Count * 3, hashedColumnsPredicate: new TestIndexProvider(x => x % 3 == 2));
 
         foreach (var obj in arr)
         {
-            builder.AppendObjectWithType(obj);
+            builder.AppendObjectWithType(obj, timePrecision, timestampPrecision);
         }
 
         return (builder.Build().ToArray(), builder.Hash);
     }
 
-    private async Task AssertClientAndServerHashesAreEqual(params object[] keys)
+    private static int WriteAsIgniteTuple(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
     {
-        var (bytes, hash) = WriteAsBinaryTuple(keys);
+        var igniteTuple = new IgniteTuple();
+        int i = 1;
 
-        var serverHash = await GetServerHash(bytes, keys.Length);
+        foreach (var obj in arr)
+        {
+            igniteTuple["m_Item" + i++] = obj;
+        }
 
-        Assert.AreEqual(serverHash, hash, string.Join(", ", keys));
+        var builder = new BinaryTupleBuilder(arr.Count, hashedColumnsPredicate: new TestIndexProvider(_ => true));
+
+        try
+        {
+            var schema = GetSchema(arr, timePrecision, timestampPrecision);
+            var noValueSet = new byte[arr.Count].AsSpan();
+
+            TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, arr.Count, noValueSet);
+            return builder.Hash;
+        }
+        finally
+        {
+            builder.Dispose();
+        }
     }
 
-    private async Task<int> GetServerHash(byte[] bytes, int count)
+    [SuppressMessage("ReSharper", "UnusedMember.Local", Justification = "Used by reflection.")]
+    private static int WriteAsPoco<T>(T obj, int timePrecision, int timestampPrecision)
+    {
+        var poco = Tuple.Create(obj);
+        IRecordSerializerHandler<Tuple<T>> handler = new ObjectSerializerHandler<Tuple<T>>();
+        var schema = GetSchema(new object[] { obj! }, timePrecision, timestampPrecision);
+
+        using var buf = new PooledArrayBuffer();
+        var writer = new MsgPackWriter(buf);
+
+        return handler.Write(ref writer, schema, poco, computeHash: true);
+    }
+
+    private static Schema GetSchema(IReadOnlyCollection<object> arr, int timePrecision, int timestampPrecision)
+    {
+        var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
+
+        return new Schema(Version: 0, arr.Count, columns);
+    }
+
+    private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
+    {
+        var colType = value switch
+        {
+            sbyte => ClientDataType.Int8,
+            short => ClientDataType.Int16,
+            int => ClientDataType.Int32,
+            long => ClientDataType.Int64,
+            float => ClientDataType.Float,
+            double => ClientDataType.Double,
+            decimal => ClientDataType.Decimal,
+            Guid => ClientDataType.Uuid,
+            byte[] => ClientDataType.Bytes,
+            string => ClientDataType.String,
+            BigInteger => ClientDataType.Number,
+            BitArray => ClientDataType.BitMask,
+            LocalTime => ClientDataType.Time,
+            LocalDate => ClientDataType.Date,
+            LocalDateTime => ClientDataType.DateTime,
+            Instant => ClientDataType.Timestamp,
+            _ => throw new Exception("Unknown type: " + value.GetType())
+        };
+
+        var precision = colType switch
+        {
+            ClientDataType.Time => timePrecision,
+            ClientDataType.DateTime => timePrecision,
+            ClientDataType.Timestamp => timestampPrecision,
+            _ => 0
+        };
+
+        var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
+
+        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, true, schemaIndex, Scale: scale, precision);
+    }
+
+    private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
+    {
+        var (bytes, clientHash) = WriteAsBinaryTuple(keys, timePrecision, timestampPrecision);
+        var clientHash2 = WriteAsIgniteTuple(keys, timePrecision, timestampPrecision);
+
+        var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
+
+        var msg = $"Time precision: {timePrecision}, timestamp precision: {timestampPrecision}, keys: {string.Join(", ", keys)}";
+
+        Assert.AreEqual(serverHash, clientHash, $"Server hash mismatch. {msg}");
+        Assert.AreEqual(clientHash, clientHash2, $"IgniteTuple hash mismatch. {msg}");
+
+        if (keys.Length == 1)
+        {
+            var obj = keys[0];
+            var method = GetType().GetMethod("WriteAsPoco", BindingFlags.Static | BindingFlags.NonPublic)!.MakeGenericMethod(obj.GetType());
+            var clientHash3 = (int)method.Invoke(null, new[] { obj, timePrecision, timestampPrecision })!;
+
+            Assert.AreEqual(clientHash, clientHash3, $"Poco hash mismatch. {msg}");
+        }
+    }
+
+    private async Task<int> GetServerHash(byte[] bytes, int count, int timePrecision, int timestampPrecision)
     {
         var nodes = await Client.GetClusterNodesAsync();
 
-        return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes);
+        return await Client.Compute.ExecuteAsync<int>(nodes, ColocationHashJob, count, bytes, timePrecision, timestampPrecision);
     }
 
-    private class TestIndexProvider : IHashedColumnIndexProvider
+    private record TestIndexProvider(Func<int, bool> Delegate) : IHashedColumnIndexProvider
     {
-        public bool IsHashedColumnIndex(int index) => index % 3 == 2;
+        public bool IsHashedColumnIndex(int index) => Delegate(index);
     }
 }
