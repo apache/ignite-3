@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
