@@ -90,9 +90,9 @@ class SortedIndex implements ManuallyCloseable {
 
     @Override
     public void close() {
-        indexCf.handle().close();
-
         storages.values().forEach(RocksDbSortedIndexStorage::close);
+
+        indexCf.handle().close();
     }
 
     /**
