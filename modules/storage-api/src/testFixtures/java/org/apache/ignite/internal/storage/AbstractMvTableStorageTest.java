@@ -544,37 +544,30 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testDestroyTableStorage() throws Exception {
+    public void testDestroyTableStorage() {
         MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
-        RowId rowId = new RowId(PARTITION_ID);
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
+        );
 
-        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), tableRow, rowId);
-        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), tableRow, rowId);
-
-        mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.addWriteCommitted(rowId, tableRow, clock.now());
-
-            hashIndexStorage.put(hashIndexRow);
-
-            sortedIndexStorage.put(sortedIndexRow);
-
-            return null;
-        });
-
-        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rowId);
+        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rows.get(0).get1());
         PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
+
+        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), rows.get(0).get2(), rows.get(0).get1());
+        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), rows.get(0).get2(), rows.get(0).get1());
 
         Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(hashIndexRow.indexColumns());
 
-        Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(hashIndexRow.indexColumns());
+        Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(sortedIndexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, 0);
 
-        tableStorage.destroy().get(1, SECONDS);
+        assertThat(tableStorage.destroy(), willCompleteSuccessfully());
 
         checkStorageDestroyed(mvPartitionStorage);
         checkStorageDestroyed(hashIndexStorage);
@@ -590,6 +583,17 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         // Let's check that nothing will happen if we try to destroy it again.
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
+
+        // Let's check that after restarting the table we will have an empty partition.
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
+
+        tableStorage.start();
+
+        mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
     }
 
     @Test

@@ -50,7 +50,6 @@ import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -346,11 +345,19 @@ public class RocksDbTableStorage implements MvTableStorage {
         resources.add(writeOptions);
 
         for (int i = 0; i < partitions.length(); i++) {
-            MvPartitionStorage partition = partitions.get(i);
+            RocksDbMvPartitionStorage partition = partitions.get(i);
 
             if (partition != null) {
                 resources.add(partition::close);
             }
+        }
+
+        for (HashIndex index : hashIndices.values()) {
+            resources.add(index::close);
+        }
+
+        for (SortedIndex index : sortedIndices.values()) {
+            resources.add(index::close);
         }
 
         Collections.reverse(resources);
@@ -358,7 +365,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         try {
             IgniteUtils.closeAll(resources);
         } catch (Exception e) {
-            throw new StorageException("Failed to stop RocksDB table storage.", e);
+            throw new StorageException("Failed to stop RocksDB table storage: " + getTableName(), e);
         }
     }
 
@@ -375,8 +382,8 @@ public class RocksDbTableStorage implements MvTableStorage {
             IgniteUtils.deleteIfExists(tablePath);
 
             return completedFuture(null);
-        } catch (Throwable throwable) {
-            return failedFuture(throwable);
+        } catch (Throwable t) {
+            return failedFuture(new StorageException("Failed to destroy RocksDB table storage: " + getTableName(), t));
         }
     }
 
