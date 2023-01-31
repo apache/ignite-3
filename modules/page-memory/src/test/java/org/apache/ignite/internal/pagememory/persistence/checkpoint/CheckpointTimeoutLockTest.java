@@ -81,7 +81,7 @@ public class CheckpointTimeoutLockTest {
     @Test
     void testCheckpointReadLock() throws Exception {
         CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(newReadWriteLock(), 0, () -> true, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(newReadWriteLock(), 1, () -> true, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(newReadWriteLock(), 1_000, () -> true, mock(Checkpointer.class));
 
         try {
             timeoutLock0.start();
