@@ -22,4 +22,7 @@ package org.apache.ignite.internal.table;
  */
 public class ItThinClientColocationTest {
     // TODO: Compare ClientTupleSerializer.getColocationHash and marshaller.marshal(t).colocationHash for various data types.
+    public void test() {
+
+    }
 }

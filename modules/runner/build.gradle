@@ -121,6 +121,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-metastorage')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-vault')))
+    integrationTestImplementation(testFixtures(project(':ignite-table')))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
