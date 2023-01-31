@@ -173,7 +173,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     /**
-     * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor.
+     *
+     * @param msgSrvc Message service.
+     * @param topSrvc Topology service.
+     * @param mappingSrvc Nodes mapping calculation service.
+     * @param sqlSchemaManager Schema manager.
+     * @param ddlCmdHnd Handler of the DDL commands.
+     * @param taskExecutor Task executor.
+     * @param handler Row handler.
+     * @param exchangeSrvc Exchange service.
+     * @param implementorFactory Relational node implementor factory.
      */
     public ExecutionServiceImpl(
             MessageService msgSrvc,
