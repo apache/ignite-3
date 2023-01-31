@@ -39,6 +39,8 @@ public class HashCalculator {
      * Append value to hash calculation.
      *
      * @param v Value to update hash.
+     * @param scale Decimal scale.
+     * @param precision Temporal precision.
      */
     public void append(Object v, int scale, int precision) {
         if (v == null) {
@@ -67,11 +69,11 @@ public class HashCalculator {
         } else if (v.getClass() == LocalDate.class) {
             appendDate((LocalDate) v);
         } else if (v.getClass() == LocalTime.class) {
-            appendTime((LocalTime) v);
+            appendTime((LocalTime) v, precision);
         } else if (v.getClass() == LocalDateTime.class) {
-            appendDateTime((LocalDateTime) v);
+            appendDateTime((LocalDateTime) v, precision);
         } else if (v.getClass() == Instant.class) {
-            appendTimestamp((Instant) v);
+            appendTimestamp((Instant) v, precision);
         } else if (v.getClass() == byte[].class) {
             appendBytes((byte[]) v);
         } else if (v.getClass() == String.class) {
@@ -214,32 +216,35 @@ public class HashCalculator {
      * Append LocalTime to hash calculation.
      *
      * @param v Value to update hash.
+     * @param precision Precision.
      */
-    public void appendTime(LocalTime v) {
+    public void appendTime(LocalTime v, int precision) {
         appendLong(v.getHour());
         appendLong(v.getMinute());
         appendLong(v.getSecond());
-        appendLong(v.getNano());
+        appendLong(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
     }
 
     /**
      * Append LocalDateTime to hash calculation.
      *
      * @param v Value to update hash.
+     * @param precision Precision.
      */
-    public void appendDateTime(LocalDateTime v) {
+    public void appendDateTime(LocalDateTime v, int precision) {
         appendDate(v.toLocalDate());
-        appendTime(v.toLocalTime());
+        appendTime(v.toLocalTime(), precision);
     }
 
     /**
      * Append Instant to hash calculation.
      *
      * @param v Value to update hash.
+     * @param precision Precision.
      */
-    public void appendTimestamp(Instant v) {
+    public void appendTimestamp(Instant v, int precision) {
         appendLong(v.getEpochSecond());
-        appendLong(v.getNano());
+        appendLong(TemporalTypeUtils.normalizeNanos(v.getNano(), precision));
     }
 
     /**
