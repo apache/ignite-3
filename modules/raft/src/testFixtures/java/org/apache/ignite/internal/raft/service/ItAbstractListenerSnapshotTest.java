@@ -234,7 +234,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
 
-        afterFollowerStop(service, toStop);
+        afterFollowerStop(service, toStop, stopIdx);
 
         // Create another raft snapshot
         service.snapshot(service.leader()).get();
@@ -278,9 +278,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      *
      * @param service Raft group service.
      * @param server Raft server that has been stopped.
+     * @param stoppedNodeIndex index of the stopped node.
      * @throws Exception If failed.
      */
-    public abstract void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception;
+    public abstract void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception;
 
     /**
      * Interacts with a raft group after the leader has captured a snapshot.
@@ -316,7 +317,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @param listenerPersistencePath Path to storage persistent data.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index);
+    public abstract RaftGroupListener createListener(TestInfo testInfo, ClusterService service, Path listenerPersistencePath, int index);
 
     /**
      * Returns raft group id for tests.
@@ -413,7 +414,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         server.startRaftNode(
                 new RaftNodeId(raftGroupId(), initialConf.peer(service.topologyService().localMember().name())),
                 initialConf,
-                createListener(service, listenerPersistencePath, idx),
+                createListener(testInfo, service, listenerPersistencePath, idx),
                 defaults()
         );
 
