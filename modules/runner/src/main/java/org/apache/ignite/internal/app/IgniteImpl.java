@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -219,6 +220,8 @@ public class IgniteImpl implements Ignite {
 
     private final ClusterStateStorage clusterStateStorage;
 
+    private final LogicalTopology logicalTopology;
+
     private final ClusterManagementGroupManager cmgMgr;
 
     private final LogicalTopologyService logicalTopologyService;
@@ -331,7 +334,7 @@ public class IgniteImpl implements Ignite {
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         DiscoveryTopologyService discoveryTopologyService = (DiscoveryTopologyService) clusterSvc.topologyService();
 
@@ -854,6 +857,11 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
+    public ClusterService clusterService() {
+        return clusterSvc;
+    }
+
+    @TestOnly
     public ClusterNode node() {
         return clusterSvc.topologyService().localMember();
     }
@@ -861,6 +869,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public DistributionZoneManager distributionZoneManager() {
         return distributionZoneManager;
+    }
+
+    @TestOnly
+    public LogicalTopology logicalTopology() {
+        return logicalTopology;
     }
 
     @TestOnly

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -191,6 +193,28 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
     private static String templateWithVeryLongDelayToRemoveFromLogicalTopology() {
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
                 .replace("cluster.failoverTimeout: 0", "cluster.failoverTimeout: 1000000");
+    }
+
+    @Test
+    void removalFromLogicalTopologyCausesRemovalFromPhysicalTopology() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1);
+
+        CountDownLatch removedFromPhysicalTopology = new CountDownLatch(1);
+
+        entryNode.clusterService().topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                if (member.name().equals(secondIgnite.name())) {
+                    removedFromPhysicalTopology.countDown();
+                }
+            }
+        });
+
+        entryNode.logicalTopology().removeNodes(Set.of(secondIgnite.node()));
+
+        assertTrue(removedFromPhysicalTopology.await(10, TimeUnit.SECONDS), "Was not removed from physical topology in time");
     }
 
     private static class Event {
