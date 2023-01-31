@@ -218,7 +218,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
         return res;
     }
 
-    public static Object generateValueByType(int i, NativeTypeSpec type) {
+    static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
             case INT8:
                 return (byte) i;
