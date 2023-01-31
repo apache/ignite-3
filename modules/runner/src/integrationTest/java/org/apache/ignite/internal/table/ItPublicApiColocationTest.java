@@ -253,7 +253,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
                         (LocalTime) generateValueByType(i, NativeTypeSpec.TIME)
                 );
             case TIMESTAMP:
-                return Instant.from((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME));
+                return Instant.ofEpochSecond(i * 201L, i * 101L);
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }
