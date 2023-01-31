@@ -296,7 +296,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
     /** Futures for destroying table partition storages({@link MvPartitionStorage} and {@link TxStateStorage}). */
-    private static final Map<TablePartitionId, CompletableFuture<Void>> destroyFutureByTablePartitionId = new ConcurrentHashMap<>();
+    private final Map<TablePartitionId, CompletableFuture<Void>> destroyFutureByTablePartitionId = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
