@@ -132,7 +132,7 @@ public class ColocationHashCalculationTest {
         return new Row(schema, new ByteBufferRow(marshaller.marshal(t).bytes()));
     }
 
-    private static int colocationHash(Row r) {
+    private int colocationHash(Row r) {
         HashCalculator hashCalc = new HashCalculator();
         for (Column c : r.schema().colocationColumns()) {
             var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;

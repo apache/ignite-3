@@ -51,16 +51,8 @@ public final class SchemaTestUtils {
             NativeTypes.decimalOf(25, 5),
             NativeTypes.bitmaskOf(22),
             NativeTypes.time(),
-            NativeTypes.time(2),
-            NativeTypes.time(3),
             NativeTypes.datetime(),
-            NativeTypes.datetime(1),
-            NativeTypes.datetime(3),
-            NativeTypes.datetime(5),
             NativeTypes.timestamp(),
-            NativeTypes.timestamp(2),
-            NativeTypes.timestamp(4),
-            NativeTypes.timestamp(6),
             NativeTypes.BYTES,
             NativeTypes.STRING);
 

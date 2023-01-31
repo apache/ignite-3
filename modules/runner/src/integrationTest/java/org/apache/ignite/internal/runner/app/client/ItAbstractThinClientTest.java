@@ -60,7 +60,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
-    protected final List<Ignite> startedNodes = new ArrayList<>();
+    private final List<Ignite> startedNodes = new ArrayList<>();
 
     private IgniteClient client;
 
