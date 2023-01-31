@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
@@ -99,7 +100,7 @@ class ComputeComponentImplTest {
     @Captor
     private ArgumentCaptor<ExecuteResponse> executeResponseCaptor;
 
-    private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1, "remote"));
+    private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1));
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
 
@@ -138,7 +139,6 @@ class ComputeComponentImplTest {
 
     private void assertThatExecuteRequestWasNotSent() {
         verify(messagingService, never()).invoke(any(ClusterNode.class), any(), anyLong());
-        verify(messagingService, never()).invoke(any(NetworkAddress.class), any(), anyLong());
     }
 
     @Test
@@ -221,29 +221,29 @@ class ComputeComponentImplTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        NetworkAddress senderAddress = new NetworkAddress("some-host", 1);
+        String sender = "test";
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .jobClassName(SimpleJob.class.getName())
                 .args(new Object[]{"a", 42})
                 .build();
-        computeMessageHandlerRef.get().onReceived(request, senderAddress, 123L);
+        computeMessageHandlerRef.get().onReceived(request, sender, 123L);
 
-        assertThatExecuteResponseIsSentTo(senderAddress);
+        assertThatExecuteResponseIsSentTo(sender);
     }
 
     private void markResponseSentOnResponseSend() {
-        when(messagingService.respond(any(NetworkAddress.class), any(), anyLong()))
+        when(messagingService.respond(anyString(), any(), anyLong()))
                 .thenAnswer(invocation -> {
                     responseSent.set(true);
                     return null;
                 });
     }
 
-    private void assertThatExecuteResponseIsSentTo(NetworkAddress senderAddress) throws InterruptedException {
+    private void assertThatExecuteResponseIsSentTo(String sender) throws InterruptedException {
         assertTrue(IgniteTestUtils.waitForCondition(responseSent::get, 1000), "No response sent");
 
-        verify(messagingService).respond(eq(senderAddress), executeResponseCaptor.capture(), eq(123L));
+        verify(messagingService).respond(eq(sender), executeResponseCaptor.capture(), eq(123L));
         ExecuteResponse response = executeResponseCaptor.getValue();
 
         assertThat(response.result(), is("jobResponse"));
@@ -295,21 +295,21 @@ class ComputeComponentImplTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        NetworkAddress senderAddress = new NetworkAddress("some-host", 1);
+        String sender = "test";
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .jobClassName(SimpleJob.class.getName())
                 .args(new Object[]{"a", 42})
                 .build();
-        computeMessageHandlerRef.get().onReceived(request, senderAddress, 123L);
+        computeMessageHandlerRef.get().onReceived(request, sender, 123L);
 
-        assertThatNodeStoppingExceptionIsSentTo(senderAddress);
+        assertThatNodeStoppingExceptionIsSentTo(sender);
     }
 
-    private void assertThatNodeStoppingExceptionIsSentTo(NetworkAddress senderAddress) throws InterruptedException {
+    private void assertThatNodeStoppingExceptionIsSentTo(String sender) throws InterruptedException {
         assertTrue(IgniteTestUtils.waitForCondition(responseSent::get, 1000), "No response sent");
 
-        verify(messagingService).respond(eq(senderAddress), executeResponseCaptor.capture(), eq(123L));
+        verify(messagingService).respond(eq(sender), executeResponseCaptor.capture(), eq(123L));
         ExecuteResponse response = executeResponseCaptor.getValue();
 
         assertThat(response.result(), is(nullValue()));

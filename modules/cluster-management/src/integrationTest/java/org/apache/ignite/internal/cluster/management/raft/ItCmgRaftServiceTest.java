@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
-import static org.apache.ignite.internal.cluster.management.CmgGroupId.INSTANCE;
-import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -35,21 +35,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.CmgGroupId;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -60,7 +72,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +87,9 @@ public class ItCmgRaftServiceTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
+
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     private class Node {
@@ -83,13 +97,16 @@ public class ItCmgRaftServiceTest {
 
         final ClusterService clusterService;
 
-        private final Loza raftManager;
+        private final RaftManager raftManager;
 
         private final ClusterStateStorage raftStorage = new TestClusterStateStorage();
+
+        private final LogicalTopology logicalTopology;
 
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
             this.raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+            this.logicalTopology = new LogicalTopologyImpl(raftStorage);
         }
 
         void start() {
@@ -103,27 +120,40 @@ public class ItCmgRaftServiceTest {
 
                 raftStorage.start();
 
-                CompletableFuture<RaftGroupService> raftService = raftManager.prepareRaftGroup(
-                        INSTANCE,
-                        List.copyOf(clusterService.topologyService().allMembers()),
-                        () -> new CmgRaftGroupListener(raftStorage),
-                        defaults()
-                );
+                PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
+                        .map(ClusterNode::name)
+                        .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
+
+                Peer serverPeer = configuration.peer(localMember().name());
+
+                CompletableFuture<RaftGroupService> raftService;
+
+                if (serverPeer == null) {
+                    raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
+                } else {
+                    raftService = raftManager.startRaftGroupNode(
+                            new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
+                            configuration,
+                            new CmgRaftGroupListener(
+                                    raftStorage,
+                                    new LogicalTopologyImpl(raftStorage),
+                                    clusterManagementConfiguration,
+                                    term -> {}
+                            ),
+                            RaftGroupEventsListener.noopLsnr
+                    );
+                }
 
                 assertThat(raftService, willCompleteSuccessfully());
 
-                this.raftService = new CmgRaftService(raftService.join(), clusterService);
+                this.raftService = new CmgRaftService(raftService.join(), clusterService, logicalTopology);
             } catch (InterruptedException | NodeStoppingException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        void beforeNodeStop() {
-            try {
-                raftManager.stopRaftGroup(INSTANCE);
-            } catch (NodeStoppingException e) {
-                throw new RuntimeException(e);
-            }
+        void beforeNodeStop() throws NodeStoppingException {
+            raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
 
             raftManager.beforeNodeStop();
             clusterService.beforeNodeStop();
@@ -133,7 +163,7 @@ public class ItCmgRaftServiceTest {
             try {
                 IgniteUtils.closeAll(
                         raftManager::stop,
-                        raftStorage,
+                        raftStorage::stop,
                         clusterService::stop
                 );
             } catch (Exception e) {
@@ -143,6 +173,10 @@ public class ItCmgRaftServiceTest {
 
         ClusterNode localMember() {
             return clusterService.topologyService().localMember();
+        }
+
+        private CompletableFuture<Collection<ClusterNode>> logicalTopologyNodes() {
+            return raftService.logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
         }
     }
 
@@ -163,13 +197,14 @@ public class ItCmgRaftServiceTest {
     }
 
     @AfterEach
-    void tearDown() {
-        cluster.parallelStream().forEach(Node::beforeNodeStop);
-        cluster.parallelStream().forEach(Node::stop);
+    void tearDown() throws Exception {
+        IgniteUtils.closeAll(cluster.parallelStream().map(node -> node::beforeNodeStop));
+
+        IgniteUtils.closeAll(cluster.parallelStream().map(node -> node::stop));
     }
 
     /**
-     * Tests the basic scenario of {@link CmgRaftService#logicalTopology} when nodes are joining and leaving.
+     * Tests the basic scenario of {@link CmgRaftService#logicalTopology()} when nodes are joining and leaving.
      */
     @Test
     void testLogicalTopology() {
@@ -189,23 +224,23 @@ public class ItCmgRaftServiceTest {
 
         assertThat(node1.raftService.initClusterState(clusterState), willCompleteSuccessfully());
 
-        assertThat(node1.raftService.logicalTopology(), willBe(empty()));
+        assertThat(node1.logicalTopologyNodes(), willBe(empty()));
 
         assertThat(joinCluster(node1, clusterState.clusterTag()), willCompleteSuccessfully());
 
-        assertThat(node1.raftService.logicalTopology(), will(contains(clusterNode1)));
+        assertThat(node1.logicalTopologyNodes(), will(contains(clusterNode1)));
 
         assertThat(joinCluster(node2, clusterState.clusterTag()), willCompleteSuccessfully());
 
-        assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
+        assertThat(node1.logicalTopologyNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
         assertThat(node1.raftService.removeFromCluster(Set.of(clusterNode1)), willCompleteSuccessfully());
 
-        assertThat(node1.raftService.logicalTopology(), will(contains(clusterNode2)));
+        assertThat(node1.logicalTopologyNodes(), will(contains(clusterNode2)));
 
         assertThat(node1.raftService.removeFromCluster(Set.of(clusterNode2)), willCompleteSuccessfully());
 
-        assertThat(node1.raftService.logicalTopology(), willBe(empty()));
+        assertThat(node1.logicalTopologyNodes(), willBe(empty()));
     }
 
     private static CompletableFuture<Void> joinCluster(Node node, ClusterTag clusterTag) {
@@ -241,21 +276,21 @@ public class ItCmgRaftServiceTest {
         assertThat(joinFuture1, willCompleteSuccessfully());
         assertThat(joinFuture2, willCompleteSuccessfully());
 
-        assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
+        assertThat(node1.logicalTopologyNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
         joinFuture1 = joinCluster(node1, clusterState.clusterTag());
 
         assertThat(joinFuture1, willCompleteSuccessfully());
 
-        assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
+        assertThat(node1.logicalTopologyNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
         assertThat(node1.raftService.removeFromCluster(Set.of(clusterNode1, clusterNode2)), willCompleteSuccessfully());
 
-        assertThat(node2.raftService.logicalTopology(), willBe(empty()));
+        assertThat(node2.logicalTopologyNodes(), willBe(empty()));
 
         assertThat(node1.raftService.removeFromCluster(Set.of(clusterNode1, clusterNode2)), willCompleteSuccessfully());
 
-        assertThat(node2.raftService.logicalTopology(), willBe(empty()));
+        assertThat(node2.logicalTopologyNodes(), willBe(empty()));
     }
 
     /**

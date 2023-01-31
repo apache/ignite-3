@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.ignite.network.NetworkAddress;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * REST representation of {@link NetworkAddress}.
@@ -35,25 +34,19 @@ public class NetworkAddressDto {
     /** Port. */
     private final int port;
 
-    /** Consistent id. TODO: IGNITE-16373 Temporary until ticket is not resolved. */
-    @Nullable
-    private final String consistentId;
-
     /**
      * Constructor.
      *
      * @param host Host.
      * @param port Port.
-     * @param consistentId Consistent id.
      */
     @JsonCreator
     public NetworkAddressDto(
             @JsonProperty("host") String host,
-            @JsonProperty("port") int port,
-            @JsonProperty("consistentId") String consistentId) {
+            @JsonProperty("port") int port
+    ) {
         this.host = host;
         this.port = port;
-        this.consistentId = consistentId;
     }
 
     /**
@@ -74,16 +67,5 @@ public class NetworkAddressDto {
     @JsonGetter("port")
     public int port() {
         return port;
-    }
-
-    /**
-     * Returns the consistent id.
-     *
-     * @return Consistent id.
-     */
-    @Nullable
-    @JsonGetter("consistentId")
-    public String consistentId() {
-        return consistentId;
     }
 }

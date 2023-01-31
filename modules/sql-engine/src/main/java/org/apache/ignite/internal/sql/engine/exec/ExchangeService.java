@@ -29,64 +29,65 @@ public interface ExchangeService extends LifecycleAware {
     /**
      * Sends a batch of data to remote node.
      *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
+     * @param nodeName Target node consistent ID.
+     * @param qryId Query ID.
      * @param fragmentId Target fragment ID.
      * @param exchangeId Exchange ID.
-     * @param batchId    Batch ID.
-     * @param last       Last batch flag.
-     * @param rows       Data rows.
+     * @param batchId Batch ID.
+     * @param last Last batch flag.
+     * @param rows Data rows.
      */
-    <RowT> void sendBatch(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId, boolean last,
+    <RowT> void sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId, boolean last,
             List<RowT> rows) throws IgniteInternalCheckedException;
 
     /**
-     * Acknowledges a batch with given ID is processed.
+     * Requests batches from remote source.
      *
-     * @param nodeId     Node ID to notify.
-     * @param qryId      Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
-     * @param batchId    Batch ID.
+     * @param nodeName A consistent identifier of the node to request from.
+     * @param queryId An identifier of the query.
+     * @param fragmentId An identifier of the fragment to request from.
+     * @param exchangeId An identifier of the exchange to request from.
+     * @param amountOfBatches A count of batches to request.
      */
-    void acknowledge(String nodeId, UUID qryId, long fragmentId, long exchangeId, int batchId) throws IgniteInternalCheckedException;
+    void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches)
+            throws IgniteInternalCheckedException;
 
     /**
      * Sends cancel request.
      *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
+     * @param nodeName Target node consistent ID.
+     * @param qryId Query ID.
      * @param fragmentId Target fragment ID.
      * @param exchangeId Exchange ID.
      */
-    void closeInbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException;
+    void closeInbox(String nodeName, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException;
 
     /**
      * Sends cancel request.
      *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
+     * @param nodeName Target node consistent ID.
+     * @param qryId Query ID.
      */
-    void closeQuery(String nodeId, UUID qryId) throws IgniteInternalCheckedException;
+    void closeQuery(String nodeName, UUID qryId) throws IgniteInternalCheckedException;
 
     /**
      * Send error.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param nodeId     Target node ID.
-     * @param qryId      Query ID.
+     * @param nodeName Target node consistent ID.
+     * @param qryId Query ID.
      * @param fragmentId Source fragment ID.
-     * @param err        Exception to send.
+     * @param err Exception to send.
      * @throws IgniteInternalCheckedException On error marshaling or send ErrorMessage.
      */
-    void sendError(String nodeId, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException;
+    void sendError(String nodeName, UUID qryId, long fragmentId, Throwable err) throws IgniteInternalCheckedException;
 
     /**
      * Alive.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param nodeId Node ID.
+     * @param nodeName Target node consistent ID.
      * @return {@code true} if node is alive, {@code false} otherwise.
      */
-    boolean alive(String nodeId);
+    boolean alive(String nodeName);
 }

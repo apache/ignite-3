@@ -25,6 +25,7 @@
 #include <future>
 #include <memory>
 #include <optional>
+#include <string_view>
 
 namespace ignite {
 
@@ -32,7 +33,7 @@ namespace detail {
 
 class tables_impl;
 
-} // namespace
+} // namespace detail
 
 class ignite_client;
 
@@ -44,17 +45,22 @@ class tables {
 
 public:
     // Default
-    tables() = default;
-    ~tables() = default;
-    tables(tables &&) = default;
-    tables &operator=(tables &&) = default;
-
-    // Deleted
-    tables(const tables &) = delete;
-    tables &operator=(const tables &) = delete;
+    tables() = delete;
 
     /**
      * Gets a table by name, if it was created before.
+     *
+     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
+     *   "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
+     *   "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0",
+     *   "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
+     * @return An instance of the table with corresponding name or @c std::nullopt if the table does not exist.
+     * @throw ignite_error In case of error while trying to send a request.
+     */
+    IGNITE_API std::optional<table> get_table(std::string_view name);
+
+    /**
+     * Gets a table by name, if it was created before asynchronously.
      *
      * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
      *   "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
@@ -64,10 +70,18 @@ public:
      *    an instance of the table with corresponding name or @c std::nullopt if the table does not exist.
      * @throw ignite_error In case of error while trying to send a request.
      */
-    IGNITE_API void get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback);
+    IGNITE_API void get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback);
 
     /**
      * Gets all tables.
+     *
+     * @return A vector of all tables.
+     * @throw ignite_error In case of error while trying to send a request.
+     */
+    IGNITE_API std::vector<table> get_tables();
+
+    /**
+     * Gets all tables asynchronously.
      *
      * @param callback Callback to be called once operation is complete. On success, the callback is invoked with
      *    a vector of all tables.
@@ -82,21 +96,7 @@ private:
      * @param impl Implementation
      */
     explicit tables(std::shared_ptr<detail::tables_impl> impl)
-        : m_impl(std::move(impl)) { }
-
-    /**
-     * Get implementation reference.
-     *
-     * @return Implementation reference.
-     */
-    [[nodiscard]] detail::tables_impl &impl() { return *m_impl; }
-
-    /**
-     * Get implementation reference.
-     *
-     * @return Implementation reference.
-     */
-    [[nodiscard]] const detail::tables_impl &impl() const { return *m_impl; }
+        : m_impl(std::move(impl)) {}
 
     /** Implementation. */
     std::shared_ptr<detail::tables_impl> m_impl;

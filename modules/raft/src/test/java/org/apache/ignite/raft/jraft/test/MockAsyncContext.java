@@ -52,7 +52,7 @@ public class MockAsyncContext implements RpcContext {
         return new NetworkAddress("localhost", 12345);
     }
 
-    @Override public NetworkAddress getLocalAddress() {
-        return new NetworkAddress("localhost", 8081);
+    @Override public String getLocalConsistentId() {
+        return "localhost-8081";
     }
 }

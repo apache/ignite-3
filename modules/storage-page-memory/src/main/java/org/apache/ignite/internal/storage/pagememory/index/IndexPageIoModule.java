@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndex
 /**
  * {@link PageIoModule} related to {@link PageMemory} based indexes.
  */
+@AutoService(PageIoModule.class)
 public class IndexPageIoModule implements PageIoModule {
     /** {@inheritDoc} */
     @Override

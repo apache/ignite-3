@@ -98,7 +98,8 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     }
 
     /**
-     * Finishes a transaction.
+     * Finishes a transaction. A finish of a completed or ending transaction has no effect
+     * and always succeeds when the transaction is completed.
      *
      * @param commit {@code true} to commit, false to rollback.
      * @return The future.

@@ -25,6 +25,7 @@ plugins {
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-cli'
@@ -37,6 +38,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-client')
+    implementation project(':ignite-jdbc')
 
     implementation libs.fliptables
     implementation libs.jline.core
@@ -49,7 +51,6 @@ dependencies {
     implementation libs.picocli.shell.jline3
     implementation libs.picocli.core
     implementation libs.jackson.databind
-    implementation libs.apache.ivy
     implementation libs.typesafe.config
     implementation libs.slf4j.jdk14
     implementation libs.gson.core
@@ -78,17 +79,32 @@ dependencies {
     testImplementation libs.mock.server.netty
     testImplementation libs.mock.server.junit
 
+    testFixturesAnnotationProcessor libs.picocli.annotation.processor
+    testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
+    testFixturesAnnotationProcessor libs.micronaut.validation.annotation.processor
+    testFixturesImplementation libs.micronaut.inject
+    testFixturesImplementation libs.micronaut.picocli
+    testFixturesImplementation libs.micronaut.junit5
+
+    integrationTestAnnotationProcessor libs.picocli.annotation.processor
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
+    integrationTestAnnotationProcessor libs.micronaut.validation.annotation.processor
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation(testFixtures(project(":ignite-core")))
     integrationTestImplementation(testFixtures(project(":ignite-schema")))
+    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.micronaut.picocli
     integrationTestImplementation libs.mock.server.netty
     integrationTestImplementation libs.mock.server.junit
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.assertj.core
+    integrationTestImplementation libs.jline.console
+    integrationTestImplementation libs.awaitility
 }
 
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")

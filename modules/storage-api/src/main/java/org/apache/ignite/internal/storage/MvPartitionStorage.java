@@ -19,16 +19,16 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Multi-versioned partition storage. Maps RowId to a structures called "Version Chains". Each version chain is logically a stack of
  * elements with the following structure:
- * <pre><code>[timestamp | transaction state (txId + commitTableId + commitPartitionId), row data]</code></pre>
+ * <pre>{@code [timestamp | transaction state (txId + commitTableId + commitPartitionId), row data]}</pre>
  *
  * <p>Only the chain's head can contain a transaction state, every other element must have a timestamp. Presence of transaction state
  * indicates that the row is not yet committed.
@@ -38,7 +38,14 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
  */
-public interface MvPartitionStorage extends AutoCloseable {
+public interface MvPartitionStorage extends ManuallyCloseable {
+    /**
+     * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during rebalance of transaction state storage.
+     *
+     * <p>Allows to determine on a node restart that rebalance has not been completed and storage should be cleared before using it.
+     */
+    long REBALANCE_IN_PROGRESS = -1;
+
     /**
      * Closure for executing write operations on the storage.
      *
@@ -71,19 +78,43 @@ public interface MvPartitionStorage extends AutoCloseable {
     CompletableFuture<Void> flush();
 
     /**
-     * Index of the highest write command applied to the storage. {@code 0} if index is unknown.
+     * Index of the write command with the highest index applied to the storage. {@code 0} if the index is unknown.
      */
     long lastAppliedIndex();
 
     /**
-     * Sets the last applied index value.
+     * Term of the write command with the highest index applied to the storage. {@code 0} if the term is unknown.
      */
-    void lastAppliedIndex(long lastAppliedIndex) throws StorageException;
+    long lastAppliedTerm();
+
+    /**
+     * Sets the last applied index and term.
+     *
+     * @param lastAppliedIndex Last applied index value.
+     * @param lastAppliedTerm Last applied term value.
+     */
+    void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 
     /**
      * {@link #lastAppliedIndex()} value consistent with the data, already persisted on the storage.
      */
     long persistedIndex();
+
+    /**
+     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * {@code null} if it was never saved.
+     */
+    @Nullable
+    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
+    RaftGroupConfiguration committedGroupConfiguration();
+
+    /**
+     * Updates RAFT group configuration.
+     *
+     * @param config Configuration to save.
+     */
+    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
+    void committedGroupConfiguration(RaftGroupConfiguration config);
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
@@ -114,7 +145,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.
@@ -123,7 +154,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**
@@ -133,7 +164,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
+    @Nullable TableRow abortWrite(RowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
@@ -152,11 +183,11 @@ public interface MvPartitionStorage extends AutoCloseable {
      *   is already something uncommitted for the given row).
      *
      * @param rowId Row id.
-     * @param row Binary row to update. Key only row means value removal.
+     * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) throws StorageException;
 
     /**
      * Scans all versions of a single row.
@@ -189,23 +220,32 @@ public interface MvPartitionStorage extends AutoCloseable {
     @Nullable RowId closestRowId(RowId lowerBound) throws StorageException;
 
     /**
+     * Polls the oldest row in the partition, removing it at the same time.
+     *
+     * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
+     * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
+     *      {@code null} if there's no such value.
+     */
+    default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        throw new UnsupportedOperationException("pollForVacuum");
+    }
+
+    /**
      * Returns rows count belongs to current storage.
      *
      * @return Rows count.
      * @throws StorageException If failed to obtain size.
-     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multiversioned storages.
+     * @deprecated It's not yet defined what a "count" is. This value is not easily defined for multi-versioned storages.
      *      TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
      */
     @Deprecated
     long rowsCount() throws StorageException;
 
     /**
-     * Iterates over all versions of all entries, except for tombstones.
+     * Closes the storage.
      *
-     * @param consumer Closure to process entries.
-     * @deprecated This method was born out of desperation and isn't well-designed. Implementation is not polished either. Currently, it's
-     *      only usage is to work-around in-memory PK index rebuild on node restart, which shouldn't even exist in the first place.
+     * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.
      */
-    @Deprecated
-    void forEach(BiConsumer<RowId, BinaryRow> consumer);
+    @Override
+    void close();
 }

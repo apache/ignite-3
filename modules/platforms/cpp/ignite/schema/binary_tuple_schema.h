@@ -52,7 +52,7 @@ public:
      * @param begin
      * @param end
      */
-    template <typename T>
+    template<typename T>
     binary_tuple_schema(T begin, T end) {
         elements.reserve(std::distance(begin, end));
         for (; begin < end; begin++) {

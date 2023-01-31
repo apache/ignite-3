@@ -52,6 +52,7 @@ public class ClusterNotInitializedExceptionHandler extends IgniteCliApiException
                                 .header(header)
                                 .details("Probably, you have not initialized the cluster, try to run %s command",
                                         UiElements.command(command))
+                                .verbose(apiException.getMessage())
                                 .build()
                                 .render()
                 );

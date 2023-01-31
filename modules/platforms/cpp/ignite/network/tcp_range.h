@@ -50,7 +50,7 @@ struct tcp_range {
     tcp_range(std::string host, uint16_t port, uint16_t range = 0)
         : host(std::move(host))
         , port(port)
-        , range(range) { }
+        , range(range) {}
 
     /**
      * Compare to another instance.

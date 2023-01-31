@@ -49,6 +49,7 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

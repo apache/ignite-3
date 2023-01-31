@@ -55,6 +55,7 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
                 .map(this::configUpdateCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot update cluster config", "cluster init"))
+                .verbose(verbose)
                 .print()
                 .start();
     }

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory.configuration;
 
-import java.lang.annotation.Annotation;
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
  */
+@AutoService(ConfigurationModule.class)
 public class PageMemoryStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
@@ -58,7 +58,7 @@ public class PageMemoryStorageEngineDistributedConfigurationModule implements Co
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(PageMemoryDataRegionName.class, Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE));
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE);
     }
 }

@@ -26,11 +26,12 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.TABLE_VER_NOT_FOUND_ERR;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -48,6 +49,8 @@ import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -239,7 +242,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                             });
                                 }))
                         .thenCombine(igniteTableFuture, (v, igniteTable) -> {
-                            schema.addTable(table.name(), igniteTable);
+                            schema.addTable(igniteTable);
 
                             return res;
                         });
@@ -357,8 +360,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 ))
                 .collect(Collectors.toList());
 
+        IntList colocationColumns = new IntArrayList();
+
+        for (Column column : descriptor.colocationColumns()) {
+            colocationColumns.add(column.columnOrder());
+        }
+
+        // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
+        IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
+
         return new IgniteTableImpl(
-                new TableDescriptorImpl(colDescriptors),
+                new TableDescriptorImpl(colDescriptors, distribution),
                 table.internalTable(),
                 schemaRegistry
         );
@@ -422,10 +434,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                         return CompletableFuture.completedFuture(resIdxs);
                                     })
                             ).thenCompose(ignore -> {
-                                String tblName = tableNameById(schema, index.tableId());
-
                                 table.addIndex(schemaIndex);
-                                schema.addTable(tblName, table);
+                                schema.addTable(table);
                                 schema.addIndex(index.id(), schemaIndex);
 
                                 return completedFuture(resTbls);
@@ -438,16 +448,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private static String tableNameById(IgniteSchema schema, UUID tableId) {
-        return schema.getTableMap()
-                .entrySet()
-                .stream()
-                .filter(entry -> tableId
-                        .equals(((InternalIgniteTable) entry.getValue()).id()))
-                .map(Entry::getKey)
-                .findFirst().get();
     }
 
     /**
@@ -484,10 +484,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                 Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
 
-                                InternalIgniteTable table = resTbls.compute(rmvIndex.index().tableId(),
+                                InternalIgniteTable table = resTbls.computeIfPresent(rmvIndex.index().tableId(),
                                         (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 
-                                table.removeIndex(rmvIndex.name());
+                                if (table != null) {
+                                    table.removeIndex(rmvIndex.name());
+                                } else {
+                                    return completedFuture(resTbls);
+                                }
 
                                 return indicesVv.update(causalityToken, (indices, idxEx) -> inBusyLock(busyLock, () -> {
                                             if (idxEx != null) {
@@ -500,8 +504,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                             assert table.id().equals(rmvIdx.index().tableId());
 
-                                            String tblName = tableNameById(schema, rmvIdx.index().tableId());
-                                            schema.addTable(tblName, table);
+                                            schema.addTable(table);
 
                                             return completedFuture(resIdxs);
                                         }

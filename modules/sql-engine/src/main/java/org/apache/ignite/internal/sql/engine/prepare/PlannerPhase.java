@@ -63,6 +63,7 @@ import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.UnionConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
@@ -188,8 +189,7 @@ public enum PlannerPhase {
                             b.operand(LogicalSort.class).anyInputs())
                     .toRule(),
 
-            // TODO: uncomment after IGNITE-17748
-            // ExposeIndexRule.INSTANCE,
+            ExposeIndexRule.INSTANCE,
             ProjectScanMergeRule.TABLE_SCAN,
             ProjectScanMergeRule.INDEX_SCAN,
             FilterSpoolMergeToSortedIndexSpoolRule.INSTANCE,
@@ -208,13 +208,13 @@ public enum PlannerPhase {
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,
             LogicalScanConverterRule.TABLE_SCAN,
-            HashAggregateConverterRule.SINGLE,
+            HashAggregateConverterRule.COLOCATED,
             HashAggregateConverterRule.MAP_REDUCE,
-            SortAggregateConverterRule.SINGLE,
+            SortAggregateConverterRule.COLOCATED,
             SortAggregateConverterRule.MAP_REDUCE,
-            SetOpConverterRule.SINGLE_MINUS,
+            SetOpConverterRule.COLOCATED_MINUS,
             SetOpConverterRule.MAP_REDUCE_MINUS,
-            SetOpConverterRule.SINGLE_INTERSECT,
+            SetOpConverterRule.COLOCATED_INTERSECT,
             SetOpConverterRule.MAP_REDUCE_INTERSECT,
             ProjectConverterRule.INSTANCE,
             FilterConverterRule.INSTANCE,

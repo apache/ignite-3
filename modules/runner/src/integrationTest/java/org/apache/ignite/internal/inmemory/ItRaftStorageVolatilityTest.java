@@ -62,7 +62,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
     private static final String TABLE_NAME = "test";
 
     @Override
-    protected int nodes() {
+    protected int initialNodes() {
         return 1;
     }
 
@@ -86,7 +86,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
      * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
      */
     private List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
-        try (Stream<Path> paths = Files.list(WORK_DIR.resolve(ignite.name()))) {
+        try (Stream<Path> paths = Files.list(workDir.resolve(ignite.name()))) {
             return paths
                     .filter(path -> isPartitionDir(path, ignite))
                     .map(path -> path.resolve("meta"))
@@ -119,7 +119,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
 
         node(0).close();
 
-        Path logRocksDbDir = WORK_DIR.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -173,7 +173,7 @@ class ItRaftStorageVolatilityTest extends AbstractClusterIntegrationTest {
 
         node(0).close();
 
-        Path logRocksDbDir = WORK_DIR.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.

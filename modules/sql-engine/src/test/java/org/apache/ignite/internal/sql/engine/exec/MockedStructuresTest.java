@@ -25,6 +25,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -48,11 +50,14 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -74,7 +79,6 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -85,8 +89,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -120,7 +122,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Raft manager. */
     @Mock
-    private Loza rm;
+    private RaftManager rm;
 
     /** TX manager. */
     @Mock(lenient = true)
@@ -168,6 +170,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationRegistry configRegistry;
 
+    @Mock
+    private DistributionZoneManager distributionZoneManager;
+
     DataStorageManager dataStorageManager;
 
     SchemaManager schemaManager;
@@ -201,9 +206,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() throws Exception {
-        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
-        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
-
         mockMetastore();
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
@@ -248,6 +250,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 dataStorageManager,
                 tm,
+                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(
                         List.of(
                                 RocksDbDataStorageConfigurationSchema.class,
@@ -279,13 +282,13 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() throws Exception {
+    public void testCreateTable() {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1", curMethodName);
+                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
 
         readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
 
@@ -297,16 +300,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
-                + "with partitions=1,replicas=1", curMethodName);
+                + "with partitions=1,replicas=1,primary_zone='zone123'", curMethodName);
 
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
         // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1,primary_zone='zone123'")));
 
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
-                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1")));
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas__wrong=1,primary_zone='zone123'")));
+
+        assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
+                "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1,replicas=1,primary_zone__wrong='zone123'")));
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))",
                 " IF NOT EXISTS " + curMethodName);
@@ -314,6 +320,49 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String finalNewTblSql3 = newTblSql;
 
         assertDoesNotThrow(() -> await(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql3).get(0)));
+    }
+
+    /**
+     * Tests create a table with distribution zone through public API.
+     */
+    @Test
+    public void testCreateTableWithDistributionZone() {
+        String tableName = getCurrentMethodName().toUpperCase();
+
+        String zoneName = "zone123";
+
+        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                + "with partitions=1,replicas=1", tableName);
+
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+
+        assertEquals(DistributionZoneManager.DEFAULT_ZONE_ID, tblsCfg.tables().get(tableName).zoneId().value());
+
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + tableName));
+
+
+        when(distributionZoneManager.getZoneId(zoneName)).thenReturn(5);
+
+        newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName);
+
+        readFirst(queryProc.queryAsync("PUBLIC", newTblSql));
+
+        assertEquals(5, tblsCfg.tables().get(tableName).zoneId().value());
+
+        readFirst(queryProc.queryAsync("PUBLIC", "DROP TABLE " + tableName));
+
+
+        when(distributionZoneManager.getZoneId(zoneName)).thenThrow(DistributionZoneNotFoundException.class);
+
+        Exception exception = assertThrows(
+                IgniteException.class,
+                () -> readFirst(queryProc.queryAsync("PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                                + "with partitions=1,replicas=1,primary_zone='%s'", tableName, zoneName)))
+        );
+
+        assertInstanceOf(DistributionZoneNotFoundException.class, exception.getCause().getCause());
     }
 
     /**
@@ -374,7 +423,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertDoesNotThrow(() -> readFirst(queryProc.queryAsync(
                 "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1", method + 4)
+                String.format(
+                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1, primary_zone='zone123'",
+                        method + 4
+                )
         )));
 
         IgniteException exception = assertThrows(
@@ -441,10 +493,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * @return Table manager.
      */
     private TableManager mockManagers() throws NodeStoppingException {
-        when(rm.prepareRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.startRaftGroupNode(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
+            when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
 
             return completedFuture(raftGrpSrvcMock);
         });
@@ -452,7 +504,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
+            when(raftGrpSrvcMock.leader()).thenReturn(new Peer("test"));
 
             return completedFuture(raftGrpSrvcMock);
         });
@@ -490,8 +542,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
-        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
-
         return createTableManager();
     }
 
@@ -500,6 +550,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 "",
                 revisionUpdater,
                 tblsCfg,
+                cs,
                 rm,
                 null,
                 null,
@@ -511,7 +562,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 workDir,
                 msm,
                 schemaManager,
-                view -> new LocalLogStorageFactory(),
+                null,
                 clock,
                 mock(OutgoingSnapshotsManager.class)
         );

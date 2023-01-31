@@ -21,10 +21,10 @@ publishing {
   repositories {
     maven {
       credentials {
-        username = project.properties["artifactory_user"]
-        password = project.properties["artifactory_pass"]
+        username = project.properties["staging_user"]
+        password = project.properties["staging_password"]
       }
-      url repos[project.version.endsWith("-SNAPSHOT") ? 'apache-snapshot' : 'apache-release']
+      url repos['apache-staging']
     }
   }
 }

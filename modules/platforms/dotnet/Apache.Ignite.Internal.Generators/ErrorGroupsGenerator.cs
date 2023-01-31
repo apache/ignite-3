@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Generators
             // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
             var javaErrorGroups = Regex.Matches(
                     javaErrorGroupsText,
-                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""([A-Z]+)"", (\d+)",
+                    @"public static class ([A-Za-z]+) {\s+/\*\*.*?\*/\s+public static final ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""([\w_]+)"", (\d+)",
                     RegexOptions.Singleline | RegexOptions.CultureInvariant)
                 .Cast<Match>()
                 .Select(x => (ClassName: x.Groups[1].Value, GroupName: x.Groups[2].Value, ShortGroupName: x.Groups[3].Value, Code: int.Parse(x.Groups[4].Value, CultureInfo.InvariantCulture)))
@@ -130,7 +130,7 @@ namespace Apache.Ignite.Internal.Generators
 
                     sb.AppendLine();
                     sb.AppendLine($"            /// <summary> {dotNetErrorName} error. </summary>");
-                    sb.AppendLine($"            public static readonly int {dotNetErrorName} = GetFullCode(GroupCode, {errorCode});");
+                    sb.AppendLine($"            public const int {dotNetErrorName} = (GroupCode << 16) | ({errorCode} & 0xFFFF);");
                 }
 
                 sb.AppendLine("        }");

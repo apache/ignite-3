@@ -20,13 +20,22 @@ package org.apache.ignite.internal.table.distributed;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.IndexRow;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Locker for a sorted indexes.
@@ -34,14 +43,19 @@ import org.apache.ignite.internal.tx.LockMode;
  * <p>Simply acquires lock on a given row for lookup and remove, acquires lock on a next key for insert.
  */
 public class SortedIndexLocker implements IndexLocker {
-    // private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
-    //         BinaryTupleSchema.create(new Element[0]),
-    //         new BinaryTupleBuilder(0, false).build()
-    // );
+    /** Index INF+ value object. */
+    private static final BinaryTuple POSITIVE_INF = new BinaryTuple(
+            BinaryTupleSchema.create(new Element[0]),
+            new BinaryTupleBuilder(0, false).build()
+    );
 
     private final UUID indexId;
     private final LockManager lockManager;
-    // private final SortedIndexStorage storage;
+
+
+    /** Index storage. */
+    private final SortedIndexStorage storage;
+
     private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
     /**
@@ -56,7 +70,7 @@ public class SortedIndexLocker implements IndexLocker {
             Function<BinaryRow, BinaryTuple> indexRowResolver) {
         this.indexId = indexId;
         this.lockManager = lockManager;
-        // this.storage = storage;
+        this.storage = storage;
         this.indexRowResolver = indexRowResolver;
     }
 
@@ -68,46 +82,102 @@ public class SortedIndexLocker implements IndexLocker {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForLookup(UUID txId, BinaryRow tableRow) {
+    public CompletableFuture<Void> locksForLookup(UUID txId, BinaryRow tableRow) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.S).thenApply(lock -> null);
+    }
+
+    /**
+     * Acquires the lock for scan operation.
+     *
+     * @param txId An identifier of the transaction in which the row is read.
+     * @param cursor Cursor, which next key is to be locked.
+     * @return A future representing a next index row or {@code null} if the cursor has no rows more.
+     */
+    public CompletableFuture<IndexRow> locksForScan(UUID txId, Cursor<IndexRow> cursor) {
+        assert cursor instanceof PeekCursor : "Cursor has incorrect type [type=" + cursor.getClass().getSimpleName() + ']';
+
+        PeekCursor<IndexRow> peekCursor = (PeekCursor<IndexRow>) cursor;
+
+        return acquireLockNextKey(txId, peekCursor).thenApply(indexRow -> {
+            if (indexRow == null) {
+                return null;
+            }
+
+            return peekCursor.next();
+        });
+    }
+
+    /**
+     * Acquires a lock on the next key without moving a cursor pointer ahead.
+     *
+     * @param txId An identifier of the transaction in which the row is read.
+     * @param peekCursor Cursor, which next key is to be locked.
+     * @return A future representing a locked index row or {@code null} if the cursor has no rows more.
+     */
+    private CompletableFuture<IndexRow> acquireLockNextKey(UUID txId, PeekCursor<IndexRow> peekCursor) {
+        if (!peekCursor.hasNext()) { // No upper bound or not found. Lock INF+ and exit loop.
+            return lockManager.acquire(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S)
+                    .thenCompose(ignore -> {
+                        if (peekCursor.hasNext()) {
+                            lockManager.release(txId, new LockKey(indexId, POSITIVE_INF.byteBuffer()), LockMode.S);
+
+                            return acquireLockNextKey(txId, peekCursor);
+                        }
+
+                        return CompletableFuture.completedFuture(null);
+                    });
+        } else {
+            IndexRow nextRow = peekCursor.peek();
+
+            return lockManager.acquire(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S)
+                    .thenCompose(ignore -> {
+                        if (!peekCursor.hasNext() || !nextRow.rowId().equals(peekCursor.peek().rowId())) {
+                            lockManager.release(txId, new LockKey(indexId, nextRow.indexColumns().byteBuffer()), LockMode.S);
+
+                            return acquireLockNextKey(txId, peekCursor);
+                        }
+
+                        return CompletableFuture.completedFuture(nextRow);
+                    });
+        }
+    }
+
+    private BinaryTuple indexKey(@Nullable IndexRow indexRow) {
+        return (indexRow == null) ? POSITIVE_INF : indexRow.indexColumns();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
+    public CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
-        // BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
+
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
         // find next key
-        // Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
+        Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER);
 
-        // BinaryTuple nexKey;
-        // if (cursor.hasNext()) {
-        //     nexKey = cursor.next().indexColumns();
-        // } else { // otherwise INF
-        //     nexKey = POSITIVE_INF;
-        // }
+        BinaryTuple nextKey;
+        if (cursor.hasNext()) {
+            nextKey = cursor.next().indexColumns();
+        } else { // otherwise INF
+            nextKey = POSITIVE_INF;
+        }
 
-        // var nextLockKey = new LockKey(indexId, nexKey.byteBuffer());
+        var nextLockKey = new LockKey(indexId, nextKey.byteBuffer());
 
-        // return lockManager.acquire(txId, nextLockKey, LockMode.IX)
-        //         .thenCompose(shortLock ->
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X);
-        //                         .thenRun(() -> {
-        //                             storage.put(new IndexRowImpl(key, rowId));
-
-        //                             lockManager.release(shortLock);
-        //                         })
-        //         );
+        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
+                lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
+                        new Lock(nextLockKey, LockMode.IX, txId)
+                ));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
+    public CompletableFuture<Void> locksForRemove(UUID txId, BinaryRow tableRow, RowId rowId) {
         BinaryTuple key = indexRowResolver.apply(tableRow);
 
-        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX);
+        return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.IX).thenApply(lock -> null);
     }
 }

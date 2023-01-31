@@ -22,7 +22,6 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
 
@@ -51,8 +50,6 @@ public class ClusterConfigShowCall implements Call<ClusterConfigShowCallInput, J
     }
 
     private ClusterConfigurationApi createApiClient(ClusterConfigShowCallInput input) {
-        ApiClient client = Configuration.getDefaultApiClient();
-        client.setBasePath(input.getClusterUrl());
-        return new ClusterConfigurationApi(client);
+        return new ClusterConfigurationApi(Configuration.getDefaultApiClient().setBasePath(input.getClusterUrl()));
     }
 }

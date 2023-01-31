@@ -51,6 +51,7 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

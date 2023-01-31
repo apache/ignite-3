@@ -18,31 +18,14 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
-import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
  * Partition transactional command.
  */
-public abstract class PartitionCommand implements WriteCommand {
-    /** Transaction id. */
-    private UUID txId;
-
+public interface PartitionCommand extends SafeTimePropagatingCommand {
     /**
-     * The constructor.
-     *
-     * @param txId Transaction id.
+     * Returns a transaction id.
      */
-    public PartitionCommand(@NotNull UUID txId) {
-        this.txId = txId;
-    }
-
-    /**
-     * Gets a transaction id.
-     *
-     * @return Transaction id.
-     */
-    public UUID txId() {
-        return txId;
-    }
+    UUID txId();
 }

@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
@@ -35,18 +31,21 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
-import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +55,12 @@ import org.junit.jupiter.api.Test;
 public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     /** Key-value marshaller for tests. */
     protected static KvMarshaller<TestKey, TestValue> kvMarshaller;
+
+    /** Message factory to create messages - RAFT commands. */
+    private TableMessagesFactory msgFactory = new TableMessagesFactory();
+
+    /** Factory for replica messages. */
+    private ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     @BeforeAll
     static void beforeAll() {
@@ -74,72 +79,100 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
 
     @Test
     public void testUpdateCommand() throws Exception {
-        UpdateCommand cmd = new UpdateCommand(
-                new TablePartitionId(UUID.randomUUID(), 1),
-                new RowId(1),
-                binaryRow(1),
-                UUID.randomUUID()
-        );
+        UpdateCommand cmd = msgFactory.updateCommand()
+                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                        .tableId(UUID.randomUUID())
+                        .partitionId(1)
+                        .build()
+                )
+                .rowUuid(Timestamp.nextVersion().toUuid())
+                .rowBuffer(byteBufferFromBinaryRow(1))
+                .txId(UUID.randomUUID())
+                .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
-        assertEquals(cmd.getRowId(), readCmd.getRowId());
-        assertArrayEquals(cmd.getRow().bytes(), readCmd.getRow().bytes());
+        assertEquals(cmd.rowUuid(), readCmd.rowUuid());
+        assertEquals(cmd.rowBuffer(), readCmd.rowBuffer());
     }
 
     @Test
     public void testRemoveCommand() throws Exception {
-        UpdateCommand cmd = new UpdateCommand(new TablePartitionId(UUID.randomUUID(), 1), new RowId(1), UUID.randomUUID());
+        UpdateCommand cmd = msgFactory.updateCommand()
+                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                        .tableId(UUID.randomUUID())
+                        .partitionId(1)
+                        .build()
+                )
+                .rowUuid(Timestamp.nextVersion().toUuid())
+                .txId(UUID.randomUUID())
+                .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
-        assertEquals(cmd.getRowId(), readCmd.getRowId());
-        assertNull(readCmd.getRow());
+        assertEquals(cmd.rowUuid(), readCmd.rowUuid());
+        assertNull(readCmd.rowBuffer());
     }
 
     @Test
     public void testUpdateAllCommand() throws Exception {
-        HashMap<RowId, BinaryRow> rowsToUpdate = new HashMap();
+        Map<UUID, ByteBuffer> rowsToUpdate = new HashMap<>();
 
         for (int i = 0; i < 10; i++) {
-            rowsToUpdate.put(new RowId(i), binaryRow(i));
+            rowsToUpdate.put(Timestamp.nextVersion().toUuid(), byteBufferFromBinaryRow(i));
         }
 
-        var cmd = new UpdateAllCommand(new TablePartitionId(UUID.randomUUID(), 1), rowsToUpdate, UUID.randomUUID());
+        var cmd = msgFactory.updateAllCommand()
+                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                        .tableId(UUID.randomUUID())
+                        .partitionId(1)
+                        .build()
+                )
+                .rowsToUpdate(rowsToUpdate)
+                .txId(UUID.randomUUID())
+                .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
 
-        for (Map.Entry<RowId, BinaryRow> entry : cmd.getRowsToUpdate().entrySet()) {
-            assertTrue(readCmd.getRowsToUpdate().containsKey(entry.getKey()));
+        for (Map.Entry<UUID, ByteBuffer> entry : cmd.rowsToUpdate().entrySet()) {
+            assertTrue(readCmd.rowsToUpdate().containsKey(entry.getKey()));
 
-            var readVal = readCmd.getRowsToUpdate().get(entry.getKey());
+            var readVal = readCmd.rowsToUpdate().get(entry.getKey());
             var val = entry.getValue();
 
-            assertArrayEquals(val.bytes(), readVal.bytes());
+            assertEquals(val, readVal);
         }
     }
 
     @Test
     public void testRemoveAllCommand() throws Exception {
-        ArrayList<RowId> rowsToRemove = new ArrayList<>();
+        Map<UUID, ByteBuffer> rowsToRemove = new HashMap<>();
 
         for (int i = 0; i < 10; i++) {
-            rowsToRemove.add(new RowId(i));
+            rowsToRemove.put(Timestamp.nextVersion().toUuid(), null);
         }
 
-        var cmd = new UpdateAllCommand(new TablePartitionId(UUID.randomUUID(), 1), rowsToRemove, UUID.randomUUID());
+        var cmd = msgFactory.updateAllCommand()
+                .tablePartitionId(msgFactory.tablePartitionIdMessage()
+                        .tableId(UUID.randomUUID())
+                        .partitionId(1)
+                        .build()
+                )
+                .rowsToUpdate(rowsToRemove)
+                .txId(UUID.randomUUID())
+                .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
 
-        for (RowId rowId : cmd.getRowsToUpdate().keySet()) {
-            assertTrue(readCmd.getRowsToUpdate().containsKey(rowId));
-            assertNull(readCmd.getRowsToUpdate().get(rowId));
+        for (UUID uuid : cmd.rowsToUpdate().keySet()) {
+            assertTrue(readCmd.rowsToUpdate().containsKey(uuid));
+            assertNull(readCmd.rowsToUpdate().get(uuid));
         }
     }
 
@@ -147,7 +180,11 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     public void testTxCleanupCommand() throws Exception {
         HybridClock clock = new HybridClockImpl();
 
-        TxCleanupCommand cmd = new TxCleanupCommand(UUID.randomUUID(), true, clock.now());
+        TxCleanupCommand cmd = msgFactory.txCleanupCommand()
+                .txId(UUID.randomUUID())
+                .commit(true)
+                .commitTimestamp(hybridTimestampMessage(clock.now()))
+                .build();
 
         TxCleanupCommand readCmd = copyCommand(cmd);
 
@@ -159,48 +196,83 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     @Test
     public void testFinishTxCommand() throws Exception {
         HybridClock clock = new HybridClockImpl();
-        ArrayList<ReplicationGroupId> grps = new ArrayList<>(10);
+        ArrayList<TablePartitionIdMessage> grps = new ArrayList<>(10);
 
         for (int i = 0; i < 10; i++) {
-            grps.add(new TablePartitionId(UUID.randomUUID(), i));
+            grps.add(msgFactory.tablePartitionIdMessage()
+                    .tableId(UUID.randomUUID())
+                    .partitionId(i)
+                    .build());
         }
 
-        FinishTxCommand cmd = new FinishTxCommand(UUID.randomUUID(), true, clock.now(), grps);
+        FinishTxCommand cmd = msgFactory.finishTxCommand()
+                .txId(UUID.randomUUID())
+                .commit(true)
+                .commitTimestamp(hybridTimestampMessage(clock.now()))
+                .tablePartitionIds(grps)
+                .build();
 
         FinishTxCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
         assertEquals(cmd.commit(), readCmd.commit());
         assertEquals(cmd.commitTimestamp(), readCmd.commitTimestamp());
-        assertEquals(cmd.replicationGroupIds(), readCmd.replicationGroupIds());
+        assertEquals(cmd.tablePartitionIds(), readCmd.tablePartitionIds());
     }
 
-    private <T> T copyCommand(T cmd) throws Exception {
-        return cmdFromBytes(cmdToBytes(cmd));
+    private HybridTimestampMessage hybridTimestampMessage(HybridTimestamp tmstmp) {
+        return replicaMessagesFactory.hybridTimestampMessage()
+                .logical(tmstmp.getLogical())
+                .physical(tmstmp.getPhysical())
+                .build();
     }
 
-    private <T> T cmdFromBytes(byte[] bytes) throws IOException, ClassNotFoundException {
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes)) {
-            try (ObjectInputStream ois = new ObjectInputStream(bais)) {
-                return (T) ois.readObject();
-            }
+    private <T extends Command> T copyCommand(T cmd) {
+        assertEquals(TableMessageGroup.GROUP_TYPE, cmd.groupType());
+
+        if (cmd instanceof FinishTxCommand) {
+            FinishTxCommand finishTxCommand = (FinishTxCommand) cmd;
+
+            return (T) msgFactory.finishTxCommand()
+                    .txId(finishTxCommand.txId())
+                    .commit(finishTxCommand.commit())
+                    .tablePartitionIds(finishTxCommand.tablePartitionIds())
+                    .commitTimestamp(finishTxCommand.commitTimestamp())
+                    .build();
+        } else if (cmd instanceof TxCleanupCommand) {
+            TxCleanupCommand txCleanupCommand = (TxCleanupCommand) cmd;
+
+            return (T) msgFactory.txCleanupCommand()
+                    .txId(txCleanupCommand.txId())
+                    .commit(txCleanupCommand.commit())
+                    .commitTimestamp(txCleanupCommand.commitTimestamp())
+                    .build();
+        } else if (cmd instanceof UpdateCommand) {
+            UpdateCommand updateCommand = (UpdateCommand) cmd;
+
+            return (T) msgFactory.updateCommand()
+                    .txId(updateCommand.txId())
+                    .rowUuid(updateCommand.rowUuid())
+                    .tablePartitionId(updateCommand.tablePartitionId())
+                    .rowBuffer(updateCommand.rowBuffer())
+                    .build();
+        } else if (cmd instanceof UpdateAllCommand) {
+            UpdateAllCommand updateCommand = (UpdateAllCommand) cmd;
+
+            return (T) msgFactory.updateAllCommand()
+                    .txId(updateCommand.txId())
+                    .rowsToUpdate(updateCommand.rowsToUpdate())
+                    .tablePartitionId(updateCommand.tablePartitionId())
+                    .build();
+        } else {
+            fail(cmd.toString());
+
+            return null;
         }
     }
 
-    private <T> byte[] cmdToBytes(T cmd) throws IOException {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-                oos.writeObject(cmd);
-            }
-
-            baos.flush();
-
-            return baos.toByteArray();
-        }
-    }
-
-    private static BinaryRow binaryRow(int id) throws Exception {
-        return kvMarshaller.marshal(new TestKey(id, String.valueOf(id)), new TestValue(id, String.valueOf(id)));
+    private static ByteBuffer byteBufferFromBinaryRow(int id) throws Exception {
+        return kvMarshaller.marshal(new TestKey(id, String.valueOf(id)), new TestValue(id, String.valueOf(id))).byteBuffer();
     }
 
     /**

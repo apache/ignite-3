@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
@@ -27,9 +26,9 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
  * Execution node for INTERSECT operator.
  */
 public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
-    public IntersectNode(ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, boolean all,
+    public IntersectNode(ExecutionContext<RowT> ctx, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory, int inputsCnt) {
-        super(ctx, rowType, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, type, all, inputsCnt));
+        super(ctx, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, type, all, inputsCnt));
     }
 
     private static class IntersectGrouping<RowT> extends Grouping<RowT> {

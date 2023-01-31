@@ -25,9 +25,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
-    using MessagePack;
     using Proto;
     using Proto.BinaryTuple;
+    using Proto.MsgPack;
 
     /// <summary>
     /// Object serializer handler.
@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private delegate TV ReadValuePartDelegate<TV>(ref BinaryTupleReader reader, TV key);
 
         /// <inheritdoc/>
-        public T Read(ref MessagePackReader reader, Schema schema, bool keyOnly = false)
+        public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
         {
             var cacheKey = (schema.Version, keyOnly);
 
@@ -61,19 +61,19 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var columnCount = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
 
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), columnCount);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columnCount);
 
             return readDelegate(ref binaryTupleReader);
         }
 
         /// <inheritdoc/>
-        public T ReadValuePart(ref MessagePackReader reader, Schema schema, T key)
+        public T ReadValuePart(ref MsgPackReader reader, Schema schema, T key)
         {
             var readDelegate = _valuePartReaders.TryGetValue(schema.Version, out var w)
                 ? w
                 : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
 
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBytesAsMemory(), schema.ValueColumnCount);
+            var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
 
             return readDelegate(ref binaryTupleReader, key);
         }
@@ -121,7 +121,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 if (col.Type == ClientDataType.Decimal)
                 {
-                    EmitLdcI4(il, col.Scale);
+                    il.Emit(OpCodes.Ldc_I4, col.Scale);
+                }
+                else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                {
+                    il.Emit(OpCodes.Ldc_I4, col.Precision);
                 }
 
                 il.Emit(OpCodes.Call, directWriteMethod);
@@ -143,7 +147,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 if (fieldInfo == null)
                 {
@@ -160,7 +164,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (col.Type == ClientDataType.Decimal)
                     {
-                        EmitLdcI4(il, col.Scale);
+                        il.Emit(OpCodes.Ldc_I4, col.Scale);
+                    }
+                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    {
+                        il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
@@ -211,7 +219,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
                 }
 
                 if (fieldInfo == null)
@@ -236,7 +244,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (col.Type == ClientDataType.Decimal)
                     {
-                        EmitLdcI4(il, col.Scale);
+                        il.Emit(OpCodes.Ldc_I4, col.Scale);
+                    }
+                    else if (col.Type is ClientDataType.Time or ClientDataType.DateTime or ClientDataType.Timestamp)
+                    {
+                        il.Emit(OpCodes.Ldc_I4, col.Precision);
                     }
 
                     var writeMethod = BinaryTupleMethods.GetWriteMethod(fieldInfo.FieldType);
@@ -279,7 +291,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 if (schema.Columns[0] is { Type: ClientDataType.Decimal } col)
                 {
-                    EmitLdcI4(il, col.Scale);
+                    il.Emit(OpCodes.Ldc_I4, col.Scale);
                 }
 
                 il.Emit(OpCodes.Call, readMethod);
@@ -288,7 +300,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
             }
 
-            var local = DeclareAndInitLocal(il, type);
+            var local = il.DeclareAndInitLocal(type);
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -296,7 +308,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
             }
@@ -317,9 +329,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyMethod = BinaryTupleMethods.GetReadMethodOrNull(keyType);
             var valMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
-            var kvLocal = DeclareAndInitLocal(il, type);
-            var keyLocal = keyMethod == null ? DeclareAndInitLocal(il, keyType) : null;
-            var valLocal = valMethod == null ? DeclareAndInitLocal(il, valType) : null;
+            var kvLocal = il.DeclareAndInitLocal(type);
+            var keyLocal = keyMethod == null ? il.DeclareAndInitLocal(keyType) : null;
+            var valLocal = valMethod == null ? il.DeclareAndInitLocal(valType) : null;
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
@@ -345,7 +357,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     local = col.IsKey ? keyLocal : valLocal;
                     fieldInfo = local == null
                         ? null
-                        : (col.IsKey ? keyType : valType).GetFieldIgnoreCase(col.Name);
+                        : (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
                 }
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
@@ -396,14 +408,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             var il = method.GetILGenerator();
-            var local = DeclareAndInitLocal(il, type); // T res
+            var local = il.DeclareAndInitLocal(type); // T res
 
             var columns = schema.Columns;
 
             for (var i = 0; i < columns.Count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldIgnoreCase(col.Name);
+                var fieldInfo = type.GetFieldByColumnName(col.Name);
 
                 if (col.IsKey)
                 {
@@ -433,7 +445,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var (_, valType, _, valField) = GetKeyValTypes();
 
             var il = method.GetILGenerator();
-            var kvLocal = DeclareAndInitLocal(il, type);
+            var kvLocal = il.DeclareAndInitLocal(type);
 
             var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
 
@@ -450,13 +462,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
             else
             {
-                var valLocal = DeclareAndInitLocal(il, valType);
+                var valLocal = il.DeclareAndInitLocal(valType);
                 var columns = schema.Columns;
 
                 for (var i = schema.KeyColumnCount; i < columns.Count; i++)
                 {
                     var col = columns[i];
-                    var fieldInfo = valType.GetFieldIgnoreCase(col.Name);
+                    var fieldInfo = valType.GetFieldByColumnName(col.Name);
 
                     EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
                 }
@@ -486,71 +498,27 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             il.Emit(local.LocalType.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
             il.Emit(OpCodes.Ldarg_0); // reader
-            EmitLdcI4(il, elemIdx); // index
+            il.Emit(OpCodes.Ldc_I4, elemIdx); // index
 
             if (col.Type == ClientDataType.Decimal)
             {
-                EmitLdcI4(il, col.Scale);
+                il.Emit(OpCodes.Ldc_I4, col.Scale);
             }
 
             il.Emit(OpCodes.Call, readMethod);
             il.Emit(OpCodes.Stfld, fieldInfo); // res.field = value
         }
 
-        private static void EmitLdcI4(ILGenerator il, int val)
-        {
-            switch (val)
-            {
-                case 0:
-                    il.Emit(OpCodes.Ldc_I4_0);
-                    break;
-
-                case 1:
-                    il.Emit(OpCodes.Ldc_I4_1);
-                    break;
-
-                case 2:
-                    il.Emit(OpCodes.Ldc_I4_2);
-                    break;
-
-                case 3:
-                    il.Emit(OpCodes.Ldc_I4_3);
-                    break;
-
-                case 4:
-                    il.Emit(OpCodes.Ldc_I4_4);
-                    break;
-
-                case 5:
-                    il.Emit(OpCodes.Ldc_I4_5);
-                    break;
-
-                case 6:
-                    il.Emit(OpCodes.Ldc_I4_6);
-                    break;
-
-                case 7:
-                    il.Emit(OpCodes.Ldc_I4_7);
-                    break;
-
-                case 8:
-                    il.Emit(OpCodes.Ldc_I4_8);
-                    break;
-
-                default:
-                    il.Emit(OpCodes.Ldc_I4, val);
-                    break;
-            }
-        }
-
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
             var columnType = column.Type.ToType();
-            var fieldType = fieldInfo.FieldType;
+
+            var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
+            fieldType = fieldType.UnwrapEnum();
 
             if (fieldType != columnType)
             {
-                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldType}' " +
+                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
@@ -583,26 +551,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
         }
 
-        private static LocalBuilder DeclareAndInitLocal(ILGenerator il, Type type)
-        {
-            var local = il.DeclareLocal(type);
-
-            if (type.IsValueType)
-            {
-                il.Emit(OpCodes.Ldloca_S, local);
-                il.Emit(OpCodes.Initobj, type);
-            }
-            else
-            {
-                il.Emit(OpCodes.Ldtoken, type);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetTypeFromHandleMethod);
-                il.Emit(OpCodes.Call, ReflectionUtils.GetUninitializedObjectMethod);
-                il.Emit(OpCodes.Stloc, local);
-            }
-
-            return local;
-        }
-
         private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
         {
             var type = typeof(T);
@@ -612,7 +560,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var keyValTypes = type.GetGenericArguments();
 
-            return (keyValTypes[0], keyValTypes[1], type.GetFieldIgnoreCase("Key")!, type.GetFieldIgnoreCase("Val")!);
+            return (keyValTypes[0], keyValTypes[1], type.GetFieldByColumnName("Key")!, type.GetFieldByColumnName("Val")!);
         }
     }
 }

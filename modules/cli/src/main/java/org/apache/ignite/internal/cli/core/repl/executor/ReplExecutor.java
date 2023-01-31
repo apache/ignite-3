@@ -22,7 +22,9 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
+import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.ReplExceptionHandlers;
@@ -30,10 +32,14 @@ import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterRead
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
-import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.expander.NoopExpander;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
@@ -42,7 +48,6 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
 import org.jline.reader.impl.DefaultParser;
-import org.jline.reader.impl.completer.AggregateCompleter;
 import org.jline.terminal.Terminal;
 import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
@@ -66,15 +71,35 @@ public class ReplExecutor {
 
     private final Terminal terminal;
 
+    private final NodeNameRegistry nodeNameRegistry;
+
     /**
      * Constructor.
      *
      * @param commandsFactory picocli commands factory.
-     * @param terminal        terminal instance.
+     * @param terminal terminal instance.
+     * @param nodeNameRegistry node name registry.
      */
-    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal) {
+    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal, NodeNameRegistry nodeNameRegistry) {
         this.factory = commandsFactory;
         this.terminal = terminal;
+        this.nodeNameRegistry = nodeNameRegistry;
+    }
+
+    private static TailTipWidgets createWidgets(SystemRegistryImpl registry, LineReader reader) {
+        TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
+                TailTipWidgets.TipType.COMPLETER);
+        widgets.enable();
+        // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+        // Turn off tailtip widgets before printing to the output
+        CommandLineContextProvider.setPrintWrapper(printer -> {
+            widgets.disable();
+            printer.run();
+            widgets.enable();
+        });
+        // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
+        registry.setScriptDescription(cmdLine -> null);
+        return widgets;
     }
 
     /**
@@ -89,16 +114,17 @@ public class ReplExecutor {
             IgnitePicocliCommands picocliCommands = createPicocliCommands(repl);
             SystemRegistryImpl registry = new SystemRegistryImpl(parser, terminal, workDirProvider, null);
             registry.setCommandRegistries(picocliCommands);
-            registry.register("help", picocliCommands);
 
-            LineReader reader = createReader(repl.getCompleter() != null
-                    ? new AggregateCompleter(registry.completer(), repl.getCompleter())
-                    : registry.completer());
+            LineReader reader = createReader(
+                    repl.getCompleter() != null
+                            ? repl.getCompleter()
+                            : registry.completer()
+            );
             if (repl.getHistoryFileName() != null) {
                 reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
             }
 
-            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, parser);
+            RegistryCommandExecutor executor = new RegistryCommandExecutor(parser, picocliCommands.getCmd());
             TailTipWidgets widgets = repl.isTailTipWidgetsEnabled() ? createWidgets(registry, reader) : null;
 
             QuestionAskerFactory.setReadWriter(new JlineQuestionWriterReader(reader, widgets));
@@ -125,22 +151,6 @@ public class ReplExecutor {
         }
     }
 
-    private static TailTipWidgets createWidgets(SystemRegistryImpl registry, LineReader reader) {
-        TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
-                TailTipWidgets.TipType.COMPLETER);
-        widgets.enable();
-        // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
-        // Turn off tailtip widgets before printing to the output
-        CommandLineContextProvider.setPrintWrapper(printer -> {
-            widgets.disable();
-            printer.run();
-            widgets.enable();
-        });
-        // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
-        registry.setScriptDescription(cmdLine -> null);
-        return widgets;
-    }
-
     private LineReader createReader(Completer completer) {
         LineReader result = LineReaderBuilder.builder()
                 .terminal(terminal)
@@ -160,14 +170,19 @@ public class ReplExecutor {
             cmd.setDefaultValueProvider(defaultValueProvider);
         }
         CommandLineContextProvider.setCmd(cmd);
-        cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
+        cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler(exceptionHandlers));
+        cmd.registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
 
         DynamicCompleterRegistry completerRegistry = factory.create(DynamicCompleterRegistry.class);
         DynamicCompleterActivationPoint activationPoint = factory.create(DynamicCompleterActivationPoint.class);
         activationPoint.activateDynamicCompleter(completerRegistry);
 
         DynamicCompleterFilter dynamicCompleterFilter = factory.create(DynamicCompleterFilter.class);
+        List<CompleterFilter> filters = List.of(dynamicCompleterFilter,
+                new ShortOptionsFilter(),
+                new NonRepeatableOptionsFilter(cmd.getCommandSpec())
+        );
 
-        return new IgnitePicocliCommands(cmd, completerRegistry, List.of(dynamicCompleterFilter));
+        return new IgnitePicocliCommands(cmd, completerRegistry, filters);
     }
 }

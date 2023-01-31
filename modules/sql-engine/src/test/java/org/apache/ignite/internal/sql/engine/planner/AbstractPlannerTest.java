@@ -42,7 +42,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -82,6 +81,7 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
@@ -89,10 +89,12 @@ import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
+import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -110,10 +112,8 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -125,6 +125,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -137,6 +138,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final int DEFAULT_TBL_SIZE = 500_000;
 
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
+
+    protected static final int DEFAULT_ZONE_ID = 0;
 
     /** Last error message. */
     private String lastErrorMsg;
@@ -394,15 +397,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
-    protected static void createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
-        TestTable table = new TestTable(type, name) {
-            @Override
-            public IgniteDistribution distribution() {
-                return distr;
-            }
-        };
+    protected static TestTable createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
+        TestTable table = createTable(name, type, DEFAULT_TBL_SIZE, distr);
 
-        schema.addTable(name, table);
+        schema.addTable(table);
+
+        return table;
     }
 
     /**
@@ -419,7 +419,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static TestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
         TestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
 
-        schema.addTable(name, tbl);
+        schema.addTable(tbl);
 
         return tbl;
     }
@@ -460,7 +460,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             b.add((String) fields[i], TYPE_FACTORY.createJavaType((Class<?>) fields[i + 1]));
         }
 
-        return new TestTable(name, b.build(), size) {
+        return createTable(name, b.build(), size, distr);
+    }
+
+    protected static TestTable createTable(String name, RelDataType type, int size, IgniteDistribution distr) {
+        return new TestTable(name, type, size) {
             @Override
             public IgniteDistribution distribution() {
                 return distr;
@@ -539,6 +543,21 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /**
+     * Predicate builder for "Operator has distribution" condition.
+     */
+    protected <T extends IgniteRel> Predicate<IgniteRel> hasDistribution(IgniteDistribution distribution) {
+        return node -> {
+            if (distribution.getType() == RelDistribution.Type.HASH_DISTRIBUTED
+                    && node.distribution().getType() == RelDistribution.Type.HASH_DISTRIBUTED
+            ) {
+                return distribution.satisfies(node.distribution());
+            }
+
+            return distribution.equals(node.distribution());
+        };
+    }
+
+    /**
      * Predicate builder for "Any child satisfy predicate" condition.
      */
     protected <T extends RelNode> Predicate<RelNode> hasChildThat(Predicate<T> predicate) {
@@ -612,7 +631,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         IgniteSchema schema = new IgniteSchema("PUBLIC");
 
         for (TestTable tbl : tbls) {
-            schema.addTable(tbl.name(), tbl);
+            schema.addTable(tbl);
         }
 
         return schema;
@@ -645,17 +664,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
-        Map<UUID, IgniteTable> tableMap = new HashMap<>();
-
-        for (IgniteSchema schema : schemas) {
-            tableMap.putAll(schema.getTableNames().stream()
-                    .map(schema::getTable)
-                    .map(IgniteTable.class::cast)
-                    .collect(Collectors.toMap(IgniteTable::id, Function.identity())));
-        }
-
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap));
+            RelJsonReader reader = new RelJsonReader(new PredefinedSchemaManager(schemas));
             deserializedNodes.add(reader.read(s));
         }
 
@@ -942,9 +952,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             throw new AssertionError();
         }
 
-        /**
-         * Get name.
-         */
+        /** {@inheritDoc} */
+        @Override
         public String name() {
             return name;
         }
@@ -958,7 +967,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory,
-                @Nullable ImmutableBitSet requiredColumns) {
+                @Nullable BitSet requiredColumns) {
             throw new AssertionError();
         }
 
@@ -1129,24 +1138,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
-    static class SqlSchemaManagerImpl implements SqlSchemaManager {
-        private final Map<UUID, IgniteTable> tablesById;
-
-        public SqlSchemaManagerImpl(Map<UUID, IgniteTable> tablesById) {
-            this.tablesById = tablesById;
-        }
-
-        @Override
-        public SchemaPlus schema(@Nullable String schema) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public IgniteTable tableById(UUID id, int ver) {
-            return tablesById.get(id);
-        }
-    }
-
     static class TestSortedIndex implements SortedIndex {
         private final UUID id = UUID.randomUUID();
 
@@ -1202,20 +1193,26 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+        public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple left, BinaryTuple right, BitSet columns) {
+        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx,
-                @Nullable BinaryTuple leftBound, @Nullable BinaryTuple rightBound, int flags, BitSet columnsToInclude) {
+        public Publisher<BinaryRow> scan(int partId, InternalTransaction tx, @Nullable BinaryTuplePrefix leftBound,
+                @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
+            throw new AssertionError("Should not be called");
+        }
+
+        @Override
+        public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient,
+                @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
             throw new AssertionError("Should not be called");
         }
     }
@@ -1263,7 +1260,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+        public Publisher<BinaryRow> lookup(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
     }

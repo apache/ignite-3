@@ -33,7 +33,11 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 public class PartitionMetaIo extends PageIo {
     private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
 
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
+
+    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+
+    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
 
     private static final int INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
@@ -64,6 +68,8 @@ public class PartitionMetaIo extends PageIo {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setLastAppliedIndex(pageAddr, 0);
+        setLastAppliedTerm(pageAddr, 0);
+        setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, 0);
         setRowVersionFreeListRootPageId(pageAddr, 0);
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
@@ -84,12 +90,54 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
+     * Sets a last applied term value.
+     *
+     * @param pageAddr Page address.
+     * @param lastAppliedTerm Last applied term value.
+     */
+    public void setLastAppliedTerm(long pageAddr, long lastAppliedTerm) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, LAST_APPLIED_TERM_OFF, lastAppliedTerm);
+    }
+
+    /**
+     * Sets ID of the first page in a chain storing a blob representing last replication protocol group config.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Page ID.
+     */
+    public void setLastReplicationProtocolGroupConfigFirstPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF, pageId);
+    }
+
+    /**
      * Returns a last applied index value.
      *
      * @param pageAddr Page address.
      */
     public long getLastAppliedIndex(long pageAddr) {
         return getLong(pageAddr, LAST_APPLIED_INDEX_OFF);
+    }
+
+    /**
+     * Returns a last applied term value.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getLastAppliedTerm(long pageAddr) {
+        return getLong(pageAddr, LAST_APPLIED_TERM_OFF);
+    }
+
+    /**
+     * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getLastReplicationProtocolGroupConfigFirstPageId(long pageAddr) {
+        return getLong(pageAddr, LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF);
     }
 
     /**
@@ -202,11 +250,13 @@ public class PartitionMetaIo extends PageIo {
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
-                .app(", rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
-                .app(", indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
-                .app(", versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
-                .app(", indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
-                .app(", pageCount=").app(getPageCount(addr)).nl()
+                .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
+                .app("lastReplicationProtocolGroupConfigFirstPageId=").app(getLastReplicationProtocolGroupConfigFirstPageId(addr)).nl()
+                .app("rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
+                .app("indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
+                .app("versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
+                .app("indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
+                .app("pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
     }
 }

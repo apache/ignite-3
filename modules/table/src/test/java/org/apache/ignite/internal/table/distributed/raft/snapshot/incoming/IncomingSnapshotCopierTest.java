@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -41,22 +42,25 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.TableRowBuilder;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -100,11 +104,12 @@ public class IncomingSnapshotCopierTest {
 
     private static final int TEST_PARTITION = 0;
 
-    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(
-            1,
-            new Column[]{new Column("key", NativeTypes.stringOf(256), false)},
-            new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
-    );
+    private static final int SCHEMA_VERSION = 1;
+
+    private static final BinaryTupleSchema SCHEMA = BinaryTupleSchema.create(new Element[]{
+            new Element(NativeTypes.stringOf(256), false),
+            new Element(NativeTypes.stringOf(256), false)
+    });
 
     private static final HybridClock HYBRID_CLOCK = new HybridClockImpl();
 
@@ -114,8 +119,12 @@ public class IncomingSnapshotCopierTest {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    @InjectConfiguration(value = "mock.tables.foo {}")
+    @InjectConfiguration("mock.tables.foo {}")
     private TablesConfiguration tablesConfig;
+
+    private final ClusterNode clusterNode = mock(ClusterNode.class);
+
+    private final UUID snapshotId = UUID.randomUUID();
 
     @AfterEach
     void tearDown() {
@@ -123,19 +132,25 @@ public class IncomingSnapshotCopierTest {
     }
 
     @Test
-    void test() throws Exception {
+    void test() {
         MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
         TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
         long expLastAppliedIndex = 100500L;
+        long expLastAppliedTerm = 100L;
+        RaftGroupConfiguration expLastGroupConfig = new RaftGroupConfiguration(
+                List.of("peer"),
+                List.of("learner"),
+                List.of("old-peer"),
+                List.of("old-learner")
+        );
 
         List<RowId> rowIds = fillMvPartitionStorage(outgoingMvPartitionStorage);
         List<UUID> txIds = fillTxStatePartitionStorage(outgoingTxStatePartitionStorage);
 
-        outgoingMvPartitionStorage.lastAppliedIndex(expLastAppliedIndex);
-        outgoingTxStatePartitionStorage.lastAppliedIndex(expLastAppliedIndex);
-
-        UUID snapshotId = UUID.randomUUID();
+        outgoingMvPartitionStorage.lastApplied(expLastAppliedIndex, expLastAppliedTerm);
+        outgoingMvPartitionStorage.committedGroupConfiguration(expLastGroupConfig);
+        outgoingTxStatePartitionStorage.lastApplied(expLastAppliedIndex, expLastAppliedTerm);
 
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
@@ -143,15 +158,14 @@ public class IncomingSnapshotCopierTest {
         incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
+        MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
+                outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds, txIds, snapshotId);
+
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
-                expLastAppliedIndex,
                 incomingMvTableStorage,
                 incomingTxStateTableStorage,
-                outgoingMvPartitionStorage,
-                outgoingTxStatePartitionStorage,
-                rowIds,
-                txIds
+                messagingService
         );
 
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -159,44 +173,29 @@ public class IncomingSnapshotCopierTest {
                 mock(SnapshotCopierOptions.class)
         );
 
-        runAsync(snapshotCopier::join).get(1, TimeUnit.SECONDS);
+        assertThat(runAsync(snapshotCopier::join), willSucceedIn(1, TimeUnit.SECONDS));
 
         assertEquals(Status.OK().getCode(), snapshotCopier.getCode());
 
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
         TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
 
-        assertEquals(outgoingMvPartitionStorage.lastAppliedIndex(), expLastAppliedIndex);
-        assertEquals(outgoingTxStatePartitionStorage.lastAppliedIndex(), expLastAppliedIndex);
+        assertEquals(expLastAppliedIndex, outgoingMvPartitionStorage.lastAppliedIndex());
+        assertEquals(expLastAppliedTerm, outgoingMvPartitionStorage.lastAppliedTerm());
+        assertEquals(expLastGroupConfig, outgoingMvPartitionStorage.committedGroupConfiguration());
+        assertEquals(expLastAppliedIndex, outgoingTxStatePartitionStorage.lastAppliedIndex());
+        assertEquals(expLastAppliedTerm, outgoingTxStatePartitionStorage.lastAppliedTerm());
 
         assertEqualsMvRows(outgoingMvPartitionStorage, incomingMvPartitionStorage, rowIds);
         assertEqualsTxStates(outgoingTxStatePartitionStorage, incomingTxStatePartitionStorage, txIds);
 
-        verify(incomingMvTableStorage, times(1)).destroyPartition(eq(TEST_PARTITION));
-        verify(incomingMvTableStorage, times(2)).getOrCreateMvPartition(eq(TEST_PARTITION));
-
-        verify(incomingTxStateTableStorage, times(1)).destroyTxStateStorage(eq(TEST_PARTITION));
-        verify(incomingTxStateTableStorage, times(2)).getOrCreateTxStateStorage(eq(TEST_PARTITION));
+        verify(incomingMvTableStorage, times(1)).startRebalancePartition(eq(TEST_PARTITION));
+        verify(incomingTxStatePartitionStorage, times(1)).startRebalance();
     }
 
-    private PartitionSnapshotStorage createPartitionSnapshotStorage(
-            UUID snapshotId,
-            long lastAppliedIndexForSnapshotMeta,
-            MvTableStorage incomingTableStorage,
-            TxStateTableStorage incomingTxStateTableStorage,
-            MvPartitionStorage outgoingMvPartitionStorage,
-            TxStateStorage outgoingTxStatePartitionStorage,
-            List<RowId> rowIds,
-            List<UUID> txIds
-    ) {
-        TopologyService topologyService = mock(TopologyService.class);
-
-        ClusterNode clusterNode = mock(ClusterNode.class);
-
-        when(topologyService.getByConsistentId(NODE_NAME)).thenReturn(clusterNode);
-
-        OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
-
+    private MessagingService messagingServiceForSuccessScenario(MvPartitionStorage outgoingMvPartitionStorage,
+            TxStateStorage outgoingTxStatePartitionStorage, long expLastAppliedIndex, long expLastAppliedTerm,
+            RaftGroupConfiguration expLastGroupConfig, List<RowId> rowIds, List<UUID> txIds, UUID snapshotId) {
         MessagingService messagingService = mock(MessagingService.class);
 
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong())).then(answer -> {
@@ -206,7 +205,16 @@ public class IncomingSnapshotCopierTest {
 
             return completedFuture(
                     TABLE_MSG_FACTORY.snapshotMetaResponse()
-                            .meta(RAFT_MSG_FACTORY.snapshotMeta().lastIncludedIndex(lastAppliedIndexForSnapshotMeta).build())
+                            .meta(
+                                    RAFT_MSG_FACTORY.snapshotMeta()
+                                            .lastIncludedIndex(expLastAppliedIndex)
+                                            .lastIncludedTerm(expLastAppliedTerm)
+                                            .peersList(expLastGroupConfig.peers())
+                                            .learnersList(expLastGroupConfig.learners())
+                                            .oldPeersList(expLastGroupConfig.oldPeers())
+                                            .oldLearnersList(expLastGroupConfig.oldLearners())
+                                            .build()
+                            )
                             .build()
             );
         });
@@ -233,6 +241,21 @@ public class IncomingSnapshotCopierTest {
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
         });
 
+        return messagingService;
+    }
+
+    private PartitionSnapshotStorage createPartitionSnapshotStorage(
+            UUID snapshotId,
+            MvTableStorage incomingTableStorage,
+            TxStateTableStorage incomingTxStateTableStorage,
+            MessagingService messagingService
+    ) {
+        TopologyService topologyService = mock(TopologyService.class);
+
+        when(topologyService.getByConsistentId(NODE_NAME)).thenReturn(clusterNode);
+
+        OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
+
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
         return new PartitionSnapshotStorage(
@@ -243,7 +266,8 @@ public class IncomingSnapshotCopierTest {
                 new PartitionAccessImpl(
                         new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
                         incomingTableStorage,
-                        incomingTxStateTableStorage
+                        incomingTxStateTableStorage,
+                        List::of
                 ),
                 mock(SnapshotMeta.class),
                 executorService
@@ -260,18 +284,18 @@ public class IncomingSnapshotCopierTest {
 
         storage.runConsistently(() -> {
             // Writes committed version.
-            storage.addWriteCommitted(rowIds.get(0), createBinaryRow("k0", "v0"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(1), createBinaryRow("k1", "v1"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(0), createRow("k0", "v0"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(1), createRow("k1", "v1"), HYBRID_CLOCK.now());
 
-            storage.addWriteCommitted(rowIds.get(2), createBinaryRow("k20", "v20"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(2), createBinaryRow("k21", "v21"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(2), createRow("k20", "v20"), HYBRID_CLOCK.now());
+            storage.addWriteCommitted(rowIds.get(2), createRow("k21", "v21"), HYBRID_CLOCK.now());
 
             // Writes an intent to write (uncommitted version).
-            storage.addWrite(rowIds.get(2), createBinaryRow("k22", "v22"), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
+            storage.addWrite(rowIds.get(2), createRow("k22", "v22"), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
 
             storage.addWrite(
                     rowIds.get(3),
-                    createBinaryRow("k3", "v3"),
+                    createRow("k3", "v3"),
                     UUID.randomUUID(),
                     UUID.randomUUID(),
                     TEST_PARTITION
@@ -317,7 +341,7 @@ public class IncomingSnapshotCopierTest {
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             for (ReadResult readResult : readResults) {
-                rowVersions.add(readResult.binaryRow().byteBuffer());
+                rowVersions.add(readResult.tableRow().byteBuffer());
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
@@ -330,7 +354,7 @@ public class IncomingSnapshotCopierTest {
 
             responseEntries.add(
                     TABLE_MSG_FACTORY.responseEntry()
-                            .rowId(new UUID(rowId.mostSignificantBits(), rowId.leastSignificantBits()))
+                            .rowId(rowId.uuid())
                             .rowVersions(rowVersions)
                             .timestamps(timestamps)
                             .txId(txId)
@@ -343,8 +367,10 @@ public class IncomingSnapshotCopierTest {
         return responseEntries;
     }
 
-    private static BinaryRow createBinaryRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR, 1, 1).appendString(key).appendString(value).build();
+    private static TableRow createRow(String key, String value) {
+        TableRowBuilder builder = new TableRowBuilder(SCHEMA, SCHEMA_VERSION);
+        builder.appendStringNotNull(key).appendStringNotNull(value);
+        return builder.buildTableRow();
     }
 
     private static void assertEqualsMvRows(MvPartitionStorage expected, MvPartitionStorage actual, List<RowId> rowIds) {
@@ -360,11 +386,11 @@ public class IncomingSnapshotCopierTest {
 
                 String msg = "RowId=" + rowId + ", i=" + i;
 
-                Row expRow = new Row(SCHEMA_DESCRIPTOR, expReadResult.binaryRow());
-                Row actRow = new Row(SCHEMA_DESCRIPTOR, actReadResult.binaryRow());
+                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA.elementCount(), expReadResult.tableRow().tupleSlice());
+                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA.elementCount(), actReadResult.tableRow().tupleSlice());
 
-                assertEquals(expRow.stringValue(0), actRow.stringValue(0), msg);
-                assertEquals(expRow.stringValue(1), actRow.stringValue(1), msg);
+                assertEquals(expTuple.stringValue(0), actTuple.stringValue(0), msg);
+                assertEquals(expTuple.stringValue(1), actTuple.stringValue(1), msg);
 
                 assertEquals(expReadResult.commitTimestamp(), actReadResult.commitTimestamp(), msg);
                 assertEquals(expReadResult.transactionId(), actReadResult.transactionId(), msg);
@@ -379,5 +405,46 @@ public class IncomingSnapshotCopierTest {
         for (UUID txId : txIds) {
             assertEquals(expected.get(txId), actual.get(txId));
         }
+    }
+
+    @Test
+    void cancellationMakesJoinFinishIfHangingOnNetworkCall() throws Exception {
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
+        TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
+
+        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
+
+        CountDownLatch networkInvokeLatch = new CountDownLatch(1);
+
+        MessagingService messagingService = mock(MessagingService.class);
+
+        when(messagingService.invoke(any(), any(), anyLong())).then(invocation -> {
+            networkInvokeLatch.countDown();
+
+            return new CompletableFuture<>();
+        });
+
+        PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
+                snapshotId,
+                incomingMvTableStorage,
+                incomingTxStateTableStorage,
+                messagingService
+        );
+
+        SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
+                SnapshotUri.toStringUri(snapshotId, NODE_NAME),
+                mock(SnapshotCopierOptions.class)
+        );
+
+        networkInvokeLatch.await(1, TimeUnit.SECONDS);
+
+        CompletableFuture<?> cancelAndJoinFuture = runAsync(() -> {
+            snapshotCopier.cancel();
+
+            snapshotCopier.join();
+        });
+
+        assertThat(cancelAndJoinFuture, willSucceedIn(1, TimeUnit.SECONDS));
     }
 }

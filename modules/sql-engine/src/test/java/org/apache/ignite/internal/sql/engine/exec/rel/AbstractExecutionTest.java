@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
@@ -63,10 +64,9 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     public static final Object[][] EMPTY = new Object[0][];
 
     private Throwable lastE;
-
-    private QueryTaskExecutorImpl taskExecutor;
-
     private List<UUID> nodes;
+
+    protected QueryTaskExecutorImpl taskExecutor;
 
     @BeforeEach
     public void beforeTest() {
@@ -102,6 +102,10 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
         }
 
         FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+
+        InternalTransaction tx = mock(InternalTransaction.class);
+        when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
+
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
                         .logger(log)
@@ -113,7 +117,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
                 Map.of(),
-                mock(InternalTransaction.class)
+                tx
         );
     }
 
@@ -290,8 +294,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
          * Constructor.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
-        public RootRewindable(ExecutionContext<RowT> ctx, RelDataType rowType) {
-            super(ctx, rowType);
+        public RootRewindable(ExecutionContext<RowT> ctx) {
+            super(ctx);
         }
 
         /** {@inheritDoc} */

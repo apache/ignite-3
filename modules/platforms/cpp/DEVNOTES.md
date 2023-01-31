@@ -1,14 +1,9 @@
-## Prerequisites
+## Build C++
+
+### Prerequisites
 * C++ compiler supporting C++17
-* Java 11 SDK
-* Maven 3.6.0+ (for building)
 * Conan C/C++ package manager
 * CMake 3.10+
-
-## Build Java
-In repo root: `mvn clean install -DskipTests`
-
-## Build C++
 
 ### For Windows Developers
 Building in debug mode with tests. In this dir:
@@ -17,7 +12,7 @@ mkdir cmake-build-debug
 cd cmake-build-debug
 conan install .. --build=missing -s build_type=Debug
 cmake .. -DENABLE_TESTS=ON
-cmake --build . -j8 
+cmake --build . -j8
 ```
 
 ### For Linux Developers
@@ -27,7 +22,17 @@ mkdir cmake-build-debug
 cd cmake-build-debug
 conan install .. --build=missing -s build_type=Debug -s compiler.libcxx=libstdc++11
 cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build . -j8 
+cmake --build . -j8
+```
+
+### For macOS Developers
+Building in debug mode with tests. In this dir:
+```shell
+mkdir cmake-build-debug
+cd cmake-build-debug
+conan install .. --build=missing -s build_type=Debug -s compiler.libcxx=libc++
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build . -j8
 ```
 
 ### For Windows users
@@ -47,18 +52,52 @@ mkdir cmake-build-release
 cd cmake-build-release
 conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libstdc++11
 cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j8 
+cmake --build . -j8
+```
+
+### For macOS users
+Building in release mode without tests. In this dir:
+```shell
+mkdir cmake-build-release
+cd cmake-build-release
+conan install .. --build=missing -s build_type=Release -s compiler.libcxx=libc++
+cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j8
 ```
 
 ## Run Tests
 
-### Windows
-In this dir: `./cmake-build-debug/bin/ignite-client-test.exe`
-Specific test: `./cmake-build-debug/bin/ignite-client-test.exe --gtest_filter=Test_Cases1*`
+### Prerequisites
+* Java 11 SDK
+* Gradle
 
-## Start a Test Node
-* cd `modules/runner`
-* `mvn exec:java@platform-test-node-runner`
+### Starting Java Test Node
 
-To debug or profile Java side of the tests, run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or profiler,
-then run C++ tests as always or with debugger.
+Tests require a running Java node. Prior to running it you will obviously need
+to build a Java part of the product. To do that the following command can be
+used from the root of the repo:
+`./gradlew assemble compileIntegrationTestJava`
+
+Or a faster variant:
+`./gradlew assemble compileIntegrationTestJava -x check -x assembleDist -x distTar -x distZip --parallel`
+
+After that, start a Test Node in the root repo:
+`./gradlew :ignite-runner:runnerPlatformTest --no-daemon`
+
+### Starting tests in Windows
+In modules/platforms/cpp dir:
+`./cmake-build-debug/bin/ignite-client-test.exe`
+
+To run a specific test:
+`./cmake-build-debug/bin/ignite-client-test.exe --gtest_filter=Test_Cases1*`
+
+### Starting tests in Linux
+In modules/platforms/cpp dir:
+`./cmake-build-debug/bin/ignite-client-test`
+
+To run a specific test:
+`./cmake-build-debug/bin/ignite-client-test --gtest_filter=Test_Cases1*`
+
+To debug or profile Java side of the tests, run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner`
+class in IDEA with a debugger or profiler, then run C++ tests as always or with
+debugger.

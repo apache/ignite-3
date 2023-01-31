@@ -47,15 +47,18 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
  */
+@SuppressWarnings("CallToSystemGetenv")
 public class PlatformTestNodeRunner {
     /** Test node name. */
     private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();
@@ -69,8 +72,13 @@ public class PlatformTestNodeRunner {
 
     private static final String TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";
 
+    private static final String TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"; // All column types supported by SQL.
+
     /** Time to keep the node alive. */
     private static final int RUN_TIME_MINUTES = 30;
+
+    /** Time to keep the node alive - env var. */
+    private static final String RUN_TIME_MINUTES_ENV = "IGNITE_PLATFORM_TEST_NODE_RUNNER_RUN_TIME_MINUTES";
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
@@ -147,9 +155,11 @@ public class PlatformTestNodeRunner {
 
         System.out.println("THIN_CLIENT_PORTS=" + ports);
 
-        Thread.sleep(RUN_TIME_MINUTES * 60_000);
+        long runTimeMinutes = getRunTimeMinutes();
+        System.out.println("Nodes will be active for " + runTimeMinutes + " minutes.");
 
-        System.out.println("Exiting after " + RUN_TIME_MINUTES + " minutes.");
+        Thread.sleep(runTimeMinutes * 60_000);
+        System.out.println("Exiting after " + runTimeMinutes + " minutes.");
 
         for (Ignite node : startedNodes) {
             IgnitionManager.stop(node.name());
@@ -170,7 +180,9 @@ public class PlatformTestNodeRunner {
                         .changePartitions(10)
         ));
 
-        TableDefinition schTbl2 = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
+        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+
+        TableDefinition schTblAll = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
                 SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
                 SchemaBuilders.column("int8", ColumnType.INT8).asNullable(true).build(),
@@ -182,18 +194,45 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
                 SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
                 SchemaBuilders.column("bitmask", ColumnType.bitmaskOf(64)).asNullable(true).build(),
-                SchemaBuilders.column("time", ColumnType.time(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
-                SchemaBuilders.column("datetime", ColumnType.datetime(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
-                SchemaBuilders.column("timestamp", ColumnType.timestamp(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
+                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("time2", ColumnType.time(2)).asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("datetime2", ColumnType.datetime(3)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp2", ColumnType.timestamp(4)).asNullable(true).build(),
                 SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl2.name(), tblCh ->
-                SchemaConfigurationConverter.convert(schTbl2, tblCh)
+        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), tblCh ->
+                SchemaConfigurationConverter.convert(schTblAll, tblCh)
+                        .changeReplicas(1)
+                        .changePartitions(10)
+        ));
+
+        // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
+        TableDefinition schTblAllSql = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS_SQL).columns(
+                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
+                SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
+                SchemaBuilders.column("int8", ColumnType.INT8).asNullable(true).build(),
+                SchemaBuilders.column("int16", ColumnType.INT16).asNullable(true).build(),
+                SchemaBuilders.column("int32", ColumnType.INT32).asNullable(true).build(),
+                SchemaBuilders.column("int64", ColumnType.INT64).asNullable(true).build(),
+                SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
+                SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
+                SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
+                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("time2", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("datetime2", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp2", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
+                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
+        ).withPrimaryKey(keyCol).build();
+
+        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), tblCh ->
+                SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
         ));
@@ -206,6 +245,7 @@ public class PlatformTestNodeRunner {
         createTwoColumnTable(node, ColumnType.DOUBLE);
         createTwoColumnTable(node, ColumnType.decimal());
         createTwoColumnTable(node, ColumnType.string());
+        createTwoColumnTable(node, ColumnType.DATE);
         createTwoColumnTable(node, ColumnType.datetime());
         createTwoColumnTable(node, ColumnType.time());
         createTwoColumnTable(node, ColumnType.timestamp());
@@ -237,6 +277,27 @@ public class PlatformTestNodeRunner {
      */
     private static int getPort(IgniteImpl node) {
         return node.clientAddress().port();
+    }
+
+    /**
+     * Gets run time limit, in minutes.
+     *
+     * @return Node run time limit, in minutes.
+     */
+    private static long getRunTimeMinutes() {
+        String runTimeMinutesFromEnv = System.getenv(RUN_TIME_MINUTES_ENV);
+
+        if (runTimeMinutesFromEnv == null) {
+            return RUN_TIME_MINUTES;
+        }
+
+        try {
+            return Long.parseLong(runTimeMinutesFromEnv);
+        } catch (Exception ignored) {
+            // No-op.
+        }
+
+        return RUN_TIME_MINUTES;
     }
 
     /**
@@ -292,6 +353,9 @@ public class PlatformTestNodeRunner {
         public Integer execute(JobExecutionContext context, Object... args) {
             var columnCount = (int) args[0];
             var buf = (byte[]) args[1];
+            var timePrecision = (int) args[2];
+            var timestampPrecision = (int) args[3];
+
             var columns = new Column[columnCount];
             var tuple = Tuple.create(columnCount);
             var reader = new BinaryTupleReader(columnCount * 3, buf);
@@ -365,17 +429,17 @@ public class PlatformTestNodeRunner {
                         break;
 
                     case ClientDataType.TIME:
-                        columns[i] = new Column(i, colName, NativeTypes.time(9), false);
+                        columns[i] = new Column(i, colName, NativeTypes.time(timePrecision), false);
                         tuple.set(colName, reader.timeValue(valIdx));
                         break;
 
                     case ClientDataType.DATETIME:
-                        columns[i] = new Column(i, colName, NativeTypes.datetime(9), false);
+                        columns[i] = new Column(i, colName, NativeTypes.datetime(timePrecision), false);
                         tuple.set(colName, reader.dateTimeValue(valIdx));
                         break;
 
                     case ClientDataType.TIMESTAMP:
-                        columns[i] = new Column(i, colName, NativeTypes.timestamp(), false);
+                        columns[i] = new Column(i, colName, NativeTypes.timestamp(timestampPrecision), false);
                         tuple.set(colName, reader.timestampValue(valIdx));
                         break;
 
@@ -413,6 +477,11 @@ public class PlatformTestNodeRunner {
 
         @Override
         public SchemaDescriptor schema(int ver) throws SchemaRegistryException {
+            return schema;
+        }
+
+        @Override
+        public @Nullable SchemaDescriptor schemaCached(int ver) {
             return schema;
         }
 

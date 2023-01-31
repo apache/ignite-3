@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -36,20 +40,25 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private final VolatilePageMemoryDataRegion dataRegion;
 
+    private final GradualTaskExecutor destructionExecutor;
+
     /**
      * Constructor.
      *
-     * @param tableCfg – Table configuration.
-     * @param dataRegion – Data region for the table.
+     * @param tableCfg Table configuration.
+     * @param tablesCfg Tables configuration.
+     * @param dataRegion Data region for the table.
      */
     public VolatilePageMemoryTableStorage(
             TableConfiguration tableCfg,
             TablesConfiguration tablesCfg,
-            VolatilePageMemoryDataRegion dataRegion
+            VolatilePageMemoryDataRegion dataRegion,
+            GradualTaskExecutor destructionExecutor
     ) {
         super(tableCfg, tablesCfg);
 
         this.dataRegion = dataRegion;
+        this.destructionExecutor = destructionExecutor;
     }
 
     @Override
@@ -57,7 +66,6 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         return dataRegion;
     }
 
-    /** {@inheritDoc} */
     @Override
     public VolatilePageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException {
         VersionChainTree versionChainTree = createVersionChainTree(partitionId, tableCfg.value());
@@ -66,10 +74,10 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
-                tablesConfiguration,
                 partitionId,
                 versionChainTree,
-                indexMetaTree
+                indexMetaTree,
+                destructionExecutor
         );
     }
 
@@ -95,16 +103,14 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isVolatile() {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void destroy() throws StorageException {
-        stop();
+    protected void finishDestruction() {
+        // No-op.
     }
 
     /**
@@ -114,7 +120,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      * @param tableView Table configuration.
      * @throws StorageException If failed.
      */
-    VersionChainTree createVersionChainTree(int partId, TableView tableView) throws StorageException {
+    private VersionChainTree createVersionChainTree(int partId, TableView tableView) throws StorageException {
         int grpId = tableView.tableId();
 
         try {
@@ -137,5 +143,35 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                     e
             );
         }
+    }
+
+    @Override
+    CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = ((VolatilePageMemoryMvPartitionStorage) mvPartitionStorage);
+
+        volatilePartitionStorage.cleanStructuresData();
+
+        int partitionId = mvPartitionStorage.partitionId();
+        TableView tableView = tableCfg.value();
+
+        volatilePartitionStorage.updateDataStructures(
+                createVersionChainTree(partitionId, tableView),
+                createIndexMetaTree(partitionId, tableView)
+        );
+
+        return completedFuture(null);
+    }
+
+    @Override
+    CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
+        mvPartitionStorage.closeForDestruction();
+
+        VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
+
+        // We ignore the future returned by destroyStructures() on purpose: the destruction happens in the background,
+        // we don't care when it finishes.
+        volatilePartitionStorage.destroyStructures();
+
+        return completedFuture(null);
     }
 }

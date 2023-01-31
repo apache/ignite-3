@@ -17,11 +17,32 @@
 
 #pragma once
 
+#include "ignite/common/ignite_result.h"
+
+#include <future>
+#include <string>
+#include <type_traits>
+
 #include <cstdio>
 
-#include <string>
-
 namespace ignite {
+
+/**
+ * Get environment variable.
+ *
+ * @param name Variable name.
+ * @return Variable value if it is set, or @c std::nullopt otherwise.
+ */
+std::optional<std::string> get_env(const std::string& name);
+
+/**
+ * Check whether tests run in single node mode.
+ *
+ * @return @c true if tests run in single node mode.
+ */
+inline bool single_node_mode() {
+    return ignite::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value();
+}
 
 /**
  * Resolve IGNITE_HOME directory. Resolution is performed in several steps:
@@ -37,8 +58,21 @@ namespace ignite {
 std::string resolveIgniteHome(const std::string &path = "");
 
 /**
- * Get path to maven executable.
+ * Check async operation result and propagate error to the promise if there is
+ * any.
+ *
+ * @tparam T Result type.
+ * @param prom Promise to set.
+ * @param res Result to check.
+ * @return @c true if there is no error and @c false otherwise.
  */
-std::string getMavenPath();
+template<typename T1, typename T2>
+bool check_and_set_operation_error(std::promise<T2> &prom, const ignite_result<T1> &res) {
+    if (res.has_error()) {
+        prom.set_exception(std::make_exception_ptr(res.error()));
+        return false;
+    }
+    return true;
+}
 
 } // namespace ignite

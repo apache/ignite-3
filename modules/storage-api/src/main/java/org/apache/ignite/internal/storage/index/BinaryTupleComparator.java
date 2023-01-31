@@ -94,12 +94,13 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         boolean tuple1HasNull = tuple1.hasNullValue(index);
         boolean tuple2HasNull = tuple2.hasNullValue(index);
 
+        // TODO IGNITE-15141: Make null-order configurable.
         if (tuple1HasNull && tuple2HasNull) {
             return 0;
         } else if (tuple1HasNull) {
-            return -1;
-        } else if (tuple2HasNull) {
             return 1;
+        } else if (tuple2HasNull) {
+            return -1;
         }
 
         SortedIndexColumnDescriptor columnDescriptor = descriptor.columns().get(index);

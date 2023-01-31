@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -62,21 +65,21 @@ import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
-import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -343,16 +346,36 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(txManagerInternal.finished(), states.size());
     }
 
-    /** Check correctness of rw and ro transactions. */
+    /** Check correctness of rw and ro transactions for table scan. */
     @Test
-    public void checkMixedTransactions() throws Exception {
+    public void checkMixedTransactionsForTable() throws Exception {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        Matcher<String> planMatcher = containsTableScan("PUBLIC", "TEST");
+
+        checkMixedTransactions(planMatcher);
+    }
+
+    /** Check correctness of rw and ro transactions for index scan. */
+    @Test
+    public void checkMixedTransactionsForIndex() throws Exception {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
+
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        waitForIndex("TEST_IDX");
+
+        Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
+
+        checkMixedTransactions(planMatcher);
+    }
+
+    private void checkMixedTransactions(Matcher<String> planMatcher) throws Exception {
         IgniteSql sql = igniteSql();
 
         if (sql instanceof ClientSql) {
             return;
         }
-
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         Session ses = sql.createSession();
 
@@ -360,20 +383,24 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        checkTx(ses, true, false, true);
-        checkTx(ses, true, false, false);
-        checkTx(ses, true, true, true);
-        checkTx(ses, true, true, false);
-        checkTx(ses, false, true, true);
-        checkTx(ses, false, true, false);
-        checkTx(ses, false, false, true);
-        checkTx(ses, false, false, false);
+        List<Boolean> booleanList = List.of(Boolean.TRUE, Boolean.FALSE);
+        for (boolean roTx : booleanList) {
+            for (boolean commit : booleanList) {
+                for (boolean explicit : booleanList) {
+                    checkTx(ses, roTx, commit, explicit, planMatcher);
+                }
+            }
+        }
     }
 
-    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit) throws Exception {
+    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) throws Exception {
         Transaction outerTx = explicit ? (readOnly ? igniteTx().readOnly().begin() : igniteTx().begin()) : null;
 
-        AsyncResultSet rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+        String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
+
+        assertQuery(outerTx, query).matches(planMatcher).check();
+
+        AsyncResultSet rs = ses.executeAsync(outerTx, query).get();
 
         assertEquals(ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
 
@@ -430,7 +457,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         checkMetadata(new ColumnMetadataImpl(
                         "COL1",
-                        SqlColumnType.STRING,
+                        ColumnType.STRING,
                         2 << 15,
                         ColumnMetadata.UNDEFINED_SCALE,
                         false,
@@ -438,7 +465,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 meta.columns().get(0));
         checkMetadata(new ColumnMetadataImpl(
                         "COL0",
-                        SqlColumnType.INT64,
+                        ColumnType.INT64,
                         19,
                         0,
                         false,
@@ -577,7 +604,6 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17998")
     @Test
     public void closeSession() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -597,7 +623,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertThrowsWithCause(
                 () -> ars0.fetchNextPage().toCompletableFuture().get(),
-                SqlException.class
+                ExecutionCancelledException.class
         );
 
         assertThrowsWithCause(
@@ -632,7 +658,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.executeBatchAsync(null, "SELECT * FROM TEST", args).get(),
                 SqlException.class,
-                "Invalid SQL statement type in the batch"
+                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
         );
 
         assertThrowsWithCause(

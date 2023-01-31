@@ -58,6 +58,7 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
                 .map(this::configShowCallInput)
                 .then(Flows.fromCall(call))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show cluster config", "cluster init"))
+                .verbose(verbose)
                 .print()
                 .start();
     }

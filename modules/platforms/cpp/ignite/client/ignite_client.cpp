@@ -28,7 +28,7 @@ namespace ignite {
 void ignite_client::start_async(ignite_client_configuration configuration, std::chrono::milliseconds timeout,
     ignite_callback<ignite_client> callback) {
     // TODO: IGNITE-17762 Async start should not require starting thread internally. Replace with async timer.
-    (void)std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
+    (void) std::async([cfg = std::move(configuration), timeout, callback = std::move(callback)]() mutable {
         auto res =
             result_of_operation<ignite_client>([cfg = std::move(cfg), timeout]() { return start(cfg, timeout); });
         callback(std::move(res));
@@ -70,12 +70,20 @@ tables ignite_client::get_tables() const noexcept {
     return tables(impl().get_tables_impl());
 }
 
+sql ignite_client::get_sql() const noexcept {
+    return sql(impl().get_sql_impl());
+}
+
+transactions ignite_client::get_transactions() const noexcept {
+    return transactions(impl().get_transactions_impl());
+}
+
 detail::ignite_client_impl &ignite_client::impl() noexcept {
-    return *((detail::ignite_client_impl *)(m_impl.get()));
+    return *((detail::ignite_client_impl *) (m_impl.get()));
 }
 
 const detail::ignite_client_impl &ignite_client::impl() const noexcept {
-    return *((detail::ignite_client_impl *)(m_impl.get()));
+    return *((detail::ignite_client_impl *) (m_impl.get()));
 }
 
 } // namespace ignite

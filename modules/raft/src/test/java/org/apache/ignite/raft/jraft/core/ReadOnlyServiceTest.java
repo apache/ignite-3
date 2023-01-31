@@ -87,7 +87,6 @@ public class ReadOnlyServiceTest {
         opts.setFsmCaller(this.fsmCaller);
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
-        opts.setGroupId("TestSrv");
         opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("TestReadOnlyServiceDisruptor",
             1024,
             () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
@@ -105,8 +104,8 @@ public class ReadOnlyServiceTest {
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getGroupId()).thenReturn("test");
         Mockito.when(this.node.getOptions()).thenReturn(nodeOptions);
-        Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost:8081", 0)));
-        Mockito.when(this.node.getServerId()).thenReturn(new PeerId("localhost:8081", 0));
+        Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("test", new PeerId("localhost-8081", 0)));
+        Mockito.when(this.node.getServerId()).thenReturn(new PeerId("localhost-8081", 0));
         assertTrue(this.readOnlyServiceImpl.init(opts));
     }
 
@@ -134,7 +133,7 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                    return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
                         && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }
@@ -166,7 +165,7 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                    return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
                         && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }
@@ -211,7 +210,7 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                    return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
                         && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }
@@ -254,7 +253,7 @@ public class ReadOnlyServiceTest {
             @Override public boolean matches(ReadIndexRequest argument) {
                 if (argument != null) {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
-                    return "test".equals(req.groupId()) && "localhost:8081:0".equals(req.serverId())
+                    return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
                         && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
                 }

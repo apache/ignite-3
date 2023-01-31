@@ -16,8 +16,12 @@
  */
 
 plugins {
+    id 'signing'
+    alias(libs.plugins.checksum)
     alias(libs.plugins.cmake)
 }
+
+import org.gradle.crypto.checksum.Checksum
 
 task copyNativeLibs(type: Copy) {
     include "**/*.so"
@@ -31,4 +35,67 @@ cmake {
     generator='Unix Makefiles'
     buildConfig='Release'
     buildTarget='install'
+}
+
+task buildNuGet(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "pack", "Apache.Ignite",
+            "--configuration", "Release",
+            "--include-source",
+            "--output", "$buildDir/nupkg"
+            "/p:Version=${project.version}"
+}
+
+task zipNuGet(type: Zip) {
+    archiveFileName = "apache-ignite-${project.version}-nuget.zip"
+
+    from ("$buildDir/nupkg") {
+        include "*.nupkg"
+        include "*.snupkg"
+    }
+
+    dependsOn buildNuGet
+}
+
+task zipCppClient(type: Zip) {
+    archiveFileName = "apache-ignite-${project.version}-cpp.zip"
+
+    from ("$projectDir/cpp") {
+        exclude "CMakeFiles"
+        exclude "pom.xml"
+        exclude "StyleGuide.md"
+        exclude ".clang-tidy"
+    }
+}
+
+task createChecksums(type: Checksum) {
+    dependsOn zipCppClient, zipNuGet
+
+    inputFiles.from zipCppClient.outputs.files, zipNuGet.outputs.files
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
+
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signArtifacts', Sign) {
+    sign zipNuGet
+    sign zipCppClient
+}
+
+configurations {
+    platformsRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        platformsRelease(file("$buildDir/distributions")) {
+            builtBy signArtifacts
+        }
+        platformsRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
+    }
 }

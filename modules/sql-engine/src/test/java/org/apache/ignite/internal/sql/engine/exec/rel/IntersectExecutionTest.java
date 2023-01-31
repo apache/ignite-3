@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.Arrays;
 import java.util.List;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 
@@ -30,8 +29,8 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
     /** {@inheritDoc} */
     @Override
     protected AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
-            RelDataType rowType, AggregateType type, boolean all, int inputsCnt) {
-        return new IntersectNode<>(ctx, rowType, type, all, rowFactory(), inputsCnt);
+            AggregateType type, boolean all, int inputsCnt) {
+        return new IntersectNode<>(ctx, type, all, rowFactory(), inputsCnt);
     }
 
     /** {@inheritDoc} */

@@ -33,7 +33,7 @@ namespace Apache.Ignite.Tests
 
         public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
-        public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000)
+        public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000, Func<string>? messageFactory = null)
         {
             if (condition())
             {
@@ -52,7 +52,14 @@ namespace Apache.Ignite.Tests
                 Thread.Sleep(50);
             }
 
-            Assert.Fail("Condition not reached after " + sw.Elapsed);
+            var message = "Condition not reached after " + sw.Elapsed;
+
+            if (messageFactory != null)
+            {
+                message += $" ({messageFactory()})";
+            }
+
+            Assert.Fail(message);
         }
 
         private static string GetSolutionDir()

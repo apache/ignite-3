@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -28,15 +29,17 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -319,18 +322,65 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> scan(int p, @Nullable InternalTransaction tx) {
+    public Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx,
+            UUID indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            BitSet columnsToInclude
+    ) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
     @Override
     public Publisher<BinaryRow> scan(
-            int p,
+            int partId,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
             @NotNull HybridTimestamp readTimestamp,
             @NotNull ClusterNode recipientNode
     ) {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @NotNull UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            @NotNull HybridTimestamp readTimestamp,
+            @NotNull ClusterNode recipientNode,
+            @NotNull UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
     /** {@inheritDoc} */
@@ -364,7 +414,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 

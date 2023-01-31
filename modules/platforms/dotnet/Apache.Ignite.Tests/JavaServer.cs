@@ -31,12 +31,14 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public sealed class JavaServer : IDisposable
     {
+        private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
+
         private const int DefaultClientPort = 10942;
 
         private const int ConnectTimeoutSeconds = 120;
 
-        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest --no-daemon"
-          + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava";
+        private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
+          + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";
 
          /** Full path to Gradle binary. */
         private static readonly string GradlePath = GetGradle();
@@ -121,6 +123,10 @@ namespace Apache.Ignite.Tests
         private static Process CreateProcess()
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
+            var opts = Environment.GetEnvironmentVariable(GradleOptsEnvVar);
+            var command = $"{GradlePath} {GradleCommandExec} {opts}";
+
+            Log("Executing command: " + command);
 
             var process = new Process
             {
@@ -130,7 +136,7 @@ namespace Apache.Ignite.Tests
                     ArgumentList =
                     {
                         TestUtils.IsWindows ? "/c" : "-c",
-                        $"{GradlePath} {GradleCommandExec}"
+                        command
                     },
                     CreateNoWindow = true,
                     UseShellExecute = false,
@@ -139,6 +145,7 @@ namespace Apache.Ignite.Tests
                     RedirectStandardError = true
                 }
             };
+
             return process;
         }
 
@@ -177,11 +184,14 @@ namespace Apache.Ignite.Tests
         {
             try
             {
-                var cfg = new IgniteClientConfiguration("127.0.0.1:" + port);
+                var cfg = new IgniteClientConfiguration("127.0.0.1:" + port)
+                {
+                    SocketTimeout = TimeSpan.FromSeconds(0.5)
+                };
+
                 using var client = await IgniteClient.StartAsync(cfg);
 
-                var tables = await client.Tables.GetTablesAsync();
-                return tables.Count > 0 ? null : new InvalidOperationException("No tables found on server");
+                return null;
             }
             catch (Exception e)
             {

@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
@@ -27,17 +28,31 @@ dependencies {
     implementation project(':ignite-file-io')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
-    annotationProcessor project(':ignite-configuration-annotation-processor')
+    implementation libs.auto.service.annotations
 
+    annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
+
+    testAnnotationProcessor libs.auto.service
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
+    testImplementation libs.auto.service.annotations
 
+    testFixturesAnnotationProcessor libs.auto.service
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.auto.service.annotations
+
+    integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+    integrationTestImplementation libs.jetbrains.annotations
+
 }
 
 description = 'ignite-page-memory'

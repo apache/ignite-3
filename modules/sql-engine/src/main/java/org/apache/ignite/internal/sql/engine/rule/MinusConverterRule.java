@@ -28,9 +28,9 @@ import org.apache.calcite.rel.logical.LogicalMinus;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceMinus;
-import org.apache.ignite.internal.sql.engine.rel.set.IgniteSingleMinus;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 
 /**
@@ -58,7 +58,7 @@ public class MinusConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
 
-            return new IgniteSingleMinus(cluster, outTrait, inputs, setOp.all);
+            return new IgniteColocatedMinus(cluster, outTrait, inputs, setOp.all);
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.DEL_PK_COMUMN_CONSTRAINT_ERR;
@@ -37,6 +38,10 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -63,11 +68,13 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.ConstantValue;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -84,6 +91,8 @@ import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
+    private final DistributionZoneManager distributionZoneManager;
+
     private final TableManager tableManager;
 
     private final IndexManager indexManager;
@@ -94,10 +103,12 @@ public class DdlCommandHandler {
      * Constructor.
      */
     public DdlCommandHandler(
+            DistributionZoneManager distributionZoneManager,
             TableManager tableManager,
             IndexManager indexManager,
             DataStorageManager dataStorageManager
     ) {
+        this.distributionZoneManager = distributionZoneManager;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
@@ -119,6 +130,10 @@ public class DdlCommandHandler {
             return handleCreateIndex((CreateIndexCommand) cmd);
         } else if (cmd instanceof DropIndexCommand) {
             return handleDropIndex((DropIndexCommand) cmd);
+        } else if (cmd instanceof CreateZoneCommand) {
+            return handleCreateZone((CreateZoneCommand) cmd);
+        } else if (cmd instanceof DropZoneCommand) {
+            return handleDropZone((DropZoneCommand) cmd);
         } else {
             return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
@@ -135,6 +150,33 @@ public class DdlCommandHandler {
                 throw new IllegalArgumentException("Table name is undefined.");
             }
         }
+    }
+
+    /** Handles create distribution zone command. */
+    private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
+        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
+                new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
+
+        if (cmd.dataNodesAutoAdjust() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjust(cmd.dataNodesAutoAdjust());
+        }
+
+        if (cmd.dataNodesAutoAdjustScaleUp() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
+        }
+
+        if (cmd.dataNodesAutoAdjustScaleDown() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
+        }
+
+        return distributionZoneManager.createZone(zoneCfgBuilder.build())
+                .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
+    }
+
+    /** Handles drop distribution zone command. */
+    private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
+        return distributionZoneManager.dropZone(cmd.zoneName())
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles create table command. */
@@ -166,18 +208,24 @@ public class DdlCommandHandler {
             if (cmd.replicas() != null) {
                 tableChange.changeReplicas(cmd.replicas());
             }
+
+            if (cmd.zone() != null) {
+                tableChange.changeZoneId(distributionZoneManager.getZoneId(cmd.zone()));
+            } else {
+                tableChange.changeZoneId(DEFAULT_ZONE_ID);
+            }
         };
 
         return tableManager.createTableAsync(cmd.tableName(), tblChanger)
                 .thenApply(Objects::nonNull)
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }
 
     /** Handles drop table command. */
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
         return tableManager.dropTableAsync(cmd.tableName())
                 .thenApply(v -> Boolean.TRUE)
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
     /** Handles add column command. */
@@ -187,7 +235,7 @@ public class DdlCommandHandler {
         }
 
         return addColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnNotExists())
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
     /** Handles drop column command. */
@@ -197,17 +245,17 @@ public class DdlCommandHandler {
         }
 
         return dropColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnExists())
-                .handle(handleTableModificationResult(cmd.ifTableExists()));
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
-    private static BiFunction<Object, Throwable, Boolean> handleTableModificationResult(boolean ignoreTableExistenceErrors) {
+    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
         return (val, err) -> {
             if (err == null) {
                 return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;
-            } else if (ignoreTableExistenceErrors) {
+            } else if (ignoreExpectedError) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
-                if (err0 instanceof TableAlreadyExistsException || err0 instanceof TableNotFoundException) {
+                if (expErrCls.isAssignableFrom(err0.getClass())) {
                     return Boolean.FALSE;
                 }
             }

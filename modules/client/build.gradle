@@ -32,6 +32,9 @@ dependencies {
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec
+    implementation libs.auto.service.annotations
+
+    annotationProcessor libs.auto.service
 
     testImplementation libs.jetbrains.annotations
     testImplementation project(':ignite-client-handler')
@@ -40,7 +43,7 @@ dependencies {
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-table')
     testImplementation project(':ignite-network')
-    testImplementation project(':ignite-raft-client')
+    testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
     testImplementation(testFixtures(project(':ignite-core')))

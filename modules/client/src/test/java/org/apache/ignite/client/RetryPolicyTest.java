@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -215,7 +216,7 @@ public class RetryPolicyTest {
     @Test
     public void testRetryReadPolicyAllOperationsSupported() throws IllegalAccessException {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, null, null);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, 0, null, null);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);
@@ -264,6 +265,6 @@ public class RetryPolicyTest {
         FakeIgnite ign = new FakeIgnite();
         ((FakeIgniteTables) ign.tables()).createTable("t");
 
-        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null);
+        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null, null, UUID.randomUUID());
     }
 }

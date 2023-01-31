@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -41,13 +42,43 @@ public class PartitionMetaTest {
 
         assertEquals(0, meta.lastAppliedIndex());
 
-        assertDoesNotThrow(() -> meta.lastAppliedIndex(null, 100));
+        assertDoesNotThrow(() -> meta.lastApplied(null, 100, 10));
 
         assertEquals(100, meta.lastAppliedIndex());
 
-        assertDoesNotThrow(() -> meta.lastAppliedIndex(UUID.randomUUID(), 500));
+        assertDoesNotThrow(() -> meta.lastApplied(UUID.randomUUID(), 500, 50));
 
         assertEquals(500, meta.lastAppliedIndex());
+    }
+
+    @Test
+    void testLastAppliedTerm() {
+        PartitionMeta meta = new PartitionMeta();
+
+        assertEquals(0, meta.lastAppliedTerm());
+
+        meta.lastApplied(null, 100, 10);
+
+        assertEquals(10, meta.lastAppliedTerm());
+
+        meta.lastApplied(UUID.randomUUID(), 500, 50);
+
+        assertEquals(50, meta.lastAppliedTerm());
+    }
+
+    @Test
+    void testLastGroupConfig() {
+        PartitionMeta meta = new PartitionMeta();
+
+        assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(0L));
+
+        meta.lastReplicationProtocolGroupConfigFirstPageId(null, 12);
+
+        assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(12L));
+
+        meta.lastReplicationProtocolGroupConfigFirstPageId(UUID.randomUUID(), 34);
+
+        assertThat(meta.lastReplicationProtocolGroupConfigFirstPageId(), is(34L));
     }
 
     @Test
@@ -99,32 +130,34 @@ public class PartitionMetaTest {
     void testSnapshot() {
         UUID checkpointId = null;
 
-        PartitionMeta meta = new PartitionMeta(checkpointId, 0, 0, 0, 0, 0, 0);
+        PartitionMeta meta = new PartitionMeta(checkpointId, 0, 0, 0, 0, 0, 0, 0, 0);
 
-        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0);
-        checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0);
+        checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0, 0, 0);
 
-        meta.lastAppliedIndex(checkpointId, 50);
+        meta.lastApplied(checkpointId, 50, 5);
+        meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 12);
         meta.versionChainTreeRootPageId(checkpointId, 300);
         meta.rowVersionFreeListRootPageId(checkpointId, 900);
         meta.incrementPageCount(checkpointId);
 
-        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0);
-        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 300, 900, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 5, 12, 300, 900, 1);
 
-        meta.lastAppliedIndex(checkpointId = UUID.randomUUID(), 51);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 50, 300, 900, 1);
+        meta.lastApplied(checkpointId = UUID.randomUUID(), 51, 6);
+        meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 34);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 50, 5, 12, 300, 900, 1);
 
         meta.versionChainTreeRootPageId(checkpointId = UUID.randomUUID(), 303);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 300, 900, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 300, 900, 1);
 
         meta.rowVersionFreeListRootPageId(checkpointId = UUID.randomUUID(), 909);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 303, 900, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 900, 1);
 
         meta.incrementPageCount(checkpointId = UUID.randomUUID());
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 303, 909, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 909, 1);
 
-        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 303, 909, 2);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 6, 34, 303, 909, 2);
     }
 
     @Test
@@ -139,11 +172,15 @@ public class PartitionMetaTest {
     private static void checkSnapshot(
             PartitionMetaSnapshot snapshot,
             long expLastAppliedIndex,
+            long expLastAppliedTerm,
+            long expLastGroupConfigFirstPageId,
             long expVersionChainTreeRootPageId,
             long expRowVersionFreeListRootPageId,
             int expPageCount
     ) {
         assertThat(snapshot.lastAppliedIndex(), equalTo(expLastAppliedIndex));
+        assertThat(snapshot.lastAppliedTerm(), equalTo(expLastAppliedTerm));
+        assertThat(snapshot.lastReplicationProtocolGroupConfigFirstPageId(), equalTo(expLastGroupConfigFirstPageId));
         assertThat(snapshot.versionChainTreeRootPageId(), equalTo(expVersionChainTreeRootPageId));
         assertThat(snapshot.rowVersionFreeListRootPageId(), equalTo(expRowVersionFreeListRootPageId));
         assertThat(snapshot.pageCount(), equalTo(expPageCount));

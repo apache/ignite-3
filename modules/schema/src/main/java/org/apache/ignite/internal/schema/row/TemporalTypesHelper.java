@@ -157,7 +157,7 @@ public class TemporalTypesHelper {
         time |= localTime.getMinute() << SECONDS_FIELD_LENGTH;
         time |= localTime.getSecond();
 
-        int fractional = truncateTo(type.precision(), localTime.getNano());
+        int fractional = truncateTo(localTime.getNano(), type.precision());
 
         return ((long) time << 32) | fractional;
     }
@@ -223,15 +223,15 @@ public class TemporalTypesHelper {
                 break;
             }
             case 4: {
-                nanos = (nanos / 100_000) * 100_000; // 100mcs precision.
+                nanos = (nanos / 100_000) * 100_000; // 100us precision.
                 break;
             }
             case 5: {
-                nanos = (nanos / 10_000) * 10_000; // 10mcs precision.
+                nanos = (nanos / 10_000) * 10_000; // 10us precision.
                 break;
             }
             case 6: {
-                nanos = (nanos / 1_000) * 1_000; // 1mcs precision.
+                nanos = (nanos / 1_000) * 1_000; // 1us precision.
                 break;
             }
             case 7: {
@@ -256,11 +256,11 @@ public class TemporalTypesHelper {
     /**
      * Normalize to given precision and truncate to meaningful time unit.
      *
+     * @param nanos Seconds' fractional part.
      * @param precision Precision.
-     * @param nanos     Seconds' fractional part.
      * @return Truncated fractional seconds (millis, micros or nanos).
      */
-    private static int truncateTo(int precision, int nanos) {
+    private static int truncateTo(int nanos, int precision) {
         switch (precision) {
             case 0:
                 return 0;
@@ -272,13 +272,13 @@ public class TemporalTypesHelper {
                 return nanos / 1_000_000; // 1ms precision.
             }
             case 4: {
-                return (nanos / 100_000) * 100; // 100mcs precision.
+                return (nanos / 100_000) * 100; // 100us precision.
             }
             case 5: {
-                return (nanos / 10_000) * 10; // 10mcs precision.
+                return (nanos / 10_000) * 10; // 10us precision.
             }
             case 6: {
-                return nanos / 1_000; // 1mcs precision.
+                return nanos / 1_000; // 1us precision.
             }
             case 7: {
                 return (nanos / 100) * 100; // 100ns precision.

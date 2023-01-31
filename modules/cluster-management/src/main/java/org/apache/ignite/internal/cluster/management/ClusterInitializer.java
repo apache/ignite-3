@@ -18,14 +18,15 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -84,24 +85,24 @@ public class ClusterInitializer {
         }
 
         try {
-            metaStorageNodeNames = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableList());
+            Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
-            cmgNodeNames = cmgNodeNames.isEmpty()
-                    ? metaStorageNodeNames
-                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableList());
+            Set<String> cmgNodeNameSet = cmgNodeNames.isEmpty()
+                    ? msNodeNameSet
+                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
 
             // check that provided Meta Storage nodes are present in the topology
-            List<ClusterNode> msNodes = resolveNodes(clusterService, metaStorageNodeNames);
+            List<ClusterNode> msNodes = resolveNodes(clusterService, msNodeNameSet);
 
             LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
-            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNames);
+            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNameSet);
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
-                    .metaStorageNodes(metaStorageNodeNames)
-                    .cmgNodes(cmgNodeNames)
+                    .metaStorageNodes(msNodeNameSet)
+                    .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
                     .build();
 
@@ -194,5 +195,21 @@ public class ClusterInitializer {
         CompletableFuture<?>[] futures = nodes.stream().map(futureProducer).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures);
+    }
+
+    private static List<ClusterNode> resolveNodes(ClusterService clusterService, Collection<String> consistentIds) {
+        return consistentIds.stream()
+                .map(consistentId -> {
+                    ClusterNode node = clusterService.topologyService().getByConsistentId(consistentId);
+
+                    if (node == null) {
+                        throw new IllegalArgumentException(String.format(
+                                "Node \"%s\" is not present in the physical topology", consistentId
+                        ));
+                    }
+
+                    return node;
+                })
+                .collect(Collectors.toList());
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -187,31 +188,35 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     void testAccessLockedKeyTimesOut() {
         KeyValueView<Integer, String> kvView = kvView();
 
-        Transaction tx = client().transactions().begin();
-        kvView.put(tx, -100, "1");
+        Transaction tx1 = client().transactions().begin();
+        Transaction tx2 = client().transactions().begin();
 
-        var ex = assertThrows(IgniteException.class, () -> kvView.get(null, -100));
-        assertThat(ex.getMessage(), containsString("TimeoutException"));
+        kvView.put(tx2, -100, "1");
 
-        tx.rollback();
+        var ex = assertThrows(IgniteException.class, () -> kvView.get(tx1, -100));
+        assertThat(ex.getMessage(), containsString("Replication is timed out"));
+
+        tx2.rollback();
     }
 
     @Test
-    void testCommitRollbackSameTxThrows() {
+    void testCommitRollbackSameTxDoesNotThrow() {
         Transaction tx = client().transactions().begin();
         tx.commit();
 
-        TransactionException ex = assertThrows(TransactionException.class, tx::rollback);
-        assertThat(ex.getMessage(), containsString("Transaction is already committed"));
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
     }
 
     @Test
-    void testRollbackCommitSameTxThrows() {
+    void testRollbackCommitSameTxDoesNotThrow() {
         Transaction tx = client().transactions().begin();
         tx.rollback();
 
-        TransactionException ex = assertThrows(TransactionException.class, tx::commit);
-        assertThat(ex.getMessage(), containsString("Transaction is already rolled back"));
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::rollback, "Unexpected exception was thrown.");
+        assertDoesNotThrow(tx::commit, "Unexpected exception was thrown.");
     }
 
     @Test

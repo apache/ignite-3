@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import static org.mockito.Mockito.spy;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -31,8 +32,8 @@ import org.jetbrains.annotations.Nullable;
 public class TestTxStateTableStorage implements TxStateTableStorage {
     private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
 
-    @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
-        return storages.computeIfAbsent(partitionId, k -> new TestTxStateStorage());
+    @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) {
+        return storages.computeIfAbsent(partitionId, k -> spy(new TestTxStateStorage()));
     }
 
     @Override
@@ -41,7 +42,7 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public void destroyTxStateStorage(int partitionId) throws StorageException {
+    public void destroyTxStateStorage(int partitionId) {
         TxStateStorage storage = storages.remove(partitionId);
 
         if (storage != null) {
@@ -55,22 +56,22 @@ public class TestTxStateTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public void start() throws StorageException {
+    public void start() {
         // No-op.
     }
 
     @Override
-    public void stop() throws StorageException {
+    public void stop() {
         // No-op.
     }
 
     @Override
-    public void destroy() throws StorageException {
+    public void destroy() {
         storages.clear();
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         stop();
     }
 }

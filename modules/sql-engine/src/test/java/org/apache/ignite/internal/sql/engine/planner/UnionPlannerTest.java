@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.UUID;
 import org.apache.calcite.rel.core.Union;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
@@ -77,49 +77,40 @@ public class UnionPlannerTest extends AbstractPlannerTest {
      * @return Ignite schema.
      */
     private IgniteSchema prepareSchema() {
-        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable tbl1 = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Table1", "hash");
-            }
-        };
-
-        TestTable tbl2 = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Table2", "hash");
-            }
-        };
-
-        TestTable tbl3 = new TestTable(
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build()) {
-
-            @Override public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "Table3", "hash");
-            }
-        };
-
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TABLE1", tbl1);
-        publicSchema.addTable("TABLE2", tbl2);
-        publicSchema.addTable("TABLE3", tbl3);
+        IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
+        createTable(publicSchema,
+                "TABLE1",
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build(),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        );
+
+        createTable(publicSchema,
+                "TABLE2",
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build(),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        );
+
+
+        createTable(publicSchema,
+                "TABLE3",
+                new RelDataTypeFactory.Builder(f)
+                        .add("ID", f.createJavaType(Integer.class))
+                        .add("NAME", f.createJavaType(String.class))
+                        .add("SALARY", f.createJavaType(Double.class))
+                        .build(),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        );
 
         return publicSchema;
     }

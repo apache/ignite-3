@@ -45,7 +45,7 @@ public:
      * @param endpoint Endpoints list.
      */
     ignite_client_configuration(std::initializer_list<std::string_view> endpoints)
-        : m_endpoints(endpoints.begin(), endpoints.end()) { }
+        : m_endpoints(endpoints.begin(), endpoints.end()) {}
 
     /**
      * Get endpoints.

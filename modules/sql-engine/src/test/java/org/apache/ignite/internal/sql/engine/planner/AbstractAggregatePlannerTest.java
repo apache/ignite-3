@@ -17,67 +17,57 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.UUID;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * AbstractAggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Base class for further planner test implementations.
  */
 public class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     /**
-     * CreateBroadcastTable.
+     * Creates table with broadcast distribution.
      *
-     * @return REPLICATED test table (ID, VAL0, VAL1, GRP0, GRP1)
+     * @param tblName Table name.
+     * @return Table instance with broadcast distribution and multiple predefined columns.
      */
-    @NotNull
-    protected TestTable createBroadcastTable() {
+    protected TestTable createBroadcastTable(String tblName) {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable tbl = new TestTable(
+        return createTable(tblName,
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("VAL0", f.createJavaType(Integer.class))
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.broadcast();
-            }
-        };
-        return tbl;
+                        .build(),
+                DEFAULT_TBL_SIZE,
+                IgniteDistributions.broadcast()
+        );
     }
 
     /**
-     * CreateAffinityTable.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates table with specified affinity distribution.
      *
-     * @return PARTITIONED test table (ID, VAL0, VAL1, GRP0, GRP1)
+     * @param tblName Table name.
+     * @return Table instance with specified affinity distribution and multiple predefined columns.
      */
-    @NotNull
-    protected AbstractPlannerTest.TestTable createAffinityTable() {
+    protected AbstractPlannerTest.TestTable createAffinityTable(String tblName) {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        return new TestTable(
+        return createTable(tblName,
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("VAL0", f.createJavaType(Integer.class))
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "test", "hash");
-            }
-        };
+                        .build(),
+                DEFAULT_TBL_SIZE,
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        );
     }
 }

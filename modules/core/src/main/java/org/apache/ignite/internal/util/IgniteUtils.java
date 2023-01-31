@@ -49,9 +49,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -102,6 +106,11 @@ public class IgniteUtils {
 
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
+
+    /**
+     * Root package for JMX MBeans.
+     */
+    private static final String JMX_MBEAN_PACKAGE = "org.apache";
 
     /**
      * Get JDK version.
@@ -627,6 +636,43 @@ public class IgniteUtils {
     }
 
     /**
+     * Closes all provided objects. If any of the {@link ManuallyCloseable#close} methods throw an exception,
+     * only the first thrown exception will be propagated to the caller, after all other objects are closed,
+     * similar to the try-with-resources block.
+     *
+     * @param closeables Stream of objects to close.
+     * @throws Exception If failed to close.
+     */
+    public static void closeAllManually(Stream<? extends ManuallyCloseable> closeables) throws Exception {
+        AtomicReference<Exception> ex = new AtomicReference<>();
+
+        closeables.filter(Objects::nonNull).forEach(closeable -> {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                if (!ex.compareAndSet(null, e)) {
+                    ex.get().addSuppressed(e);
+                }
+            }
+        });
+
+        if (ex.get() != null) {
+            throw ex.get();
+        }
+    }
+
+    /**
+     * Closes all provided objects.
+     *
+     * @param closeables Array of closeable objects to close.
+     * @throws Exception If failed to close.
+     * @see #closeAll(Collection)
+     */
+    public static void closeAllManually(ManuallyCloseable... closeables) throws Exception {
+        closeAllManually(Arrays.stream(closeables));
+    }
+
+    /**
      * Short date format pattern for log messages in "quiet" mode. Only time is included since we don't expect "quiet" mode to be used for
      * longer runs.
      */
@@ -861,5 +907,41 @@ public class IgniteUtils {
         }
 
         return result;
+    }
+
+    /**
+     * Cancels the future and runs a consumer on future's result if it was completed before the cancellation.
+     * Does nothing if future is cancelled or completed exceptionally.
+     *
+     * @param future Future.
+     * @param consumer Consumer that accepts future's result.
+     * @param <T> Future's result type.
+     */
+    public static <T> void cancelOrConsume(CompletableFuture<T> future, Consumer<T> consumer) {
+        future.cancel(true);
+
+        if (future.isCancelled() || future.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert future.isDone();
+
+        T res = future.join();
+
+        assert res != null;
+
+        consumer.accept(res);
+    }
+
+    /**
+     * Produce new MBean name according to received group and name.
+     *
+     * @param group pkg:group=value part of MBean name.
+     * @param name pkg:name=value part of MBean name.
+     * @return new ObjectName.
+     * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
+     */
+    public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
+        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
     }
 }

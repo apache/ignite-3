@@ -18,18 +18,17 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -41,18 +40,23 @@ import org.junit.jupiter.api.Test;
 public class OutgoingSnapshotReaderTest {
     @Test
     void testForChoosingMaximumAppliedIndexForMeta() {
-        MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(0);
-        TxStateStorage txStateStorage = new TestTxStateStorage();
-
         PartitionAccess partitionAccess = mock(PartitionAccess.class);
 
-        when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
-        when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
         when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(UUID.randomUUID(), 0));
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+
+        OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);
+        doAnswer(invocation -> {
+            OutgoingSnapshot snapshot = invocation.getArgument(1);
+
+            snapshot.freezeScopeUnderMvLock();
+
+            return null;
+        }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
 
         PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
                 mock(TopologyService.class),
-                mock(OutgoingSnapshotsManager.class),
+                outgoingSnapshotsManager,
                 "",
                 mock(RaftOptions.class),
                 partitionAccess,
@@ -60,14 +64,14 @@ public class OutgoingSnapshotReaderTest {
                 mock(Executor.class)
         );
 
-        mvPartitionStorage.lastAppliedIndex(10L);
-        txStateStorage.lastAppliedIndex(5L);
+        when(partitionAccess.minLastAppliedIndex()).thenReturn(5L);
+        when(partitionAccess.maxLastAppliedIndex()).thenReturn(10L);
 
-        assertEquals(10L, new OutgoingSnapshotReader(snapshotStorage).load().lastIncludedIndex());
+        when(partitionAccess.minLastAppliedTerm()).thenReturn(1L);
+        when(partitionAccess.maxLastAppliedTerm()).thenReturn(2L);
 
-        mvPartitionStorage.lastAppliedIndex(1L);
-        txStateStorage.lastAppliedIndex(2L);
-
-        assertEquals(2L, new OutgoingSnapshotReader(snapshotStorage).load().lastIncludedIndex());
+        SnapshotMeta meta = new OutgoingSnapshotReader(snapshotStorage).load();
+        assertEquals(10L, meta.lastIncludedIndex());
+        assertEquals(2L, meta.lastIncludedTerm());
     }
 }

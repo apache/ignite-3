@@ -80,6 +80,7 @@ import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
@@ -109,6 +110,7 @@ import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -125,6 +127,16 @@ public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
 
     public static final int IN_BUFFER_SIZE = 512;
+
+    public static final int IO_BATCH_SIZE = 256;
+    public static final int IO_BATCH_COUNT = 4;
+
+    /**
+     * The number of elements to be prefetched from each partition when scanning the sorted index.
+     * The higher the value, the fewer calls to the upstream will be, but at the same time, the bigger
+     * internal buffer will be.
+     */
+    public static final int SORTED_IDX_PART_PREFETCH_SIZE = 100;
 
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
             .withParserFactory(IgniteSqlParserImpl.FACTORY)
@@ -169,7 +181,7 @@ public final class Commons {
             .parserConfig(PARSER_CONFIG)
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
-                    .withDefaultNullCollation(NullCollation.LOW)
+                    .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
@@ -181,8 +193,6 @@ public final class Commons {
             .typeSystem(IgniteTypeSystem.INSTANCE)
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
-
-    private static Boolean implicitPkEnabled;
 
     private Commons() {
     }
@@ -228,9 +238,13 @@ public final class Commons {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 if (iter instanceof AutoCloseable) {
-                    ((AutoCloseable) iter).close();
+                    try {
+                        ((AutoCloseable) iter).close();
+                    } catch (Exception e) {
+                        throw new IgniteInternalException(e);
+                    }
                 }
             }
         };
@@ -552,28 +566,57 @@ public final class Commons {
     }
 
     /**
-     * Mapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates mapping to trim the fields.
+     *
+     * <p>To find a new index of element after trimming call {@code mapping.getTargetOpt(index)}.
+     *
+     * <p>This mapping can be used to adjust traits or aggregations, for example, when several fields have been truncated.
+     * Assume the following scenario:
+     * <pre>
+     *     We got a plan like below:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:1, d:3)): RowType(a, b, c, d)
+     *
+     *     In order to decrease amount of occupied memory, we can trim
+     *     all the fields we aren't interested in. But such a trimming
+     *     should change and indexes in Distribution trait as well. The
+     *     plan after trimming should looks like this:
+     *
+     *     Project(b, d)
+     *       TableScan(t, Distribution(b:0, d:1)): RowType(b, d)
+     * </pre>
+     *
+     * @param sourceSize A size of the source collection.
+     * @param requiredElements A set of elements that should be preserved.
+     * @return A mapping for desired elements.
+     * @see org.apache.calcite.plan.RelTrait#apply(TargetMapping)
+     * @see org.apache.calcite.rel.core.AggregateCall#transform(TargetMapping)
      */
-    public static Mappings.TargetMapping mapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
+    public static Mappings.TargetMapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, requiredElements.cardinality());
+        for (Ord<Integer> ord : Ord.zip(requiredElements)) {
             mapping.set(ord.e, ord.i);
         }
         return mapping;
     }
 
     /**
-     * InverseMapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Create a mapping to redo trimming made by {@link #trimmingMapping(int, ImmutableBitSet)}.
+     *
+     * <p>To find an old index of element before trimming call {@code mapping.getSourceOpt(index)}.
+     *
+     * <p>This mapping can be used to remap traits or aggregates back as if the trimming has never happened.
+     *
+     * @param sourceSize Count of elements in a non trimmed collection.
+     * @param requiredElements Elements which were preserved during trimming.
+     * @return A mapping to restore the original mapping.
+     * @see #trimmingMapping(int, ImmutableBitSet)
      */
-    public static Mappings.TargetMapping inverseMapping(ImmutableBitSet bitSet, int sourceSize) {
-        Mapping mapping = Mappings.create(MappingType.INVERSE_FUNCTION, sourceSize, bitSet.cardinality());
-        for (Ord<Integer> ord : Ord.zip(bitSet)) {
-            mapping.set(ord.e, ord.i);
-        }
-        return mapping;
+    public static Mappings.TargetMapping inverseTrimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        return Mappings.invert(trimmingMapping(sourceSize, requiredElements).inverse());
     }
+
 
     /**
      * Checks if there is a such permutation of all {@code elems} that is prefix of provided {@code seq}.
@@ -851,10 +894,6 @@ public final class Commons {
      * @return A {@code true} if implicit pk mode is enabled, {@code false} otherwise.
      */
     public static boolean implicitPkEnabled() {
-        if (implicitPkEnabled == null) {
-            implicitPkEnabled = IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
-        }
-
-        return implicitPkEnabled;
+        return IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
     }
 }

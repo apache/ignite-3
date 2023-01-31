@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -181,12 +182,6 @@ public class TraitUtils {
 
         if (fromTrait.satisfies(toTrait)) {
             return rel;
-        }
-
-        // right now we cannot create a multi-column affinity
-        // key object, thus this conversion is impossible
-        if (toTrait.function().affinity() && toTrait.getKeys().size() > 1) {
-            return null;
         }
 
         RelTraitSet traits = rel.getTraitSet().replace(toTrait);
@@ -504,6 +499,22 @@ public class TraitUtils {
     /**
      * Creates {@link RelCollation} object from a given collations.
      *
+     * @param collations List of collations.
+     * @return a {@link RelCollation} object.
+     */
+    public static RelCollation createCollation(List<Collation> collations) {
+        List<RelFieldCollation> fieldCollations = new ArrayList<>(collations.size());
+
+        for (int i = 0; i < collations.size(); i++) {
+            fieldCollations.add(createFieldCollation(i,  collations.get(i)));
+        }
+
+        return RelCollations.of(fieldCollations);
+    }
+
+    /**
+     * Creates {@link RelCollation} object from a given collations.
+     *
      * @param indexedColumns List of columns names.
      * @param collations List of collations.
      * @param descriptor Table descriptor to derive column indexes from.
@@ -514,11 +525,18 @@ public class TraitUtils {
             @Nullable List<IgniteIndex.Collation> collations,
             TableDescriptor descriptor
     ) {
-        if (collations == null) {
-            return RelCollations.EMPTY;
-        }
+        List<RelFieldCollation> fieldCollations = new ArrayList<>(indexedColumns.size());
 
-        List<RelFieldCollation> fieldCollations = new ArrayList<>();
+        if (collations == null) { // Build collation for Hash index.
+            for (int i = 0; i < indexedColumns.size(); i++) {
+                String columnName = indexedColumns.get(i);
+                ColumnDescriptor columnDesc = descriptor.columnDescriptor(columnName);
+
+                fieldCollations.add(new RelFieldCollation(columnDesc.logicalIndex(), Direction.CLUSTERED, NullDirection.UNSPECIFIED));
+            }
+
+            return RelCollations.of(fieldCollations);
+        }
 
         for (int i = 0; i < indexedColumns.size(); i++) {
             String columnName = indexedColumns.get(i);
@@ -535,7 +553,7 @@ public class TraitUtils {
      * Creates field collation with default direction and nulls ordering.
      */
     public static RelFieldCollation createFieldCollation(int fieldIdx) {
-        return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.FIRST);
+        return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.LAST);
     }
 
     /**

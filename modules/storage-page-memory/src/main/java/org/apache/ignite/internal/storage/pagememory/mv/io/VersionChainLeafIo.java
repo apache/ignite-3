@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
+import java.util.function.Consumer;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChain;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainKey;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 
@@ -60,6 +63,24 @@ public final class VersionChainLeafIo extends BplusLeafIo<VersionChainKey> imple
     /** {@inheritDoc} */
     @Override
     public VersionChainKey getLookupRow(BplusTree<VersionChainKey, ?> tree, long pageAddr, int idx) {
-        return getRow(pageAddr, idx, 0xFFFF);
+        return getRow(pageAddr, idx, getPartitionId(pageAddr));
+    }
+
+    @Override
+    public void visit(BplusTree<VersionChainKey, ?> tree, long pageAddr, Consumer<VersionChainKey> c) {
+        int partitionId = getPartitionId(pageAddr);
+
+        int count = getCount(pageAddr);
+
+        for (int i = 0; i < count; i++) {
+            VersionChain chain = getRow(pageAddr, i, partitionId);
+
+            c.accept(chain);
+        }
+    }
+
+    private static int getPartitionId(long pageAddr) {
+        long pageId = getPageId(pageAddr);
+        return PageIdUtils.partitionId(pageId);
     }
 }

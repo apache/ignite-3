@@ -36,7 +36,7 @@ public:
     constexpr protocol_version(int16_t vmajor, int16_t vminor, int16_t vpatch)
         : m_major(vmajor)
         , m_minor(vminor)
-        , m_patch(vpatch) { }
+        , m_patch(vpatch) {}
 
     /**
      * Get major part.

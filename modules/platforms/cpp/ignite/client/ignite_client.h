@@ -17,12 +17,15 @@
 
 #pragma once
 
-#include <ignite/client/ignite_client_configuration.h>
-#include <ignite/client/table/tables.h>
+#include "ignite/client/ignite_client_configuration.h"
+#include "ignite/client/sql/sql.h"
+#include "ignite/client/table/tables.h"
+#include "ignite/client/transaction/transactions.h"
 
-#include <ignite/common/config.h>
-#include <ignite/common/ignite_result.h>
+#include "ignite/common/config.h"
+#include "ignite/common/ignite_result.h"
 
+#include <chrono>
 #include <functional>
 #include <memory>
 
@@ -32,7 +35,7 @@ namespace detail {
 
 class ignite_client_impl;
 
-} // namespace
+} // namespace detail
 
 /**
  * Ignite client.
@@ -50,7 +53,7 @@ public:
     ignite_client &operator=(const ignite_client &) = delete;
 
     /**
-     * Start client asynchronously.
+     * Starts client asynchronously.
      *
      * Client tries to establish connection to every endpoint. First endpoint is
      * selected randomly. After that round-robin is used to determine the next
@@ -73,7 +76,7 @@ public:
         ignite_callback<ignite_client> callback);
 
     /**
-     * Start client synchronously.
+     * Starts client synchronously.
      *
      * @see start_async for details.
      *
@@ -81,21 +84,36 @@ public:
      * @param timeout Operation timeout.
      * @return ignite_client instance.
      */
-    IGNITE_API static ignite_client start(ignite_client_configuration configuration, std::chrono::milliseconds timeout);
+    [[nodiscard]] IGNITE_API static ignite_client start(
+        ignite_client_configuration configuration, std::chrono::milliseconds timeout);
 
     /**
-     * Get client configuration.
+     * Gets client configuration.
      *
      * @return Configuration.
      */
     [[nodiscard]] IGNITE_API const ignite_client_configuration &configuration() const noexcept;
 
     /**
-     * Get the table API.
+     * Gets the table API.
      *
      * @return Table API.
      */
     [[nodiscard]] IGNITE_API tables get_tables() const noexcept;
+
+    /**
+     * Gets the SQL API.
+     *
+     * @return SQL API.
+     */
+    [[nodiscard]] IGNITE_API sql get_sql() const noexcept;
+
+    /**
+     * Gets the Transactions API.
+     *
+     * @return Transactions API.
+     */
+    [[nodiscard]] IGNITE_API transactions get_transactions() const noexcept;
 
 private:
     /**

@@ -60,6 +60,9 @@ public class ErrorGroups {
 
         /** Column not found. */
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode(4);
+
+        /** Table is stopping. */
+        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode(5);
     }
 
     /** Client error group. */
@@ -87,6 +90,9 @@ public class ErrorGroups {
 
         /** Configuration error. */
         public static final int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(7);
+
+        /** Cluster ID mismatch error. */
+        public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode(8);
     }
 
     /** SQL error group. */
@@ -131,7 +137,7 @@ public class ErrorGroups {
         public static final int TOO_MANY_GROUPING_EXPRESSIONS_ERR = SQL_ERR_GROUP.registerErrorCode(12);
 
         /** Unsupported sql operation. */
-        public static final int USUPPORTED_SQL_OPERATION_KIND_ERR = SQL_ERR_GROUP.registerErrorCode(13);
+        public static final int UNSUPPORTED_SQL_OPERATION_KIND_ERR = SQL_ERR_GROUP.registerErrorCode(13);
 
         /** Unsupported DDL operation. */
         public static final int UNSUPPORTED_DDL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(14);
@@ -148,53 +154,50 @@ public class ErrorGroups {
         /** Table version not found. */
         public static final int TABLE_VER_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(18);
 
-        /** Invalid table option. */
-        public static final int TABLE_OPTION_ERR = SQL_ERR_GROUP.registerErrorCode(19);
-
         /** Query mapping error. */
-        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(20);
+        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode(19);
 
         /** DDL execution error. */
-        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode(21);
+        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode(20);
 
         /** DML result error. */
-        public static final int INVALID_DML_RESULT_ERR = SQL_ERR_GROUP.registerErrorCode(22);
+        public static final int INVALID_DML_RESULT_ERR = SQL_ERR_GROUP.registerErrorCode(21);
 
         /** SQL data type to relational conversion error. */
-        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode(23);
+        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode(22);
 
         /** Relational expression serialization error. */
-        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(24);
+        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(23);
 
         /** Relational expression deserialization error. */
-        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(25);
+        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode(24);
 
         /** Class not found error. */
-        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(26);
+        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode(25);
 
         /** Expression compilation error. */
-        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode(27);
+        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode(26);
 
         /** Node left the cluster. */
-        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(28);
+        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode(27);
 
         /** Message send error. */
-        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(29);
+        public static final int MESSAGE_SEND_ERR = SQL_ERR_GROUP.registerErrorCode(28);
 
         /** Operation aborted/interrupted error. */
-        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(30);
+        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode(29);
 
         /** An error occurred while canceling the operation. */
-        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(31);
+        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode(30);
 
         /** Session expired error. */
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(32);
+        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode(31);
 
-        /** Session evaluation error. */
-        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(33);
+        /** Schema evaluation error. */
+        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode(32);
 
         /** Execution cancelled. */
-        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(34);
+        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode(33);
     }
 
     /** Meta storage error group. */
@@ -262,23 +265,26 @@ public class ErrorGroups {
         /** Error of unexpected tx state on state change. */
         public static final int TX_UNEXPECTED_STATE_ERR = TX_ERR_GROUP.registerErrorCode(3);
 
-        /** Failed to release a lock on a key. */
-        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
-
         /** Failed to acquire a lock on a key due to a conflict. */
-        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
+        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
 
-        /** Failed to downgrade a lock on a key due to a conflict. */
-        public static final int DOWNGRADE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(6);
+        /** Failed to acquire a lock on a key within a timeout. */
+        public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(5);
 
         /** Failed to commit a transaction. */
-        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(7);
+        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(6);
 
         /** Failed to rollback a transaction. */
-        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
+        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(7);
 
         /** Failed to enlist read-write operation into read-only transaction. */
-        public static final int TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode(9);
+        public static final int TX_FAILED_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode(8);
+
+        /** The error happens when the replica is not ready to handle a request. */
+        public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode(9);
+
+        /** Tx state storage rebalancing error. */
+        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(10);
     }
 
     /** Replicator error group. */
@@ -314,7 +320,43 @@ public class ErrorGroups {
         /** Storage error group. */
         public static final ErrorGroup STORAGE_ERR_GROUP = ErrorGroup.newGroup("STORAGE", 9);
 
+        /** Default error code when nothing else is specified. */
+        public static final int GENERIC_ERR = STORAGE_ERR_GROUP.registerErrorCode(1);
+
         /** Failed to create a directory. */
-        public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode(1);
+        public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode(2);
+
+        /** Operation on closed storage. */
+        public static final int ALREADY_CLOSED_ERR = STORAGE_ERR_GROUP.registerErrorCode(3);
+
+        /** Storage rebalancing error. */
+        public static final int STORAGE_REBALANCE_ERR = STORAGE_ERR_GROUP.registerErrorCode(4);
+    }
+
+    /** Distribution zones error group. */
+    public static class DistributionZones {
+        /** Distribution zones group. */
+        public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = ErrorGroup.newGroup("DISTRZONES", 10);
+
+        /** Distribution zone already exists. */
+        public static final int ZONE_ALREADY_EXISTS_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(1);
+
+        /** Distribution zone is not found. */
+        public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(2);
+
+        /** Distribution zone rename error. */
+        public static final int ZONE_RENAME_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(3);
+
+        /** Distribution zone is bound to table. */
+        public static final int ZONE_BIND_TABLE_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode(4);
+    }
+
+    /** Network error group. */
+    public static class Network {
+        /** Network error group. */
+        public static final ErrorGroup NETWORK_ERR_GROUP = ErrorGroup.newGroup("NETWORK", 11);
+
+        /** Unresolvable consistent ID. */
+        public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
     }
 }

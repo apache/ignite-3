@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.storage.configuration;
 
-import java.lang.annotation.Annotation;
-import java.util.Map;
+import com.google.auto.service.AutoService;
 import java.util.ServiceLoader;
 import java.util.Set;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
-import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-api.
  */
+@AutoService(ConfigurationModule.class)
 public class StorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
@@ -39,7 +38,7 @@ public class StorageEngineDistributedConfigurationModule implements Configuratio
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(ExistingDataStorage.class, Set.of(new ExistingDataStorageValidator(ServiceLoader.load(DataStorageModule.class))));
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(new ExistingDataStorageValidator(ServiceLoader.load(DataStorageModule.class)));
     }
 }

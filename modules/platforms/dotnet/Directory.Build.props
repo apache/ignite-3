@@ -23,7 +23,7 @@
         <Nullable>enable</Nullable>
         <AnalysisMode>All</AnalysisMode>
 
-        <Version>3.0.0-alpha3</Version>
+        <Version>3.0.0-SNAPSHOT</Version>
 
         <Company>Apache Software Foundation</Company>
         <Authors>Apache Ignite</Authors>

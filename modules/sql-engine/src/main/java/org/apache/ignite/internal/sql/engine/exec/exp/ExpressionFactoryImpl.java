@@ -53,6 +53,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCorrelVariable;
+import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -62,6 +63,7 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlConformance;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -77,6 +79,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implements rex expression into a function object. Uses JaninoRexCompiler under the hood. Each expression compiles into a class and a
@@ -137,42 +140,39 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return null;
         }
 
-        return new Comparator<RowT>() {
-            @Override
-            public int compare(RowT o1, RowT o2) {
-                RowHandler<RowT> hnd = ctx.rowHandler();
-                Object unspecifiedVal = ctx.unspecifiedValue();
+        return (o1, o2) -> {
+            RowHandler<RowT> hnd = ctx.rowHandler();
+            Object unspecifiedVal = RexImpTable.UNSPECIFIED_VALUE_PLACEHOLDER;
 
-                for (RelFieldCollation field : collation.getFieldCollations()) {
-                    int fieldIdx = field.getFieldIndex();
-                    int nullComparison = field.nullDirection.nullComparison;
+            for (RelFieldCollation field : collation.getFieldCollations()) {
+                int fieldIdx = field.getFieldIndex();
+                int nullComparison = field.nullDirection.nullComparison;
 
-                    Object c1 = hnd.get(fieldIdx, o1);
-                    Object c2 = hnd.get(fieldIdx, o2);
+                Object c1 = hnd.get(fieldIdx, o1);
+                Object c2 = hnd.get(fieldIdx, o2);
 
-                    // If filter for some field is unspecified, assume equality for this field and all subsequent fields.
-                    if (c1 == unspecifiedVal || c2 == unspecifiedVal) {
-                        return 0;
-                    }
-
-                    int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
-                            ?
-                            ExpressionFactoryImpl.compare(c1, c2, nullComparison) :
-                            ExpressionFactoryImpl.compare(c2, c1, -nullComparison);
-
-                    if (res != 0) {
-                        return res;
-                    }
+                // If filter for some field is unspecified, assume equality for this field and all subsequent fields.
+                if (c1 == unspecifiedVal || c2 == unspecifiedVal) {
+                    return 0;
                 }
 
-                return 0;
+                int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
+                        ?
+                        compare(c1, c2, nullComparison) :
+                        compare(c2, c1, -nullComparison);
+
+                if (res != 0) {
+                    return res;
+                }
             }
+
+            return 0;
         };
     }
 
     /** {@inheritDoc} */
     @Override
-    public Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right) {
+    public Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls) {
         if (nullOrEmpty(left) || nullOrEmpty(right) || left.size() != right.size()) {
             throw new IllegalArgumentException("Both inputs should be non-empty and have the same size: left="
                     + (left != null ? left.size() : "null") + ", right=" + (right != null ? right.size() : "null"));
@@ -189,42 +189,39 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }
         }
 
-        return new Comparator<RowT>() {
-            @Override
-            public int compare(RowT o1, RowT o2) {
-                boolean hasNulls = false;
-                RowHandler<RowT> hnd = ctx.rowHandler();
+        return (o1, o2) -> {
+            boolean hasNulls = false;
+            RowHandler<RowT> hnd = ctx.rowHandler();
 
-                for (int i = 0; i < left.size(); i++) {
-                    RelFieldCollation leftField = left.get(i);
-                    RelFieldCollation rightField = right.get(i);
+            for (int i = 0; i < left.size(); i++) {
+                RelFieldCollation leftField = left.get(i);
+                RelFieldCollation rightField = right.get(i);
 
-                    int leftIdx = leftField.getFieldIndex();
-                    int rightIdx = rightField.getFieldIndex();
+                int leftIdx = leftField.getFieldIndex();
+                int rightIdx = rightField.getFieldIndex();
 
-                    Object c1 = hnd.get(leftIdx, o1);
-                    Object c2 = hnd.get(rightIdx, o2);
+                Object c1 = hnd.get(leftIdx, o1);
+                Object c2 = hnd.get(rightIdx, o2);
 
-                    if (c1 == null && c2 == null) {
-                        hasNulls = true;
-                        continue;
-                    }
-
-                    int nullComparison = leftField.nullDirection.nullComparison;
-
-                    int res = leftField.direction == RelFieldCollation.Direction.ASCENDING
-                            ?
-                            ExpressionFactoryImpl.compare(c1, c2, nullComparison) :
-                            ExpressionFactoryImpl.compare(c2, c1, -nullComparison);
-
-                    if (res != 0) {
-                        return res;
-                    }
+                if (!equalNulls.get(leftIdx) && c1 == null && c2 == null) {
+                    hasNulls = true;
+                    continue;
                 }
 
-                // If compared rows contain NULLs, they shouldn't be treated as equals, since NULL <> NULL in SQL.
-                return hasNulls ? 1 : 0;
+                int nullComparison = leftField.nullDirection.nullComparison;
+
+                int res = leftField.direction == RelFieldCollation.Direction.ASCENDING
+                        ? compare(c1, c2, nullComparison)
+                        : compare(c2, c1, -nullComparison);
+
+                if (res != 0) {
+                    return res;
+                }
             }
+
+            // If compared rows contain NULLs, they shouldn't be treated as equals, since NULL <> NULL in SQL.
+            // Expect for cases with IS NOT DISTINCT
+            return hasNulls ? 1 : 0;
         };
     }
 
@@ -302,8 +299,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     @Override
     public RangeIterable<RowT> ranges(
             List<SearchBounds> searchBounds,
-            RelCollation collation,
-            RelDataType rowType
+            RelDataType rowType,
+            @Nullable Comparator<RowT> comparator
     ) {
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(typeFactory, rowType);
 
@@ -314,7 +311,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 searchBounds,
                 rowType,
                 rowFactory,
-                collation.getKeys(),
                 0,
                 Arrays.asList(new RexNode[searchBounds.size()]),
                 Arrays.asList(new RexNode[searchBounds.size()]),
@@ -322,7 +318,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 true
         );
 
-        return new RangeIterableImpl(ranges, comparator(collation));
+        return new RangeIterableImpl(ranges, comparator);
     }
 
     /**
@@ -332,8 +328,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * @param searchBounds Search bounds.
      * @param rowType Row type.
      * @param rowFactory Row factory.
-     * @param collationKeys Collation keys.
-     * @param collationKeyIdx Current collation key index (field to process).
+     * @param fieldIdx Current field index (field to process).
      * @param curLower Current lower row.
      * @param curUpper Current upper row.
      * @param lowerInclude Include current lower row.
@@ -344,16 +339,15 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             List<SearchBounds> searchBounds,
             RelDataType rowType,
             RowFactory<RowT> rowFactory,
-            List<Integer> collationKeys,
-            int collationKeyIdx,
+            int fieldIdx,
             List<RexNode> curLower,
             List<RexNode> curUpper,
             boolean lowerInclude,
             boolean upperInclude
     ) {
-        if ((collationKeyIdx >= collationKeys.size())
+        if ((fieldIdx >= searchBounds.size())
                 || (!lowerInclude && !upperInclude)
-                || searchBounds.get(collationKeys.get(collationKeyIdx)) == null) {
+                || searchBounds.get(fieldIdx) == null) {
             ranges.add(new RangeConditionImpl(
                     scalar(curLower, rowType),
                     scalar(curUpper, rowType),
@@ -365,7 +359,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return;
         }
 
-        int fieldIdx = collationKeys.get(collationKeyIdx);
         SearchBounds fieldBounds = searchBounds.get(fieldIdx);
 
         Collection<SearchBounds> fieldMultiBounds = fieldBounds instanceof MultiBounds
@@ -405,8 +398,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     searchBounds,
                     rowType,
                     rowFactory,
-                    collationKeys,
-                    collationKeyIdx + 1,
+                    fieldIdx + 1,
                     curLower,
                     curUpper,
                     lowerInclude && fieldLowerInclude,
@@ -415,7 +407,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         curLower.set(fieldIdx, null);
-        curLower.set(fieldIdx, null);
+        curUpper.set(fieldIdx, null);
     }
 
     /**
@@ -432,7 +424,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Creates {@link SingleScalar}, a code-generated expressions evaluator.
      *
-     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link ExecutionContext#unspecifiedValue()}.
+     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link RexImpTable#UNSPECIFIED_VALUE_PLACEHOLDER}.
      * @param type Row type.
      * @return SingleScalar.
      */
@@ -511,8 +503,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         assert nodes.size() == projects.size();
 
         for (int i = 0; i < projects.size(); i++) {
-            Expression val = unspecifiedValues.get(i) ? Expressions.call(ctx,
-                    IgniteMethod.CONTEXT_UNSPECIFIED_VALUE.method()) : projects.get(i);
+            Expression val = unspecifiedValues.get(i)
+                    ? Expressions.field(null, RexImpTable.class, "UNSPECIFIED_VALUE_PLACEHOLDER")
+                    : projects.get(i);
 
             builder.add(
                     Expressions.statement(
@@ -563,6 +556,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     b.append(", fldIdx=").append(fieldAccess.getField().getIndex());
 
                     return super.visitFieldAccess(fieldAccess);
+                }
+
+                @Override public RexNode visitDynamicParam(RexDynamicParam dynamicParam) {
+                    b.append(", paramType=").append(dynamicParam.getType().getFullTypeString());
+
+                    return super.visitDynamicParam(dynamicParam);
                 }
             }.apply(node);
         }
@@ -716,10 +715,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private final boolean upperInclude;
 
         /** Lower row. */
-        private RowT lowerRow;
+        private @Nullable RowT lowerRow;
 
         /** Upper row. */
-        private RowT upperRow;
+        private @Nullable RowT upperRow;
 
         /** Row factory. */
         private final RowFactory<RowT> factory;
@@ -771,7 +770,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Clear cached rows. */
-        public void clearCache() {
+        void clearCache() {
             lowerRow = upperRow = null;
         }
     }
@@ -779,11 +778,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private class RangeIterableImpl implements RangeIterable<RowT> {
         private final List<RangeCondition<RowT>> ranges;
 
-        private final Comparator<RowT> comparator;
+        private final @Nullable Comparator<RowT> comparator;
 
         private boolean sorted;
 
-        public RangeIterableImpl(List<RangeCondition<RowT>> ranges, Comparator<RowT> comparator) {
+        RangeIterableImpl(
+                List<RangeCondition<RowT>> ranges,
+                @Nullable Comparator<RowT> comparator
+        ) {
             this.ranges = ranges;
             this.comparator = comparator;
         }
@@ -807,7 +809,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             // intersection.
             // Do not sort again if ranges already were sorted before, different values of correlated variables
             // should not affect ordering.
-            if (!sorted) {
+            if (!sorted && comparator != null) {
                 ranges.sort((o1, o2) -> comparator.compare(o1.lower(), o2.lower()));
                 sorted = true;
             }

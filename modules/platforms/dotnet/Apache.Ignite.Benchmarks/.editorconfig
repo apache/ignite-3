@@ -23,4 +23,6 @@ dotnet_diagnostic.CA1014.severity = none # Mark assemblies with CLSCompliant
 dotnet_diagnostic.CA1720.severity = none # Identifier contains type name
 dotnet_diagnostic.CA2201.severity = none # Do not raise reserved exception types
 dotnet_diagnostic.CA1001.severity = none # Types that own disposable fields should be disposable
+dotnet_diagnostic.CA1812.severity = none # Class is never instantiated
+dotnet_diagnostic.CA1822.severity = none # Mark members as static
 

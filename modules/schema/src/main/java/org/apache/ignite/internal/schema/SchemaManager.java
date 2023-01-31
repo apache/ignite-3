@@ -22,12 +22,14 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -36,10 +38,10 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Conditions;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.Operations;
+import org.apache.ignite.internal.metastorage.dsl.Conditions;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
@@ -97,31 +99,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        for (String tblName : tablesCfg.tables().value().namedListKeys()) {
-            ExtendedTableConfiguration tblCfg = ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName));
-            UUID tblId = tblCfg.id().value();
-
-            Map<Integer, byte[]> schemas = collectAllSchemas(tblId);
-
-            byte[] serialized;
-
-            if (!schemas.isEmpty()) {
-                for (Map.Entry<Integer, byte[]> ent : schemas.entrySet()) {
-                    serialized = ent.getValue();
-
-                    SchemaDescriptor desc = SchemaSerializerImpl.INSTANCE.deserialize(serialized);
-
-                    createSchema(0, tblId, tblName, desc).join();
-                }
-
-                registriesVv.complete(0);
-            } else {
-                serialized = schemas.get(INITIAL_SCHEMA_VERSION);
-
-                assert serialized != null;
-            }
-        }
-
         tablesCfg.tables().any().columns().listen(this::onSchemaChange);
     }
 
@@ -153,16 +130,16 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
             if (verFromUpdate != INITIAL_SCHEMA_VERSION) {
                 SchemaDescriptor oldSchema = searchSchemaByVersion(tblId, verFromUpdate - 1);
-                assert oldSchema != null;
 
-                NamedListView<ColumnView> oldCols = ctx.oldValue();
-                NamedListView<ColumnView> newCols = ctx.newValue();
+                if (oldSchema == null) {
+                    byte[] serPrevSchema = schemaByVersion(tblId, verFromUpdate - 1);
 
-                schemaDescFromUpdate.columnMapping(SchemaUtils.columnMapper(
-                        oldSchema,
-                        oldCols,
-                        schemaDescFromUpdate,
-                        newCols));
+                    assert serPrevSchema != null;
+
+                    oldSchema = SchemaSerializerImpl.INSTANCE.deserialize(serPrevSchema);
+                }
+
+                schemaDescFromUpdate.columnMapping(SchemaUtils.columnMapper(oldSchema, schemaDescFromUpdate));
             }
 
             long causalityToken = ctx.storageRevision();
@@ -300,27 +277,21 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
 
-        if (checkSchemaVersion(tblId, schemaVer)) {
-            SchemaDescriptor desc = searchSchemaByVersion(tblId, schemaVer);
+        SchemaRegistry registry = registriesVv.latest().get(tblId);
 
-            if (desc == null) {
-                return getSchemaDescriptor(schemaVer, tblCfg);
-            } else {
-                fut.complete(desc);
-                return fut;
-            }
+        if (registry.lastSchemaVersion() > schemaVer) {
+            return getSchemaDescriptor(schemaVer, tblCfg);
         }
 
         IgniteTriConsumer<Long, Map<UUID, SchemaRegistryImpl>, Throwable> schemaListener = (token, regs, e) -> {
             if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
-                getSchemaDescriptor(schemaVer, tblCfg)
-                        .whenComplete((desc, th) -> {
-                            if (th != null) {
-                                fut.completeExceptionally(th);
-                            } else {
-                                fut.complete(desc);
-                            }
-                        });
+                SchemaRegistry registry0 = registriesVv.latest().get(tblId);
+
+                SchemaDescriptor desc = registry0.schemaCached(schemaVer);
+
+                assert desc != null : "Unexpected empty schema description.";
+
+                fut.complete(desc);
             }
         };
 
@@ -331,7 +302,13 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         if (checkSchemaVersion(tblId, schemaVer)) {
             registriesVv.removeWhenComplete(schemaListener);
 
-            return getSchemaDescriptor(schemaVer, tblCfg);
+            registry = registriesVv.latest().get(tblId);
+
+            SchemaDescriptor desc = registry.schemaCached(schemaVer);
+
+            assert desc != null : "Unexpected empty schema description.";
+
+            fut.complete(desc);
         }
 
         return fut.thenApply(res -> {
@@ -456,13 +433,11 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return The latest schema version.
      */
     private int latestSchemaVersion(UUID tblId) {
-        try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
-
+        try (Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId))) {
             int lastVer = INITIAL_SCHEMA_VERSION;
 
             for (Entry ent : cur) {
-                String key = ent.key().toString();
+                String key = new String(ent.key(), StandardCharsets.UTF_8);
                 int descVer = extractVerFromSchemaKey(key);
 
                 if (descVer > lastVer) {
@@ -477,27 +452,22 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
-     * Collect all schemes for appropriate table.
+     * Gets the defined version of the table schema which available in Metastore.
      *
      * @param tblId Table id.
-     * @return Sorted by key collection of schemes.
+     * @return Schema representation if schema found, {@code null} otherwise.
      */
-    private SortedMap<Integer, byte[]> collectAllSchemas(UUID tblId) {
+    private byte[] schemaByVersion(UUID tblId, int ver) {
         try {
-            Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId));
+            return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
+                    .thenApply(Entry::value)
+                    .get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
 
-            SortedMap<Integer, byte[]> schemes = new TreeMap<>();
-
-            for (Entry ent : cur) {
-                String key = ent.key().toString();
-                int descVer = extractVerFromSchemaKey(key);
-
-                schemes.put(descVer, ent.value());
-            }
-
-            return schemes;
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+            throw new IgniteInternalException("Interrupted when getting schema from metastorage", e);
+        } catch (TimeoutException | ExecutionException e) {
+            throw new IgniteInternalException("Exception when getting schema from metastorage", e);
         }
     }
 

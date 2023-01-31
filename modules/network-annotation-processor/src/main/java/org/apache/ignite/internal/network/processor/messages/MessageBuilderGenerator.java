@@ -66,7 +66,7 @@ public class MessageBuilderGenerator {
         ClassName builderName = message.builderClassName();
 
         processingEnvironment.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating " + builderName, message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating " + builderName);
 
         MethodSpec buildMethod = MethodSpec.methodBuilder("build")
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)

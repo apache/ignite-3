@@ -51,9 +51,8 @@ public interface IgniteTables {
     /**
      * Gets a table by name, if it was created before.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
-     *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
+     * @param name Name of the table with SQL-parser style quotation, e.g.
+     *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Tables with corresponding name or {@code null} if table isn't created.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>
@@ -65,9 +64,8 @@ public interface IgniteTables {
     /**
      * Gets a table by name, if it was created before.
      *
-     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
-     *             "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
-     *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
+     * @param name Name of the table with SQL-parser style quotation, e.g.
+     *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Future representing pending completion of the operation.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
      *                         <ul>

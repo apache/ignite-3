@@ -25,14 +25,10 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,9 +37,6 @@ import org.jetbrains.annotations.Nullable;
 class RaftStorageManager {
     /** Storage key for the CMG state. */
     private static final byte[] CMG_STATE_KEY = "cmg_state".getBytes(UTF_8);
-
-    /** Prefix for the keys for logical topology nodes. */
-    private static final byte[] LOGICAL_TOPOLOGY_PREFIX = "logical_".getBytes(UTF_8);
 
     /** Prefix for validation tokens. */
     private static final byte[] VALIDATED_NODE_PREFIX = "validation_".getBytes(UTF_8);
@@ -73,73 +66,6 @@ class RaftStorageManager {
      */
     void putClusterState(ClusterState state) {
         storage.put(CMG_STATE_KEY, toBytes(state));
-    }
-
-    /**
-     * Retrieves the current logical topology.
-     */
-    Collection<ClusterNode> getLogicalTopology() {
-        try (Cursor<ClusterNode> cursor = storage.getWithPrefix(LOGICAL_TOPOLOGY_PREFIX, (k, v) -> fromBytes(v))) {
-            return cursor.stream().collect(toList());
-        } catch (Exception e) {
-            throw new IgniteInternalException("Unable to get data from storage", e);
-        }
-    }
-
-    /**
-     * Saves a given node as a part of the logical topology.
-     *
-     * @param node Node to save.
-     */
-    void putLogicalTopologyNode(ClusterNode node) {
-        byte[] nodeNameBytes = node.name().getBytes(UTF_8);
-
-        byte[] nodeIdBytes = node.id().getBytes(UTF_8);
-
-        byte[] key = logicalTopologyKey(nodeNameBytes, nodeIdBytes);
-
-        // Replace all nodes with the same consistent ID.
-        byte[] prefix = Arrays.copyOf(key, key.length - nodeIdBytes.length);
-
-        storage.replaceAll(prefix, key, toBytes(node));
-    }
-
-    /**
-     * Removes given nodes from the logical topology.
-     *
-     * @param nodes Nodes to remove.
-     */
-    void removeLogicalTopologyNodes(Set<ClusterNode> nodes) {
-        Collection<byte[]> keys = nodes.stream()
-                .map(RaftStorageManager::logicalTopologyKey)
-                .collect(toList());
-
-        storage.removeAll(keys);
-    }
-
-    /**
-     * Returns {@code true} if a given node is present in the logical topology or {@code false} otherwise.
-     */
-    boolean isNodeInLogicalTopology(ClusterNode node) {
-        byte[] value = storage.get(logicalTopologyKey(node));
-
-        return value != null;
-    }
-
-    private static byte[] logicalTopologyKey(ClusterNode node) {
-        byte[] nodeNameBytes = node.name().getBytes(UTF_8);
-
-        byte[] nodeIdBytes = node.id().getBytes(UTF_8);
-
-        return logicalTopologyKey(nodeNameBytes, nodeIdBytes);
-    }
-
-    private static byte[] logicalTopologyKey(byte[] nodeNameBytes, byte[] nodeIdBytes) {
-        return ByteBuffer.allocate(LOGICAL_TOPOLOGY_PREFIX.length + nodeNameBytes.length + nodeIdBytes.length)
-                .put(LOGICAL_TOPOLOGY_PREFIX)
-                .put(nodeNameBytes)
-                .put(nodeIdBytes)
-                .array();
     }
 
     /**
@@ -185,8 +111,6 @@ class RaftStorageManager {
 
         try (cursor) {
             return cursor.stream().collect(toList());
-        } catch (Exception e) {
-            throw new IgniteInternalException("Unable to get data from storage", e);
         }
     }
 

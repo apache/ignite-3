@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cli.core.exception.handler;
 
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.style.component.ErrorUiComponent;
-import org.apache.ignite.internal.cli.deprecated.IgniteCliException;
 
 /**
  * Exception handler for {@link IgniteCliException}.

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.trait;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.util.ImmutableIntList;
 
@@ -63,50 +64,35 @@ public class IgniteDistributions {
     }
 
     /**
-     * Affinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
      *
-     * @param key       Affinity key.
-     * @param cacheName Affinity cache name.
-     * @param identity  Affinity identity key.
+     * @param key     Affinity key ordinal.
+     * @param tableId Table ID.
+     * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(int key, String cacheName, Object identity) {
-        // TODO: fix cacheId
-        return affinity(key, 0, identity);
+    public static IgniteDistribution affinity(int key, UUID tableId, Object zoneId) {
+        return hash(ImmutableIntList.of(key), DistributionFunction.affinity(tableId, zoneId));
     }
 
     /**
-     * Affinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
      *
-     * @param key      Affinity key.
-     * @param cacheId  Affinity cache ID.
-     * @param identity Affinity identity key.
+     * @param keys    Affinity keys ordinals.
+     * @param tableId Table ID.
+     * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(int key, int cacheId, Object identity) {
-        return hash(ImmutableIntList.of(key), DistributionFunction.affinity(cacheId, identity));
+    public static IgniteDistribution affinity(List<Integer> keys, UUID tableId, Object zoneId) {
+        return hash(keys, DistributionFunction.affinity(tableId, zoneId));
     }
 
     /**
-     * Affinity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a hash distribution that calculates destinations based on a composite hash of key field values of the row.
      *
-     * @param keys     Affinity keys.
-     * @param cacheId  Affinity cache ID.
-     * @param identity Affinity identity key.
-     * @return Affinity distribution.
-     */
-    public static IgniteDistribution affinity(ImmutableIntList keys, int cacheId, Object identity) {
-        return hash(keys, DistributionFunction.affinity(cacheId, identity));
-    }
-
-    /**
-     * Hash.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param keys Distribution keys.
+     * @param keys Distribution keys ordinals.
      * @return Hash distribution.
      */
     public static IgniteDistribution hash(List<Integer> keys) {
@@ -114,14 +100,13 @@ public class IgniteDistributions {
     }
 
     /**
-     * Hash.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates a hash distribution that calculates destinations based on a composite hash of key field values of the row.
      *
-     * @param keys     Distribution keys.
+     * @param keys     Distribution keys ordinals.
      * @param function Specific hash function.
      * @return Hash distribution.
      */
-    public static IgniteDistribution hash(ImmutableIntList keys, DistributionFunction function) {
+    public static IgniteDistribution hash(List<Integer> keys, DistributionFunction function) {
         return canonize(new DistributionTrait(keys, function));
     }
 

@@ -42,7 +42,7 @@ class cluster_connection;
  *
  * Considered established while there is connection to at least one server.
  */
-class node_connection {
+class node_connection : public std::enable_shared_from_this<node_connection> {
     friend class cluster_connection;
 
 public:
@@ -59,13 +59,17 @@ public:
     ~node_connection();
 
     /**
-     * Constructor.
+     * Makes new instance.
      *
      * @param id Connection ID.
      * @param pool Connection pool.
      * @param logger Logger.
+     * @return New instance.
      */
-    node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
+    static std::shared_ptr<node_connection> make_new(
+        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger) {
+        return std::shared_ptr<node_connection>(new node_connection(id, std::move(pool), std::move(logger)));
+    }
 
     /**
      * Get connection ID.
@@ -90,9 +94,8 @@ public:
      * @param handler Response handler.
      * @return @c true on success and @c false otherwise.
      */
-    template <typename T>
     bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::shared_ptr<response_handler_impl<T>> handler) {
+        std::shared_ptr<response_handler> handler) {
         auto reqId = generate_request_id();
         std::vector<std::byte> message;
         {
@@ -112,14 +115,50 @@ public:
             }
         }
 
+        if (m_logger->is_debug_enabled()) {
+            m_logger->log_debug(
+                "Performing request: op=" + std::to_string(int(op)) + ", req_id=" + std::to_string(reqId));
+        }
+
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
-            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
             get_and_remove_handler(reqId);
-
             return false;
         }
         return true;
+    }
+
+    /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+        auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
+        return perform_request(op, wr, std::move(handler));
+    }
+
+    /**
+     * Perform request without output data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_wr(
+        client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        perform_request<T>(
+            op, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
     /**
@@ -143,7 +182,24 @@ public:
      */
     ignite_result<void> process_handshake_rsp(bytes_view msg);
 
+    /**
+     * Gets protocol context.
+     *
+     * @return Protocol context.
+     */
+    const protocol_context &get_protocol_context() const { return m_protocol_context; }
+
 private:
+    /**
+     * Constructor.
+     *
+     * @param id Connection ID.
+     * @param pool Connection pool.
+     * @param logger Logger.
+     */
+    node_connection(
+        uint64_t id, std::shared_ptr<network::async_client_pool> pool, std::shared_ptr<ignite_logger> logger);
+
     /**
      * Generate next request ID.
      *

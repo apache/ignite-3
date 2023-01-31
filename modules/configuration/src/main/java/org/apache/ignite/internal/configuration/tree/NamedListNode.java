@@ -271,6 +271,10 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         Objects.requireNonNull(oldKey, "oldKey");
         Objects.requireNonNull(newKey, "newKey");
 
+        if (oldKey.equals(newKey)) {
+            return this;
+        }
+
         ElementDescriptor element = map.get(oldKey);
 
         if (element == null) {

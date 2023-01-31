@@ -34,7 +34,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -133,6 +135,7 @@ public class ItClientHandlerTest {
             final var idleTimeout = unpacker.unpackLong();
             final var nodeId = unpacker.unpackString();
             final var nodeName = unpacker.unpackString();
+            unpacker.skipValue(); // Cluster id.
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
@@ -141,7 +144,7 @@ public class ItClientHandlerTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(26, len);
+            assertEquals(44, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -207,7 +210,7 @@ public class ItClientHandlerTest {
     private ClientHandlerModule startServer(TestInfo testInfo) {
         configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of()
@@ -230,7 +233,8 @@ public class ItClientHandlerTest {
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
-                registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class));
+                registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()));
 
         module.start();
 

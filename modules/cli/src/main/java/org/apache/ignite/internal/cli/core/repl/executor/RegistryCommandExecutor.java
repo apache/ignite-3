@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.core.repl.executor;
 
 
+import java.util.ArrayList;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -26,24 +27,26 @@ import org.jline.console.SystemRegistry;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.Parser;
 import org.jline.reader.Parser.ParseContext;
+import picocli.CommandLine;
 
 /**
  * Command executor based on {@link SystemRegistry}.
  */
 public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
-    private final SystemRegistry systemRegistry;
 
     private final Parser parser;
+
+    private final CommandLine commandLine;
 
     /**
      * Constructor.
      *
-     * @param systemRegistry {@link SystemRegistry} instance.
      * @param parser A {@link Parser} used to create {@code systemRegistry}.
+     * @param commandLine {@link CommandLine} instance.
      */
-    public RegistryCommandExecutor(SystemRegistry systemRegistry, Parser parser) {
-        this.systemRegistry = systemRegistry;
+    public RegistryCommandExecutor(Parser parser, CommandLine commandLine) {
         this.parser = parser;
+        this.commandLine = commandLine;
     }
 
     /**
@@ -55,12 +58,10 @@ public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
     @Override
     public CallOutput<Object> execute(StringCallInput input) {
         try {
-            Object executionResult = systemRegistry.execute(input.getString());
-            if (executionResult == null) {
-                return DefaultCallOutput.empty();
-            }
-
-            return DefaultCallOutput.success(executionResult);
+            String[] args = new ArrayList<>(parser.parse(input.getString(), 0, ParseContext.SPLIT_LINE).words())
+                    .toArray(new String[0]);
+            commandLine.execute(args);
+            return DefaultCallOutput.empty();
         } catch (Exception e) {
             return DefaultCallOutput.failure(e);
         }
@@ -70,7 +71,7 @@ public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
      * Clean up {@link SystemRegistry}.
      */
     public void cleanUp() {
-        systemRegistry.cleanUp();
+        commandLine.clearExecutionResults();
     }
 
     /**
@@ -82,6 +83,6 @@ public class RegistryCommandExecutor implements Call<StringCallInput, Object> {
     public boolean hasCommand(String line) {
         ParsedLine pl = parser.parse(line, 0, ParseContext.SPLIT_LINE);
 
-        return !pl.words().isEmpty() && systemRegistry.hasCommand(parser.getCommand(pl.words().get(0)));
+        return !pl.words().isEmpty() && commandLine.getSubcommands().containsKey(parser.getCommand(pl.words().get(0)));
     }
 }

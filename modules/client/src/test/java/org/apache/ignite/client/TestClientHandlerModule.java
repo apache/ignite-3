@@ -29,6 +29,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
@@ -59,11 +60,17 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Connection drop condition. */
     private final Function<Integer, Boolean> shouldDropConnection;
 
+    /** Server response delay function. */
+    private final Function<Integer, Integer> responseDelay;
+
     /** Cluster service. */
     private final ClusterService clusterService;
 
     /** Compute. */
     private final IgniteCompute compute;
+
+    /** Cluster id. */
+    private final UUID clusterId;
 
     /** Netty channel. */
     private volatile Channel channel;
@@ -74,20 +81,24 @@ public class TestClientHandlerModule implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param ignite               Ignite.
-     * @param registry             Configuration registry.
-     * @param bootstrapFactory     Bootstrap factory.
+     * @param ignite Ignite.
+     * @param registry Configuration registry.
+     * @param bootstrapFactory Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
-     * @param clusterService       Cluster service.
-     * @param compute              Compute.
+     * @param responseDelay Response delay, in milliseconds.
+     * @param clusterService Cluster service.
+     * @param compute Compute.
+     * @param clusterId Cluster id.
      */
     public TestClientHandlerModule(
             Ignite ignite,
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory,
             Function<Integer, Boolean> shouldDropConnection,
+            @Nullable Function<Integer, Integer> responseDelay,
             ClusterService clusterService,
-            IgniteCompute compute) {
+            IgniteCompute compute,
+            UUID clusterId) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -96,8 +107,10 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.shouldDropConnection = shouldDropConnection;
+        this.responseDelay = responseDelay;
         this.clusterService = clusterService;
         this.compute = compute;
+        this.clusterId = clusterId;
     }
 
     /** {@inheritDoc} */
@@ -159,6 +172,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
                                 new ConnectionDropHandler(requestCounter, shouldDropConnection),
+                                new ResponseDelayHandler(responseDelay),
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
                                         ignite.transactions(),
@@ -166,7 +180,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         compute,
                                         clusterService,
-                                        mock(IgniteSql.class)));
+                                        mock(IgniteSql.class),
+                                        clusterId));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -220,6 +235,34 @@ public class TestClientHandlerModule implements IgniteComponent {
             } else {
                 super.channelRead(ctx, msg);
             }
+        }
+    }
+
+    private static class ResponseDelayHandler extends ChannelInboundHandlerAdapter {
+        /** Delay. */
+        private final Function<Integer, Integer> delay;
+
+        /** Counter. */
+        private final AtomicInteger cnt = new AtomicInteger();
+
+        /**
+         * Constructor.
+         *
+         * @param delay Delay.
+         */
+        private ResponseDelayHandler(@Nullable Function<Integer, Integer> delay) {
+            this.delay = delay;
+        }
+
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+            var delayMs = delay == null ? 0 : delay.apply(cnt.incrementAndGet());
+
+            if (delayMs > 0) {
+                Thread.sleep(delayMs);
+            }
+
+            super.channelRead(ctx, msg);
         }
     }
 }

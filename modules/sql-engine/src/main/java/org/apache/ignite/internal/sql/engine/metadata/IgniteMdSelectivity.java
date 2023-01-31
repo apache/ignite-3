@@ -32,6 +32,7 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
@@ -73,17 +74,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
                 conjunctions.remove(bounds.condition());
             }
 
-            if (bounds instanceof ExactBounds) {
-                idxSelectivity *= .1;
-            } else if (bounds instanceof RangeBounds) {
-                RangeBounds rangeBounds = (RangeBounds) bounds;
-
-                if (rangeBounds.condition() != null) {
-                    idxSelectivity *= ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
-                } else {
-                    idxSelectivity *= .35;
-                }
-            }
+            idxSelectivity *= guessCostMultiplier(bounds);
         }
 
         RexNode remaining = RexUtil.composeConjunction(RexUtils.builder(rel), conjunctions, true);
@@ -139,5 +130,29 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         }
 
         return mq.getSelectivity(rel.getInput(), rel.condition());
+    }
+
+    /** Guess cost multiplier regarding search bounds only. */
+    private static double guessCostMultiplier(SearchBounds bounds) {
+        if (bounds instanceof ExactBounds) {
+            return .1;
+        } else if (bounds instanceof RangeBounds) {
+            RangeBounds rangeBounds = (RangeBounds) bounds;
+
+            if (rangeBounds.condition() != null) {
+                return ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
+            } else {
+                return .35;
+            }
+        } else if (bounds instanceof MultiBounds) {
+            MultiBounds multiBounds = (MultiBounds) bounds;
+
+            return multiBounds.bounds().stream()
+                    .mapToDouble(IgniteMdSelectivity::guessCostMultiplier)
+                    .max()
+                    .orElseThrow(AssertionError::new);
+        }
+
+        return 1.0;
     }
 }

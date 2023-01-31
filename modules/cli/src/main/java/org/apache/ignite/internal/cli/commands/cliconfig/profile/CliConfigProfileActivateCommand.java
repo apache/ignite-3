@@ -43,6 +43,7 @@ public class CliConfigProfileActivateCommand extends BaseCommand implements Call
                 .inputProvider(() -> new StringCallInput(profileName))
                 .errOutput(spec.commandLine().getErr())
                 .output(spec.commandLine().getOut())
+                .verbose(verbose)
                 .build().runPipeline();
     }
 }

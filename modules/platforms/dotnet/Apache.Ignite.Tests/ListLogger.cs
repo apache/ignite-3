@@ -117,7 +117,7 @@ namespace Apache.Ignite.Tests
                     message += Environment.NewLine + ex;
                 }
 
-                _entries.Add(new Entry(message, level, category));
+                _entries.Add(new Entry(message, level, category, ex));
             }
         }
 
@@ -128,6 +128,6 @@ namespace Apache.Ignite.Tests
         }
 
         [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Tests.")]
-        public record Entry(string Message, LogLevel Level, string? Category);
+        public record Entry(string Message, LogLevel Level, string? Category, Exception? Exception);
     }
 }

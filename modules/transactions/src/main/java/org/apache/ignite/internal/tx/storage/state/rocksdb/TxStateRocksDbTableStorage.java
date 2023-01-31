@@ -31,7 +31,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.IntSupplier;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.tostring.S;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -139,7 +139,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException {
+    public TxStateStorage getOrCreateTxStateStorage(int partitionId) {
         checkPartitionId(partitionId);
 
         TxStateRocksDbStorage storage = storages.get(partitionId);
@@ -153,6 +153,8 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 partitionId,
                 this
             );
+
+            storage.start();
         }
 
         storages.set(partitionId, storage);
@@ -166,20 +168,13 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public void destroyTxStateStorage(int partitionId) throws StorageException {
+    public void destroyTxStateStorage(int partitionId) {
         checkPartitionId(partitionId);
 
         TxStateStorage storage = storages.getAndSet(partitionId, null);
 
         if (storage != null) {
             storage.destroy();
-
-            try {
-                storage.close();
-            } catch (Exception e) {
-                throw new StorageException("Couldn't close the transaction state storage of partition "
-                        + partitionId + ", table " + tableCfg.value().name());
-            }
         }
     }
 
@@ -189,7 +184,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public void start() throws StorageException {
+    public void start() {
         try {
             flusher = new RocksDbFlusher(
                 busyLock,
@@ -225,12 +220,12 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
             flusher.init(db, cfHandles);
         } catch (Exception e) {
-            throw new StorageException("Could not create transaction state storage for the table " + tableCfg.value().name(), e);
+            throw new IgniteInternalException("Could not create transaction state storage for the table " + tableCfg.value().name(), e);
         }
     }
 
     @Override
-    public void stop() throws StorageException {
+    public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
@@ -250,19 +245,22 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
                 TxStateStorage storage = storages.get(i);
 
                 if (storage != null) {
-                    resources.add(storage);
+                    resources.add(storage::close);
                 }
             }
 
             reverse(resources);
             IgniteUtils.closeAll(resources);
         } catch (Exception e) {
-            throw new StorageException("Failed to stop transaction state storage of the table " + tableCfg.value().name(), e);
+            throw new IgniteInternalException(
+                    "Failed to stop transaction state storage of the table " + tableCfg.value().name(),
+                    e
+            );
         }
     }
 
     @Override
-    public void destroy() throws StorageException {
+    public void destroy() {
         try (Options options = new Options()) {
             close();
 
@@ -270,7 +268,10 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
 
             IgniteUtils.deleteIfExists(dbPath);
         } catch (Exception e) {
-            throw new StorageException("Failed to destroy the transaction state storage of the table " + tableCfg.value().name(), e);
+            throw new IgniteInternalException(
+                    "Failed to destroy the transaction state storage of the table " + tableCfg.value().name(),
+                    e
+            );
         }
     }
 
@@ -296,16 +297,14 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         stop();
     }
 
     /**
      * Returns a future to await flush.
-     *
-     * @return Flush future.
      */
-    public CompletableFuture<Void> awaitFlush(boolean schedule) {
+    CompletableFuture<Void> awaitFlush(boolean schedule) {
         return flusher.awaitFlush(schedule);
     }
 }

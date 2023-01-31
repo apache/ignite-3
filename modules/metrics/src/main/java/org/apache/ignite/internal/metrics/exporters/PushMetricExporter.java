@@ -23,6 +23,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -44,7 +45,9 @@ public abstract class PushMetricExporter<CfgT extends ExporterView> extends Basi
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void start() {
+    public synchronized void start(MetricProvider metricProvider, CfgT conf) {
+        super.start(metricProvider, conf);
+
         scheduler =
                 Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter-" + name(), log));
 

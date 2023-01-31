@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.commands.cluster.topology;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
-import org.apache.ignite.internal.cli.commands.topology.TopologyCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

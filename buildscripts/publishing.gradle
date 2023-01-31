@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+apply plugin: 'signing'
 apply from: "$rootDir/buildscripts/publishing-repos.gradle"
 
 publishing {
@@ -23,4 +24,8 @@ publishing {
       from components.java
     }
   }
+}
+
+signing {
+  sign publishing.publications
 }

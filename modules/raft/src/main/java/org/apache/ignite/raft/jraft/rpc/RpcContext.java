@@ -43,9 +43,9 @@ public interface RpcContext {
     NetworkAddress getRemoteAddress();
 
     /**
-     * Get the local address of the server.
+     * Get the local consistent ID of the server.
      *
-     * @return Local address.
+     * @return Local consistent ID.
      */
-    NetworkAddress getLocalAddress();
+    String getLocalConsistentId();
 }

@@ -42,18 +42,18 @@ public class ColocationGroup implements Serializable {
     private static final int SYNTHETIC_PARTITIONS_COUNT = 512;
     // TODO: IgniteSystemProperties.getInteger("IGNITE_CALCITE_SYNTHETIC_PARTITIONS_COUNT", 512);
 
-    private List<Long> sourceIds;
+    private final List<Long> sourceIds;
 
-    private List<String> nodeIds;
+    private final List<String> nodeNames;
 
-    private List<List<String>> assignments;
+    private final List<List<String>> assignments;
 
     /**
      * ForNodes.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static ColocationGroup forNodes(List<String> nodeIds) {
-        return new ColocationGroup(null, nodeIds, null);
+    public static ColocationGroup forNodes(List<String> nodeNames) {
+        return new ColocationGroup(null, nodeNames, null);
     }
 
     /**
@@ -76,9 +76,9 @@ public class ColocationGroup implements Serializable {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    private ColocationGroup(List<Long> sourceIds, List<String> nodeIds, List<List<String>> assignments) {
+    private ColocationGroup(List<Long> sourceIds, List<String> nodeNames, List<List<String>> assignments) {
         this.sourceIds = sourceIds;
-        this.nodeIds = nodeIds;
+        this.nodeNames = nodeNames;
         this.assignments = assignments;
     }
 
@@ -92,8 +92,8 @@ public class ColocationGroup implements Serializable {
     /**
      * Get lists of nodes capable to execute a query fragment for what the mapping is calculated.
      */
-    public List<String> nodeIds() {
-        return nodeIds == null ? Collections.emptyList() : nodeIds;
+    public List<String> nodeNames() {
+        return nodeNames == null ? Collections.emptyList() : nodeNames;
     }
 
     /**
@@ -139,14 +139,14 @@ public class ColocationGroup implements Serializable {
             sourceIds = Commons.combine(this.sourceIds, other.sourceIds);
         }
 
-        List<String> nodeIds;
-        if (this.nodeIds == null || other.nodeIds == null) {
-            nodeIds = firstNotNull(this.nodeIds, other.nodeIds);
+        List<String> nodeNames;
+        if (this.nodeNames == null || other.nodeNames == null) {
+            nodeNames = firstNotNull(this.nodeNames, other.nodeNames);
         } else {
-            nodeIds = Commons.intersect(other.nodeIds, this.nodeIds);
+            nodeNames = Commons.intersect(other.nodeNames, this.nodeNames);
         }
 
-        if (nodeIds != null && nodeIds.isEmpty()) {
+        if (nodeNames != null && nodeNames.isEmpty()) {
             throw new ColocationMappingException("Failed to map fragment to location. "
                     + "Replicated query parts are not co-located on all nodes");
         }
@@ -155,8 +155,8 @@ public class ColocationGroup implements Serializable {
         if (this.assignments == null || other.assignments == null) {
             assignments = firstNotNull(this.assignments, other.assignments);
 
-            if (assignments != null && nodeIds != null) {
-                Set<String> filter = new HashSet<>(nodeIds);
+            if (assignments != null && nodeNames != null) {
+                Set<String> filter = new HashSet<>(nodeNames);
                 List<List<String>> assignments0 = new ArrayList<>(assignments.size());
 
                 for (int i = 0; i < assignments.size(); i++) {
@@ -175,7 +175,7 @@ public class ColocationGroup implements Serializable {
         } else {
             assert this.assignments.size() == other.assignments.size();
             assignments = new ArrayList<>(this.assignments.size());
-            Set<String> filter = nodeIds == null ? null : new HashSet<>(nodeIds);
+            Set<String> filter = nodeNames == null ? null : new HashSet<>(nodeNames);
             for (int i = 0; i < this.assignments.size(); i++) {
                 List<String> assignment = Commons.intersect(this.assignments.get(i), other.assignments.get(i));
 
@@ -191,7 +191,7 @@ public class ColocationGroup implements Serializable {
             }
         }
 
-        return new ColocationGroup(sourceIds, nodeIds, assignments);
+        return new ColocationGroup(sourceIds, nodeNames, assignments);
     }
 
     /**
@@ -199,7 +199,7 @@ public class ColocationGroup implements Serializable {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ColocationGroup finalaze() {
-        if (assignments == null && nodeIds == null) {
+        if (assignments == null && nodeNames == null) {
             return this;
         }
 
@@ -217,38 +217,38 @@ public class ColocationGroup implements Serializable {
             return new ColocationGroup(sourceIds, new ArrayList<>(nodes), assignments);
         }
 
-        return forNodes0(nodeIds);
+        return forNodes0(nodeNames);
     }
 
     /**
      * MapToNodes.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ColocationGroup mapToNodes(List<String> nodeIds) {
-        return !nullOrEmpty(this.nodeIds) ? this : forNodes0(nodeIds);
+    public ColocationGroup mapToNodes(List<String> nodeNames) {
+        return !nullOrEmpty(this.nodeNames) ? this : forNodes0(nodeNames);
     }
 
     @NotNull
-    private ColocationGroup forNodes0(List<String> nodeIds) {
+    private ColocationGroup forNodes0(List<String> nodeNames) {
         List<List<String>> assignments = new ArrayList<>(SYNTHETIC_PARTITIONS_COUNT);
         for (int i = 0; i < SYNTHETIC_PARTITIONS_COUNT; i++) {
-            assignments.add(asList(nodeIds.get(i % nodeIds.size())));
+            assignments.add(asList(nodeNames.get(i % nodeNames.size())));
         }
-        return new ColocationGroup(sourceIds, nodeIds, assignments);
+        return new ColocationGroup(sourceIds, nodeNames, assignments);
     }
 
     /**
      * Returns List of partitions to scan on the given node.
      *
-     * @param nodeId Cluster node ID.
+     * @param nodeNames Cluster node consistent ID.
      * @return List of partitions to scan on the given node.
      */
-    public int[] partitions(String nodeId) {
+    public int[] partitions(String nodeNames) {
         IgniteIntList parts = new IgniteIntList(assignments.size());
 
         for (int i = 0; i < assignments.size(); i++) {
             List<String> assignment = assignments.get(i);
-            if (Objects.equals(nodeId, first(assignment))) {
+            if (Objects.equals(nodeNames, first(assignment))) {
                 parts.add(i);
             }
         }

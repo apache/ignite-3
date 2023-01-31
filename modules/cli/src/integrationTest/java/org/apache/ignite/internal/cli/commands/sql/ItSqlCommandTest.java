@@ -44,6 +44,18 @@ class ItSqlCommandTest extends CliCommandTestInitializedIntegrationBase {
     }
 
     @Test
+    @DisplayName("Should throw error if executed with non-existing file")
+    void nonExistingFile() {
+        execute("sql", "-f", "nonexisting", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("File with command not found")
+        );
+    }
+
+    @Test
     @DisplayName("Should execute select * from table and display table when jdbc-url is correct")
     void selectFromTable() {
         execute("sql", "select * from person", "--jdbc-url", JDBC_URL);

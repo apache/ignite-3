@@ -21,8 +21,14 @@ import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,19 +36,19 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SortedIndexImpl implements SortedIndex {
     private final UUID id;
-    private final UUID tableId;
+    private final InternalTable table;
     private final SortedIndexDescriptor descriptor;
 
     /**
      * Constructs the sorted index.
      *
      * @param id An identifier of the index.
-     * @param tableId An identifier of the table this index relates to.
+     * @param table A table this index relates to.
      * @param descriptor A descriptor of the index.
      */
-    public SortedIndexImpl(UUID id, UUID tableId, SortedIndexDescriptor descriptor) {
+    public SortedIndexImpl(UUID id, TableImpl table, SortedIndexDescriptor descriptor) {
         this.id = Objects.requireNonNull(id, "id");
-        this.tableId = Objects.requireNonNull(tableId, "tableId");
+        this.table = Objects.requireNonNull(table.internalTable(), "table");
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
     }
 
@@ -55,7 +61,7 @@ public class SortedIndexImpl implements SortedIndex {
     /** {@inheritDoc} */
     @Override
     public UUID tableId() {
-        return tableId;
+        return table.tableId();
     }
 
     /** {@inheritDoc} */
@@ -72,20 +78,46 @@ public class SortedIndexImpl implements SortedIndex {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryTuple> scan(int partId, InternalTransaction tx, BinaryTuple key, BitSet columns) {
-        throw new UnsupportedOperationException("Index scan is not implemented yet");
+    public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns) {
+        return table.lookup(partId, tx, id, key, columns);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryTuple> scan(
+    public Publisher<BinaryRow> lookup(
             int partId,
-            InternalTransaction tx,
-            @Nullable BinaryTuple leftBound,
-            @Nullable BinaryTuple rightBound,
-            int flags,
-            BitSet columnsToInclude
+            HybridTimestamp timestamp,
+            ClusterNode recipientNode,
+            BinaryTuple key,
+            @Nullable BitSet columns
     ) {
-        throw new UnsupportedOperationException("Index scan is not implemented yet");
+        return table.lookup(partId, timestamp, recipientNode, id, key, columns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
+            @Nullable InternalTransaction tx,
+            @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return table.scan(partId, tx, id, leftBound, rightBound, flags, columnsToInclude);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode,
+            @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return table.scan(partId, readTimestamp, recipientNode, id, leftBound, rightBound, flags, columnsToInclude);
     }
 }

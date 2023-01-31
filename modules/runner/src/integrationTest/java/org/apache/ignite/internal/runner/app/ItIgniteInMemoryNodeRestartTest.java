@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -36,16 +38,15 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -59,7 +60,6 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * These tests check in-memory node restart scenarios.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17302")
 public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
@@ -193,12 +193,12 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         // Find the leader of the table's partition group.
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
-        IgniteBiTuple<Peer, Long> leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
-        NetworkAddress leaderAddress = leaderWithTerm.get1().address();
+        LeaderWithTerm leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
+        String leaderId = leaderWithTerm.leader().consistentId();
 
         // Find the index of any node that is not a leader of the partition group.
         int idxToStop = IntStream.range(1, 3)
-                .filter(idx -> !leaderAddress.equals(ignite(idx).node().address()))
+                .filter(idx -> !leaderId.equals(ignite(idx).node().name()))
                 .findFirst().getAsInt();
 
         // Restart the node.
@@ -208,15 +208,32 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         Loza loza = restartingNode.raftManager();
 
+        String restartingNodeConsistentId = restartingNode.name();
+
+        TableImpl restartingTable = (TableImpl) restartingNode.tables().table(TABLE_NAME);
+        InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
+
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
-                () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                    if (grpName instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                () -> {
+                    boolean raftNodeStarted = loza.localNodes().stream().anyMatch(nodeId -> {
+                        if (nodeId.groupId() instanceof TablePartitionId) {
+                            return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
+                        }
+
+                        return false;
+                    });
+
+                    if (!raftNodeStarted) {
+                        return false;
                     }
 
-                    return true;
-                }),
+                    Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
+
+                    List<String> partitionAssignments = assignments.get(0);
+
+                    return partitionAssignments.contains(restartingNodeConsistentId);
+                },
                 TimeUnit.SECONDS.toMillis(10)
         ));
 
@@ -251,9 +268,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
 
         // Check that it restarts.
         assertTrue(IgniteTestUtils.waitForCondition(
-                () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                    if (grpName instanceof TablePartitionId) {
-                        return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                    if (nodeId.groupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
                     }
 
                     return true;
@@ -294,9 +311,9 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
             Loza loza = ignite(i).raftManager();
 
             assertTrue(IgniteTestUtils.waitForCondition(
-                    () -> loza.startedGroups().stream().anyMatch(grpName -> {
-                        if (grpName instanceof TablePartitionId) {
-                            return ((TablePartitionId) grpName).getTableId().equals(tableId);
+                    () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                        if (nodeId.groupId() instanceof TablePartitionId) {
+                            return ((TablePartitionId) nodeId.groupId()).tableId().equals(tableId);
                         }
 
                         return true;
@@ -335,13 +352,19 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
         try (Session session = ignite.sql().createSession()) {
             session.execute(null, "CREATE TABLE " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
+                    + " (id INT PRIMARY KEY, name VARCHAR)"
+                    + " ENGINE aimem"
+                    + " WITH replicas=" + replicas + ", partitions=" + partitions);
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                         i, VALUE_PRODUCER.apply(i));
             }
         }
+
+        var table = (TableImpl) ignite.tables().table(name);
+
+        assertThat(table.internalTable().storage().isVolatile(), is(true));
     }
 
     private static IgniteImpl ignite(int idx) {

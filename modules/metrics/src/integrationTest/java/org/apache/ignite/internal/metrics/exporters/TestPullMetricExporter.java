@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 
 /**
  * Simple pull exporter, which simulate the pull principe throw primitive wait/notify API
  * instead of the complex TCP/IP etc. endpoints.
  */
+@AutoService(MetricExporter.class)
 public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsExporterView> {
     public static final String EXPORTER_NAME = "testPull";
 
@@ -52,7 +55,9 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
     }
 
     @Override
-    public void start() {
+    public void start(MetricProvider metricProvider, TestPullMetricsExporterView conf) {
+        super.start(metricProvider, conf);
+
         executorService.execute(() -> {
             while (true) {
                 waitForRequest();
@@ -91,6 +96,14 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
     @Override
     public String name() {
         return EXPORTER_NAME;
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
     }
 
     private void waitForRequest() {

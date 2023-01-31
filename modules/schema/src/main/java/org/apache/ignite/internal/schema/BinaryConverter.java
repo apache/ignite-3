@@ -63,7 +63,7 @@ public class BinaryConverter {
 
             long offLen = findColumn(columnIndex, spec, isKeyCol);
             int offset = (int) offLen;
-            int length = (int) (offLen >>> 32);
+            int length = spec.fixedLength() ? descriptor.column(columnIndex).type().sizeInBytes() : (int) (offLen >>> 32);
 
             builder.appendElementBytes(slice, offset, length);
         }
@@ -122,7 +122,7 @@ public class BinaryConverter {
      * @param binaryRow Row.
      * @return Buffer with binary tuple.
      */
-    public ByteBuffer toTuple(BinaryRow binaryRow) {
+    public BinaryTuple toTuple(BinaryRow binaryRow) {
         RowHelper row = new RowHelper(descriptor, binaryRow);
 
         // See if there are any NULL values and estimate total data size. As we do not use value compression for rows
@@ -213,7 +213,7 @@ public class BinaryConverter {
             }
         }
 
-        return builder.build();
+        return new BinaryTuple(tupleSchema, builder.build());
     }
 
     /**

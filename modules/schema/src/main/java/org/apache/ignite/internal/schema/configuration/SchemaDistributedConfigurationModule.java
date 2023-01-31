@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import java.lang.annotation.Annotation;
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -30,16 +29,15 @@ import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValu
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.IndexValidator;
 import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorage;
 import org.apache.ignite.internal.schema.configuration.storage.KnownDataStorageValidator;
 import org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
  */
+@AutoService(ConfigurationModule.class)
 public class SchemaDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
@@ -54,12 +52,12 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
 
     /** {@inheritDoc} */
     @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(
-                KnownDataStorage.class, Set.of(new KnownDataStorageValidator()),
-                TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
-                ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE),
-                IndexValidator.class, Set.of(IndexValidatorImpl.INSTANCE)
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(
+                new KnownDataStorageValidator(),
+                TableValidatorImpl.INSTANCE,
+                ColumnTypeValidatorImpl.INSTANCE,
+                IndexValidatorImpl.INSTANCE
         );
     }
 

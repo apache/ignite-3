@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.raft.storage;
 
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 /** Log storage factory interface. */
-public interface LogStorageFactory extends AutoCloseable {
+public interface LogStorageFactory extends ManuallyCloseable {
     /**
      * Starts the log storage factory.
      */
@@ -35,4 +36,10 @@ public interface LogStorageFactory extends AutoCloseable {
      * @return Log storage.
      */
     LogStorage createLogStorage(String uri, RaftOptions raftOptions);
+
+    /**
+     * Closes the factory.
+     */
+    @Override
+    void close();
 }

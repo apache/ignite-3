@@ -43,7 +43,7 @@ public:
      * @param connection Connection.
      */
     explicit tables_impl(std::shared_ptr<cluster_connection> connection)
-        : m_connection(std::move(connection)) { }
+        : m_connection(std::move(connection)) {}
 
     /**
      * Gets a table by name.
@@ -53,7 +53,7 @@ public:
      * @param callback Callback.
      * @throw ignite_error In case of error while trying to send a request.
      */
-    void get_table_async(const std::string &name, ignite_callback<std::optional<table>> callback);
+    void get_table_async(std::string_view name, ignite_callback<std::optional<table>> callback);
 
     /**
      * Gets all tables.

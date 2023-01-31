@@ -23,9 +23,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.internal.cli.core.repl.completer.CompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
 import org.jline.builtins.Options.HelpException;
 import org.jline.console.ArgDesc;
 import org.jline.console.CmdDesc;
@@ -51,6 +51,7 @@ import picocli.shell.jline3.PicocliCommands;
 public class IgnitePicocliCommands implements CommandRegistry {
 
     private final CommandLine cmd;
+
     private final Set<String> commands;
     private final Map<String, String> aliasCommand = new HashMap<>();
     private final DynamicCompleterRegistry completerRegistry;
@@ -71,6 +72,11 @@ public class IgnitePicocliCommands implements CommandRegistry {
                 aliasCommand.put(a, c);
             }
         }
+    }
+
+    /** Returns the {@link CommandLine} instance. */
+    public CommandLine getCmd() {
+        return cmd;
     }
 
     /** {@inheritDoc} */
@@ -151,12 +157,16 @@ public class IgnitePicocliCommands implements CommandRegistry {
     }
 
     @Override
-    public Object invoke(CommandRegistry.CommandSession session, String command, Object[] args) throws Exception {
+    public Object invoke(CommandRegistry.CommandSession session, String command, Object[] args) {
         List<String> arguments = new ArrayList<>();
         arguments.add(command);
         Arrays.stream(args).map(Object::toString).forEach(arguments::add);
         cmd.execute(arguments.toArray(new String[0]));
         return null;
+    }
+
+    public Object executeHelp(Object[] args) {
+        return invoke(new CommandSession(), "help", args);
     }
 
     @Override
@@ -181,22 +191,20 @@ public class IgnitePicocliCommands implements CommandRegistry {
             assert candidates != null;
 
             // let picocli generate completion candidates for the token where the cursor is at
-            final String[] words = commandLine.words().toArray(new String[0]);
-            List<CharSequence> cs = new ArrayList<CharSequence>();
+            String[] words = commandLine.words().toArray(new String[0]);
+            List<CharSequence> cs = new ArrayList<>();
             AutoComplete.complete(cmd.getCommandSpec(),
                     words,
                     commandLine.wordIndex(),
                     0,
                     commandLine.cursor(),
                     cs);
-
-            List<String> staticCandidates = new ArrayList<>();
-            for (CharSequence c : cs) {
-                staticCandidates.add(c.toString());
-            }
+            String[] staticCandidates = cs.stream()
+                    .map(CharSequence::toString)
+                    .toArray(String[]::new);
 
             List<DynamicCompleter> completers = completerRegistry.findCompleters(words);
-            if (completers.size() > 0) {
+            if (!completers.isEmpty()) {
                 try {
                     completers.stream()
                             .map(c -> c.complete(words))
@@ -208,13 +216,17 @@ public class IgnitePicocliCommands implements CommandRegistry {
                 }
             }
 
-            String[] filteredCandidates = completerFilters.get(0).filter(words, staticCandidates.toArray(String[]::new));
-            for (int i = 1; i < completerFilters.size(); i++) {
-                filteredCandidates = completerFilters.get(i).filter(words, filteredCandidates);
+            if (!candidates.isEmpty()) {
+                return;
+            }
+
+            String[] filteredCandidates = staticCandidates;
+            for (CompleterFilter filter : completerFilters) {
+                filteredCandidates = filter.filter(words, filteredCandidates);
             }
 
             for (String c : filteredCandidates) {
-                candidates.add(new Candidate(c));
+                candidates.add(staticCandidate(c));
             }
         }
 
@@ -224,6 +236,10 @@ public class IgnitePicocliCommands implements CommandRegistry {
             int sortingPriority = one.split("\\.").length;
 
             return new Candidate(one, one, null, null, null, null, false, sortingPriority);
+        }
+
+        private Candidate staticCandidate(String one) {
+            return new Candidate(one, one, null, null, null, null, true, 10);
         }
     }
 }

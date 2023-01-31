@@ -37,7 +37,7 @@ namespace Apache.Ignite
         /// <summary>
         /// Default socket timeout.
         /// </summary>
-        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(5);
+        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Default heartbeat interval.
@@ -88,9 +88,15 @@ namespace Apache.Ignite
         public IIgniteLogger? Logger { get; set; }
 
         /// <summary>
-        /// Gets or sets the socket operation timeout. Zero or negative means infinite timeout.
+        /// Gets or sets the socket timeout.
+        /// <para />
+        /// The timeout applies to the initial handshake procedure and heartbeats (see <see cref="HeartbeatInterval"/>).
+        /// If the server does not respond to the initial handshake message or a periodic heartbeat in the specified time,
+        /// the connection is closed with a <see cref="TimeoutException"/>.
+        /// <para />
+        /// -1 means infinite timeout.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:05")]
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>

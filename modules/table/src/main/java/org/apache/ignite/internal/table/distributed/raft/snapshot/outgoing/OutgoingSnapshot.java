@@ -20,19 +20,19 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import static java.util.stream.Collectors.toList;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
-import org.apache.ignite.internal.lock.ReusableLockLockup;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
@@ -42,12 +42,15 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Outgoing snapshot. It corresponds to exactly one partition.
@@ -69,7 +72,9 @@ public class OutgoingSnapshot {
      */
     private final ReentrantLock mvOperationsLock = new ReentrantLock();
 
-    private final ReusableLockLockup mvOperationsLockup = new ReusableLockLockup(mvOperationsLock);
+    /** Snapshot metadata that is taken at the moment when snapshot scope is frozen. {@code null} till the freeze happens. */
+    @Nullable
+    private volatile SnapshotMeta frozenMeta;
 
     /**
      * {@link RowId}s for which the corresponding rows were sent out of order (relative to the order in which this
@@ -77,12 +82,12 @@ public class OutgoingSnapshot {
      */
     private final Set<RowId> rowIdsToSkip = new ConcurrentHashSet<>();
 
-    // TODO: IGNITE-17935 - manage queue size
+    // TODO: IGNITE-18018 - manage queue size
     /**
      * Rows that need to be sent out of order (relative to the order in which this snapshot sends rows).
      * Versions inside rows are in oldest-to-newest order.
      */
-    private final Queue<SnapshotMvDataResponse.ResponseEntry> outOfOrderMvData = new LinkedList<>();
+    private final Queue<SnapshotMvDataResponse.ResponseEntry> outOfOrderMvData = new ArrayDeque<>();
 
     /**
      * {@link RowId} used to point (most of the time) to the last processed row. More precisely:
@@ -105,6 +110,8 @@ public class OutgoingSnapshot {
      * This becomes {@code true} as soon as we exhaust TX data in the partition.
      */
     private boolean finishedTxData = false;
+
+    private volatile boolean closed = false;
 
     /**
      * Creates a new instance.
@@ -133,39 +140,90 @@ public class OutgoingSnapshot {
     }
 
     /**
-     * Freezes the scope of this snapshot.
-     *
-     * <p>Must be called under snapshot lock.
+     * Freezes the scope of this snapshot. This includes taking snapshot metadata and opening TX data cursor.
      */
-    void freezeScope() {
-        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
+    void freezeScopeUnderMvLock() {
+        acquireMvLock();
 
-        txDataCursor = partition.txStatePartitionStorage().scan();
+        try {
+            frozenMeta = takeSnapshotMeta();
+
+            txDataCursor = partition.getAllTxMeta();
+        } finally {
+            releaseMvLock();
+        }
+    }
+
+    private SnapshotMeta takeSnapshotMeta() {
+        long lastAppliedIndex = partition.maxLastAppliedIndex();
+        long lastAppliedTerm = partition.maxLastAppliedTerm();
+
+        RaftGroupConfiguration config = partition.committedGroupConfiguration();
+
+        assert config != null : "Configuration should never be null when installing a snapshot";
+
+        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config);
     }
 
     /**
-     * Reads a snapshot meta and returns a future with the response.
+     * Returns metadata corresponding to this snapshot.
      *
-     * @param metaRequest Meta request.
+     * @return This snapshot metadata.
      */
-    SnapshotMetaResponse handleSnapshotMetaRequest(SnapshotMetaRequest metaRequest) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-17935
+    public SnapshotMeta meta() {
+        SnapshotMeta meta = frozenMeta;
+
+        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+
+        return meta;
+    }
+
+    /**
+     * Reads the snapshot meta and returns a response. Returns {@code null} if the snapshot is already closed.
+     *
+     * @param request Meta request.
+     */
+    @Nullable
+    SnapshotMetaResponse handleSnapshotMetaRequest(SnapshotMetaRequest request) {
+        assert Objects.equals(request.id(), id) : "Expected id " + id + " but got " + request.id();
+
+        if (closed) {
+            return logThatAlreadyClosedAndReturnNull();
+        }
+
+        SnapshotMeta meta = frozenMeta;
+
+        assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
+
+        return MESSAGES_FACTORY.snapshotMetaResponse().meta(meta).build();
+    }
+
+    @Nullable
+    private <T> T logThatAlreadyClosedAndReturnNull() {
+        LOG.debug("Snapshot with ID '{}' is already closed", id);
         return null;
     }
 
     /**
-     * Reads a chunk of partition data and returns a future with the response.
+     * Reads a chunk of partition data and returns a response. Returns {@code null} if the snapshot is already closed.
      *
      * @param request Data request.
      */
+    @Nullable
     SnapshotMvDataResponse handleSnapshotMvDataRequest(SnapshotMvDataRequest request) {
+        if (closed) {
+            return logThatAlreadyClosedAndReturnNull();
+        }
+
         assert !finishedMvData() : "MV data sending has already been finished";
 
         long totalBatchSize = 0;
         List<SnapshotMvDataResponse.ResponseEntry> batch = new ArrayList<>();
 
         while (true) {
-            try (AutoLockup ignored = acquireMvLock()) {
+            acquireMvLock();
+
+            try {
                 totalBatchSize = fillWithOutOfOrderRows(batch, totalBatchSize, request);
 
                 totalBatchSize = tryProcessRowFromPartition(batch, totalBatchSize, request);
@@ -175,6 +233,8 @@ public class OutgoingSnapshot {
                 if (finishedMvData() || batchIsFull(request, totalBatchSize)) {
                     break;
                 }
+            } finally {
+                releaseMvLock();
             }
         }
 
@@ -189,6 +249,8 @@ public class OutgoingSnapshot {
             long totalBytesBefore,
             SnapshotMvDataRequest request
     ) {
+        assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
+
         long totalBytesAfter = totalBytesBefore;
 
         while (totalBytesAfter < request.batchSizeHint()) {
@@ -205,7 +267,7 @@ public class OutgoingSnapshot {
         return totalBytesAfter;
     }
 
-    private long rowSizeInBytes(List<ByteBuffer> rowVersions) {
+    private static long rowSizeInBytes(List<ByteBuffer> rowVersions) {
         long sum = 0;
 
         for (ByteBuffer buf : rowVersions) {
@@ -224,16 +286,18 @@ public class OutgoingSnapshot {
         }
 
         if (!startedToReadMvPartition) {
-            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId);
+            lastRowId = partition.closestRowId(lastRowId);
 
             startedToReadMvPartition = true;
         } else {
-            lastRowId = partition.mvPartitionStorage().closestRowId(lastRowId.increment());
+            lastRowId = partition.closestRowId(lastRowId.increment());
         }
 
         if (!finishedMvData()) {
             if (!rowIdsToSkip.remove(lastRowId)) {
                 SnapshotMvDataResponse.ResponseEntry rowEntry = rowEntry(lastRowId);
+
+                assert rowEntry != null;
 
                 batch.add(rowEntry);
 
@@ -244,12 +308,17 @@ public class OutgoingSnapshot {
         return totalBatchSize;
     }
 
-    private boolean batchIsFull(SnapshotMvDataRequest request, long totalBatchSize) {
+    private static boolean batchIsFull(SnapshotMvDataRequest request, long totalBatchSize) {
         return totalBatchSize >= request.batchSizeHint();
     }
 
+    @Nullable
     private SnapshotMvDataResponse.ResponseEntry rowEntry(RowId rowId) {
-        List<ReadResult> rowVersionsN2O = partition.mvPartitionStorage().scanVersions(rowId).stream().collect(toList());
+        List<ReadResult> rowVersionsN2O = readRowVersionsN2O(rowId);
+
+        if (rowVersionsN2O.isEmpty()) {
+            return null;
+        }
 
         List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
         List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());
@@ -259,7 +328,7 @@ public class OutgoingSnapshot {
 
         for (int i = rowVersionsN2O.size() - 1; i >= 0; i--) {
             ReadResult version = rowVersionsN2O.get(i);
-            BinaryRow row = version.binaryRow();
+            TableRow row = version.tableRow();
 
             buffers.add(row == null ? null : row.byteBuffer());
 
@@ -282,12 +351,23 @@ public class OutgoingSnapshot {
                 .build();
     }
 
+    private List<ReadResult> readRowVersionsN2O(RowId rowId) {
+        try (Cursor<ReadResult> versions = partition.getAllRowVersions(rowId)) {
+            return versions.stream().collect(toList());
+        }
+    }
+
     /**
-     * Reads a chunk of TX states from partition and returns a future with the response.
+     * Reads a chunk of TX states from partition and returns a response. Returns {@code null} if the snapshot is already closed.
      *
      * @param request Data request.
      */
+    @Nullable
     SnapshotTxDataResponse handleSnapshotTxDataRequest(SnapshotTxDataRequest request) {
+        if (closed) {
+            return logThatAlreadyClosedAndReturnNull();
+        }
+
         List<IgniteBiTuple<UUID, TxMeta>> rows = new ArrayList<>();
 
         while (!finishedTxData && rows.size() < request.maxTransactionsInBatch()) {
@@ -305,7 +385,7 @@ public class OutgoingSnapshot {
     private static void closeLoggingProblems(Cursor<?> cursor) {
         try {
             cursor.close();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOG.error("Problem while closing a cursor", e);
         }
     }
@@ -329,8 +409,15 @@ public class OutgoingSnapshot {
     /**
      * Acquires lock over this snapshot MV data.
      */
-    public AutoLockup acquireMvLock() {
-        return mvOperationsLockup.acquireLock();
+    public void acquireMvLock() {
+        mvOperationsLock.lock();
+    }
+
+    /**
+     * Releases lock over this snapshot MV data.
+     */
+    public void releaseMvLock() {
+        mvOperationsLock.unlock();
     }
 
     /**
@@ -390,7 +477,11 @@ public class OutgoingSnapshot {
     public void enqueueForSending(RowId rowId) {
         assert mvOperationsLock.isLocked() : "MV operations lock must be acquired!";
 
-        outOfOrderMvData.add(rowEntry(rowId));
+        ResponseEntry entry = rowEntry(rowId);
+
+        if (entry != null) {
+            outOfOrderMvData.add(entry);
+        }
     }
 
     /**
@@ -402,5 +493,7 @@ public class OutgoingSnapshot {
         if (txCursor != null) {
             closeLoggingProblems(txCursor);
         }
+
+        closed = true;
     }
 }

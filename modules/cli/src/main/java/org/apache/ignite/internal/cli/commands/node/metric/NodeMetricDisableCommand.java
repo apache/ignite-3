@@ -47,6 +47,7 @@ public class NodeMetricDisableCommand extends BaseCommand implements Callable<In
                 .inputProvider(() -> metricSource.buildDisableCallInput(nodeUrl.getNodeUrl()))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

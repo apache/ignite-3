@@ -24,8 +24,8 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.NodeState;
 
 /**
@@ -51,6 +51,6 @@ public class NodeStatusCall implements Call<UrlCallInput, NodeStatus> {
     }
 
     private NodeState fetchNodeState(String url) throws ApiException {
-        return new NodeManagementApi(new ApiClient().setBasePath(url)).nodeState();
+        return new NodeManagementApi(Configuration.getDefaultApiClient().setBasePath(url)).nodeState();
     }
 }

@@ -42,6 +42,7 @@ public class CliConfigProfileListCommand extends BaseCommand implements Callable
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ProfileListDecorator())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

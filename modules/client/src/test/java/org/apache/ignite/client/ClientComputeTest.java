@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -173,9 +174,11 @@ public class ClientComputeTest {
         ignite = new FakeIgnite();
         ((FakeIgniteTables) ignite.tables()).createTable(TABLE_NAME);
 
-        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, "s1");
-        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, "s2");
-        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, "s3");
+        var clusterId = UUID.randomUUID();
+
+        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, null, "s1", clusterId);
+        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, null, "s2", clusterId);
+        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, null, "s3", clusterId);
     }
 
     private Set<ClusterNode> getClusterNodes(String... names) {

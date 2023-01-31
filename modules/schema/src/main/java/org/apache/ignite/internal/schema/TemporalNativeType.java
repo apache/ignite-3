@@ -110,12 +110,6 @@ public class TemporalNativeType extends NativeType {
 
     /** {@inheritDoc} */
     @Override
-    public boolean mismatch(NativeType type) {
-        return super.mismatch(type) || precision < ((TemporalNativeType) type).precision;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public String toString() {
         return S.toString(TemporalNativeType.class.getSimpleName(), "name", spec(), "precision", precision);
     }

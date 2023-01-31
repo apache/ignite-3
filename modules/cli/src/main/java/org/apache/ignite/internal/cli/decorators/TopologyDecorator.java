@@ -47,7 +47,7 @@ public class TopologyDecorator implements Decorator<List<ClusterNode>, TerminalO
                 node.getName(),
                 node.getAddress().getHost(),
                 String.valueOf(node.getAddress().getPort()),
-                node.getAddress().getConsistentId() == null ? "(empty)" : node.getAddress().getConsistentId(),
+                node.getName(),
                 node.getId()
             }
         ).toArray(String[][]::new);

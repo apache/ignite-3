@@ -37,7 +37,7 @@ public class LocalLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         // no-op
     }
 }

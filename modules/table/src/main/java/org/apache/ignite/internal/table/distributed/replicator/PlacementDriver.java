@@ -20,36 +20,42 @@ package org.apache.ignite.internal.table.distributed.replicator;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * Placement driver.
  */
 public class PlacementDriver {
-    /** Assignment nodes per replication group. */
-    private final Map<ReplicationGroupId, LinkedHashSet<ClusterNode>> primaryReplicaMapping = new ConcurrentHashMap<>();
+    /** Assignment node names per replication group. */
+    private final Map<ReplicationGroupId, LinkedHashSet<String>> primaryReplicaMapping = new ConcurrentHashMap<>();
 
     /** Replication service. */
     private final ReplicaService replicaService;
+
+    /** Function that resolves a node consistent ID to a cluster node. */
+    private final Function<String, ClusterNode> clusterNodeResolver;
 
     /**
      * The constructor.
      *
      * @param replicaService Replication service.
      */
-    public PlacementDriver(ReplicaService replicaService) {
+    public PlacementDriver(ReplicaService replicaService, Function<String, ClusterNode> clusterNodeResolver) {
         this.replicaService = replicaService;
+        this.clusterNodeResolver = clusterNodeResolver;
     }
 
     /**
-     * Sends a transaction sate request to the primary replica.
+     * Sends a transaction state request to the primary replica.
      *
      * @param replicaGrp Replication group id.
      * @param request Status request.
@@ -67,10 +73,10 @@ public class PlacementDriver {
      * Updates an assignment for the specific replication group.
      *
      * @param replicaGrpId Replication group id.
-     * @param assignment Assignment.
+     * @param nodeNames Assignment node names.
      */
-    public void updateAssignment(ReplicationGroupId replicaGrpId, Collection<ClusterNode> assignment) {
-        primaryReplicaMapping.put(replicaGrpId, new LinkedHashSet<>(assignment));
+    public void updateAssignment(ReplicationGroupId replicaGrpId, Collection<String> nodeNames) {
+        primaryReplicaMapping.put(replicaGrpId, new LinkedHashSet<>(nodeNames));
     }
 
     /**
@@ -82,19 +88,23 @@ public class PlacementDriver {
      * @param request Request.
      */
     private void sendAndRetry(CompletableFuture<TxMeta> resFut, ReplicationGroupId replicaGrp, TxStateReplicaRequest request) {
-        ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).iterator().next();
+        ClusterNode nodeToSend = primaryReplicaMapping.get(replicaGrp).stream()
+                .map(clusterNodeResolver)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseThrow(() -> new IgniteInternalException("All replica nodes are unavailable"));
 
         replicaService.invoke(nodeToSend, request).thenAccept(resp -> {
-            assert resp instanceof IgniteBiTuple : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+            assert resp instanceof LeaderOrTxState : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
-            IgniteBiTuple<TxMeta, ClusterNode> stateAndLeader = (IgniteBiTuple) resp;
+            LeaderOrTxState stateOrLeader = (LeaderOrTxState) resp;
 
-            ClusterNode nextNodeToSend = stateAndLeader.get2();
+            String nextNodeToSend = stateOrLeader.leaderName();
 
             if (nextNodeToSend == null) {
-                resFut.complete(stateAndLeader.get1());
+                resFut.complete(stateOrLeader.txMeta());
             } else {
-                LinkedHashSet<ClusterNode> newAssignment = new LinkedHashSet<>();
+                LinkedHashSet<String> newAssignment = new LinkedHashSet<>();
 
                 newAssignment.add(nextNodeToSend);
                 newAssignment.addAll(primaryReplicaMapping.get(replicaGrp));

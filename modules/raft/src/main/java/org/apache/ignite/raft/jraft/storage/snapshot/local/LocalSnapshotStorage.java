@@ -31,6 +31,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
@@ -40,7 +41,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -53,7 +53,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
     private static final String TEMP_PATH = "temp";
     private final ConcurrentMap<Long, AtomicInteger> refMap = new ConcurrentHashMap<>();
     private final String path;
-    private Endpoint addr;
+    private PeerId peerId;
     private boolean filterBeforeCopyRemote;
     private long lastSnapshotIndex;
     private final Lock lock;
@@ -65,12 +65,12 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         this.snapshotThrottle = snapshotThrottle;
     }
 
-    public boolean hasServerAddr() {
-        return this.addr != null;
+    public boolean hasServerPeerId() {
+        return this.peerId != null;
     }
 
-    public void setServerAddr(Endpoint addr) {
-        this.addr = addr;
+    public void setServerPeerId(PeerId peerId) {
+        this.peerId = peerId;
     }
 
     public LocalSnapshotStorage(String path, RaftOptions raftOptions) {
@@ -312,7 +312,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             return null;
         }
         final String snapshotPath = getSnapshotPath(lsIndex);
-        final SnapshotReader reader = new LocalSnapshotReader(this, this.snapshotThrottle, this.addr, this.raftOptions,
+        final SnapshotReader reader = new LocalSnapshotReader(this, this.snapshotThrottle, this.peerId, this.raftOptions,
             snapshotPath);
         if (!reader.init(null)) {
             LOG.error("Fail to init reader for path {}.", snapshotPath);

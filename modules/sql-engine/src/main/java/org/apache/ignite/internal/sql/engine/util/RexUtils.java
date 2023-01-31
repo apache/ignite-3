@@ -19,9 +19,11 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.rex.RexUtil.removeCast;
 import static org.apache.calcite.rex.RexUtil.sargRef;
+import static org.apache.calcite.sql.SqlKind.BINARY_COMPARISON;
 import static org.apache.calcite.sql.SqlKind.EQUALS;
 import static org.apache.calcite.sql.SqlKind.GREATER_THAN;
 import static org.apache.calcite.sql.SqlKind.GREATER_THAN_OR_EQUAL;
+import static org.apache.calcite.sql.SqlKind.IS_NOT_DISTINCT_FROM;
 import static org.apache.calcite.sql.SqlKind.IS_NOT_NULL;
 import static org.apache.calcite.sql.SqlKind.IS_NULL;
 import static org.apache.calcite.sql.SqlKind.LESS_THAN;
@@ -30,6 +32,7 @@ import static org.apache.calcite.sql.SqlKind.SEARCH;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -96,6 +99,9 @@ import org.jetbrains.annotations.Nullable;
 public class RexUtils {
     /** Maximum amount of search bounds tuples per scan. */
     public static final int MAX_SEARCH_BOUNDS_COMPLEXITY = 100;
+
+    /** Hash index permitted search operations. */
+    private static final EnumSet<SqlKind> HASH_SEARCH_OPS = EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM);
 
     /**
      * MakeCast.
@@ -195,10 +201,6 @@ public class RexUtils {
         return true;
     }
 
-    /** Binary comparison operations. */
-    private static final Set<SqlKind> BINARY_COMPARISON =
-            EnumSet.of(EQUALS, LESS_THAN, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
-
     /** Supported index operations. */
     private static final Set<SqlKind> TREE_INDEX_COMPARISON =
             EnumSet.of(
@@ -206,21 +208,22 @@ public class RexUtils {
                     IS_NULL,
                     IS_NOT_NULL,
                     EQUALS,
+                    IS_NOT_DISTINCT_FROM,
                     LESS_THAN, GREATER_THAN,
                     GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL);
 
     /**
      * Builds sorted index search bounds.
      */
-    public static List<SearchBounds> buildSortedIndexConditions(
+    public static @Nullable List<SearchBounds> buildSortedSearchBounds(
             RelOptCluster cluster,
             RelCollation collation,
-            RexNode condition,
+            @Nullable RexNode condition,
             RelDataType rowType,
-            ImmutableBitSet requiredColumns
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         if (condition == null) {
-            return List.of();
+            return null;
         }
 
         condition = RexUtil.toCnf(builder(cluster), condition);
@@ -228,7 +231,7 @@ public class RexUtils {
         Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates)) {
-            return List.of();
+            return null;
         }
 
         // Force collation for all fields of the condition.
@@ -252,14 +255,16 @@ public class RexUtils {
         Mappings.TargetMapping mapping = null;
 
         if (requiredColumns != null) {
-            mapping = Commons.inverseMapping(requiredColumns, types.size());
+            mapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
         }
 
-        List<SearchBounds> bounds = Arrays.asList(new SearchBounds[types.size()]);
+        List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
         boolean boundsEmpty = true;
         int prevComplexity = 1;
 
-        for (RelFieldCollation fc : collation.getFieldCollations()) {
+        List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
+        for (int i = 0; i < fieldCollations.size(); i++) {
+            RelFieldCollation fc = fieldCollations.get(i);
             int collFldIdx = fc.getFieldIndex();
 
             List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
@@ -280,7 +285,7 @@ public class RexUtils {
 
             boundsEmpty = false;
 
-            bounds.set(collFldIdx, fldBounds);
+            bounds.set(i, fldBounds);
 
             if (fldBounds instanceof MultiBounds) {
                 prevComplexity *= ((MultiBounds) fldBounds).bounds().size();
@@ -296,21 +301,21 @@ public class RexUtils {
             }
         }
 
-        return boundsEmpty ? List.of() : bounds;
+        return boundsEmpty ? null : bounds;
     }
 
     /**
      * Builds hash index search bounds.
      */
-    public static List<SearchBounds> buildHashIndexConditions(
+    public static List<SearchBounds> buildHashSearchBounds(
             RelOptCluster cluster,
-            List<String> indexedColumns,
+            RelCollation collation,
             RexNode condition,
             RelDataType rowType,
-            ImmutableBitSet requiredColumns
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         if (condition == null) {
-            return List.of();
+            return null;
         }
 
         condition = RexUtil.toCnf(builder(cluster), condition);
@@ -318,29 +323,26 @@ public class RexUtils {
         Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates)) {
-            return List.of();
+            return null;
         }
 
-        List<SearchBounds> bounds = Arrays.asList(new SearchBounds[rowType.getFieldCount()]);
+        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
+
+        List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
 
         Mappings.TargetMapping toTrimmedRowMapping = null;
         if (requiredColumns != null) {
-            toTrimmedRowMapping = Commons.mapping(requiredColumns, rowType.getFieldCount());
+            toTrimmedRowMapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
         }
 
-        for (String columnName : indexedColumns) {
-            RelDataTypeField field = rowType.getField(columnName, true, false);
-
-            if (field == null) {
-                return List.of();
-            }
-
-            int collFldIdx = toTrimmedRowMapping == null ? field.getIndex() : toTrimmedRowMapping.getTargetOpt(field.getIndex());
+        List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
+        for (int i = 0; i < fieldCollations.size(); i++) {
+            int collFldIdx = fieldCollations.get(i).getFieldIndex();
 
             List<RexCall> collFldPreds = fieldsToPredicates.get(collFldIdx);
 
             if (nullOrEmpty(collFldPreds)) {
-                return List.of(); // Hash index can't be applied to partial condition.
+                return null; // Partial condition implies index scan, which is not supported.
             }
 
             RexCall columnPred = collFldPreds.stream()
@@ -348,56 +350,76 @@ public class RexUtils {
                     .findAny().orElse(null);
 
             if (columnPred == null) {
-                return List.of();
+                return null; // Non-equality conditions are not expected.
             }
 
-            bounds.set(collFldIdx, createBounds(null, Collections.singletonList(columnPred), cluster, field.getType(), 1));
+            if (toTrimmedRowMapping != null) {
+                collFldIdx = toTrimmedRowMapping.getSourceOpt(collFldIdx);
+            }
+
+            bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1));
         }
 
         return bounds;
     }
 
     /**
-     * Builds index conditions.
+     * Builds hash index search bounds.
      */
-    public static List<RexNode> buildHashSearchRow(
+    public static List<SearchBounds> buildHashSearchBounds(
             RelOptCluster cluster,
             RexNode condition,
-            RelDataType rowType
+            RelDataType rowType,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         condition = RexUtil.toCnf(builder(cluster), condition);
 
         Int2ObjectMap<List<RexCall>> fieldsToPredicates = mapPredicatesToFields(condition, cluster);
 
         if (nullOrEmpty(fieldsToPredicates)) {
-            return List.of();
+            return null;
         }
 
-        List<RexNode> searchPreds = null;
+        List<SearchBounds> bounds = null;
 
-        for (List<RexCall> collFldPreds : fieldsToPredicates.values()) {
+        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
+
+        Mappings.TargetMapping mapping = null;
+
+        if (requiredColumns != null) {
+            mapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
+        }
+
+        for (Entry<List<RexCall>> fld : fieldsToPredicates.int2ObjectEntrySet()) {
+            List<RexCall> collFldPreds = fld.getValue();
+
             if (nullOrEmpty(collFldPreds)) {
                 break;
             }
 
             for (RexCall pred : collFldPreds) {
-                if (pred.getOperator().kind != SqlKind.EQUALS) {
-                    return List.of();
+                if (!pred.isA(HASH_SEARCH_OPS)) {
+                    return null;
                 }
 
-                if (searchPreds == null) {
-                    searchPreds = new ArrayList<>();
+                if (bounds == null) {
+                    bounds = Arrays.asList(new SearchBounds[types.size()]);
                 }
 
-                searchPreds.add(pred);
+                int fldIdx;
+
+                if (mapping != null) {
+                    fldIdx = mapping.getSourceOpt(fld.getIntKey());
+                } else {
+                    fldIdx = fld.getIntKey();
+                }
+
+                bounds.set(fldIdx, new ExactBounds(pred,
+                        makeCast(builder(cluster), removeCast(pred.operands.get(1)), types.get(fldIdx))));
             }
         }
 
-        if (searchPreds == null) {
-            return List.of();
-        }
-
-        return asBound(cluster, searchPreds, rowType, null);
+        return bounds;
     }
 
     /** Create index search bound by conditions of the field. */
@@ -434,6 +456,8 @@ public class RexUtils {
 
             if (op.kind == EQUALS) {
                 return new ExactBounds(pred, val);
+            } else if (op.kind == IS_NOT_DISTINCT_FROM) {
+                return new ExactBounds(pred, builder.makeCall(SqlStdOperatorTable.COALESCE, val, nullVal));
             } else if (op.kind == IS_NULL) {
                 return new ExactBounds(pred, nullVal);
             } else if (op.kind == SEARCH) {
@@ -554,7 +578,7 @@ public class RexUtils {
 
                 // Let RexLocalRef be on the left side.
                 if (refOnTheRight(predCall)) {
-                    predCall = (RexCall) RexUtil.invert(builder(cluster), predCall);
+                    predCall = (RexCall) invert(builder(cluster), predCall);
                 }
             } else {
                 ref = (RexSlot) extractRefFromOperand(predCall, cluster, 0);
@@ -570,6 +594,15 @@ public class RexUtils {
         }
 
         return res;
+    }
+
+    /** Extended version of {@link RexUtil#invert(RexBuilder, RexCall)} with additional operators support. */
+    private static RexNode invert(RexBuilder rexBuilder, RexCall call) {
+        if (call.getOperator() == SqlStdOperatorTable.IS_NOT_DISTINCT_FROM) {
+            return rexBuilder.makeCall(call.getOperator(), call.getOperands().get(1), call.getOperands().get(0));
+        } else {
+            return RexUtil.invert(rexBuilder, call);
+        }
     }
 
     private static RexNode extractRefFromBinary(RexCall call, RelOptCluster cluster) {

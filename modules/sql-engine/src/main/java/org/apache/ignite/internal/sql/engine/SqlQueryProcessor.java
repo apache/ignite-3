@@ -43,6 +43,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -141,6 +143,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
+    /** Distribution zones manager. */
+    private final DistributionZoneManager distributionZoneManager;
+
     /** Clock. */
     private final HybridClock clock;
 
@@ -153,6 +158,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             TxManager txManager,
+            DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             HybridClock clock
     ) {
@@ -163,6 +169,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.txManager = txManager;
+        this.distributionZoneManager = distributionZoneManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.clock = clock;
     }
@@ -192,8 +199,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
-                clusterSrvc.topologyService().localMember(),
-                taskExecutor,
                 mailboxRegistry,
                 msgSrvc
         ));
@@ -204,17 +209,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
+        var ddlCommandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
                 sqlSchemaManager,
-                tableManager,
-                indexManager,
+                ddlCommandHandler,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
-                exchangeService,
-                dataStorageManager
+                exchangeService
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);
@@ -473,11 +478,19 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new IgniteInternalException(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName));
         }
 
-        SqlNodeList nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+        CompletableFuture<Void> start = new CompletableFuture<>();
+
+        SqlNodeList nodes = SqlNodeList.EMPTY;
 
         var res = new ArrayList<CompletableFuture<AsyncSqlCursor<List<Object>>>>(nodes.size());
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        try {
+            nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+        } catch (Throwable th) {
+            start.completeExceptionally(th);
+
+            res.add(CompletableFuture.completedFuture(failedCursor(th)));
+        }
 
         for (SqlNode sqlNode : nodes) {
             boolean needStartTx = SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind());
@@ -526,12 +539,27 @@ public class SqlQueryProcessor implements QueryProcessor {
         return res;
     }
 
+    private static <T> AsyncSqlCursor<T> failedCursor(Throwable th) {
+        return new AsyncSqlCursorImpl<>(
+                null, null, null,
+                new AsyncCursor<>() {
+                    @Override
+                    public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
+                        return CompletableFuture.failedFuture(th);
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> closeAsync() {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }
+        );
+    }
+
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
 
-        private AbstractTableEventListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private AbstractTableEventListener(SqlSchemaManagerImpl schemaHolder) {
             this.schemaHolder = schemaHolder;
         }
     }
@@ -545,9 +573,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableCreatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -565,9 +591,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableUpdatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -585,9 +609,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableDroppedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 

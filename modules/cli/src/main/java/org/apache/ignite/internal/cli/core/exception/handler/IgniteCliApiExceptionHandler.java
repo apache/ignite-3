@@ -53,11 +53,13 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
             Throwable apiCause = cause.getCause();
             if (apiCause instanceof UnknownHostException) {
                 errorComponentBuilder
-                        .header("Unknown host: %s", UiElements.url(e.getUrl()));
+                        .header("Unknown host: %s", UiElements.url(e.getUrl()))
+                        .verbose(apiCause.getMessage());
             } else if (apiCause instanceof ConnectException) {
                 errorComponentBuilder
                         .header("Node unavailable")
-                        .details("Could not connect to node with URL %s", UiElements.url(e.getUrl()));
+                        .details("Could not connect to node with URL %s", UiElements.url(e.getUrl()))
+                        .verbose(apiCause.getMessage());
             } else if (apiCause != null) {
                 errorComponentBuilder.header(apiCause.getMessage());
             } else {

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
@@ -26,7 +27,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -70,14 +70,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      */
     public SortAggregateNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             AggregateType type,
             ImmutableBitSet grpSet,
             Supplier<List<AccumulatorWrapper<RowT>>> accFactory,
             RowFactory<RowT> rowFactory,
             Comparator<RowT> comp
     ) {
-        super(ctx, rowType);
+        super(ctx);
         assert Objects.nonNull(comp);
 
         this.type = type;
@@ -85,6 +84,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;
+
+        init();
     }
 
     /** {@inheritDoc} */
@@ -182,6 +183,16 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         waiting = 0;
         grp = null;
         prevRow = null;
+
+        init();
+    }
+
+    private void init() {
+        // Initializes aggregates for case when no any rows will be added into the aggregate to have 0 as result.
+        // Doesn't do it for MAP type due to we don't want send from MAP node zero results because it looks redundant.
+        if ((type == AggregateType.REDUCE || type == AggregateType.SINGLE) && accFactory != null && grpSet.isEmpty()) {
+            grp = new Group(OBJECT_EMPTY_ARRAY);
+        }
     }
 
     /** {@inheritDoc} */

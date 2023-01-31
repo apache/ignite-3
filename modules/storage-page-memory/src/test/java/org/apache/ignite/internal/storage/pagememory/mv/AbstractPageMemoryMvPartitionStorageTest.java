@@ -22,7 +22,7 @@ import static java.util.stream.Collectors.joining;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RowId;
@@ -45,16 +45,16 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
     @Test
     void uncommittedMultiPageValuesAreReadSuccessfully() {
-        BinaryRow longRow = rowStoredInFragments();
+        TableRow longRow = rowStoredInFragments();
 
         RowId rowId = insert(longRow, txId);
 
-        BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
+        TableRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
         assertRowMatches(foundRow, longRow);
     }
 
-    private BinaryRow rowStoredInFragments() {
+    private TableRow rowStoredInFragments() {
         int pageSize = pageSize();
 
         // A repetitive pattern of 19 different characters (19 is chosen as a prime number) to reduce probability of 'lucky' matches
@@ -64,45 +64,45 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
                 .collect(joining());
 
         TestValue value = new TestValue(1, pattern.repeat((int) (2.5 * pageSize / pattern.length())));
-        return binaryRow(key, value);
+        return tableRow(key, value);
     }
 
     @Test
     void committedMultiPageValuesAreReadSuccessfully() {
-        BinaryRow longRow = rowStoredInFragments();
+        TableRow longRow = rowStoredInFragments();
 
         RowId rowId = insert(longRow, txId);
 
         commitWrite(rowId, clock.now());
 
-        BinaryRow foundRow = read(rowId, clock.now());
+        TableRow foundRow = read(rowId, clock.now());
 
         assertRowMatches(foundRow, longRow);
     }
 
     @Test
-    void uncommittedMultiPageValuesWorkWithScans() throws Exception {
-        BinaryRow longRow = rowStoredInFragments();
+    void uncommittedMultiPageValuesWorkWithScans() {
+        TableRow longRow = rowStoredInFragments();
 
         insert(longRow, txId);
 
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
-            BinaryRow foundRow = cursor.next().binaryRow();
+            TableRow foundRow = cursor.next().tableRow();
 
             assertRowMatches(foundRow, longRow);
         }
     }
 
     @Test
-    void committedMultiPageValuesWorkWithScans() throws Exception {
-        BinaryRow longRow = rowStoredInFragments();
+    void committedMultiPageValuesWorkWithScans() {
+        TableRow longRow = rowStoredInFragments();
 
         RowId rowId = insert(longRow, txId);
 
         commitWrite(rowId, clock.now());
 
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
-            BinaryRow foundRow = cursor.next().binaryRow();
+            TableRow foundRow = cursor.next().tableRow();
 
             assertRowMatches(foundRow, longRow);
         }

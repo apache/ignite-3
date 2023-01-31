@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION_DESC;
+
 import org.apache.ignite.internal.cli.VersionProvider;
 import org.apache.ignite.internal.cli.commands.cliconfig.CliCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterCommand;
+import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlCommand;
 import picocli.CommandLine;
@@ -39,11 +43,12 @@ import picocli.CommandLine.Option;
                 SqlCommand.class,
                 CommandLine.HelpCommand.class,
                 CliCommand.class,
+                ConnectCommand.class,
                 NodeCommand.class,
                 ClusterCommand.class
         })
 public class TopLevelCliCommand extends BaseCommand {
     @SuppressWarnings("PMD.UnusedPrivateField")
-    @Option(names = {"--version"}, versionHelp = true, description = "Print version information and exit")
+    @Option(names = VERSION_OPTION, versionHelp = true, description = VERSION_OPTION_DESC)
     private boolean versionRequested;
 }

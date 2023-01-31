@@ -47,6 +47,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -163,7 +164,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         IgnitionManager.stop(nodeToStop);
 
-        listenerInhibitor.stopWithoutResend();
+        listenerInhibitor.stopInhibit();
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))
@@ -182,6 +183,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
+    @Disabled("Enable when IGNITE-18506 is fixed")
     public void checkSchemasCorrectlyRestore() throws Exception {
         Ignite ignite1 = clusterNodes.get(1);
 
@@ -234,7 +236,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * cluster state.
      */
     @Test
-    public void test() throws Exception {
+    public void testExpectReplicationTimeout() throws Exception {
         Ignite ignite0 = clusterNodes.get(0);
         IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
 

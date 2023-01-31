@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.lang.reflect.Method;
+import java.util.Objects;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
@@ -48,8 +49,6 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#rowHandler()}. */
     CONTEXT_ROW_HANDLER(ExecutionContext.class, "rowHandler"),
 
-    /** See {@link ExecutionContext#unspecifiedValue()}. */
-    CONTEXT_UNSPECIFIED_VALUE(ExecutionContext.class, "unspecifiedValue"),
     /** See {@link ExecutionContext#getCorrelated(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "getCorrelated", int.class),
 
@@ -79,7 +78,10 @@ public enum IgniteMethod {
     STRING_TO_BYTESTRING(IgniteSqlFunctions.class, "toByteString", String.class),
 
     /** See {@link IgniteSqlFunctions#currentTime(DataContext)}. */
-    CURRENT_TIME(IgniteSqlFunctions.class, "currentTime", DataContext.class);
+    CURRENT_TIME(IgniteSqlFunctions.class, "currentTime", DataContext.class),
+
+    /** See {@link Objects#equals(Object, Object)}. */
+    IS_NOT_DISTINCT_FROM(Objects.class, "equals", Object.class, Object.class);
 
     private final Method method;
 

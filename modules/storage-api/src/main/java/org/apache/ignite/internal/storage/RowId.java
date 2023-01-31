@@ -19,8 +19,8 @@ package org.apache.ignite.internal.storage;
 
 import java.io.Serializable;
 import java.util.UUID;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class that represents row ID in primary index of the table. Contains a timestamp-based UUID and a partition ID.
@@ -38,13 +38,19 @@ public final class RowId implements Serializable, Comparable<RowId> {
         return new RowId(partitionId, Long.MIN_VALUE, Long.MIN_VALUE);
     }
 
+    public static RowId highestRowId(int partitionId) {
+        return new RowId(partitionId, Long.MAX_VALUE, Long.MAX_VALUE);
+    }
+
     /**
-     * Create a row ID with the UUID value based on {@link Timestamp}.
+     * Create a row ID with the UUID value based on {@link UUID#randomUUID()}.
+     * Intended for tests only, because random UUIDs are very slow when it comes to frequent usages.
      *
      * @param partitionId Partition ID.
      */
+    @TestOnly
     public RowId(int partitionId) {
-        this(partitionId, Timestamp.nextVersion().toUuid());
+        this(partitionId, UUID.randomUUID());
     }
 
     /**

@@ -50,6 +50,7 @@ public class ClusterStatusCommand extends BaseCommand implements Callable<Intege
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new ClusterStatusDecorator())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

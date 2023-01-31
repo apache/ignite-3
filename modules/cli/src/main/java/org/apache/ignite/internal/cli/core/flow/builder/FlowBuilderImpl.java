@@ -35,6 +35,7 @@ import org.apache.ignite.internal.cli.core.flow.question.QuestionAnswer;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.decorators.DefaultDecoratorRegistry;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 
 /**
  * Implementation of {@link FlowBuilder}.
@@ -46,9 +47,10 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     private final Flow<I, O> flow;
     private final ExceptionHandlers exceptionHandlers;
     private final DecoratorRegistry decoratorRegistry;
+    private boolean verbose;
 
     FlowBuilderImpl(Flow<I, O> flow) {
-        this(flow, new DefaultExceptionHandlers(), new DefaultDecoratorRegistry());
+        this(flow, new DefaultExceptionHandlers(), new DefaultDecoratorRegistry(), false);
     }
 
     /**
@@ -57,16 +59,18 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      * @param flow flow instance.
      * @param exceptionHandlers exception handlers.
      * @param decoratorRegistry decorator registry.
+     * @param verbose if @{code true}, flow execution will print debug logs
      */
-    private FlowBuilderImpl(Flow<I, O> flow, ExceptionHandlers exceptionHandlers, DecoratorRegistry decoratorRegistry) {
+    private FlowBuilderImpl(Flow<I, O> flow, ExceptionHandlers exceptionHandlers, DecoratorRegistry decoratorRegistry, boolean verbose) {
         this.flow = flow;
         this.exceptionHandlers = exceptionHandlers;
         this.decoratorRegistry = decoratorRegistry;
+        this.verbose = verbose;
     }
 
     @Override
     public <OT> FlowBuilder<I, OT> then(Flow<O, OT> flow) {
-        return new FlowBuilderImpl<>(this.flow.composite(flow), exceptionHandlers, decoratorRegistry);
+        return new FlowBuilderImpl<>(this.flow.composite(flow), exceptionHandlers, decoratorRegistry, verbose);
     }
 
     @Override
@@ -103,6 +107,12 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
     }
 
     @Override
+    public FlowBuilder<I, O> verbose(boolean verbose) {
+        this.verbose = verbose;
+        return this;
+    }
+
+    @Override
     public FlowBuilder<I, O> print(Decorator<O, TerminalOutput> decorator) {
         return then(input -> printResult(input, type -> decorator));
     }
@@ -133,7 +143,16 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      * @return output flowable
      */
     private Flowable<O> run(Flowable<I> input) {
-        return flow.start(input);
+        try {
+            if (verbose) {
+                CliLoggers.startOutputRedirect(CommandLineContextProvider.getContext().err());
+            }
+            return flow.start(input);
+        } finally {
+            if (verbose) {
+                CliLoggers.stopOutputRedirect();
+            }
+        }
     }
 
     /**

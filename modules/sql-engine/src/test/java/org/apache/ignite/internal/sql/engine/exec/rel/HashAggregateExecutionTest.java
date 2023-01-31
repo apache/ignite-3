@@ -21,11 +21,7 @@ import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.M
 import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.REDUCE;
 import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -34,15 +30,10 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * HashAggregateExecutionTest.
@@ -51,12 +42,11 @@ import org.junit.jupiter.params.provider.EnumSource;
 public class HashAggregateExecutionTest extends BaseAggregateTest {
     /** {@inheritDoc} */
     @Override
-    protected SingleNode<Object[]> createSingleAggregateNodesChain(
+    protected SingleNode<Object[]> createColocatedAggregateNodesChain(
             ExecutionContext<Object[]> ctx,
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan
     ) {
@@ -64,7 +54,6 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
-                aggRowType,
                 SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, inRowType),
@@ -78,7 +67,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results
-        SortNode<Object[]> sort = new SortNode<>(ctx, inRowType, cmp);
+        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(agg);
 
@@ -115,7 +104,6 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
-                aggRowType,
                 MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, inRowType),
@@ -126,7 +114,6 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
-                aggRowType,
                 REDUCE,
                 grpSets,
                 accFactory(ctx, call, REDUCE, aggRowType),
@@ -140,68 +127,10 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results
-        SortNode<Object[]> sort = new SortNode<>(ctx, aggRowType, cmp);
+        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
 
         sort.register(aggRdc);
 
         return sort;
-    }
-
-
-    /**
-     * Test verifies that after rewind all groups are properly initialized.
-     */
-    @ParameterizedTest
-    @EnumSource
-    public void countOfEmptyWithRewind(TestAggregateType testAgg) {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
-        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, Collections.emptyList());
-
-        AggregateCall call = AggregateCall.create(
-                SqlStdOperatorTable.COUNT,
-                false,
-                false,
-                false,
-                ImmutableIntList.of(),
-                -1,
-                null,
-                RelCollations.EMPTY,
-                tf.createJavaType(int.class),
-                null
-        );
-
-        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
-
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
-
-        SingleNode<Object[]> aggChain = createAggregateNodesChain(
-                testAgg,
-                ctx,
-                grpSets,
-                call,
-                rowType,
-                aggRowType,
-                rowFactory(),
-                scan
-        );
-
-        for (int i = 0; i < 2; i++) {
-            RootNode<Object[]> root = new RootNode<>(ctx, aggRowType) {
-                /** {@inheritDoc} */
-                @Override public void close() {
-                    // NO-OP
-                }
-            };
-
-            root.register(aggChain);
-
-            assertTrue(root.hasNext());
-            assertArrayEquals(row(0), root.next());
-            assertFalse(root.hasNext());
-
-            aggChain.rewind();
-        }
     }
 }

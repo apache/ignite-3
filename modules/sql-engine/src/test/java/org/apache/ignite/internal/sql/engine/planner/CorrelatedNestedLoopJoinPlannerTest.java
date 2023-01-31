@@ -35,7 +35,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -47,19 +46,17 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
      * Check equi-join. CorrelatedNestedLoopJoinTest is applicable for it.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void testValidIndexExpressions() throws Exception {
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-                "T0",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T0") {
 
                     @Override
                     public IgniteDistribution distribution() {
@@ -69,13 +66,12 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         );
 
         publicSchema.addTable(
-                "T1",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T1") {
 
                     @Override
                     public IgniteDistribution distribution() {
@@ -104,12 +100,11 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         List<SearchBounds> searchBounds = idxScan.searchBounds();
 
         assertNotNull(searchBounds, "Invalid plan\n" + RelOptUtil.toString(phys));
-        assertEquals(3, searchBounds.size());
+        assertEquals(2, searchBounds.size());
 
-        assertNull(searchBounds.get(0));
-        assertTrue(searchBounds.get(1) instanceof ExactBounds);
-        assertTrue(((ExactBounds) searchBounds.get(1)).bound() instanceof RexFieldAccess);
-        assertNull(searchBounds.get(2));
+        assertTrue(searchBounds.get(0) instanceof ExactBounds);
+        assertTrue(((ExactBounds) searchBounds.get(0)).bound() instanceof RexFieldAccess);
+        assertNull(searchBounds.get(1));
     }
 
     /**
@@ -121,13 +116,12 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
         publicSchema.addTable(
-                "T0",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T0") {
 
                     @Override
                     public IgniteDistribution distribution() {
@@ -138,13 +132,12 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         );
 
         publicSchema.addTable(
-                "T1",
                 new TestTable(
                         new RelDataTypeFactory.Builder(f)
                                 .add("ID", f.createJavaType(Integer.class))
                                 .add("JID", f.createJavaType(Integer.class))
                                 .add("VAL", f.createJavaType(String.class))
-                                .build()) {
+                                .build(), "T1") {
 
                     @Override
                     public IgniteDistribution distribution() {

@@ -91,7 +91,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
         futureTracker.cancelInFlightFutures();

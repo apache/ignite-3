@@ -30,7 +30,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -70,9 +69,9 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      * @param ctx Execution context.
      */
     public HashAggregateNode(
-            ExecutionContext<RowT> ctx, RelDataType rowType, AggregateType type, List<ImmutableBitSet> grpSets,
+            ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
             Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
-        super(ctx, rowType);
+        super(ctx);
 
         this.type = type;
         this.accFactory = accFactory;
@@ -245,7 +244,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             // Initializes aggregates for case when no any rows will be added into the aggregate to have 0 as result.
             // Doesn't do it for MAP type due to we don't want send from MAP node zero results because it looks redundant.
             if (grpFields.isEmpty() && (type == AggregateType.REDUCE || type == AggregateType.SINGLE)) {
-                groups.put(GroupKey.EMPTY_GRP_KEY, create(GroupKey.EMPTY_GRP_KEY));
+                groups.put(GroupKey.EMPTY_GRP_KEY, create());
             }
         }
 
@@ -289,7 +288,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             GroupKey grpKey = b.build();
 
-            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, this::create);
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
 
             for (AccumulatorWrapper<RowT> wrapper : wrappers) {
                 wrapper.add(row);
@@ -305,7 +304,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
             GroupKey grpKey = (GroupKey) handler.get(1, row);
 
-            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, this::create);
+            List<AccumulatorWrapper<RowT>> wrappers = groups.computeIfAbsent(grpKey, k -> create());
             List<Accumulator> accums = hasAccumulators() ? (List<Accumulator>) handler.get(2, row) : Collections.emptyList();
 
             for (int i = 0; i < wrappers.size(); i++) {
@@ -370,7 +369,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             return res;
         }
 
-        private List<AccumulatorWrapper<RowT>> create(GroupKey key) {
+        private List<AccumulatorWrapper<RowT>> create() {
             if (accFactory == null) {
                 return Collections.emptyList();
             }

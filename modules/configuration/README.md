@@ -118,7 +118,7 @@ public static class AbstractConfigurationSchema {
   has been provided explicitly. This annotation can only be present on fields of the Java primitive or `String` type.
     
   All _leaves_ must be public and corresponding configuration values **must not be null**;
-* `@PolymorphicId` is similar to the `@Value`, but is used to store the type of polymorphic configuration (`@PolymorphicConfigInstance#value`), must be a `String` and placed as the first field in a schema;
+* `@PolymorphicId` is similar to the `@Value`, but is used to store the type of polymorphic configuration (`@PolymorphicConfigInstance#value`) and must be a `String`.
 * `@Immutable` annotation can only be present on fields marked with the `@Value` annotation. Annotated fields cannot be 
   changed after they have been initialized (either manually or by assigning a default value).
 
@@ -284,10 +284,13 @@ For the example above, the following interfaces would be generated:
 ```java
 public interface ParentChange extends ParentView { 
     ParentChange changeElements(Consumer<NamedListChange<NamedElementChange>> elements);
+    NamedListChange<NamedElementChange> changeElements();
 
     ParentChange changeChild(Consumer<ChildChange> child);
+    ChildChange changeChild();
 
     ParentChange changePolymorphicChild(Consumer<PolymorphicChange> polymorphicChild);
+    PolymorphicChange changePolymorphicChild();
 }
 
 public interface ChildChange extends ChildView {
@@ -314,9 +317,13 @@ parentCfg.change(parent ->
     )
 ).get();
 
+parentCfg.change(parent ->
+    parent.changeChild().changeStr("newStr2")
+).get();
+
 ChildConfiguration childCfg = parentCfg.child();
 
-childCfg.changeStr("newStr2").get();
+childCfg.changeStr("newStr3").get();
 ```
 
 Example of changing the type of a polymorphic configuration:

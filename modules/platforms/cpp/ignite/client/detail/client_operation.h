@@ -29,11 +29,71 @@ enum class client_operation {
     /** Get table. */
     TABLE_GET = 4,
 
+    /** Get schemas. */
+    SCHEMAS_GET = 5,
+
     /** Upsert tuple. */
     TUPLE_UPSERT = 10,
 
     /** Get tuple. */
     TUPLE_GET = 12,
+
+    /** Upsert all tuples. */
+    TUPLE_UPSERT_ALL = 13,
+
+    /** Get all tuples. */
+    TUPLE_GET_ALL = 15,
+
+    /** Get and upsert tuple. */
+    TUPLE_GET_AND_UPSERT = 16,
+
+    /** Insert tuple. */
+    TUPLE_INSERT = 18,
+
+    /** Insert all tuples. */
+    TUPLE_INSERT_ALL = 20,
+
+    /** Replace tuple. */
+    TUPLE_REPLACE = 22,
+
+    /** Replace exact tuple. */
+    TUPLE_REPLACE_EXACT = 24,
+
+    /** Get and replace tuple. */
+    TUPLE_GET_AND_REPLACE = 26,
+
+    /** Delete tuple. */
+    TUPLE_DELETE = 28,
+
+    /** Delete all tuples. */
+    TUPLE_DELETE_ALL = 29,
+
+    /** Delete exact tuple. */
+    TUPLE_DELETE_EXACT = 30,
+
+    /** Delete all exact tuples. */
+    TUPLE_DELETE_ALL_EXACT = 31,
+
+    /** Get and delete tuple. */
+    TUPLE_GET_AND_DELETE = 32,
+
+    /** Begin transaction. */
+    TX_BEGIN = 43,
+
+    /** Commit transaction. */
+    TX_COMMIT = 44,
+
+    /** Rollback transaction. */
+    TX_ROLLBACK = 45,
+
+    /** Execute SQL query. */
+    SQL_EXEC = 50,
+
+    /** Get next page. */
+    SQL_CURSOR_NEXT_PAGE = 51,
+
+    /** Close cursor. */
+    SQL_CURSOR_CLOSE = 52,
 };
 
 /**

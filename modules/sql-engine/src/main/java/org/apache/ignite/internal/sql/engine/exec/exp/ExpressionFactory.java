@@ -29,9 +29,11 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Expression factory.
@@ -58,9 +60,10 @@ public interface ExpressionFactory<RowT> {
      *
      * @param left  Collations of left row.
      * @param right Collations of right row.
+     * @param equalNulls Bitset with null comparison strategy, use in case of NOT DISTINCT FROM syntax.
      * @return Rows comparator.
      */
-    Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right);
+    Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls);
 
     /**
      * Creates a Filter predicate.
@@ -110,13 +113,13 @@ public interface ExpressionFactory<RowT> {
      * Creates iterable search bounds tuples (lower row/upper row) by search bounds expressions.
      *
      * @param searchBounds Search bounds.
-     * @param collation Collation.
      * @param rowType Row type.
+     * @param comparator Comparator to return bounds in particular order.
      */
     RangeIterable<RowT> ranges(
             List<SearchBounds> searchBounds,
-            RelCollation collation,
-            RelDataType rowType
+            RelDataType rowType,
+            @Nullable Comparator<RowT> comparator
     );
 
     /**

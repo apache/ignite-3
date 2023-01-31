@@ -28,7 +28,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -48,7 +47,7 @@ public class NettyClientTest {
     /** Client. */
     private NettyClient client;
 
-    private final SocketAddress address = InetSocketAddress.createUnresolved("", 0);
+    private final InetSocketAddress address = InetSocketAddress.createUnresolved("", 0);
 
     /**
      * After each.

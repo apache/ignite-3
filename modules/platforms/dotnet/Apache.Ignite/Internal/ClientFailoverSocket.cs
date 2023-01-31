@@ -69,6 +69,9 @@ namespace Apache.Ignite.Internal
          * the table will compare its version with channel version to detect an update. */
         private int _assignmentVersion;
 
+        /** Cluster id from the first handshake. */
+        private Guid? _clusterId;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
@@ -127,7 +130,7 @@ namespace Apache.Ignite.Internal
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
-            PooledArrayBufferWriter? request = null,
+            PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default)
         {
             if (tx == null)
@@ -154,7 +157,7 @@ namespace Apache.Ignite.Internal
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
-            PooledArrayBufferWriter? request = null,
+            PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default)
         {
             var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, tx: null, request, preferredNode).ConfigureAwait(false);
@@ -173,7 +176,7 @@ namespace Apache.Ignite.Internal
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
-            PooledArrayBufferWriter? request = null,
+            PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default)
         {
             if (tx != null)
@@ -269,7 +272,7 @@ namespace Apache.Ignite.Internal
                         }
                         catch (Exception e)
                         {
-                            _logger?.Warn($"Failed to connect to preferred node {preferredNode}: {e.Message}", e);
+                            _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
                         }
                     }
                 }
@@ -335,7 +338,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                _logger?.Warn("Error while trying to establish secondary connections: " + e.Message, e);
+                _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
             }
             finally
             {
@@ -400,6 +403,20 @@ namespace Apache.Ignite.Internal
             }
 
             var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+
+            // We are under _socketLock here.
+            if (_clusterId == null)
+            {
+                _clusterId = socket.ConnectionContext.ClusterId;
+            }
+            else if (_clusterId != socket.ConnectionContext.ClusterId)
+            {
+                socket.Dispose();
+
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.ClusterIdMismatch,
+                    $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterId}");
+            }
 
             endpoint.Socket = socket;
 

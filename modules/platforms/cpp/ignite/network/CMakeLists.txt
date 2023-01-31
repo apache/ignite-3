@@ -37,7 +37,16 @@ if (WIN32)
         detail/win/win_async_connecting_thread.cpp
         detail/win/win_async_worker_thread.cpp
     )
-else()
+elseif(APPLE)
+    list(APPEND SOURCES
+        detail/linux/connecting_context.cpp
+        detail/macos/macos_async_client.cpp
+        detail/linux/linux_async_client_pool.cpp
+        detail/macos/macos_async_worker_thread.cpp
+        detail/linux/sockets.cpp
+        detail/linux/utils.cpp
+    )
+elseif(UNIX)
     list(APPEND SOURCES
         detail/linux/connecting_context.cpp
         detail/linux/linux_async_client.cpp
@@ -55,6 +64,12 @@ target_link_libraries(${TARGET} ignite-common ignite-protocol)
 if (WIN32)
     add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
     target_link_libraries(${TARGET} wsock32 ws2_32 iphlpapi crypt32)
+endif()
+
+if (APPLE)
+    find_package(epoll-shim REQUIRED)
+    target_link_libraries(${TARGET} epoll-shim::epoll-shim)
+    add_compile_definitions(EPOLL_SHIM_NO_VARIADICS)
 endif()
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})

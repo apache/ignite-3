@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,11 +29,11 @@ public class ReadResult {
     /** Unset commit partition id value. */
     public static final int UNDEFINED_COMMIT_PARTITION_ID = -1;
 
-    /** Empty read result. */
-    public static final ReadResult EMPTY = new ReadResult(null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
+    /** ID of the row. */
+    private final RowId rowId;
 
     /** Data. {@code null} iff the result is empty (i.e. no row exists or it is a tombstone). */
-    private final @Nullable BinaryRow binaryRow;
+    private final @Nullable TableRow tableRow;
 
     /** Transaction id. Not {@code null} iff this is a write-intent. */
     private final @Nullable UUID transactionId;
@@ -58,14 +58,16 @@ public class ReadResult {
     private final @Nullable HybridTimestamp newestCommitTs;
 
     private ReadResult(
-            @Nullable BinaryRow binaryRow,
+            RowId rowId,
+            @Nullable TableRow tableRow,
             @Nullable UUID transactionId,
             @Nullable UUID commitTableId,
             @Nullable HybridTimestamp commitTs,
             @Nullable HybridTimestamp newestCommitTs,
             int commitPartitionId
     ) {
-        this.binaryRow = binaryRow;
+        this.rowId = rowId;
+        this.tableRow = tableRow;
 
         // If transaction is not null, then commitTableId and commitPartitionId should be defined.
         assert (transactionId == null) || (commitTableId != null && commitPartitionId != -1);
@@ -80,22 +82,41 @@ public class ReadResult {
         this.commitPartitionId = commitPartitionId;
     }
 
-    public static ReadResult createFromWriteIntent(@Nullable BinaryRow binaryRow, UUID transactionId, UUID commitTableId,
-            int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
-        return new ReadResult(binaryRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
+    /**
+     * Returns an empty read result (that is, a result for a missing row ID or for a tombstone) for the given row ID.
+     *
+     * @param rowId ID of the row for which to create a ReadResult.
+     * @return An empty read result.
+     */
+    public static ReadResult empty(RowId rowId) {
+        return new ReadResult(rowId, null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
-    public static ReadResult createFromCommitted(@Nullable BinaryRow binaryRow, HybridTimestamp commitTs) {
-        return new ReadResult(binaryRow, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
+    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable TableRow tableRow, UUID transactionId, UUID commitTableId,
+            int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
+        return new ReadResult(rowId, tableRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
+    }
+
+    public static ReadResult createFromCommitted(RowId rowId, @Nullable TableRow tableRow, HybridTimestamp commitTs) {
+        return new ReadResult(rowId, tableRow, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
     /**
-     * Returns binary row representation of the data, {@code null} if {@link #isEmpty()}.
+     * Returns ID of the corresponding row.
      *
-     * @return Binary row representation of the data, {@code null} if {@link #isEmpty()}.
+     * @return ID of the corresponding row.
      */
-    public @Nullable BinaryRow binaryRow() {
-        return binaryRow;
+    public RowId rowId() {
+        return rowId;
+    }
+
+    /**
+     * Returns table row representation of the data, {@code null} if {@link #isEmpty()}.
+     *
+     * @return Table row representation of the data, {@code null} if {@link #isEmpty()}.
+     */
+    public @Nullable TableRow tableRow() {
+        return tableRow;
     }
 
     /**
@@ -156,6 +177,6 @@ public class ReadResult {
     }
 
     public boolean isEmpty() {
-        return binaryRow == null;
+        return tableRow == null;
     }
 }

@@ -17,108 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.Collection;
-import java.util.HashMap;
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.CollectionUtils;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * State machine command for updating a batch of entries.
  */
-public class UpdateAllCommand extends PartitionCommand {
-    /** Committed table partition id. */
-    private final TablePartitionId commitReplicationGroupId;
+@Transferable(TableMessageGroup.Commands.UPDATE_ALL)
+public interface UpdateAllCommand extends PartitionCommand {
+    TablePartitionIdMessage tablePartitionId();
 
-    /** Rows to update. */
-    private transient HashMap<RowId, BinaryRow> rowsToUpdate;
-
-    /** Bytes representation of a row to update map. */
-    private byte[] rowsToUpdateBytes;
-
-    /**
-     * Constructor for batch remove.
-     *
-     * @param commitReplicationGroupId Committed table partition id.
-     * @param removeRows Ids to remove.
-     * @param txId Transaction id.
-     */
-    public UpdateAllCommand(@NotNull TablePartitionId commitReplicationGroupId, Collection<RowId> removeRows, @NotNull UUID txId) {
-        this(commitReplicationGroupId, removeRows, null, txId);
-    }
-
-    /**
-     * Constructor for a batch update.
-     *
-     * @param commitReplicationGroupId Committed table partition id.
-     * @param rowsToUpdate Rows to update or insert.
-     * @param txId Transaction id.
-     */
-    public UpdateAllCommand(@NotNull TablePartitionId commitReplicationGroupId, Map<RowId, BinaryRow> rowsToUpdate, @NotNull UUID txId) {
-        this(commitReplicationGroupId, null, rowsToUpdate, txId);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param commitReplicationGroupId Committed table partition id.
-     * @param removeRows Ids to remove.
-     * @param rowsToUpdate Rows to update or insert.
-     * @param txId Transaction id.
-     */
-    private UpdateAllCommand(
-            @NotNull TablePartitionId commitReplicationGroupId,
-            Collection<RowId> removeRows,
-            Map<RowId, BinaryRow> rowsToUpdate,
-            @NotNull UUID txId
-    ) {
-        super(txId);
-
-        this.commitReplicationGroupId = commitReplicationGroupId;
-
-        int size = (removeRows == null ? 0 : removeRows.size()) + (rowsToUpdate == null ? 0 : rowsToUpdate.size());
-
-        HashMap<RowId, BinaryRow> rows = new HashMap<>(size);
-
-        if (!CollectionUtils.nullOrEmpty(removeRows)) {
-            removeRows.forEach(rowId -> rows.put(rowId, null));
-        }
-
-        if (!CollectionUtils.nullOrEmpty(rowsToUpdate)) {
-            rows.putAll(rowsToUpdate);
-        }
-
-        this.rowsToUpdate = rows;
-
-        rowsToUpdateBytes = CommandUtils.rowMapToBytes(rows);
-    }
-
-    /**
-     * Gets a table partition id that the commit partition.
-     *
-     * @return Table partition id.
-     */
-    public TablePartitionId getReplicationGroupId() {
-        return commitReplicationGroupId;
-    }
-
-
-    /**
-     * Gets rows to update.
-     *
-     * @return Rows to update map.
-     */
-    public HashMap<RowId, BinaryRow> getRowsToUpdate() {
-        if (rowsToUpdate == null) {
-            rowsToUpdate = new HashMap<>();
-
-            CommandUtils.readRowMap(rowsToUpdateBytes, rowsToUpdate::put);
-        }
-
-        return rowsToUpdate;
-    }
+    Map<UUID, ByteBuffer> rowsToUpdate();
 }

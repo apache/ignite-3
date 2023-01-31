@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -60,13 +59,11 @@ public abstract class AbstractClusterStateStorageTest {
         storage = createStorage();
 
         storage.start();
-
-        assertTrue(storage.isStarted());
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.close();
+        storage.stop();
     }
 
     /**
@@ -252,7 +249,7 @@ public abstract class AbstractClusterStateStorageTest {
     @Test
     void testGetWithPrefixBorder() throws Exception {
         byte[] key1 = "key1".getBytes(UTF_8);
-        byte[] key2 = RocksUtils.incrementArray(key1);
+        byte[] key2 = RocksUtils.incrementPrefix(key1);
 
         storage.put(key1, "value1".getBytes(UTF_8));
         storage.put(key2, "value2".getBytes(UTF_8));

@@ -18,9 +18,13 @@
 
 //This need for resolving plugins in buildscripts
 plugins {
+    id('idea')
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
+    alias(libs.plugins.aggregateJavadoc)
 }
+
+apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 repositories {
     mavenLocal()
@@ -36,13 +40,18 @@ repositories {
 ext {
     repos = [
             'apache-release'   : "https://repo.maven.apache.org/maven2/",
-            'apache-snapshot'  : "https://repository.apache.org/snapshots"
+            'apache-snapshot'  : "https://repository.apache.org/snapshots",
+            'apache-staging'   : 'https://repository.apache.org/service/local/staging/deploy/maven2'
     ]
 }
 
 allprojects {
     group 'org.apache.ignite'
     version = "3.0.0-SNAPSHOT"
+
+    tasks.withType(Jar) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
 
     tasks.withType(Test) {
         defaultCharacterEncoding = 'UTF-8'
@@ -63,12 +72,25 @@ allprojects {
         }
     }
 
+    tasks.withType(Sign) {
+        enabled = project.hasProperty('signing.keyId')
+                && project.hasProperty('signing.password')
+                && project.hasProperty('signing.secretKeyRingFile')
+    }
+
     tasks.withType(Javadoc) {
         options.tags = [ "apiNote" ]
+        options.addStringOption('bottom', javadocFooter())
     }
 
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
+    }
+
+    //Temporary hack to disable caching of Test tasks.
+    //https://github.com/gradle/gradle/issues/9210
+    tasks.withType(Test).configureEach {
+        outputs.upToDateWhen { false }
     }
 }
 
@@ -90,5 +112,14 @@ subprojects {
                 releasesOnly()
             }
         }
+
+        maven {
+            url = uri(' https://repository.apache.org/service/local/staging/deploy/maven2')
+            mavenContent {
+                releasesOnly()
+            }
+        }
     }
+
+    tasks.register('printSubDependencies', DependencyReportTask)
 }

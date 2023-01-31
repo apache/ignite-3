@@ -17,14 +17,23 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.mockito.Mockito.spy;
+
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -32,17 +41,22 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test table storage implementation.
  */
 public class TestMvTableStorage implements MvTableStorage {
-    private final Map<Integer, MvPartitionStorage> partitions = new ConcurrentHashMap<>();
+    private final Map<Integer, TestMvPartitionStorage> partitions = new ConcurrentHashMap<>();
 
     private final Map<UUID, SortedIndices> sortedIndicesById = new ConcurrentHashMap<>();
 
     private final Map<UUID, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
+
+    private final Map<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
+
+    private final Map<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
     private final TableConfiguration tableCfg;
 
@@ -54,13 +68,13 @@ public class TestMvTableStorage implements MvTableStorage {
     private static class SortedIndices {
         private final SortedIndexDescriptor descriptor;
 
-        final Map<Integer, SortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
+        final Map<Integer, TestSortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
         SortedIndices(SortedIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
-        SortedIndexStorage getOrCreateStorage(Integer partitionId) {
+        TestSortedIndexStorage getOrCreateStorage(Integer partitionId) {
             return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestSortedIndexStorage(descriptor));
         }
     }
@@ -71,18 +85,18 @@ public class TestMvTableStorage implements MvTableStorage {
     private static class HashIndices {
         private final HashIndexDescriptor descriptor;
 
-        final Map<Integer, HashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
+        final Map<Integer, TestHashIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
 
         HashIndices(HashIndexDescriptor descriptor) {
             this.descriptor = descriptor;
         }
 
-        HashIndexStorage getOrCreateStorage(Integer partitionId) {
+        TestHashIndexStorage getOrCreateStorage(Integer partitionId) {
             return storageByPartitionId.computeIfAbsent(partitionId, id -> new TestHashIndexStorage(descriptor));
         }
     }
 
-    /** Costructor. */
+    /** Constructor. */
     public TestMvTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
         this.tableCfg = tableCfg;
         this.tablesCfg = tablesCfg;
@@ -90,7 +104,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        return partitions.computeIfAbsent(partitionId, TestMvPartitionStorage::new);
+        return partitions.computeIfAbsent(partitionId, partId -> spy(new TestMvPartitionStorage(partId)));
     }
 
     @Override
@@ -100,19 +114,59 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroyPartition(int partitionId) throws StorageException {
-        Integer boxedPartitionId = partitionId;
+    public CompletableFuture<Void> destroyPartition(int partitionId) {
+        checkPartitionId(partitionId);
 
-        partitions.remove(boxedPartitionId);
+        assert !rebalanceFutureByPartitionId.containsKey(partitionId);
 
-        sortedIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
-        hashIndicesById.values().forEach(indices -> indices.storageByPartitionId.remove(boxedPartitionId));
+        CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> previousDestroyPartitionFuture = destroyFutureByPartitionId.putIfAbsent(
+                partitionId,
+                destroyPartitionFuture
+        );
+
+        if (previousDestroyPartitionFuture != null) {
+            return previousDestroyPartitionFuture;
+        }
+
+        MvPartitionStorage removedMvPartitionStorage = partitions.remove(partitionId);
+
+        if (removedMvPartitionStorage != null) {
+            try {
+                ((TestMvPartitionStorage) removedMvPartitionStorage).destroy();
+
+                for (HashIndices hashIndices : hashIndicesById.values()) {
+                    HashIndexStorage removedHashIndexStorage = hashIndices.storageByPartitionId.remove(partitionId);
+
+                    if (removedHashIndexStorage != null) {
+                        removedHashIndexStorage.destroy();
+                    }
+                }
+
+                for (SortedIndices sortedIndices : sortedIndicesById.values()) {
+                    SortedIndexStorage removedSortedIndexStorage = sortedIndices.storageByPartitionId.remove(partitionId);
+
+                    if (removedSortedIndexStorage != null) {
+                        ((TestSortedIndexStorage) removedSortedIndexStorage).destroy();
+                    }
+                }
+
+                destroyFutureByPartitionId.remove(partitionId).complete(null);
+            } catch (Throwable throwable) {
+                destroyFutureByPartitionId.remove(partitionId).completeExceptionally(throwable);
+            }
+        } else {
+            destroyFutureByPartitionId.remove(partitionId).complete(null);
+        }
+
+        return destroyPartitionFuture;
     }
 
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, UUID indexId) {
         if (!partitions.containsKey(partitionId)) {
-            throw new StorageException("Partition ID " + partitionId + " does not exist");
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
         }
 
         SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
@@ -126,7 +180,7 @@ public class TestMvTableStorage implements MvTableStorage {
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, UUID indexId) {
         if (!partitions.containsKey(partitionId)) {
-            throw new StorageException("Partition ID " + partitionId + " does not exist");
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
         }
 
         HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
@@ -147,7 +201,7 @@ public class TestMvTableStorage implements MvTableStorage {
             hashIndex.storageByPartitionId.values().forEach(HashIndexStorage::destroy);
         }
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     @Override
@@ -174,6 +228,157 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void destroy() throws StorageException {
+    public void close() throws StorageException {
+        stop();
+    }
+
+    @Override
+    public CompletableFuture<Void> destroy() {
+        stop();
+
+        CompletableFuture[] futures = new CompletableFuture[tableCfg.partitions().value()];
+
+        for (int partitionId = 0; partitionId < futures.length; partitionId++) {
+            futures[partitionId] = destroyPartition(partitionId);
+        }
+
+        return allOf(futures);
+    }
+
+    @Override
+    public CompletableFuture<Void> startRebalancePartition(int partitionId) {
+        checkPartitionId(partitionId);
+
+        TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+
+        assert !destroyFutureByPartitionId.containsKey(partitionId) : partitionId;
+
+        if (partitionStorage.closed()) {
+            throw new StorageRebalanceException("Partition closed: " + partitionId);
+        }
+
+        CompletableFuture<Void> rebalanceFuture = new CompletableFuture<>();
+
+        if (rebalanceFutureByPartitionId.putIfAbsent(partitionId, rebalanceFuture) != null) {
+            throw new StorageRebalanceException("Rebalance for the partition is already in progress: " + partitionId);
+        }
+
+        try {
+            partitionStorage.startRebalance();
+
+            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startRebalance);
+
+            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::startRebalance);
+
+            rebalanceFuture.complete(null);
+        } catch (Throwable t) {
+            rebalanceFuture.completeExceptionally(t);
+        }
+
+        return rebalanceFuture;
+    }
+
+    @Override
+    public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
+        checkPartitionId(partitionId);
+
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+
+        if (rebalanceFuture == null) {
+            return completedFuture(null);
+        }
+
+        TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+
+        return rebalanceFuture
+                .thenAccept(unused -> {
+                    partitionStorage.abortRebalance();
+
+                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::abortRebalance);
+
+                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::abortRebalance);
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> finishRebalancePartition(
+            int partitionId,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig
+    ) {
+        checkPartitionId(partitionId);
+
+        CompletableFuture<Void> rebalanceFuture = rebalanceFutureByPartitionId.remove(partitionId);
+
+        if (rebalanceFuture == null) {
+            throw new StorageRebalanceException("Rebalance for the partition did not start: " + partitionId);
+        }
+
+        TestMvPartitionStorage partitionStorage = partitions.get(partitionId);
+
+        if (partitionStorage == null) {
+            throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+
+        return rebalanceFuture
+                .thenAccept(unused -> {
+                    partitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm, raftGroupConfig);
+
+                    testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);
+
+                    testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::finishRebalance);
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> clearPartition(int partitionId) {
+        checkPartitionId(partitionId);
+
+        TestMvPartitionStorage mvPartitionStorage = partitions.get(partitionId);
+
+        if (mvPartitionStorage == null) {
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+
+        mvPartitionStorage.clear();
+
+        testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::clear);
+        testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::clear);
+
+        return completedFuture(null);
+    }
+
+    private void checkPartitionId(int partitionId) {
+        Integer partitions = tableCfg.partitions().value();
+
+        if (partitionId < 0 || partitionId >= partitions) {
+            throw new IllegalArgumentException(S.toString(
+                    "Unable to access partition with id outside of configured range",
+                    "table", tableCfg.value().name(), false,
+                    "partitionId", partitionId, false,
+                    "partitions", partitions, false
+            ));
+        }
+    }
+
+    private Stream<TestHashIndexStorage> testHashIndexStorageStream(Integer partitionId) {
+        return hashIndicesById.values().stream()
+                .map(hashIndices -> hashIndices.storageByPartitionId.get(partitionId))
+                .filter(Objects::nonNull);
+    }
+
+    private Stream<TestSortedIndexStorage> testSortedIndexStorageStream(Integer partitionId) {
+        return sortedIndicesById.values().stream()
+                .map(hashIndices -> hashIndices.storageByPartitionId.get(partitionId))
+                .filter(Objects::nonNull);
     }
 }

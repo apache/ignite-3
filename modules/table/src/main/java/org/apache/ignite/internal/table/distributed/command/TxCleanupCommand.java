@@ -17,51 +17,22 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * State machine command to cleanup on a transaction commit.
  */
-public class TxCleanupCommand extends PartitionCommand {
-    /**
-     * A commit or a rollback state.
-     */
-    private final boolean commit;
-
-    /**
-     * Transaction commit timestamp.
-     */
-    private final HybridTimestamp commitTimestamp;
-
-    /**
-     * The constructor.
-     *
-     * @param txId The txId.
-     * @param commit Commit or rollback state {@code True} to commit.
-     * @param commitTimestamp Transaction commit timestamp.
-     */
-    public TxCleanupCommand(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
-        super(txId);
-        this.commit = commit;
-        this.commitTimestamp = commitTimestamp;
-    }
-
+@Transferable(TableMessageGroup.Commands.TX_CLEANUP)
+public interface TxCleanupCommand extends PartitionCommand {
     /**
      * Returns a commit or a rollback state.
-     *
-     * @return A commit or a rollback state.
      */
-    public boolean commit() {
-        return commit;
-    }
+    boolean commit();
 
     /**
      * Returns a transaction commit timestamp.
-     *
-     * @return A transaction commit timestamp.
      */
-    public HybridTimestamp commitTimestamp() {
-        return commitTimestamp;
-    }
+    HybridTimestampMessage commitTimestamp();
 }

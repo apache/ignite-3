@@ -17,26 +17,22 @@
 
 package org.apache.ignite.internal.raft;
 
-import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
-import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
-import java.util.function.Supplier;
+import java.util.Set;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -48,10 +44,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * It is mocking all components except Loza and checks API methods of the component in various conditions.
  */
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class LozaTest extends IgniteAbstractTest {
     /** Mock for network service. */
     @Mock
     private ClusterService clusterNetSvc;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     /**
      * Checks that the all API methods throw the exception ({@link org.apache.ignite.lang.NodeStoppingException})
@@ -65,7 +65,7 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        Loza loza = new Loza(clusterNetSvc, mock(RaftConfiguration.class), workDir, new HybridClockImpl());
+        Loza loza = new Loza(clusterNetSvc, raftConfiguration, workDir, new HybridClockImpl());
 
         loza.start();
 
@@ -74,24 +74,17 @@ public class LozaTest extends IgniteAbstractTest {
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 
-        List<ClusterNode> nodes = List.of(
-                new ClusterNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), NetworkAddress.from("127.0.0.1:123")));
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of("test1"));
 
-        List<ClusterNode> newNodes = List.of(
-                new ClusterNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), NetworkAddress.from("127.0.0.1:124")),
-                new ClusterNode(UUID.randomUUID().toString(), UUID.randomUUID().toString(), NetworkAddress.from("127.0.0.1:125")));
-
-        Supplier<RaftGroupListener> lsnrSupplier = () -> null;
+        Peer serverPeer = configuration.peer("test1");
 
         assertThrows(
                 NodeStoppingException.class,
-                () -> loza.startRaftGroupService(raftGroupId, newNodes)
+                () -> loza.startRaftGroupNode(new RaftNodeId(raftGroupId, serverPeer), configuration, null, null)
         );
-        assertThrows(NodeStoppingException.class, () -> loza.stopRaftGroup(raftGroupId));
-        assertThrows(
-                NodeStoppingException.class,
-                () -> loza.prepareRaftGroup(raftGroupId, nodes, lsnrSupplier, defaults())
-        );
+        assertThrows(NodeStoppingException.class, () -> loza.startRaftGroupService(raftGroupId, configuration));
+        assertThrows(NodeStoppingException.class, () -> loza.stopRaftNode(new RaftNodeId(raftGroupId, serverPeer)));
+        assertThrows(NodeStoppingException.class, () -> loza.stopRaftNodes(raftGroupId));
     }
 
     /**

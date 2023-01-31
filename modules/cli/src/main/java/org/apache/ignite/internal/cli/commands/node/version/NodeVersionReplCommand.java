@@ -45,6 +45,7 @@ public class NodeVersionReplCommand extends BaseCommand implements Runnable {
         question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(nodeVersionCall))
+                .verbose(verbose)
                 .print()
                 .start();
     }

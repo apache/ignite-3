@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
 /**
  * Test push metrics exporter.
  */
+@AutoService(MetricExporter.class)
 public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsExporterView> {
     public static final String EXPORTER_NAME = "testPush";
 
@@ -35,10 +37,10 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     private long period;
 
     @Override
-    public void init(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
-        super.init(metricsProvider, configuration);
-
+    public void start(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
         period = configuration.period();
+
+        super.start(metricsProvider, configuration);
     }
 
     public static void setOutputStream(OutputStream outputStream) {
@@ -83,5 +85,13 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     @Override
     public String name() {
         return EXPORTER_NAME;
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
     }
 }

@@ -1,24 +1,30 @@
 ## Prerequisites
 * .NET 6 SDK
 * Java 11 SDK
-* Maven 3.6.0+ (for building)
 
 ## Build Java
-In repo root: `mvn clean install -DskipTests`
+In repo root:
+`./gradlew assemble compileIntegrationTestJava`
+
+Or a faster variant:
+`./gradlew assemble compileIntegrationTestJava -x check -x assembleDist -x distTar -x distZip --parallel`
 
 ## Build .NET
 In this dir: `dotnet build`
 
 ## Run Tests
 In this dir: `dotnet test --logger "console;verbosity=normal"`
+
 Specific test: `dotnet test --logger "console;verbosity=normal" --filter ClientSocketTests`
 
 ## Start a Test Node
-* cd `modules/runner`
-* `mvn exec:java@platform-test-node-runner`
+`gradlew :ignite-runner:runnerPlatformTest --no-daemon`
 
 To debug or profile Java side of the tests, run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or profiler,
 then run .NET tests with `dotnet test` or `dotnet test --filter TEST_NAME`. When a server node is present, .NET tests will use it instead of starting a new one.
+
+The test node will stop after 30 minutes by default.
+To change this, set `IGNITE_PLATFORM_TEST_NODE_RUNNER_RUN_TIME_MINUTES` environment variable.
 
 ## Static Code Analysis
 

@@ -308,7 +308,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         assertThrowsWithCause(
                 () -> ses.executeBatch(null, "SELECT * FROM TEST", args),
                 SqlException.class,
-                "Invalid SQL statement type in the batch"
+                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
         );
 
         assertThrowsWithCause(

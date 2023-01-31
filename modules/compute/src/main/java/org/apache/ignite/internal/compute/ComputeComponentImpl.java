@@ -44,7 +44,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -178,7 +177,6 @@ public class ComputeComponentImpl implements ComputeComponent {
         return future;
     }
 
-    @SuppressWarnings("unchecked")
     private <R> CompletableFuture<R> resultFromExecuteResponse(ExecuteResponse executeResponse) {
         if (executeResponse.throwable() != null) {
             return CompletableFuture.failedFuture(executeResponse.throwable());
@@ -199,11 +197,11 @@ public class ComputeComponentImpl implements ComputeComponent {
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(ignite.name(), "compute"), LOG)
         );
 
-        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderAddr, correlationId) -> {
+        messagingService.addMessageHandler(ComputeMessageTypes.class, (message, senderConsistentId, correlationId) -> {
             assert correlationId != null;
 
             if (message instanceof ExecuteRequest) {
-                processExecuteRequest((ExecuteRequest) message, senderAddr, correlationId);
+                processExecuteRequest((ExecuteRequest) message, senderConsistentId, correlationId);
 
                 return;
             }
@@ -216,9 +214,9 @@ public class ComputeComponentImpl implements ComputeComponent {
         return new LinkedBlockingQueue<>();
     }
 
-    private void processExecuteRequest(ExecuteRequest executeRequest, NetworkAddress senderAddr, long correlationId) {
+    private void processExecuteRequest(ExecuteRequest executeRequest, String senderConsistentId, long correlationId) {
         if (!busyLock.enterBusy()) {
-            sendExecuteResponse(null, new NodeStoppingException(), senderAddr, correlationId);
+            sendExecuteResponse(null, new NodeStoppingException(), senderConsistentId, correlationId);
             return;
         }
 
@@ -226,25 +224,24 @@ public class ComputeComponentImpl implements ComputeComponent {
             Class<ComputeJob<Object>> jobClass = jobClass(executeRequest.jobClassName());
 
             doExecuteLocally(jobClass, executeRequest.args())
-                    .handle((result, ex) -> sendExecuteResponse(result, ex, senderAddr, correlationId));
+                    .handle((result, ex) -> sendExecuteResponse(result, ex, senderConsistentId, correlationId));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     @Nullable
-    private Object sendExecuteResponse(Object result, Throwable ex, NetworkAddress senderAddr, Long correlationId) {
+    private Object sendExecuteResponse(@Nullable Object result, @Nullable Throwable ex, String senderConsistentId, Long correlationId) {
         ExecuteResponse executeResponse = messagesFactory.executeResponse()
                 .result(result)
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(senderAddr, executeResponse, correlationId);
+        messagingService.respond(senderConsistentId, executeResponse, correlationId);
 
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     private <R, J extends ComputeJob<R>> Class<J> jobClass(String jobClassName) {
         try {
             return (Class<J>) Class.forName(jobClassName, true, jobClassLoader);

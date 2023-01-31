@@ -17,16 +17,17 @@
 
 #pragma once
 
-#include <ignite/client/detail/client_operation.h>
-#include <ignite/client/detail/node_connection.h>
-#include <ignite/client/detail/protocol_context.h>
-#include <ignite/client/detail/response_handler.h>
-#include <ignite/client/ignite_client_configuration.h>
+#include "ignite/client/detail/client_operation.h"
+#include "ignite/client/detail/node_connection.h"
+#include "ignite/client/detail/protocol_context.h"
+#include "ignite/client/detail/response_handler.h"
+#include "ignite/client/detail/transaction/transaction_impl.h"
+#include "ignite/client/ignite_client_configuration.h"
 
-#include <ignite/common/ignite_result.h>
-#include <ignite/network/async_client_pool.h>
-#include <ignite/protocol/reader.h>
-#include <ignite/protocol/writer.h>
+#include "ignite/common/ignite_result.h"
+#include "ignite/network/async_client_pool.h"
+#include "ignite/protocol/reader.h"
+#include "ignite/protocol/writer.h"
 
 #include <array>
 #include <functional>
@@ -89,25 +90,58 @@ public:
     void stop();
 
     /**
-     * Perform request.
+     * Perform request raw.
      *
      * @tparam T Result type.
      * @param op Operation code.
-     * @param wr Writer function.
-     * @param handler Response handler.
+     * @param tx Transaction.
+     * @param wr Request writer function.
+     * @param handler Request handler.
+     * @return Channel used for the request.
      */
-    template <typename T>
-    void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::shared_ptr<response_handler_impl<T>> handler) {
+    template<typename T>
+    void perform_request_handler(client_operation op, transaction_impl *tx,
+        const std::function<void(protocol::writer &)> &wr, const std::shared_ptr<response_handler> &handler) {
+        if (tx) {
+            auto channel = tx->get_connection();
+            if (!channel)
+                throw ignite_error("Transaction was not started properly");
+
+            auto res = channel->perform_request(op, wr, handler);
+            if (!res)
+                throw ignite_error("Connection associated with the transaction is closed");
+
+            return;
+        }
+
         while (true) {
             auto channel = get_random_channel();
             if (!channel)
                 throw ignite_error("No nodes connected");
 
-            auto res = channel->perform_request(op, wr, std::move(handler));
+            auto res = channel->perform_request(op, wr, handler);
             if (res)
                 return;
         }
+    }
+
+    /**
+     * Perform request raw.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param tx Transaction.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_raw(client_operation op, transaction_impl *tx,
+        const std::function<void(protocol::writer &)> &wr,
+        std::function<T(std::shared_ptr<node_connection>, bytes_view)> rd, ignite_callback<T> callback) {
+        auto handler = std::make_shared<response_handler_bytes<T>>(std::move(rd), std::move(callback));
+        perform_request_handler<T>(op, tx, wr, std::move(handler));
     }
 
     /**
@@ -115,12 +149,115 @@ public:
      *
      * @tparam T Result type.
      * @param op Operation code.
-     * @param handler Response handler.
+     * @param tx Transaction.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
      */
-    template <typename T>
-    void perform_request(client_operation op, std::shared_ptr<response_handler_impl<T>> handler) {
-        perform_request(
-            op, [](protocol::writer &) {}, std::move(handler));
+    template<typename T>
+    void perform_request(client_operation op, transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+        auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
+        perform_request_handler<T>(op, tx, wr, std::move(handler));
+    }
+
+    /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+        auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
+        perform_request_handler<T>(op, nullptr, wr, std::move(handler));
+    }
+
+    /**
+     * Perform request.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd, ignite_callback<T> callback) {
+        auto handler = std::make_shared<response_handler_reader_connection<T>>(std::move(rd), std::move(callback));
+        perform_request_handler<T>(op, nullptr, wr, std::move(handler));
+    }
+
+    /**
+     * Perform request without input data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_rd(client_operation op, std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+        perform_request<T>(
+            op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+    }
+
+    /**
+     * Perform request without input data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param rd Response reader function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_rd(client_operation op,
+        std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd, ignite_callback<T> callback) {
+        perform_request<T>(
+            op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+    }
+
+    /**
+     * Perform request without output data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param wr Request writer function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_wr(
+        client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        perform_request<T>(
+            op, wr, [](protocol::reader &) {}, std::move(callback));
+    }
+
+    /**
+     * Perform request without output data.
+     *
+     * @tparam T Result type.
+     * @param op Operation code.
+     * @param tx Transaction.
+     * @param wr Request writer function.
+     * @param callback Callback to call on result.
+     * @return Channel used for the request.
+     */
+    template<typename T>
+    void perform_request_wr(client_operation op, transaction_impl *tx,
+        const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        perform_request<T>(
+            op, tx, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
 private:
@@ -185,11 +322,18 @@ private:
     void remove_client(uint64_t id);
 
     /**
-     * Handle initial connection result.
+     * Handle failed initial connection result.
      *
      * @param res Connect result.
      */
     void initial_connect_result(ignite_result<void> &&res);
+
+    /**
+     * Handle successful initial connection result.
+     *
+     * @param context Protocol context.
+     */
+    void initial_connect_result(const protocol_context &context);
 
     /**
      * Find and return client.
@@ -204,6 +348,9 @@ private:
 
     /** Callback to call on initial connect. */
     std::function<void(ignite_result<void>)> m_on_initial_connect;
+
+    /** Cluster ID. */
+    uuid m_cluster_id;
 
     /** Initial connect mutex. */
     std::mutex m_on_initial_connect_mutex;

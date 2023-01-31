@@ -17,65 +17,68 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
-import org.apache.ignite.internal.configuration.storage.StorageException;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction state storage for a table.
  */
-public interface TxStateTableStorage extends AutoCloseable {
+public interface TxStateTableStorage extends ManuallyCloseable {
     /**
-     * Get or create transaction state storage for partition.
+     * Gets or creates transaction state storage for partition.
      *
      * @param partitionId Partition id.
-     * @return Transaction state storage.
-     * @throws StorageException  In case when the operation has failed.
+     * @throws IgniteInternalException In case when the operation has failed.
      */
-    TxStateStorage getOrCreateTxStateStorage(int partitionId) throws StorageException;
+    TxStateStorage getOrCreateTxStateStorage(int partitionId);
 
     /**
-     * Get transaction state storage.
+     * Gets transaction state storage.
      *
      * @param partitionId Partition id.
-     * @return Transaction state storage.
      */
     @Nullable
     TxStateStorage getTxStateStorage(int partitionId);
 
     /**
-     * Destroy transaction state storage.
+     * Destroys transaction state storage.
      *
      * @param partitionId Partition id.
-     * @throws StorageException In case when the operation has failed.
+     * @throws IgniteInternalException In case when the operation has failed.
      */
-    void destroyTxStateStorage(int partitionId) throws StorageException;
+    void destroyTxStateStorage(int partitionId);
 
     /**
-     * Table configuration.
-     *
-     * @return Table configuration.
+     * Returns table configuration.
      */
     TableConfiguration configuration();
 
     /**
-     * Start the storage.
+     * Starts the storage.
      *
-     * @throws StorageException In case when the operation has failed.
+     * @throws IgniteInternalException In case when the operation has failed.
      */
-    void start() throws StorageException;
+    void start();
 
     /**
-     * Stop the storage.
+     * Stops the storage.
      *
-     * @throws StorageException In case when the operation has failed.
+     * @throws IgniteInternalException In case when the operation has failed.
      */
-    void stop() throws StorageException;
+    void stop();
+
+    /**
+     * Closes the storage.
+     */
+    @Override
+    void close();
 
     /**
      * Removes all data from the storage and frees all resources.
      *
-     * @throws StorageException In case when the operation has failed.
+     * @throws IgniteInternalException In case when the operation has failed.
      */
-    void destroy() throws StorageException;
+    void destroy();
 }

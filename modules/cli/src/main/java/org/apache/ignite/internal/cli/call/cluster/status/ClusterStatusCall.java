@@ -26,8 +26,8 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.ClusterState;
 
 /**
@@ -72,6 +72,6 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterStatus> {
     }
 
     private ClusterState fetchClusterState(String url) throws ApiException {
-        return new ClusterManagementApi(new ApiClient().setBasePath(url)).clusterState();
+        return new ClusterManagementApi(Configuration.getDefaultApiClient().setBasePath(url)).clusterState();
     }
 }

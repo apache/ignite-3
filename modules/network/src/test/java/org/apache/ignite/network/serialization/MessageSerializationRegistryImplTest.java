@@ -106,6 +106,18 @@ public class MessageSerializationRegistryImplTest {
         assertNotNull(registry.createSerializer(Short.MAX_VALUE, Short.MAX_VALUE));
     }
 
+    @Test
+    void exceptionIsThrownForNegativeGroupId() {
+        assertThrows(NetworkConfigurationException.class, () -> registry.createSerializer((short) -1, (short) 1));
+        assertThrows(NetworkConfigurationException.class, () -> registry.createDeserializer((short) -1, (short) 1));
+    }
+
+    @Test
+    void exceptionIsThrownForNegativeMessageTypeId() {
+        assertThrows(NetworkConfigurationException.class, () -> registry.createSerializer((short) 1, (short) -1));
+        assertThrows(NetworkConfigurationException.class, () -> registry.createDeserializer((short) 1, (short) -1));
+    }
+
     /**
      * {@link NetworkMessage} implementation.
      */

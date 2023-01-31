@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 
 /**

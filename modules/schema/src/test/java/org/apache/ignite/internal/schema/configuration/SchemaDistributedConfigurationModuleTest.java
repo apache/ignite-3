@@ -21,7 +21,6 @@ import static com.github.npathai.hamcrestopt.OptionalMatchers.isPresent;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -47,13 +46,12 @@ class SchemaDistributedConfigurationModuleTest {
 
     @Test
     void providesTableValidator() {
-        assertThat(module.validators(), hasEntry(is(TableValidator.class), hasItem(instanceOf(TableValidatorImpl.class))));
+        assertThat(module.validators(), hasItem(instanceOf(TableValidatorImpl.class)));
     }
 
     @Test
     void providesColumnTypeValidator() {
-        assertThat(module.validators(),
-                hasEntry(is(ColumnTypeValidator.class), hasItem(instanceOf(ColumnTypeValidatorImpl.class))));
+        assertThat(module.validators(), hasItem(instanceOf(ColumnTypeValidatorImpl.class)));
     }
 
     @Test
@@ -72,7 +70,7 @@ class SchemaDistributedConfigurationModuleTest {
     void isLoadedByServiceLoader() {
         Optional<ConfigurationModule> maybeModule = ServiceLoader.load(ConfigurationModule.class).stream()
                 .map(ServiceLoader.Provider::get)
-                .filter(module -> module instanceof SchemaDistributedConfigurationModule)
+                .filter(SchemaDistributedConfigurationModule.class::isInstance)
                 .findAny();
 
         assertThat(maybeModule, isPresent());

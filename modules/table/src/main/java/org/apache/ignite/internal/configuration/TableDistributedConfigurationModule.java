@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -25,6 +26,7 @@ import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguratio
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-table.
  */
+@AutoService(ConfigurationModule.class)
 public class TableDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override

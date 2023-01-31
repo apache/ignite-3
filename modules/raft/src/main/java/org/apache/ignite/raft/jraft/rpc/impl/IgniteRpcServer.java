@@ -24,10 +24,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.UnresolvableConsistentIdException;import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -114,7 +115,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory));
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
 
         var messageHandler = new RpcMessageHandler();
 
@@ -140,9 +142,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
-        @Override public void onReceived(NetworkMessage message, NetworkAddress senderAddr, @Nullable Long correlationId) {
+        @Override public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
             RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
+
+            ClusterNode sender = clusterService().topologyService().getByConsistentId(senderConsistentId);
+
+            if (sender == null) {
+                throw new UnresolvableConsistentIdException("No node by consistent ID " + senderConsistentId);
+            }
 
             // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
             if (prc == null) {
@@ -180,15 +188,15 @@ public class IgniteRpcServer implements RpcServer<Void> {
                         }
 
                         @Override public void sendResponse(Object responseObj) {
-                            service.messagingService().respond(senderAddr, (NetworkMessage) responseObj, correlationId);
+                            service.messagingService().respond(sender, (NetworkMessage) responseObj, correlationId);
                         }
 
                         @Override public NetworkAddress getRemoteAddress() {
-                            return senderAddr;
+                            return sender.address();
                         }
 
-                        @Override public NetworkAddress getLocalAddress() {
-                            return service.topologyService().localMember().address();
+                        @Override public String getLocalConsistentId() {
+                            return service.topologyService().localMember().name();
                         }
                     };
 
@@ -196,7 +204,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 });
             } catch (RejectedExecutionException e) {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
-                LOG.warn("A request execution was rejected [sender={} req={} reason={}]", senderAddr, S.toString(message), e.getMessage());
+                LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());
             }
         }
     }
@@ -215,6 +223,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
     /** {@inheritDoc} */
     @Override public int boundPort() {
         return 0;
+    }
+
+    @Override public String consistentId() {
+        return service.topologyService().localMember().name();
     }
 
     /** {@inheritDoc} */

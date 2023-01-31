@@ -23,39 +23,80 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.io.Serializable;
+import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.LongConsumer;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.raft.client.Command;
-import org.apache.ignite.raft.client.service.CommandClosure;
+import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the {@link CmgRaftGroupListener}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class CmgRaftGroupListenerTest {
-    private final ClusterStateStorage storage = new TestClusterStateStorage();
+    @InjectConfiguration
+    private ClusterManagementConfiguration clusterManagementConfiguration;
 
-    private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage);
+    private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
+
+    private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);
+
+    private final LogicalTopology logicalTopology = spy(new LogicalTopologyImpl(storage));
+
+    private CmgRaftGroupListener listener;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
+
+    private final ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+
+    private final ClusterState state = clusterState(
+            msgFactory,
+            Set.of("foo"),
+            Set.of("bar"),
+            IgniteProductVersion.CURRENT_VERSION,
+            clusterTag
+    );
+
+    private final ClusterNodeMessage node = msgFactory.clusterNodeMessage().id("foo").name("bar").host("localhost").port(666).build();
 
     @BeforeEach
     void setUp() {
         storage.start();
+
+        listener = new CmgRaftGroupListener(storage, logicalTopology, clusterManagementConfiguration, onLogicalTopologyChanged);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.close();
+        storage.stop();
     }
 
     /**
@@ -63,18 +104,6 @@ public class CmgRaftGroupListenerTest {
      */
     @Test
     void testValidatedNodeIds() {
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
-
-        var state = clusterState(
-                msgFactory,
-                Set.of("foo"),
-                Set.of("bar"),
-                IgniteProductVersion.CURRENT_VERSION,
-                clusterTag
-        );
-
-        var node = msgFactory.clusterNodeMessage().id("foo").name("bar").host("localhost").port(666).build();
-
         listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(state).build()));
 
         listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
@@ -84,6 +113,45 @@ public class CmgRaftGroupListenerTest {
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
         assertThat(listener.storage().getValidatedNodeIds(), is(empty()));
+    }
+
+    @Test
+    void successfulJoinReadyExecutesOnLogicalTopologyChanged() {
+        listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(state).build()));
+
+        JoinRequestCommand joinRequestCommand = msgFactory.joinRequestCommand()
+                .node(node)
+                .version(state.version())
+                .clusterTag(state.clusterTag())
+                .build();
+        listener.onWrite(iterator(joinRequestCommand));
+
+        listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
+
+        verify(onLogicalTopologyChanged).accept(anyLong());
+    }
+
+    @Test
+    void unsuccessfulJoinReadyDoesNotExecuteOnLogicalTopologyChanged() {
+        listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
+
+        verify(onLogicalTopologyChanged, never()).accept(anyLong());
+    }
+
+    @Test
+    void nodesLeaveExecutesOnLogicalTopologyChanged() {
+        listener.onWrite(iterator(msgFactory.nodesLeaveCommand().nodes(Set.of(node)).build()));
+
+        verify(onLogicalTopologyChanged).accept(anyLong());
+    }
+
+    @Test
+    void restoreFromSnapshotTriggersTopologyLeapEvent() {
+        doNothing().when(storage).restoreSnapshot(any());
+
+        assertTrue(listener.onSnapshotLoad(Paths.get("/unused")));
+
+        verify(logicalTopology).fireTopologyLeap();
     }
 
     private static <T extends Command> Iterator<CommandClosure<T>> iterator(T obj) {

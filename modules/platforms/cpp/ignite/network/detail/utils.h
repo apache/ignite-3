@@ -30,7 +30,7 @@ namespace ignite::network::detail {
  *
  * @tparam S Sequence length. Should be >= 2.
  */
-template <size_t S, typename T = size_t>
+template<size_t S, typename T = size_t>
 class fibonacci_sequence {
 public:
     /** Size. */
@@ -64,7 +64,8 @@ private:
  * @param description Error details.
  * @param advice User advice.
  */
-inline std::string format_error_message(std::string_view description, std::string_view details, std::string_view advice) {
+inline std::string format_error_message(
+    std::string_view description, std::string_view details, std::string_view advice) {
     std::stringstream messageBuilder;
     messageBuilder << description;
     if (!details.empty())

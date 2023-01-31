@@ -20,20 +20,26 @@ package org.apache.ignite.internal.replicator;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
  * The service is intended to execute requests on replicas.
@@ -47,6 +53,12 @@ public class ReplicaService {
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
+
+    /** Requests to retry. */
+    private final Map<ClusterNode, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
+
+    /** Replicator network message factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /**
      * The constructor of replica client.
@@ -73,24 +85,24 @@ public class ReplicaService {
      */
     private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) {
 
-        CompletableFuture<R> res = new CompletableFuture<>();
+        AtomicReference<CompletableFuture<R>> res = new AtomicReference<>(new CompletableFuture<>());
 
         // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
-        messagingService.invoke(node.address(), req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
+        messagingService.invoke(node, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof CompletionException) {
                     throwable = throwable.getCause();
                 }
 
                 if (throwable instanceof TimeoutException) {
-                    res.completeExceptionally(new ReplicationTimeoutException(req.groupId()));
+                    res.get().completeExceptionally(new ReplicationTimeoutException(req.groupId()));
+                } else {
+                    res.get().completeExceptionally(withCause(
+                            ReplicationException::new,
+                            REPLICA_COMMON_ERR,
+                            "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                            throwable));
                 }
-
-                res.completeExceptionally(withCause(
-                        ReplicationException::new,
-                        REPLICA_COMMON_ERR,
-                        "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
-                        throwable));
             } else {
                 assert response instanceof ReplicaResponse : "Unexpected message response [resp=" + response + ']';
 
@@ -100,14 +112,57 @@ public class ReplicaService {
 
                 if (response instanceof ErrorReplicaResponse) {
                     var errResp = (ErrorReplicaResponse) response;
-                    res.completeExceptionally(errResp.throwable());
+
+                    if (errResp.throwable() instanceof ReplicaUnavailableException) {
+                        pendingInvokes.compute(node, (clusterNode, fut) -> {
+                            if (fut == null) {
+                                AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
+                                        .groupId(req.groupId())
+                                        .build();
+
+                                fut = messagingService.invoke(node, awaitReplicaReq, RPC_TIMEOUT)
+                                        .whenComplete((response0, throwable0) -> {
+                                            pendingInvokes.remove(node);
+                                        });
+                            }
+
+                            fut.handle((response0, throwable0) -> {
+                                if (throwable0 != null) {
+                                    if (throwable0 instanceof CompletionException) {
+                                        throwable0 = throwable0.getCause();
+                                    }
+
+                                    if (throwable0 instanceof TimeoutException) {
+                                        res.get().completeExceptionally(errResp.throwable());
+                                    } else {
+                                        res.get().completeExceptionally(withCause(
+                                                ReplicationException::new,
+                                                REPLICA_COMMON_ERR,
+                                                "Failed to process replica request [replicaGroupId=" + req.groupId() + ']',
+                                                throwable0));
+                                    }
+                                } else {
+                                    res.get().thenCompose(ignore -> sendToReplica(node, req));
+
+                                    res.get().complete(null);
+                                }
+
+                                return null;
+                            });
+
+                            return fut;
+                        });
+
+                    } else {
+                        res.get().completeExceptionally(errResp.throwable());
+                    }
                 } else {
-                    res.complete((R) ((ReplicaResponse) response).result());
+                    res.get().complete((R) ((ReplicaResponse) response).result());
                 }
             }
         });
 
-        return res;
+        return res.get();
     }
 
     /**

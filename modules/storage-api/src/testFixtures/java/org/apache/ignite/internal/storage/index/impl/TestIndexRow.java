@@ -147,9 +147,9 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
             if (key1 == key2) {
                 return 0;
             } else if (key1 == null) {
-                return -1;
-            } else if (key2 == null) {
                 return 1;
+            } else if (key2 == null) {
+                return -1;
             } else {
                 return keyComparator.compare(key1, key2);
             }

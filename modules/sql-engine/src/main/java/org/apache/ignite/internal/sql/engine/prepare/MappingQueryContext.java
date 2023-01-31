@@ -27,17 +27,17 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Query mapping context.
  */
 public class MappingQueryContext {
-    private final String locNodeId;
+    private final String locNodeName;
 
     private RelOptCluster cluster;
 
     /**
      * Constructor.
      *
-     * @param locNodeId Local node identifier.
+     * @param locNodeName Local node consistent ID.
      */
-    public MappingQueryContext(String locNodeId) {
-        this.locNodeId = locNodeId;
+    public MappingQueryContext(String locNodeName) {
+        this.locNodeName = locNodeName;
     }
 
     /** Creates a cluster. */
@@ -52,7 +52,7 @@ public class MappingQueryContext {
         return cluster;
     }
 
-    public String localNodeId() {
-        return locNodeId;
+    public String locNodeName() {
+        return locNodeName;
     }
 }

@@ -145,7 +145,7 @@ public class ClientTable implements Table {
         return loadSchema(ver);
     }
 
-    private CompletableFuture<ClientSchema> loadSchema(Integer ver) {
+    private CompletableFuture<ClientSchema> loadSchema(@Nullable Integer ver) {
         return ch.serviceAsync(ClientOp.SCHEMAS_GET, w -> {
             w.out().packUuid(id);
 
@@ -260,7 +260,7 @@ public class ClientTable implements Table {
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
-            T defaultValue
+            @Nullable T defaultValue
     ) {
         return getLatestSchema()
                 .thenCompose(schema ->
@@ -274,8 +274,8 @@ public class ClientTable implements Table {
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
-            T defaultValue,
-            Function<ClientSchema, Integer> hashFunction
+            @Nullable T defaultValue,
+            @Nullable Function<ClientSchema, Integer> hashFunction
     ) {
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = hashFunction == null
@@ -316,11 +316,21 @@ public class ClientTable implements Table {
                                 r -> reader.apply(r.in())));
     }
 
-    <T> CompletableFuture<T> doSchemaOutOpAsync(
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param hashFunction Hash function for partition awareness.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
-            Function<ClientSchema, Integer> hashFunction) {
+            @Nullable Function<ClientSchema, Integer> hashFunction) {
 
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
         CompletableFuture<List<String>> partitionsFut = hashFunction == null
@@ -340,11 +350,11 @@ public class ClientTable implements Table {
                 });
     }
 
-    private <T> Object readSchemaAndReadData(
+    private <T> @Nullable Object readSchemaAndReadData(
             ClientSchema knownSchema,
             ClientMessageUnpacker in,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
-            T defaultValue
+            @Nullable T defaultValue
     ) {
         if (in.tryUnpackNil()) {
             return defaultValue;
@@ -420,7 +430,10 @@ public class ClientTable implements Table {
     }
 
     @Nullable
-    private static String getPreferredNodeId(Function<ClientSchema, Integer> hashFunction, List<String> partitions, ClientSchema schema) {
+    private static String getPreferredNodeId(
+            @Nullable Function<ClientSchema, Integer> hashFunction,
+            @Nullable List<String> partitions,
+            ClientSchema schema) {
         if (partitions == null || partitions.isEmpty() || hashFunction == null) {
             return null;
         }

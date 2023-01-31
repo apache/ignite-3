@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.network.ClusterNode;
@@ -40,6 +41,9 @@ public class ProtocolContext {
     /** Cluster node. */
     private final ClusterNode clusterNode;
 
+    /** Cluster id. */
+    private final UUID clusterId;
+
     /**
      * Constructor.
      *
@@ -52,11 +56,13 @@ public class ProtocolContext {
             ProtocolVersion ver,
             EnumSet<ProtocolBitmaskFeature> features,
             long serverIdleTimeout,
-            ClusterNode clusterNode) {
+            ClusterNode clusterNode,
+            UUID clusterId) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;
         this.clusterNode = clusterNode;
+        this.clusterId = clusterId;
     }
 
     /**
@@ -115,5 +121,14 @@ public class ProtocolContext {
      */
     public ClusterNode clusterNode() {
         return clusterNode;
+    }
+
+    /**
+     * Returns cluster id.
+     *
+     * @return Cluster id.
+     */
+    public UUID clusterId() {
+        return clusterId;
     }
 }

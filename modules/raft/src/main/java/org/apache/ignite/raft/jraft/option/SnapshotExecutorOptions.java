@@ -18,9 +18,9 @@ package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 
 /**
  * Snapshot executor options.
@@ -33,7 +33,7 @@ public class SnapshotExecutorOptions {
     private NodeImpl node;
     private LogManager logManager;
     private long initTerm;
-    private Endpoint addr;
+    private PeerId peerId;
     private boolean filterBeforeCopyRemote;
     private SnapshotThrottle snapshotThrottle;
 
@@ -85,12 +85,12 @@ public class SnapshotExecutorOptions {
         this.initTerm = initTerm;
     }
 
-    public Endpoint getAddr() {
-        return this.addr;
+    public PeerId getPeerId() {
+        return this.peerId;
     }
 
-    public void setAddr(Endpoint addr) {
-        this.addr = addr;
+    public void setPeerId(PeerId peerId) {
+        this.peerId = peerId;
     }
 
     public boolean isFilterBeforeCopyRemote() {

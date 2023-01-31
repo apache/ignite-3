@@ -32,12 +32,13 @@ namespace {
  */
 constexpr std::string_view SYSTEM_SHELL = IGNITE_SWITCH_WIN_OTHER("cmd.exe", "/bin/sh");
 constexpr std::string_view SYSTEM_SHELL_ARG_0 = IGNITE_SWITCH_WIN_OTHER("/c ", "-c");
+constexpr std::string_view GRADLEW_SCRIPT = IGNITE_SWITCH_WIN_OTHER("gradlew.bat", "./gradlew");
 
 } // anonymous namespace
 
 namespace ignite {
 
-void IgniteRunner::start(bool dryRun) {
+void IgniteRunner::start() {
     std::string home = resolveIgniteHome();
     if (home.empty())
         throw std::runtime_error("Can not resolve Ignite home directory. Try setting IGNITE_HOME explicitly");
@@ -45,16 +46,17 @@ void IgniteRunner::start(bool dryRun) {
     std::vector<std::string> args;
     args.emplace_back(SYSTEM_SHELL_ARG_0);
 
-    std::string command = getMavenPath() + " exec:java@platform-test-node-runner";
-
-    if (dryRun)
-        command += " -Dexec.args=dry-run";
+    std::string command{GRADLEW_SCRIPT};
+    command += " :ignite-runner:runnerPlatformTest"
+               " --no-daemon"
+               " -x compileJava"
+               " -x compileTestFixturesJava"
+               " -x compileIntegrationTestJava"
+               " -x compileTestJava";
 
     args.emplace_back(command);
 
-    auto workDir = std::filesystem::path(home) / "modules" / "runner";
-
-    m_process = CmdProcess::make(std::string(SYSTEM_SHELL), args, workDir.string());
+    m_process = CmdProcess::make(std::string(SYSTEM_SHELL), args, home);
     if (!m_process->start()) {
         m_process.reset();
 

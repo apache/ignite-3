@@ -56,8 +56,8 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  * to the module, where the tests are being run, and their paths depends on the lifecycle of the folder:
  *
  * <ol>
- *     <li>For test methods: "target/work/{@literal <name-of-the-test-class>/<name-of-the-test-method>_<current_time_millis>}"</li>
- *     <li>For test classes: "target/work/{@literal <name-of-the-test-class>/static_<current_time_millis>}"</li>
+ *     <li>For test methods: "build/work/{@literal <name-of-the-test-class>/<name-of-the-test-method>_<current_time_millis>}"</li>
+ *     <li>For test classes: "build/work/{@literal <name-of-the-test-class>/static_<current_time_millis>}"</li>
  * </ol>
  *
  * <p>Temporary folders are removed after tests have finished running, but this behaviour can be controlled by setting the
@@ -75,7 +75,7 @@ public class WorkDirectoryExtension
     public static final String KEEP_WORK_DIR_PROPERTY = "KEEP_WORK_DIR";
 
     /** Base path for all temporary folders in a module. */
-    private static final Path BASE_PATH = Path.of("target", "work");
+    private static final Path BASE_PATH = getBasePath();
 
     /** Name of the work directory that will be injected into {@link BeforeAll} methods or static members. */
     private static final String STATIC_FOLDER_NAME = "static";
@@ -270,4 +270,7 @@ public class WorkDirectoryExtension
         }
     }
 
+    private static Path getBasePath() {
+        return Path.of("build", "work");
+    }
 }

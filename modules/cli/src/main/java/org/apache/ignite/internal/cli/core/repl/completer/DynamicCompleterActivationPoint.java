@@ -18,27 +18,104 @@
 package org.apache.ignite.internal.cli.core.repl.completer;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.commands.Options;
+import org.apache.ignite.internal.cli.core.repl.completer.cluster.ClusterUrlDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.filter.ExclusionsCompleterFilter;
+import org.apache.ignite.internal.cli.core.repl.completer.hocon.ClusterConfigDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.hocon.NodeConfigDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.jdbc.JdbcUrlDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.node.NodeNameDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.path.FilePathCompleter;
 
-/**
- * Activation point that links commands with dynamic completers.
- */
+/** Activation point that links commands with dynamic completers. */
 @Singleton
 public class DynamicCompleterActivationPoint {
 
-    private final DynamicCompleterFactory factory;
+    private final NodeNameDynamicCompleterFactory nodeNameDynamicCompleterFactory;
+    private final ClusterConfigDynamicCompleterFactory clusterConfigDynamicCompleterFactory;
+    private final NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory;
+    private final ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory;
+    private final JdbcUrlDynamicCompleterFactory jdbcUrlDynamicCompleterFactory;
 
-    /** Default constructor. */
-    public DynamicCompleterActivationPoint(DynamicCompleterFactory factory) {
-        this.factory = factory;
+    /** Main constructor. */
+    public DynamicCompleterActivationPoint(
+            NodeNameDynamicCompleterFactory nodeNameDynamicCompleterFactory,
+            ClusterConfigDynamicCompleterFactory clusterConfigDynamicCompleterFactory,
+            NodeConfigDynamicCompleterFactory nodeConfigDynamicCompleterFactory,
+            ClusterUrlDynamicCompleterFactory clusterUrlDynamicCompleterFactory,
+            JdbcUrlDynamicCompleterFactory jdbcUrlDynamicCompleterFactory) {
+        this.nodeNameDynamicCompleterFactory = nodeNameDynamicCompleterFactory;
+        this.clusterConfigDynamicCompleterFactory = clusterConfigDynamicCompleterFactory;
+        this.nodeConfigDynamicCompleterFactory = nodeConfigDynamicCompleterFactory;
+        this.clusterUrlDynamicCompleterFactory = clusterUrlDynamicCompleterFactory;
+        this.jdbcUrlDynamicCompleterFactory = jdbcUrlDynamicCompleterFactory;
     }
+
 
     /**
      * Registers all dynamic completers in given {@link DynamicCompleterRegistry}.
      */
     public void activateDynamicCompleter(DynamicCompleterRegistry registry) {
-        registry.register(new String[]{"cluster", "config", "show"}, factory.clusterConfigCompleter(""));
-        registry.register(new String[]{"cluster", "config", "update"}, factory.clusterConfigCompleter(""));
-        registry.register(new String[]{"node", "config", "show"}, factory.nodeConfigCompleter(""));
-        registry.register(new String[]{"node", "config", "update"}, factory.nodeConfigCompleter(""));
+        registry.register(
+                CompleterConf.builder()
+                        .command("cluster", "config", "show")
+                        .command("cluster", "config", "update").build(),
+                clusterConfigDynamicCompleterFactory
+        );
+        registry.register(
+                CompleterConf.builder()
+                        .command("node", "config", "show").build(),
+                nodeConfigDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("node", "config", "update")
+                        .filter(new ExclusionsCompleterFilter("compute", "raft"))
+                        .build(),
+                nodeConfigDynamicCompleterFactory
+        );
+
+        // exclusive option that disables other completers for node name
+        registry.register(
+                CompleterConf.builder()
+                        .enableOptions(Options.NODE_NAME)
+                        .exclusiveEnableOptions().build(),
+                nodeNameDynamicCompleterFactory
+        );
+        registry.register(
+                CompleterConf.forCommand("connect"),
+                nodeNameDynamicCompleterFactory
+        );
+        registry.register(
+                CompleterConf.builder()
+                        .command("cluster", "init")
+                        .enableOptions(Options.META_STORAGE_NODE_NAME, Options.CMG_NODE_NAME)
+                        .build(),
+                nodeNameDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("sql")
+                        .enableOptions(Options.SCRIPT_FILE)
+                        .exclusiveEnableOptions().build(),
+                words -> new FilePathCompleter()
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .command("sql")
+                        .enableOptions(Options.JDBC_URL)
+                        .exclusiveEnableOptions().build(),
+                jdbcUrlDynamicCompleterFactory
+        );
+
+        registry.register(
+                CompleterConf.builder()
+                        .enableOptions(Options.CLUSTER_URL, Options.NODE_URL)
+                        .exclusiveEnableOptions().build(),
+                clusterUrlDynamicCompleterFactory
+        );
     }
 }

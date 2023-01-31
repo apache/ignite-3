@@ -43,7 +43,7 @@ public class ClientTransactionBeginRequest {
             ClientResourceRegistry resources) {
         return transactions.beginAsync().thenAccept(t -> {
             try {
-                long resourceId = resources.put(new ClientResource(t, t::rollback));
+                long resourceId = resources.put(new ClientResource(t, t::rollbackAsync));
                 out.packLong(resourceId);
             } catch (IgniteInternalCheckedException e) {
                 t.rollback();

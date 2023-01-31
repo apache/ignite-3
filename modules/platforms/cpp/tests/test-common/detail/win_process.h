@@ -91,7 +91,7 @@ public:
         , m_command(std::move(command))
         , m_args(std::move(args))
         , m_workDir(std::move(workDir))
-        , m_info{} { }
+        , m_info{} {}
 
     /**
      * Destructor.

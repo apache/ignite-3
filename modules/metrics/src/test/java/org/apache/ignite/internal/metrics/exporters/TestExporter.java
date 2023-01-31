@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters;
 
 import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,14 +31,11 @@ public class TestExporter extends BasicMetricExporter<TestExporterView> {
     private volatile int port;
 
     @Override
-    public void init(MetricProvider metricsProvider, TestExporterView configuration) {
-        super.init(metricsProvider, configuration);
+    public void start(MetricProvider metricsProvider, TestExporterView configuration) {
+        super.start(metricsProvider, configuration);
 
         port = configuration.port();
-    }
 
-    @Override
-    public void start() {
         started = true;
     }
 
@@ -52,10 +50,20 @@ public class TestExporter extends BasicMetricExporter<TestExporterView> {
     }
 
     @Override
-    public void reconfigure(@Nullable TestExporterView newValue) {
+    public synchronized void reconfigure(@Nullable TestExporterView newValue) {
         super.reconfigure(newValue);
 
-        port = configuration.port();
+        port = configuration().port();
+    }
+
+    @Override
+    public void addMetricSet(MetricSet metricSet) {
+
+    }
+
+    @Override
+    public void removeMetricSet(String metricSetName) {
+
     }
 
     public boolean isStarted() {

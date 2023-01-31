@@ -97,7 +97,6 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -111,7 +110,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     private static final short LONG_META_IO = 30002;
 
-    protected static final int CPUS = Runtime.getRuntime().availableProcessors();
+    protected static final int CPUS = Math.min(8, Runtime.getRuntime().availableProcessors());
 
     private static final int GROUP_ID = 100500;
 
@@ -143,6 +142,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     /** Future. */
     private volatile CompletableFuture<?> asyncRunFut;
+
+    /** Print fat logs. */
+    private boolean debugPrint = false;
 
     @BeforeEach
     protected void beforeEach(TestInfo testInfo) throws Exception {
@@ -607,7 +609,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             assertNoLocks();
         }
 
-        println(tree.printTree());
+        if (debugPrint) {
+            println(tree.printTree());
+        }
 
         assertNoLocks();
 
@@ -630,7 +634,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             assertNoLocks();
 
-            println(tree.printTree());
+            if (debugPrint) {
+                println(tree.printTree());
+            }
 
             assertNoLocks();
 
@@ -701,7 +707,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             final int rnd = BplusTree.randomInt(11);
 
             if (i % 10_000 == 0) {
-                // println(tree.printTree());
+                if (debugPrint) {
+                    println(tree.printTree());
+                }
                 println(" --> " + i + "  ++> " + x);
             }
 
@@ -1011,7 +1019,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             boolean put = BplusTree.randomInt(2) == 0;
 
             if (i % 10_000 == 0) {
-                // println(tree.printTree());
+                if (debugPrint) {
+                    println(tree.printTree());
+                }
                 println(" --> " + (put ? "put " : "rmv ") + i + "  " + x);
             }
 
@@ -1157,8 +1167,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     public void testSizeForPutRmvSequential() throws Exception {
         MAX_PER_PAGE = 5;
 
-        boolean debugPrint = false;
-
         int itemCnt = (int) Math.pow(MAX_PER_PAGE, 5) + rnd.nextInt(MAX_PER_PAGE * MAX_PER_PAGE);
 
         Long[] items = new Long[itemCnt];
@@ -1183,7 +1191,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         for (Long row : items) {
             if (debugPrint) {
                 println(" --> put(" + row + ")");
-                print(testTree.printTree());
+                if (debugPrint) {
+                    println(testTree.printTree());
+                }
             }
 
             assertEquals(goldenMap.put(row, row), testTree.put(row));
@@ -1208,7 +1218,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         for (Long row : items) {
             if (debugPrint) {
                 println(" --> rmv(" + row + ")");
-                print(testTree.printTree());
+                if (debugPrint) {
+                    println(testTree.printTree());
+                }
             }
 
             assertEquals(row, goldenMap.remove(row));
@@ -1519,17 +1531,15 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * concurrently added to the tree until the new pages are not added anymore. Test verifies that despite livelock condition a size from a
      * valid range is returned.
      *
-     * <p>NB: This test has to be changed with the integration of IGNITE-3478.
-     *
      * @throws Exception if test failed
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17235")
     public void testPutSizeLivelock() throws Exception {
         MAX_PER_PAGE = 5;
         CNT = 800;
 
-        final int slidingWindowSize = 16;
+        // Sliding window size should be greater than the amount of CPU cores to avoid races between puts and removes in the tree.
+        int slidingWindowSize = CPUS * 2;
         final boolean debugPrint = false;
 
         final TestTree tree = createTestTree(false);
@@ -2331,6 +2341,30 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             tree.validateTree();
         }
+    }
+
+    @Test
+    void testFindNext() throws Exception {
+        TestTree tree = createTestTree(true);
+
+        assertNull(tree.findNext(0L, false));
+        assertNull(tree.findNext(0L, true));
+
+        tree.put(0L);
+
+        assertNull(tree.findNext(0L, false));
+        assertEquals(0L, tree.findNext(0L, true));
+
+        tree.put(1L);
+
+        assertEquals(1L, tree.findNext(0L, false));
+        assertEquals(0L, tree.findNext(0L, true));
+
+        assertNull(tree.findNext(1L, false));
+        assertEquals(1L, tree.findNext(1L, true));
+
+        assertEquals(0L, tree.findNext(-1L, false));
+        assertEquals(0L, tree.findNext(-1L, true));
     }
 
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {

@@ -30,14 +30,14 @@ node_connection::node_connection(
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
-        auto handlingRes = result_of_operation<void>([&]() {
+        auto handling_res = result_of_operation<void>([&]() {
             auto res = handler.second->set_error(ignite_error("Connection closed before response was received"));
             if (res.has_error())
                 m_logger->log_error(
                     "Uncaught user callback exception while handling operation error: " + res.error().what_str());
         });
-        if (handlingRes.has_error())
-            m_logger->log_error("Uncaught user callback exception: " + handlingRes.error().what_str());
+        if (handling_res.has_error())
+            m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
     }
 }
 
@@ -78,8 +78,10 @@ void node_connection::process_message(bytes_view msg) {
     }
 
     auto reqId = reader.read_int64();
-    auto handler = get_and_remove_handler(reqId);
+    auto flags = reader.read_int32();
+    (void) flags; // Flags are unused for now.
 
+    auto handler = get_and_remove_handler(reqId);
     if (!handler) {
         m_logger->log_error("Missing handler for request with id=" + std::to_string(reqId));
         return;
@@ -95,7 +97,9 @@ void node_connection::process_message(bytes_view msg) {
         return;
     }
 
-    auto handlingRes = handler->handle(reader);
+    auto pos = reader.position();
+    bytes_view data{msg.data() + pos, msg.size() - pos};
+    auto handlingRes = handler->handle(shared_from_this(), data);
     if (handlingRes.has_error())
         m_logger->log_error("Uncaught user callback exception: " + handlingRes.error().what_str());
 }
@@ -120,14 +124,17 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     if (err)
         return {ignite_error(err.value())};
 
-    (void)reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
-    (void)reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
-    (void)reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
+    (void) reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
+    (void) reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
+    (void) reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
+    auto cluster_id = reader.read_uuid();
     reader.skip(); // Features.
     reader.skip(); // Extensions.
 
     m_protocol_context.set_version(ver);
+    m_protocol_context.set_cluster_id(cluster_id);
+
     m_handshake_complete = true;
 
     return {};

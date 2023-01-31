@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.util.Cursor;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -216,6 +217,7 @@ public abstract class AbstractHashIndexStorageTest {
         assertDoesNotThrow(() -> remove(row));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
     @Test
     public void testDestroy() {
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));

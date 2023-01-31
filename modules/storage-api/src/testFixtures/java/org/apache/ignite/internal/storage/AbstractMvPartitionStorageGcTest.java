@@ -1,0 +1,126 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.storage;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Abstract test for MV partition storage GC.
+ */
+public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionStorageTest {
+    @Test
+    void testEmptyStorage() {
+        assertNull(storage.pollForVacuum(clock.now()));
+    }
+
+    @Test
+    void testSingleValueStorage() {
+        addAndCommit(TABLE_ROW);
+
+        assertNull(storage.pollForVacuum(clock.now()));
+    }
+
+    @Test
+    void testRegularPoll() {
+        HybridTimestamp firstCommitTs = addAndCommit(TABLE_ROW);
+
+        HybridTimestamp tsBetweenCommits = clock.now();
+
+        HybridTimestamp secondCommitTs = addAndCommit(TABLE_ROW2);
+
+        // Data is still visible for older timestamps.
+        assertNull(storage.pollForVacuum(firstCommitTs));
+
+        assertNull(storage.pollForVacuum(tsBetweenCommits));
+
+        // Once a low watermark value becomes equal to second commit timestamp, previous value
+        // becomes completely inaccessible and should be purged.
+        TableRowAndRowId gcedRow = storage.pollForVacuum(secondCommitTs);
+
+        assertNotNull(gcedRow);
+
+        assertRowMatches(gcedRow.tableRow(), TABLE_ROW);
+
+        // Read from the old timestamp should return null.
+        assertNull(read(ROW_ID, firstCommitTs));
+
+        // Read from the newer timestamp should return last value.
+        assertRowMatches(read(ROW_ID, secondCommitTs), TABLE_ROW2);
+    }
+
+    @Test
+    void testPollFromUnderTombstone() {
+        addAndCommit(TABLE_ROW);
+        HybridTimestamp secondCommitTs = addAndCommit(null);
+
+        TableRowAndRowId row = storage.pollForVacuum(secondCommitTs);
+
+        assertNotNull(row);
+        assertRowMatches(row.tableRow(), TABLE_ROW);
+
+        assertNull(read(ROW_ID, secondCommitTs));
+
+        // Check that tombstone is also deleted from the partition. It must be empty at this point.
+        assertNull(storage.closestRowId(ROW_ID));
+    }
+
+    @Test
+    void testDoubleTombstone() {
+        addAndCommit(TABLE_ROW);
+        addAndCommit(null);
+        HybridTimestamp lastCommitTs = addAndCommit(null);
+
+        TableRowAndRowId row = storage.pollForVacuum(lastCommitTs);
+
+        assertNotNull(row);
+        assertRowMatches(row.tableRow(), TABLE_ROW);
+
+        assertNull(read(ROW_ID, lastCommitTs));
+
+        // Check that all tombstones are deleted from the partition. It must be empty at this point.
+        assertNull(storage.closestRowId(ROW_ID));
+    }
+
+    @Test
+    void testManyOldVersions() {
+        addAndCommit(TABLE_ROW);
+
+        addAndCommit(TABLE_ROW2);
+
+        HybridTimestamp lowWatermark = addAndCommit(null);
+
+        // Poll the oldest row.
+        TableRowAndRowId row = pollForVacuum(lowWatermark);
+
+        assertNotNull(row);
+        assertRowMatches(row.tableRow(), TABLE_ROW);
+
+        // Poll the next oldest row.
+        row = pollForVacuum(lowWatermark);
+
+        assertNotNull(row);
+        assertRowMatches(row.tableRow(), TABLE_ROW2);
+
+        // Nothing else to poll.
+        assertNull(pollForVacuum(lowWatermark));
+    }
+}

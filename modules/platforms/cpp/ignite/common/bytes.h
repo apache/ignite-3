@@ -161,7 +161,7 @@ constexpr std::uint64_t swap64(std::uint64_t value) noexcept {
  * @param src Original value.
  * @return Value reinterpreted as having the required type.
  */
-template <typename T, typename S>
+template<typename T, typename S>
 T cast(const S &src) noexcept {
     static_assert(sizeof(T) == sizeof(S) && std::is_trivially_copyable_v<T> && std::is_trivially_copyable_v<S>,
         "Unsuitable types for casting");
@@ -174,11 +174,11 @@ T cast(const S &src) noexcept {
 namespace detail {
 
 // A helper to implement byte swapping.
-template <std::size_t Size>
+template<std::size_t Size>
 struct swapper;
 
 // Specialization for 1-byte types.
-template <>
+template<>
 struct swapper<1> {
     using type = std::uint8_t;
 
@@ -186,7 +186,7 @@ struct swapper<1> {
 };
 
 // Specialization for 2-byte types.
-template <>
+template<>
 struct swapper<2> {
     using type = std::uint16_t;
 
@@ -194,7 +194,7 @@ struct swapper<2> {
 };
 
 // Specialization for 4-byte types.
-template <>
+template<>
 struct swapper<4> {
     using type = std::uint32_t;
 
@@ -202,7 +202,7 @@ struct swapper<4> {
 };
 
 // Specialization for 8-byte types.
-template <>
+template<>
 struct swapper<8> {
     using type = std::uint64_t;
 
@@ -210,7 +210,7 @@ struct swapper<8> {
 };
 
 // A type suitable for swapping bytes.
-template <typename T>
+template<typename T>
 using swap_type = typename swapper<sizeof(T)>::type;
 
 } // namespace detail
@@ -224,7 +224,7 @@ using swap_type = typename swapper<sizeof(T)>::type;
  * @param value Original integer value.
  * @return Value with reversed bytes.
  */
-template <typename T>
+template<typename T>
 IGNITE_BYTESWAP_SPECIFIER T reverse(T value) noexcept {
     static_assert(std::is_integral_v<T>, "reverse() is unimplemented for this type");
 
@@ -249,7 +249,7 @@ IGNITE_BYTESWAP_SPECIFIER T reverse(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T, endian X, endian Y>
+template<typename T, endian X, endian Y>
 static T adjust_order(T value) noexcept {
     if constexpr (X == Y) {
         return value;
@@ -267,7 +267,7 @@ static T adjust_order(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T>
+template<typename T>
 static T ltob(T value) noexcept {
     return adjust_order<T, endian::LITTLE, endian::BIG>(value);
 }
@@ -279,7 +279,7 @@ static T ltob(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T>
+template<typename T>
 static T ltoh(T value) noexcept {
     return adjust_order<T, endian::LITTLE, endian::NATIVE>(value);
 }
@@ -291,7 +291,7 @@ static T ltoh(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T>
+template<typename T>
 static T htol(T value) noexcept {
     return adjust_order<T, endian::NATIVE, endian::LITTLE>(value);
 }
@@ -303,7 +303,7 @@ static T htol(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T>
+template<typename T>
 static T btol(T value) noexcept {
     return adjust_order<T, endian::BIG, endian::LITTLE>(value);
 }
@@ -315,7 +315,7 @@ static T btol(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T>
+template<typename T>
 static T btoh(T value) noexcept {
     return adjust_order<T, endian::BIG, endian::NATIVE>(value);
 }
@@ -327,7 +327,7 @@ static T btoh(T value) noexcept {
  * @param value Original value.
  * @return Converted value.
  */
-template <typename T>
+template<typename T>
 static T htob(T value) noexcept {
     return adjust_order<T, endian::NATIVE, endian::BIG>(value);
 }
@@ -339,7 +339,7 @@ static T htob(T value) noexcept {
  * @param bytes Pointer to byte storage.
  * @return Loaded value.
  */
-template <typename T>
+template<typename T>
 T load_raw(const std::byte *bytes) noexcept {
     static_assert(std::is_trivially_copyable_v<T>, "Unsuitable type for byte copying");
 
@@ -355,7 +355,7 @@ T load_raw(const std::byte *bytes) noexcept {
  * @param bytes Pointer to byte storage.
  * @param value Value to store.
  */
-template <typename T>
+template<typename T>
 void store_raw(std::byte *bytes, T value) noexcept {
     static_assert(std::is_trivially_copyable_v<T>, "Unsuitable type for byte copying");
 
@@ -370,7 +370,7 @@ void store_raw(std::byte *bytes, T value) noexcept {
  * @param bytes Pointer to byte storage.
  * @return Loaded value.
  */
-template <endian E, typename T>
+template<endian E, typename T>
 T load(const std::byte *bytes) noexcept {
     if constexpr (E == endian::NATIVE) {
         return load_raw<T>(bytes);
@@ -390,7 +390,7 @@ T load(const std::byte *bytes) noexcept {
  * @param bytes Pointer to byte storage.
  * @param value Value to store.
  */
-template <endian E, typename T>
+template<endian E, typename T>
 void store(std::byte *bytes, T value) noexcept {
     if constexpr (E == endian::NATIVE) {
         store_raw(bytes, value);

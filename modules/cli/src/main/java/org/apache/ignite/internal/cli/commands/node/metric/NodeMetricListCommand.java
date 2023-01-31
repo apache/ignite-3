@@ -46,6 +46,7 @@ public class NodeMetricListCommand extends BaseCommand implements Callable<Integ
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new MetricListDecorator())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

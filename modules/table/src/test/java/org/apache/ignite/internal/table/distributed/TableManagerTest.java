@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.raft.jraft.test.TestUtils.peersToIds;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,8 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -54,18 +50,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Phaser;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
@@ -76,7 +66,9 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -84,6 +76,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
@@ -92,34 +85,27 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -127,6 +113,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -168,31 +155,23 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Raft manager. */
     @Mock
-    private Loza rm;
+    private RaftManager rm;
 
     /** Replica manager. */
     @Mock
     private ReplicaManager replicaMgr;
 
     /** TX manager. */
-    @Mock(lenient = true)
+    @Mock
     private TxManager tm;
-
-    /** TX manager. */
-    @Mock(lenient = true)
-    private LockManager lm;
 
     /** Meta storage manager. */
     @Mock
     MetaStorageManager msm;
 
-    /** Mock messaging service. */
+    /** Mock cluster service. */
     @Mock
-    private MessagingService messagingService;
-
-    /** Mock cluster. */
-    @Mock
-    private ClusterService cluster;
+    private ClusterService clusterService;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -234,8 +213,12 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
-        when(rm.messagingService()).thenReturn(mock(MessagingService.class));
-        when(rm.topologyService()).thenReturn(mock(TopologyService.class));
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
+
+        TopologyService topologyService = mock(TopologyService.class);
+
+        when(clusterService.topologyService()).thenReturn(topologyService);
+        when(topologyService.localMember()).thenReturn(node);
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
             function.apply(0L).join();
@@ -246,8 +229,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 return function.apply(newStorageRevision);
             });
         };
-
-        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
 
         tblManagerFut = new CompletableFuture<>();
     }
@@ -272,8 +253,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock ->
-                CompletableFuture.completedFuture(mock(RaftGroupService.class)));
+        when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
@@ -296,10 +276,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
-                ArrayList<Set<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
+                var assignment = new ArrayList<Set<Assignment>>(PARTITIONS);
 
                 for (int part = 0; part < PARTITIONS; part++) {
-                    assignment.add(new HashSet<>(Collections.singleton(node)));
+                    assignment.add(new HashSet<>(Collections.singleton(Assignment.forPeer(node.name()))));
                 }
 
                 extConfCh.changeAssignments(ByteUtils.toBytes(assignment)).changeSchemaId(1);
@@ -346,11 +326,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
 
         await(tableManager.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
+
+        verify(table.internalTable().storage()).destroy();
+        verify(table.internalTable().txStateStorage()).destroy();
 
         assertNull(tableManager.table(scmTbl.name()));
 
@@ -425,27 +408,104 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Cheks that the all RAFT nodes will be stopped when Table manager is stopping.
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
      *
      * @throws Exception If failed.
      */
     @Test
-    public void tableManagerStopTest() throws Exception {
+    public void tableManagerStopTest1() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> {
+                    try {
+                        doThrow(new NodeStoppingException()).when(rm).stopRaftNodes(any());
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    /**
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void tableManagerStopTest2() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> {
+                    try {
+                        doThrow(new NodeStoppingException()).when(replicaMgr).stopReplica(any());
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    /**
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void tableManagerStopTest3() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> {
+                    try {
+                        doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().storage()).close();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    /**
+     * Checks that the all RAFT nodes will be stopped when Table manager is stopping and
+     * an exception that was thrown by one of the component will not prevent stopping other components.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void tableManagerStopTest4() throws Exception {
+        IgniteBiTuple<TableImpl, TableManager> tblAndMnr = startTableManagerStopTest();
+
+        endTableManagerStopTest(tblAndMnr.get1(), tblAndMnr.get2(),
+                () -> doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().txStateStorage()).close());
+    }
+
+    private IgniteBiTuple<TableImpl, TableManager> startTableManagerStopTest() throws Exception {
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
-        mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
+        return new IgniteBiTuple<>(table, tableManager);
+    }
+
+    private void endTableManagerStopTest(TableImpl table, TableManager tableManager, Runnable mockDoThrow) throws Exception {
+        mockDoThrow.run();
+
         tableManager.stop();
 
-        verify(rm, times(PARTITIONS)).stopRaftGroup(any());
+        verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
+
+        verify(table.internalTable().storage()).close();
+        verify(table.internalTable().txStateStorage()).close();
     }
 
     /**
@@ -507,8 +567,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 .withPrimaryKey("key")
                 .build();
 
-        when(msm.put(any(), any())).thenReturn(completedFuture(null));
-
         Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
         assertNotNull(table);
@@ -560,17 +618,19 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
     ) throws Exception {
+        String consistentId = "node0";
+
         when(rm.startRaftGroupService(any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
+            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));
 
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
+        when(ts.getByConsistentId(any())).thenReturn(new ClusterNode(
                 UUID.randomUUID().toString(),
-                "node0",
+                consistentId,
                 new NetworkAddress("localhost", 47500)
         ));
 
@@ -641,112 +701,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests that {@link RaftGroupServiceImpl#changePeersAsync(java.util.List, long)} was retried after some exceptions.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testChangePeersAsyncRetryLogic() throws Exception {
-        RaftMessagesFactory factory = new RaftMessagesFactory();
-
-        List<Peer> nodes = Stream.of(20000, 20001, 20002)
-                .map(port -> new NetworkAddress("localhost", port))
-                .map(Peer::new)
-                .collect(Collectors.toUnmodifiableList());
-
-        int timeout = 1000;
-
-        int delay = 200;
-
-        Peer leader = nodes.get(0);
-
-        when(cluster.messagingService()).thenReturn(messagingService);
-
-        TableManager tableManager = createTableManager(tblManagerFut, false);
-
-        ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
-
-        TablePartitionId groupId = new TablePartitionId(UUID.randomUUID(), 0);
-
-        List<String> shrunkPeers = peersToIds(nodes.subList(0, 1));
-
-        List<String> extendedPeers = peersToIds(nodes);
-
-        AtomicLong firstInvocationOfChangePeersAsync = new AtomicLong(0L);
-
-        AtomicInteger counter = new AtomicInteger(0);
-
-        when(messagingService.invoke(any(NetworkAddress.class),
-                eq(factory.changePeersAsyncRequest()
-                        .newPeersList(shrunkPeers)
-                        .term(1L)
-                        .groupId(groupId.toString()).build()), anyLong()))
-                .then(invocation -> {
-                    if (firstInvocationOfChangePeersAsync.get() == 0) {
-                        firstInvocationOfChangePeersAsync.set(System.currentTimeMillis());
-                        return failedFuture(new TimeoutException());
-                    } else {
-                        if (firstInvocationOfChangePeersAsync.get() + timeout < System.currentTimeMillis()) {
-                            //retry happened, new changePeersAsync was called
-                            counter.incrementAndGet();
-
-                            return completedFuture(factory.changePeersAsyncResponse().newPeersList(extendedPeers).build());
-                        }
-                    }
-
-                    return failedFuture(new TimeoutException());
-                });
-
-        when(messagingService.invoke(any(NetworkAddress.class), any(CliRequests.GetLeaderRequest.class), anyLong()))
-                .then(invocation -> {
-                    PeerId leader0 = PeerId.fromPeer(leader);
-
-                    Object resp = leader0 == null
-                            ? factory.errorResponse().errorCode(RaftError.EPERM.getNumber()).build()
-                            : factory.getLeaderResponse().leaderId(leader0.toString()).currentTerm(1L).build();
-
-                    return completedFuture(resp);
-                });
-
-        RaftGroupService service = RaftGroupServiceImpl.start(groupId, cluster, factory, timeout, nodes.subList(0, 2),
-                true, delay, executor).get(3, TimeUnit.SECONDS);
-
-        tableManager.movePartition(() -> service).apply(nodes.subList(0, 1), 1L).join();
-
-        assertEquals(counter.get(), 1);
-
-        AtomicLong secondInvocationOfChangePeersAsync = new AtomicLong(0L);
-
-        when(messagingService.invoke(any(NetworkAddress.class),
-                eq(factory.changePeersAsyncRequest()
-                        .newPeersList(shrunkPeers)
-                        .term(1L)
-                        .groupId(groupId.toString()).build()), anyLong()))
-                .then(invocation -> {
-                    if (secondInvocationOfChangePeersAsync.get() == 0) {
-                        secondInvocationOfChangePeersAsync.set(System.currentTimeMillis());
-
-                        return failedFuture(new NullPointerException());
-                    } else {
-                        if (secondInvocationOfChangePeersAsync.get() + timeout < System.currentTimeMillis()) {
-                            //retry happened, new changePeersAsync was called
-                            counter.incrementAndGet();
-
-                            return completedFuture(factory.changePeersAsyncResponse().newPeersList(extendedPeers).build());
-                        }
-                    }
-
-                    return failedFuture(new NullPointerException());
-                });
-
-        tableManager.movePartition(() -> service).apply(nodes.subList(0, 1), 1L).join();
-
-        assertEquals(2, counter.get());
-
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-    }
-
-    /**
      * Creates Table manager.
      *
      * @param tblManagerFut    Future to wrap Table manager.
@@ -759,6 +713,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 "test",
                 revisionUpdater,
                 tblsCfg,
+                clusterService,
                 rm,
                 replicaMgr,
                 null,
@@ -772,8 +727,18 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
-                new OutgoingSnapshotsManager(messagingService)
-        );
+                new OutgoingSnapshotsManager(clusterService.messagingService())
+        ) {
+            @Override
+            protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
+                return Mockito.spy(super.createTableStorage(tableCfg, tablesCfg));
+            }
+
+            @Override
+            protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
+                return Mockito.spy(super.createTxStateTableStorage(tableCfg));
+            }
+        };
 
         sm.start();
 

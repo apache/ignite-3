@@ -52,11 +52,10 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
      */
     private IndexSpoolNode(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             RuntimeIndex<RowT> idx,
             ScanNode<RowT> scan
     ) {
-        super(ctx, rowType);
+        super(ctx);
 
         this.idx = idx;
         this.scan = scan;
@@ -152,7 +151,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
         try {
             idx.close();
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             onError(ex);
         }
 
@@ -179,7 +178,6 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
         ScanNode<RowT> scan = new ScanNode<>(
                 ctx,
-                rowType,
                 idx.scan(
                         ctx,
                         rowType,
@@ -188,7 +186,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
                 )
         );
 
-        return new IndexSpoolNode<>(ctx, rowType, idx, scan);
+        return new IndexSpoolNode<>(ctx, idx, scan);
     }
 
     /**
@@ -197,19 +195,18 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
      */
     public static <RowT> IndexSpoolNode<RowT> createHashSpool(
             ExecutionContext<RowT> ctx,
-            RelDataType rowType,
             ImmutableBitSet keys,
             @Nullable Predicate<RowT> filter,
-            Supplier<RowT> searchRow
+            Supplier<RowT> searchRow,
+            boolean allowNulls
     ) {
-        RuntimeHashIndex<RowT> idx = new RuntimeHashIndex<>(ctx, keys);
+        RuntimeHashIndex<RowT> idx = new RuntimeHashIndex<>(ctx, keys, allowNulls);
 
         ScanNode<RowT> scan = new ScanNode<>(
                 ctx,
-                rowType,
                 idx.scan(searchRow, filter)
         );
 
-        return new IndexSpoolNode<>(ctx, rowType, idx, scan);
+        return new IndexSpoolNode<>(ctx, idx, scan);
     }
 }

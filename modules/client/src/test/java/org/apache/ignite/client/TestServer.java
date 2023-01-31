@@ -26,8 +26,9 @@ import static org.mockito.Mockito.mock;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
@@ -44,6 +45,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
 /**
@@ -72,7 +74,7 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite
     ) {
-        this(port, portRange, idleTimeout, ignite, null, null);
+        this(port, portRange, idleTimeout, ignite, null, null, null, UUID.randomUUID());
     }
 
     /**
@@ -88,12 +90,14 @@ public class TestServer implements AutoCloseable {
             int portRange,
             long idleTimeout,
             Ignite ignite,
-            Function<Integer, Boolean> shouldDropConnection,
-            String nodeName
+            @Nullable Function<Integer, Boolean> shouldDropConnection,
+            @Nullable Function<Integer, Integer> responseDelay,
+            @Nullable String nodeName,
+            UUID clusterId
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
-                Map.of(),
+                Set.of(),
                 new TestConfigurationStorage(LOCAL),
                 List.of(),
                 List.of()
@@ -128,7 +132,15 @@ public class TestServer implements AutoCloseable {
                 compute.executeColocated(anyString(), any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
 
         module = shouldDropConnection != null
-                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection, clusterService, compute)
+                ? new TestClientHandlerModule(
+                        ignite,
+                        cfg,
+                        bootstrapFactory,
+                        shouldDropConnection,
+                        responseDelay,
+                        clusterService,
+                        compute,
+                        clusterId)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -137,7 +149,8 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterService,
                         bootstrapFactory,
-                        ignite.sql()
+                        ignite.sql(),
+                        () -> CompletableFuture.completedFuture(clusterId)
                 );
 
         module.start();

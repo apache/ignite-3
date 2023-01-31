@@ -133,11 +133,10 @@ public final class Flows {
      * @return new {@link FlowBuilder}.
      */
     public static <I, O> FlowBuilder<I, O> acceptQuestion(String question, Supplier<O> onAccept) {
-        return Flows.<I, O>question(question,
-                        List.of(new AcceptedQuestionAnswer<>((a, i) -> null),
-                                new InterruptQuestionAnswer<>())
-                )
-                .then(mono(unused -> onAccept.get()));
+        return question(question,
+                List.of(new AcceptedQuestionAnswer<>((a, i) -> onAccept.get()),
+                        new InterruptQuestionAnswer<>())
+        );
     }
 
     /**

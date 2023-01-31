@@ -23,11 +23,6 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.System.Logger;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ResourceBundle;
-import java.util.function.Supplier;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -40,10 +35,10 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientLoggingTest {
     /** Test server. */
-    TestServer server;
+    private TestServer server;
 
     /** Test server 2. */
-    TestServer server2;
+    private TestServer server2;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -66,9 +61,6 @@ public class ClientLoggingTest {
         assertEquals("t", client1.tables().tables().get(0).name());
         assertEquals("t", client2.tables().tables().get(0).name());
 
-        assertThat(loggerFactory1.logger.entries(), empty());
-        assertThat(loggerFactory2.logger.entries(), empty());
-
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
@@ -86,7 +78,7 @@ public class ClientLoggingTest {
         loggerFactory2.logger.entries().forEach(msg -> assertThat(msg, startsWith("client2:")));
     }
 
-    private TestServer startServer(int port, FakeIgnite ignite) {
+    private static TestServer startServer(int port, FakeIgnite ignite) {
         return AbstractClientTest.startServer(
                 port,
                 10,
@@ -95,91 +87,10 @@ public class ClientLoggingTest {
         );
     }
 
-    private IgniteClient createClient(LoggerFactory loggerFactory) {
+    private static IgniteClient createClient(LoggerFactory loggerFactory) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:10950..10960")
                 .loggerFactory(loggerFactory)
                 .build();
-    }
-
-    private static class TestLoggerFactory implements LoggerFactory {
-        private final SimpleCapturingLogger logger;
-
-        public TestLoggerFactory(String factoryName) {
-            this.logger = new SimpleCapturingLogger(factoryName);
-        }
-
-        @Override
-        public Logger forName(String name) {
-            return logger;
-        }
-    }
-
-    private static class SimpleCapturingLogger implements System.Logger {
-        private final String name;
-
-        private final List<String> logEntries = new ArrayList<>();
-
-        public SimpleCapturingLogger(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public String getName() {
-            return name;
-        }
-
-        @Override
-        public boolean isLoggable(Level level) {
-            return true;
-        }
-
-        @Override
-        public void log(Level level, String msg) {
-            captureLog(msg);
-        }
-
-        @Override
-        public void log(Level level, Supplier<String> msgSupplier) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, Object obj) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, String msg, Throwable thrown) {
-            captureLog(msg);
-        }
-
-        @Override
-        public void log(Level level, Supplier<String> msgSupplier, Throwable thrown) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, String format, Object... params) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, ResourceBundle bundle, String msg, Throwable thrown) {
-            throw new AssertionError("Should not be called");
-        }
-
-        @Override
-        public void log(Level level, ResourceBundle bundle, String format, Object... params) {
-            throw new AssertionError("Should not be called");
-        }
-
-        public List<String> entries() {
-            return logEntries;
-        }
-
-        private void captureLog(String msg) {
-            logEntries.add(name + ":" + msg);
-        }
     }
 }

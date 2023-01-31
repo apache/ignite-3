@@ -22,6 +22,7 @@ set(TARGET ${PROJECT_NAME})
 find_package(msgpack)
 
 set(SOURCES
+    bitset_span.h
     buffer_adapter.cpp buffer_adapter.h
     extension_types.h
     reader.cpp reader.h

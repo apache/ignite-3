@@ -100,12 +100,15 @@ public class PartitionMetaManagerTest {
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
                 assertEquals(0, meta.lastAppliedIndex());
+                assertEquals(0, meta.lastAppliedTerm());
+                assertEquals(0, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(0, meta.versionChainTreeRootPageId());
                 assertEquals(0, meta.rowVersionFreeListRootPageId());
                 assertEquals(1, meta.pageCount());
 
                 // Change the meta and write it to the file.
-                meta.lastAppliedIndex(null, 50);
+                meta.lastApplied(null, 50, 10);
+                meta.lastReplicationProtocolGroupConfigFirstPageId(null, 12);
                 meta.versionChainTreeRootPageId(null, 300);
                 meta.rowVersionFreeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
@@ -124,6 +127,8 @@ public class PartitionMetaManagerTest {
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
                 assertEquals(50, meta.lastAppliedIndex());
+                assertEquals(10, meta.lastAppliedTerm());
+                assertEquals(12, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(300, meta.versionChainTreeRootPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
                 assertEquals(2, meta.pageCount());
@@ -133,7 +138,7 @@ public class PartitionMetaManagerTest {
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new PartitionMeta(UUID.randomUUID(), 100, 900, 500, 300, 200, 4).metaSnapshot(null),
+                        new PartitionMeta(UUID.randomUUID(), 100, 10, 34, 900, 500, 300, 200, 4).metaSnapshot(null),
                         buffer.rewind()
                 );
 
@@ -149,6 +154,8 @@ public class PartitionMetaManagerTest {
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
                 assertEquals(100, meta.lastAppliedIndex());
+                assertEquals(10, meta.lastAppliedTerm());
+                assertEquals(34, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
                 assertEquals(500, meta.indexColumnsFreeListRootPageId());
                 assertEquals(300, meta.versionChainTreeRootPageId());
@@ -159,7 +166,7 @@ public class PartitionMetaManagerTest {
             // Let's check the broken CRC.
             try (
                     FileIo fileIo = new RandomAccessFileIoFactory().create(testFilePath);
-                    FilePageStore filePageStore = createFilePageStore(testFilePath);
+                    FilePageStore filePageStore = createFilePageStore(testFilePath)
             ) {
                 zeroMemory(bufferAddress(buffer), PAGE_SIZE);
 
@@ -168,6 +175,8 @@ public class PartitionMetaManagerTest {
                 PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
 
                 assertEquals(0, meta.lastAppliedIndex());
+                assertEquals(0, meta.lastAppliedTerm());
+                assertEquals(0, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(0, meta.versionChainTreeRootPageId());
                 assertEquals(0, meta.rowVersionFreeListRootPageId());
                 assertEquals(1, meta.pageCount());
@@ -175,6 +184,23 @@ public class PartitionMetaManagerTest {
         } finally {
             freeBuffer(buffer);
         }
+    }
+
+    @Test
+    void testRemoveMeta() {
+        PartitionMetaManager manager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+
+        GroupPartitionId id = new GroupPartitionId(0, 0);
+
+        manager.removeMeta(id);
+
+        PartitionMeta meta = mock(PartitionMeta.class);
+
+        manager.addMeta(id, meta);
+
+        manager.removeMeta(id);
+
+        assertNull(manager.getMeta(id));
     }
 
     private static FilePageStore createFilePageStore(Path filePath) throws Exception {

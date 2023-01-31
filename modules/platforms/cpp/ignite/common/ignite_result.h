@@ -31,7 +31,7 @@ namespace ignite {
 /**
  * Ignite Result.
  */
-template <typename T>
+template<typename T>
 class ignite_result {
 public:
     // Default
@@ -43,7 +43,7 @@ public:
      * @param value Value.
      */
     ignite_result(T &&value) // NOLINT(google-explicit-constructor)
-        : m_value(std::move(value)) { }
+        : m_value(std::move(value)) {}
 
     /**
      * Constructor.
@@ -51,7 +51,7 @@ public:
      * @param message Message.
      */
     ignite_result(ignite_error &&error) // NOLINT(google-explicit-constructor)
-        : m_value(std::move(error)) { }
+        : m_value(std::move(error)) {}
 
     /**
      * Has value.
@@ -155,14 +155,14 @@ private:
 /**
  * Ignite Result.
  */
-template <>
+template<>
 class ignite_result<void> {
 public:
     /**
      * Constructor.
      */
     ignite_result()
-        : m_error(std::nullopt) { }
+        : m_error(std::nullopt) {}
 
     /**
      * Constructor.
@@ -170,7 +170,7 @@ public:
      * @param message Message.
      */
     ignite_result(ignite_error &&error) // NOLINT(google-explicit-constructor)
-        : m_error(std::move(error)) { }
+        : m_error(std::move(error)) {}
 
     /**
      * Has error.
@@ -216,7 +216,7 @@ private:
     std::optional<ignite_error> m_error;
 };
 
-template <typename T>
+template<typename T>
 using ignite_callback = std::function<void(ignite_result<T> &&)>;
 
 /**
@@ -225,9 +225,8 @@ using ignite_callback = std::function<void(ignite_result<T> &&)>;
  * @param operation Operation to wrap.
  * @return ignite_result
  */
-template <typename T>
+template<typename T>
 ignite_result<T> result_of_operation(const std::function<T()> &operation) noexcept {
-    // TODO: IGNITE-17760 Move to common once it's re-factored
     try {
         if constexpr (std::is_same<decltype(operation()), void>::value) {
             operation();
@@ -253,9 +252,8 @@ ignite_result<T> result_of_operation(const std::function<T()> &operation) noexce
  * @param pr Promise to set.
  * @param res Result to use.
  */
-template <typename T>
+template<typename T>
 void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
-    // TODO: IGNITE-17760 Move to common once it's re-factored
     if (!res) {
         pr.set_exception(std::make_exception_ptr(std::move(res).error()));
     } else {
@@ -273,10 +271,22 @@ void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
  * @param pr Promise.
  * @return Promise setter.
  */
-template <typename T>
+template<typename T>
 std::function<void(ignite_result<T>)> result_promise_setter(std::shared_ptr<std::promise<T>> pr) {
-    // TODO: IGNITE-17760 Move to common once it's re-factored
     return [pr = std::move(pr)](ignite_result<T> &&res) mutable { result_set_promise<T>(*pr, std::move(res)); };
+}
+
+/**
+ * Synchronously calls async function.
+ *
+ * @param pr Promise.
+ * @return Promise setter.
+ */
+template<typename T>
+T sync(std::function<void(ignite_callback<T>)> func) {
+    auto promise = std::make_shared<std::promise<T>>();
+    func(result_promise_setter(promise));
+    return promise->get_future().get();
 }
 
 } // namespace ignite

@@ -24,13 +24,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedAggregateBase;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleAggregateBase;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -49,11 +53,11 @@ public class AggregateDistinctPlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void mapReduceDistinctWithIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable().addIndex("val0_val1", 1, 2);
+        TestTable tbl = createAffinityTable("TEST").addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT DISTINCT val0, val1 FROM test";
 
@@ -72,33 +76,31 @@ public class AggregateDistinctPlannerTest extends AbstractAggregatePlannerTest {
         assertTrue(nullOrEmpty(rdcAgg.getAggregateCalls()), "Invalid plan\n" + RelOptUtil.toString(phys));
         assertTrue(nullOrEmpty(mapAgg.getAggCallList()), "Invalid plan\n" + RelOptUtil.toString(phys));
 
-        // TODO: uncomment after IGNITE-17748"
-        // if (algo == AggregateAlgorithm.SORT) {
-        //     assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
-        // }
+        if (algo == AggregateAlgorithm.SORT) {
+            assertNotNull(findFirstNode(phys, byClass(IgniteIndexScan.class)));
+        }
     }
 
     enum AggregateAlgorithm {
-        // TODO: uncomment after IGNITE-17748
-        // SORT(
-        //         IgniteSingleSortAggregate.class,
-        //         IgniteMapSortAggregate.class,
-        //         IgniteReduceSortAggregate.class,
-        //         "HashSingleAggregateConverterRule",
-        //         "HashMapReduceAggregateConverterRule",
-        //         "SortSingleAggregateConverterRule"
-        // ),
+        SORT(
+                IgniteColocatedSortAggregate.class,
+                IgniteMapSortAggregate.class,
+                IgniteReduceSortAggregate.class,
+                "ColocatedHashAggregateConverterRule",
+                "MapReduceHashAggregateConverterRule",
+                "ColocatedSortAggregateConverterRule"
+        ),
 
         HASH(
-                IgniteSingleHashAggregate.class,
+                IgniteColocatedHashAggregate.class,
                 IgniteMapHashAggregate.class,
                 IgniteReduceHashAggregate.class,
-                "SortSingleAggregateConverterRule",
-                "SortMapReduceAggregateConverterRule",
-                "HashSingleAggregateConverterRule"
+                "ColocatedSortAggregateConverterRule",
+                "MapReduceSortAggregateConverterRule",
+                "ColocatedHashAggregateConverterRule"
         );
 
-        public final Class<? extends IgniteSingleAggregateBase> single;
+        public final Class<? extends IgniteColocatedAggregateBase> single;
 
         public final Class<? extends IgniteMapAggregateBase> map;
 
@@ -107,7 +109,7 @@ public class AggregateDistinctPlannerTest extends AbstractAggregatePlannerTest {
         public final String[] rulesToDisable;
 
         AggregateAlgorithm(
-                Class<? extends IgniteSingleAggregateBase> single,
+                Class<? extends IgniteColocatedAggregateBase> single,
                 Class<? extends IgniteMapAggregateBase> map,
                 Class<? extends IgniteReduceAggregateBase> reduce,
                 String... rulesToDisable) {

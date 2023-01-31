@@ -58,7 +58,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         // No-op.
     }
 

@@ -73,7 +73,7 @@ class IncrementalCompilationConfig {
         try {
             fileObject = filer.createResource(StandardLocation.CLASS_OUTPUT, "", CONFIG_FILE_NAME);
         } catch (IOException e) {
-            throw new ProcessingException(e.getMessage());
+            throw new ProcessingException(e.getMessage(), e);
         }
 
         try (BufferedWriter writer = new BufferedWriter(fileObject.openWriter())) {
@@ -83,7 +83,7 @@ class IncrementalCompilationConfig {
                 writeClassName(writer, messageClassName);
             }
         } catch (IOException e) {
-            throw new ProcessingException(e.getMessage());
+            throw new ProcessingException(e.getMessage(), e);
         }
     }
 
@@ -121,7 +121,7 @@ class IncrementalCompilationConfig {
             // this is the only way to know if the file doesn't exist.
             return null;
         } catch (IOException e) {
-            throw new ProcessingException(e.getMessage());
+            throw new ProcessingException(e.getMessage(), e);
         }
     }
 

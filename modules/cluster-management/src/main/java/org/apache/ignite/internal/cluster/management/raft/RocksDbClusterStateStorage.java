@@ -87,11 +87,6 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public boolean isStarted() {
-        return db != null;
-    }
-
-    @Override
     public byte @Nullable [] get(byte[] key) {
         try {
             return db.get(key);
@@ -115,7 +110,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
                 var batch = new WriteBatch();
                 var options = new WriteOptions();
         ) {
-            byte[] endKey = RocksUtils.incrementArray(prefix);
+            byte[] endKey = RocksUtils.incrementPrefix(prefix);
 
             assert endKey != null : Arrays.toString(prefix);
 
@@ -156,7 +151,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer) {
-        byte[] upperBound = RocksUtils.incrementArray(prefix);
+        byte[] upperBound = RocksUtils.incrementPrefix(prefix);
 
         Slice upperBoundSlice = upperBound == null ? null : new Slice(upperBound);
 
@@ -173,10 +168,10 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 super.close();
 
-                IgniteUtils.closeAll(readOptions, upperBoundSlice);
+                RocksUtils.closeAll(readOptions, upperBoundSlice);
             }
         };
     }
@@ -200,7 +195,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     @Override
     public void destroy() {
         try (Options options = new Options()) {
-            close();
+            stop();
 
             RocksDB.destroyDB(dbPath.toString(), options);
         } catch (Exception e) {
@@ -209,10 +204,10 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void close() throws Exception {
+    public void stop() {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        IgniteUtils.closeAll(options, db);
+        RocksUtils.closeAll(options, db);
 
         db = null;
 

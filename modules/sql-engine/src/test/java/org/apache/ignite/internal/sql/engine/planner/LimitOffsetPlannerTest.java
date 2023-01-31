@@ -31,7 +31,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -71,10 +70,15 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
         assertPlan("SELECT * FROM TEST ORDER BY ID OFFSET 60", publicSchema,
                 nodeOrAnyChild(isInstanceOf(IgniteLimit.class)
                     .and(l -> l.getCluster().getMetadataQuery().getRowCount(l) == ROW_CNT - 60d)));
+
+        assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 1 OFFSET " + ROW_CNT * 2, publicSchema,
+                nodeOrAnyChild(isInstanceOf(IgniteLimit.class)
+                        // Estimated row count returned by IgniteLimit node is 0, but after validation it becomes 1
+                        // if it less than 1.
+                        .and(l -> l.getCluster().getMetadataQuery().getRowCount(l) == 1)));
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void testOrderOfRels() throws Exception {
         IgniteSchema publicSchema = createSchemaWithTable(IgniteDistributions.random());
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.TestMessageSerializationRegistryImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -60,7 +60,7 @@ public class InboundDecoderTest {
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 
     /** Registry. */
-    private final MessageSerializationRegistry registry = new TestMessageSerializationRegistryImpl();
+    private final MessageSerializationRegistry registry = defaultSerializationRegistry();
 
     /**
      * Tests that an {@link InboundDecoder} can successfully read a message with all types supported by direct marshalling.

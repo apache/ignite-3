@@ -24,6 +24,7 @@
 #include <ignite/protocol/extension_types.h>
 
 #include <array>
+#include <functional>
 #include <optional>
 
 #include <cstddef>
@@ -39,7 +40,54 @@ class reader;
 static constexpr std::array<std::byte, 4> MAGIC_BYTES = {
     std::byte('I'), std::byte('G'), std::byte('N'), std::byte('I')};
 
-template <typename T>
+template<typename T>
+[[nodiscard]] std::optional<T> try_unpack_object(const msgpack_object &) {
+    static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");
+}
+
+/**
+ * Try unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number or @c nullopt if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::optional<std::int64_t> try_unpack_object(const msgpack_object &object);
+
+/**
+ * Try unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number or @c nullopt if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::optional<std::int32_t> try_unpack_object(const msgpack_object &object);
+
+/**
+ * Try unpack string.
+ *
+ * @param object MsgPack object.
+ * @return String or @c nullopt if the object is not a string.
+ */
+template<>
+[[nodiscard]] std::optional<std::string> try_unpack_object(const msgpack_object &object);
+
+template<typename T>
+[[nodiscard]] std::optional<T> unpack_nullable(const msgpack_object &) {
+    static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");
+}
+
+/**
+ * Unpack string.
+ *
+ * @param object MsgPack object.
+ * @return String of @c nullopt if the object is @c nil.
+ * @throw ignite_error if the object is not a string.
+ */
+template<>
+[[nodiscard]] std::optional<std::string> unpack_nullable(const msgpack_object &object);
+
+template<typename T>
 [[nodiscard]] T unpack_object(const msgpack_object &) {
     static_assert(sizeof(T) == 0, "Unpacking is not implemented for the type");
 }
@@ -51,7 +99,7 @@ template <typename T>
  * @return Number.
  * @throw ignite_error if the object is not a number.
  */
-template <>
+template<>
 [[nodiscard]] std::int64_t unpack_object(const msgpack_object &object);
 
 /**
@@ -61,7 +109,7 @@ template <>
  * @return Number.
  * @throw ignite_error if the object is not a number.
  */
-template <>
+template<>
 [[nodiscard]] std::int32_t unpack_object(const msgpack_object &object);
 
 /**
@@ -71,7 +119,7 @@ template <>
  * @return Number.
  * @throw ignite_error if the object is not a number.
  */
-template <>
+template<>
 [[nodiscard]] std::int16_t unpack_object(const msgpack_object &object);
 
 /**
@@ -81,7 +129,7 @@ template <>
  * @return String.
  * @throw ignite_error if the object is not a string.
  */
-template <>
+template<>
 [[nodiscard]] std::string unpack_object(const msgpack_object &object);
 
 /**
@@ -91,8 +139,41 @@ template <>
  * @return UUID.
  * @throw ignite_error if the object is not a UUID.
  */
-template <>
+template<>
 [[nodiscard]] uuid unpack_object(const msgpack_object &object);
+
+/**
+ * Unpack bool.
+ *
+ * @param object MsgPack object.
+ * @return bool value.
+ * @throw ignite_error if the object is not a bool.
+ */
+template<>
+[[nodiscard]] bool unpack_object(const msgpack_object &object);
+
+/**
+ * Get array size.
+ *
+ * @param object Object.
+ * @return Array size.
+ */
+[[nodiscard]] std::uint32_t unpack_array_size(const msgpack_object &object);
+
+/**
+ * Unpack array.
+ *
+ * @param object Object.
+ */
+void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func);
+
+/**
+ * Get binary data.
+ *
+ * @param object Object.
+ * @return Binary data view.
+ */
+[[nodiscard]] bytes_view unpack_binary(const msgpack_object &object);
 
 /**
  * Make random UUID.

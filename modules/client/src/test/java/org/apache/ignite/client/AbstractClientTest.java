@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.netty.util.ResourceLeakDetector;
+import java.util.UUID;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -42,6 +43,8 @@ public abstract class AbstractClientTest {
     protected static IgniteClient client;
 
     protected static int serverPort;
+
+    protected static UUID clusterId = UUID.randomUUID();
 
     /**
      * Before all.
@@ -133,7 +136,7 @@ public abstract class AbstractClientTest {
             Ignite ignite,
             String nodeName
     ) {
-        return new TestServer(port, portRange, idleTimeout, ignite, null, nodeName);
+        return new TestServer(port, portRange, idleTimeout, ignite, null, null, nodeName, clusterId);
     }
 
     /**

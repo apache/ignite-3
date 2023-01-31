@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.node;
 
+import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigReplCommand;
 import org.apache.ignite.internal.cli.commands.node.metric.NodeMetricReplCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
@@ -25,7 +26,12 @@ import picocli.CommandLine.Command;
 
 /** Node command in REPL mode. */
 @Command(name = "node",
-        subcommands = {NodeConfigReplCommand.class, NodeStatusReplCommand.class, NodeVersionReplCommand.class, NodeMetricReplCommand.class},
+        subcommands = {
+                NodeConfigReplCommand.class,
+                NodeStatusReplCommand.class,
+                NodeVersionReplCommand.class,
+                NodeMetricReplCommand.class
+        },
         description = "Node operations")
-public class NodeReplCommand {
+public class NodeReplCommand extends BaseCommand {
 }

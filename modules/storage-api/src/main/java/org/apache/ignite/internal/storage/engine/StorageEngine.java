@@ -26,6 +26,11 @@ import org.apache.ignite.internal.storage.StorageException;
  */
 public interface StorageEngine {
     /**
+     * Returns a storage engine name.
+     */
+    String name();
+
+    /**
      * Starts the engine.
      *
      * @throws StorageException If an error has occurred during the engine start.

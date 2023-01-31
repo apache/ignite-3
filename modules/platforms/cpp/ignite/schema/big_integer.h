@@ -31,7 +31,7 @@ namespace ignite {
  *
  * TODO: Modernize this code to C++17 and update coding style
  */
-class IGNITE_API big_integer {
+class big_integer {
     friend class big_decimal;
 
 public:
@@ -66,7 +66,7 @@ public:
      */
     big_integer(MagArray &&mag, std::int8_t sign)
         : sign(sign)
-        , mag(std::move(mag)) { }
+        , mag(std::move(mag)) {}
 
     /**
      * Constructs big integer with the specified integer value.
@@ -99,7 +99,7 @@ public:
      * @param bigEndian If true then magnitude is in big-endian. Otherwise
      *     the byte order of the magnitude considered to be little-endian.
      */
-    big_integer(const std::int8_t *val, std::int32_t len, std::int32_t sign, bool bigEndian = true);
+    big_integer(const std::int8_t *val, std::int32_t len, std::int8_t sign, bool bigEndian = true);
 
     /**
      * Constructs a big integer from the byte array.
@@ -259,14 +259,14 @@ public:
      * @return Comparasion result - 0 if equal, 1 if this is greater, -1 if
      *     this is less.
      */
-    int compare(const big_integer &other, bool ignoreSign = false) const;
+    [[nodiscard]] int compare(const big_integer &other, bool ignoreSign = false) const;
 
     /**
      * Convert to int64_t.
      *
      * @return int64_t value.
      */
-    std::int64_t to_int64() const;
+    [[nodiscard]] std::int64_t to_int64() const;
 
     /**
      * Check whether this value is negative.
@@ -294,7 +294,7 @@ public:
      */
     void negate() {
         if (!is_zero()) {
-            sign = -sign;
+            sign = int8_t(-sign);
         }
     }
 
@@ -305,49 +305,7 @@ public:
      * @param val Value to output.
      * @return Reference to the first param.
      */
-    friend std::ostream &operator<<(std::ostream &os, const big_integer &val) {
-        if (val.is_zero())
-            return os << '0';
-
-        if (val.sign < 0)
-            os << '-';
-
-        const int32_t maxResultDigits = 19;
-        big_integer maxUintTenPower;
-        big_integer res;
-        big_integer left;
-
-        maxUintTenPower.assign_uint64(10000000000000000000U);
-
-        std::vector<uint64_t> vals;
-
-        val.divide(maxUintTenPower, left, res);
-
-        if (res.sign < 0)
-            res.sign = -res.sign;
-
-        if (left.sign < 0)
-            left.sign = -left.sign;
-
-        vals.push_back(static_cast<uint64_t>(res.to_int64()));
-
-        while (!left.is_zero()) {
-            left.divide(maxUintTenPower, left, res);
-
-            vals.push_back(static_cast<uint64_t>(res.to_int64()));
-        }
-
-        os << vals.back();
-
-        for (int32_t i = static_cast<int32_t>(vals.size()) - 2; i >= 0; --i) {
-            os.fill('0');
-            os.width(maxResultDigits);
-
-            os << vals[i];
-        }
-
-        return os;
-    }
+    friend std::ostream &operator<<(std::ostream &os, const big_integer &val);
 
     /**
      * Input operator.
@@ -356,71 +314,7 @@ public:
      * @param val Value to input.
      * @return Reference to the first param.
      */
-    friend std::istream &operator>>(std::istream &is, big_integer &val) {
-        std::istream::sentry sentry(is);
-
-        // Return zero if input failed.
-        val.assign_int64(0);
-
-        if (!is)
-            return is;
-
-        // Current value parts.
-        uint64_t part = 0;
-        int32_t partDigits = 0;
-        int32_t sign = 1;
-
-        big_integer pow;
-        big_integer bigPart;
-
-        // Current char.
-        int c = is.peek();
-
-        if (!is)
-            return is;
-
-        // Checking sign.
-        if (c == '-' || c == '+') {
-            if (c == '-')
-                sign = -1;
-
-            is.ignore();
-            c = is.peek();
-        }
-
-        // Reading number itself.
-        while (is && isdigit(c)) {
-            part = part * 10 + (c - '0');
-            ++partDigits;
-
-            if (part >= 1000000000000000000U) {
-                big_integer::get_power_of_ten(partDigits, pow);
-                val.multiply(pow, val);
-
-                val.add(part);
-
-                part = 0;
-                partDigits = 0;
-            }
-
-            is.ignore();
-            c = is.peek();
-        }
-
-        // Adding last part of the number.
-        if (partDigits) {
-            big_integer::get_power_of_ten(partDigits, pow);
-
-            val.multiply(pow, val);
-
-            val.add(part);
-        }
-
-        if (sign < 0)
-            val.negate();
-
-        return is;
-    }
+    friend std::istream &operator>>(std::istream &is, big_integer &val);
 
     /**
      * Get big_integer which value is the ten of the specified power.
@@ -462,7 +356,7 @@ private:
      * @param n Index.
      * @return Value of the n-th int of the magnitude.
      */
-    std::uint32_t get_mag_int(std::int32_t n) const;
+    [[nodiscard]] std::uint32_t get_mag_int(std::int32_t n) const;
 
     /**
      * Divide this to another big integer.

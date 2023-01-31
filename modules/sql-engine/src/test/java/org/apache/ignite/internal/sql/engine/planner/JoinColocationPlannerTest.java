@@ -21,12 +21,11 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -35,16 +34,16 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite to verify join colocation.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
 public class JoinColocationPlannerTest extends AbstractPlannerTest {
     /**
      * Join of the same tables with a simple affinity is expected to be colocated.
@@ -53,7 +52,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     public void joinSameTableSimpleAff() throws Exception {
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(0, "default", "hash"),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
                 "VAL", String.class
         );
@@ -85,7 +84,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     public void joinSameTableComplexAff() throws Exception {
         TestTable tbl = createTable(
                 "TEST_TBL",
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), ThreadLocalRandom.current().nextInt(), "hash"),
+                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -112,14 +111,16 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Re-hashing based on simple affinity is possible, so bigger table with complex affinity should be sended to the smaller one.
+     * Re-hashing based on simple affinity.
+     *
+     * <p>The smaller table should be sent to the bigger one.
      */
     @Test
     public void joinComplexToSimpleAff() throws Exception {
         TestTable complexTbl = createTable(
                 "COMPLEX_TBL",
                 2 * DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), ThreadLocalRandom.current().nextInt(), "hash"),
+                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -130,8 +131,9 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         TestTable simpleTbl = createTable(
                 "SIMPLE_TBL",
                 DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(0, "default", "hash"),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID", Integer.class,
+                "ID2", Integer.class,
                 "VAL", String.class
         );
 
@@ -141,7 +143,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         String sql = "select count(*) "
                 + "from COMPLEX_TBL t1 "
-                + "join SIMPLE_TBL t2 on t1.id1 = t2.id";
+                + "join SIMPLE_TBL t2 on t1.id1 = t2.id and t1.id2 = t2.id2";
 
         RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
 
@@ -156,19 +158,23 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 && ((IgniteRel) node).distribution().function().affinity());
 
         assertThat(invalidPlanMsg, exchanges, hasSize(1));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteIndexScan.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(complexTbl));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteSort.class));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0), instanceOf(IgniteTableScan.class));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0)
+                .getTable().unwrap(TestTable.class), equalTo(simpleTbl));
     }
 
     /**
-     * Re-hashing for complex affinity is not supported.
+     * Re-hashing for complex affinity.
+     *
+     * <p>The smaller table should be sent to the bigger one.
      */
     @Test
     public void joinComplexToComplexAffWithDifferentOrder() throws Exception {
         TestTable complexTblDirect = createTable(
                 "COMPLEX_TBL_DIRECT",
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), ThreadLocalRandom.current().nextInt(), "hash"),
+                2 * DEFAULT_TBL_SIZE,
+                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -179,7 +185,8 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         TestTable complexTblIndirect = createTable(
                 "COMPLEX_TBL_INDIRECT",
-                IgniteDistributions.affinity(ImmutableIntList.of(1, 0), ThreadLocalRandom.current().nextInt(), "hash"),
+                DEFAULT_TBL_SIZE,
+                IgniteDistributions.affinity(ImmutableIntList.of(1, 0), UUID.randomUUID(), DEFAULT_ZONE_ID),
                 "ID1", Integer.class,
                 "ID2", Integer.class,
                 "VAL", String.class
@@ -196,11 +203,19 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
 
-        IgniteMergeJoin exchange = findFirstNode(phys, node -> node instanceof IgniteExchange
-                && ((IgniteRel) node).distribution().function().affinity());
+        IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
 
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
-        assertThat(invalidPlanMsg, exchange, nullValue());
+        assertThat(invalidPlanMsg, join, notNullValue());
+        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+
+        List<IgniteExchange> exchanges = findNodes(phys, node -> node instanceof IgniteExchange
+                && ((IgniteRel) node).distribution().function().affinity());
+
+        assertThat(invalidPlanMsg, exchanges, hasSize(1));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteIndexScan.class));
+        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0)
+                .getTable().unwrap(TestTable.class), equalTo(complexTblIndirect));
     }
 }

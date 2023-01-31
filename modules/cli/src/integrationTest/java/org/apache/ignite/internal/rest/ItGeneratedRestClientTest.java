@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -57,6 +57,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.InitCommand;
+import org.apache.ignite.rest.client.model.MetricSource;
 import org.apache.ignite.rest.client.model.NodeState;
 import org.apache.ignite.rest.client.model.Problem;
 import org.junit.jupiter.api.AfterEach;
@@ -327,7 +328,11 @@ public class ItGeneratedRestClientTest {
 
     @Test
     void nodeMetricList() throws ApiException {
-        assertThat(nodeMetricApi.listNodeMetrics(), empty());
+        List<MetricSource> metricSources = List.of(
+                new MetricSource().name("jvm").enabled(false)
+        );
+
+        assertThat(nodeMetricApi.listNodeMetrics(), containsInAnyOrder(metricSources.toArray()));
     }
 
     @Test

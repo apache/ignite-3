@@ -30,9 +30,9 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
+import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -45,6 +45,7 @@ import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL execute request.
@@ -160,7 +161,7 @@ public class ClientSqlExecuteRequest {
         return sessionBuilder.build();
     }
 
-    private static void packMeta(ClientMessagePacker out, ResultSetMetadata meta) {
+    private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
         // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
         if (meta == null || meta.columns() == null) {
             out.packArrayHeader(0);
@@ -178,14 +179,16 @@ public class ClientSqlExecuteRequest {
 
         for (int i = 0; i < cols.size(); i++) {
             ColumnMetadata col = cols.get(i);
+            ColumnOrigin origin = col.origin();
+
+            int fieldsNum = origin == null ? 6 : 9;
+            out.packArrayHeader(fieldsNum);
 
             out.packString(col.name());
             out.packBoolean(col.nullable());
-            out.packInt(ClientSqlColumnTypeConverter.columnTypeToOrdinal(col.type()));
+            out.packInt(ClientColumnTypeConverter.columnTypeToOrdinal(col.type()));
             out.packInt(col.scale());
             out.packInt(col.precision());
-
-            ColumnOrigin origin = col.origin();
 
             if (origin == null) {
                 out.packBoolean(false);

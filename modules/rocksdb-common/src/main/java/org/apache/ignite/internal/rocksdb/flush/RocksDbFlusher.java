@@ -99,7 +99,7 @@ public class RocksDbFlusher {
      * @param delaySupplier Supplier of delay values to batch independent flush requests. When {@link #awaitFlush(boolean)} is called with
      *      {@code true} parameter, the flusher waits given number of milliseconds (using {@code scheduledPool}) and then executes flush
      *      only if there were no other {@code awaitFlush(true)} calls. Otherwise, it does nothing after the timeout. This guarantees that
-     *      either the last one wins, or automatic flush wins if there's an enlless stream of {@code awaitFlush(true)} calls with very small
+     *      either the last one wins, or automatic flush wins if there's an endless stream of {@code awaitFlush(true)} calls with very small
      *      time-intervals between them. Such behavior allows to save on unnecessary flushes when multiple await flush calls appear at
      *      roughly the same time from different threads. For example, several partitions might be flushed at the same time, because they
      *      started at the same time and their flush frequency is also the same.

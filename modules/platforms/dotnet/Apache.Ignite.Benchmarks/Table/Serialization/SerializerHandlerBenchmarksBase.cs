@@ -46,9 +46,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly Schema Schema = new(1, 1, new[]
         {
-            new Column(nameof(Car.Id), ClientDataType.Uuid, IsNullable: false, IsColocation: true, IsKey: true, SchemaIndex: 0, Scale: 0),
-            new Column(nameof(Car.BodyType), ClientDataType.String, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 1, Scale: 0),
-            new Column(nameof(Car.Seats), ClientDataType.Int32, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 2, Scale: 0)
+            new Column(nameof(Car.Id), ClientDataType.Uuid, IsNullable: false, IsColocation: true, IsKey: true, SchemaIndex: 0, Scale: 0, Precision: 0),
+            new Column(nameof(Car.BodyType), ClientDataType.String, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 1, Scale: 0, Precision: 0),
+            new Column(nameof(Car.Seats), ClientDataType.Int32, IsNullable: false, IsColocation: false, IsKey: false, SchemaIndex: 2, Scale: 0, Precision: 0)
         });
 
         internal static readonly byte[] SerializedData = GetSerializedData();
@@ -57,7 +57,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         protected Consumer Consumer { get; } = new();
 
-        internal static void VerifyWritten(PooledArrayBufferWriter pooledWriter)
+        internal static void VerifyWritten(PooledArrayBuffer pooledWriter)
         {
             var bytesWritten = pooledWriter.GetWrittenMemory().Length;
 
@@ -69,12 +69,11 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         private static byte[] GetSerializedData()
         {
-            using var pooledWriter = new PooledArrayBufferWriter();
-            var writer = pooledWriter.GetMessageWriter();
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
 
-            writer.Flush();
             return pooledWriter.GetWrittenMemory().Slice(3).ToArray();
         }
 

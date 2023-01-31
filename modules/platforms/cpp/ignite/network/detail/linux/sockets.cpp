@@ -28,6 +28,7 @@
 
 namespace ignite::network::detail {
 
+#if defined(__linux__)
 std::string get_socket_error_message(int error) {
     std::stringstream res;
 
@@ -44,6 +45,35 @@ std::string get_socket_error_message(int error) {
 
     return res.str();
 }
+#elif defined(__APPLE__)
+std::string get_socket_error_message(int error) {
+    std::stringstream res;
+
+    res << "error_code=" << error;
+
+    if (error == 0)
+        return res.str();
+
+    char err_buf[1024] = {0};
+
+    const int err_res = strerror_r(error, err_buf, sizeof(err_buf));
+
+    switch (err_res) {
+        case 0:
+            res << ", msg=" << err_buf;
+            break;
+        case ERANGE:
+            // Buffer too small.
+            break;
+        default:
+        case EINVAL:
+            // Invalid error code.
+            break;
+    }
+
+    return res.str();
+}
+#endif
 
 std::string get_last_socket_error_message() {
     int last_error = errno;
@@ -62,7 +92,8 @@ void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out
     setsockopt(socket_fd, SOL_SOCKET, SO_OOBINLINE, reinterpret_cast<char *>(&iOutOfBand), sizeof(iOutOfBand));
 
     int iKeepAlive = keep_alive ? 1 : 0;
-    int res = setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&iKeepAlive), sizeof(iKeepAlive));
+    int res =
+        setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&iKeepAlive), sizeof(iKeepAlive));
 
     if (SOCKET_ERROR == res) {
         // There is no sense in configuring keep alive params if we failed to set up keep alive mode.
@@ -83,7 +114,8 @@ void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out
     setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPIDLE, reinterpret_cast<char *>(&idle_opt), sizeof(idle_opt));
 #endif
 
-    setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idle_retry_opt), sizeof(idle_retry_opt));
+    setsockopt(
+        socket_fd, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idle_retry_opt), sizeof(idle_retry_opt));
 }
 
 bool set_non_blocking_mode(int socket_fd, bool non_blocking) {

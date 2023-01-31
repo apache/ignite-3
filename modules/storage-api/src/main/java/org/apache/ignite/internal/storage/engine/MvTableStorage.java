@@ -22,21 +22,30 @@ import static org.apache.ignite.internal.schema.configuration.index.TableIndexCo
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage that contains meta, partitions and SQL indexes.
  */
-public interface MvTableStorage {
+public interface MvTableStorage extends ManuallyCloseable {
     /**
      * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same Partition ID.
      *
@@ -59,11 +68,13 @@ public interface MvTableStorage {
     /**
      * Destroys a partition and all associated indices.
      *
+     * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.
+     *
      * @param partitionId Partition ID.
+     * @return Future that will complete when the destroy of the partition is completed.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
-     * @throws StorageException If an error has occurred during the partition destruction.
      */
-    void destroyPartition(int partitionId) throws StorageException;
+    CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**
      * Returns an already created Index (either Sorted or Hash) with the given name or creates a new one if it does not exist.
@@ -159,7 +170,117 @@ public interface MvTableStorage {
     /**
      * Stops and destroys the storage and cleans all allocated resources.
      *
-     * @throws StorageException If an error has occurred during the destruction of the storage.
+     * @return Future that will complete when the table destruction is complete.
      */
-    void destroy() throws StorageException;
+    CompletableFuture<Void> destroy();
+
+    /**
+     * Prepares a partition for rebalance.
+     * <ul>
+     *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
+     *     and {@link SortedIndexStorage});</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()} to
+     *     {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} and {@link MvPartitionStorage#committedGroupConfiguration()} to {@code null};
+     *     </li>
+     *     <li>Stops the cursors of a multi-version partition storage and its indexes, subsequent calls to {@link Cursor#hasNext()} and
+     *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
+     *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
+     *     {@link StorageRebalanceException} except:<ul>
+     *         <li>{@link MvPartitionStorage#addWrite(RowId, TableRow, UUID, UUID, int)};</li>
+     *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, TableRow, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
+     *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
+     *         <li>{@link MvPartitionStorage#persistedIndex()};</li>
+     *         <li>{@link MvPartitionStorage#committedGroupConfiguration()};</li>
+     *         <li>{@link HashIndexStorage#put(IndexRow)};</li>
+     *         <li>{@link SortedIndexStorage#put(IndexRow)};</li>
+     *     </ul></li>
+     * </ul>
+     *
+     * <p>This method must be called before every rebalance of a multi-version partition storage and its indexes and ends with a call
+     * to one of the methods:
+     * <ul>
+     *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
+     *     <li>{@link #finishRebalancePartition(int, long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.
+     *     </li>
+     * </ul>
+     *
+     * <p>If the {@link MvPartitionStorage#lastAppliedIndex()} is {@link MvPartitionStorage#REBALANCE_IN_PROGRESS} after a node restart
+     * , then a multi-version partition storage and its indexes needs to be cleared before they start.
+     *
+     * <p>If the partition started to be destroyed or closed, then there will be an error when trying to start rebalancing.
+     *
+     * @param partitionId Partition ID.
+     * @return Future of the start rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
+     * @throws StorageRebalanceException If there is an error when starting rebalance.
+     */
+    CompletableFuture<Void> startRebalancePartition(int partitionId);
+
+    /**
+     * Aborts rebalance for a partition.
+     * <ul>
+     *     <li>Cleans up the {@link MvPartitionStorage multi-version partition storage} and its associated indexes ({@link HashIndexStorage}
+     *     and {@link SortedIndexStorage});</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()} to {@code 0} and
+     *     {@link MvPartitionStorage#committedGroupConfiguration()} to {@code null};</li>
+     *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
+     * </ul>
+     *
+     * <p>If rebalance has not started, then nothing will happen.
+     *
+     * @return Future of the abort rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
+     */
+    CompletableFuture<Void> abortRebalancePartition(int partitionId);
+
+    /**
+     * Completes rebalance for a partition.
+     * <ul>
+     *     <li>Updates {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()} and
+     *     {@link MvPartitionStorage#committedGroupConfiguration()};</li>
+     *     <li>For a multi-version partition storage and its indexes, methods for writing and reading will be available.</li>
+     * </ul>
+     *
+     * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
+     *
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
+     * @param raftGroupConfig RAFT group configuration.
+     * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
+     * @throws StorageRebalanceException If there is an error when completing rebalance.
+     */
+    CompletableFuture<Void> finishRebalancePartition(
+            int partitionId,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig
+    );
+
+    /**
+     * Clears a partition and all associated indices. After the cleaning is completed, a partition and all associated indices will be fully
+     * available.
+     * <ul>
+     *     <li>Cancels all current operations (including cursors) of a {@link MvPartitionStorage multi-version partition storage} and its
+     *     associated indexes ({@link HashIndexStorage} and {@link SortedIndexStorage}) and waits for their completion;</li>
+     *     <li>Does not allow operations on a multi-version partition storage and its indexes to be performed (exceptions will be thrown)
+     *     until the cleaning is completed;</li>
+     *     <li>Clears a multi-version partition storage and its indexes;</li>
+     *     <li>Sets {@link MvPartitionStorage#lastAppliedIndex()}, {@link MvPartitionStorage#lastAppliedTerm()},
+     *     {@link MvPartitionStorage#persistedIndex()} to {@code 0} and {@link MvPartitionStorage#committedGroupConfiguration()} to
+     *     {@code null};</li>
+     *     <li>Once cleanup a multi-version partition storage and its indexes is complete (success or error), allows to perform all with a
+     *     multi-version partition storage and its indexes.</li>
+     * </ul>
+     *
+     * @return Future of cleanup of a multi-version partition storage and its indexes.
+     * @throws IllegalArgumentException If Partition ID is out of bounds.
+     * @throws StorageClosedException If a multi-version partition storage and its indexes is already closed or destroyed.
+     * @throws StorageRebalanceException If a multi-version partition storage and its indexes are in process of rebalance.
+     * @throws StorageException StorageException If a multi-version partition storage and its indexes are in progress of cleanup or failed
+     *      for another reason.
+     */
+    CompletableFuture<Void> clearPartition(int partitionId);
 }

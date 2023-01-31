@@ -36,7 +36,7 @@ namespace {
 
 fibonacci_sequence<10> fibonacci10;
 
-} // ignite::network::detail
+} // namespace
 
 linux_async_worker_thread::linux_async_worker_thread(linux_async_client_pool &client_pool)
     : m_client_pool(client_pool)
@@ -106,7 +106,7 @@ void linux_async_worker_thread::stop() {
     int64_t value = 1;
     ssize_t res = write(m_stop_event, &value, sizeof(value));
 
-    (void)res;
+    (void) res;
     assert(res == sizeof(value));
 
     m_thread.join();
@@ -166,8 +166,8 @@ void linux_async_worker_thread::handle_new_connections() {
     try_set_socket_options(socket_fd, linux_async_client::BUFFER_SIZE, true, true, true);
     bool success = set_non_blocking_mode(socket_fd, true);
     if (!success) {
-        report_connection_error(
-            m_current_connection->current_address(), "Can not make non-blocking socket: " + get_last_socket_error_message());
+        report_connection_error(m_current_connection->current_address(),
+            "Can not make non-blocking socket: " + get_last_socket_error_message());
         return;
     }
 
@@ -184,7 +184,8 @@ void linux_async_worker_thread::handle_new_connections() {
         clock_gettime(CLOCK_MONOTONIC, &m_last_connection_time);
 
         if (last_error != EWOULDBLOCK && last_error != EINPROGRESS) {
-            handle_connection_failed("Failed to establish connection with the host: " + get_socket_error_message(last_error));
+            handle_connection_failed(
+                "Failed to establish connection with the host: " + get_socket_error_message(last_error));
             return;
         }
     }
@@ -192,6 +193,7 @@ void linux_async_worker_thread::handle_new_connections() {
 
 void linux_async_worker_thread::handle_connection_events() {
     enum { MAX_EVENTS = 16 };
+
     epoll_event events[MAX_EVENTS];
 
     int timeout = calculate_connection_timeout();
@@ -228,7 +230,7 @@ void linux_async_worker_thread::handle_connection_events() {
                 continue;
             }
 
-            m_client_pool.handle_nessage_received(client->id(), msg);
+            m_client_pool.handle_message_received(client->id(), msg);
         }
 
         if (current_event.events & EPOLLOUT) {
@@ -293,8 +295,8 @@ int linux_async_worker_thread::calculate_connection_timeout() const {
     timespec now{};
     clock_gettime(CLOCK_MONOTONIC, &now);
 
-    int passed =
-        int((now.tv_sec - m_last_connection_time.tv_sec) * 1000 + (now.tv_nsec - m_last_connection_time.tv_nsec) / 1000000);
+    int passed = int(
+        (now.tv_sec - m_last_connection_time.tv_sec) * 1000 + (now.tv_nsec - m_last_connection_time.tv_nsec) / 1000000);
 
     timeout -= passed;
     if (timeout < 0)

@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.po
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
@@ -273,7 +274,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         );
 
         // RootKey must be mocked, there's no way to instantiate it using a public constructor.
-        RootKey rootKey = mock(RootKey.class);
+        RootKey rootKey = mock(RootKey.class, withSettings().lenient());
 
         when(rootKey.key()).thenReturn("mock");
         when(rootKey.type()).thenReturn(LOCAL);

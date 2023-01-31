@@ -20,13 +20,15 @@ package org.apache.ignite.internal.storage.index.impl;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -39,6 +41,10 @@ public class TestHashIndexStorage implements HashIndexStorage {
     private final ConcurrentMap<ByteBuffer, Set<RowId>> index = new ConcurrentHashMap<>();
 
     private final HashIndexDescriptor descriptor;
+
+    private volatile boolean closed;
+
+    private volatile boolean rebalance;
 
     /**
      * Constructor.
@@ -54,13 +60,36 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
-        Collection<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
+        checkStorageClosedOrInProcessOfRebalance();
 
-        return Cursor.fromIterator(rowIds.iterator());
+        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), Set.of()).iterator();
+
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public RowId next() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.next();
+            }
+        };
     }
 
     @Override
     public void put(IndexRow row) {
+        checkStorageClosed();
+
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
                 return Set.of(row.rowId());
@@ -79,6 +108,8 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void remove(IndexRow row) {
+        checkStorageClosedOrInProcessOfRebalance();
+
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.contains(row.rowId())) {
                 if (v.size() == 1) {
@@ -98,6 +129,72 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
     @Override
     public void destroy() {
+        closed = true;
+
+        clear0();
+    }
+
+    /**
+     * Removes all index data.
+     */
+    public void clear() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        clear0();
+    }
+
+    private void clear0() {
         index.clear();
+    }
+
+    private void checkStorageClosed() {
+        if (closed) {
+            throw new StorageClosedException();
+        }
+    }
+
+    private void checkStorageClosedOrInProcessOfRebalance() {
+        checkStorageClosed();
+
+        if (rebalance) {
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
+        }
+    }
+
+    /**
+     * Starts rebalancing of the storage.
+     */
+    public void startRebalance() {
+        checkStorageClosed();
+
+        rebalance = true;
+
+        clear0();
+    }
+
+    /**
+     * Aborts rebalance of the storage.
+     */
+    public void abortRebalance() {
+        checkStorageClosed();
+
+        if (!rebalance) {
+            return;
+        }
+
+        rebalance = false;
+
+        clear0();
+    }
+
+    /**
+     * Completes rebalance of the storage.
+     */
+    public void finishRebalance() {
+        checkStorageClosed();
+
+        assert rebalance;
+
+        rebalance = false;
     }
 }

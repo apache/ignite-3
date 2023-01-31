@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.metric;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import jakarta.inject.Inject;
 import java.util.List;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.cli.call.node.metric.NodeMetricListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.rest.client.model.MetricSource;
+import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -51,8 +53,13 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
 
         // Then
         assertThat(output.hasError()).isFalse();
+
+        List<MetricSource> expectedMetricSources = List.of(
+                new MetricSource().name("jvm").enabled(false)
+        );
+
         // And
-        assertThat(output.body()).isEmpty();
+        MatcherAssert.assertThat(output.body(), containsInAnyOrder(expectedMetricSources.toArray()));
     }
 
     @Test

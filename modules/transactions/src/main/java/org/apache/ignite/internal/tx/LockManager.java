@@ -38,20 +38,20 @@ public interface LockManager {
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
-     * Attempts to release a lock for the specified {@code lockKey}.
+     * Attempts to release the specified lock.
      *
      * @param lock Lock to release.
      */
     public void release(Lock lock);
 
     /**
-     * Attempts to downgrade a lock mode for the specified {@code lockKey}.
+     * Release a lock that is held on the specific mode on the specific key.
      *
-     * @param lock Lock to downgrade.
-     * @param lockMode Lock mode.
-     * @throws LockException If the downgrade operation is invalid.
+     * @param txId Transaction id.
+     * @param lockKey The key.
+     * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
      */
-    public void downgrade(Lock lock, LockMode lockMode) throws LockException;
+    void release(UUID txId, LockKey lockKey, LockMode lockMode);
 
     /**
      * Retrieves all locks for the specified transaction id.

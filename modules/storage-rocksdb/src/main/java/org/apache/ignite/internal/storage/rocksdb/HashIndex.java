@@ -23,6 +23,9 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
+import org.jetbrains.annotations.Nullable;
+import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteBatch;
 
 /**
  * Class that represents a Hash Index defined for all partitions of a Table.
@@ -32,7 +35,7 @@ class HashIndex {
 
     private final HashIndexDescriptor descriptor;
 
-    private final ConcurrentMap<Integer, HashIndexStorage> storages = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, RocksDbHashIndexStorage> storages = new ConcurrentHashMap<>();
 
     HashIndex(ColumnFamily indexCf, HashIndexDescriptor descriptor) {
         this.indexCf = indexCf;
@@ -54,5 +57,30 @@ class HashIndex {
      */
     void destroy() {
         storages.forEach((partitionId, storage) -> storage.destroy());
+    }
+
+    /**
+     * Deletes the data associated with the partition in the index, using passed write batch for the operation.
+     * Index storage instance is closed after this method, if it ever existed.
+     *
+     * @throws RocksDBException If failed to delete data.
+     */
+    void destroy(int partitionId, WriteBatch writeBatch) throws RocksDBException {
+        RocksDbHashIndexStorage hashIndex = storages.remove(partitionId);
+
+        if (hashIndex != null) {
+            hashIndex.close();
+
+            hashIndex.destroyData(writeBatch);
+        }
+    }
+
+    /**
+     * Returns hash index storage for partition.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable RocksDbHashIndexStorage get(int partitionId) {
+        return storages.get(partitionId);
     }
 }

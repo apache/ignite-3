@@ -29,7 +29,10 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
 import java.net.InetSocketAddress;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
@@ -65,6 +68,12 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Ignite SQL API. */
     private final IgniteSql sql;
 
+    /** Cluster ID supplier. */
+    private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
+
+    /** Cluster ID. */
+    private UUID clusterId;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -99,7 +108,8 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteCompute igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
-            IgniteSql sql) {
+            IgniteSql sql,
+            Supplier<CompletableFuture<UUID>> clusterIdSupplier) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
@@ -107,6 +117,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert clusterService != null;
         assert bootstrapFactory != null;
         assert sql != null;
+        assert clusterIdSupplier != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -116,6 +127,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.sql = sql;
+        this.clusterIdSupplier = clusterIdSupplier;
     }
 
     /** {@inheritDoc} */
@@ -127,6 +139,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
         try {
             channel = startEndpoint().channel();
+            clusterId = clusterIdSupplier.get().join();
         } catch (InterruptedException e) {
             throw new IgniteException(e);
         }
@@ -194,7 +207,8 @@ public class ClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         igniteCompute,
                                         clusterService,
-                                        sql));
+                                        sql,
+                                        clusterId));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

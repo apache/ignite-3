@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.cli.commands;
 
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.PROFILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.PROFILE_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.OptionsConstants.PROFILE_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_SHORT;
 
 import picocli.CommandLine.Option;
 

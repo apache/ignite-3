@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -42,12 +41,11 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     /**
      * Constructor.
      *
-     *
      * @param ctx  Execution context.
      * @param comp Rows comparator.
      */
-    public SortNode(ExecutionContext<RowT> ctx, RelDataType rowType, Comparator<RowT> comp) {
-        super(ctx, rowType);
+    public SortNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
+        super(ctx);
 
         rows = comp == null ? new PriorityQueue<>() : new PriorityQueue<>(comp);
     }

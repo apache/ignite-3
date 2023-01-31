@@ -18,10 +18,13 @@
 plugins {
     id 'java'
     id 'distribution'
+    id 'signing'
     alias(libs.plugins.nebula)
+    alias(libs.plugins.checksum)
 }
 
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.crypto.checksum.Checksum
 
 configurations {
     cliArtifacts
@@ -36,37 +39,37 @@ dependencies {
 // Common for ZIP and RPM/DEB
 
 def tokens = [
-        PRODUCT_NAME        : 'ignite3cli',
+        PRODUCT_NAME        : 'ignite3-cli',
         PRODUCT_DISPLAY_NAME: 'Apache Ignite CLI',
-        INSTALL_DIR         : '/usr/bin',
-        LIB_DIR             : '/usr/lib/ignite3',
         LOG_DIR             : '${HOME}/.ignite3',
         APP_JAR             : "${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar".toString(),
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
         MAIN_CLASS          : 'org.apache.ignite.internal.cli.Main',
-        JAVA_OPTS           : '',
-        ADDITIONAL_OPTS     : '',
         ARGS                : '$@'
-
 ]
 
-task replaceScriptVars(type: Copy) {
-    from("start.sh")
-    filter(ReplaceTokens, tokens: tokens)
-    fileMode 0755
-    into("${buildDir}")
+task createChecksums(type: Checksum) {
+    dependsOn distZip
+
+    inputFiles.from distZip.outputs.files
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
+
+
+// ZIP packaging
+
+def zipTokens = tokens + [
+        LIB_DIR             : '$(dirname "$0")/../lib',
+]
+
+task replaceScriptVarsZip(type: Copy) {
+    from 'start.sh'
+    filter(ReplaceTokens, tokens: zipTokens)
+    into "$buildDir/zip"
     rename {
-        "ignite3"
+        'ignite3'
     }
 }
-
-task replacePostInstallScriptVars(type: Copy) {
-    from("postInstall.sh")
-    filter(ReplaceTokens, tokens: tokens)
-    into("${buildDir}")
-}
-
-distTar.dependsOn replaceScriptVars
-distZip.dependsOn replaceScriptVars
 
 // task that generates start script for cli
 task cliStartScript(type: CreateStartScripts) {
@@ -74,38 +77,40 @@ task cliStartScript(type: CreateStartScripts) {
     mainClass = "org.apache.ignite.internal.cli.Main"
     // forms a classpath string that will be passed to exec "java -cp <classpath> .."
     // it is expected to locate the "lib" dir together with "bin"
-    classpath = files(new File("../lib/${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar"), new File("../lib/*"))
+    classpath = files(new File("../lib/*"))
     outputDir = file "$buildDir/scripts"
     applicationName = 'ignite3'
 }
 
-
-// ZIP packaging
+task windowsCliStartScript(type: Copy) {
+    from cliStartScript
+    include '*.bat'
+    into "$buildDir/windows"
+}
 
 distributions {
     main {
-        distributionBaseName = 'ignite3cli'
+        distributionBaseName = 'ignite3-cli'
         contents {
             into('') {
-                from("$rootDir/LICENSE")
-                from("$rootDir/NOTICE")
-                from("$rootDir/assembly/README.md")
+                from "$rootDir/LICENSE"
+                from "$rootDir/NOTICE"
+                from "$rootDir/assembly/README.md"
             }
             into('bin') {
                 duplicatesStrategy= DuplicatesStrategy.EXCLUDE
-                from(configurations.cliScripts)
-                from(cliStartScript)
-                fileMode = 0755
+                from configurations.cliScripts
+                from replaceScriptVarsZip
+                from windowsCliStartScript
+                fileMode 0755
             }
             into('lib') {
-                from(configurations.cliArtifacts)
+                from configurations.cliArtifacts
+                from "$rootDir/packaging/common/setup-java.sh"
             }
         }
     }
 }
-
-buildRpm.dependsOn replaceScriptVars, replacePostInstallScriptVars
-buildDeb.dependsOn replaceScriptVars, replacePostInstallScriptVars
 
 // Expose zip artifacts to be consumed by others
 configurations {
@@ -116,15 +121,34 @@ configurations {
 }
 
 artifacts {
-    cliZip(distZip) {
-        builtBy(distZip)
-    }
+    cliZip(distZip)
 }
 
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signCliZip', Sign) {
+    sign configurations.cliZip
+}
 
 // DEB/RPM packaging
 
+def linuxTokens = tokens + [
+        INSTALL_DIR         : '/usr/bin',
+        LIB_DIR             : '/usr/lib/ignite3'
+]
+
+task replaceScriptVarsLinux(type: Copy) {
+    from 'start.sh'
+    from 'postInstall.sh'
+    filter(ReplaceTokens, tokens: linuxTokens)
+    into "$buildDir/linux"
+}
+
 buildDeb {
+    dependsOn replaceScriptVarsLinux
+    signingKeyId = project.findProperty("signing.keyId")
+    signingKeyPassphrase = project.findProperty("signing.password")
+    signingKeyRingFile = project.hasProperty("signing.secretKeyRingFile") ? file(project.property("signing.secretKeyRingFile")) : null
+
     into("/usr/share/bash-completion/completions/") {
         from configurations.cliScripts
         fileMode 0755
@@ -132,6 +156,8 @@ buildDeb {
 }
 
 buildRpm {
+    dependsOn replaceScriptVarsLinux
+
     into("/etc/bash_completion.d/") {
         from configurations.cliScripts
         fileMode 0755
@@ -140,21 +166,43 @@ buildRpm {
 
 ospackage {
     license "ASL 2.0"
-    packageName tokens.PRODUCT_NAME
+    packageName linuxTokens.PRODUCT_NAME
     packageGroup "CLI"
     url "https://ignite.apache.org"
     packageDescription "This package will install Apache Ignite CLI"
     os LINUX
     user 'root'
 
-    into(tokens.INSTALL_DIR) {
-        from("$buildDir/ignite3")
-        fileMode = 0755
+    into(linuxTokens.INSTALL_DIR) {
+        from "$buildDir/linux/ignite3"
+        fileMode 0755
+        rename {
+            'ignite3'
+        }
     }
 
-    into(tokens.LIB_DIR) {
+    into(linuxTokens.LIB_DIR) {
         from configurations.cliArtifacts
+        from "$rootDir/packaging/common/setup-java.sh"
     }
 
-    postInstall file("${buildDir}/postInstall.sh")
+    postInstall file("$buildDir/linux/postInstall.sh")
+}
+
+configurations {
+    cliRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        cliRelease(file("$buildDir/distributions")) {
+            builtBy signCliZip, buildDeb, buildRpm
+        }
+        cliRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
+    }
 }

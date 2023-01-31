@@ -24,9 +24,11 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Table;
-    using MessagePack;
+    using Ignite.Transactions;
     using Proto;
+    using Proto.MsgPack;
     using Serialization;
+    using Sql;
 
     /// <summary>
     /// Table API.
@@ -35,6 +37,9 @@ namespace Apache.Ignite.Internal.Table
     {
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
+
+        /** SQL. */
+        private readonly Sql _sql;
 
         /** Schemas. */
         private readonly ConcurrentDictionary<int, Schema> _schemas = new();
@@ -63,15 +68,19 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="name">Table name.</param>
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
-        public Table(string name, Guid id, ClientFailoverSocket socket)
+        /// <param name="sql">SQL.</param>
+        public Table(string name, Guid id, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
+            _sql = sql;
+
             Name = name;
             Id = id;
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
-                new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance));
+                new RecordSerializer<IIgniteTuple>(this, TupleSerializerHandler.Instance),
+                _sql);
 
             // RecordView and KeyValueView are symmetric and perform the same operations on the protocol level.
             // Only serialization is different - KeyValueView splits records into two parts.
@@ -80,7 +89,7 @@ namespace Apache.Ignite.Internal.Table
             var pairSerializer = new RecordSerializer<KvPair<IIgniteTuple, IIgniteTuple>>(this, TuplePairSerializerHandler.Instance);
 
             KeyValueBinaryView = new KeyValueView<IIgniteTuple, IIgniteTuple>(
-                new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer));
+                new RecordView<KvPair<IIgniteTuple, IIgniteTuple>>(this, pairSerializer, _sql));
         }
 
         /// <inheritdoc/>
@@ -123,7 +132,7 @@ namespace Apache.Ignite.Internal.Table
             // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
             return (RecordView<T>)_recordViews.GetOrAdd(
                 typeof(T),
-                _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>())));
+                _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>()), _sql));
         }
 
         /// <summary>
@@ -172,10 +181,26 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
-        /// Gets the latest schema.
+        /// Gets the preferred node by colocation hash.
         /// </summary>
-        /// <returns>Schema.</returns>
-        internal async ValueTask<string[]> GetPartitionAssignmentAsync()
+        /// <param name="colocationHash">Colocation hash.</param>
+        /// <param name="transaction">Transaction.</param>
+        /// <returns>Preferred node.</returns>
+        internal async ValueTask<PreferredNode> GetPreferredNode(int colocationHash, ITransaction? transaction)
+        {
+            if (transaction != null)
+            {
+                return default;
+            }
+
+            var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
+            var partition = Math.Abs(colocationHash % assignment.Length);
+            var nodeId = assignment[partition];
+
+            return PreferredNode.FromId(nodeId);
+        }
+
+        private async ValueTask<string[]> GetPartitionAssignmentAsync()
         {
             var socketVer = _socket.PartitionAssignmentVersion;
             var assignment = _partitionAssignment;
@@ -226,7 +251,7 @@ namespace Apache.Ignite.Internal.Table
 
             void Write()
             {
-                var w = writer.GetMessageWriter();
+                var w = writer.MessageWriter;
                 w.Write(Id);
 
                 if (version == null)
@@ -238,8 +263,6 @@ namespace Apache.Ignite.Internal.Table
                     w.WriteArrayHeader(1);
                     w.Write(version.Value);
                 }
-
-                w.Flush();
             }
 
             Schema Read()
@@ -269,7 +292,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="r">Reader.</param>
         /// <returns>Schema.</returns>
-        private Schema ReadSchema(ref MessagePackReader r)
+        private Schema ReadSchema(ref MsgPackReader r)
         {
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadArrayHeader();
@@ -280,7 +303,7 @@ namespace Apache.Ignite.Internal.Table
             for (var i = 0; i < columnCount; i++)
             {
                 var propertyCount = r.ReadArrayHeader();
-                const int expectedCount = 6;
+                const int expectedCount = 7;
 
                 Debug.Assert(propertyCount >= expectedCount, "propertyCount >= " + expectedCount);
 
@@ -290,10 +313,11 @@ namespace Apache.Ignite.Internal.Table
                 var isNullable = r.ReadBoolean();
                 var isColocation = r.ReadBoolean(); // IsColocation.
                 var scale = r.ReadInt32();
+                var precision = r.ReadInt32();
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ClientDataType)type, isNullable, isColocation, isKey, i, scale);
+                var column = new Column(name, (ClientDataType)type, isNullable, isColocation, isKey, i, scale, precision);
 
                 columns[i] = column;
 
@@ -325,17 +349,10 @@ namespace Apache.Ignite.Internal.Table
         private async Task<string[]> LoadPartitionAssignmentAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            Write();
+            writer.MessageWriter.Write(Id);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
-
-            void Write()
-            {
-                var w = writer.GetMessageWriter();
-                w.Write(Id);
-                w.Flush();
-            }
 
             string[] Read()
             {

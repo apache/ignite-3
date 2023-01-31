@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
+
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -26,28 +28,28 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
- * HashAggregateConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
+ * and in relation to distribution and additional conditions produce appropriate node.
  */
 public class HashAggregateConverterRule {
-    public static final RelOptRule SINGLE = new HashSingleAggregateConverterRule();
+    public static final RelOptRule COLOCATED = new ColocatedHashAggregateConverterRule();
 
-    public static final RelOptRule MAP_REDUCE = new HashMapReduceAggregateConverterRule();
+    public static final RelOptRule MAP_REDUCE = new MapReduceHashAggregateConverterRule();
 
     private HashAggregateConverterRule() {
         // No-op.
     }
 
-    private static class HashSingleAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        HashSingleAggregateConverterRule() {
-            super(LogicalAggregate.class, "HashSingleAggregateConverterRule");
+    private static class ColocatedHashAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
+        ColocatedHashAggregateConverterRule() {
+            super(LogicalAggregate.class, "ColocatedHashAggregateConverterRule");
         }
 
         /** {@inheritDoc} */
@@ -63,7 +65,7 @@ public class HashAggregateConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             RelNode input = convert(agg.getInput(), inTrait);
 
-            return new IgniteSingleHashAggregate(
+            return new IgniteColocatedHashAggregate(
                     cluster,
                     outTrait,
                     input,
@@ -74,16 +76,16 @@ public class HashAggregateConverterRule {
         }
     }
 
-    private static class HashMapReduceAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        HashMapReduceAggregateConverterRule() {
-            super(LogicalAggregate.class, "HashMapReduceAggregateConverterRule");
+    private static class MapReduceHashAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
+        MapReduceHashAggregateConverterRule() {
+            super(LogicalAggregate.class, "MapReduceHashAggregateConverterRule");
         }
 
         /** {@inheritDoc} */
         @Override
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
                 LogicalAggregate agg) {
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
+            if (complexDistinctAgg(agg.getAggCallList()) || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }
 

@@ -17,20 +17,52 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableState;
+
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
+import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryMvPartitionStorage.class);
+
+    private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
+
+    private final GradualTaskExecutor destructionExecutor;
+
     /** Last applied index value. */
     private volatile long lastAppliedIndex;
+
+    /** Last applied term value. */
+    private volatile long lastAppliedTerm;
+
+    /** Last group configuration. */
+    @Nullable
+    private volatile RaftGroupConfiguration groupConfig;
 
     /**
      * Constructor.
@@ -39,13 +71,14 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param partitionId Partition id.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param destructionExecutor Executor used to destruct partitions.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
-            TablesConfiguration tablesCfg,
             int partitionId,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GradualTaskExecutor destructionExecutor
     ) {
         super(
                 partitionId,
@@ -53,33 +86,237 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree,
-                tablesCfg
+                indexMetaTree
         );
+
+        this.destructionExecutor = destructionExecutor;
     }
 
     @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
-        return closure.execute();
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            return closure.execute();
+        });
     }
 
     @Override
     public CompletableFuture<Void> flush() {
-        return CompletableFuture.completedFuture(null);
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            return completedFuture(null);
+        });
     }
 
     @Override
     public long lastAppliedIndex() {
-        return lastAppliedIndex;
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            return lastAppliedIndex;
+        });
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        this.lastAppliedIndex = lastAppliedIndex;
+    public long lastAppliedTerm() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            return lastAppliedTerm;
+        });
+    }
+
+    @Override
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        busy(() -> {
+            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+
+            this.lastAppliedIndex = lastAppliedIndex;
+            this.lastAppliedTerm = lastAppliedTerm;
+
+            return null;
+        });
     }
 
     @Override
     public long persistedIndex() {
-        return lastAppliedIndex;
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            return lastAppliedIndex;
+        });
+    }
+
+    @Override
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            return groupConfig;
+        });
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        busy(() -> {
+            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+
+            groupConfig = config;
+
+            return null;
+        });
+    }
+
+    @Override
+    public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.lastAppliedIndex = lastAppliedIndex;
+        this.lastAppliedTerm = lastAppliedTerm;
+    }
+
+    @Override
+    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
+
+        if (!goingToDestroy) {
+            // If we are going to destroy after closure, we should retain indices because the destruction logic
+            // will need to destroy them as well. It will clean the maps after it starts the destruction.
+
+            resourcesToClose.add(hashIndexes::clear);
+            resourcesToClose.add(sortedIndexes::clear);
+        }
+
+        return resourcesToClose;
+    }
+
+    /**
+     * Cleans data backing this partition. Indices are destroyed, but index desscriptors are
+     * not removed from this partition so that they can be refilled with data later.
+     */
+    public void cleanStructuresData() {
+        destroyStructures(false);
+    }
+
+    /**
+     * Destroys internal structures (including indices) backing this partition.
+     */
+    public void destroyStructures() {
+        destroyStructures(true);
+    }
+
+    /**
+     * Destroys internal structures (including indices) backing this partition.
+     *
+     * @param removeIndexDescriptors Whether indices should be completely removed, not just their contents destroyed.
+     */
+    private void destroyStructures(boolean removeIndexDescriptors) {
+        startMvDataDestruction();
+        startIndexMetaTreeDestruction();
+
+        hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+        sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+
+        lastAppliedIndex = 0;
+        lastAppliedTerm = 0;
+        groupConfig = null;
+
+        if (removeIndexDescriptors) {
+            hashIndexes.clear();
+            sortedIndexes.clear();
+        }
+    }
+
+    private void startMvDataDestruction() {
+        try {
+            destructionExecutor.execute(
+                    versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Version chains destruction failed in group={}, partition={}", ex, groupId, partitionId);
+                }
+            });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy MV partition in group=" + groupId + ", partition=" + partitionId, e);
+        }
+    }
+
+    private void destroyVersionChain(VersionChain chainKey) {
+        try {
+            deleteRowVersionsFromFreeList(chainKey);
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException(e);
+        }
+    }
+
+    private void deleteRowVersionsFromFreeList(VersionChain chain) throws IgniteInternalCheckedException {
+        long rowVersionLink = chain.headLink();
+
+        while (rowVersionLink != PageIdUtils.NULL_LINK) {
+            RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
+
+            rowVersionFreeList.removeDataRowByLink(rowVersion.link());
+
+            rowVersionLink = rowVersion.nextLink();
+        }
+    }
+
+    private void startIndexMetaTreeDestruction() {
+        try {
+            destructionExecutor.execute(
+                    indexMetaTree.startGradualDestruction(null, false)
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Index meta tree destruction failed in group={}, partition={}", ex, groupId, partitionId);
+                }
+            });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy index meta tree in group=" + groupId + ", partition=" + partitionId, e);
+        }
+    }
+
+    @Override
+    List<AutoCloseable> getResourcesToCloseOnCleanup() {
+        return List.of(versionChainTree::close, indexMetaTree::close);
+    }
+
+    /**
+     * Updates the internal data structures of the storage and its indexes on rebalance or cleanup.
+     *
+     * @param versionChainTree Table tree for {@link VersionChain}.
+     * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @throws StorageException If failed.
+     */
+    public void updateDataStructures(
+            VersionChainTree versionChainTree,
+            IndexMetaTree indexMetaTree
+    ) {
+        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
+
+        this.versionChainTree = versionChainTree;
+        this.indexMetaTree = indexMetaTree;
+
+        for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
+            indexStorage.updateDataStructures(
+                    indexFreeList,
+                    createHashIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
+        }
+
+        for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
+            indexStorage.updateDataStructures(
+                    indexFreeList,
+                    createSortedIndexTree(indexStorage.indexDescriptor(), new IndexMeta(indexStorage.indexDescriptor().id(), 0L))
+            );
+        }
+    }
+
+    @Override
+    public void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config) throws StorageException {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.groupConfig = config;
     }
 }

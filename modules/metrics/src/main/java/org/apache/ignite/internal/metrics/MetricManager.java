@@ -107,6 +107,8 @@ public class MetricManager implements IgniteComponent {
         for (MetricExporter metricExporter : enabledMetricExporters.values()) {
             metricExporter.stop();
         }
+
+        enabledMetricExporters.clear();
     }
 
     /**
@@ -143,7 +145,13 @@ public class MetricManager implements IgniteComponent {
      * @return Metric set, or {@code null} if already enabled.
      */
     public MetricSet enable(MetricSource src) {
-        return registry.enable(src);
+        MetricSet enabled = registry.enable(src);
+
+        if (enabled != null) {
+            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+        }
+
+        return enabled;
     }
 
     /**
@@ -153,7 +161,13 @@ public class MetricManager implements IgniteComponent {
      * @return Metric set, or {@code null} if already enabled.
      */
     public MetricSet enable(final String srcName) {
-        return registry.enable(srcName);
+        MetricSet enabled = registry.enable(srcName);
+
+        if (enabled != null) {
+            enabledMetricExporters.values().forEach(e -> e.addMetricSet(enabled));
+        }
+
+        return enabled;
     }
 
     /**
@@ -178,15 +192,19 @@ public class MetricManager implements IgniteComponent {
      */
     public void disable(MetricSource src) {
         registry.disable(src);
+
+        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(src.name()));
     }
 
     /**
      * Disable metric source by name. See {@link MetricRegistry#disable(String)}.
      *
-     * @param srcName Source name.
+     * @param srcName Metric source name.
      */
     public void disable(final String srcName) {
         registry.disable(srcName);
+
+        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(srcName));
     }
 
     /**
@@ -215,9 +233,7 @@ public class MetricManager implements IgniteComponent {
         MetricExporter<T> exporter = availableExporters.get(exporterName);
 
         if (exporter != null) {
-            exporter.init(metricsProvider, exporterConfiguration);
-
-            exporter.start();
+            exporter.start(metricsProvider, exporterConfiguration);
 
             enabledMetricExporters.put(exporter.name(), exporter);
         } else {

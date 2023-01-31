@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
-import java.lang.annotation.Annotation;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -77,8 +74,8 @@ public interface ConfigurationModule {
      *
      * @return configuration validators
      */
-    default Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return emptyMap();
+    default Set<Validator<?, ?>> validators() {
+        return emptySet();
     }
 
     /**

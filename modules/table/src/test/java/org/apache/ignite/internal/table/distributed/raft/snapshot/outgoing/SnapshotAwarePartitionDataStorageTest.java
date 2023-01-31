@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
@@ -34,9 +35,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.junit.jupiter.api.BeforeEach;
@@ -110,19 +111,44 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void delegatesLastAppliedIndexSetter() {
-        testedStorage.lastAppliedIndex(42L);
+    void delegatesLastAppliedTermGetter() {
+        when(partitionStorage.lastAppliedTerm()).thenReturn(42L);
 
-        verify(partitionStorage).lastAppliedIndex(42L);
+        assertThat(testedStorage.lastAppliedTerm(), is(42L));
+    }
+
+    @Test
+    void delegatesLastAppliedSetter() {
+        testedStorage.lastApplied(42L, 10L);
+
+        verify(partitionStorage).lastApplied(42L, 10L);
+    }
+
+    @Test
+    void delegatesCommittedGroupConfigurationGetter() {
+        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
+
+        when(partitionStorage.committedGroupConfiguration()).thenReturn(config);
+
+        assertThat(testedStorage.committedGroupConfiguration(), is(sameInstance(config)));
+    }
+
+    @Test
+    void delegatesCommittedGroupConfigurationSetter() {
+        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
+
+        testedStorage.committedGroupConfiguration(config);
+
+        verify(partitionStorage).committedGroupConfiguration(config);
     }
 
     @Test
     void delegatesAddWrite() {
-        BinaryRow resultRow = mock(BinaryRow.class);
+        TableRow resultRow = mock(TableRow.class);
 
         when(partitionStorage.addWrite(any(), any(), any(), any(), anyInt())).thenReturn(resultRow);
 
-        BinaryRow argumentRow = mock(BinaryRow.class);
+        TableRow argumentRow = mock(TableRow.class);
         UUID txId = UUID.randomUUID();
         UUID commitTableId = UUID.randomUUID();
 
@@ -132,7 +158,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesAbortWrite() {
-        BinaryRow resultRow = mock(BinaryRow.class);
+        TableRow resultRow = mock(TableRow.class);
 
         when(partitionStorage.abortWrite(any())).thenReturn(resultRow);
 
@@ -150,7 +176,7 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void delegatesClose() throws Exception {
+    void delegatesClose() {
         testedStorage.close();
 
         verify(partitionStorage).close();
@@ -158,11 +184,16 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesAcquirePartitionSnapshotsReadLock() {
-        AutoLockup lockup = mock(AutoLockup.class);
+        testedStorage.acquirePartitionSnapshotsReadLock();
 
-        when(partitionSnapshots.acquireReadLock()).thenReturn(lockup);
+        verify(partitionSnapshots).acquireReadLock();
+    }
 
-        assertThat(testedStorage.acquirePartitionSnapshotsReadLock(), is(lockup));
+    @Test
+    void delegatesReleasePartitionSnapshotsReadLock() {
+        testedStorage.releasePartitionSnapshotsReadLock();
+
+        verify(partitionSnapshots).releaseReadLock();
     }
 
     @ParameterizedTest
@@ -215,7 +246,7 @@ class SnapshotAwarePartitionDataStorageTest {
         verify(snapshot).enqueueForSending(rowId);
     }
 
-    private void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
+    private static void configureSnapshotToLetEnqueueOutOfOrderMvRow(OutgoingSnapshot snapshotToConfigure) {
         doReturn(false).when(snapshotToConfigure).alreadyPassed(any());
         doReturn(true).when(snapshotToConfigure).addRowIdToSkip(any());
     }
@@ -236,11 +267,29 @@ class SnapshotAwarePartitionDataStorageTest {
         verify(snapshot2).enqueueForSending(rowId);
     }
 
+    @Test
+    void finishesSnapshotsOnStop() {
+        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
+
+        testedStorage.close();
+
+        verify(partitionsSnapshots).finishOutgoingSnapshot(snapshot.id());
+    }
+
+    @Test
+    void removesSnapshotsCollectionOnStop() {
+        when(partitionSnapshots.ongoingSnapshots()).thenReturn(singletonList(snapshot));
+
+        testedStorage.close();
+
+        verify(partitionsSnapshots).removeSnapshots(partitionKey);
+    }
+
     private enum MvWriteAction {
         ADD_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.addWrite(rowId, mock(BinaryRow.class), UUID.randomUUID(), UUID.randomUUID(), 42);
+                storage.addWrite(rowId, mock(TableRow.class), UUID.randomUUID(), UUID.randomUUID(), 42);
             }
         },
         ABORT_WRITE {

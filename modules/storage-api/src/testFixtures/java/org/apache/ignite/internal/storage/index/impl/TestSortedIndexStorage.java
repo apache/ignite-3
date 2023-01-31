@@ -17,24 +17,27 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static java.util.Collections.emptyNavigableMap;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
-import java.util.SortedMap;
+import java.util.Map.Entry;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -44,9 +47,19 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexStorage implements SortedIndexStorage {
-    private final ConcurrentNavigableMap<ByteBuffer, Set<RowId>> index;
+    private static final Object NULL = new Object();
+
+    /**
+     * {@code NavigableMap<RowId, Object>} is used as a {@link NavigableSet}, but map was chosen because methods like
+     * {@link NavigableSet#first()} throw an {@link NoSuchElementException} if the set is empty.
+     */
+    private final ConcurrentNavigableMap<ByteBuffer, NavigableMap<RowId, Object>> index;
 
     private final SortedIndexDescriptor descriptor;
+
+    private volatile boolean closed;
+
+    private volatile boolean rebalance;
 
     /**
      * Constructor.
@@ -63,54 +76,64 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        Set<RowId> rowIds = index.getOrDefault(key.byteBuffer(), Set.of());
+        checkStorageClosedOrInProcessOfRebalance();
 
-        return Cursor.fromIterator(rowIds.iterator());
+        Iterator<RowId> iterator = index.getOrDefault(key.byteBuffer(), emptyNavigableMap()).keySet().iterator();
+
+        return new Cursor<>() {
+            @Override
+            public void close() {
+                // No-op.
+            }
+
+            @Override
+            public boolean hasNext() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.hasNext();
+            }
+
+            @Override
+            public RowId next() {
+                checkStorageClosedOrInProcessOfRebalance();
+
+                return iterator.next();
+            }
+        };
     }
 
     @Override
     public void put(IndexRow row) {
+        checkStorageClosed();
+
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
-            if (v == null) {
-                return Set.of(row.rowId());
-            } else if (v.contains(row.rowId())) {
-                return v;
-            } else {
-                var result = new HashSet<RowId>(capacity(v.size() + 1));
+            NavigableMap<RowId, Object> rowIds = v == null ? new ConcurrentSkipListMap<>() : v;
 
-                result.addAll(v);
-                result.add(row.rowId());
+            rowIds.put(row.rowId(), NULL);
 
-                return result;
-            }
+            return rowIds;
         });
     }
 
     @Override
     public void remove(IndexRow row) {
+        checkStorageClosedOrInProcessOfRebalance();
+
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
-            if (v.contains(row.rowId())) {
-                if (v.size() == 1) {
-                    return null;
-                } else {
-                    var result = new HashSet<>(v);
+            v.remove(row.rowId());
 
-                    result.remove(row.rowId());
-
-                    return result;
-                }
-            } else {
-                return v;
-            }
+            return v.isEmpty() ? null : v;
         });
     }
 
     @Override
-    public Cursor<IndexRow> scan(
+    public PeekCursor<IndexRow> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags
     ) {
+        checkStorageClosedOrInProcessOfRebalance();
+
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
@@ -122,31 +145,23 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
             setEqualityFlag(upperBound);
         }
 
-        SortedMap<ByteBuffer, Set<RowId>> data;
+        NavigableMap<ByteBuffer, NavigableMap<RowId, Object>> navigableMap;
 
         if (lowerBound == null && upperBound == null) {
-            data = index;
+            navigableMap = index;
         } else if (lowerBound == null) {
-            data = index.headMap(upperBound.byteBuffer());
+            navigableMap = index.headMap(upperBound.byteBuffer());
         } else if (upperBound == null) {
-            data = index.tailMap(lowerBound.byteBuffer());
+            navigableMap = index.tailMap(lowerBound.byteBuffer());
         } else {
             try {
-                data = index.subMap(lowerBound.byteBuffer(), upperBound.byteBuffer());
+                navigableMap = index.subMap(lowerBound.byteBuffer(), upperBound.byteBuffer());
             } catch (IllegalArgumentException e) {
-                data = Collections.emptySortedMap();
+                navigableMap = emptyNavigableMap();
             }
         }
 
-        Iterator<? extends IndexRow> iterator = data.entrySet().stream()
-                .flatMap(e -> {
-                    var tuple = new BinaryTuple(descriptor.binaryTupleSchema(), e.getKey());
-
-                    return e.getValue().stream().map(rowId -> new IndexRowImpl(tuple, rowId));
-                })
-                .iterator();
-
-        return Cursor.fromIterator(iterator);
+        return new ScanCursor(navigableMap);
     }
 
     private static void setEqualityFlag(BinaryTuplePrefix prefix) {
@@ -155,5 +170,205 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         byte flags = buffer.get(0);
 
         buffer.put(0, (byte) (flags | BinaryTupleCommon.EQUALITY_FLAG));
+    }
+
+    /**
+     * Destroys the storage and the data in it.
+     */
+    public void destroy() {
+        closed = true;
+
+        clear0();
+    }
+
+    /**
+     * Removes all index data.
+     */
+    public void clear() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        index.clear();
+    }
+
+    private void clear0() {
+        index.clear();
+    }
+
+    private class ScanCursor implements PeekCursor<IndexRow> {
+        private final NavigableMap<ByteBuffer, NavigableMap<RowId, Object>> indexMap;
+
+        @Nullable
+        private Boolean hasNext;
+
+        @Nullable
+        private Entry<ByteBuffer, NavigableMap<RowId, Object>> currentEntry;
+
+        @Nullable
+        private RowId rowId;
+
+        private ScanCursor(NavigableMap<ByteBuffer, NavigableMap<RowId, Object>> indexMap) {
+            this.indexMap = indexMap;
+        }
+
+        @Override
+        public void close() {
+            // No-op.
+        }
+
+        @Override
+        public boolean hasNext() {
+            checkStorageClosedOrInProcessOfRebalance();
+
+            advanceIfNeeded();
+
+            return hasNext;
+        }
+
+        @Override
+        public IndexRow next() {
+            checkStorageClosedOrInProcessOfRebalance();
+
+            advanceIfNeeded();
+
+            boolean hasNext = this.hasNext;
+
+            if (!hasNext) {
+                throw new NoSuchElementException();
+            }
+
+            this.hasNext = null;
+
+            return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
+        }
+
+        @Override
+        public @Nullable IndexRow peek() {
+            checkStorageClosedOrInProcessOfRebalance();
+
+            if (hasNext != null) {
+                if (hasNext) {
+                    return new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), currentEntry.getKey()), rowId);
+                }
+
+                return null;
+            }
+
+            Entry<ByteBuffer, NavigableMap<RowId, Object>> indexMapEntry0 = currentEntry == null ? indexMap.firstEntry() : currentEntry;
+
+            RowId nextRowId = null;
+
+            if (rowId == null) {
+                if (indexMapEntry0 != null) {
+                    nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
+                }
+            } else {
+                Entry<RowId, Object> nextRowIdEntry = indexMapEntry0.getValue().higherEntry(rowId);
+
+                if (nextRowIdEntry != null) {
+                    nextRowId = nextRowIdEntry.getKey();
+                } else {
+                    indexMapEntry0 = indexMap.higherEntry(indexMapEntry0.getKey());
+
+                    if (indexMapEntry0 != null) {
+                        nextRowId = getRowId(indexMapEntry0.getValue().firstEntry());
+                    }
+                }
+            }
+
+            return nextRowId == null
+                    ? null : new IndexRowImpl(new BinaryTuple(descriptor.binaryTupleSchema(), indexMapEntry0.getKey()), nextRowId);
+        }
+
+        private void advanceIfNeeded() {
+            if (hasNext != null) {
+                return;
+            }
+
+            if (currentEntry == null) {
+                currentEntry = indexMap.firstEntry();
+            }
+
+            if (rowId == null) {
+                if (currentEntry != null) {
+                    rowId = getRowId(currentEntry.getValue().firstEntry());
+                }
+            } else {
+                Entry<RowId, Object> nextRowIdEntry = currentEntry.getValue().higherEntry(rowId);
+
+                if (nextRowIdEntry != null) {
+                    rowId = nextRowIdEntry.getKey();
+                } else {
+                    Entry<ByteBuffer, NavigableMap<RowId, Object>> nextIndexMapEntry = indexMap.higherEntry(currentEntry.getKey());
+
+                    if (nextIndexMapEntry == null) {
+                        hasNext = false;
+
+                        return;
+                    } else {
+                        currentEntry = nextIndexMapEntry;
+
+                        rowId = getRowId(currentEntry.getValue().firstEntry());
+                    }
+                }
+            }
+
+            hasNext = rowId != null;
+        }
+
+        @Nullable
+        private RowId getRowId(@Nullable Entry<RowId, ?> rowIdEntry) {
+            return rowIdEntry == null ? null : rowIdEntry.getKey();
+        }
+    }
+
+    private void checkStorageClosed() {
+        if (closed) {
+            throw new StorageClosedException();
+        }
+    }
+
+    private void checkStorageClosedOrInProcessOfRebalance() {
+        checkStorageClosed();
+
+        if (rebalance) {
+            throw new StorageRebalanceException("Storage in the process of rebalancing");
+        }
+    }
+
+    /**
+     * Starts rebalancing for the storage.
+     */
+    public void startRebalance() {
+        checkStorageClosed();
+
+        rebalance = true;
+
+        clear0();
+    }
+
+    /**
+     * Aborts rebalance of the storage.
+     */
+    public void abortRebalance() {
+        checkStorageClosed();
+
+        if (!rebalance) {
+            return;
+        }
+
+        rebalance = false;
+
+        clear0();
+    }
+
+    /**
+     * Completes rebalance of the storage.
+     */
+    public void finishRebalance() {
+        checkStorageClosed();
+
+        assert rebalance;
+
+        rebalance = false;
     }
 }

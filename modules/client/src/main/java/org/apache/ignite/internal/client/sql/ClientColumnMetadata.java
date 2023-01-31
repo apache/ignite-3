@@ -18,11 +18,10 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.util.List;
+import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.client.proto.ClientSqlColumnTypeConverter;
-import org.apache.ignite.internal.sql.SqlColumnTypeConverter;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.SqlColumnType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Client column metadata.
@@ -32,7 +31,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
     private final String name;
 
     /** Type. */
-    private final SqlColumnType type;
+    private final ColumnType type;
 
     /** Nullable flag. */
     private final boolean nullable;
@@ -53,13 +52,19 @@ public class ClientColumnMetadata implements ColumnMetadata {
      * @param prevColumns Previous columns.
      */
     public ClientColumnMetadata(ClientMessageUnpacker unpacker, List<ColumnMetadata> prevColumns) {
+        var propCnt = unpacker.unpackArrayHeader();
+
+        assert propCnt >= 6;
+
         name = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
-        type = ClientSqlColumnTypeConverter.ordinalToColumnType(unpacker.unpackInt());
+        type = ClientColumnTypeConverter.ordinalToColumnType(unpacker.unpackInt());
         scale = unpacker.unpackInt();
         precision = unpacker.unpackInt();
 
         if (unpacker.unpackBoolean()) {
+            assert propCnt >= 9;
+
             origin = new ClientColumnOrigin(unpacker, name, prevColumns);
         } else {
             origin = null;
@@ -75,12 +80,12 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return SqlColumnTypeConverter.columnTypeToClass(type);
+        return ColumnType.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */
     @Override
-    public SqlColumnType type() {
+    public ColumnType type() {
         return type;
     }
 

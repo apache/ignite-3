@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -28,11 +29,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -41,6 +44,8 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -75,6 +80,9 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     /** Timeout should be big enough to prevent premature session expiration. */
     private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);
 
+    /** Test default table name. */
+    protected static final String DEFAULT_TABLE_NAME = "person";
+
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
@@ -95,13 +103,29 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private static Path WORK_DIR;
 
+    /** Information object that is initialised on the test startup. */
+    private TestInfo testInfo;
+
     /**
      * Before all.
      *
      * @param testInfo Test information object.
      */
     @BeforeAll
-    void startNodes(TestInfo testInfo) {
+    void beforeAll(TestInfo testInfo) {
+        LOG.info("Start beforeAll()");
+
+        this.testInfo = testInfo;
+
+        startCluster();
+
+        LOG.info("End beforeAll()");
+    }
+
+    /**
+     * Starts and initializes a test cluster.
+     */
+    protected void startCluster() {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         List<CompletableFuture<Ignite>> futures = new ArrayList<>();
@@ -138,9 +162,18 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
      * After all.
      */
     @AfterAll
-    void stopNodes(TestInfo testInfo) throws Exception {
-        LOG.info("Start tearDown()");
+    void afterAll() throws Exception {
+        LOG.info("Start afterAll()");
 
+        stopNodes();
+
+        LOG.info("End afterAll()");
+    }
+
+    /**
+     * Stops all started nodes.
+     */
+    protected void stopNodes() throws Exception {
         List<AutoCloseable> closeables = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, i))
                 .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
@@ -149,8 +182,6 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         IgniteUtils.closeAll(closeables);
 
         CLUSTER_NODES.clear();
-
-        LOG.info("End tearDown()");
     }
 
     /** Drops all visible tables. */
@@ -198,8 +229,25 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         tearDownBase(testInfo);
     }
 
+    /**
+     * Executes the query and validates any asserts passed to the builder.
+     *
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
     protected static QueryChecker assertQuery(String qry) {
-        return new QueryChecker(qry) {
+        return assertQuery(null, qry);
+    }
+
+    /**
+     * Executes the query with the given transaction and validates any asserts passed to the builder.
+     *
+     * @param tx Transaction.
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
+    protected static QueryChecker assertQuery(Transaction tx, String qry) {
+        return new QueryChecker(tx, qry) {
             @Override
             protected QueryProcessor getEngine() {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
@@ -207,8 +255,94 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         };
     }
 
+    /**
+     * Used for join checks, disables other join rules for executing exact join algo.
+     *
+     * @param qry Query for check.
+     * @param joinType Type of join algo.
+     * @param rules Additional rules need to be disabled.
+     */
+    static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
+        return assertQuery(qry)
+                .disableRules(joinType.disabledRules)
+                .disableRules(rules);
+    }
+
+    /**
+     * Used for query with aggregates checks, disables other aggregate rules for executing exact agregate algo.
+     *
+     * @param qry Query for check.
+     * @param aggregateType Type of aggregate algo.
+     * @param rules Additional rules need to be disabled.
+     */
+    static QueryChecker assertQuery(String qry, AggregateType aggregateType, String... rules) {
+        return assertQuery(qry)
+                .disableRules(aggregateType.disabledRules)
+                .disableRules(rules);
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     */
+    protected static Table createTable(String name, int replicas, int partitions) {
+        sql(IgniteStringFormatter.format("CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) "
+                + "WITH replicas={}, partitions={}", name, replicas, partitions));
+
+        return CLUSTER_NODES.get(0).tables().table(name);
+    }
+
+    enum JoinType {
+        NESTED_LOOP(
+                "CorrelatedNestedLoopJoin",
+                "JoinCommuteRule",
+                "MergeJoinConverter"
+        ),
+
+        MERGE(
+                "CorrelatedNestedLoopJoin",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter"
+        ),
+
+        CORRELATED(
+                "MergeJoinConverter",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter"
+        );
+
+        private final String[] disabledRules;
+
+        JoinType(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+    }
+
+    enum AggregateType {
+        SORT(
+                "ColocatedHashAggregateConverterRule",
+                "ColocatedSortAggregateConverterRule",
+                "MapReduceHashAggregateConverterRule"
+        ),
+
+        HASH(
+                "ColocatedHashAggregateConverterRule",
+                "ColocatedSortAggregateConverterRule",
+                "MapReduceSortAggregateConverterRule"
+        );
+
+        private final String[] disabledRules;
+
+        AggregateType(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+    }
+
     protected static void createAndPopulateTable() {
-        sql("CREATE TABLE person (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
+        createTable(DEFAULT_TABLE_NAME, 1, 8);
 
         int idx = 0;
 
@@ -228,14 +362,18 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
         Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
 
+        insertDataInTransaction(tx, tblName, columnNames, tuples);
+
+        tx.commit();
+    }
+
+    protected static void insertDataInTransaction(Transaction tx, String tblName, List<String> columnNames, Object[][] tuples) {
         String insertStmt = "INSERT INTO " + tblName + "(" + String.join(", ", columnNames) + ")"
                 + " VALUES (" + ", ?".repeat(columnNames.size()).substring(2) + ")";
 
         for (Object[] args : tuples) {
             sql(tx, insertStmt, args);
         }
-
-        tx.commit();
     }
 
     protected static void checkData(Table table, String[] columnNames, Object[]... tuples) {
@@ -248,7 +386,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
 
             assert id != null : "Primary key cannot be null";
 
-            Tuple row  = view.get(null, Tuple.create().set(columnNames[0], id));
+            Tuple row = view.get(null, Tuple.create().set(columnNames[0], id));
 
             assertNotNull(row);
 
@@ -301,5 +439,21 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
                     assertEquals(expectedMeta.origin().columnName(), actualMeta.origin().columnName(), " origin column");
                 }
         );
+    }
+
+    protected static void waitForIndex(String indexName) throws InterruptedException {
+        // FIXME: Wait for the index to be created on all nodes,
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the index.
+        assertTrue(waitForCondition(
+                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
+                10_000)
+        );
+    }
+
+    private static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
+        return ((IgniteImpl) node).clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .indexes()
+                .get(indexName.toUpperCase());
     }
 }

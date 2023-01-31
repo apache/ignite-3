@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import org.apache.calcite.plan.RelOptCluster;
@@ -29,48 +30,43 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * SortAggregateConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
+ * and in relation to distribution and additional conditions produce appropriate node, require sorted input.
  */
 public class SortAggregateConverterRule {
-    public static final RelOptRule SINGLE = new SortSingleAggregateConverterRule();
+    public static final RelOptRule COLOCATED = new ColocatedSortAggregateConverterRule();
 
-    public static final RelOptRule MAP_REDUCE = new SortMapReduceAggregateConverterRule();
+    public static final RelOptRule MAP_REDUCE = new MapReduceSortAggregateConverterRule();
 
     private SortAggregateConverterRule() {
         // No-op.
     }
 
-    private static class SortSingleAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        SortSingleAggregateConverterRule() {
-            super(LogicalAggregate.class, "SortSingleAggregateConverterRule");
+    private static class ColocatedSortAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
+        ColocatedSortAggregateConverterRule() {
+            super(LogicalAggregate.class, "ColocatedSortAggregateConverterRule");
         }
 
         /** {@inheritDoc} */
         @Override
-        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
-                LogicalAggregate agg) {
-            // Applicable only for GROUP BY or SELECT DISTINCT
-            if (nullOrEmpty(agg.getGroupSet()) || agg.getGroupSets().size() > 1) {
+        @Nullable
+        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
+            if (HintUtils.isExpandDistinctAggregate(agg) || agg.getGroupSets().size() > 1) {
                 return null;
             }
-
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
-                return null;
-            }
-
-            RelOptCluster cluster = agg.getCluster();
-            RelNode input = agg.getInput();
 
             RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
+
+            RelOptCluster cluster = agg.getCluster();
 
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE)
                     .replace(collation)
@@ -80,10 +76,12 @@ public class SortAggregateConverterRule {
                     .replace(collation)
                     .replace(IgniteDistributions.single());
 
-            return new IgniteSingleSortAggregate(
+            RelNode input = convert(agg.getInput(), inTrait);
+
+            return new IgniteColocatedSortAggregate(
                     cluster,
                     outTrait,
-                    convert(input, inTrait),
+                    input,
                     agg.getGroupSet(),
                     agg.getGroupSets(),
                     agg.getAggCallList()
@@ -91,9 +89,9 @@ public class SortAggregateConverterRule {
         }
     }
 
-    private static class SortMapReduceAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
-        SortMapReduceAggregateConverterRule() {
-            super(LogicalAggregate.class, "SortMapReduceAggregateConverterRule");
+    private static class MapReduceSortAggregateConverterRule extends AbstractIgniteConverterRule<LogicalAggregate> {
+        MapReduceSortAggregateConverterRule() {
+            super(LogicalAggregate.class, "MapReduceSortAggregateConverterRule");
         }
 
         /** {@inheritDoc} */
@@ -105,7 +103,7 @@ public class SortAggregateConverterRule {
                 return null;
             }
 
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
+            if (complexDistinctAgg(agg.getAggCallList()) || HintUtils.isExpandDistinctAggregate(agg)) {
                 return null;
             }
 

@@ -24,13 +24,16 @@ import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cli.IntegrationTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
+import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
+import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
+import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
+import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +57,12 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     @Inject
     private ApplicationContext context;
 
+    @Inject
+    protected NodeNameRegistry nodeNameRegistry;
+
+    @Inject
+    protected JdbcUrlRegistry jdbcUrlRegistry;
+
     private CommandLine cmd;
 
     private StringWriter sout;
@@ -73,17 +82,22 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
     public void setUp(TestInfo testInfo) throws Exception {
         super.setUp(testInfo);
         configManagerProvider.configManager = new IniConfigManager(TestConfigManagerHelper.createIntegrationTests());
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
+                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
+        resetOutput();
+        CommandLineContextProvider.setCmd(cmd);
+    }
+
+    protected void resetOutput() {
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
-        CommandLineContextProvider.setCmd(cmd);
     }
 
     @BeforeAll
-    void beforeAll(TestInfo testInfo) throws ExecutionException, InterruptedException {
+    void beforeAll(TestInfo testInfo) {
         startNodes(testInfo);
     }
 
@@ -98,6 +112,10 @@ public class CliCommandTestNotInitializedIntegrationBase extends IntegrationTest
 
     protected void execute(String... args) {
         exitCode = cmd.execute(args);
+    }
+
+    protected CommandLine commandLine() {
+        return cmd;
     }
 
     protected void assertExitCodeIs(int expectedExitCode) {

@@ -48,6 +48,7 @@ public class ClusterStatusReplCommand extends BaseCommand implements Runnable {
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
+                .verbose(verbose)
                 .print()
                 .start();
     }

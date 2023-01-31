@@ -24,11 +24,14 @@ set(SOURCES
     ignite_client_test.cpp
     ignite_runner_suite.h
     main.cpp
+    record_binary_view_test.cpp
+    sql_test.cpp
     tables_test.cpp
+    transactions_test.cpp
 )
 
 add_executable(${TARGET} ${SOURCES})
-target_link_libraries(${TARGET} ignite-test-common ignite-client GTest::gtest)
+target_link_libraries(${TARGET} ignite-test-common ignite-client GTest::GTest)
 
 set(TEST_TARGET IgniteClientTest)
 add_test(NAME ${TEST_TARGET} COMMAND ${TARGET})

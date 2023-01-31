@@ -17,19 +17,20 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import static org.apache.ignite.raft.jraft.JRaftUtils.addressFromEndpoint;
+import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
-import org.apache.ignite.raft.jraft.util.Endpoint;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -62,10 +63,10 @@ public class IgniteRpcTest extends AbstractRpcTest {
     }
 
     /** {@inheritDoc} */
-    @Override public RpcServer<?> createServer(Endpoint endpoint) {
+    @Override public RpcServer<?> createServer() {
         ClusterService service = ClusterServiceTestUtils.clusterService(
                 testInfo,
-                endpoint.getPort(),
+                INIT_PORT,
                 new StaticNodeFinder(Collections.emptyList())
         );
 
@@ -92,8 +93,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
 
         ClusterService service = ClusterServiceTestUtils.clusterService(
                 testInfo,
-                endpoint.getPort() - i,
-                new StaticNodeFinder(List.of(addressFromEndpoint(endpoint)))
+                INIT_PORT - i,
+                new StaticNodeFinder(List.of(new NetworkAddress(TestUtils.getLocalAddress(), INIT_PORT)))
         );
 
         IgniteRpcClient client = new IgniteRpcClient(service) {

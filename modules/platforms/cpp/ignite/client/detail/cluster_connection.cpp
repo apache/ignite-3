@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-#include "cluster_connection.h"
+#include "ignite/client/detail/cluster_connection.h"
+#include "ignite/client/detail/logger_wrapper.h"
 
-#include <ignite/network/codec.h>
-#include <ignite/network/codec_data_filter.h>
-#include <ignite/network/length_prefix_codec.h>
-#include <ignite/network/network.h>
-#include <ignite/protocol/writer.h>
+#include "ignite/network/codec.h"
+#include "ignite/network/codec_data_filter.h"
+#include "ignite/network/length_prefix_codec.h"
+#include "ignite/network/network.h"
+#include "ignite/protocol/writer.h"
 
 #include <iterator>
 
@@ -30,7 +31,7 @@ namespace ignite::detail {
 cluster_connection::cluster_connection(ignite_client_configuration configuration)
     : m_configuration(std::move(configuration))
     , m_pool()
-    , m_logger(m_configuration.get_logger())
+    , m_logger(std::make_shared<logger_wrapper>(m_configuration.get_logger()))
     , m_generator(std::random_device()()) {
 }
 
@@ -75,7 +76,7 @@ void cluster_connection::on_connection_success(const network::end_point &addr, u
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
-    auto connection = std::make_shared<node_connection>(id, m_pool, m_logger);
+    auto connection = node_connection::make_new(id, m_pool, m_logger);
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
@@ -113,7 +114,8 @@ void cluster_connection::on_connection_closed(uint64_t id, std::optional<ignite_
 }
 
 void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
-    m_logger->log_debug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Message on Connection ID " + std::to_string(id) + ", size: " + std::to_string(msg.size()));
 
     std::shared_ptr<node_connection> connection = find_client(id);
     if (!connection)
@@ -125,10 +127,23 @@ void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
     }
 
     auto res = connection->process_handshake_rsp(msg);
-    if (res.has_error())
+    if (res.has_error()) {
+        initial_connect_result(std::move(res));
         remove_client(connection->id());
+        return;
+    }
 
-    initial_connect_result(std::move(res));
+    auto &context = connection->get_protocol_context();
+    initial_connect_result(context);
+
+    if (context.get_cluster_id() != m_cluster_id) {
+        std::stringstream message;
+        message << "Node from unknown cluster: current_cluster_id=" << m_cluster_id
+                << ", node_cluster_id=" << context.get_cluster_id();
+
+        m_logger->log_warning(message.str());
+        remove_client(connection->id());
+    }
 }
 
 std::shared_ptr<node_connection> cluster_connection::find_client(uint64_t id) {
@@ -142,7 +157,8 @@ std::shared_ptr<node_connection> cluster_connection::find_client(uint64_t id) {
 }
 
 void cluster_connection::on_message_sent(uint64_t id) {
-    m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
 }
 
 void cluster_connection::remove_client(uint64_t id) {
@@ -158,6 +174,17 @@ void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
         return;
 
     m_on_initial_connect(std::move(res));
+    m_on_initial_connect = {};
+}
+
+void cluster_connection::initial_connect_result(const protocol_context &context) {
+    [[maybe_unused]] std::lock_guard<std::mutex> lock(m_on_initial_connect_mutex);
+
+    if (!m_on_initial_connect)
+        return;
+
+    m_cluster_id = context.get_cluster_id();
+    m_on_initial_connect({});
     m_on_initial_connect = {};
 }
 

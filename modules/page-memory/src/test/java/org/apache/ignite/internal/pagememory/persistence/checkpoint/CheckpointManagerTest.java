@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -38,6 +39,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -54,6 +57,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.invocation.InvocationOnMock;
 
 /**
  * For {@link CheckpointManager} testing.
@@ -152,12 +156,19 @@ public class CheckpointManagerTest {
 
         FilePageStore filePageStore = mock(FilePageStore.class);
 
+        AtomicReference<FilePageStore> filePageStoreRef = new AtomicReference<>(filePageStore);
+
         when(filePageStore.getOrCreateNewDeltaFile(any(IntFunction.class), any(Supplier.class)))
                 .thenReturn(completedFuture(deltaFilePageStoreIo));
 
+        doAnswer(InvocationOnMock::callRealMethod).when(filePageStore).markToDestroy();
+
+        when(filePageStore.isMarkedToDestroy()).then(InvocationOnMock::callRealMethod);
+
         FullPageId dirtyPageId = new FullPageId(pageId(0, (byte) 0, 1), 0);
 
-        when(filePageStoreManager.getStore(eq(dirtyPageId.groupId()), eq(dirtyPageId.partitionId()))).thenReturn(filePageStore);
+        when(filePageStoreManager.getStore(eq(new GroupPartitionId(dirtyPageId.groupId(), dirtyPageId.partitionId()))))
+                .then(answer -> filePageStoreRef.get());
 
         CheckpointManager checkpointManager = spy(new CheckpointManager(
                 "test",

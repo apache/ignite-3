@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import static java.lang.Thread.sleep;
+import static java.util.stream.Collectors.toSet;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -34,26 +33,23 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
  */
-public class CmgRaftService {
+public class CmgRaftService implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
-
-    /**
-     * Number of attempts when trying to resolve a {@link Peer} into a {@link ClusterNode}.
-     */
-    private static final int MAX_RESOLVE_ATTEMPTS = 5;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -61,9 +57,15 @@ public class CmgRaftService {
 
     private final ClusterService clusterService;
 
-    public CmgRaftService(RaftGroupService raftService, ClusterService clusterService) {
+    private final LogicalTopology logicalTopology;
+
+    /**
+     * Creates a new instance.
+     */
+    public CmgRaftService(RaftGroupService raftService, ClusterService clusterService, LogicalTopology logicalTopology) {
         this.raftService = raftService;
         this.clusterService = clusterService;
+        this.logicalTopology = logicalTopology;
     }
 
     /**
@@ -72,13 +74,15 @@ public class CmgRaftService {
      * @return {@code true} if the current node is the CMG leader.
      */
     public CompletableFuture<Boolean> isCurrentNodeLeader() {
-        ClusterNode thisNode = clusterService.topologyService().localMember();
+        Peer leader = raftService.leader();
 
-        return leader().thenApply(thisNode::equals);
-    }
+        if (leader == null) {
+            return raftService.refreshLeader().thenCompose(v -> isCurrentNodeLeader());
+        } else {
+            String nodeName = clusterService.topologyService().localMember().name();
 
-    private CompletableFuture<ClusterNode> leader() {
-        return raftService.refreshLeader().thenApply(v -> resolvePeer(raftService.leader()));
+            return CompletableFuture.completedFuture(leader.consistentId().equals(nodeName));
+        }
     }
 
     /**
@@ -172,27 +176,27 @@ public class CmgRaftService {
      */
     public CompletableFuture<Void> removeFromCluster(Set<ClusterNode> nodes) {
         NodesLeaveCommand command = msgFactory.nodesLeaveCommand()
-                .nodes(nodes.stream().map(this::nodeMessage).collect(Collectors.toSet()))
+                .nodes(nodes.stream().map(this::nodeMessage).collect(toSet()))
                 .build();
 
         return raftService.run(command);
     }
 
     /**
-     * Retrieves the logical topology.
+     * Retrieves the logical topology snapshot.
      *
-     * @return Logical topology.
+     * @return Logical topology snapshot.
      */
-    public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
+    public CompletableFuture<LogicalTopologySnapshot> logicalTopology() {
         return raftService.run(msgFactory.readLogicalTopologyCommand().build())
                 .thenApply(LogicalTopologyResponse.class::cast)
                 .thenApply(LogicalTopologyResponse::logicalTopology);
     }
 
     /**
-     * Returns a list of consistent IDs of the voting nodes of the CMG.
+     * Returns a set of consistent IDs of the voting nodes of the CMG.
      *
-     * @return List of consistent IDs of the voting nodes of the CMG.
+     * @return Set of consistent IDs of the voting nodes of the CMG.
      */
     public Set<String> nodeNames() {
         List<Peer> peers = raftService.peers();
@@ -200,36 +204,8 @@ public class CmgRaftService {
         assert peers != null;
 
         return peers.stream()
-                .map(this::resolvePeer)
-                .map(ClusterNode::name)
-                .collect(Collectors.toSet());
-    }
-
-    /**
-     * Converts a {@link Peer} into a {@link ClusterNode}.
-     *
-     * <p>This method tries to resolve the given {@code peer} multiple times, because it might be offline temporarily.
-     */
-    private ClusterNode resolvePeer(Peer peer) {
-        NetworkAddress addr = peer.address();
-
-        for (int i = 0; i < MAX_RESOLVE_ATTEMPTS; i++) {
-            ClusterNode node = clusterService.topologyService().getByAddress(addr);
-
-            if (node != null) {
-                return node;
-            }
-
-            LOG.debug("Unable to resolve Raft peer, address {} is unavailable. Remaining attempts: {}", addr, MAX_RESOLVE_ATTEMPTS - i);
-
-            try {
-                sleep(100);
-            } catch (InterruptedException e) {
-                throw new IgniteInternalException("Interrupted while resolving CMG node address", e);
-            }
-        }
-
-        throw new IgniteInternalException(String.format("Node %s is not present in the physical topology", addr));
+                .map(Peer::consistentId)
+                .collect(toSet());
     }
 
     private ClusterNodeMessage nodeMessage(ClusterNode node) {
@@ -239,5 +215,30 @@ public class CmgRaftService {
                 .host(node.address().host())
                 .port(node.address().port())
                 .build();
+    }
+
+    /**
+     * Issues {@code changePeersAsync} request with same peers; learners are recalculated based on the current peers (which is same as
+     * CMG nodes) and known logical topology. Any node in the logical topology that is not a CMG node constitutes a learner.
+     *
+     * @param term RAFT term in which we operate (used to avoid races when changing peers/learners).
+     * @return Future that completes when the request is processed.
+     */
+    public CompletableFuture<Void> updateLearners(long term) {
+        Set<String> currentPeers = nodeNames();
+
+        Set<String> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
+                .map(ClusterNode::name)
+                .filter(name -> !currentPeers.contains(name))
+                .collect(toSet());
+
+        PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(currentPeers, newLearners);
+
+        return raftService.changePeersAsync(newConfiguration, term);
+    }
+
+    @Override
+    public void close() {
+        raftService.shutdown();
     }
 }

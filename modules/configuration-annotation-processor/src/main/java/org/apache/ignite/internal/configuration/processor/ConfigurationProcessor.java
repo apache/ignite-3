@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
+import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
@@ -55,6 +56,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -90,6 +92,7 @@ import org.jetbrains.annotations.Nullable;
  * Annotation processor that produces configuration classes.
  */
 // TODO: IGNITE-17166 Split into classes/methods for regular/internal/polymorphic/abstract configuration
+@AutoService(Processor.class)
 public class ConfigurationProcessor extends AbstractProcessor {
     /** Java file padding. */
     private static final String INDENT = "    ";
@@ -515,6 +518,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
             }
 
             changeClsBuilder.addMethod(changeMtdBuilder.build());
+
+            // Create "FooChange changeFoo()" method with no parameters, if it's a config value or named list value.
+            if (valAnnotation == null) {
+                MethodSpec.Builder shortChangeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
+                        .addModifiers(PUBLIC, ABSTRACT)
+                        .returns(changeFieldType);
+
+                changeClsBuilder.addMethod(shortChangeMtdBuilder.build());
+            }
         }
 
         if (isPolymorphicConfig) {

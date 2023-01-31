@@ -34,6 +34,8 @@ import org.apache.ignite.raft.jraft.entity.EnumOutter.ErrorType;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
@@ -44,7 +46,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,8 +79,6 @@ public class FSMCallerTest {
 
     private PendingComparableValuesTracker<HybridTimestamp> safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
-    private SafeTimeCandidateManager safeTimeCandidateManager = new SafeTimeCandidateManager(safeTimeTracker);
-
     @BeforeEach
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
@@ -90,18 +89,17 @@ public class FSMCallerTest {
         opts = new FSMCallerOptions();
         Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getOptions()).thenReturn(options);
+        Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("foo", new PeerId("bar")));
         opts.setNode(this.node);
         opts.setFsm(this.fsm);
         opts.setLogManager(this.logManager);
         opts.setBootstrapId(new LogId(10, 1));
         opts.setClosureQueue(this.closureQueue);
         opts.setRaftMessagesFactory(new RaftMessagesFactory());
-        opts.setGroupId("TestSrv");
         opts.setfSMCallerExecutorDisruptor(disruptor = new StripedDisruptor<>("TestFSMDisruptor",
             1024,
             () -> new FSMCallerImpl.ApplyTask(),
             1));
-        opts.setSafeTimeCandidateManager(safeTimeCandidateManager);
         assertTrue(this.fsmCaller.init(opts));
     }
 
@@ -139,7 +137,6 @@ public class FSMCallerTest {
 
     @Test
     public void testOnCommitted() throws Exception {
-        safeTimeCandidateManager.addSafeTimeCandidate(11, 1, new HybridTimestamp(1, 1));
         final LogEntry log = new LogEntry(EntryType.ENTRY_TYPE_DATA);
         log.getId().setIndex(11);
         log.getId().setTerm(1);

@@ -111,7 +111,7 @@ public class InteropOperationsTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        INT_TABLE = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS));
+        INT_TABLE = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), SCHEMA);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 

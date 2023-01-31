@@ -31,19 +31,29 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
     /** Metrics provider. */
     private MetricProvider metricsProvider;
 
-    protected CfgT configuration;
+    /** Exporter's configuration view. */
+    private CfgT configuration;
 
     /** {@inheritDoc} */
     @Override
-    public void init(MetricProvider metricsProvider, CfgT configuration) {
+    public void start(MetricProvider metricsProvider, CfgT configuration) {
         this.metricsProvider = metricsProvider;
         this.configuration = configuration;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void reconfigure(@Nullable CfgT newValue) {
-        configuration = newValue;
+    public synchronized void reconfigure(@Nullable CfgT newVal) {
+        configuration = newVal;
+    }
+
+    /**
+     * Returns current exporter configuration.
+     *
+     * @return Current exporter configuration
+     */
+    protected synchronized CfgT configuration() {
+        return configuration;
     }
 
     /**

@@ -18,16 +18,26 @@
 package org.apache.ignite.internal.cluster.management;
 
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -74,18 +84,46 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        Loza raftManager = new Loza(clusterService, null, workDir, new HybridClockImpl());
+        RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
+        ConfigurationValue<Integer> rpcInstallSnapshotTimeoutValue = mock(ConfigurationValue.class);
+
+        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeoutValue);
+        when(rpcInstallSnapshotTimeoutValue.value()).thenReturn(10);
+
+        ClusterManagementConfiguration clusterManagementConfiguration = mock(ClusterManagementConfiguration.class);
+        ConfigurationValue<Long> failoverTimeoutValue = mock(ConfigurationValue.class);
+        ConfigurationValue<Long> networkInvokeTimeoutValue = mock(ConfigurationValue.class);
+        ConfigurationValue<Long> incompleteJoinTimeoutValue = mock(ConfigurationValue.class);
+
+        when(clusterManagementConfiguration.failoverTimeout())
+                .thenReturn(failoverTimeoutValue);
+        when(failoverTimeoutValue.value()).thenReturn(0L);
+
+        when(clusterManagementConfiguration.networkInvokeTimeout()).thenReturn(networkInvokeTimeoutValue);
+        when(networkInvokeTimeoutValue.value()).thenReturn(500L);
+
+        when(clusterManagementConfiguration.incompleteJoinTimeout()).thenReturn(incompleteJoinTimeoutValue);
+        when(incompleteJoinTimeoutValue.value()).thenReturn(TimeUnit.HOURS.toMillis(1));
+
+        Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+
+        var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"));
+
+        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
                 raftManager,
-                new RocksDbClusterStateStorage(workDir.resolve("cmg"))
+                clusterStateStorage,
+                logicalTopologyService,
+                clusterManagementConfiguration
         );
 
         components.add(vaultManager);
         components.add(clusterService);
         components.add(raftManager);
+        components.add(clusterStateStorage);
         components.add(clusterManager);
     }
 
@@ -163,5 +201,9 @@ public class MockNode {
 
     public ClusterService clusterService() {
         return clusterService;
+    }
+
+    CompletableFuture<Collection<ClusterNode>> logicalTopologyNodes() {
+        return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 }

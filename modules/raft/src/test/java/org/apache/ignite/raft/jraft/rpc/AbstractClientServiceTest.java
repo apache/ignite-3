@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -30,7 +31,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.PingRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +61,7 @@ public class AbstractClientServiceTest {
     @Mock
     private RpcClient rpcClient;
     private RpcResponseFactory rpcResponseFactory = RaftRpcFactory.DEFAULT;
-    private final Endpoint endpoint = new Endpoint("localhost", 8081);
+    private final PeerId endpoint = new PeerId("test");
     private ExecutorService clientExecutor;
 
     @BeforeEach

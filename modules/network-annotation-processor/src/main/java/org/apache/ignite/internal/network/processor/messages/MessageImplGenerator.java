@@ -93,7 +93,7 @@ public class MessageImplGenerator {
         ClassName messageImplClassName = message.implClassName();
 
         processingEnv.getMessager()
-                .printMessage(Diagnostic.Kind.NOTE, "Generating " + messageImplClassName, message.element());
+                .printMessage(Diagnostic.Kind.NOTE, "Generating " + messageImplClassName);
 
         List<ExecutableElement> getters = message.getters();
 
@@ -234,7 +234,7 @@ public class MessageImplGenerator {
                 return Optional.of(MaybeMessageType.OBJECT_ARRAY);
             }
         } else if (parameterType.getKind() == TypeKind.DECLARED) {
-            if (typeUtils.isSameType(parameterType, Collection.class)) {
+            if (typeUtils.isSubType(parameterType, Collection.class)) {
                 return Optional.of(MaybeMessageType.COLLECTION);
             } else if (typeUtils.isSameType(parameterType, Map.class)) {
                 return Optional.of(MaybeMessageType.MAP);

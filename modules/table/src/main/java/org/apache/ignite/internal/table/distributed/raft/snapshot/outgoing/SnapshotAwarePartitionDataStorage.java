@@ -20,10 +20,10 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lock.AutoLockup;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -60,10 +60,21 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public AutoLockup acquirePartitionSnapshotsReadLock() {
-        PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
+    public void acquirePartitionSnapshotsReadLock() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
-        return partitionSnapshots.acquireReadLock();
+        partitionSnapshots.acquireReadLock();
+    }
+
+    @Override
+    public void releasePartitionSnapshotsReadLock() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.releaseReadLock();
+    }
+
+    private PartitionSnapshots getPartitionSnapshots() {
+        return partitionsSnapshots.partitionSnapshots(partitionKey);
     }
 
     @Override
@@ -77,12 +88,27 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void lastAppliedIndex(long lastAppliedIndex) throws StorageException {
-        partitionStorage.lastAppliedIndex(lastAppliedIndex);
+    public long lastAppliedTerm() {
+        return partitionStorage.lastAppliedTerm();
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId,
+    public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
+        partitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+    }
+
+    @Override
+    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+        return partitionStorage.committedGroupConfiguration();
+    }
+
+    @Override
+    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+        partitionStorage.committedGroupConfiguration(config);
+    }
+
+    @Override
+    public @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
         handleSnapshotInterference(rowId);
 
@@ -90,7 +116,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+    public @Nullable TableRow abortWrite(RowId rowId) throws StorageException {
         handleSnapshotInterference(rowId);
 
         return partitionStorage.abortWrite(rowId);
@@ -104,10 +130,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     private void handleSnapshotInterference(RowId rowId) {
-        PartitionSnapshots partitionSnapshots = partitionsSnapshots.partitionSnapshots(partitionKey);
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
-            try (AutoLockup ignored = snapshot.acquireMvLock()) {
+            snapshot.acquireMvLock();
+
+            try {
                 if (snapshot.alreadyPassed(rowId)) {
                     continue;
                 }
@@ -117,15 +145,31 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
                 }
 
                 snapshot.enqueueForSending(rowId);
+            } finally {
+                snapshot.releaseMvLock();
             }
         }
     }
 
     @Override
-    public void close() throws Exception {
-        // TODO: IGNITE-17935 - terminate all snapshots of this partition considering correct locking to do it consistently
+    public void close() {
+        cleanupSnapshots();
 
         partitionStorage.close();
+    }
+
+    private void cleanupSnapshots() {
+        PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
+
+        partitionSnapshots.acquireReadLock();
+
+        try {
+            partitionSnapshots.ongoingSnapshots().forEach(snapshot -> partitionsSnapshots.finishOutgoingSnapshot(snapshot.id()));
+
+            partitionsSnapshots.removeSnapshots(partitionKey);
+        } finally {
+            partitionSnapshots.releaseReadLock();
+        }
     }
 
     @Override

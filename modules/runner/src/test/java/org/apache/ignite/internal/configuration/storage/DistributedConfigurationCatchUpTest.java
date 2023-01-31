@@ -21,11 +21,13 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
@@ -35,13 +37,12 @@ import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.EntryEvent;
-import org.apache.ignite.internal.metastorage.client.EntryImpl;
-import org.apache.ignite.internal.metastorage.client.Operation;
-import org.apache.ignite.internal.metastorage.client.WatchEvent;
-import org.apache.ignite.internal.metastorage.client.WatchListener;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -94,8 +95,10 @@ public class DistributedConfigurationCatchUpTest {
 
         MetaStorageMockWrapper wrapper = new MetaStorageMockWrapper();
 
-        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+        DistributedConfigurationStorage storage = storage(wrapper);
+
+        try {
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             try {
@@ -112,16 +115,21 @@ public class DistributedConfigurationCatchUpTest {
             } finally {
                 changer.stop();
             }
+        } finally {
+            storage.close();
         }
 
         // Put a value to the configuration, so we start on non-empty vault.
         vaultManager.put(MetaStorageMockWrapper.TEST_KEY, new byte[]{4, 1, 2, 3, 4}).get();
 
         // This emulates a change in MetaStorage that is not related to the configuration.
-        vaultManager.put(MetaStorageManager.APPLIED_REV, ByteUtils.longToBytes(2)).get();
+        when(wrapper.mock.appliedRevision()).thenReturn(1L);
 
-        try (var storage = new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager)) {
-            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Collections.emptyMap(),
+        storage = storage(wrapper);
+
+        try {
+
+            var changer = new TestConfigurationChanger(cgen, List.of(rootKey), Set.of(),
                     storage, Collections.emptyList(), Collections.emptyList());
 
             try {
@@ -135,7 +143,13 @@ public class DistributedConfigurationCatchUpTest {
             } finally {
                 changer.stop();
             }
+        } finally {
+            storage.close();
         }
+    }
+
+    private DistributedConfigurationStorage storage(MetaStorageMockWrapper wrapper) {
+        return new DistributedConfigurationStorage(wrapper.metaStorageManager(), vaultManager);
     }
 
     /**
@@ -170,38 +184,34 @@ public class DistributedConfigurationCatchUpTest {
         private void setup() {
             // Returns current master key revision.
             when(mock.get(MASTER_KEY)).then(invocation -> {
-                return CompletableFuture.completedFuture(new EntryImpl(MASTER_KEY, null, masterKeyRevision, -1));
+                return CompletableFuture.completedFuture(new EntryImpl(MASTER_KEY.bytes(), null, masterKeyRevision, -1));
             });
 
             // On any invocation - trigger storage listener.
             when(mock.invoke(any(), anyCollection(), any()))
-                    .then(invocation -> {
-                        triggerStorageListener();
-
-                        return CompletableFuture.completedFuture(true);
-                    });
+                    .then(invocation -> triggerStorageListener());
 
             when(mock.invoke(any(), any(Operation.class), any()))
-                    .then(invocation -> {
-                        triggerStorageListener();
-
-                        return CompletableFuture.completedFuture(true);
-                    });
+                    .then(invocation -> triggerStorageListener());
 
             // This captures the listener.
-            when(mock.registerWatchByPrefix(any(), any())).then(invocation -> {
+            doAnswer(invocation -> {
                 lsnr = invocation.getArgument(1);
 
-                return CompletableFuture.completedFuture(null);
-            });
+                return null;
+            }).when(mock).registerPrefixWatch(any(), any());
         }
 
         /**
          * Triggers MetaStorage listener incrementing master key revision.
          */
-        private void triggerStorageListener() {
-            EntryEvent entryEvent = new EntryEvent(null, new EntryImpl(MASTER_KEY, null, ++masterKeyRevision, -1));
-            lsnr.onUpdate(new WatchEvent(entryEvent));
+        private CompletableFuture<Boolean> triggerStorageListener() {
+            return CompletableFuture.supplyAsync(() -> {
+                EntryEvent entryEvent = new EntryEvent(null, new EntryImpl(MASTER_KEY.bytes(), null, ++masterKeyRevision, -1));
+                lsnr.onUpdate(new WatchEvent(entryEvent));
+
+                return true;
+            });
         }
 
         private MetaStorageManager metaStorageManager() {

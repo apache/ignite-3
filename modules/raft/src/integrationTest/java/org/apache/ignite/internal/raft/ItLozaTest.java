@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,13 +32,15 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -49,8 +50,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -77,17 +76,16 @@ public class ItLozaTest {
      * @return Raft group service.
      */
     private RaftGroupService startClient(TestReplicationGroupId groupId, ClusterNode node, Loza loza) throws Exception {
-        Supplier<RaftGroupListener> raftGroupListenerSupplier = () -> {
-            RaftGroupListener raftGroupListener = mock(RaftGroupListener.class);
+        RaftGroupListener raftGroupListener = mock(RaftGroupListener.class);
 
-            when(raftGroupListener.onSnapshotLoad(any())).thenReturn(true);
+        when(raftGroupListener.onSnapshotLoad(any())).thenReturn(true);
 
-            return raftGroupListener;
-        };
+        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(Set.of(node.name()));
 
-        return loza.prepareRaftGroup(groupId,
-                List.of(node), raftGroupListenerSupplier, defaults()
-        ).get(10, TimeUnit.SECONDS);
+        var nodeId = new RaftNodeId(groupId, configuration.peer(node.name()));
+
+        return loza.startRaftGroupNode(nodeId, configuration, raftGroupListener, RaftGroupEventsListener.noopLsnr)
+                .get(10, TimeUnit.SECONDS);
     }
 
     /**
@@ -141,18 +139,18 @@ public class ItLozaTest {
                         })
                         // finally call the real method
                         .doCallRealMethod()
-                        .when(messagingServiceMock).invoke(any(NetworkAddress.class), any(), anyLong());
+                        .when(messagingServiceMock).invoke(any(ClusterNode.class), any(), anyLong());
 
                 grpSrvcs[i] = startClient(new TestReplicationGroupId(Integer.toString(i)), service.topologyService().localMember(), loza);
 
                 verify(messagingServiceMock, times(3 * (i + 1)))
-                        .invoke(any(NetworkAddress.class), any(), anyLong());
+                        .invoke(any(ClusterNode.class), any(), anyLong());
             }
         } finally {
             for (RaftGroupService srvc : grpSrvcs) {
                 srvc.shutdown();
 
-                loza.stopRaftGroup(srvc.groupId());
+                loza.stopRaftNodes(srvc.groupId());
             }
 
             if (loza != null) {

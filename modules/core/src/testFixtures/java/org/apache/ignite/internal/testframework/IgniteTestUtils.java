@@ -31,12 +31,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -53,7 +58,7 @@ import org.junit.jupiter.api.TestInfo;
 public final class IgniteTestUtils {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteTestUtils.class);
 
-    private static final int TIMEOUT_SEC = 5000;
+    private static final int TIMEOUT_SEC = 30;
 
     /**
      * Set object field value via reflection.
@@ -298,29 +303,27 @@ public final class IgniteTestUtils {
      *
      * @param t   Throwable to check.
      * @param cls Cause classes to check.
-     * @param msg Message text that should be in cause (if {@code null}, message won't be checked).
+     * @param messageFragment Fragment that must be a substring of a cause message (if {@code null}, message won't be checked).
      * @return {@code True} if one of the causing exception is an instance of passed in classes, {@code false} otherwise.
      */
     public static boolean hasCause(
             @NotNull Throwable t,
             @NotNull Class<?> cls,
-            @Nullable String msg
+            @Nullable String messageFragment
     ) {
         for (Throwable th = t; th != null; th = th.getCause()) {
             if (cls.isAssignableFrom(th.getClass())) {
-                if (msg != null) {
-                    if (th.getMessage() != null && th.getMessage().contains(msg)) {
-                        return true;
-                    } else {
-                        continue;
-                    }
+                if (messageFragment == null) {
+                    return true;
                 }
 
-                return true;
+                if (th.getMessage() != null && th.getMessage().contains(messageFragment)) {
+                    return true;
+                }
             }
 
             for (Throwable n : th.getSuppressed()) {
-                if (hasCause(n, cls, msg)) {
+                if (hasCause(n, cls, messageFragment)) {
                     return true;
                 }
             }
@@ -767,5 +770,60 @@ public final class IgniteTestUtils {
     @SuppressWarnings("UnusedReturnValue")
     public static <T> T await(CompletionStage<T> stage) {
         return await(stage, TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+
+    /**
+     * {@link #runRace(long, RunnableX...)} with default timeout of 10 seconds.
+     */
+    public static void runRace(RunnableX... actions) {
+        runRace(TimeUnit.SECONDS.toMillis(10), actions);
+    }
+
+    /**
+     * Runs all actions, each in a separate thread, having a {@link CyclicBarrier} before calling {@link RunnableX#run()}.
+     * Waits for threads completion or fails with the assertion if timeout exceeded.
+     *
+     * @throws AssertionError In case of timeout or if any of the runnables thrown an exception.
+     */
+    public static void runRace(long timeoutMillis, RunnableX... actions) {
+        int length = actions.length;
+
+        CyclicBarrier barrier = new CyclicBarrier(length);
+
+        Set<Throwable> throwables = ConcurrentHashMap.newKeySet();
+
+        Thread[] threads = IntStream.range(0, length).mapToObj(i -> new Thread(() -> {
+            try {
+                barrier.await();
+
+                actions[i].run();
+            } catch (Throwable e) {
+                throwables.add(e);
+            }
+        })).toArray(Thread[]::new);
+
+        Stream.of(threads).forEach(Thread::start);
+
+        try {
+            for (Thread thread : threads) {
+                thread.join(timeoutMillis);
+            }
+        } catch (InterruptedException e) {
+            for (Thread thread : threads) {
+                thread.interrupt();
+            }
+
+            fail("Race operations took too long.");
+        }
+
+        if (!throwables.isEmpty()) {
+            AssertionError assertionError = new AssertionError("One or several threads have failed.");
+
+            for (Throwable throwable : throwables) {
+                assertionError.addSuppressed(throwable);
+            }
+
+            throw assertionError;
+        }
     }
 }

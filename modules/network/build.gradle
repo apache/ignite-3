@@ -33,41 +33,53 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.netty.handler
     implementation libs.netty.transport
+    implementation libs.jackson.core
+    implementation libs.jackson.databind
+    implementation libs.auto.service.annotations
+
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor project(":ignite-network-annotation-processor")
-    annotationProcessor libs.jmh.annotation.processor
+    annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(":ignite-network-annotation-processor")
+    testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-network-annotation-processor')
     testImplementation libs.jmh.core
-    testImplementation libs.jmh.annotation.processor
-    testImplementation libs.kryo
+    testImplementation(libs.kryo) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.javapoet
-    testImplementation libs.classgraph
     testImplementation libs.slf4j.jdk14
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
 
+    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation libs.classgraph
+    testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
-    testFixturesImplementation libs.junit5.api
 
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
 
+    integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
     integrationTestImplementation project(':ignite-network-annotation-processor')
+    integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation libs.compileTesting
+    integrationTestImplementation libs.netty.handler
+    integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
     integrationTestImplementation libs.classgraph
 }

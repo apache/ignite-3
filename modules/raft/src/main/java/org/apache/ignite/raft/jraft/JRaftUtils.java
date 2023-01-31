@@ -33,7 +33,6 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -221,16 +220,6 @@ public final class JRaftUtils {
             return peer;
         }
         throw new IllegalArgumentException("Invalid peer str:" + s);
-    }
-
-    /**
-     * Creates a {@link NetworkAddress} from an {@link Endpoint}.
-     *
-     * @param endpoint Endpoint.
-     * @return Network address.
-     */
-    public static NetworkAddress addressFromEndpoint(Endpoint endpoint) {
-        return new NetworkAddress(endpoint.getIp(), endpoint.getPort());
     }
 
     private JRaftUtils() {

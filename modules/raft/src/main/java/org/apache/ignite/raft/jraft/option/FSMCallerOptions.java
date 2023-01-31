@@ -25,15 +25,11 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.storage.LogManager;
-import org.apache.ignite.raft.jraft.util.SafeTimeCandidateManager;
 
 /**
  * FSM caller options.
  */
 public class FSMCallerOptions {
-    /** Raft group id. */
-    private String groupId;
-
     private LogManager logManager;
     private StateMachine fsm;
     private Closure afterShutdown;
@@ -42,15 +38,6 @@ public class FSMCallerOptions {
     private NodeImpl node;
     private RaftMessagesFactory raftMessagesFactory;
     private StripedDisruptor<FSMCallerImpl.ApplyTask> fSMCallerExecutorDisruptor;
-    private SafeTimeCandidateManager safeTimeCandidateManager;
-
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public void setGroupId(String groupId) {
-        this.groupId = groupId;
-    }
 
     public StripedDisruptor<FSMCallerImpl.ApplyTask> getfSMCallerExecutorDisruptor() {
         return fSMCallerExecutorDisruptor;
@@ -116,13 +103,5 @@ public class FSMCallerOptions {
 
     public void setRaftMessagesFactory(RaftMessagesFactory raftMessagesFactory) {
         this.raftMessagesFactory = raftMessagesFactory;
-    }
-
-    public SafeTimeCandidateManager getSafeTimeCandidateManager() {
-        return safeTimeCandidateManager;
-    }
-
-    public void setSafeTimeCandidateManager(SafeTimeCandidateManager safeTimeCandidateManager) {
-        this.safeTimeCandidateManager = safeTimeCandidateManager;
     }
 }

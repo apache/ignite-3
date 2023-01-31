@@ -45,6 +45,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,6 +60,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -806,6 +808,26 @@ public class ConfigurationUtilTest {
         assertEquals(List.of(), removeLastKey(List.of()));
         assertEquals(List.of(), removeLastKey(List.of("0")));
         assertEquals(List.of("0"), removeLastKey(List.of("0", "1")));
+    }
+
+    /**
+     * Tests that {@link ConfigurationUtil#addDefaults} copies the tree when adding default values.
+     */
+    @Test
+    void testAddDefaultsPurity() {
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange) parentNode;
+
+        parentChange.changeElements(elements -> elements.create("name", element -> {}));
+
+        NamedListView<?> beforeDefaults = parentChange.elements();
+
+        addDefaults(parentNode);
+
+        NamedListView<?> afterDefaults = parentChange.elements();
+
+        assertNotSame(afterDefaults, beforeDefaults);
     }
 
     /**

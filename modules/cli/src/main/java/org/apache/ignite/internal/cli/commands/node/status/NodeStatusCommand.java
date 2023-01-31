@@ -48,6 +48,7 @@ public class NodeStatusCommand extends BaseCommand implements Callable<Integer> 
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new NodeStatusDecorator())
+                .verbose(verbose)
                 .build()
                 .runPipeline();
     }

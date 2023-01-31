@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Generators
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Reflection;
@@ -38,11 +39,18 @@ namespace Apache.Ignite.Internal.Generators
         {
             var javaModulesDirectory = context.GetJavaModulesDirectory();
 
+            var exclude = new[]
+            {
+                "internal",
+                string.Format(CultureInfo.InvariantCulture, "{0}build{0}", Path.DirectorySeparatorChar), // Gradle
+                Path.Combine("modules", "cli")
+            };
+
             var javaExceptionsWithParents = Directory.EnumerateFiles(
                     javaModulesDirectory,
                     "*Exception.java",
                     SearchOption.AllDirectories)
-                .Where(x => !x.Contains("internal"))
+                .Where(x => !exclude.Any(x.Contains))
                 .Select(File.ReadAllText)
                 .Select(x => (
                     Class: Regex.Match(x, @"public class (\w+) extends (\w+)"),

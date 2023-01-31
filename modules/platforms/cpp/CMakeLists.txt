@@ -53,6 +53,7 @@ option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 
 # Turn on DLL export directives.
 add_definitions(-DIGNITE_IMPL)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if (MSVC)
     add_compile_options(/source-charset:utf-8 /execution-charset:utf-8)

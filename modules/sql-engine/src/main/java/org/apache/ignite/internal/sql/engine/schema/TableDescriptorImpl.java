@@ -34,10 +34,10 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TableDescriptorImpl.
@@ -54,13 +54,17 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     private final ImmutableBitSet keyFields;
 
+    private final IgniteDistribution distribution;
+
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param columnDescriptors Column descriptors.
+     * @param distribution Distribution specification.
      */
-    public TableDescriptorImpl(
-            List<ColumnDescriptor> columnDescriptors
-    ) {
+    public TableDescriptorImpl(List<ColumnDescriptor> columnDescriptors, IgniteDistribution distribution) {
+        this.distribution = distribution;
+
         ImmutableBitSet.Builder keyFieldsBuilder = ImmutableBitSet.builder();
 
         Map<String, ColumnDescriptor> descriptorsMap = new HashMap<>(columnDescriptors.size());
@@ -126,7 +130,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public IgniteDistribution distribution() {
-        return IgniteDistributions.random();
+        return distribution;
     }
 
     /** {@inheritDoc} */
@@ -174,7 +178,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
+    public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns) {
         RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(factory);
 
         if (usedColumns == null) {

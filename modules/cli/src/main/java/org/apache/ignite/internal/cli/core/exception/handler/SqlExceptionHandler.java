@@ -102,16 +102,16 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
             case SqlStateCode.CONNECTION_FAILURE:
             case SqlStateCode.CONNECTION_CLOSED:
             case SqlStateCode.CONNECTION_REJECTED:
-                errorComponentBuilder.header(CONNECTION_BROKE_MESSAGE);
+                errorComponentBuilder.header(CONNECTION_BROKE_MESSAGE).verbose(ErrorGroup.extractCauseMessage(e.getMessage()));
                 break;
             case SqlStateCode.PARSING_EXCEPTION:
                 errorComponentBuilder.header(PARSING_ERROR_MESSAGE).details(ErrorGroup.extractCauseMessage(e.getMessage()));
                 break;
             case SqlStateCode.INVALID_PARAMETER_VALUE:
-                errorComponentBuilder.header(INVALID_PARAMETER_MESSAGE);
+                errorComponentBuilder.header(INVALID_PARAMETER_MESSAGE).verbose(ErrorGroup.extractCauseMessage(e.getMessage()));
                 break;
             case SqlStateCode.CLIENT_CONNECTION_FAILED:
-                errorComponentBuilder.header(CLIENT_CONNECTION_FAILED_MESSAGE);
+                errorComponentBuilder.header(CLIENT_CONNECTION_FAILED_MESSAGE).verbose(ErrorGroup.extractCauseMessage(e.getMessage()));
                 break;
             default:
                 LOG.error("Unrecognized error", e);

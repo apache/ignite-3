@@ -32,7 +32,6 @@ import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,12 +55,6 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         this.baseEngineConfig = baseEngineConfig;
 
         initialize(tableStorage, tablesCfg);
-    }
-
-    //TODO IGNITE-17626 Enable the test.
-    @Disabled
-    @Override
-    public void testDestroy() {
     }
 
     @Test

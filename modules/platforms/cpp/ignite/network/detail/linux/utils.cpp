@@ -21,6 +21,7 @@
 
 namespace ignite::network::detail {
 
+#if defined(__linux__)
 std::string get_last_system_error() {
     int error_code = errno;
 
@@ -35,5 +36,32 @@ std::string get_last_system_error() {
 
     return error_details;
 }
+#elif defined(__APPLE__)
+std::string get_last_system_error() {
+    int error_code = errno;
+
+    std::string error_details;
+    if (error_code != 0) {
+        char err_buf[1024] = {0};
+
+        const int res = strerror_r(error_code, err_buf, sizeof(err_buf));
+
+        switch (res) {
+            case 0:
+                error_details.assign(err_buf);
+                break;
+            case ERANGE:
+                // Buffer too small.
+                break;
+            default:
+            case EINVAL:
+                // Invalid error code.
+                break;
+        }
+    }
+
+    return error_details;
+}
+#endif
 
 } // namespace ignite::network::detail

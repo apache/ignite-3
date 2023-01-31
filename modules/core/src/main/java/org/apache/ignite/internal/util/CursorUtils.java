@@ -25,7 +25,7 @@ import java.util.function.Function;
  */
 public class CursorUtils {
     /** Empty cursor instance. */
-    private static final Cursor<?> EMPTY = Cursor.fromIterator(Collections.emptyIterator());
+    private static final Cursor<?> EMPTY = Cursor.fromBareIterator(Collections.emptyIterator());
 
     /**
      * Creates an empty cursor.
@@ -54,7 +54,7 @@ public class CursorUtils {
         }
 
         @Override
-        public void close() throws Exception {
+        public void close() {
             cursor.close();
         }
 

@@ -230,8 +230,8 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (snapshotStorage instanceof LocalSnapshotStorage) {
             final LocalSnapshotStorage tmp = (LocalSnapshotStorage) this.snapshotStorage;
-            if (tmp != null && !tmp.hasServerAddr()) {
-                tmp.setServerAddr(opts.getAddr());
+            if (tmp != null && !tmp.hasServerPeerId()) {
+                tmp.setServerPeerId(opts.getPeerId());
             }
         }
         final SnapshotReader reader = this.snapshotStorage.open();
@@ -605,7 +605,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 // this RPC.
                 saved = m;
                 this.downloadingSnapshot.set(ds);
-                result = false;
+                result = true;
             }
             else if (m.request.meta().lastIncludedIndex() > ds.request.meta().lastIncludedIndex()) {
                 // |is| is older
@@ -642,7 +642,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         if (saved != null) {
             // Respond replaced session
-            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installling request.");
+            LOG.warn("Register DownloadingSnapshot failed: interrupted by retry installing request.");
             saved.done.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory, RaftError.EINTR,
                     "Interrupted by the retry InstallSnapshotRequest"));

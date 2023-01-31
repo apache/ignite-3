@@ -26,12 +26,14 @@ dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.picocli.annotation.processor
     annotationProcessor libs.micronaut.inject.annotation.processor
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-configuration')
     implementation project(':ignite-rest')
     implementation project(':ignite-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-network')
+    implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
     implementation project(':ignite-baseline')
@@ -51,6 +53,8 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
     implementation project(':ignite-replicator')
+    implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-placement-driver')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -59,70 +63,93 @@ dependencies {
     implementation libs.picocli.core
     implementation libs.slf4j.jdk14
     implementation libs.typesafe.config
+    implementation libs.auto.service.annotations
+    implementation libs.disruptor
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testAnnotationProcessor libs.auto.service
+
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-network')
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-client')
-    testImplementation project(':ignite-metastorage-server')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-metastorage-server')))
+    testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.hamcrest.path
     testImplementation libs.mockito.core
-    testImplementation libs.classgraph
     testImplementation libs.mockito.junit
-    testImplementation libs.jsonpath.assert
+    testImplementation(libs.jsonpath.assert) {
+        //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+    testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-page-memory')
-    integrationTestImplementation project(':ignite-raft-client')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-baseline')
+    integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-client-handler')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
+    integrationTestImplementation project(':ignite-index')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-rest')
+    integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation(project(':ignite-sql-engine')) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+    }
+    integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
     integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
-    integrationTestImplementation(testFixtures(project(':ignite-metastorage-server')))
+    integrationTestImplementation(testFixtures(project(':ignite-metastorage')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-vault')))
+    integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.rocksdb.jni
-    integrationTestImplementation libs.jsonpath.assert
+    integrationTestImplementation libs.disruptor
+    integrationTestImplementation libs.jackson.databind
+    integrationTestImplementation(libs.jsonpath.assert) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
     integrationTestImplementation libs.typesafe.config
 
 }
 
-def sqlIntegrationTest = tasks.register("sqlIntegrationTest", Test) {
-    description = 'Runs sql integration tests.'
-    group = 'verification'
-    useJUnitPlatform {
-        includeTags "sqllogic"
-    }
-    maxHeapSize = "16g"
-
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
-}
-
-def runnerPlatformTest = tasks.register("runnerPlatformTest", JavaExec) {
+tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
 
     classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
 }
 
 integrationTest {
     useJUnitPlatform {
-        excludeTags "sqllogic"
+        if (System.getProperty("sqlTest") != null) {
+            it.includeTags "sqllogic"
+        } else {
+            it.excludeTags "sqllogic"
+        }
     }
-}
-
-checkstyleMain {
-    enabled = false
 }
 
 jar {

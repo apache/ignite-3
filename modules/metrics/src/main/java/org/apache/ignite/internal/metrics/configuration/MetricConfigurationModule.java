@@ -17,21 +17,18 @@
 
 package org.apache.ignite.internal.metrics.configuration;
 
-import java.lang.annotation.Annotation;
+import com.google.auto.service.AutoService;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterConfigurationSchema;
 
 /**
  * Configuration module for metrics' configs.
  */
+@AutoService(ConfigurationModule.class)
 public class MetricConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
@@ -49,11 +46,5 @@ public class MetricConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(JmxExporterConfigurationSchema.class);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Collections.emptyMap();
     }
 }

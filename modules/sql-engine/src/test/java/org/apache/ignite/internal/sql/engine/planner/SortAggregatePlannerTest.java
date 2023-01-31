@@ -17,31 +17,31 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.hamcrest.CoreMatchers.startsWith;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.calcite.plan.RelOptPlanner;
+import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,54 +49,32 @@ import org.junit.jupiter.api.Test;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
-    /**
-     * NotApplicableForSortAggregate.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @Test
-    public void notApplicableForSortAggregate() {
-        TestTable tbl = createAffinityTable().addIndex("val0_val1", 1, 2);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("TEST", tbl);
-
-        String sqlMin = "SELECT MIN(val0) FROM test";
-
-        RelOptPlanner.CannotPlanException ex = assertThrows(
-                RelOptPlanner.CannotPlanException.class,
-                () -> physicalPlan(
-                        sqlMin,
-                        publicSchema,
-                        "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule"
-                )
-        );
-
-        assertThat(ex.getMessage(), startsWith("There are not enough rules to produce a node with desired properties"));
-    }
+    /** Hash aggregate rules. */
+    private static final String[] HASH_AGG_RULES =
+            {"ColocatedHashAggregateConverterRule", "MapReduceHashAggregateConverterRule"};
 
     /** Checks if already sorted input exist and involved [Map|Reduce]SortAggregate. */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void testNoSortAppendingWithCorrectCollation() throws Exception {
         RelFieldCollation coll = new RelFieldCollation(1, RelFieldCollation.Direction.DESCENDING);
 
-        TestTable tbl = createAffinityTable().addIndex(RelCollations.of(coll), "val0Idx");
+        TestTable tbl = createAffinityTable("TEST").addIndex(RelCollations.of(coll), "val0Idx");
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)";
 
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "NestedLoopJoinConverter",
-                "CorrelatedNestedLoopJoin",
-                "CorrelateToNestedLoopRule",
-                "HashSingleAggregateConverterRule",
-                "HashMapReduceAggregateConverterRule"
+                ArrayUtils.concat(
+                        HASH_AGG_RULES,
+                        "NestedLoopJoinConverter",
+                        "CorrelatedNestedLoopJoin",
+                        "CorrelateToNestedLoopRule"
+                )
         );
 
         assertTrue(
@@ -113,7 +91,6 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void collationPermuteSingle() throws Exception {
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
@@ -124,7 +101,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
+                        .build(), "TEST") {
 
             @Override
             public IgniteDistribution distribution() {
@@ -135,17 +112,17 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
-        publicSchema.addTable("TEST", tbl);
+        publicSchema.addTable(tbl);
 
         String sql = "SELECT MIN(val0) FROM test GROUP BY grp1, grp0";
 
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule"
+                HASH_AGG_RULES
         );
 
-        IgniteSingleSortAggregate agg = findFirstNode(phys, byClass(IgniteSingleSortAggregate.class));
+        IgniteColocatedSortAggregate agg = findFirstNode(phys, byClass(IgniteColocatedSortAggregate.class));
 
         assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
 
@@ -162,36 +139,28 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17748")
     public void collationPermuteMapReduce() throws Exception {
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
         IgniteTypeFactory f = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
-        TestTable tbl = new TestTable(
+        createTable(publicSchema,
+                "TEST",
                 new RelDataTypeFactory.Builder(f)
                         .add("ID", f.createJavaType(Integer.class))
                         .add("VAL0", f.createJavaType(Integer.class))
                         .add("VAL1", f.createJavaType(Integer.class))
                         .add("GRP0", f.createJavaType(Integer.class))
                         .add("GRP1", f.createJavaType(Integer.class))
-                        .build()) {
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.affinity(0, "test", "hash");
-            }
-        }
-                .addIndex("grp0_1", 3, 4);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable("TEST", tbl);
+                        .build(),
+                IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
+        ).addIndex("grp0_1", 3, 4);
 
         String sql = "SELECT MIN(val0) FROM test GROUP BY grp1, grp0";
 
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule"
+                HASH_AGG_RULES
         );
 
         IgniteReduceSortAggregate agg = findFirstNode(phys, byClass(IgniteReduceSortAggregate.class));
@@ -205,7 +174,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     @Test
-    public void testEmptyCollationPasshThroughLimit() throws Exception {
+    public void testEmptyCollationPassThroughLimit() throws Exception {
         IgniteSchema publicSchema = createSchema(
                 createTable("TEST", IgniteDistributions.single(), "A", Integer.class));
 
@@ -213,6 +182,70 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
                         .and(input(1, hasChildThat(isInstanceOf(IgniteLimit.class)
                                 .and(input(isInstanceOf(IgniteSort.class)))))))
+        );
+    }
+
+    @Test
+    public void testCollationPassThrough() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                createTable("TEST", IgniteDistributions.single(), "A", Integer.class, "B", Integer.class));
+
+        // Sort order equals to grouping set.
+        assertPlan("SELECT a, b, COUNT(*) FROM test GROUP BY a, b ORDER BY a, b", publicSchema,
+                isInstanceOf(IgniteAggregate.class)
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1))))
+                                .and(input(isTableScan("TEST"))))),
+                HASH_AGG_RULES
+        );
+
+        // Sort order equals to grouping set (permuted collation).
+        assertPlan("SELECT a, b, COUNT(*) FROM test GROUP BY a, b ORDER BY b, a", publicSchema,
+                isInstanceOf(IgniteAggregate.class)
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(1, 0))))
+                                .and(input(isTableScan("TEST"))))),
+                HASH_AGG_RULES
+        );
+
+        // Sort order is a subset of grouping set.
+        assertPlan("SELECT a, b, COUNT(*) cnt FROM test GROUP BY a, b ORDER BY a", publicSchema,
+                isInstanceOf(IgniteAggregate.class)
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1))))
+                                .and(input(isTableScan("TEST"))))),
+                HASH_AGG_RULES
+        );
+
+        // Sort order is a subset of grouping set (permuted collation).
+        assertPlan("SELECT a, b, COUNT(*) cnt FROM test GROUP BY a, b ORDER BY b", publicSchema,
+                isInstanceOf(IgniteAggregate.class)
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(1, 0))))
+                                .and(input(isTableScan("TEST"))))),
+                HASH_AGG_RULES
+        );
+
+        // Sort order is a superset of grouping set (additional sorting required).
+        assertPlan("SELECT a, b, COUNT(*) cnt FROM test GROUP BY a, b ORDER BY a, b, cnt", publicSchema,
+                isInstanceOf(IgniteSort.class)
+                        .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
+                        .and(input(isInstanceOf(IgniteAggregate.class)
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1))))
+                                        .and(input(isTableScan("TEST"))))))),
+                HASH_AGG_RULES
+        );
+
+        // Sort order is not equals to grouping set (additional sorting required).
+        assertPlan("SELECT a, b, COUNT(*) cnt FROM test GROUP BY a, b ORDER BY cnt, b", publicSchema,
+                isInstanceOf(IgniteSort.class)
+                        .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(2, 1))))
+                        .and(input(isInstanceOf(IgniteAggregate.class)
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1))))
+                                        .and(input(isTableScan("TEST"))))))),
+                HASH_AGG_RULES
         );
     }
 }

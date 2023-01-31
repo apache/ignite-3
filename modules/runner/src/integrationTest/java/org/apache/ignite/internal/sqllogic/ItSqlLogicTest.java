@@ -41,9 +41,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -155,13 +153,11 @@ public class ItSqlLogicTest {
     private static RestartMode RESTART_CLUSTER;
 
     /** Flag to include '*.test_slow' scripts to tests run. */
-    private static boolean INCLUDE_SLOW = IgniteSystemProperties.getBoolean(SQL_LOGIC_TEST_INCLUDE_SLOW);
+    private static boolean INCLUDE_SLOW;
 
     @BeforeAll
     static void init() {
         config();
-
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
 
         startNodes();
     }
@@ -169,8 +165,6 @@ public class ItSqlLogicTest {
     @AfterAll
     static void shutdown() throws Exception {
         stopNodes();
-
-        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
     }
 
     @TestFactory
@@ -273,6 +267,7 @@ public class ItSqlLogicTest {
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
         TIMEOUT = env.timeout();
+        INCLUDE_SLOW = IgniteSystemProperties.getBoolean(SQL_LOGIC_TEST_INCLUDE_SLOW);
     }
 
     private static void restartCluster() throws Exception {

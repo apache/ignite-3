@@ -17,7 +17,6 @@
 
 package org.apache.ignite.network;
 
-import org.apache.ignite.internal.network.NetworkMessagesSerializationRegistryInitializer;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -31,14 +30,6 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
     private final MessageSerializationFactory<?>[][] factories =
             new MessageSerializationFactory<?>[Short.MAX_VALUE + 1][];
 
-    /**
-     * Default constructor that also registers standard message types from the network module.
-     */
-    public MessageSerializationRegistryImpl() {
-        NetworkMessagesSerializationRegistryInitializer.registerFactories(this);
-    }
-
-    /** {@inheritDoc} */
     @Override
     public MessageSerializationRegistry registerFactory(
             short groupType, short messageType, MessageSerializationFactory<?> factory
@@ -73,8 +64,12 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
      * @throws NetworkConfigurationException if no serializers have been registered for the given group type and message type.
      */
     private <T extends NetworkMessage> MessageSerializationFactory<T> getFactory(short groupType, short messageType) {
-        assert groupType >= 0 : "group type must not be negative, groupType=" + groupType;
-        assert messageType >= 0 : "message type must not be negative, messageType=" + messageType;
+        if (groupType < 0) {
+            throw new NetworkConfigurationException("Group type must not be negative, groupType=" + groupType);
+        }
+        if (messageType < 0) {
+            throw new NetworkConfigurationException("Message type must not be negative, messageType=" + messageType);
+        }
 
         MessageSerializationFactory<?>[] groupFactories = factories[groupType];
 
@@ -89,14 +84,12 @@ public class MessageSerializationRegistryImpl implements MessageSerializationReg
         return (MessageSerializationFactory<T>) provider;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T extends NetworkMessage> MessageSerializer<T> createSerializer(short groupType, short messageType) {
         MessageSerializationFactory<T> factory = getFactory(groupType, messageType);
         return factory.createSerializer();
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short groupType, short messageType) {
         MessageSerializationFactory<T> factory = getFactory(groupType, messageType);

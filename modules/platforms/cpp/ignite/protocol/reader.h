@@ -51,7 +51,7 @@ public:
     /**
      * Destructor.
      */
-    ~reader() { msgpack_unpacker_destroy(&m_unpacker); }
+    ~reader() { msgpack_unpacked_destroy(&m_current_val); }
 
     /**
      * Read object of type T from msgpack stream.
@@ -60,12 +60,30 @@ public:
      * @return Object of type T.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] T read_object() {
         check_data_in_stream();
 
         auto res = unpack_object<T>(m_current_val.data);
         next();
+
+        return res;
+    }
+
+    /**
+     * Read object of type T from msgpack stream.
+     *
+     * @tparam T Type of the object to read.
+     * @return Object of type T or @c nullopt if there is object of other type in the stream.
+     * @throw ignite_error if there is no data left in the stream.
+     */
+    template<typename T>
+    [[nodiscard]] std::optional<T> try_read_object() {
+        check_data_in_stream();
+
+        auto res = try_unpack_object<T>(m_current_val.data);
+        if (res)
+            next();
 
         return res;
     }
@@ -77,7 +95,7 @@ public:
      * @return Object of type T or std::nullopt if there is nil in the stream.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] std::optional<T> read_object_nullable() {
         if (try_read_nil())
             return std::nullopt;
@@ -93,7 +111,7 @@ public:
      * @return Object of type T or @c on_nil if there is nil in stream.
      * @throw ignite_error if there is no object of specified type in the stream.
      */
-    template <typename T>
+    template<typename T>
     [[nodiscard]] T read_object_or_default(T &&on_nil) {
         if (try_read_nil())
             return std::forward<T>(on_nil);
@@ -116,11 +134,25 @@ public:
     [[nodiscard]] std::int32_t read_int32() { return read_object<std::int32_t>(); }
 
     /**
+     * Read int32 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is not integer.
+     */
+    [[nodiscard]] std::optional<std::int32_t> try_read_int32() { return try_read_object<std::int32_t>(); }
+
+    /**
      * Read int64 number.
      *
      * @return Value.
      */
     [[nodiscard]] std::int64_t read_int64() { return read_object<int64_t>(); }
+
+    /**
+     * Read bool.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] bool read_bool() { return read_object<bool>(); }
 
     /**
      * Read string.
@@ -158,13 +190,26 @@ public:
     }
 
     /**
+     * Read Map raw.
+     *
+     * @param handler Pair handler.
+     */
+    void read_map_raw(const std::function<void(const msgpack_object_kv &)> &handler) {
+        auto size = read_map_size();
+        for (std::uint32_t i = 0; i < size; ++i) {
+            handler(m_current_val.data.via.map.ptr[i]);
+        }
+        next();
+    }
+
+    /**
      * Read Map.
      *
      * @tparam K Key type.
      * @tparam V Value type.
      * @param handler Pair handler.
      */
-    template <typename K, typename V>
+    template<typename K, typename V>
     void read_map(const std::function<void(K &&, V &&)> &handler) {
         auto size = read_map_size();
         for (std::uint32_t i = 0; i < size; ++i) {
@@ -172,6 +217,72 @@ public:
             auto val = unpack_object<V>(m_current_val.data.via.map.ptr[i].val);
             handler(std::move(key), std::move(val));
         }
+        next();
+    }
+
+    /**
+     * Read array size.
+     *
+     * @return Array size.
+     */
+    [[nodiscard]] uint32_t read_array_size() const {
+        check_data_in_stream();
+
+        return unpack_array_size(m_current_val.data);
+    }
+
+    /**
+     * Read array.
+     *
+     * @param read_func Object read function.
+     */
+    void read_array_raw(const std::function<void(std::uint32_t idx, const msgpack_object &)> &read_func) {
+        auto size = read_array_size();
+        for (std::uint32_t i = 0; i < size; ++i) {
+            read_func(i, m_current_val.data.via.array.ptr[i]);
+        }
+        next();
+    }
+
+    /**
+     * Read array.
+     *
+     * @tparam T Value type.
+     * @param unpack_func Object unpack function.
+     */
+    template<typename T>
+    [[nodiscard]] std::vector<T> read_array(const std::function<T(const msgpack_object &)> &unpack_func) {
+        auto size = read_array_size();
+        std::vector<T> res;
+        res.reserve(size);
+        for (std::uint32_t i = 0; i < size; ++i) {
+            auto val = unpack_func(m_current_val.data.via.array.ptr[i]);
+            res.emplace_back(std::move(val));
+        }
+        next();
+        return std::move(res);
+    }
+
+    /**
+     * Read array.
+     *
+     * @tparam T Value type.
+     * @param handler Value handler.
+     */
+    template<typename T>
+    [[nodiscard]] std::vector<T> read_array() {
+        return read_array<T>(unpack_object<T>);
+    }
+
+    /**
+     * Read array.
+     *
+     * @return Binary data view.
+     */
+    [[nodiscard]] bytes_view read_binary() {
+        auto res = unpack_binary(m_current_val.data);
+        next();
+        return res;
     }
 
     /**
@@ -185,6 +296,13 @@ public:
      * Skip next value.
      */
     void skip() { next(); }
+
+    /**
+     * Position.
+     *
+     * @return Current position in memory.
+     */
+    [[nodiscard]] size_t position() const { return m_offset; }
 
 private:
     /**
@@ -203,14 +321,17 @@ private:
     /** Buffer. */
     bytes_view m_buffer;
 
-    /** Unpacker. */
-    msgpack_unpacker m_unpacker;
-
     /** Current value. */
     msgpack_unpacked m_current_val;
 
     /** Result of the last move operation. */
     msgpack_unpack_return m_move_res;
+
+    /** Offset to next value. */
+    size_t m_offset_next{0};
+
+    /** Offset. */
+    size_t m_offset{0};
 };
 
 } // namespace ignite::protocol
