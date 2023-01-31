@@ -474,7 +474,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     private void checkDefaultValue(List<DefaultValueArg> args) {
-        assert args.size() > 0;
+        assert !args.isEmpty();
 
         try {
             StringBuilder createStatementBuilder = new StringBuilder("CREATE TABLE test (id INT PRIMARY KEY");

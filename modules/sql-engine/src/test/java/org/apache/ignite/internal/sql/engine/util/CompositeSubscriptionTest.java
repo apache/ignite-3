@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -157,28 +159,27 @@ public class CompositeSubscriptionTest {
 
         lsnr.reset(requested);
 
-        CompletableFuture.runAsync(() -> compPublisher.subscribe(new Subscriber<>() {
-                    @Override
-                    public void onSubscribe(Subscription subscription) {
-                        subscriptionRef.set(subscription);
-                    }
+        compPublisher.subscribe(new Subscriber<>() {
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                subscriptionRef.set(subscription);
+            }
 
-                    @Override
-                    public void onNext(Integer item) {
-                        lsnr.onNext(item);
-                    }
+            @Override
+            public void onNext(Integer item) {
+                lsnr.onNext(item);
+            }
 
-                    @Override
-                    public void onError(Throwable t) {
-                        assert false;
-                    }
+            @Override
+            public void onError(Throwable t) {
+                assert false;
+            }
 
-                    @Override
-                    public void onComplete() {
-                        lsnr.onComplete();
-                    }
-                })
-        ).join();
+            @Override
+            public void onComplete() {
+                lsnr.onComplete();
+            }
+        });
 
         if (!split) {
             checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, requested), lsnr);

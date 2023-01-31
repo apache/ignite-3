@@ -55,7 +55,7 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
 
     @Override
     @Disabled("IGNITE-17134")
-    public void closeSession() throws ExecutionException, InterruptedException {
+    public void closeSession() {
         super.closeSession();
     }
 }

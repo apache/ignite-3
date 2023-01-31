@@ -304,13 +304,12 @@ public class IgniteSqlApiTest {
             }
         }
 
-        igniteTx.beginAsync()
+        await(igniteTx.beginAsync()
                 .thenCompose(tx0 -> igniteSql.createSession()
                         .executeAsync(tx0, "SELECT id, val FROM tbl WHERE id > ?", 1)
                         .thenCompose(new AsyncPageProcessor(tx0))
                         .thenCompose(ignore -> tx0.commitAsync())
-                        .thenApply(ignore -> tx0))
-                .get();
+                        .thenApply(ignore -> tx0)));
 
         Mockito.verify(transaction).commitAsync();
         Mockito.verify(table, Mockito.times(4)).getAsync(Mockito.any(), Mockito.any());
@@ -330,7 +329,7 @@ public class IgniteSqlApiTest {
             assertTrue(row.stringValue("val").startsWith("str"));
         });
 
-        igniteTx.beginAsync().thenApply(tx -> {
+        await(igniteTx.beginAsync().thenApply(tx -> {
             final Session session = igniteSql.createSession();
 
             session.executeReactive(tx, "SELECT id, val FROM tbl WHERE id > ?", 1)
@@ -341,7 +340,7 @@ public class IgniteSqlApiTest {
 
                 return null;
             }).thenApply(ignore -> tx.commitAsync());
-        }).join();
+        }));
 
         Mockito.verify(transaction).commitAsync();
     }
