@@ -407,7 +407,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(useDistributedTraits ? Commons.DISTRIBUTED_TRAITS_SET : Commons.LOCAL_TRAITS_SET)
+                                            .traitDefs(Commons.DISTRIBUTED_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
@@ -499,7 +499,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .cancel(new QueryCancel())
                     .frameworkConfig(
                             Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                    .traitDefs(needStartTx ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
+                                    .traitDefs(Commons.DISTRIBUTED_TRAITS_SET)
                                     .defaultSchema(schema)
                                     .build()
                     )

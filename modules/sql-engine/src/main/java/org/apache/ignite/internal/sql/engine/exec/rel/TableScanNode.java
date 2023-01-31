@@ -27,7 +27,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
@@ -86,10 +85,6 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
             if (tx.isReadOnly()) {
                 pub = physTable.scan(partId, tx.readTimestamp(), context().localNode());
-            } else if (!(tx instanceof TransferredTxAttributesHolder)) {
-                // TODO IGNITE-17952 This block should be removed.
-                // Workaround to make RW scan work from tx coordinator.
-                pub = physTable.scan(partId, tx);
             } else {
                 PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.get2());
 
