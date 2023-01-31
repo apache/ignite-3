@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
@@ -685,9 +686,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         return;
                     }
 
-                    tx.assignCommitPartition(new TablePartitionId(tbl.id(), 0));
+                    int partsCnt = grp.assignments().size();
 
-                    for (int p = 0; p < grp.assignments().size(); p++) {
+                    tx.assignCommitPartition(new TablePartitionId(tbl.id(), ThreadLocalRandom.current().nextInt(partsCnt)));
+
+                    for (int p = 0; p < partsCnt; p++) {
                         List<NodeWithTerm> assign = grp.assignments().get(p);
                         NodeWithTerm leaderWithTerm = assign.get(0);
 
