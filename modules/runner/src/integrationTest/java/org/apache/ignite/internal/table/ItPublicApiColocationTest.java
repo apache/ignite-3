@@ -217,7 +217,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
         return res;
     }
 
-    private static Object generateValueByType(int i, NativeTypeSpec type) {
+    public static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
             case INT8:
                 return (byte) i;
@@ -246,7 +246,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(i);
             case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i);
+                return LocalTime.of(0, 00, 00).plusSeconds(i).plusNanos(i * 101L);
             case DATETIME:
                 return LocalDateTime.of(
                         (LocalDate) generateValueByType(i, NativeTypeSpec.DATE),

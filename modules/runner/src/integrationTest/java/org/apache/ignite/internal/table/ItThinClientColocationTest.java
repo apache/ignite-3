@@ -17,12 +17,26 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.table.ItPublicApiColocationTest.generateValueByType;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
+
+import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
 /**
  * Tests that client and server have matching colocation logic.
  */
 public class ItThinClientColocationTest {
-    // TODO: Compare ClientTupleSerializer.getColocationHash and marshaller.marshal(t).colocationHash for various data types.
-    public void test() {
-
+    @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
+    @EnumSource(NativeTypeSpec.class)
+    public void test(NativeTypeSpec type) {
+        // TODO: Compare ClientTupleSerializer.getColocationHash and marshaller.marshal(t).colocationHash for various data types.
+        for (int i = 0; i < 10; i++) {
+            var val = generateValueByType(i, type);
+            assertNotNull(val);
+        }
     }
 }
