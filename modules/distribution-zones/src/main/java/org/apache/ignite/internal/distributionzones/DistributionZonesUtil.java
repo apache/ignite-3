@@ -150,6 +150,14 @@ class DistributionZonesUtil {
         ).yield(true);
     }
 
+    static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
+        return ops(
+                put(zoneDataNodesKey(zoneId), nodes),
+                put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
+        ).yield(true);
+    }
+
+
     /**
      * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
      * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
