@@ -36,16 +36,16 @@ public class NodeWithTerm implements Serializable {
     /**
      * Gets primary replica node name.
      *
-     * @return Primary replica node name..
+     * @return Primary replica node name.
      */
     public String name() {
         return name;
     }
 
     /**
-     * Gets cached primary replica term term.
+     * Gets primary replica term.
      *
-     * @return Cached primary replica term term.
+     * @return Primary replica term.
      */
     public long term() {
         return term;

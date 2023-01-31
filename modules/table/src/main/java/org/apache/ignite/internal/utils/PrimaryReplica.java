@@ -23,17 +23,17 @@ import org.apache.ignite.network.ClusterNode;
  * Tuple representing primary replica node with current term.
  */
 public class PrimaryReplica {
-    /** Primary node. */
+    /** Primary replica node. */
     private final ClusterNode node;
 
-    /** Node term. */
+    /** Replica term. */
     private final long term;
 
     /**
      * Constructor.
      *
-     * @param node Primary node.
-     * @param term Node term.
+     * @param node Primary replica node.
+     * @param term Replica term.
      */
     public PrimaryReplica(ClusterNode node, long term) {
         this.node = node;
@@ -41,18 +41,18 @@ public class PrimaryReplica {
     }
 
     /**
-     * Gets primary node.
+     * Gets primary replica node.
      *
-     * @return Primary node.
+     * @return Primary replica node.
      */
     public ClusterNode node() {
         return node;
     }
 
     /**
-     * Gets node term.
+     * Gets replica term.
      *
-     * @return Node term.
+     * @return Replica term.
      */
     public long term() {
         return term;
