@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.table.ItPublicApiColocationTest.generateValueByType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,8 +32,10 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -45,23 +46,23 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests that client and server have matching colocation logic.
  */
 public class ItThinClientColocationTest {
-    @ParameterizedTest()
+    @ParameterizedTest
     @MethodSource("nativeTypes")
     public void testClientAndServerColocationHashesAreSame(NativeType type)
             throws TupleMarshallerException {
         var columnName = "col1";
-        var marsh = tupleMarshaller(type, columnName);
-        var clientSchema = clientSchema(type, columnName);
+
+        TupleMarshaller serverMarshaller = tupleMarshaller(type, columnName);
+        ClientSchema clientSchema = clientSchema(type, columnName);
 
         for (int i = 0; i < 10; i++) {
-            var val = generateValueByType(i, type.spec());
-            assertNotNull(val);
+            Object val = generateValueByType(i, type.spec());
+            Tuple tuple = Tuple.create().set(columnName, val);
 
-            var tuple = Tuple.create().set(columnName, val);
-            var clientHash = ClientTupleSerializer.getColocationHash(clientSchema, tuple);
+            int clientHash = ClientTupleSerializer.getColocationHash(clientSchema, tuple);
 
-            var serverRow = marsh.marshal(tuple);
-            var serverHash = serverRow.colocationHash();
+            Row serverRow = serverMarshaller.marshal(tuple);
+            int serverHash = serverRow.colocationHash();
 
             assertEquals(serverHash, clientHash);
         }
