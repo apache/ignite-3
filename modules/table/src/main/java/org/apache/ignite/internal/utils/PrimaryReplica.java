@@ -15,50 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.metadata;
+package org.apache.ignite.internal.utils;
 
-import java.io.Serializable;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Tuple representing primary replica node name with current term.
+ * Tuple representing primary replica node with current term.
  */
-public class NodeWithTerm implements Serializable {
-    /** Serial version uid. */
-    private static final long serialVersionUID = 0L;
+public class PrimaryReplica {
+    /** Primary node. */
+    private final ClusterNode node;
 
-    /** Primary replica node name. */
-    private final String name;
-
-    /** Primary replica term. */
+    /** Node term. */
     private final long term;
-
-    /**
-     * Gets primary replica node name.
-     *
-     * @return Primary replica node name..
-     */
-    public String name() {
-        return name;
-    }
-
-    /**
-     * Gets cached primary replica term term.
-     *
-     * @return Cached primary replica term term.
-     */
-    public long term() {
-        return term;
-    }
 
     /**
      * Constructor.
      *
-     * @param name Primary replica node name.
-     * @param term Primary replica term.
+     * @param node Primary node.
+     * @param term Node term.
      */
-    public NodeWithTerm(@Nullable String name, Long term) {
-        this.name = name;
+    public PrimaryReplica(ClusterNode node, long term) {
+        this.node = node;
         this.term = term;
+    }
+
+    /**
+     * Gets primary node.
+     *
+     * @return Primary node.
+     */
+    public ClusterNode node() {
+        return node;
+    }
+
+    /**
+     * Gets node term.
+     *
+     * @return Node term.
+     */
+    public long term() {
+        return term;
     }
 }

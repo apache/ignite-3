@@ -77,6 +77,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteFiveFunction;
@@ -858,13 +859,12 @@ public class InternalTableImpl implements InternalTable {
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             UUID indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, leaderNode, leaderTerm, indexId, key, null, null, 0, columnsToInclude);
+        return scan(partId, txId, recipient, indexId, key, null, null, 0, columnsToInclude);
     }
 
     /** {@inheritDoc} */
@@ -987,22 +987,20 @@ public class InternalTableImpl implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            ClusterNode leaderNode,
-            long leaderTerm,
+            PrimaryReplica recipient,
             @Nullable UUID indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
             @Nullable BitSet columnsToInclude
     ) {
-        return scan(partId, txId, leaderNode, leaderTerm, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+        return scan(partId, txId, recipient, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
     }
 
     private Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            ClusterNode recipientNode,
-            long term,
+            PrimaryReplica recipient,
             @Nullable UUID indexId,
             @Nullable BinaryTuple exactKey,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -1025,10 +1023,10 @@ public class InternalTableImpl implements InternalTable {
                             .flags(flags)
                             .columnsToInclude(columnsToInclude)
                             .batchSize(batchSize)
-                            .term(term)
+                            .term(recipient.term())
                             .build();
 
-                    return replicaSvc.invoke(recipientNode, request);
+                    return replicaSvc.invoke(recipient.node(), request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 Function.identity());
@@ -1083,9 +1081,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
     @Override
-    public List<IgniteBiTuple<String, Long>> leaderAssignmentsWithTerm() {
+    public List<PrimaryReplica> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(partitionMap.int2ObjectEntrySet());
         List<CompletableFuture<LeaderWithTerm>> futs = new ArrayList<>();
 
@@ -1095,15 +1092,16 @@ public class InternalTableImpl implements InternalTable {
             futs.add(e.getValue().refreshAndGetLeaderWithTerm());
         }
 
-        List<IgniteBiTuple<String, Long>> leadersWithTerm = new ArrayList<>(entries.size());
+        List<PrimaryReplica> primaryReplicas = new ArrayList<>(entries.size());
 
         for (CompletableFuture<LeaderWithTerm> fut : futs) {
             LeaderWithTerm leaderWithTerm = fut.join();
+            ClusterNode primaryNode = clusterNodeResolver.apply(leaderWithTerm.leader().consistentId());
 
-            leadersWithTerm.add(new IgniteBiTuple<>(leaderWithTerm.leader().consistentId(), leaderWithTerm.term()));
+            primaryReplicas.add(new PrimaryReplica(primaryNode, leaderWithTerm.term()));
         }
 
-        return leadersWithTerm;
+        return primaryReplicas;
     }
 
     @Override
