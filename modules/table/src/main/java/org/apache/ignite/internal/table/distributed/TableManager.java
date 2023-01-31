@@ -2128,7 +2128,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new TablePartitionId(table.tableId(), partitionId)
         );
 
-        return destroyStoragesFuture == null ? completedFuture(null) : destroyStoragesFuture
+        return (destroyStoragesFuture == null ? completedFuture(null) : destroyStoragesFuture)
                 .thenComposeAsync(unused -> {
                     MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getOrCreateMvPartition(partitionId);
                     TxStateStorage txStateStorage = table.internalTable().txStateStorage().getOrCreateTxStateStorage(partitionId);
