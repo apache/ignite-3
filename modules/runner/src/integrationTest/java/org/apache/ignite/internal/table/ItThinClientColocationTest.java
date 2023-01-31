@@ -108,7 +108,7 @@ public class ItThinClientColocationTest {
 
         var types2 = new ArrayList<NativeType>();
 
-        for (int i = 0; i < TemporalNativeType.MAX_TIME_PRECISION; i++) {
+        for (int i = 0; i <= TemporalNativeType.MAX_TIME_PRECISION; i++) {
             types2.add(NativeTypes.time(i));
             types2.add(NativeTypes.datetime(i));
             types2.add(NativeTypes.timestamp(i));
