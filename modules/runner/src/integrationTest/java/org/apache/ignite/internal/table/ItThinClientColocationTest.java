@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.table.ItPublicApiColocationTest.generateValueByType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
@@ -32,6 +32,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -77,22 +78,20 @@ public class ItThinClientColocationTest {
                 ClientTableCommon.getDecimalScale(type),
                 ClientTableCommon.getPrecision(type));
 
-        ClientSchema clientSchema = new ClientSchema(0, new ClientColumn[]{clientColumn});
-        return clientSchema;
+        return new ClientSchema(0, new ClientColumn[]{clientColumn});
     }
 
     private static TupleMarshallerImpl tupleMarshaller(NativeType type, String columnName) {
-        var colocationColumns = new String[]{columnName};
         var column = new Column(columnName, type, false);
         var columns = new Column[]{column};
+        var colocationColumns = new String[]{columnName};
         var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
-        var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
-        return marsh;
+
+        return new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
     }
 
     private static Stream<Arguments> nativeTypes() {
-        // TODO: Use loop to populate precision.
-        var nativeTypes = new NativeType[]{
+        var types = new NativeType[]{
                 NativeTypes.INT8,
                 NativeTypes.INT16,
                 NativeTypes.INT32,
@@ -102,44 +101,20 @@ public class ItThinClientColocationTest {
                 NativeTypes.STRING,
                 NativeTypes.BYTES,
                 NativeTypes.UUID,
-                NativeTypes.numberOf(0),
-                NativeTypes.numberOf(1),
-                NativeTypes.numberOf(2),
-                NativeTypes.numberOf(3),
                 NativeTypes.bitmaskOf(8),
                 NativeTypes.DATE,
-                NativeTypes.time(0),
-                NativeTypes.time(1),
-                NativeTypes.time(2),
-                NativeTypes.time(3),
-                NativeTypes.time(4),
-                NativeTypes.time(5),
-                NativeTypes.time(6),
-                NativeTypes.time(7),
-                NativeTypes.time(8),
-                NativeTypes.time(9),
-                NativeTypes.datetime(0),
-                NativeTypes.datetime(1),
-                NativeTypes.datetime(2),
-                NativeTypes.datetime(3),
-                NativeTypes.datetime(4),
-                NativeTypes.datetime(5),
-                NativeTypes.datetime(6),
-                NativeTypes.datetime(7),
-                NativeTypes.datetime(8),
-                NativeTypes.datetime(9),
-                NativeTypes.timestamp(0),
-                NativeTypes.timestamp(1),
-                NativeTypes.timestamp(2),
-                NativeTypes.timestamp(3),
-                NativeTypes.timestamp(4),
-                NativeTypes.timestamp(5),
-                NativeTypes.timestamp(6),
-                NativeTypes.timestamp(7),
-                NativeTypes.timestamp(8),
-                NativeTypes.timestamp(9),
         };
 
-        return Arrays.stream(nativeTypes).map(Arguments::of);
+        var types2 = new ArrayList<NativeType>();
+
+        for (int i = 0; i < TemporalNativeType.MAX_TIME_PRECISION; i++) {
+            types2.add(NativeTypes.time(i));
+            types2.add(NativeTypes.datetime(i));
+            types2.add(NativeTypes.timestamp(i));
+            types2.add(NativeTypes.numberOf(i));
+            types2.add(NativeTypes.decimalOf(i + 10, i));
+        }
+
+        return Stream.concat(Arrays.stream(types), types2.stream()).map(Arguments::of);
     }
 }

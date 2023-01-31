@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -240,7 +241,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             case BYTES:
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
             case BITMASK:
-                return new byte[]{(byte) i};
+                return BitSet.valueOf(new byte[]{(byte) i});
             case NUMBER:
                 return BigInteger.valueOf(i);
             case DATE:
