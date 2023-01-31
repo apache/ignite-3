@@ -44,6 +44,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyEventListener;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
@@ -321,6 +323,39 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     /**
+     * Tests removal from physical topology.
+     *
+     * @param testInfo Test info.
+     * @throws Exception If failed.
+     */
+    @Test
+    public void removalFromPhysicalTopologyRemovesAndFiresEvent(TestInfo testInfo) throws Exception {
+        testCluster = new Cluster(2, testInfo);
+        testCluster.startAwait();
+
+        ClusterService alice = testCluster.members.get(0);
+        ClusterService bob = testCluster.members.get(1);
+        String aliceName = alice.localConfiguration().getName();
+
+        var aliceShutdownLatch = new CountDownLatch(1);
+
+        bob.topologyService().addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                if (aliceName.equals(member.name())) {
+                    aliceShutdownLatch.countDown();
+                }
+            }
+        });
+
+        ((DiscoveryTopologyService) bob.topologyService()).removeFromPhysicalTopology(alice.topologyService().localMember());
+
+        Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
+
+        assertEquals(1, networkMembers.size());
+    }
+
+    /**
      * Tests shutdown.
      *
      * @param testInfo Test info.
@@ -337,8 +372,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         var aliceShutdownLatch = new CountDownLatch(1);
 
-        bob.topologyService().addEventHandler(new TopologyEventHandler() {
-            /** {@inheritDoc} */
+        ((DiscoveryTopologyService) bob.topologyService()).addDiscoveryEventListener(new DiscoveryTopologyEventListener() {
             @Override
             public void onDisappeared(ClusterNode member) {
                 if (aliceName.equals(member.name())) {
@@ -355,10 +389,6 @@ class ItScaleCubeNetworkMessagingTest {
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, TimeUnit.SECONDS);
         assertTrue(aliceShutdownReceived);
-
-        Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
-
-        assertEquals(1, networkMembers.size());
     }
 
     /**

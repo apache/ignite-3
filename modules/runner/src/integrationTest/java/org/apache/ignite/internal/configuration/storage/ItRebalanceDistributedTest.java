@@ -55,6 +55,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -171,7 +172,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testOneRebalance() throws Exception {
+    void testOneRebalance() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -232,7 +233,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() throws Exception {
+    void testThreeQueuedRebalances() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -335,7 +336,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testRebalanceRetryWhenCatchupFailed() throws Exception {
+    void testRebalanceRetryWhenCatchupFailed() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -503,6 +504,7 @@ public class ItRebalanceDistributedTest {
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    (DiscoveryTopologyService) clusterService.topologyService(),
                     raftManager,
                     clusterStateStorage,
                     logicalTopologyService,
@@ -620,7 +622,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Stops the created components.
          */
-        void stop() throws Exception {
+        void stop() {
             new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
                 try {
                     component.beforeNodeStop();

@@ -44,7 +44,9 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.rest.ClusterManagementRestFactory;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
@@ -75,6 +77,7 @@ import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -330,9 +333,12 @@ public class IgniteImpl implements Ignite {
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+        DiscoveryTopologyService discoveryTopologyService = (DiscoveryTopologyService) clusterSvc.topologyService();
+
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,
                 clusterSvc,
+                discoveryTopologyService,
                 raftMgr,
                 clusterStateStorage,
                 logicalTopology,
@@ -340,6 +346,14 @@ public class IgniteImpl implements Ignite {
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
+
+        logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
+            // TODO: also handle clumped disappearance due to a leap
+            @Override
+            public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
+                discoveryTopologyService.removeFromPhysicalTopology(disappearedNode);
+            }
+        });
 
         metaStorageMgr = new MetaStorageManagerImpl(
                 vaultMgr,

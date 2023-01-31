@@ -55,6 +55,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyEventListener;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -113,6 +115,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterService clusterService;
 
+    private final DiscoveryTopologyService discoveryTopologyService;
+
     private final RaftManager raftManager;
 
     private final ClusterStateStorage clusterStateStorage;
@@ -145,12 +149,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     public ClusterManagementGroupManager(
             VaultManager vault,
             ClusterService clusterService,
+            DiscoveryTopologyService discoveryTopologyService,
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration
     ) {
         this.clusterService = clusterService;
+        this.discoveryTopologyService = discoveryTopologyService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
         this.logicalTopology = logicalTopology;
@@ -354,6 +360,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                     // TODO: remove listeners if leadership is lost, see https://issues.apache.org/jira/browse/IGNITE-16842
                     topologyService.addEventHandler(cmgLeaderTopologyEventHandler(service));
+                    discoveryTopologyService.addDiscoveryEventListener(cmgLeaderDiscoveryTopologyEventListener(service));
 
                     // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
                     // because being unable to send ClusterState messages should not fail the CMG service startup.
@@ -591,7 +598,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             }
                         });
             }
+        };
+    }
 
+    private DiscoveryTopologyEventListener cmgLeaderDiscoveryTopologyEventListener(CmgRaftService raftService) {
+        return new DiscoveryTopologyEventListener() {
             @Override
             public void onDisappeared(ClusterNode member) {
                 scheduleRemoveFromLogicalTopology(raftService, member);
@@ -601,9 +612,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private void scheduleRemoveFromLogicalTopology(CmgRaftService raftService, ClusterNode node) {
         scheduledExecutor.schedule(() -> {
-            ClusterNode physicalTopologyNode = clusterService.topologyService().getByConsistentId(node.name());
+            ClusterNode discoveredNode = discoveryTopologyService.discoveredNodeByConsistentId(node.name());
 
-            if (physicalTopologyNode == null || !physicalTopologyNode.id().equals(node.id())) {
+            if (discoveredNode == null || !discoveredNode.id().equals(node.id())) {
                 raftService.removeFromCluster(Set.of(node));
             }
         }, configuration.failoverTimeout().value(), TimeUnit.MILLISECONDS);

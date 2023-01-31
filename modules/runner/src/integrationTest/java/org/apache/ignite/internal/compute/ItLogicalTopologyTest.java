@@ -64,7 +64,7 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE;
+        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
     @Test

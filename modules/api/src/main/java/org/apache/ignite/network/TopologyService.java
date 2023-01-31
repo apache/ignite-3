@@ -22,6 +22,14 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Entry point for obtaining information about a cluster's physical topology.
+ *
+ * <p>Physical topology (PT) is the set of nodes that are thought to be reachable (from the point of view of this node)
+ * for message sending. More precisely, a node appears in the PT when when it gets discovered by an underlying
+ * discovery mechanism (like SWIM) and disappears from the PT when it disappears from the Logical Topology (LT).
+ * This means that a node might still be in the PT when it is not actually reachable anymore (i.e. due to a network partition).
+ *
+ * <p>A node that was removed from the PT due to being removed from the LT cannot reappear in the PT with same node ID
+ * (which means that it will probably have to restart to enter the PT again).
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
 public interface TopologyService {

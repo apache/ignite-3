@@ -50,6 +50,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -132,6 +133,7 @@ public class ItDistributedConfigurationPropertiesTest {
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    (DiscoveryTopologyService) clusterService.topologyService(),
                     raftManager,
                     clusterStateStorage,
                     logicalTopologyService,

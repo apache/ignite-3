@@ -24,11 +24,15 @@ import io.scalecube.cluster.metadata.MetadataCodec;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyEventListener;
+import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
 import org.apache.ignite.network.AbstractTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -40,7 +44,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link TopologyService} based on ScaleCube.
  */
-final class ScaleCubeTopologyService extends AbstractTopologyService {
+final class ScaleCubeTopologyService extends AbstractTopologyService implements DiscoveryTopologyService {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeTopologyService.class);
 
@@ -52,11 +56,16 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      */
     private volatile Cluster cluster;
 
-    /** Topology members from the network address to the cluster node.. */
-    private final ConcurrentMap<NetworkAddress, ClusterNode> members = new ConcurrentHashMap<>();
+    /** Discovery topology members map from the consistent id to the cluster node. */
+    private final ConcurrentMap<String, ClusterNode> consistentIdToDtMemberMap = new ConcurrentHashMap<>();
+
+    /** Physical topology members from the network address to the cluster node.. */
+    private final ConcurrentMap<NetworkAddress, ClusterNode> ptMembers = new ConcurrentHashMap<>();
 
     /** Topology members map from the consistent id to the cluster node. */
-    private final ConcurrentMap<String, ClusterNode> consistentIdToMemberMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ClusterNode> consistentIdToPtMemberMap = new ConcurrentHashMap<>();
+
+    private final List<DiscoveryTopologyEventListener> discoveryEventListeners = new CopyOnWriteArrayList<>();
 
     /**
      * Sets the ScaleCube's {@link Cluster}. Needed for cyclic dependency injection.
@@ -77,17 +86,22 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
         ClusterNode member = fromMember(event.member(), metadata);
 
         if (event.isAdded()) {
-            members.put(member.address(), member);
-            consistentIdToMemberMap.put(member.name(), member);
+            // When a node appears in DT, it immediately appears in PT.
+            consistentIdToDtMemberMap.put(member.name(), member);
+
+            ptMembers.put(member.address(), member);
+            consistentIdToPtMemberMap.put(member.name(), member);
 
             LOG.info("Node joined [node={}]", member);
 
             fireAppearedEvent(member);
         } else if (event.isUpdated()) {
-            members.put(member.address(), member);
-            consistentIdToMemberMap.put(member.name(), member);
+            consistentIdToDtMemberMap.put(member.name(), member);
+
+            ptMembers.put(member.address(), member);
+            consistentIdToPtMemberMap.put(member.name(), member);
         } else if (event.isRemoved()) {
-            members.compute(member.address(), (addr, node) -> {
+            consistentIdToDtMemberMap.compute(member.name(), (consId, node) -> {
                 // Ignore stale remove event.
                 if (node == null || node.id().equals(member.id())) {
                     return null;
@@ -96,22 +110,13 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
                 }
             });
 
-            consistentIdToMemberMap.compute(member.name(), (consId, node) -> {
-                // Ignore stale remove event.
-                if (node == null || node.id().equals(member.id())) {
-                    return null;
-                } else {
-                    return node;
-                }
-            });
+            LOG.info("Node left DT [member={}]", member);
 
-            LOG.info("Node left [member={}]", member);
-
-            fireDisappearedEvent(member);
+            fireDisappearedFromDtEvent(member);
         }
 
         if (LOG.isInfoEnabled()) {
-            LOG.info("Topology snapshot [nodes={}]", members.values().stream().map(ClusterNode::name).collect(Collectors.toList()));
+            LOG.info("Topology snapshot [nodes={}]", ptMembers.values().stream().map(ClusterNode::name).collect(Collectors.toList()));
         }
     }
 
@@ -122,8 +127,11 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      */
     void updateLocalMetadata(@Nullable NodeMetadata metadata) {
         ClusterNode node = fromMember(cluster.member(), metadata);
-        members.put(node.address(), node);
-        consistentIdToMemberMap.put(node.name(), node);
+
+        consistentIdToDtMemberMap.put(node.name(), node);
+
+        ptMembers.put(node.address(), node);
+        consistentIdToPtMemberMap.put(node.name(), node);
     }
 
     /**
@@ -132,19 +140,41 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
      * @param member Appeared cluster member.
      */
     private void fireAppearedEvent(ClusterNode member) {
+        // Appearing in the Discovery Topology is equivalent to appearing in the Physical topology, so we trigger
+        // PT.onAppeared() right away.
+
         for (TopologyEventHandler handler : getEventHandlers()) {
             handler.onAppeared(member);
         }
     }
 
     /**
-     * Fire a cluster member disappearance event.
+     * Fires a cluster member disappearance event (from Discovery Topology).
      *
      * @param member Disappeared cluster member.
      */
-    private void fireDisappearedEvent(ClusterNode member) {
+    private void fireDisappearedFromDtEvent(ClusterNode member) {
+        for (DiscoveryTopologyEventListener listener : discoveryEventListeners) {
+            try {
+                listener.onDisappeared(member);
+            } catch (Exception | AssertionError e) {
+                LOG.error("Error while notifying discovery event listeners about node disappearance: {}", e, member);
+            }
+        }
+    }
+
+    /**
+     * Fires a cluster member disappearance event (from Physical Topology).
+     *
+     * @param member Disappeared cluster member.
+     */
+    private void fireDisappearedFromPtEvent(ClusterNode member) {
         for (TopologyEventHandler handler : getEventHandlers()) {
-            handler.onDisappeared(member);
+            try {
+                handler.onDisappeared(member);
+            } catch (Exception | AssertionError e) {
+                LOG.error("Error while notifying physical topology event listeners about node disappearance: {}", e, member);
+            }
         }
     }
 
@@ -162,19 +192,19 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** {@inheritDoc} */
     @Override
     public Collection<ClusterNode> allMembers() {
-        return Collections.unmodifiableCollection(members.values());
+        return Collections.unmodifiableCollection(ptMembers.values());
     }
 
     /** {@inheritDoc} */
     @Override
     public ClusterNode getByAddress(NetworkAddress addr) {
-        return members.get(addr);
+        return ptMembers.get(addr);
     }
 
     /** {@inheritDoc} */
     @Override
     public ClusterNode getByConsistentId(String consistentId) {
-        return consistentIdToMemberMap.get(consistentId);
+        return consistentIdToPtMemberMap.get(consistentId);
     }
 
     /**
@@ -207,5 +237,40 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             LOG.warn("Couldn't deserialize metadata: {}", e);
             return null;
         }
+    }
+
+    @Override
+    public void addDiscoveryEventListener(DiscoveryTopologyEventListener listener) {
+        discoveryEventListeners.add(listener);
+    }
+
+    @Override
+    public @Nullable ClusterNode discoveredNodeByConsistentId(String consistentId) {
+        return consistentIdToDtMemberMap.get(consistentId);
+    }
+
+    @Override
+    public void removeFromPhysicalTopology(ClusterNode member) {
+        ptMembers.compute(member.address(), (addr, node) -> {
+            // Ignore stale remove event.
+            if (node == null || node.id().equals(member.id())) {
+                return null;
+            } else {
+                return node;
+            }
+        });
+
+        consistentIdToPtMemberMap.compute(member.name(), (consId, node) -> {
+            // Ignore stale remove event.
+            if (node == null || node.id().equals(member.id())) {
+                return null;
+            } else {
+                return node;
+            }
+        });
+
+        LOG.info("Node left PT [member={}]", member);
+
+        fireDisappearedFromPtEvent(member);
     }
 }
