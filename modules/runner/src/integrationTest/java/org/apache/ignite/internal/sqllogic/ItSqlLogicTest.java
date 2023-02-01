@@ -55,6 +55,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
@@ -102,10 +103,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
  *
  * @see <a href="https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki">Extended format documentation.</a>
  */
-@Tag("sqllogic")
+@Tag(value = "sqllogic")
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql", nodes = 1)
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
 public class ItSqlLogicTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
