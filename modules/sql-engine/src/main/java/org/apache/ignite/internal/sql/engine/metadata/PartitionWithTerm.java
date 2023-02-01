@@ -28,6 +28,17 @@ public class PartitionWithTerm {
     private final long term;
 
     /**
+     * Constructor.
+     *
+     * @param partId partition number
+     * @param term Primary replica term.
+     */
+    public PartitionWithTerm(int partId, Long term) {
+        this.partId = partId;
+        this.term = term;
+    }
+
+    /**
      * Gets partition number.
      *
      * @return Partition number.
@@ -43,16 +54,5 @@ public class PartitionWithTerm {
      */
     public long term() {
         return term;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param partId partition number
-     * @param term Primary replica term.
-     */
-    public PartitionWithTerm(int partId, Long term) {
-        this.partId = partId;
-        this.term = term;
     }
 }

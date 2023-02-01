@@ -33,6 +33,17 @@ public class NodeWithTerm implements Serializable {
     private final long term;
 
     /**
+     * Constructor.
+     *
+     * @param name Primary replica node name.
+     * @param term Primary replica term.
+     */
+    public NodeWithTerm(String name, Long term) {
+        this.name = name;
+        this.term = term;
+    }
+
+    /**
      * Gets primary replica node name.
      *
      * @return Primary replica node name.
@@ -48,16 +59,5 @@ public class NodeWithTerm implements Serializable {
      */
     public long term() {
         return term;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param name Primary replica node name.
-     * @param term Primary replica term.
-     */
-    public NodeWithTerm(String name, Long term) {
-        this.name = name;
-        this.term = term;
     }
 }
