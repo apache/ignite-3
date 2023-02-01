@@ -37,6 +37,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -126,6 +127,13 @@ public class ClientSession implements Session {
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
         }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, Statement statement, Mapper<T> mapper,
+            @Nullable Object... arguments) {
+        return null;
     }
 
     /** {@inheritDoc} */

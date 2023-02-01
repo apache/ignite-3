@@ -30,6 +30,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -89,6 +90,13 @@ public class FakeSession implements Session {
         Objects.requireNonNull(statement);
 
         return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, Statement statement, Mapper<T> mapper,
+            @Nullable Object... arguments) {
+        return null;
     }
 
     /** {@inheritDoc} */

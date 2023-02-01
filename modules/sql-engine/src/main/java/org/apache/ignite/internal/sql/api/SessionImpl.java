@@ -54,6 +54,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -198,6 +199,13 @@ public class SessionImpl implements Session {
     ) {
         // TODO: IGNITE-17440 use all statement properties.
         return executeAsync(transaction, statement.query(), arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, Statement statement, Mapper<T> mapper,
+            @Nullable Object... arguments) {
+        return null;
     }
 
     /** {@inheritDoc} */
