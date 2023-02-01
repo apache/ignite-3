@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,6 +62,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -119,6 +122,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -128,6 +132,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -143,6 +148,8 @@ public class ItRebalanceDistributedTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
     private static final String TABLE_1_NAME = "TBL1";
+
+    private static final String TEST_TX_STORAGE_TAG = "TEST_TX_STORAGE";
 
     public static final int BASE_PORT = 20_000;
 
@@ -413,41 +420,15 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
+    @Tag(TEST_TX_STORAGE_TAG)
     void testDestroyPartitionStoragesOnEvictNodeForPartition() {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_1_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        assertThat(nodes.get(0).tableManager.createTableAsync(
-                        TABLE_1_NAME,
-                        tableChange -> SchemaConfigurationConverter.convert(schTbl1, tableChange)
-                                .changeReplicas(3)
-                                .changePartitions(1)
-                                .changeDataStorage(dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class))
-                ),
-                willCompleteSuccessfully()
-        );
-
-        assertEquals(3, getPartitionClusterNodes(0, 0).size());
-        assertEquals(3, getPartitionClusterNodes(1, 0).size());
-        assertEquals(3, getPartitionClusterNodes(2, 0).size());
+        createTableForOnePartition(TABLE_1_NAME, 3, true);
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
-        assertThat(nodes.get(0).tableManager.alterTableAsync(TABLE_1_NAME, tableChange -> {
-                    tableChange.changeReplicas(2);
+        CompletableFuture<Void> waitChangeStableAssignmentsForAllNodesFuture = registerWatchForAllNodes(STABLE_ASSIGNMENTS_PREFIX);
 
-                    return true;
-                }),
-                willCompleteSuccessfully()
-        );
-
-        waitPartitionAssignmentsSyncedToExpected(0, 2);
-
-        assertEquals(2, getPartitionClusterNodes(0, 0).size());
-        assertEquals(2, getPartitionClusterNodes(1, 0).size());
-        assertEquals(2, getPartitionClusterNodes(2, 0).size());
+        changeTableReplicasForSinglePartition(TABLE_1_NAME, 2);
 
         Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(0, 0);
 
@@ -459,11 +440,13 @@ public class ItRebalanceDistributedTest {
                 hasSize(1)
         );
 
+        assertThat(waitChangeStableAssignmentsForAllNodesFuture, willCompleteSuccessfully());
+
         Node evictedNode = findNodeByConsistentId(CollectionUtils.first(evictedAssignments).consistentId());
 
         assertNotNull(evictedNode, evictedAssignments.toString());
 
-        checkPartitionDestroy(evictedNode, TABLE_1_NAME, 0);
+        checkInvokeDestroyPartitionStorages(evictedNode, TABLE_1_NAME, 0);
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
@@ -668,7 +651,9 @@ public class ItRebalanceDistributedTest {
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
-                    return spy(new TestTxStateTableStorage());
+                    return testInfo.getTags().contains(TEST_TX_STORAGE_TAG)
+                            ? spy(new TestTxStateTableStorage())
+                            : super.createTxStateTableStorage(tableCfg);
                 }
             };
         }
@@ -746,6 +731,43 @@ public class ItRebalanceDistributedTest {
         return new VaultManager(new PersistentVaultService(vaultPath));
     }
 
+    private void createTableForOnePartition(String tableName, int replicas, boolean testDataStorage) {
+        assertThat(nodes.get(0).tableManager.createTableAsync(
+                        tableName,
+                        tableChange -> {
+                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
+                                    .changeReplicas(replicas)
+                                    .changePartitions(1);
+
+                            if (testDataStorage) {
+                                tableChange.changeDataStorage(dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class));
+                            }
+                        }
+                ),
+                willCompleteSuccessfully()
+        );
+
+        assertEquals(replicas, getPartitionClusterNodes(0, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(1, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(2, 0).size());
+    }
+
+    private void changeTableReplicasForSinglePartition(String tableName, int replicas) {
+        assertThat(nodes.get(0).tableManager.alterTableAsync(tableName, tableChange -> {
+                    tableChange.changeReplicas(replicas);
+
+                    return true;
+                }),
+                willCompleteSuccessfully()
+        );
+
+        waitPartitionAssignmentsSyncedToExpected(0, replicas);
+
+        assertEquals(replicas, getPartitionClusterNodes(0, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(1, 0).size());
+        assertEquals(replicas, getPartitionClusterNodes(2, 0).size());
+    }
+
     private static Set<Assignment> getEvictedAssignments(Set<Assignment> beforeChange, Set<Assignment> afterChange) {
         Set<Assignment> result = new HashSet<>(beforeChange);
 
@@ -754,7 +776,7 @@ public class ItRebalanceDistributedTest {
         return result;
     }
 
-    private static void checkPartitionDestroy(Node node, String tableName, int partitionId) {
+    private static void checkInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
         Table table = node.tableManager.table(tableName);
 
         assertNotNull(table, tableName);
@@ -766,5 +788,36 @@ public class ItRebalanceDistributedTest {
 
         verify(mvTableStorage, times(1)).destroyPartition(eq(partitionId));
         verify(txStateTableStorage, times(1)).destroyTxStateStorage(eq(partitionId));
+    }
+
+    private static TableDefinition createTableDefinition(String tableName) {
+        return SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+    }
+
+    private CompletableFuture<Void> registerWatchForAllNodes(String prefix) {
+        CompletableFuture<?>[] futures = new CompletableFuture<?>[nodes.size()];
+
+        for (int i = 0; i < nodes.size(); i++) {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+
+            futures[i] = future;
+
+            nodes.get(i).metaStorageManager.registerPrefixWatch(ByteArray.fromString(prefix), new WatchListener() {
+                @Override
+                public void onUpdate(WatchEvent event) {
+                    future.complete(null);
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    future.completeExceptionally(e);
+                }
+            });
+        }
+
+        return CompletableFuture.allOf(futures);
     }
 }
