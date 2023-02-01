@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -424,7 +423,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 boolean implicitTxRequired = outerTx == null && rwOp;
 
                                 InternalTransaction tx = implicitTxRequired ? txManager.begin()
-                                        : outerTx != null ? outerTx : new TransferredTxAttributesHolder(UUID.randomUUID(), clock.now());
+                                        : outerTx != null ? outerTx : new TransferredTxAttributesHolder(null, clock.now());
 
                                 BaseQueryContext enrichedContext = ctx.toBuilder().transaction(tx).build();
 
