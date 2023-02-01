@@ -39,7 +39,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Persistent (rocksdb-based) meta storage raft group snapshots tests.
@@ -133,7 +132,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public RaftGroupListener createListener(TestInfo testInfo, ClusterService service, Path listenerPersistencePath, int index) {
+    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index) {
         String nodeName = service.localConfiguration().getName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
