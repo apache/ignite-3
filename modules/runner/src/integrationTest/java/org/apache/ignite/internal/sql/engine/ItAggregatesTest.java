@@ -257,35 +257,39 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testColocatedAggregate() {
-        sql("CREATE TABLE t1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
-                + "COLOCATE BY (val1)");
+        try {
+            sql("CREATE TABLE t1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                    + "COLOCATE BY (val1)");
 
-        sql("CREATE TABLE t2(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
-                + "COLOCATE BY (val1)");
+            sql("CREATE TABLE t2(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                    + "COLOCATE BY (val1)");
 
-        for (int i = 0; i < 100; i++) {
-            sql("INSERT INTO t1 VALUES (?, ?, ?, ?)", i, "val" + i, "val" + i % 2, "val" + i);
+            for (int i = 0; i < 100; i++) {
+                sql("INSERT INTO t1 VALUES (?, ?, ?, ?)", i, "val" + i, "val" + i % 2, "val" + i);
+            }
+
+            sql("INSERT INTO t2 VALUES (0, 'val0', 'val0', 'val0'), (1, 'val1', 'val1', 'val1')");
+
+            String sql = "SELECT val1, count(val2) FROM t1 GROUP BY val1";
+
+            assertQuery(sql)
+                    .matches(QueryChecker.matches(".*Exchange.*Colocated.*Aggregate.*"))
+                    .returns("val0", 50L)
+                    .returns("val1", 50L)
+                    .check();
+
+            sql = "SELECT t2.val1, agg.cnt "
+                    + "FROM t2 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1 GROUP BY val1) AS agg ON t2.val1 = agg.val1";
+
+            assertQuery(sql)
+                    .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
+                    .returns("val0", 50L)
+                    .returns("val1", 50L)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS t1");
+            sql("DROP TABLE IF EXISTS t2");
         }
-
-        sql("INSERT INTO t2 VALUES (0, 'val0', 'val0', 'val0'), (1, 'val1', 'val1', 'val1')");
-
-        String sql = "SELECT val1, count(val2) FROM t1 GROUP BY val1";
-
-        assertQuery(sql)
-                .matches(QueryChecker.matches(".*Exchange.*Colocated.*Aggregate.*"))
-                .returns("val0", 50L)
-                .returns("val1", 50L)
-                .check();
-
-        sql = "SELECT t2.val1, agg.cnt "
-                + "FROM t2 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1 GROUP BY val1) AS agg ON t2.val1 = agg.val1";
-
-        assertQuery(sql)
-                .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
-                .returns("val0", 50L)
-                .returns("val1", 50L)
-                .planEquals("")
-                .check();
     }
 
     @ParameterizedTest
