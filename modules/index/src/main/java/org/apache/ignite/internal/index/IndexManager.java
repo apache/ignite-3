@@ -330,19 +330,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return failedFuture(new NodeStoppingException());
         }
 
-        return tableManager.tableAsync(evt.storageRevision(), evt.oldValue().tableId())
-                .thenAccept(table -> {
-                    if (table != null) { // in case of DROP TABLE the table will be removed first
-                        table.unregisterIndex(idxId);
-                    }
-                })
-                .thenRun(() -> {
-                    try {
-                        fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
+        try {
+            return tableManager.tableAsync(evt.storageRevision(), evt.oldValue().tableId())
+                    .thenAccept(table -> {
+                        if (table != null) { // in case of DROP TABLE the table will be removed first
+                            table.unregisterIndex(idxId);
+                        }
+                    })
+                    .thenRun(() -> fireEvent(IndexEvent.DROP, new IndexEventParameters(evt.storageRevision(), idxId), null));
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
