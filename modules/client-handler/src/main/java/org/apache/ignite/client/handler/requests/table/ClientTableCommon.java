@@ -382,7 +382,13 @@ public class ClientTableCommon {
         }
     }
 
-    private static int getClientDataType(NativeTypeSpec spec) {
+    /**
+     * Gets client type by server type.
+     *
+     * @param spec Type spec.
+     * @return Client type code.
+     */
+    public static int getClientDataType(NativeTypeSpec spec) {
         switch (spec) {
             case INT8:
                 return ClientDataType.INT8;
@@ -435,6 +441,38 @@ public class ClientTableCommon {
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
         }
+    }
+
+    /**
+     * Gets type scale.
+     *
+     * @param type Type.
+     * @return Scale.
+     */
+    public static int getDecimalScale(NativeType type) {
+        return type instanceof DecimalNativeType ? ((DecimalNativeType) type).scale() : 0;
+    }
+
+    /**
+     * Gets type precision.
+     *
+     * @param type Type.
+     * @return Precision.
+     */
+    public static int getPrecision(NativeType type) {
+        if (type instanceof NumberNativeType) {
+            return ((NumberNativeType) type).precision();
+        }
+
+        if (type instanceof TemporalNativeType) {
+            return ((TemporalNativeType) type).precision();
+        }
+
+        if (type instanceof DecimalNativeType) {
+            return ((DecimalNativeType) type).precision();
+        }
+
+        return 0;
     }
 
     private static void writeColumnValue(BinaryTupleBuilder builder, Tuple tuple, Column col) {
@@ -521,25 +559,5 @@ public class ClientTableCommon {
             case VAL: return schema.valueColumns().length();
             default: return schema.length();
         }
-    }
-
-    private static int getDecimalScale(NativeType type) {
-        return type instanceof DecimalNativeType ? ((DecimalNativeType) type).scale() : 0;
-    }
-
-    private static int getPrecision(NativeType type) {
-        if (type instanceof NumberNativeType) {
-            return ((NumberNativeType) type).precision();
-        }
-
-        if (type instanceof TemporalNativeType) {
-            return ((TemporalNativeType) type).precision();
-        }
-
-        if (type instanceof DecimalNativeType) {
-            return ((DecimalNativeType) type).precision();
-        }
-
-        return 0;
     }
 }

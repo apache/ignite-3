@@ -33,10 +33,13 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -49,10 +52,12 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract class for raft tests using JRaftServer.
  */
+@ExtendWith(ConfigurationExtension.class)
 public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     /** Nodes count. */
     protected static final int NODES = 3;
@@ -67,10 +72,13 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     private static final int CLIENT_PORT = 6003;
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     /**
      * Initial configuration.
      */
-    protected PeersAndLearners initialConf;
+    protected PeersAndLearners initialMembersConf;
 
     /**
      * Servers list.
@@ -92,7 +100,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
     void before() {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
 
-        initialConf = IntStream.range(0, NODES)
+        initialMembersConf = IntStream.range(0, NODES)
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
     }
@@ -204,7 +212,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
         RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, 10_000, 10_000, configuration, false, 200, executor)
+                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, false, executor)
                 .get(3, TimeUnit.SECONDS);
 
         clients.add(client);

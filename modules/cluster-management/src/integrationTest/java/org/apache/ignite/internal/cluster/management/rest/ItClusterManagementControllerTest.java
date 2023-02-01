@@ -35,55 +35,18 @@ import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import jakarta.inject.Inject;
-import java.io.IOException;
 import java.util.List;
-import org.apache.ignite.internal.cluster.management.MockNode;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Cluster management REST test.
  */
 public class ItClusterManagementControllerTest extends RestTestBase {
-
     @Inject
     @Client("/management/v1/cluster")
     private HttpClient client;
-
-    @BeforeAll
-    static void setUp(TestInfo testInfo) throws IOException {
-        var addr1 = new NetworkAddress("localhost", PORT_BASE);
-        var addr2 = new NetworkAddress("localhost", PORT_BASE + 1);
-
-        var nodeFinder = new StaticNodeFinder(List.of(addr1, addr2));
-
-        cluster.add(new MockNode(testInfo, addr1, nodeFinder, workDir.resolve("node0")));
-        cluster.add(new MockNode(testInfo, addr2, nodeFinder, workDir.resolve("node1")));
-
-        for (MockNode node : cluster) {
-            node.start();
-        }
-
-        clusterService = cluster.get(0).clusterService();
-        clusterManager = cluster.get(0).clusterManager();
-    }
-
-    @AfterAll
-    static void tearDown() {
-        for (MockNode node : cluster) {
-            node.beforeNodeStop();
-        }
-
-        for (MockNode node : cluster) {
-            node.stop();
-        }
-    }
 
     @Test
     void testControllerLoaded() {
