@@ -38,7 +38,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -163,7 +163,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         flags,
                         requiredColumns
                 );
-            } else if (!(tx instanceof TransferredTxAttributesHolder)) {
+            } else if (!(tx instanceof LocalTxAttributesHolder)) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
@@ -199,7 +199,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                         key,
                         requiredColumns
                 );
-            } else if (!(tx instanceof TransferredTxAttributesHolder)) {
+            } else if (!(tx instanceof LocalTxAttributesHolder)) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW lookup work from tx coordinator.
                 pub = schemaIndex.index().lookup(

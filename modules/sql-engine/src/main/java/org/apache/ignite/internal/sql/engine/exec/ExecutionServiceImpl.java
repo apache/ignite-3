@@ -81,7 +81,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -243,7 +243,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .build()
                 )
                 .logger(LOG)
-                .transaction(new TransferredTxAttributesHolder(txId, txTime))
+                .transaction(new LocalTxAttributesHolder(txId, txTime))
                 .build();
     }
 
