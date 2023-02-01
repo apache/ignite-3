@@ -45,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL session.
  */
 public class ClientSession implements Session {
+    private static final Mapper<SqlRow> sqlRowMapper = () -> SqlRow.class;
+
     private final ReliableChannel ch;
 
     @Nullable
@@ -104,7 +106,7 @@ public class ClientSession implements Session {
             @Nullable Transaction transaction,
             Statement statement,
             @Nullable Object... arguments) {
-        return executeAsync(transaction, statement, Mapper.of(SqlRow.class), arguments);
+        return executeAsync(transaction, statement, sqlRowMapper, arguments);
     }
 
     /** {@inheritDoc} */
