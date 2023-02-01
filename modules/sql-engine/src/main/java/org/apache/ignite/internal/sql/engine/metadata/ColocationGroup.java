@@ -183,6 +183,9 @@ public class ColocationGroup implements Serializable {
 
                 List<NodeWithTerm> assignment;
 
+                assert assignment0.size() == 1 : assignment0.size();
+                assert assignment1.size() == 1 : assignment1.size();
+
                 if (assignment0.size() == 1 && assignment1.size() == 1) {
                     assignment = compareNodeWithTerm(assignment0.get(0), assignment1.get(0), nodeNamesFilter, p)
                             ? assignment0
