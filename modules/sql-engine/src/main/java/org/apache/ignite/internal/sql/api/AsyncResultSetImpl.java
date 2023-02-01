@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Asynchronous result set implementation.
  */
-public class AsyncResultSetImpl implements AsyncResultSet {
+public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
             CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
 
@@ -107,13 +107,14 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public Iterable<SqlRow> currentPage() {
+    public Iterable<T> currentPage() {
         requireResultSet();
 
         final Iterator<List<Object>> it0 = curPage.items().iterator();
         final ResultSetMetadata meta0 = cur.metadata();
 
-        return () -> new TransformingIterator<>(it0, (item) -> new SqlRowImpl(item, meta0));
+        // TODO
+        return () -> new TransformingIterator<>(it0, (item) -> (T)new SqlRowImpl(item, meta0));
     }
 
     /** {@inheritDoc} */
@@ -126,11 +127,11 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<? extends AsyncResultSet> fetchNextPage() {
+    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
         if (!hasMorePages()) {
-            return HAS_NO_MORE_PAGE_FUTURE;
+            return (CompletableFuture<? extends AsyncResultSet<T>>) HAS_NO_MORE_PAGE_FUTURE;
         } else {
             return cur.requestNextAsync(pageSize)
                     .thenApply(page -> {
