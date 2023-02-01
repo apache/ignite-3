@@ -46,15 +46,18 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() {
+    static void initTestData() throws InterruptedException {
         createAndPopulateTable();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY, grp0 INT, grp1 INT, val0 INT, val1 INT) WITH replicas=2,partitions=10");
         sql("CREATE TABLE test_one_col_idx (pk INT PRIMARY KEY, col0 INT)");
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
-        // sql("CREATE INDEX test_idx ON test(grp0, grp1)");
-        // sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
+        sql("CREATE INDEX test_idx ON test(grp0, grp1)");
+        sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
+
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        waitForIndex("test_idx");
+        waitForIndex("test_one_col_idx_idx");
 
         for (int i = 0; i < ROWS; i++) {
             sql("INSERT INTO test (id, grp0, grp1, val0, val1) VALUES (?, ?, ?, ?, ?)", i, i / 10, i / 100, 1, 2);
@@ -250,6 +253,39 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
         val = res.get(1).get(0);
 
         assertEquals("Ilya", val);
+    }
+
+    @Test
+    public void testColocatedAggregate() {
+        sql("CREATE TABLE t1(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                + "COLOCATE BY (val1)");
+
+        sql("CREATE TABLE t2(id INT, val0 VARCHAR, val1 VARCHAR, val2 VARCHAR, PRIMARY KEY(id, val1)) "
+                + "COLOCATE BY (val1)");
+
+        for (int i = 0; i < 100; i++) {
+            sql("INSERT INTO t1 VALUES (?, ?, ?, ?)", i, "val" + i, "val" + i % 2, "val" + i);
+        }
+
+        sql("INSERT INTO t2 VALUES (0, 'val0', 'val0', 'val0'), (1, 'val1', 'val1', 'val1')");
+
+        String sql = "SELECT val1, count(val2) FROM t1 GROUP BY val1";
+
+        assertQuery(sql)
+                .matches(QueryChecker.matches(".*Exchange.*Colocated.*Aggregate.*"))
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .check();
+
+        sql = "SELECT t2.val1, agg.cnt "
+                + "FROM t2 JOIN (SELECT val1, COUNT(val2) AS cnt FROM t1 GROUP BY val1) AS agg ON t2.val1 = agg.val1";
+
+        assertQuery(sql)
+                .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
+                .returns("val0", 50L)
+                .returns("val1", 50L)
+                .planEquals("")
+                .check();
     }
 
     @ParameterizedTest
