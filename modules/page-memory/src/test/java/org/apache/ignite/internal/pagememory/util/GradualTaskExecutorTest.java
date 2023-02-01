@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -30,9 +31,11 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -94,11 +97,21 @@ class GradualTaskExecutorTest {
     }
 
     @Test
-    void nonFinishedTasksAreCancelledWhenExecutorIsClosed() {
+    void nonFinishedTasksAreCancelledWhenExecutorIsClosed() throws Exception {
+        CountDownLatch infiniteTaskStartedExecution = new CountDownLatch(1);
+
         GradualTask infiniteTask = mock(GradualTask.class);
+
         when(infiniteTask.isCompleted()).thenReturn(false);
+        doAnswer(invocation -> {
+            infiniteTaskStartedExecution.countDown();
+
+            return null;
+        }).when(infiniteTask).runStep();
 
         CompletableFuture<Void> future = executor.execute(infiniteTask);
+
+        assertTrue(infiniteTaskStartedExecution.await(1, TimeUnit.SECONDS), "Infinite task was not started in time");
 
         assertFalse(future.isDone());
 
