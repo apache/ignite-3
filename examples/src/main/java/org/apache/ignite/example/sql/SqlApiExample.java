@@ -27,6 +27,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Examples of using SQL API.
@@ -161,6 +162,31 @@ public class SqlApiExample {
 
                 //--------------------------------------------------------------------------------------
                 //
+                // Requesting accounts with balances lower than 1,500 with POJO mapping.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("\nAccounts with balance lower than 1,500 (POJO mapping):");
+
+                Statement statement = client.sql().statementBuilder()
+                        .query("SELECT a.FIRST_NAME, a.LAST_NAME, a.BALANCE FROM ACCOUNTS a "
+                                + "WHERE a.BALANCE < 1500.0 "
+                                + "ORDER BY a.ACCOUNT_ID")
+                        .build();
+
+                try (ResultSet<AccountInfo> rs = ses.execute(null, statement, Mapper.of(AccountInfo.class))) {
+                    while (rs.hasNext()) {
+                        AccountInfo row = rs.next();
+
+                        System.out.println("    "
+                                + row.first_name + ", "
+                                + row.last_name + ", "
+                                + row.balance);
+                    }
+                }
+
+                //--------------------------------------------------------------------------------------
+                //
                 // Deleting one of the accounts.
                 //
                 //--------------------------------------------------------------------------------------
@@ -229,5 +255,11 @@ public class SqlApiExample {
         // Request for the next page in async way, then subscribe to the response.
         //
         return resultSet.fetchNextPage().thenCompose(SqlApiExample::fetchAllRowsInto);
+    }
+
+    private static class AccountInfo {
+        public String first_name;
+        public String last_name;
+        public double balance;
     }
 }
