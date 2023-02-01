@@ -70,9 +70,6 @@ public class ItDistributionZonesTest {
 
     /**
      * Nodes bootstrap configuration pattern.
-     *
-     * <p>rpcInstallSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
-     * allow tests pass thanks to retries.
      */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network: {\n"
@@ -80,8 +77,7 @@ public class ItDistributionZonesTest {
             + "    nodeFinder:{\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
-            + "  },\n"
-            + "  raft.rpcInstallSnapshotTimeout: 10000"
+            + "  }\n"
             + "}";
 
     @WorkDirectory
@@ -102,12 +98,12 @@ public class ItDistributionZonesTest {
 
     @Test
     @Disabled
-    void assingmentsChangingOnNodeLeaveNodeJoin() throws Exception {
+    void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
 
         createTestTable();
 
-        assertTrue(waitAssingments(List.of(
+        assertTrue(waitAssignments(List.of(
                 Set.of(0, 1, 2),
                 Set.of(0, 1, 2),
                 Set.of(0, 1, 2),
@@ -140,7 +136,7 @@ public class ItDistributionZonesTest {
 
         cluster.knockOutNode(2, PARTITION_NETWORK);
 
-        assertTrue(waitAssingments(List.of(
+        assertTrue(waitAssignments(List.of(
                 Set.of(0, 1, 3),
                 Set.of(0, 1, 3),
                 Set.of(0, 1, 2),
@@ -153,7 +149,7 @@ public class ItDistributionZonesTest {
 
         cluster.reanimateNode(2, PARTITION_NETWORK);
 
-        assertTrue(waitAssingments(List.of(
+        assertTrue(waitAssignments(List.of(
                 Set.of(0, 1, 2),
                 Set.of(0, 1, 2),
                 Set.of(0, 1, 2),
@@ -175,10 +171,10 @@ public class ItDistributionZonesTest {
         }
     }
 
-    private boolean waitAssingments(List<Set<Integer>> nodes) throws InterruptedException {
+    private boolean waitAssignments(List<Set<Integer>> nodes) throws InterruptedException {
         return waitForCondition(() -> {
             for (int i = 0; i < nodes.size(); i++) {
-                Set<Integer> excpectedAssignments = nodes.get(i);
+                Set<Integer> expectedAssignments = nodes.get(i);
 
                 ExtendedTableConfiguration table =
                         (ExtendedTableConfiguration) cluster.node(i)
@@ -197,8 +193,8 @@ public class ItDistributionZonesTest {
 
                 LOG.info("Assignments for node " + i + ": " + assignments);
 
-                if (!(excpectedAssignments.size() == assignments.size())
-                        || !excpectedAssignments.stream().allMatch(node -> assignments.contains(cluster.node(node).name()))) {
+                if (!(expectedAssignments.size() == assignments.size())
+                        || !expectedAssignments.stream().allMatch(node -> assignments.contains(cluster.node(node).name()))) {
                     return false;
                 }
             }

@@ -104,7 +104,7 @@ import org.mockito.quality.Strictness;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class TableManagerDistrubutionZoneTest extends IgniteAbstractTest {
+public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
     private ConfigurationManager clusterCfgMgr;

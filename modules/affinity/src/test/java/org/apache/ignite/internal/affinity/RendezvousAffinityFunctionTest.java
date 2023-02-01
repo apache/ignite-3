@@ -57,7 +57,7 @@ public class RendezvousAffinityFunctionTest {
 
         List<String> nodes = prepareNetworkTopology(nodeCount);
 
-        assertTrue(parts > nodeCount, "Partitions should be more that nodes");
+        assertTrue(parts > nodeCount, "Partitions should be more than nodes");
 
         int ideal = (parts * replicas) / nodeCount;
 
@@ -118,7 +118,7 @@ public class RendezvousAffinityFunctionTest {
 
         List<String> nodes = prepareNetworkTopology(nodeCount);
 
-        assertTrue(parts > nodeCount, "Partitions should be more that nodes");
+        assertTrue(parts > nodeCount, "Partitions should be more than nodes");
 
         List<List<String>> assignment = RendezvousAffinityFunction.assignPartitions(
                 nodes,

@@ -295,7 +295,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
     /** The watch listener which trigger a rebalance on updating data nodes of distribution zones. */
-    private volatile WatchListener zonesWatchListener;
+    private final WatchListener zonesWatchListener;
 
     /**
      * Creates a new table manager.
@@ -434,7 +434,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         zonesWatchListener = new WatchListener() {
             @Override
-            public void onUpdate(@NotNull WatchEvent evt) {
+            public void onUpdate(WatchEvent evt) {
                 NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
 
                 int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
@@ -462,8 +462,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             @Override
-            public void onError(@NotNull Throwable e) {
-                LOG.warn("Unable to process stable assignments event", e);
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process data nodes event", e);
             }
         };
     }

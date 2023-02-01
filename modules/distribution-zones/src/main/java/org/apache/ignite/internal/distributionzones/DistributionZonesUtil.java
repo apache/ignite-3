@@ -61,12 +61,21 @@ public class DistributionZonesUtil {
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION);
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
     public static ByteArray zoneDataNodesKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX + zoneId);
     }
 
-    /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}.
+     *
+     * @return ByteArray representation.
+     */
     public static ByteArray zoneDataNodesPrefix() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
     }

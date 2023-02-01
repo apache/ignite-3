@@ -33,13 +33,14 @@ public class AffinityUtils {
     /**
      * Calculates affinity assignments.
      *
+     * @param dataNodes Data nodes.
      * @param partitions Partitions count.
      * @param replicas Replicas count.
      * @return List assignments by partition.
      */
-    public static List<Set<Assignment>> calculateAssignments(Collection<String> baselineNodes, int partitions, int replicas) {
+    public static List<Set<Assignment>> calculateAssignments(Collection<String> dataNodes, int partitions, int replicas) {
         List<Set<String>> affinityNodes = RendezvousAffinityFunction.assignPartitions(
-                baselineNodes,
+                dataNodes,
                 partitions,
                 replicas,
                 false,
@@ -53,15 +54,15 @@ public class AffinityUtils {
     /**
      * Calculates affinity assignments for a single partition.
      *
-     * @param consistentIds Consistent ids of nodes.
+     * @param dataNodes Consistent ids of nodes.
      * @param partition Partition id.
      * @param replicas Replicas count.
      * @return Set of assignments.
      */
-    public static Set<Assignment> calculateAssignmentForPartition(Collection<String> consistentIds, int partition, int replicas) {
+    public static Set<Assignment> calculateAssignmentForPartition(Collection<String> dataNodes, int partition, int replicas) {
         Set<String> affinityNodes = RendezvousAffinityFunction.assignPartition(
                 partition,
-                new ArrayList<>(consistentIds),
+                new ArrayList<>(dataNodes),
                 replicas,
                 null,
                 false,
@@ -73,6 +74,6 @@ public class AffinityUtils {
     }
 
     private static Set<Assignment> consistentIdsToAssignments(Collection<String> nodes) {
-        return nodes.stream().map(node -> Assignment.forPeer(node)).collect(toSet());
+        return nodes.stream().map(Assignment::forPeer).collect(toSet());
     }
 }
