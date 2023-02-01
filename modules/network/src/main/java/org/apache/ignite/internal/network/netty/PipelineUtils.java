@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.ssl.SslContext;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -31,6 +32,23 @@ public class PipelineUtils {
     private static final String CHUNKED_WRITE_HANDLER_NAME = "chunked-write-handler";
 
     /**
+     * Sets up initial pipeline with ssl.
+     *
+     * @param pipeline Channel pipeline.
+     * @param serializationService Serialization service.
+     * @param handshakeManager Handshake manager.
+     * @param messageListener Message listener.
+     * @param sslContext Netty ssl context.
+     */
+    public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
+            HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener, SslContext sslContext) {
+
+        pipeline.addFirst("ssl", sslContext.newHandler(pipeline.channel().alloc()));
+
+        setup(pipeline, serializationService, handshakeManager, messageListener);
+    }
+
+    /**
      * Sets up initial pipeline.
      *
      * @param pipeline Channel pipeline.
@@ -39,7 +57,8 @@ public class PipelineUtils {
      * @param messageListener Message listener.
      */
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
-                HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
+            HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
+
         pipeline.addLast(InboundDecoder.NAME, new InboundDecoder(serializationService));
         pipeline.addLast(HandshakeHandler.NAME, new HandshakeHandler(handshakeManager, messageListener, serializationService));
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());

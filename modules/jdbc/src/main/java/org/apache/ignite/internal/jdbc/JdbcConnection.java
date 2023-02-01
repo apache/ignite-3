@@ -51,6 +51,8 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClient.Builder;
+import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -149,13 +151,14 @@ public class JdbcConnection implements Connection {
         int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
 
         try {
-            client = ((TcpIgniteClient) IgniteClient
-                    .builder()
+            Builder builder = IgniteClient.builder()
                     .addresses(addrs)
                     .connectTimeout(netTimeout)
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
-                    .reconnectThrottlingRetries(reconnectThrottlingRetries)
-                    .build());
+                    .reconnectThrottlingRetries(reconnectThrottlingRetries);
+            setupSsl(builder);
+
+            client = ((TcpIgniteClient) builder.build());
 
         } catch (Exception e) {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
@@ -168,6 +171,20 @@ public class JdbcConnection implements Connection {
         schema = normalizeSchema(connProps.getSchema());
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
+    }
+
+    private void setupSsl(Builder builder) {
+        if (connProps.isSslEnabled()) {
+            SslConfiguration configuration;
+            if (connProps.getTrustStoreType() != null) {
+                configuration = SslConfiguration.trustStore(
+                        connProps.getTrustStoreType(), connProps.getTrustStorePath(), connProps.getTrustStorePassword()
+                );
+            } else {
+                configuration = SslConfiguration.trustStore(connProps.getTrustStorePath(), connProps.getTrustStorePassword());
+            }
+            builder.sslConfiguration(configuration);
+        }
     }
 
     /** {@inheritDoc} */

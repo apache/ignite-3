@@ -141,4 +141,14 @@ public interface IgniteClientConfiguration {
      * @return Configured logger factory.
      */
     @Nullable LoggerFactory loggerFactory();
+
+    /**
+     * Returns the client ssl configuration. This configuration will be used to setup the ssl connection with
+     * the Ignite 3 nodes.
+     *
+     * <p>When {@code null} then no ssl is used.
+     *
+     * @return Client ssl configuration.
+     */
+    SslConfiguration sslConfiguration();
 }

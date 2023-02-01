@@ -216,7 +216,7 @@ public class RetryPolicyTest {
     @Test
     public void testRetryReadPolicyAllOperationsSupported() throws IllegalAccessException {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, 0, null, null);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, 0, null, null, null);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);

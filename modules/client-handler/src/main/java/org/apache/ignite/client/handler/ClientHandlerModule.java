@@ -24,6 +24,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.lang.IgniteException;
@@ -174,7 +176,7 @@ public class ClientHandlerModule implements IgniteComponent {
      *
      * @return Channel future.
      * @throws InterruptedException If thread has been interrupted during the start.
-     * @throws IgniteException      When startup has failed.
+     * @throws IgniteException When startup has failed.
      */
     private ChannelFuture startEndpoint() throws InterruptedException {
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
@@ -198,17 +200,23 @@ public class ClientHandlerModule implements IgniteComponent {
                             ch.pipeline().addLast(new IdleChannelHandler());
                         }
 
-                        ch.pipeline().addLast(
-                                new ClientMessageDecoder(),
-                                new ClientInboundMessageHandler(
-                                        igniteTables,
-                                        igniteTransactions,
-                                        queryProcessor,
-                                        configuration,
-                                        igniteCompute,
-                                        clusterService,
-                                        sql,
-                                        clusterId));
+                        if (configuration.ssl().enabled()) {
+                            SslContext sslContext =  SslContextProvider.forServer(configuration.ssl().keyStore()).createSslContext();
+                            ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
+                        }
+
+                        ch.pipeline()
+                                .addLast(
+                                        new ClientMessageDecoder(),
+                                        new ClientInboundMessageHandler(
+                                                igniteTables,
+                                                igniteTransactions,
+                                                queryProcessor,
+                                                configuration,
+                                                igniteCompute,
+                                                clusterService,
+                                                sql,
+                                                clusterId));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

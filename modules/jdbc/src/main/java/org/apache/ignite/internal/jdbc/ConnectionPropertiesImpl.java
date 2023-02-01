@@ -78,8 +78,26 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             "Sets the reconnect throttling retries. Zero means there is no limits.",
             IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES, false, 0, Integer.MAX_VALUE);
 
+    /** Path to the truststore. */
+    private final StringProperty trustStorePath = new StringProperty("trustStorePath",
+            "Path to trust store", null, null, false, null);
+
+    /** Truststore password. */
+    private final StringProperty trustStorePassword = new StringProperty("trustStorePassword",
+            "Trust store password", null, null, false, null);
+
+    /** Type of the truststore. */
+    private final StringProperty trustStoreType = new StringProperty("trustStoreType",
+            "Type of the truststore", "PKCS12", null, false, null);
+
+    /** Enable ssl. */
+    private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
+            "Enable ssl", false, null, false, null);
+
     /** Properties array. */
-    private final ConnectionProperty[] propsArray = {qryTimeout, connTimeout};
+    private final ConnectionProperty[] propsArray = {
+            qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType, sslEnabled
+    };
 
     /** {@inheritDoc} */
     @Override
@@ -189,6 +207,50 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setConnectionTimeout(@Nullable Integer timeout) throws SQLException {
         connTimeout.setValue(timeout);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTrustStorePath(String trustStorePath) {
+        this.trustStorePath.setValue(trustStorePath);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTrustStorePassword(String password) {
+        this.trustStorePassword.setValue(password);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getTrustStorePath() {
+        return trustStorePath.value();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getTrustStorePassword() {
+        return trustStorePassword.value();
+    }
+
+    @Override
+    public String getTrustStoreType() {
+        return trustStoreType.value();
+    }
+
+    @Override
+    public void setTrustStoreType(String type) {
+        trustStoreType.setValue(type);
+    }
+
+    @Override
+    public boolean isSslEnabled() {
+        return sslEnabled.value();
+    }
+
+    @Override
+    public void setSslEnabled(boolean enabled) {
+        sslEnabled.setValue(enabled);
     }
 
     /**
@@ -832,6 +894,67 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         @Override
         String valueObject() {
             return val;
+        }
+    }
+
+    /**
+     * Boolean property.
+     */
+    private static class BooleanProperty extends ConnectionProperty {
+        /** Serial version uid. */
+        private static final long serialVersionUID = 0L;
+
+        /** Value. */
+        private boolean val;
+
+        /**
+         * Constructor.
+         *
+         * @param name      Name.
+         * @param desc      Description.
+         * @param dfltVal   Default value.
+         * @param required  {@code true} if the property is required.
+         * @param validator Property value validator.
+         */
+        BooleanProperty(String name, String desc, boolean dfltVal, String[] choices, boolean required,
+                PropertyValidator validator) {
+            super(name, desc, dfltVal, choices, required, validator);
+
+            val = dfltVal;
+        }
+
+        /**
+         * Set the property value.
+         *
+         * @param val Property value.
+         */
+        void setValue(boolean val) {
+            this.val = val;
+        }
+
+        /**
+         * Get the property value.
+         *
+         * @return Property value.
+         */
+        boolean value() {
+            return val;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        void init(String str) throws SQLException {
+            if (validator != null) {
+                validator.validate(str);
+            }
+
+            val = Boolean.parseBoolean(str);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        String valueObject() {
+            return String.valueOf(val);
         }
     }
 

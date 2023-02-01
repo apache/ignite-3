@@ -38,6 +38,7 @@ import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.OutboundView;
+import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -168,6 +169,9 @@ class DefaultMessagingServiceTest {
         lenient().when(networkConfigView.portRange()).thenReturn(0);
         lenient().when(networkConfigView.outbound()).thenReturn(outboundConfig);
         lenient().when(networkConfigView.inbound()).thenReturn(inboundConfig);
+        SslView ssl = mock(SslView.class);
+        lenient().when(ssl.enabled()).thenReturn(false);
+        lenient().when(networkConfigView.ssl()).thenReturn(ssl);
     }
 
     private static void awaitQuietly(CountDownLatch latch) {

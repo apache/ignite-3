@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.configuration;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
@@ -51,4 +52,8 @@ public class ClientConnectorConfigurationSchema {
     /** Server exception stack trace visibility. */
     @Value(hasDefault = true)
     public final boolean sendServerExceptionStackTraceToClient = false;
+
+    /** Ssl configuration schema. */
+    @ConfigValue
+    public ClientConnectorSslConfigurationSchema ssl;
 }

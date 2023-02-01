@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.network.ssl;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import io.netty.handler.ssl.SslContext;
+import org.apache.ignite.internal.network.configuration.KeyStoreView;
+import org.apache.ignite.internal.network.configuration.TrustStoreView;
 
-/** Keystore configuration schema. */
-@Config
-public class KeyStoreConfigurationSchema {
-    /** Keystore type. */
-    @Value(hasDefault = true)
-    public String type = "PKCS12";
+/** Ssl context provider. */
+public interface SslContextProvider {
 
-    /** Keystore path. */
-    @Value(hasDefault = true)
-    public String path = "";
+    /** Create ssl context. */
+    SslContext createSslContext();
 
-    /** Keystore password. */
-    @Value(hasDefault = true)
-    public String password = "";
+    /** Create an instance of client ssl context provider. */
+    static SslContextProvider forClient(TrustStoreView trustStoreView) {
+        return new ClientSslContextProvider(trustStoreView);
+    }
+
+    /** Create an instance of server ssl context provider. */
+    static SslContextProvider forServer(KeyStoreView keyStoreView) {
+        return new ServerSslContextProvider(keyStoreView);
+    }
 }

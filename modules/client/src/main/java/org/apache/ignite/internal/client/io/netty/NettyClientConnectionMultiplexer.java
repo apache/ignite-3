@@ -26,7 +26,17 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.ssl.SslContextBuilder;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
@@ -62,6 +72,38 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
+                    if (clientCfg.sslConfiguration().enabled()) {
+                        try {
+                            // todo: what if null? password?
+                            KeyStore store = KeyStore.getInstance(clientCfg.sslConfiguration().trustStoreType());
+                            store.load(
+                                    Files.newInputStream(Path.of(clientCfg.sslConfiguration().trustStorePath())),
+                                    clientCfg.sslConfiguration().trustStorePassword() == null
+                                            ? null
+                                            : clientCfg.sslConfiguration().trustStorePassword().toCharArray()
+                            );
+
+                            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                                    TrustManagerFactory.getDefaultAlgorithm()
+                            );
+                            trustManagerFactory.init(store);
+
+                            var context = SslContextBuilder.forClient()
+                                    .trustManager(trustManagerFactory)
+                                    .build();
+                            ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
+                        } catch (SSLException e) {
+                            throw new RuntimeException(e);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        } catch (CertificateException e) {
+                            throw new RuntimeException(e);
+                        } catch (KeyStoreException e) {
+                            throw new RuntimeException(e);
+                        } catch (NoSuchAlgorithmException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());

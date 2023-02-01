@@ -126,4 +126,60 @@ public interface ConnectionProperties {
      * @throws SQLException On error.
      */
     void setConnectionTimeout(Integer connTimeout) throws SQLException;
+
+    /**
+     * Set trust store path that will be used to setup ssl connection.
+     *
+     * @param trustStorePath Trust store path.
+     */
+    void setTrustStorePath(String trustStorePath);
+
+    /**
+     * Set trust store password.
+     *
+     * @param password Trust store password.
+     */
+    void setTrustStorePassword(String password);
+
+    /**
+     * Trust store path.
+     *
+     * @return Truststore path.
+     */
+    String getTrustStorePath();
+
+    /**
+     * Truststore password.
+     *
+     * @return Truststore password.
+     */
+    String getTrustStorePassword();
+
+    /**
+     * Truststore type.
+     *
+     * @return Truststore type.
+     */
+    String getTrustStoreType();
+
+    /**
+     * Set truststore type. For example, PKSC12 or JKS.
+     *
+     * @param type Truststore type.
+     */
+    void setTrustStoreType(String type);
+
+    /**
+     * Ssl enabled.
+     *
+     * @return true if ssl is enabled.
+     */
+    boolean isSslEnabled();
+
+    /**
+     * Enable/disable ssl.
+     *
+     * @param enabled true if ssl is enabled.
+     */
+    void setSslEnabled(boolean enabled);
 }

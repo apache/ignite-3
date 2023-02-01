@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.client.handler.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.network.configuration.KeyStoreConfigurationSchema;
 
-/** Keystore configuration schema. */
+/** Client connector ssl configuration schema. */
 @Config
-public class KeyStoreConfigurationSchema {
-    /** Keystore type. */
+public class ClientConnectorSslConfigurationSchema {
+    /** If set to true then ssl will be used for client operations. */
     @Value(hasDefault = true)
-    public String type = "PKCS12";
+    public final boolean enabled = false;
 
-    /** Keystore path. */
-    @Value(hasDefault = true)
-    public String path = "";
-
-    /** Keystore password. */
-    @Value(hasDefault = true)
-    public String password = "";
+    /** Keystore configuration. */
+    @ConfigValue
+    public KeyStoreConfigurationSchema keyStore;
 }

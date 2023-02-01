@@ -20,18 +20,18 @@ package org.apache.ignite.internal.network.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
-/** Keystore configuration schema. */
+/** Truststore configuration schema. */
 @Config
-public class KeyStoreConfigurationSchema {
-    /** Keystore type. */
+public class TrustStoreConfigurationSchema {
+    /** Truststore type. */
     @Value(hasDefault = true)
     public String type = "PKCS12";
 
-    /** Keystore path. */
+    /** Truststore path. */
     @Value(hasDefault = true)
     public String path = "";
 
-    /** Keystore password. */
+    /** Truststore password. */
     @Value(hasDefault = true)
     public String password = "";
 }

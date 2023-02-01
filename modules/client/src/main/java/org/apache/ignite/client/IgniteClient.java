@@ -97,6 +97,9 @@ public interface IgniteClient extends Ignite {
         /** Logger factory. */
         private @Nullable LoggerFactory loggerFactory;
 
+        /** Ssl configuration. */
+        private SslConfiguration sslConfiguration = SslConfiguration.disabled();
+
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
          * If port is not set then Ignite will generate multiple addresses for default port range. See {@link
@@ -261,6 +264,18 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the ssl configuration.
+         *
+         * @param sslConfiguration Ssl configuration.
+         * @return This instance.
+         */
+        public Builder sslConfiguration(SslConfiguration sslConfiguration) {
+            this.sslConfiguration = sslConfiguration;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -285,7 +300,8 @@ public interface IgniteClient extends Ignite {
                     heartbeatInterval,
                     heartbeatTimeout,
                     retryPolicy,
-                    loggerFactory
+                    loggerFactory,
+                    sslConfiguration
             );
 
             return TcpIgniteClient.startAsync(cfg);
