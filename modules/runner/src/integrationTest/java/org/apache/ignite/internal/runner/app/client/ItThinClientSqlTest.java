@@ -38,6 +38,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Disabled;
@@ -365,5 +366,29 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         var res = session.executeAsync(null, "SELECT VAL FROM testTx").join();
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
+    }
+
+    @Test
+    void testResultSetMapping() {
+        Statement statement = client().sql().statementBuilder().query("select 1 as num, 'hello' as str").build();
+
+        AsyncResultSet<Pojo> resultSet = client().sql()
+                .createSession()
+                .executeAsync(null, statement, Mapper.of(Pojo.class))
+                .join();
+
+        assertTrue(resultSet.hasRowSet());
+        assertEquals(1, resultSet.currentPageSize());
+
+        Pojo row = resultSet.currentPage().iterator().next();
+
+        assertEquals(1, row.num);
+        assertEquals("hello", row.str);
+    }
+
+    private static class Pojo {
+        public long num;
+
+        public String str;
     }
 }
