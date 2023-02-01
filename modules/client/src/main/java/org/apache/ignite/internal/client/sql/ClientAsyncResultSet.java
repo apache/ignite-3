@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -217,7 +218,25 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             }
         } else {
             // TODO: Convert meta to schema in ctor.
-            var schema = new ClientSchema(0, new ClientColumn[0]);
+            var schemaColumns = new ClientColumn[metadata.columns().size()];
+            List<ColumnMetadata> columns = metadata.columns();
+
+            for (int i = 0; i < columns.size(); i++) {
+                ColumnMetadata metaColumn = columns.get(i);
+
+                var schemaColumn = new ClientColumn(
+                        metaColumn.name(),
+                        ClientColumnTypeConverter.columnTypeToOrdinal(metaColumn.type()),
+                        metaColumn.nullable(),
+                        true,
+                        false,
+                        i,
+                        metaColumn.scale());
+
+                schemaColumns[i] = schemaColumn;
+            }
+
+            var schema = new ClientSchema(0, schemaColumns);
             Marshaller marshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
 
             try {
