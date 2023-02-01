@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.metadata;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * Tuple representing primary replica node name with current term.
@@ -59,5 +60,27 @@ public class NodeWithTerm implements Serializable {
      */
     public long term() {
         return term;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        NodeWithTerm that = (NodeWithTerm) o;
+
+        return term == that.term && Objects.equals(name, that.name);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return 31 * (int) (term ^ (term >>> 32)) + (name != null ? name.hashCode() : 0);
     }
 }
