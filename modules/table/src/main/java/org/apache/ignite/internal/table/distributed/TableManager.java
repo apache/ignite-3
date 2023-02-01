@@ -143,6 +143,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -967,14 +968,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesToStopInCaseOfError.clear();
 
-        CompletableFuture<?>[] destroyPartitionFutures = destroyFutureByTablePartitionId.values().stream()
-                .filter(not(CompletableFuture::isDone))
-                .toArray(CompletableFuture[]::new);
-
-        allOf(destroyPartitionFutures).join();
-
-        destroyFutureByTablePartitionId.clear();
-
         shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
@@ -1028,6 +1021,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+
+                stopping.add(() -> {
+                    CompletableFuture<?>[] destroyPartitionStoragesFutures = destroyFutureByTablePartitionId.entrySet().stream()
+                            .filter(entry -> entry.getKey().tableId().equals(table.tableId()))
+                            .map(Map.Entry::getValue)
+                            .filter(not(CompletableFuture::isDone))
+                            .toArray(CompletableFuture[]::new);
+
+                    try {
+                        allOf(destroyPartitionStoragesFutures).join();
+                    } catch (Exception e) {
+                        Throwable cause = ExceptionUtils.unwrapCause(e);
+
+                        if (!exception.compareAndSet(null, cause)) {
+                            if (!(cause instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(cause);
+                            }
+                        }
+
+                        if (cause instanceof NodeStoppingException) {
                             nodeStoppingEx.set(true);
                         }
                     }
