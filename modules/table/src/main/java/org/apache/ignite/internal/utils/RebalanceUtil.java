@@ -81,14 +81,14 @@ public class RebalanceUtil {
      *
      * @param tableName Table name.
      * @param partId Unique identifier of a partition.
-     * @param consistentIds Consistent ids of nodes.
+     * @param dataNodes Data nodes.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName, TablePartitionId partId, Collection<String> consistentIds,
+            String tableName, TablePartitionId partId, Collection<String> dataNodes,
             int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
@@ -98,7 +98,7 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(consistentIds, partNum, replicas);
+        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
 

@@ -54,7 +54,7 @@ public class AffinityUtils {
     /**
      * Calculates affinity assignments for a single partition.
      *
-     * @param dataNodes Consistent ids of nodes.
+     * @param dataNodes Data nodes.
      * @param partition Partition id.
      * @param replicas Replicas count.
      * @return Set of assignments.

@@ -294,9 +294,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
-    /** The watch listener which trigger a rebalance on updating data nodes of distribution zones. */
-    private final WatchListener zonesWatchListener;
-
     /**
      * Creates a new table manager.
      *
@@ -431,49 +428,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
-
-        zonesWatchListener = new WatchListener() {
-            @Override
-            public void onUpdate(WatchEvent evt) {
-                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
-
-                int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
-
-                Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
-
-                for (int i = 0; i < tables.value().size(); i++) {
-                    TableView tableView = tables.value().get(i);
-
-                    int tableZoneId = tableView.zoneId();
-
-                    if (zoneId == tableZoneId) {
-                        TableConfiguration tableCfg = tables.get(tableView.name());
-
-                        for (int part = 0; part < tableView.partitions(); part++) {
-                            UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
-
-                            TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
-
-                            updatePendingAssignmentsKeys(tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
-                                    evt.entryEvent().newEntry().revision(), metaStorageMgr, part);
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
-            }
-        };
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), zonesWatchListener);
-
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
+
+        registerDistributionZonesListeners();
 
         registerRebalanceListeners();
 
@@ -993,8 +955,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         busyLock.block();
-
-        metaStorageMgr.unregisterWatch(zonesWatchListener);
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
@@ -1819,6 +1779,64 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return new IgniteException(th);
+    }
+
+    /**
+     * Register the new meta storage listener for changes in the distribution zones specific keys.
+     */
+    private void registerDistributionZonesListeners() {
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(new NodeStoppingException());
+                }
+
+                try {
+                    NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
+
+                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+
+                    Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
+
+                    for (int i = 0; i < tables.value().size(); i++) {
+                        TableView tableView = tables.value().get(i);
+
+                        int tableZoneId = tableView.zoneId();
+
+                        if (zoneId == tableZoneId) {
+                            TableConfiguration tableCfg = tables.get(tableView.name());
+
+                            for (int part = 0; part < tableView.partitions(); part++) {
+                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+
+                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
+
+                                int partId = part;
+
+                                updatePendingAssignmentsKeys(
+                                        tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
+                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part
+                                ).exceptionally(e -> {
+                                    LOG.error(
+                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(), partId
+                                    );
+
+                                    return null;
+                                });
+                            }
+                        }
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process data nodes event", e);
+            }
+        });
     }
 
     /**

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones;
+package org.apache.ignite.internal.rebalance;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.Cluster.NodeKnockout.PARTITION_NETWORK;
@@ -48,6 +48,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -57,28 +58,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Test suite for rebalance process.
+ * Test suite for the rebalance.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@Timeout(90)
-public class ItDistributionZonesTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItDistributionZonesTest.class);
-
-    /**
-     * Nodes bootstrap configuration pattern.
-     */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  network: {\n"
-            + "    port:{},\n"
-            + "    nodeFinder:{\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  }\n"
-            + "}";
+public class ItRebalanceTest extends BaseIgniteAbstractTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceTest.class);
 
     @WorkDirectory
     private Path workDir;
@@ -87,20 +74,25 @@ public class ItDistributionZonesTest {
 
     @BeforeEach
     void createCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
+        cluster = new Cluster(testInfo, workDir);
     }
 
     @AfterEach
-    @Timeout(60)
     void shutdownCluster() {
         cluster.shutdown();
     }
 
+    /**
+     * The test checks that data is rebalanced after node with replica is left and joined to the cluster.
+     *
+     * @throws Exception
+     */
     @Test
     @Disabled
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
 
+        //Creates table with 1 partition and 3 replicas.
         createTestTable();
 
         assertTrue(waitAssignments(List.of(
@@ -112,13 +104,14 @@ public class ItDistributionZonesTest {
 
         TableImpl table = (TableImpl) cluster.node(0).tables().table("TEST");
 
+        BinaryRowEx row = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1).set("value", "value1"));
         BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 1));
 
         assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(0).node()).get());
         assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
         assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(2).node()).get());
 
-        putData();
+        table.internalTable().insert(row, null).join();
 
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(0).node()).get());
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
@@ -171,6 +164,13 @@ public class ItDistributionZonesTest {
         }
     }
 
+    /**
+     * Wait assignments on nodes.
+     *
+     * @param nodes Expected assignments.
+     * @return {@code true} if the expected and actual assignments are the same.
+     * @throws InterruptedException
+     */
     private boolean waitAssignments(List<Set<Integer>> nodes) throws InterruptedException {
         return waitForCondition(() -> {
             for (int i = 0; i < nodes.size(); i++) {
@@ -209,7 +209,7 @@ public class ItDistributionZonesTest {
                 + "data_nodes_auto_adjust_scale_up=0, "
                 + "data_nodes_auto_adjust_scale_down=0";
         String sql2 = "create table test (id int primary key, value varchar(20))"
-                    + " with partitions=1, replicas=3, primary_zone='TEST_ZONE'";
+                + " with partitions=1, replicas=3, primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);
@@ -219,20 +219,12 @@ public class ItDistributionZonesTest {
         waitForTableToStart();
     }
 
-    private void putData() {
-        String sql3 = "insert into test (id, value) values(1, 'qwer')";
-
-        cluster.doInSession(0, session -> {
-            executeUpdate(sql3, session);
-        });
-    }
-
     private void waitForTableToStart() throws InterruptedException {
         // TODO: IGNITE-18203 - remove this wait because when a table creation query is executed, the table must be fully ready.
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.runningNodes()
-                    .map(ItDistributionZonesTest::tablePartitionIds)
+                    .map(ItRebalanceTest::tablePartitionIds)
                     .mapToInt(List::size)
                     .sum();
             return numberOfStartedRaftNodes == 3;
