@@ -73,7 +73,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TransferredTxAttributesHolder;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -423,7 +423,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 boolean implicitTxRequired = outerTx == null && rwOp;
 
                                 InternalTransaction tx = implicitTxRequired ? txManager.begin()
-                                        : outerTx != null ? outerTx : new TransferredTxAttributesHolder(null, clock.now());
+                                        : outerTx != null ? outerTx : new LocalTxAttributesHolder(null, clock.now());
 
                                 BaseQueryContext enrichedContext = ctx.toBuilder().transaction(tx).build();
 

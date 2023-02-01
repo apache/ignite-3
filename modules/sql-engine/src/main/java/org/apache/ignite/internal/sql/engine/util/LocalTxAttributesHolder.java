@@ -30,11 +30,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Holder of {@link InternalTransaction#id() id} and {@link InternalTransaction#readTimestamp() readTimestamp} transaction attributes
- * that are passed to remote nodes during sql query execution.
+ * Local holder of {@link InternalTransaction#id() id} and {@link InternalTransaction#readTimestamp() readTimestamp} transaction attributes.
  */
-// TODO IGNITE-17952 This class must not implement the transaction interface.
-public class TransferredTxAttributesHolder implements InternalTransaction {
+// TODO IGNITE-17952 This class must not implement the transaction interface and may be passed to the remote nodes.
+public class LocalTxAttributesHolder implements InternalTransaction {
     /** Transaction id. */
     private final UUID id;
 
@@ -47,7 +46,7 @@ public class TransferredTxAttributesHolder implements InternalTransaction {
      * @param id Transaction id.
      * @param readTimestamp Read timestamp.
      */
-    public TransferredTxAttributesHolder(UUID id, @Nullable HybridTimestamp readTimestamp) {
+    public LocalTxAttributesHolder(UUID id, @Nullable HybridTimestamp readTimestamp) {
         this.readTimestamp = readTimestamp;
         this.id = id;
     }
