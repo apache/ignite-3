@@ -29,14 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * ColocationGroup.
@@ -175,8 +172,8 @@ public class ColocationGroup implements Serializable {
         } else {
             assert this.assignments.size() == other.assignments.size();
 
-            Set<String> nodeNamesSet = nodeNames == null ? Collections.emptySet() : new HashSet<>(nodeNames);
-            Predicate<String> nodeNamesFilter = nodeNamesSet::contains;
+            Set<String> nodeNamesSet = nodeNames == null ? null : new HashSet<>(nodeNames);
+            Predicate<String> nodeNamesFilter = nodeNames == null ? v -> true : nodeNamesSet::contains;
 
             assignments = new ArrayList<>(this.assignments.size());
 
