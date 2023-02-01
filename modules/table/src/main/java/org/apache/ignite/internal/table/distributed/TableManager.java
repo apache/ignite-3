@@ -21,6 +21,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
@@ -1219,16 +1220,20 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                     name, tblId);
 
-            CompletableFuture<Void> destroyMvStorageFuture = table.internalTable().storage().destroy();
-
-            table.internalTable().txStateStorage().destroy();
+            CompletableFuture<Void> destroyTableStoragesFuture = allOf(
+                    table.internalTable().storage().destroy(),
+                    runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor)
+            );
 
             CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
                             v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)))
                     );
 
-            beforeTablesVvComplete.add(allOf(destroyMvStorageFuture, dropSchemaRegistryFuture));
+            // TODO: IGNITE-18687 Must be asynchronous
+            destroyTableStoragesFuture.join();
+
+            beforeTablesVvComplete.add(allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture));
         } catch (Exception e) {
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
@@ -1952,12 +1957,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(new NodeStoppingException());
-                }
-
-                try {
-                    assert evt.single();
+                inBusyLock(busyLock, () -> {
+                    assert evt.single() : evt;
 
                     Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
@@ -1965,19 +1966,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return;
                     }
 
-                    int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-                    UUID tblId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+                    int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
+                    UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
-                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, part);
+                    TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
                     Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
-                    byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId),
-                            stableAssignmentsWatchEvent.revision()).join().value();
+                    byte[] pendingAssignmentsFromMetaStorage = metaStorageMgr.get(
+                            pendingPartAssignmentsKey(tablePartitionId),
+                            stableAssignmentsWatchEvent.revision()
+                    ).join().value();
 
-                    Set<Assignment> pendingAssignments = pendingFromMetastorage == null
+                    Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null
                             ? Set.of()
-                            : ByteUtils.fromBytes(pendingFromMetastorage);
+                            : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
 
                     String localMemberName = clusterService.topologyService().localMember().name();
 
@@ -1986,16 +1989,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     if (shouldStopLocalServices) {
                         try {
-                            raftMgr.stopRaftNodes(replicaGrpId);
+                            raftMgr.stopRaftNodes(tablePartitionId);
 
-                            replicaMgr.stopReplica(new TablePartitionId(tblId, part));
+                            replicaMgr.stopReplica(tablePartitionId);
                         } catch (NodeStoppingException e) {
                             // no-op
                         }
+
+                        InternalTable internalTable = tablesByIdVv.latest().get(tableId).internalTable();
+
+                        // Should be done fairly quickly.
+                        allOf(
+                                internalTable.storage().destroyPartition(partitionId),
+                                runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+                        ).join();
                     }
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                });
             }
 
             @Override
@@ -2083,7 +2092,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
                             || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
-                        return CompletableFuture.allOf(
+                        return allOf(
                                 table.internalTable().storage().clearPartition(partitionId),
                                 txStateStorage.clear()
                         ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
