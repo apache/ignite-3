@@ -18,7 +18,9 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
@@ -26,7 +28,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
  */
 class ClientSqlResultSet {
     /** Result set. */
-    private final AsyncResultSet resultSet;
+    private final AsyncResultSet<SqlRow> resultSet;
 
     /** Session. */
     private final Session session;
@@ -37,7 +39,7 @@ class ClientSqlResultSet {
      * @param resultSet Result set.
      * @param session Session.
      */
-    public ClientSqlResultSet(AsyncResultSet resultSet, Session session) {
+    public ClientSqlResultSet(AsyncResultSet<SqlRow> resultSet, Session session) {
         assert resultSet != null;
         assert session != null;
 
@@ -50,7 +52,7 @@ class ClientSqlResultSet {
      *
      * @return Result set.
      */
-    public AsyncResultSet resultSet() {
+    public AsyncResultSet<SqlRow> resultSet() {
         return resultSet;
     }
 

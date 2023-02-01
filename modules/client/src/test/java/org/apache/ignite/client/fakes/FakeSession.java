@@ -26,6 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
@@ -75,13 +76,13 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             Statement statement,
             @Nullable Object... arguments) {
