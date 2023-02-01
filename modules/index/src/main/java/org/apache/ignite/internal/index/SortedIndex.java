@@ -41,7 +41,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     byte INCLUDE_RIGHT = 0b10;
 
     /**
-     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
+     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code flags} mask.
      *
      * @param partId Partition.
      * @param txId Transaction id.
@@ -87,7 +87,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     }
 
     /**
-     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
+     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code flags} mask.
      *
      * @param partId Partition.
      * @param tx Transaction.
@@ -111,7 +111,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     );
 
     /**
-     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
+     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code flags} mask.
      *
      * @param partId Partition.
      * @param readTimestamp Read timestamp.
