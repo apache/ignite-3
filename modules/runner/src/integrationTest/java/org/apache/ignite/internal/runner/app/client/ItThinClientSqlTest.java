@@ -49,7 +49,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteAsyncSimpleSelect() {
-        AsyncResultSet resultSet = client().sql()
+        AsyncResultSet<SqlRow> resultSet = client().sql()
                 .createSession()
                 .executeAsync(null, "select 1 as num, 'hello' as str")
                 .join();
@@ -187,7 +187,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         }
 
         // Query data.
-        AsyncResultSet selectRes = session
+        AsyncResultSet<SqlRow> selectRes = session
                 .executeAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
                 .join();
 
@@ -321,7 +321,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         Statement statement = client().sql().statementBuilder().pageSize(4).query("SELECT ID FROM testFetchNextPage ORDER BY ID").build();
 
-        AsyncResultSet asyncResultSet = session.executeAsync(null, statement).join();
+        AsyncResultSet<SqlRow> asyncResultSet = session.executeAsync(null, statement).join();
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());

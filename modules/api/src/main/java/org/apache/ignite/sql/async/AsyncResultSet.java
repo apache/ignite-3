@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see ResultSet
  */
-public interface AsyncResultSet {
+public interface AsyncResultSet<T> {
     /**
      * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}), or {@code null} if
      * inapplicable.
@@ -98,7 +97,7 @@ public interface AsyncResultSet {
      * @return Iterable over rows.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    Iterable<SqlRow> currentPage();
+    Iterable<T> currentPage();
 
     /**
      * Returns the current page size if the query return rows.
@@ -118,7 +117,7 @@ public interface AsyncResultSet {
      * @return Operation future.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    CompletableFuture<? extends AsyncResultSet> fetchNextPage();
+    CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
 
     /**
      * Returns whether there are more pages of results.

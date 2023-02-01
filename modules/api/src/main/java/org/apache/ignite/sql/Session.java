@@ -87,7 +87,7 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
+    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
 
     /**
      * Executes SQL statement in an asynchronous way.
@@ -98,7 +98,7 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
+    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
 
     /**
      * Executes SQL query in a reactive way.
