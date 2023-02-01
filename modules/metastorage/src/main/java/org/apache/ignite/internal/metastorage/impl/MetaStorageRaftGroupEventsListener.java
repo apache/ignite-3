@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import java.util.List;
@@ -33,22 +32,22 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.TopologyService;
 
 /**
- * Raft Group Events listener that registers Logical Topology listeners for removing learners that have left the topology.
+ * Raft Group Events listener that registers Logical Topology listener for updating the list of Meta Storage Raft group listeners.
  */
 public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListener {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final IgniteSpinBusyLock busyLock;
 
-    private final TopologyService physicalTopologyService;
+    private final String nodeName;
 
     private final LogicalTopologyService logicalTopologyService;
 
@@ -57,8 +56,8 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
     /**
      * Future required to enable serialized processing of topology events.
      *
-     * <p>While Logical Topology events are linearized, we also concurrently react to Physical Topology changes and/or update Raft
-     * configuration after a new leader has been elected.
+     * <p>While Logical Topology events are linearized, we usually start a bunch of async operations inside the event listener and need
+     * them to finish in the same order.
      *
      * <p>Multi-threaded access is guarded by {@code serializationFutureMux}.
      */
@@ -73,7 +72,7 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut
     ) {
         this.busyLock = busyLock;
-        this.physicalTopologyService = clusterService.topologyService();
+        this.nodeName = clusterService.localConfiguration().getName();
         this.logicalTopologyService = logicalTopologyService;
         this.metaStorageSvcFut = metaStorageSvcFut;
     }
@@ -83,8 +82,8 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
         synchronized (serializationFutureMux) {
             registerTopologyEventListeners();
 
-            // Update learner configuration in case we missed some topology updates and initialize the serialization future.
-            serializationFuture = executeIfLeaderImpl(service -> resetLearners(service.raftGroupService()));
+            // Update learner configuration (in case we missed some topology updates) and initialize the serialization future.
+            serializationFuture = executeIfLeaderImpl(this::resetLearners);
         }
     }
 
@@ -92,17 +91,17 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
             public void onNodeValidated(ClusterNode validatedNode) {
-                executeIfLeader(service -> addLearner(service.raftGroupService(), validatedNode));
+                executeIfLeader((service, term) -> addLearner(service.raftGroupService(), validatedNode));
             }
 
             @Override
             public void onNodeInvalidated(ClusterNode invalidatedNode) {
-                executeIfLeader(service -> {
+                executeIfLeader((service, term) -> {
                     CompletableFuture<Void> closeCursorsFuture = service.closeCursors(invalidatedNode.id())
-                            .whenComplete((v, e) -> {
-                                if (e != null) {
-                                    LOG.error("Unable to close cursor for " + invalidatedNode, e);
-                                }
+                            .exceptionally(e -> {
+                                LOG.error("Unable to close cursor for " + invalidatedNode, e);
+
+                                return null;
                             });
 
                     CompletableFuture<Void> removeLearnersFuture = removeLearner(service.raftGroupService(), invalidatedNode);
@@ -118,15 +117,20 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
 
             @Override
             public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-                executeIfLeader(service -> resetLearners(service.raftGroupService()));
+                executeIfLeader(MetaStorageRaftGroupEventsListener.this::resetLearners);
             }
         });
+    }
+
+    @FunctionalInterface
+    private interface OnLeaderAction {
+        CompletableFuture<Void> apply(MetaStorageServiceImpl service, long term);
     }
 
     /**
      * Executes the given action if the current node is the Meta Storage leader.
      */
-    private void executeIfLeader(Function<MetaStorageServiceImpl, CompletableFuture<Void>> action) {
+    private void executeIfLeader(OnLeaderAction action) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping Meta Storage configuration update because the node is stopping");
 
@@ -150,72 +154,59 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
         }
     }
 
-    private CompletableFuture<Void> executeIfLeaderImpl(Function<MetaStorageServiceImpl, CompletableFuture<Void>> action) {
-        return metaStorageSvcFut.thenCompose(service -> isCurrentNodeLeader(service.raftGroupService())
-                .thenCompose(isLeader -> isLeader ? action.apply(service) : completedFuture(null)));
+    private CompletableFuture<Void> executeIfLeaderImpl(OnLeaderAction action) {
+        return metaStorageSvcFut.thenCompose(service -> service.raftGroupService().refreshAndGetLeaderWithTerm()
+                .thenCompose(leaderWithTerm -> {
+                    String leaderName = leaderWithTerm.leader().consistentId();
+
+                    return leaderName.equals(nodeName) ? action.apply(service, leaderWithTerm.term()) : completedFuture(null);
+                }));
     }
 
     private CompletableFuture<Void> addLearner(RaftGroupService raftService, ClusterNode learner) {
-        return updateLearner(raftService, learner, raftService::addLearners);
+        return updateConfigUnderLock(() -> isPeer(raftService, learner)
+                ? completedFuture(null)
+                : raftService.addLearners(List.of(new Peer(learner.name()))));
+    }
+
+    private static boolean isPeer(RaftGroupService raftService, ClusterNode node) {
+        return raftService.peers().stream().anyMatch(peer -> peer.consistentId().equals(node.name()));
     }
 
     private CompletableFuture<Void> removeLearner(RaftGroupService raftService, ClusterNode learner) {
-        return updateLearner(raftService, learner, raftService::removeLearners);
-    }
-
-    private CompletableFuture<Void> updateLearner(
-            RaftGroupService raftService,
-            ClusterNode learner,
-            Function<List<Peer>, CompletableFuture<Void>> updateAction
-    ) {
-        return updateConfigUnderLock(() -> {
-            boolean isPeer = raftService.peers().stream().anyMatch(peer -> peer.consistentId().equals(learner.name()));
-
-            if (isPeer) {
-                return completedFuture(null);
-            }
-
-            List<Peer> diffPeers = List.of(new Peer(learner.name()));
-
-            return updateAction.apply(diffPeers)
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            LOG.error("Unable to change peers on topology update", e);
-                        }
-                    });
-        });
-    }
-
-    private CompletableFuture<Void> resetLearners(RaftGroupService raftService) {
-        return updateConfigUnderLock(() -> getLearners(raftService)
-                .thenCombine(logicalTopologyService.validatedNodesOnLeader(), (learners, validatedNodes) -> {
-                    Set<String> aliveNodeNames = validatedNodes.stream().map(ClusterNode::name).collect(toSet());
-
-                    return learners.stream()
-                            .filter(learner -> !aliveNodeNames.contains(learner.consistentId()))
-                            .collect(toList());
-                })
-                .thenCompose(learnersToRemove -> learnersToRemove.isEmpty()
-                        ? completedFuture(null)
-                        : raftService.resetLearners(learnersToRemove)
-                )
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Unable to change peers on topology update", e);
+        return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
+                .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
+                    if (isPeer(raftService, learner)) {
+                        return completedFuture(null);
                     }
-                })
-        );
+
+                    // Due to possible races, we can have multiple versions of the same node in the validated set. We only remove
+                    // a learner if there are no such versions left.
+                    if (validatedNodes.stream().anyMatch(n -> n.name().equals(learner.name()))) {
+                        return completedFuture(null);
+                    }
+
+                    return raftService.removeLearners(List.of(new Peer(learner.name())));
+                })));
     }
 
-    private static CompletableFuture<List<Peer>> getLearners(RaftGroupService raftService) {
-        return raftService.refreshMembers(false).thenApply(v -> raftService.learners());
-    }
+    private CompletableFuture<Void> resetLearners(MetaStorageServiceImpl service, long term) {
+        return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
+                .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
+                    RaftGroupService raftService = service.raftGroupService();
 
-    private CompletableFuture<Boolean> isCurrentNodeLeader(RaftGroupService raftService) {
-        String name = physicalTopologyService.localMember().name();
+                    Set<String> peers = raftService.peers().stream().map(Peer::consistentId).collect(toSet());
 
-        return raftService.refreshLeader()
-                .thenApply(v -> raftService.leader().consistentId().equals(name));
+                    Set<String> learners = validatedNodes.stream()
+                            .map(ClusterNode::name)
+                            .filter(name -> !peers.contains(name))
+                            .collect(toSet());
+
+                    PeersAndLearners newPeerConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
+
+                    // We can't use 'resetLearners' call here because it does not support empty lists of learners.
+                    return raftService.changePeersAsync(newPeerConfiguration, term);
+                })));
     }
 
     private CompletableFuture<Void> updateConfigUnderLock(Supplier<CompletableFuture<Void>> action) {
@@ -226,7 +217,12 @@ public class MetaStorageRaftGroupEventsListener implements RaftGroupEventsListen
         }
 
         try {
-            return action.get();
+            return action.get()
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Unable to change peers on topology update", e);
+                        }
+                    });
         } finally {
             busyLock.leaveBusy();
         }

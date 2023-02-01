@@ -38,7 +38,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -104,7 +104,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
-                mock(LogicalTopology.class),
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );
@@ -264,7 +264,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
-                mock(LogicalTopology.class),
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );

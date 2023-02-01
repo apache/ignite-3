@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -30,7 +29,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -90,7 +89,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private final ClusterManagementGroupManager cmgMgr;
 
-    private final LogicalTopology logicalTopology;
+    private final LogicalTopologyService logicalTopologyService;
 
     /** Meta storage service. */
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
@@ -121,7 +120,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             VaultManager vaultMgr,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
-            LogicalTopology logicalTopology,
+            LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
             KeyValueStorage storage
     ) {
@@ -129,7 +128,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.cmgMgr = cmgMgr;
-        this.logicalTopology = logicalTopology;
+        this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
     }
 
@@ -153,7 +152,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
                         new MetaStorageListener(storage),
-                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopology, metaStorageSvcFut)
+                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut)
                 );
             } else {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
@@ -168,10 +167,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         new MetaStorageLearnerListener(storage),
                         RaftGroupEventsListener.noopLsnr
                 );
-
-                // Reconfigure Raft to add this node as a new Learner.
-                raftServiceFuture = raftServiceFuture
-                        .thenCompose(service -> service.addLearners(List.of(localPeer)).thenApply(v -> service));
             }
         } catch (NodeStoppingException e) {
             return CompletableFuture.failedFuture(e);

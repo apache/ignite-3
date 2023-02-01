@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -82,7 +83,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.failoverTimeout=0")
     private static ClusterManagementConfiguration cmgConfiguration;
 
     private static class Node {
@@ -127,7 +128,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
                     vaultManager,
                     clusterService,
                     cmgManager,
-                    logicalTopology,
+                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name())
             );
@@ -268,7 +269,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        assertThat(firstNode.getMetaStorageLearners(), willBe(Set.of(secondNode.name())));
+        waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000);
 
         // Stop the second node.
         secondNode.stop();
@@ -300,7 +301,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        assertThat(firstNode.getMetaStorageLearners(), willBe(Set.of(secondNode.name())));
+        waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000);
 
         // Stop the second node.
         secondNode.stop();
@@ -329,7 +330,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         assertThat(logicalTopologyNodes, willBe(Set.of(firstNode.name(), secondNode.name())));
 
-        assertThat(firstNode.getMetaStorageLearners(), willBe(Set.of(secondNode.name())));
+        waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000);
 
         // Make first node lose the second node from the Physical and Logical topologies.
         firstNode.startDroppingMessagesTo(secondNode, ScaleCubeMessage.class);
