@@ -60,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -439,7 +439,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
                 new TestTable(rowType, schemaDescriptor),
-                List.of(new IgniteBiTuple<>(0, -1L), new IgniteBiTuple<>(2, -1L)),
+                List.of(new PartitionWithTerm(0, -1L), new PartitionWithTerm(2, -1L)),
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
                 null,

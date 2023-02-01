@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,8 +59,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowHandler.RowFactory<RowT> factory;
 
-    /** List of pairs containing the partition number to scan with the corresponding raft group term. */
-    private final Collection<IgniteBiTuple<Integer, Long>> partsWithTerms;
+    /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
+    private final Collection<PartitionWithTerm> partsWithTerms;
 
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
@@ -75,7 +75,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding raft group term.
+     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -87,7 +87,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
-            Collection<IgniteBiTuple<Integer, Long>> partsWithTerms,
+            Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -120,7 +120,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         }
     }
 
-    private Publisher<RowT> indexPublisher(Collection<IgniteBiTuple<Integer, Long>> partsWithTerms, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> indexPublisher(Collection<PartitionWithTerm> partsWithTerms, @Nullable RangeCondition<RowT> cond) {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 partsWithTerms.iterator(),
                 partWithTerm -> partitionPublisher(partWithTerm, cond)
@@ -133,10 +133,9 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         }
     }
 
-    private Publisher<RowT> partitionPublisher(IgniteBiTuple<Integer, Long> partWithTerm, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
         InternalTransaction tx = context().transaction();
-        int part = partWithTerm.get1();
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -155,7 +154,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
             if (tx.isReadOnly()) {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
-                        part,
+                        partWithTerm.partId(),
                         tx.readTimestamp(),
                         context().localNode(),
                         lower,
@@ -167,7 +166,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
                 pub = ((SortedIndex) schemaIndex.index()).scan(
-                        part,
+                        partWithTerm.partId(),
                         tx,
                         lower,
                         upper,
@@ -176,9 +175,9 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 );
             } else {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
-                        part,
+                        partWithTerm.partId(),
                         tx.id(),
-                        new PrimaryReplica(context().localNode(), partWithTerm.get2()),
+                        new PrimaryReplica(context().localNode(), partWithTerm.term()),
                         lower,
                         upper,
                         flags,
@@ -193,7 +192,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
             if (tx.isReadOnly()) {
                 pub = schemaIndex.index().lookup(
-                        part,
+                        partWithTerm.partId(),
                         tx.readTimestamp(),
                         context().localNode(),
                         key,
@@ -203,16 +202,16 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW lookup work from tx coordinator.
                 pub = schemaIndex.index().lookup(
-                        part,
+                        partWithTerm.partId(),
                         tx,
                         key,
                         requiredColumns
                 );
             } else {
                 pub = schemaIndex.index().lookup(
-                        part,
+                        partWithTerm.partId(),
                         tx.id(),
-                        new PrimaryReplica(context().localNode(), partWithTerm.get2()),
+                        new PrimaryReplica(context().localNode(), partWithTerm.term()),
                         key,
                         requiredColumns
                 );
