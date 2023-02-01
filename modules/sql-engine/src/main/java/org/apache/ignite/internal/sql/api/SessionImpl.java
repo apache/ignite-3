@@ -205,6 +205,7 @@ public class SessionImpl implements Session {
     @Override
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, Statement statement, Mapper<T> mapper,
             @Nullable Object... arguments) {
+        // TODO: Separate ticket for server-side mapping.
         return null;
     }
 
