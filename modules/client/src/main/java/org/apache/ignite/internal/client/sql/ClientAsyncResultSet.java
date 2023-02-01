@@ -145,7 +145,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<? extends AsyncResultSet> fetchNextPage() {
+    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
         if (closed) {

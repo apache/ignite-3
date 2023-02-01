@@ -104,6 +104,13 @@ public class ClientSession implements Session {
             @Nullable Transaction transaction,
             Statement statement,
             @Nullable Object... arguments) {
+        return executeAsync(transaction, statement, Mapper.of(SqlRow.class), arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, Statement statement, Mapper<T> mapper,
+            @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
         if (!(statement instanceof ClientStatement)) {
@@ -126,14 +133,7 @@ public class ClientSession implements Session {
             w.out().packString(clientStatement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
-        }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in()));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, Statement statement, Mapper<T> mapper,
-            @Nullable Object... arguments) {
-        return null;
+        }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in(), mapper));
     }
 
     /** {@inheritDoc} */
