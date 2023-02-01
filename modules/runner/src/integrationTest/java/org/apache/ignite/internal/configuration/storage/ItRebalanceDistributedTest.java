@@ -19,13 +19,22 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -68,6 +77,7 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
@@ -80,12 +90,17 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
+import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -97,7 +112,10 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -106,6 +124,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -122,6 +141,8 @@ import org.mockito.Mockito;
 public class ItRebalanceDistributedTest {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
+
+    private static final String TABLE_1_NAME = "TBL1";
 
     public static final int BASE_PORT = 20_000;
 
@@ -391,6 +412,60 @@ public class ItRebalanceDistributedTest {
         assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
+    @Test
+    void testDestroyPartitionStoragesOnEvictNodeForPartition() {
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", TABLE_1_NAME).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        assertThat(nodes.get(0).tableManager.createTableAsync(
+                        TABLE_1_NAME,
+                        tableChange -> SchemaConfigurationConverter.convert(schTbl1, tableChange)
+                                .changeReplicas(3)
+                                .changePartitions(1)
+                                .changeDataStorage(dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class))
+                ),
+                willCompleteSuccessfully()
+        );
+
+        assertEquals(3, getPartitionClusterNodes(0, 0).size());
+        assertEquals(3, getPartitionClusterNodes(1, 0).size());
+        assertEquals(3, getPartitionClusterNodes(2, 0).size());
+
+        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
+
+        assertThat(nodes.get(0).tableManager.alterTableAsync(TABLE_1_NAME, tableChange -> {
+                    tableChange.changeReplicas(2);
+
+                    return true;
+                }),
+                willCompleteSuccessfully()
+        );
+
+        waitPartitionAssignmentsSyncedToExpected(0, 2);
+
+        assertEquals(2, getPartitionClusterNodes(0, 0).size());
+        assertEquals(2, getPartitionClusterNodes(1, 0).size());
+        assertEquals(2, getPartitionClusterNodes(2, 0).size());
+
+        Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(0, 0);
+
+        Set<Assignment> evictedAssignments = getEvictedAssignments(assignmentsBeforeChangeReplicas, assignmentsAfterChangeReplicas);
+
+        assertThat(
+                String.format("before=%s, after=%s", assignmentsBeforeChangeReplicas, assignmentsAfterChangeReplicas),
+                evictedAssignments,
+                hasSize(1)
+        );
+
+        Node evictedNode = findNodeByConsistentId(CollectionUtils.first(evictedAssignments).consistentId());
+
+        assertNotNull(evictedNode, evictedAssignments.toString());
+
+        checkPartitionDestroy(evictedNode, TABLE_1_NAME, 0);
+    }
+
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
         while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum)) {
             LockSupport.parkNanos(100_000_000);
@@ -520,20 +595,24 @@ public class ItRebalanceDistributedTest {
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
 
             clusterCfgMgr = new ConfigurationManager(
-                    List.of(RocksDbStorageEngineConfiguration.KEY,
+                    List.of(
+                            RocksDbStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
-                            TablesConfiguration.KEY),
+                            TablesConfiguration.KEY
+                    ),
                     Set.of(),
                     cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
-                    List.of(UnknownDataStorageConfigurationSchema.class,
+                    List.of(
+                            UnknownDataStorageConfigurationSchema.class,
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
                             UnsafeMemoryAllocatorConfigurationSchema.class,
                             RocksDbDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class,
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class
+                            NullValueDefaultConfigurationSchema.class,
+                            TestDataStorageConfigurationSchema.class
                     )
             );
 
@@ -545,7 +624,10 @@ public class ItRebalanceDistributedTest {
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                    new RocksDbDataStorageModule(), new VolatilePageMemoryDataStorageModule()));
+                    new RocksDbDataStorageModule(),
+                    new VolatilePageMemoryDataStorageModule(),
+                    new TestDataStorageModule()
+            ));
 
             Path storagePath = dir.resolve("storage");
 
@@ -583,7 +665,12 @@ public class ItRebalanceDistributedTest {
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
                     new OutgoingSnapshotsManager(clusterService.messagingService())
-            );
+            ) {
+                @Override
+                protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
+                    return spy(new TestTxStateTableStorage());
+                }
+            };
         }
 
         /**
@@ -657,5 +744,27 @@ public class ItRebalanceDistributedTest {
         }
 
         return new VaultManager(new PersistentVaultService(vaultPath));
+    }
+
+    private static Set<Assignment> getEvictedAssignments(Set<Assignment> beforeChange, Set<Assignment> afterChange) {
+        Set<Assignment> result = new HashSet<>(beforeChange);
+
+        result.removeAll(afterChange);
+
+        return result;
+    }
+
+    private static void checkPartitionDestroy(Node node, String tableName, int partitionId) {
+        Table table = node.tableManager.table(tableName);
+
+        assertNotNull(table, tableName);
+
+        InternalTable internalTable = ((TableImpl) table).internalTable();
+
+        MvTableStorage mvTableStorage = internalTable.storage();
+        TxStateTableStorage txStateTableStorage = internalTable.txStateStorage();
+
+        verify(mvTableStorage, times(1)).destroyPartition(eq(partitionId));
+        verify(txStateTableStorage, times(1)).destroyTxStateStorage(eq(partitionId));
     }
 }
