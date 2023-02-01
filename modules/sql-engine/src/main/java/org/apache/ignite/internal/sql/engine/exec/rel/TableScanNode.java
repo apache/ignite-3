@@ -26,6 +26,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.table.InternalTable;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,8 +44,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** Table that provides access to underlying data. */
     private final InternalTable physTable;
 
-    /** List of pairs containing the partition number to scan with the corresponding raft group term. */
-    private final Collection<IgniteBiTuple<Integer, Long>> partsWithTerms;
+    /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
+    private final Collection<PartitionWithTerm> partsWithTerms;
 
     /**
      * Constructor.
@@ -53,7 +53,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding raft group term.
+     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -62,7 +62,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             InternalIgniteTable schemaTable,
-            Collection<IgniteBiTuple<Integer, Long>> partsWithTerms,
+            Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
@@ -82,18 +82,17 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 partsWithTerms.iterator(), partWithTerm -> {
             Publisher<BinaryRow> pub;
-            int partId = partWithTerm.get1();
 
             if (tx.isReadOnly()) {
-                pub = physTable.scan(partId, tx.readTimestamp(), context().localNode());
+                pub = physTable.scan(partWithTerm.partId(), tx.readTimestamp(), context().localNode());
             } else if (!(tx instanceof LocalTxAttributesHolder)) {
                 // TODO IGNITE-17952 This block should be removed.
                 // Workaround to make RW scan work from tx coordinator.
-                pub = physTable.scan(partId, tx);
+                pub = physTable.scan(partWithTerm.partId(), tx);
             } else {
-                PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.get2());
+                PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.term());
 
-                pub = physTable.scan(partId, tx.id(), recipient, null, null, null, 0, null);
+                pub = physTable.scan(partWithTerm.partId(), tx.id(), recipient, null, null, null, 0, null);
             }
 
             return convertPublisher(pub);

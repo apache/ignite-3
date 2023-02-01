@@ -30,7 +30,6 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -270,13 +269,13 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * Returns list of pairs containing the partition number to scan on the given node with the corresponding raft group term.
+     * Returns list of pairs containing the partition number to scan on the given node with the corresponding primary replica term.
      *
      * @param nodeName Cluster node consistent ID.
-     * @return List of pairs containing the partition number to scan on the given node with the corresponding raft group term.
+     * @return List of pairs containing the partition number to scan on the given node with the corresponding primary replica term.
      */
-    public List<IgniteBiTuple<Integer, Long>> partitionsWithTerms(String nodeName) {
-        List<IgniteBiTuple<Integer, Long>> partsWithTerms = new ArrayList<>();
+    public List<PartitionWithTerm> partitionsWithTerms(String nodeName) {
+        List<PartitionWithTerm> partsWithTerms = new ArrayList<>();
 
         for (int p = 0; p < assignments.size(); p++) {
             List<NodeWithTerm> assignment = assignments.get(p);
@@ -286,7 +285,7 @@ public class ColocationGroup implements Serializable {
             assert nodeWithTerm != null : "part=" + p;
 
             if (Objects.equals(nodeName, nodeWithTerm.name())) {
-                partsWithTerms.add(new IgniteBiTuple<>(p, nodeWithTerm.term()));
+                partsWithTerms.add(new PartitionWithTerm(p, nodeWithTerm.term()));
             }
         }
 

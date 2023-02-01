@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -73,8 +73,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
-        List<IgniteBiTuple<Integer, Long>> partsWithTerms = Stream.of(0, 1, 2)
-                .map(p -> new IgniteBiTuple<>(p, -1L))
+        List<PartitionWithTerm> partsWithTerms = Stream.of(0, 1, 2)
+                .map(p -> new PartitionWithTerm(p, -1L))
                 .collect(Collectors.toList());
 
         int probingCnt = 50;

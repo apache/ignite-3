@@ -17,28 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import java.io.Serializable;
-
 /**
- * Tuple representing primary replica node name with current term.
+ * Tuple representing the number of the partition with its current primary replica term.
  */
-public class NodeWithTerm implements Serializable {
-    /** Serial version uid. */
-    private static final long serialVersionUID = 0L;
-
-    /** Primary replica node name. */
-    private final String name;
+public class PartitionWithTerm {
+    /** Partition number. */
+    private final int partId;
 
     /** Primary replica term. */
     private final long term;
 
     /**
-     * Gets primary replica node name.
+     * Gets partition number.
      *
-     * @return Primary replica node name.
+     * @return Partition number.
      */
-    public String name() {
-        return name;
+    public int partId() {
+        return partId;
     }
 
     /**
@@ -53,11 +48,11 @@ public class NodeWithTerm implements Serializable {
     /**
      * Constructor.
      *
-     * @param name Primary replica node name.
+     * @param partId partition number
      * @param term Primary replica term.
      */
-    public NodeWithTerm(String name, Long term) {
-        this.name = name;
+    public PartitionWithTerm(int partId, Long term) {
+        this.partId = partId;
         this.term = term;
     }
 }
