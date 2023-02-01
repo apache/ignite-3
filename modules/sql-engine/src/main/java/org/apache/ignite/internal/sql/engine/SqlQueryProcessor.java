@@ -401,7 +401,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
-                    boolean useDistributedTraits = outerTx != null ? outerTx.isReadOnly() : !rwOp;
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(

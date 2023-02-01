@@ -147,6 +147,8 @@ public class StopCalciteModuleTest {
         when(clusterSrvc.messagingService()).thenReturn(msgSrvc);
         when(clusterSrvc.topologyService()).thenReturn(topologySrvc);
         when(topologySrvc.localMember()).thenReturn(localNode);
+        when(topologySrvc.allMembers()).thenReturn(List.of(localNode));
+        when(topologySrvc.getByConsistentId(any())).thenReturn(localNode);
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
                 1,
@@ -202,7 +204,7 @@ public class StopCalciteModuleTest {
 
                 s.onComplete();
             };
-        }).when(tbl).scan(anyInt(), any());
+        }).when(tbl).scan(anyInt(), (UUID) any(), any(), any(), any(), any(), anyInt(), any());
 
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }
