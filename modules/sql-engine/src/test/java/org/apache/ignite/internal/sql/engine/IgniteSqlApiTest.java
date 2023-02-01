@@ -282,7 +282,7 @@ public class IgniteSqlApiTest {
         KeyValueView<Tuple, Tuple> table = getTable();
 
         class AsyncPageProcessor implements
-                Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+                Function<AsyncResultSet<SqlRow>, CompletionStage<AsyncResultSet<SqlRow>>> {
             private final Transaction tx0;
 
             public AsyncPageProcessor(Transaction tx0) {
@@ -290,7 +290,7 @@ public class IgniteSqlApiTest {
             }
 
             @Override
-            public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+            public CompletionStage<AsyncResultSet<SqlRow>> apply(AsyncResultSet<SqlRow> rs) {
                 for (SqlRow row : rs.currentPage()) {
                     table.getAsync(tx0, Tuple.create().set("id", row.intValue(0)));
                 }

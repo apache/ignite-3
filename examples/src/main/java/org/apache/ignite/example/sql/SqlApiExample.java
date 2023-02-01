@@ -207,7 +207,7 @@ public class SqlApiExample {
      * @param resultSet Async result set.
      * @return Operation future.
      */
-    private static CompletionStage<Void> fetchAllRowsInto(AsyncResultSet resultSet) {
+    private static CompletionStage<Void> fetchAllRowsInto(AsyncResultSet<SqlRow> resultSet) {
         //
         // Process current page.
         //

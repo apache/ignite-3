@@ -236,9 +236,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         int txPrevCnt = txManagerInternal.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            CompletableFuture<AsyncResultSet> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
+            CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
 
-            AsyncResultSet asyncRes = null;
+            AsyncResultSet<SqlRow> asyncRes = null;
 
             try {
                 asyncRes = fut.get();
@@ -445,7 +445,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
-        AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
+        AsyncResultSet<SqlRow> rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
 
         // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
@@ -489,7 +489,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
-        AsyncResultSet ars = ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B").get();
+        AsyncResultSet<SqlRow> ars = ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B").get();
 
         SqlRow r = CollectionUtils.first(ars.currentPage());
 
@@ -525,15 +525,15 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
-        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
+        AsyncResultSet<SqlRow> ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
         var p0 = ars0.currentPage();
-        AsyncResultSet ars1 = ars0.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars1 = ars0.fetchNextPage().toCompletableFuture().get();
         var p1 = ars1.currentPage();
-        AsyncResultSet ars2 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars2 = ars1.fetchNextPage().toCompletableFuture().get();
         var p2 = ars2.currentPage();
-        AsyncResultSet ars3 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars3 = ars1.fetchNextPage().toCompletableFuture().get();
         var p3 = ars3.currentPage();
-        AsyncResultSet ars4 = ars0.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars4 = ars0.fetchNextPage().toCompletableFuture().get();
         var p4 = ars4.currentPage();
 
         assertSame(ars0, ars1);
@@ -567,25 +567,25 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Parse error.
         {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT ID FROM");
+            CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT ID FROM");
             assertThrowsWithCause(f::get, SqlException.class, "Failed to parse query");
         }
 
         // Multiple statements error.
         {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1; SELECT 2");
+            CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT 1; SELECT 2");
             assertThrowsWithCause(f::get, SqlException.class, "Multiple statements aren't allowed");
         }
 
         // Planning error.
         {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)");
+            CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)");
             assertThrowsWithCause(f::get, SqlException.class, "Table without PRIMARY KEY is not supported");
         }
 
         // Execute error.
         {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
+            CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
             assertThrowsWithCause(f::get, IgniteException.class, "/ by zero");
         }
 
@@ -701,12 +701,12 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     private static void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) throws Exception {
-        CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
+        CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(
                 tx,
                 sql
         );
 
-        AsyncResultSet asyncRes = fut.get();
+        AsyncResultSet<SqlRow> asyncRes = fut.get();
 
         assertEquals(expectedApplied, asyncRes.wasApplied());
         assertFalse(asyncRes.hasMorePages());
@@ -723,7 +723,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     private static void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
-        CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
+        CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(
                 null,
                 sql,
                 args
@@ -734,9 +734,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Transaction tx, Object... args)
             throws ExecutionException, InterruptedException {
-        CompletableFuture<AsyncResultSet> fut = ses.executeAsync(tx, sql, args);
+        CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(tx, sql, args);
 
-        AsyncResultSet asyncRes = fut.get();
+        AsyncResultSet<SqlRow> asyncRes = fut.get();
 
         assertFalse(asyncRes.wasApplied());
         assertFalse(asyncRes.hasMorePages());
@@ -754,7 +754,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     static class TestPageProcessor implements
-            Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+            Function<AsyncResultSet<SqlRow>, CompletionStage<AsyncResultSet<SqlRow>>> {
         private int expectedPages;
 
         private final List<SqlRow> res = new ArrayList<>();
@@ -764,7 +764,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         @Override
-        public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+        public CompletionStage<AsyncResultSet<SqlRow>> apply(AsyncResultSet<SqlRow> rs) {
             expectedPages--;
 
             assertTrue(rs.hasRowSet());
