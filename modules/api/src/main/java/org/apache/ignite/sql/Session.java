@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -98,7 +99,26 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
+    CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            Statement statement,
+            @Nullable Object... arguments);
+
+    /**
+     * Executes SQL statement in an asynchronous way and maps the result set to the specified type using the provided mapper.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param mapper Mapper.
+     * @param arguments Arguments for the statement.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            Statement statement,
+            Mapper<T> mapper,
+            @Nullable Object... arguments);
 
     /**
      * Executes SQL query in a reactive way.
