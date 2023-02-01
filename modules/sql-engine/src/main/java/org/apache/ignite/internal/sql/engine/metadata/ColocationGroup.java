@@ -26,12 +26,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * ColocationGroup.
@@ -169,10 +170,13 @@ public class ColocationGroup implements Serializable {
             }
         } else {
             assert this.assignments.size() == other.assignments.size();
+
+            Set<String> nodeNamesSet = nodeNames == null ? Collections.emptySet() : new HashSet<>(nodeNames);
+
             assignments = new ArrayList<>(this.assignments.size());
-            Set<String> filter = nodeNames == null ? null : new HashSet<>(nodeNames);
+
             for (int p = 0; p < this.assignments.size(); p++) {
-                List<NodeWithTerm> assignment = intersect(this.assignments.get(p), other.assignments.get(p), filter, p);
+                List<NodeWithTerm> assignment = intersect(this.assignments.get(p), other.assignments.get(p), nodeNamesSet, p);
 
                 if (assignment.isEmpty()) { // TODO check with partition filters
                     throw new ColocationMappingException("Failed to map fragment to location. Partition mapping is empty [part=" + p + "]");
@@ -185,30 +189,39 @@ public class ColocationGroup implements Serializable {
         return new ColocationGroup(sourceIds, nodeNames, assignments);
     }
 
-    private List<NodeWithTerm> intersect(List<NodeWithTerm> assign0, List<NodeWithTerm> assign1, @Nullable Set<String> filter, int partId)
+    private List<NodeWithTerm> intersect(List<NodeWithTerm> assign0, List<NodeWithTerm> assign1, Set<String> filteredNodeNames, int partId)
             throws ColocationMappingException {
         List<NodeWithTerm> intersection = new ArrayList<>();
 
+        if (assign0.size() > assign1.size()) {
+            List<NodeWithTerm> tmp = assign1;
+            assign1 = assign0;
+            assign0 = tmp;
+        }
+
+        Map<String, NodeWithTerm> hashedByNameAssigns =
+                assign1.stream().collect(Collectors.toMap(NodeWithTerm::name, nodeWithTerm -> nodeWithTerm));
+
         for (NodeWithTerm nodeWithTerm : assign0) {
-            if (filter != null && !filter.contains(nodeWithTerm.name())) {
+            if (!filteredNodeNames.contains(nodeWithTerm.name())) {
                 continue;
             }
 
-            for (NodeWithTerm otherNodeWithTerm : assign1) {
-                if (!otherNodeWithTerm.name().equals(nodeWithTerm.name())) {
-                    continue;
-                }
+            NodeWithTerm otherNodeWithTerm = hashedByNameAssigns.get(nodeWithTerm.name());
 
-                if (nodeWithTerm.term() != otherNodeWithTerm.term()) {
-                    throw new ColocationMappingException("Raft group primary replica term has been changed during mapping ["
-                            + "part=" + partId
-                            + ", leader=" + nodeWithTerm.name()
-                            + ", expectedTerm=" + nodeWithTerm.term()
-                            + ", actualTerm=" + otherNodeWithTerm.term() + ']');
-                }
-
-                intersection.add(otherNodeWithTerm);
+            if (otherNodeWithTerm == null) {
+                continue;
             }
+
+            if (nodeWithTerm.term() != otherNodeWithTerm.term()) {
+                throw new ColocationMappingException("Raft group primary replica term has been changed during mapping ["
+                        + "part=" + partId
+                        + ", leader=" + nodeWithTerm.name()
+                        + ", expectedTerm=" + nodeWithTerm.term()
+                        + ", actualTerm=" + otherNodeWithTerm.term() + ']');
+            }
+
+            intersection.add(otherNodeWithTerm);
         }
 
         return intersection;
