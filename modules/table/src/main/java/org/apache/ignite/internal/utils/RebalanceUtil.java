@@ -340,14 +340,14 @@ public class RebalanceUtil {
      * If there is rebalancing in progress, then new assignments will be applied when rebalance finishes.
      *
      * @param metaStorageMgr MetaStorage manager.
-     * @param baselineNodes Baseline nodes.
+     * @param dataNodes Data nodes.
      * @param replicas Replicas count.
      * @param partNum Number of the partition.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> baselineNodes,
+    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
             int replicas, int partNum, TablePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
@@ -358,7 +358,7 @@ public class RebalanceUtil {
             return CompletableFuture.completedFuture(null);
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

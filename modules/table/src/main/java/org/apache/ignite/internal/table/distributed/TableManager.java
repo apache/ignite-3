@@ -435,7 +435,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     public void start() {
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
-        registerDistributionZonesListeners();
+        // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
+        registerDistributionZonesListener();
 
         registerRebalanceListeners();
 
@@ -1782,9 +1783,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Register the new meta storage listener for changes in the distribution zones specific keys.
+     * Register the meta storage listener for changes in the distribution zones data nodes keys.
      */
-    private void registerDistributionZonesListeners() {
+    private void registerDistributionZonesListener() {
         metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {

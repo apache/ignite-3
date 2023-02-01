@@ -48,7 +48,7 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return affinityNodes.stream().map(AffinityUtils::consistentIdsToAssignments).collect(toList());
+        return affinityNodes.stream().map(AffinityUtils::dataNodesToAssignments).collect(toList());
     }
 
     /**
@@ -70,10 +70,10 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return consistentIdsToAssignments(affinityNodes);
+        return dataNodesToAssignments(affinityNodes);
     }
 
-    private static Set<Assignment> consistentIdsToAssignments(Collection<String> nodes) {
+    private static Set<Assignment> dataNodesToAssignments(Collection<String> nodes) {
         return nodes.stream().map(Assignment::forPeer).collect(toSet());
     }
 }

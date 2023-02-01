@@ -111,7 +111,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
         assertNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(2).node()).get());
 
-        table.internalTable().insert(row, null).join();
+        table.internalTable().insert(row, null).get();
 
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(0).node()).get());
         assertNotNull(table.internalTable().get(key, new HybridClockImpl().now(), cluster.node(1).node()).get());
