@@ -151,6 +151,13 @@ public class Fragment {
         return expectsCorrelatesFromOutside;
     }
 
+    private static boolean expectsCorrelatesFromOutside(IgniteRel root) {
+        CorrelatesFragmentAnalyser analyser = new CorrelatesFragmentAnalyser();
+        analyser.visit(root);
+
+        return !analyser.selfSufficient();
+    }
+
     /**
      * Get fragment remote sources.
      */
@@ -193,13 +200,6 @@ public class Fragment {
     @Override
     public String toString() {
         return S.toString(Fragment.class, this, "root", RelOptUtil.toString(root));
-    }
-
-    private static boolean expectsCorrelatesFromOutside(IgniteRel root) {
-        CorrelatesFragmentAnalyser analyser = new CorrelatesFragmentAnalyser();
-        analyser.visit(root);
-
-        return !analyser.selfSufficient();
     }
 
     /**
