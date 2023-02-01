@@ -294,6 +294,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
+    /** Meta storage listener for changes in the distribution zones data nodes. */
+    private final WatchListener distributionZonesDataNodesListener;
+
+    /** Meta storage listener for pending assignments. */
+    private final WatchListener pendingAssignmentsRebalanceListener;
+
+    /** Meta storage listener for stable assignments. */
+    private final WatchListener stableAssignmentsRebalanceListener;
+
+    /** Meta storage listener for switch reduce assignments. */
+    private final WatchListener assignmentsSwitchRebalanceListener;
+
     /**
      * Creates a new table manager.
      *
@@ -428,6 +440,312 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
+
+        distributionZonesDataNodesListener = new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(new NodeStoppingException());
+                }
+
+                try {
+                    NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
+
+                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+
+                    Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
+
+                    for (int i = 0; i < tables.value().size(); i++) {
+                        TableView tableView = tables.value().get(i);
+
+                        int tableZoneId = tableView.zoneId();
+
+                        if (zoneId == tableZoneId) {
+                            TableConfiguration tableCfg = tables.get(tableView.name());
+
+                            for (int part = 0; part < tableView.partitions(); part++) {
+                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+
+                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
+
+                                int partId = part;
+
+                                updatePendingAssignmentsKeys(
+                                        tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
+                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part
+                                ).exceptionally(e -> {
+                                    LOG.error(
+                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(), partId
+                                    );
+
+                                    return null;
+                                });
+                            }
+                        }
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process data nodes event", e);
+            }
+        };
+
+        pendingAssignmentsRebalanceListener = new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(new NodeStoppingException());
+                }
+
+                try {
+                    assert evt.single();
+
+                    Entry pendingAssignmentsWatchEvent = evt.entryEvent().newEntry();
+
+                    if (pendingAssignmentsWatchEvent.value() == null) {
+                        return;
+                    }
+
+                    int partId = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
+                    UUID tblId = extractTableId(pendingAssignmentsWatchEvent.key(), PENDING_ASSIGNMENTS_PREFIX);
+
+                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
+
+                    Entry pendingAssignmentsEntry = metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId)).join();
+
+                    assert pendingAssignmentsWatchEvent.revision() <= pendingAssignmentsEntry.revision()
+                            : "Meta Storage watch cannot notify about an event with the revision that is more than the actual revision.";
+
+                    // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
+                    Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value());
+
+                    PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
+
+                    TableImpl tbl = tablesByIdVv.latest().get(tblId);
+
+                    ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
+
+                    // Stable assignments from the meta store, which revision is bounded by the current pending event.
+                    byte[] stableAssignmentsBytes = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId),
+                            pendingAssignmentsWatchEvent.revision()).join().value();
+
+                    Set<Assignment> stableAssignments = stableAssignmentsBytes == null
+                            // This is for the case when the first rebalance occurs.
+                            ? ((List<Set<Assignment>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
+                            : ByteUtils.fromBytes(stableAssignmentsBytes);
+
+                    PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
+
+                    placementDriver.updateAssignment(
+                            replicaGrpId,
+                            stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
+                    );
+
+                    ClusterNode localMember = clusterService.topologyService().localMember();
+
+                    // Start a new Raft node and Replica if this node has appeared in the new assignments.
+                    boolean shouldStartLocalServices = pendingAssignments.stream()
+                            .filter(assignment -> localMember.name().equals(assignment.consistentId()))
+                            .anyMatch(assignment -> !stableAssignments.contains(assignment));
+
+                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
+
+                    InternalTable internalTable = tbl.internalTable();
+
+                    LOG.info("Received update on pending assignments. Check if new raft group should be started"
+                                    + " [key={}, partition={}, table={}, localMemberAddress={}]",
+                            pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
+
+                    if (shouldStartLocalServices) {
+                        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
+                        PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
+                        StorageUpdateHandler storageUpdateHandler =
+                                new StorageUpdateHandler(partId, partitionDataStorage, tbl.indexStorageAdapters(partId));
+
+                        TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId);
+
+                        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                                internalTable.storage(),
+                                internalTable.txStateStorage(),
+                                partitionKey(internalTable, partId),
+                                tbl
+                        );
+
+                        RaftGroupListener raftGrpLsnr = new PartitionListener(
+                                partitionDataStorage,
+                                storageUpdateHandler,
+                                txStatePartitionStorage,
+                                safeTime
+                        );
+
+                        RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
+                                metaStorageMgr,
+                                tblCfg,
+                                replicaGrpId,
+                                partId,
+                                busyLock,
+                                createPartitionMover(internalTable, partId),
+                                TableManager.this::calculateAssignments,
+                                rebalanceScheduler
+                        );
+
+                        Peer serverPeer = pendingConfiguration.peer(localMember.name());
+
+                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                        try {
+                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                            ((Loza) raftMgr).startRaftGroupNode(
+                                    raftNodeId,
+                                    stableConfiguration,
+                                    raftGrpLsnr,
+                                    raftGrpEvtsLsnr,
+                                    groupOptions
+                            );
+
+                            replicaMgr.startReplica(replicaGrpId,
+                                    new PartitionReplicaListener(
+                                            mvPartitionStorage,
+                                            internalTable.partitionRaftGroupService(partId),
+                                            txManager,
+                                            lockMgr,
+                                            scanRequestExecutor,
+                                            partId,
+                                            tblId,
+                                            tbl.indexesLockers(partId),
+                                            new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
+                                            () -> tbl.indexStorageAdapters(partId).get(),
+                                            clock,
+                                            safeTime,
+                                            txStatePartitionStorage,
+                                            placementDriver,
+                                            storageUpdateHandler,
+                                            TableManager.this::isLocalPeer,
+                                            completedFuture(schemaManager.schemaRegistry(tblId))
+                                    )
+                            );
+                        } catch (NodeStoppingException e) {
+                            // no-op
+                        }
+                    }
+
+                    // Do not change peers of the raft group if this is a stale event.
+                    // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
+                    if (pendingAssignmentsWatchEvent.revision() < pendingAssignmentsEntry.revision()) {
+                        return;
+                    }
+
+                    RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
+
+                    LeaderWithTerm leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
+
+                    // run update of raft configuration if this node is a leader
+                    if (isLocalPeer(leaderWithTerm.leader())) {
+                        LOG.info("Current node={} is the leader of partition raft group={}. "
+                                        + "Initiate rebalance process for partition={}, table={}",
+                                localMember.address(), replicaGrpId, partId, tbl.name());
+
+                        partGrpSvc.changePeersAsync(pendingConfiguration, leaderWithTerm.term()).join();
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process pending assignments event", e);
+            }
+        };
+
+        stableAssignmentsRebalanceListener =  new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(new NodeStoppingException());
+                }
+
+                try {
+                    assert evt.single();
+
+                    Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
+
+                    if (stableAssignmentsWatchEvent.value() == null) {
+                        return;
+                    }
+
+                    int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
+                    UUID tblId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+
+                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, part);
+
+                    Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
+
+                    byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId),
+                            stableAssignmentsWatchEvent.revision()).join().value();
+
+                    Set<Assignment> pendingAssignments = pendingFromMetastorage == null
+                            ? Set.of()
+                            : ByteUtils.fromBytes(pendingFromMetastorage);
+
+                    String localMemberName = clusterService.topologyService().localMember().name();
+
+                    boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
+                            .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
+
+                    if (shouldStopLocalServices) {
+                        try {
+                            raftMgr.stopRaftNodes(replicaGrpId);
+
+                            replicaMgr.stopReplica(new TablePartitionId(tblId, part));
+                        } catch (NodeStoppingException e) {
+                            // no-op
+                        }
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process stable assignments event", e);
+            }
+        };
+
+        assignmentsSwitchRebalanceListener = new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                byte[] key = evt.entryEvent().newEntry().key();
+
+                int partitionNumber = extractPartitionNumber(key);
+                UUID tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
+
+                TablePartitionId replicaGrpId = new TablePartitionId(tblId, partitionNumber);
+
+                TableImpl tbl = tablesByIdVv.latest().get(tblId);
+
+                TableConfiguration tblCfg = tablesCfg.tables().get(tbl.name());
+
+                RebalanceUtil.handleReduceChanged(
+                        metaStorageMgr,
+                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                        tblCfg.value().replicas(),
+                        partitionNumber,
+                        replicaGrpId,
+                        evt
+                );
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process switch reduce event", e);
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -436,9 +754,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
-        registerDistributionZonesListener();
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), distributionZonesDataNodesListener);
 
-        registerRebalanceListeners();
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
         ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(this::onUpdateAssignments);
 
@@ -954,6 +1274,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
+
+        metaStorageMgr.unregisterWatch(distributionZonesDataNodesListener);
+
+        metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
+        metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
+        metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
         busyLock.block();
 
@@ -1780,322 +2106,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return new IgniteException(th);
-    }
-
-    /**
-     * Register the meta storage listener for changes in the distribution zones data nodes keys.
-     */
-    private void registerDistributionZonesListener() {
-        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), new WatchListener() {
-            @Override
-            public void onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(new NodeStoppingException());
-                }
-
-                try {
-                    NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
-
-                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
-
-                    Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
-
-                    for (int i = 0; i < tables.value().size(); i++) {
-                        TableView tableView = tables.value().get(i);
-
-                        int tableZoneId = tableView.zoneId();
-
-                        if (zoneId == tableZoneId) {
-                            TableConfiguration tableCfg = tables.get(tableView.name());
-
-                            for (int part = 0; part < tableView.partitions(); part++) {
-                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
-
-                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
-
-                                int partId = part;
-
-                                updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
-                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part
-                                ).exceptionally(e -> {
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(), partId
-                                    );
-
-                                    return null;
-                                });
-                            }
-                        }
-                    }
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
-            }
-        });
-    }
-
-    /**
-     * Register the new meta storage listener for changes in the rebalance-specific keys.
-     */
-    private void registerRebalanceListeners() {
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
-            @Override
-            public void onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(new NodeStoppingException());
-                }
-
-                try {
-                    assert evt.single();
-
-                    Entry pendingAssignmentsWatchEvent = evt.entryEvent().newEntry();
-
-                    if (pendingAssignmentsWatchEvent.value() == null) {
-                        return;
-                    }
-
-                    int partId = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
-                    UUID tblId = extractTableId(pendingAssignmentsWatchEvent.key(), PENDING_ASSIGNMENTS_PREFIX);
-
-                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, partId);
-
-                    Entry pendingAssignmentsEntry = metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId)).join();
-
-                    assert pendingAssignmentsWatchEvent.revision() <= pendingAssignmentsEntry.revision()
-                            : "Meta Storage watch cannot notify about an event with the revision that is more than the actual revision.";
-
-                    // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
-                    Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value());
-
-                    PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
-
-                    TableImpl tbl = tablesByIdVv.latest().get(tblId);
-
-                    ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
-
-                    // Stable assignments from the meta store, which revision is bounded by the current pending event.
-                    byte[] stableAssignmentsBytes = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId),
-                            pendingAssignmentsWatchEvent.revision()).join().value();
-
-                    Set<Assignment> stableAssignments = stableAssignmentsBytes == null
-                            // This is for the case when the first rebalance occurs.
-                            ? ((List<Set<Assignment>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(partId)
-                            : ByteUtils.fromBytes(stableAssignmentsBytes);
-
-                    PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
-
-                    placementDriver.updateAssignment(
-                            replicaGrpId,
-                            stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
-                    );
-
-                    ClusterNode localMember = clusterService.topologyService().localMember();
-
-                    // Start a new Raft node and Replica if this node has appeared in the new assignments.
-                    boolean shouldStartLocalServices = pendingAssignments.stream()
-                            .filter(assignment -> localMember.name().equals(assignment.consistentId()))
-                            .anyMatch(assignment -> !stableAssignments.contains(assignment));
-
-                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
-
-                    InternalTable internalTable = tbl.internalTable();
-
-                    LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                                    + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                            pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
-
-                    if (shouldStartLocalServices) {
-                        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
-                        PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
-                        StorageUpdateHandler storageUpdateHandler =
-                                new StorageUpdateHandler(partId, partitionDataStorage, tbl.indexStorageAdapters(partId));
-
-                        TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId);
-
-                        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                                internalTable.storage(),
-                                internalTable.txStateStorage(),
-                                partitionKey(internalTable, partId),
-                                tbl
-                        );
-
-                        RaftGroupListener raftGrpLsnr = new PartitionListener(
-                                partitionDataStorage,
-                                storageUpdateHandler,
-                                txStatePartitionStorage,
-                                safeTime
-                        );
-
-                        RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
-                                metaStorageMgr,
-                                tblCfg,
-                                replicaGrpId,
-                                partId,
-                                busyLock,
-                                createPartitionMover(internalTable, partId),
-                                TableManager.this::calculateAssignments,
-                                rebalanceScheduler
-                        );
-
-                        Peer serverPeer = pendingConfiguration.peer(localMember.name());
-
-                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
-                        try {
-                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                            ((Loza) raftMgr).startRaftGroupNode(
-                                    raftNodeId,
-                                    stableConfiguration,
-                                    raftGrpLsnr,
-                                    raftGrpEvtsLsnr,
-                                    groupOptions
-                            );
-
-                            replicaMgr.startReplica(replicaGrpId,
-                                    new PartitionReplicaListener(
-                                            mvPartitionStorage,
-                                            internalTable.partitionRaftGroupService(partId),
-                                            txManager,
-                                            lockMgr,
-                                            scanRequestExecutor,
-                                            partId,
-                                            tblId,
-                                            tbl.indexesLockers(partId),
-                                            new Lazy<>(() -> tbl.indexStorageAdapters(partId).get().get(tbl.pkId())),
-                                            () -> tbl.indexStorageAdapters(partId).get(),
-                                            clock,
-                                            safeTime,
-                                            txStatePartitionStorage,
-                                            placementDriver,
-                                            storageUpdateHandler,
-                                            TableManager.this::isLocalPeer,
-                                            completedFuture(schemaManager.schemaRegistry(tblId))
-                                    )
-                            );
-                        } catch (NodeStoppingException e) {
-                            // no-op
-                        }
-                    }
-
-                    // Do not change peers of the raft group if this is a stale event.
-                    // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
-                    if (pendingAssignmentsWatchEvent.revision() < pendingAssignmentsEntry.revision()) {
-                        return;
-                    }
-
-                    RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
-
-                    LeaderWithTerm leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
-
-                    // run update of raft configuration if this node is a leader
-                    if (isLocalPeer(leaderWithTerm.leader())) {
-                        LOG.info("Current node={} is the leader of partition raft group={}. "
-                                        + "Initiate rebalance process for partition={}, table={}",
-                                localMember.address(), replicaGrpId, partId, tbl.name());
-
-                        partGrpSvc.changePeersAsync(pendingConfiguration, leaderWithTerm.term()).join();
-                    }
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process pending assignments event", e);
-            }
-        });
-
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
-            @Override
-            public void onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(new NodeStoppingException());
-                }
-
-                try {
-                    assert evt.single();
-
-                    Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
-
-                    if (stableAssignmentsWatchEvent.value() == null) {
-                        return;
-                    }
-
-                    int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-                    UUID tblId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
-
-                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, part);
-
-                    Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
-
-                    byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId),
-                            stableAssignmentsWatchEvent.revision()).join().value();
-
-                    Set<Assignment> pendingAssignments = pendingFromMetastorage == null
-                            ? Set.of()
-                            : ByteUtils.fromBytes(pendingFromMetastorage);
-
-                    String localMemberName = clusterService.topologyService().localMember().name();
-
-                    boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
-                            .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
-
-                    if (shouldStopLocalServices) {
-                        try {
-                            raftMgr.stopRaftNodes(replicaGrpId);
-
-                            replicaMgr.stopReplica(new TablePartitionId(tblId, part));
-                        } catch (NodeStoppingException e) {
-                            // no-op
-                        }
-                    }
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process stable assignments event", e);
-            }
-        });
-
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
-            @Override
-            public void onUpdate(WatchEvent evt) {
-                byte[] key = evt.entryEvent().newEntry().key();
-
-                int partitionNumber = extractPartitionNumber(key);
-                UUID tblId = extractTableId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
-
-                TablePartitionId replicaGrpId = new TablePartitionId(tblId, partitionNumber);
-
-                TableImpl tbl = tablesByIdVv.latest().get(tblId);
-
-                TableConfiguration tblCfg = tablesCfg.tables().get(tbl.name());
-
-                RebalanceUtil.handleReduceChanged(
-                        metaStorageMgr,
-                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                        tblCfg.value().replicas(),
-                        partitionNumber,
-                        replicaGrpId,
-                        evt
-                );
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process switch reduce event", e);
-            }
-        });
     }
 
     private PartitionMover createPartitionMover(InternalTable internalTable, int partId) {
