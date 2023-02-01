@@ -231,7 +231,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                         true,
                         false,
                         i,
-                        metaColumn.scale());
+                        metaColumn.scale(),
+                        metaColumn.precision());
 
                 schemaColumns[i] = schemaColumn;
             }
