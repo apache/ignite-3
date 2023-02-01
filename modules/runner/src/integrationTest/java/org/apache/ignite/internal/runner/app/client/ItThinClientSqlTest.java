@@ -76,7 +76,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteSimpleSelect() {
-        ResultSet resultSet = client().sql()
+        ResultSet<SqlRow> resultSet = client().sql()
                 .createSession()
                 .execute(null, "select 1 as num, 'hello' as str");
 
@@ -148,7 +148,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             ses.execute(null, "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
         }
 
-        ResultSet selectRes = ses.execute(null, "SELECT * FROM testExecuteDdlDml ORDER BY ID");
+        ResultSet<SqlRow> selectRes = ses.execute(null, "SELECT * FROM testExecuteDdlDml ORDER BY ID");
 
         var rows = new ArrayList<SqlRow>();
         selectRes.forEachRemaining(rows::add);
@@ -256,7 +256,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         }
 
         // Query data.
-        ResultSet selectRes = session
+        ResultSet<SqlRow> selectRes = session
                 .execute(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteDdlDml ORDER BY ID");
 
         assertTrue(selectRes.hasRowSet());

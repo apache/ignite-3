@@ -128,7 +128,7 @@ public class IgniteSqlApiTest {
         final Session sess = igniteSql.createSession();
 
         // Execute DDL.
-        ResultSet rs = sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
+        ResultSet<SqlRow> rs = sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
 
         assertTrue(rs.wasApplied());
         assertFalse(rs.hasRowSet());
@@ -178,7 +178,7 @@ public class IgniteSqlApiTest {
 
         igniteTx.runInTransaction(tx -> {
             // Execute DML in tx.
-            ResultSet rs = sess.execute(tx, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
+            ResultSet<SqlRow> rs = sess.execute(tx, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
 
             assertEquals(1, rs.affectedRows());
 
@@ -348,7 +348,7 @@ public class IgniteSqlApiTest {
     @Disabled
     @Test
     public void testMetadata() {
-        ResultSet rs = igniteSql.createSession()
+        ResultSet<SqlRow> rs = igniteSql.createSession()
                 .execute(null, "SELECT id, val FROM tbl");
 
         SqlRow row = rs.next();

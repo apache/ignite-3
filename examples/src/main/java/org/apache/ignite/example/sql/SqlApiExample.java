@@ -125,7 +125,7 @@ public class SqlApiExample {
 
                 System.out.println("\nAll accounts:");
 
-                try (ResultSet rs = ses.execute(null,
+                try (ResultSet<SqlRow> rs = ses.execute(null,
                         "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
                                 + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
                     while (rs.hasNext()) {
@@ -146,7 +146,7 @@ public class SqlApiExample {
 
                 System.out.println("\nAccounts with balance lower than 1,500:");
 
-                try (ResultSet rs = ses.execute(null,
+                try (ResultSet<SqlRow> rs = ses.execute(null,
                         "SELECT a.FIRST_NAME, a.LAST_NAME, a.BALANCE FROM ACCOUNTS a WHERE a.BALANCE < 1500.0 "
                                 + "ORDER BY a.ACCOUNT_ID")) {
                     while (rs.hasNext()) {
@@ -167,7 +167,7 @@ public class SqlApiExample {
 
                 System.out.println("\nDeleting one of the accounts...");
 
-                try (ResultSet rs = ses.execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
+                try (ResultSet<SqlRow> rs = ses.execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
                     System.out.println("\n Removed accounts: " + rs.affectedRows());
                 }
 

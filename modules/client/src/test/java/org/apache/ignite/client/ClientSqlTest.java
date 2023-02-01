@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
@@ -68,7 +69,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testExecute() {
         Session session = client.sql().createSession();
-        ResultSet resultSet = session.execute(null, "SELECT 1");
+        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT 1");
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -134,7 +135,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testMetadata() {
         Session session = client.sql().createSession();
-        ResultSet resultSet = session.execute(null, "SELECT META");
+        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT META");
         ResultSetMetadata meta = resultSet.metadata();
         SqlRow row = resultSet.next();
 

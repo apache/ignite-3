@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Note: one and only one of following is possible: {@link #hasRowSet()} returns {@code true}, or {@link #wasApplied()} returns
  * {@code true}, or {@link #affectedRows()} return zero or higher value.
  */
-public interface ResultSet extends Iterator<SqlRow>, AutoCloseable {
+public interface ResultSet<T> extends Iterator<T>, AutoCloseable {
     /**
      * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}).
      *

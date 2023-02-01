@@ -51,7 +51,7 @@ public interface Session extends AutoCloseable {
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    default ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    default ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
         try {
@@ -69,7 +69,7 @@ public interface Session extends AutoCloseable {
      * @param arguments Arguments for the statement.
      * @return SQL query results set.
      */
-    default ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
+    default ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
         try {
