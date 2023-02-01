@@ -56,7 +56,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.discovery.DiscoveryTopologyEventListener;
-import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
+import org.apache.ignite.internal.network.discovery.InternalTopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -118,7 +118,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final ClusterService clusterService;
 
-    private final DiscoveryTopologyService discoveryTopologyService;
+    private final InternalTopologyService discoveryTopologyService;
 
     private final RaftManager raftManager;
 
@@ -152,14 +152,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     public ClusterManagementGroupManager(
             VaultManager vault,
             ClusterService clusterService,
-            DiscoveryTopologyService discoveryTopologyService,
+            InternalTopologyService internalTopologyService,
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration
     ) {
         this.clusterService = clusterService;
-        this.discoveryTopologyService = discoveryTopologyService;
+        this.discoveryTopologyService = internalTopologyService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
         this.logicalTopology = logicalTopology;

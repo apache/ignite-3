@@ -78,7 +78,7 @@ import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
-import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
+import org.apache.ignite.internal.network.discovery.InternalTopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -336,7 +336,7 @@ public class IgniteImpl implements Ignite {
 
         logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-        DiscoveryTopologyService discoveryTopologyService = (DiscoveryTopologyService) clusterSvc.topologyService();
+        InternalTopologyService discoveryTopologyService = (InternalTopologyService) clusterSvc.topologyService();
 
         cmgMgr = new ClusterManagementGroupManager(
                 vaultMgr,

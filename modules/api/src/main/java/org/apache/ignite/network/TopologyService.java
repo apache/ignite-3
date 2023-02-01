@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Entry point for obtaining information about a cluster's physical topology.
  *
  * <p>Physical topology (PT) is the set of nodes that are thought to be reachable (from the point of view of this node)
- * for message sending. More precisely, a node appears in the PT when when it gets discovered by an underlying
+ * for message sending. More precisely, a node appears in the PT when it gets discovered by an underlying
  * discovery mechanism (like SWIM) and disappears from the PT when it disappears from the Logical Topology (LT).
  * This means that a node might still be in the PT when it is not actually reachable anymore (i.e. due to a network partition).
  *
@@ -55,7 +55,7 @@ public interface TopologyService {
     void addEventHandler(TopologyEventHandler handler);
 
     /**
-     * Returns a cluster node by its network address.
+     * Returns a cluster node (present in the physical topology) by its network address.
      *
      * @param addr The address.
      * @return The node or {@code null} if the node has not yet been discovered or is offline.
@@ -63,7 +63,7 @@ public interface TopologyService {
     @Nullable ClusterNode getByAddress(NetworkAddress addr);
 
     /**
-     * Returns a cluster node by its consistent id.
+     * Returns a cluster node (present in the physical topology) by its consistent id.
      *
      * @param consistentId Consistent id.
      * @return The node or {@code null} if the node has not yet been discovered or is offline.

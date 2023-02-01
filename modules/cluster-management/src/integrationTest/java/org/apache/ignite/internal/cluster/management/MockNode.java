@@ -36,7 +36,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
+import org.apache.ignite.internal.network.discovery.InternalTopologyService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.util.ReverseIterator;
@@ -115,7 +115,7 @@ public class MockNode {
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
-                (DiscoveryTopologyService) clusterService.topologyService(),
+                (InternalTopologyService) clusterService.topologyService(),
                 raftManager,
                 clusterStateStorage,
                 logicalTopologyService,

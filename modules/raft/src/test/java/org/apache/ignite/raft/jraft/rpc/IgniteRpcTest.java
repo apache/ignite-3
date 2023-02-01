@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.network.discovery.DiscoveryTopologyEventListener;
-import org.apache.ignite.internal.network.discovery.DiscoveryTopologyService;
+import org.apache.ignite.internal.network.discovery.InternalTopologyService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -111,7 +111,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
         service.start();
 
         // Remove a node from Physical Topology as soon as it gets lost by SWIM.
-        DiscoveryTopologyService internalTopologyService = (DiscoveryTopologyService) service.topologyService();
+        InternalTopologyService internalTopologyService = (InternalTopologyService) service.topologyService();
         internalTopologyService.addDiscoveryEventListener(new DiscoveryTopologyEventListener() {
             @Override
             public void onDisappeared(ClusterNode member) {

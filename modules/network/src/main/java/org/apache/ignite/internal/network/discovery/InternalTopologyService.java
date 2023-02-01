@@ -22,12 +22,12 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Service to work with the Discovery Topology. Discovery Topology (DT) is the set of nodes
+ * Service to work with the Discovery Topology and to maintain the Physical Topology. Discovery Topology (DT) is the set of nodes
  * that were discovered by a discovery mechanism (like a SWIM protocol implementation) and which did not leave (from
  * the point of view of the discovery mechanism) yet.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
-public interface DiscoveryTopologyService {
+public interface InternalTopologyService {
     /**
      * Registers a listener for discovery topology change events.
      *
