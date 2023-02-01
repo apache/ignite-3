@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
+import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -119,6 +120,7 @@ public class ExecutionServiceImplTest {
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
+    private RuntimeException mappingException;
 
     @BeforeEach
     public void init() {
@@ -248,6 +250,35 @@ public class ExecutionServiceImplTest {
 
             return null;
         }));
+        assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
+    }
+
+    /**
+     * A query initialization is failed on the initiator during the mapping phase.
+     * Need to verify that the exception is handled properly.
+     */
+    @Test
+    public void testQueryMappingFailure() {
+        mappingException = new IllegalStateException("Query mapping error");
+
+        var execService = executionServices.get(0);
+        var ctx = createContext();
+        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        var cursor = execService.executePlan(plan, ctx);
+
+        var batchFut = cursor.requestNextAsync(1);
+
+        await(batchFut.exceptionally(ex -> {
+            assertInstanceOf(CompletionException.class, ex);
+            assertInstanceOf(mappingException.getClass(), ex.getCause());
+            assertEquals(mappingException.getMessage(), ex.getCause().getMessage());
+
+            return null;
+        }));
+
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
@@ -608,6 +639,16 @@ public class ExecutionServiceImplTest {
                 name,
                 ColocationGroup.forNodes(nodeNames),
                 size
-        );
+        ) {
+            @Override
+            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+                // Make sure the exception is handled properly if it occurs during the mapping phase.
+                if (mappingException != null) {
+                    throw mappingException;
+                }
+
+                return super.colocationGroup(ctx);
+            }
+        };
     }
 }
