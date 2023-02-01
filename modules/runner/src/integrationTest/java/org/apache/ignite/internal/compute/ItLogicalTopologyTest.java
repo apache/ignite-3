@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -237,6 +238,31 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
         entryNode.logicalTopology().removeNodes(Set.of(secondIgnite.node()));
 
         assertTrue(removedFromPhysicalTopology.await(10, TimeUnit.SECONDS), "Was not removed from physical topology in time");
+    }
+
+    @Test
+    @Disabled("Enable in IGNITE-18685")
+    void nodeRemovedFromLogicalTopologyCannotReturnWithSameId() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        IgniteImpl secondIgnite = startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        // Knock the node without stopping it (so it retains the same ID).
+        cluster.knockOutNode(1, NodeKnockout.PARTITION_NETWORK);
+
+        assertTrue(waitForCondition(() -> !events.isEmpty(), 10_000));
+
+        assertFalse(events.get(0).appeared);
+
+        // Remove network partition.
+        cluster.reanimateNode(1, NodeKnockout.PARTITION_NETWORK);
+
+        assertFalse(
+                waitForCondition(() -> entryNode.clusterService().topologyService().getByConsistentId(secondIgnite.name()) != null, 5_000),
+                "Node should not reappear in the physical topology"
+        );
     }
 
     private static class Event {
