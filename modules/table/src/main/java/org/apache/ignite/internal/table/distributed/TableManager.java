@@ -1255,16 +1255,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     .filter(not(CompletableFuture::isDone))
                     .toArray(CompletableFuture[]::new);
 
-            CompletableFuture<Void> destroyTableStoragesFuture = allOf(destroyPartitionFutures).runAfterBothAsync(
+            CompletableFuture<Void> destroyTableStoragesFuture = allOf(destroyPartitionFutures).thenCompose(unused -> allOf(
                     table.internalTable().storage().destroy(),
-                    () -> table.internalTable().txStateStorage().destroy(),
-                    ioExecutor
-            );
+                    runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor)
+            ));
 
             CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
                             v -> inBusyLock(busyLock, () -> fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table)))
                     );
+
+            // TODO: IGNITE-18687 Must be asynchronous
+            destroyTableStoragesFuture.join();
 
             beforeTablesVvComplete.add(allOf(destroyTableStoragesFuture, dropSchemaRegistryFuture));
         } catch (Exception e) {
