@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
 
 import java.util.ArrayList;
@@ -27,6 +28,13 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.table.ClientColumn;
+import org.apache.ignite.internal.client.table.ClientSchema;
+import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -34,14 +42,18 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client async result set.
  */
-class ClientAsyncResultSet implements AsyncResultSet {
+class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Channel. */
     private final ClientChannel ch;
+
+    /** Mapper. */
+    private final Mapper<T> mapper;
 
     /** Resource id. */
     private final Long resourceId;
@@ -59,7 +71,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
     private final ResultSetMetadata metadata;
 
     /** Rows. */
-    private volatile List<SqlRow> rows;
+    private volatile List<T> rows;
 
     /** More pages flag. */
     private volatile boolean hasMorePages;
@@ -72,9 +84,11 @@ class ClientAsyncResultSet implements AsyncResultSet {
      *
      * @param ch Channel.
      * @param in Unpacker.
+     * @param mapper Mapper.
      */
-    public ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in) {
+    public ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in, Mapper<T> mapper) {
         this.ch = ch;
+        this.mapper = mapper;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
         hasRowSet = in.unpackBoolean();
@@ -115,7 +129,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     @Override
-    public Iterable<SqlRow> currentPage() {
+    public Iterable<T> currentPage() {
         requireResultSet();
 
         return rows;
@@ -187,18 +201,36 @@ class ClientAsyncResultSet implements AsyncResultSet {
         int size = in.unpackArrayHeader();
         int rowSize = metadata.columns().size();
 
-        var res = new ArrayList<SqlRow>(size);
+        var res = new ArrayList<T>(size);
 
-        for (int i = 0; i < size; i++) {
-            var row = new ArrayList<>(rowSize);
-            var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
+        if (mapper.targetType().equals(SqlRow.class)) {
+            for (int i = 0; i < size; i++) {
+                var row = new ArrayList<>(rowSize);
+                var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
 
-            for (int j = 0; j < rowSize; j++) {
-                var col = metadata.columns().get(j);
-                row.add(readValue(tupleReader, j, col));
+                for (int j = 0; j < rowSize; j++) {
+                    var col = metadata.columns().get(j);
+                    row.add(readValue(tupleReader, j, col));
+                }
+
+                res.add((T)new ClientSqlRow(row, metadata));
             }
+        } else {
+            // TODO: Convert meta to schema in ctor.
+            var schema = new ClientSchema(0, new ClientColumn[0]);
+            Marshaller marshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
 
-            res.add(new ClientSqlRow(row, metadata));
+            try {
+                for (int i = 0; i < size; i++) {
+                    var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
+                    var reader = new ClientMarshallerReader(tupleReader);
+
+                    res.add((T) marshaller.readObject(reader, null));
+                }
+            } catch (MarshallerException e) {
+                // TODO: Proper exception
+                throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+            }
         }
 
         rows = Collections.unmodifiableList(res);
