@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -222,16 +223,16 @@ public class IgniteSqlApiTest {
 
         KeyValueView<Tuple, Tuple> tbl = getTable();
 
-        igniteTx.beginAsync().thenAccept(tx -> {
+        await(igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 2), Tuple.create().set("val", "str2"))
                     .thenAccept(r -> tx.commit());
-        }).join();
+        }));
 
         ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
         assertTrue(rs.hasNext());
 
-        igniteTx.beginAsync().thenAccept(tx -> {
+        await(igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 3), Tuple.create().set("val", "NewValue"))
                     .thenApply(f -> {
@@ -243,7 +244,7 @@ public class IgniteSqlApiTest {
                     .thenAccept(r -> tx.rollback());
 
             Mockito.verify(tx, Mockito.times(1)).rollback();
-        }).join();
+        }));
 
         rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 2);
         assertFalse(rs.hasNext());
@@ -303,13 +304,12 @@ public class IgniteSqlApiTest {
             }
         }
 
-        igniteTx.beginAsync()
+        await(igniteTx.beginAsync()
                 .thenCompose(tx0 -> igniteSql.createSession()
                         .executeAsync(tx0, "SELECT id, val FROM tbl WHERE id > ?", 1)
                         .thenCompose(new AsyncPageProcessor(tx0))
                         .thenCompose(ignore -> tx0.commitAsync())
-                        .thenApply(ignore -> tx0))
-                .get();
+                        .thenApply(ignore -> tx0)));
 
         Mockito.verify(transaction).commitAsync();
         Mockito.verify(table, Mockito.times(4)).getAsync(Mockito.any(), Mockito.any());
@@ -329,7 +329,7 @@ public class IgniteSqlApiTest {
             assertTrue(row.stringValue("val").startsWith("str"));
         });
 
-        igniteTx.beginAsync().thenApply(tx -> {
+        await(igniteTx.beginAsync().thenApply(tx -> {
             final Session session = igniteSql.createSession();
 
             session.executeReactive(tx, "SELECT id, val FROM tbl WHERE id > ?", 1)
@@ -340,7 +340,7 @@ public class IgniteSqlApiTest {
 
                 return null;
             }).thenApply(ignore -> tx.commitAsync());
-        }).join();
+        }));
 
         Mockito.verify(transaction).commitAsync();
     }

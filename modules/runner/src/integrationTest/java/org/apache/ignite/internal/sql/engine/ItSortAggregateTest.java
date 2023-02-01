@@ -35,13 +35,16 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() {
+    static void initTestData() throws InterruptedException {
         sql("CREATE TABLE test (id INT PRIMARY KEY, grp0 INT, grp1 INT, val0 INT, val1 INT) WITH replicas=2,partitions=10");
         sql("CREATE TABLE test_one_col_idx (pk INT PRIMARY KEY, col0 INT)");
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
-        // sql("CREATE INDEX test_idx ON test(grp0, grp1)");
-        // sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
+        sql("CREATE INDEX test_idx ON test(grp0, grp1)");
+        sql("CREATE INDEX test_one_col_idx_idx ON test_one_col_idx(col0)");
+
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        waitForIndex("test_idx");
+        waitForIndex("test_one_col_idx_idx");
 
         for (int i = 0; i < ROWS; i++) {
             sql("INSERT INTO test (id, grp0, grp1, val0, val1) VALUES (?, ?, ?, ?, ?)", i, i / 10, i / 100, 1, 2);
