@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.not;
 
 import java.time.LocalDate;
@@ -72,6 +73,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {5, "Vagner", LocalDate.parse("1756-01-27")},
                 {6, "Chaikovsky", LocalDate.parse("1756-01-27")},
                 {7, "Verdy", LocalDate.parse("1756-01-27")},
+                {8, null, null},
         });
 
         insertData("DEVELOPER", List.of("ID", "NAME", "DEPID", "CITY", "AGE"), new Object[][]{
@@ -780,12 +782,14 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId < 2 AND depId < ?")
                 .withParams(3)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=null, upperBound=$LEAST2(2, ?0)"))
                 .returns(3)
                 .check();
 
         assertQuery("SELECT id FROM Developer WHERE depId > 19 AND depId > ?")
                 .withParams(20)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(19, ?0), upperBound=$NULL_BOUND()"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -793,6 +797,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId > 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=$NULL_BOUND()"))
                 .returns(22)
                 .returns(23)
                 .check();
@@ -800,6 +805,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId >= 20 AND depId > ?")
                 .withParams(19)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=$NULL_BOUND()"))
                 .returns(21)
                 .returns(22)
                 .returns(23)
@@ -808,6 +814,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT id FROM Developer WHERE depId BETWEEN ? AND ? AND depId > 19")
                 .withParams(19, 21)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(?0, 19), upperBound=?1"))
                 .returns(21)
                 .returns(22)
                 .check();
@@ -816,6 +823,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT id FROM Birthday WHERE name BETWEEN 'B' AND 'D' AND name > ?")
                 .withParams("Bach")
                 .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(_UTF-8'B':VARCHAR(65536) "
+                        + "CHARACTER SET \"UTF-8\", ?0), upperBound=_UTF-8'D':VARCHAR(65536) CHARACTER SET \"UTF-8\""))
                 .returns(2)
                 .returns(6)
                 .check();
