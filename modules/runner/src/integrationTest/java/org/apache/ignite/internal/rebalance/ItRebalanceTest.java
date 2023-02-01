@@ -85,10 +85,10 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
     /**
      * The test checks that data is rebalanced after node with replica is left and joined to the cluster.
      *
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18692")
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
 
@@ -169,7 +169,7 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      *
      * @param nodes Expected assignments.
      * @return {@code true} if the expected and actual assignments are the same.
-     * @throws InterruptedException
+     * @throws InterruptedException If interrupted.
      */
     private boolean waitAssignments(List<Set<Integer>> nodes) throws InterruptedException {
         return waitForCondition(() -> {
