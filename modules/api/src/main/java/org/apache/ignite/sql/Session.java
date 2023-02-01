@@ -55,7 +55,7 @@ public interface Session extends AutoCloseable {
         Objects.requireNonNull(query);
 
         try {
-            return new SyncResultSetAdapter(executeAsync(transaction, query, arguments).join());
+            return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
             throw IgniteException.wrap(e);
         }
@@ -73,7 +73,30 @@ public interface Session extends AutoCloseable {
         Objects.requireNonNull(statement);
 
         try {
-            return new SyncResultSetAdapter(executeAsync(transaction, statement, arguments).join());
+            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
+        } catch (CompletionException e) {
+            throw IgniteException.wrap(e);
+        }
+    }
+
+    /**
+     * Executes single SQL statement.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param mapper Mapper.
+     * @param arguments Arguments for the statement.
+     * @return SQL query results set.
+     */
+    default <T> ResultSet<T> execute(
+            @Nullable Transaction transaction,
+            Statement statement,
+            Mapper<T> mapper,
+            @Nullable Object... arguments) {
+        Objects.requireNonNull(statement);
+
+        try {
+            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, mapper, arguments).join());
         } catch (CompletionException e) {
             throw IgniteException.wrap(e);
         }
