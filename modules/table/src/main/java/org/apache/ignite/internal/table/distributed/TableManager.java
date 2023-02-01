@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
@@ -143,7 +142,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteNameUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -294,9 +292,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Runtime.getRuntime().availableProcessors() * 3, 20);
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
-
-    /** Futures for destroying table partition storages({@link MvPartitionStorage} and {@link TxStateStorage}). */
-    private final Map<TablePartitionId, CompletableFuture<Void>> destroyFutureByTablePartitionId = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
@@ -987,16 +982,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<Runnable> stopping = new ArrayList<>();
 
-            AtomicReference<Throwable> exception = new AtomicReference<>();
+            AtomicReference<Exception> exception = new AtomicReference<>();
 
             AtomicBoolean nodeStoppingEx = new AtomicBoolean();
 
             for (int p = 0; p < table.internalTable().partitions(); p++) {
-                TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), p);
+                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
                 stopping.add(() -> {
                     try {
-                        raftMgr.stopRaftNodes(tablePartitionId);
+                        raftMgr.stopRaftNodes(replicationGroupId);
                     } catch (Exception e) {
                         if (!exception.compareAndSet(null, e)) {
                             if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
@@ -1012,7 +1007,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 stopping.add(() -> {
                     try {
-                        replicaMgr.stopReplica(tablePartitionId);
+                        replicaMgr.stopReplica(replicationGroupId);
                     } catch (Exception e) {
                         if (!exception.compareAndSet(null, e)) {
                             if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
@@ -1021,30 +1016,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (e instanceof NodeStoppingException) {
-                            nodeStoppingEx.set(true);
-                        }
-                    }
-                });
-
-                stopping.add(() -> {
-                    CompletableFuture<?>[] destroyPartitionStoragesFutures = destroyFutureByTablePartitionId.entrySet().stream()
-                            .filter(entry -> entry.getKey().tableId().equals(table.tableId()))
-                            .map(Map.Entry::getValue)
-                            .filter(not(CompletableFuture::isDone))
-                            .toArray(CompletableFuture[]::new);
-
-                    try {
-                        allOf(destroyPartitionStoragesFutures).join();
-                    } catch (Exception e) {
-                        Throwable cause = ExceptionUtils.unwrapCause(e);
-
-                        if (!exception.compareAndSet(null, cause)) {
-                            if (!(cause instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                                exception.get().addSuppressed(cause);
-                            }
-                        }
-
-                        if (cause instanceof NodeStoppingException) {
                             nodeStoppingEx.set(true);
                         }
                     }
@@ -1249,16 +1220,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                     name, tblId);
 
-            CompletableFuture<?>[] destroyPartitionFutures = destroyFutureByTablePartitionId.entrySet().stream()
-                    .filter(entry -> entry.getKey().tableId().equals(tblId))
-                    .map(Map.Entry::getValue)
-                    .filter(not(CompletableFuture::isDone))
-                    .toArray(CompletableFuture[]::new);
-
-            CompletableFuture<Void> destroyTableStoragesFuture = allOf(destroyPartitionFutures).thenCompose(unused -> allOf(
+            CompletableFuture<Void> destroyTableStoragesFuture = allOf(
                     table.internalTable().storage().destroy(),
                     runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor)
-            ));
+            );
 
             CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
@@ -2033,17 +1998,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         InternalTable internalTable = tablesByIdVv.latest().get(tableId).internalTable();
 
-                        CompletableFuture<Void> destroyPartitionStoragesFuture = allOf(
+                        // Should be done fairly quickly.
+                        allOf(
                                 internalTable.storage().destroyPartition(partitionId),
                                 runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-                        );
-
-                        CompletableFuture<Void> previous = destroyFutureByTablePartitionId.putIfAbsent(
-                                tablePartitionId,
-                                destroyPartitionStoragesFuture
-                        );
-
-                        assert previous == null : tablePartitionId;
+                        ).join();
                     }
                 });
             }
@@ -2126,12 +2085,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
-        CompletableFuture<Void> destroyStoragesFuture = destroyFutureByTablePartitionId.remove(
-                new TablePartitionId(table.tableId(), partitionId)
-        );
-
-        return (destroyStoragesFuture == null ? completedFuture(null) : destroyStoragesFuture)
-                .thenComposeAsync(unused -> {
+        return CompletableFuture
+                .supplyAsync(() -> {
                     MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getOrCreateMvPartition(partitionId);
                     TxStateStorage txStateStorage = table.internalTable().txStateStorage().getOrCreateTxStateStorage(partitionId);
 
@@ -2140,10 +2095,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return allOf(
                                 table.internalTable().storage().clearPartition(partitionId),
                                 txStateStorage.clear()
-                        ).thenApply(unused1 -> new PartitionStorages(mvPartitionStorage, txStateStorage));
+                        ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
                     } else {
                         return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
                     }
-                }, ioExecutor);
+                }, ioExecutor)
+                .thenCompose(Function.identity());
     }
 }
