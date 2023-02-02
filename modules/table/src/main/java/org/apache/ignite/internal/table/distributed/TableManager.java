@@ -563,12 +563,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                     if (shouldStartLocalServices) {
-                        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(internalTable.storage(), partId).join();
+                        PartitionStorages partitionStorages = getOrCreatePartitionStorages(tbl, partId).join();
+
+                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
+                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
                         StorageUpdateHandler storageUpdateHandler =
                                 new StorageUpdateHandler(partId, partitionDataStorage, tbl.indexStorageAdapters(partId));
-
-                        TxStateStorage txStatePartitionStorage = getOrCreateTxStateStorage(internalTable.txStateStorage(), partId);
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
@@ -664,15 +666,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         };
 
-        stableAssignmentsRebalanceListener =  new WatchListener() {
+        stableAssignmentsRebalanceListener = new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteInternalException(new NodeStoppingException());
-                }
-
-                try {
-                    assert evt.single();
+                inBusyLock(busyLock, () -> {
+                    assert evt.single() : evt;
 
                     Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
 
@@ -680,19 +678,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return;
                     }
 
-                    int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-                    UUID tblId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+                    int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
+                    UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
-                    TablePartitionId replicaGrpId = new TablePartitionId(tblId, part);
+                    TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
                     Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
-                    byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId),
-                            stableAssignmentsWatchEvent.revision()).join().value();
+                    byte[] pendingAssignmentsFromMetaStorage = metaStorageMgr.get(
+                            pendingPartAssignmentsKey(tablePartitionId),
+                            stableAssignmentsWatchEvent.revision()
+                    ).join().value();
 
-                    Set<Assignment> pendingAssignments = pendingFromMetastorage == null
+                    Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null
                             ? Set.of()
-                            : ByteUtils.fromBytes(pendingFromMetastorage);
+                            : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
 
                     String localMemberName = clusterService.topologyService().localMember().name();
 
@@ -701,16 +701,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     if (shouldStopLocalServices) {
                         try {
-                            raftMgr.stopRaftNodes(replicaGrpId);
+                            raftMgr.stopRaftNodes(tablePartitionId);
 
-                            replicaMgr.stopReplica(new TablePartitionId(tblId, part));
+                            replicaMgr.stopReplica(tablePartitionId);
                         } catch (NodeStoppingException e) {
                             // no-op
                         }
+
+                        InternalTable internalTable = tablesByIdVv.latest().get(tableId).internalTable();
+
+                        // Should be done fairly quickly.
+                        allOf(
+                                internalTable.storage().destroyPartition(partitionId),
+                                runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+                        ).join();
                     }
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                });
             }
 
             @Override

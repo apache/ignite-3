@@ -21,7 +21,6 @@ import static java.util.Collections.emptySet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,9 +62,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.dsl.If;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -98,7 +95,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-
 /**
  * Tests the distribution zone watch listener in {@link TableManager}.
  */
@@ -110,7 +106,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
     private ConfigurationManager clusterCfgMgr;
 
     @Mock()
-    private ClusterService cs;
+    private ClusterService clusterService;
 
     private TablesConfiguration tablesConfiguration;
 
@@ -198,16 +194,14 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
         lenient().doAnswer(invocationClose -> {
-            If iif = invocationClose.getArgument(0);
+            Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand =
-                    commandsFactory.multiInvokeCommand().iif(toIfInfo(iif, commandsFactory)).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
 
-            return metaStorageService.run(multiInvokeCommand)
-                    .thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+            return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
 
-        when(cs.messagingService()).thenAnswer(invocation -> {
+        when(clusterService.messagingService()).thenAnswer(invocation -> {
             MessagingService ret = mock(MessagingService.class);
 
             return ret;
@@ -217,7 +211,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 "node1",
                 (x) -> {},
                 tablesConfiguration,
-                cs,
+                clusterService,
                 null,
                 null,
                 null,
