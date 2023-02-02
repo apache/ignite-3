@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 
 import java.util.List;
@@ -139,8 +140,6 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
 
     /**
      * Check 'OR -> UNION' rule is NOT applied for equality conditions on the same indexed column.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testNonDistinctOrToUnionAllRewrite() {
@@ -150,7 +149,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 + "OR subcategory = 'Other'")
                 .matches(not(containsUnion(true)))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
+                .matches(containsString("searchBounds=[[MultiBounds"))
                 .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
                 .returns(4, "Photo", 1, "Other", 12, "Charger 1")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -160,8 +159,6 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
 
     /**
      * Check 'OR -> UNION' rule is not applied for range conditions on indexed columns.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testRangeOrToUnionAllRewrite() {
