@@ -207,36 +207,35 @@ public class ColocationGroup implements Serializable {
             }
 
             return Collections.emptyList();
-        } else {
-            if (assignment0.size() > assignment1.size()) {
-                List<NodeWithTerm> tmp = assignment0;
-                assignment0 = assignment1;
-                assignment1 = tmp;
-            }
-
-            List<NodeWithTerm> assignment = new ArrayList<>();
-
-            Map<String, NodeWithTerm> hashedByNameAssignment =
-                    assignment1.stream().collect(Collectors.toMap(NodeWithTerm::name, nodeWithTerm -> nodeWithTerm));
-
-            for (NodeWithTerm first : assignment0) {
-                if (!filter.test(first.name())) {
-                    continue;
-                }
-
-                NodeWithTerm second = hashedByNameAssignment.get(first.name());
-
-                if (second == null) {
-                    continue;
-                }
-
-                validateTerm(first, second, p);
-
-                assignment.add(first);
-            }
-
-            return assignment;
         }
+
+        if (assignment0.size() > assignment1.size()) {
+            List<NodeWithTerm> tmp = assignment0;
+            assignment0 = assignment1;
+            assignment1 = tmp;
+        }
+
+        List<NodeWithTerm> assignment = new ArrayList<>();
+
+        // Filter and hash a smaller list.
+        Map<String, NodeWithTerm> nameToAssignmentMapping = assignment0.stream()
+                .filter(v -> filter.test(v.name()))
+                .collect(Collectors.toMap(NodeWithTerm::name, nodeWithTerm -> nodeWithTerm));
+
+        // Iterate over a larger list.
+        for (NodeWithTerm first : assignment1) {
+            NodeWithTerm second = nameToAssignmentMapping.get(first.name());
+
+            if (second == null) {
+                continue;
+            }
+
+            validateTerm(first, second, p);
+
+            assignment.add(first);
+        }
+
+        return assignment;
     }
 
     private void validateTerm(NodeWithTerm first, NodeWithTerm second, int partId) throws ColocationMappingException {
