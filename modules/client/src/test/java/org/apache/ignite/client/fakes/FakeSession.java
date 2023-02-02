@@ -99,7 +99,7 @@ public class FakeSession implements Session {
     @Override
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, @Nullable Mapper<T> mapper,
             String query, @Nullable Object... arguments) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -109,7 +109,7 @@ public class FakeSession implements Session {
             @Nullable Mapper<T> mapper,
             Statement statement,
             @Nullable Object... arguments) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
