@@ -732,7 +732,8 @@ public class ItRebalanceDistributedTest {
     }
 
     private void createTableForOnePartition(String tableName, int replicas, boolean testDataStorage) {
-        assertThat(nodes.get(0).tableManager.createTableAsync(
+        assertThat(
+                nodes.get(0).tableManager.createTableAsync(
                         tableName,
                         tableChange -> {
                             SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
@@ -753,7 +754,8 @@ public class ItRebalanceDistributedTest {
     }
 
     private void changeTableReplicasForSinglePartition(String tableName, int replicas) {
-        assertThat(nodes.get(0).tableManager.alterTableAsync(tableName, tableChange -> {
+        assertThat(
+                nodes.get(0).tableManager.alterTableAsync(tableName, tableChange -> {
                     tableChange.changeReplicas(replicas);
 
                     return true;
