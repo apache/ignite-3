@@ -42,6 +42,8 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client SQL integration test.
@@ -366,26 +368,33 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
     }
 
-    @Test
-    void testResultSetMapping() {
-        ResultSet<Pojo> resultSet = client().sql()
-                .createSession()
-                .execute(null, Mapper.of(Pojo.class), "select 123 as num, 'Hello!' as str");
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testResultSetMapping(boolean useStatement) {
+        Session session = client().sql().createSession();
+        String query = "select 123 + ? as num, 'Hello!' as str";
+
+        ResultSet<Pojo> resultSet = useStatement
+                ? session.execute(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), 10)
+                : session.execute(null, Mapper.of(Pojo.class), query, 10);
 
         assertTrue(resultSet.hasRowSet());
 
         Pojo row = resultSet.next();
 
-        assertEquals(123, row.num);
+        assertEquals(133, row.num);
         assertEquals("Hello!", row.str);
     }
 
-    @Test
-    void testResultSetMappingAsync() {
-        AsyncResultSet<Pojo> resultSet = client().sql()
-                .createSession()
-                .executeAsync(null, Mapper.of(Pojo.class), "select 1 as num, 'hello' as str")
-                .join();
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testResultSetMappingAsync(boolean useStatement) {
+        Session session = client().sql().createSession();
+        String query = "select 1 as num, concat('hello ', ?) as str";
+
+        AsyncResultSet<Pojo> resultSet = useStatement
+                ? session.executeAsync(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), "world").join()
+                : session.executeAsync(null, Mapper.of(Pojo.class), query, "world").join();
 
         assertTrue(resultSet.hasRowSet());
         assertEquals(1, resultSet.currentPageSize());
@@ -393,7 +402,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         Pojo row = resultSet.currentPage().iterator().next();
 
         assertEquals(1, row.num);
-        assertEquals("hello", row.str);
+        assertEquals("hello world", row.str);
     }
 
     private static class Pojo {
