@@ -33,13 +33,16 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -146,7 +149,6 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -163,10 +165,6 @@ public class ItRebalanceDistributedTest {
 
     private static final String TABLE_1_NAME = "TBL1";
 
-    private static final String TEST_TX_STORAGE_TAG = "TEST_TX_STORAGE";
-
-    private static final String ROCKS_META_STORAGE_TAG = "ROCKS_META_STORAGE";
-
     public static final int BASE_PORT = 20_000;
 
     public static final String HOST = "localhost";
@@ -176,6 +174,16 @@ public class ItRebalanceDistributedTest {
 
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
+
+    @Target(ElementType.METHOD)
+    @Retention(RetentionPolicy.RUNTIME)
+    private @interface UseTestTxStateStorage {
+    }
+
+    @Target(ElementType.METHOD)
+    @Retention(RetentionPolicy.RUNTIME)
+    private @interface UseRocksMetaStorage {
+    }
 
     @WorkDirectory
     private Path workDir;
@@ -436,7 +444,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    @Tag(TEST_TX_STORAGE_TAG)
+    @UseTestTxStateStorage
     void testDestroyPartitionStoragesOnEvictNode() {
         createTableWithOnePartition(TABLE_1_NAME, 3, true);
 
@@ -466,8 +474,8 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    @Tag(TEST_TX_STORAGE_TAG)
-    @Tag(ROCKS_META_STORAGE_TAG)
+    @UseTestTxStateStorage
+    @UseRocksMetaStorage
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         createTableWithOnePartition(TABLE_1_NAME, 3, true);
 
@@ -649,7 +657,7 @@ public class ItRebalanceDistributedTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    testInfo.getTags().contains(ROCKS_META_STORAGE_TAG)
+                    testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                             ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
                             : new SimpleInMemoryKeyValueStorage(nodeName)
             );
@@ -730,7 +738,7 @@ public class ItRebalanceDistributedTest {
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {
-                    return testInfo.getTags().contains(TEST_TX_STORAGE_TAG)
+                    return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
                             ? spy(new TestTxStateTableStorage())
                             : super.createTxStateTableStorage(tableCfg);
                 }
