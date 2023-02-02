@@ -291,17 +291,17 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void testSelectWithOrdering() throws InterruptedException {
-        sql("drop table if exists test_tbl", true);
-        sql("create table test_tbl (k1 int primary key, c1 int)", true);
+        sql("drop table if exists test_tbl");
+        sql("create table test_tbl (k1 int primary key, c1 int)");
 
-        sql("create index idx_asc on test_tbl (c1)", true);
-        sql("create index idx_desc on test_tbl (c1 desc)", true);
+        sql("create index idx_asc on test_tbl (c1)");
+        sql("create index idx_desc on test_tbl (c1 desc)");
 
         // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
         waitForIndex("idx_asc");
         waitForIndex("idx_desc");
 
-        sql("insert into test_tbl values (1, 1), (2, 2), (3, 3), (4, null)", true);
+        sql("insert into test_tbl values (1, 1), (2, 2), (3, 3), (4, null)");
 
         assertQuery("select c1 from test_tbl ORDER BY c1")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
