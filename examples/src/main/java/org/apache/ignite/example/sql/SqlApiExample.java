@@ -154,7 +154,7 @@ public class SqlApiExample {
                         .build();
 
                 // POJO mapping.
-                try (ResultSet<AccountInfo> rs = ses.execute(null, statement, Mapper.of(AccountInfo.class))) {
+                try (ResultSet<AccountInfo> rs = ses.execute(null, Mapper.of(AccountInfo.class), statement)) {
                     while (rs.hasNext()) {
                         AccountInfo row = rs.next();
 

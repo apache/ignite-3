@@ -83,20 +83,20 @@ public interface Session extends AutoCloseable {
      * Executes single SQL statement.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param statement SQL statement to execute.
      * @param mapper Mapper.
+     * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
      * @return SQL query results set.
      */
     default <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
             Statement statement,
-            Mapper<T> mapper,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
         try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, mapper, arguments).join());
+            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
         } catch (CompletionException e) {
             throw IgniteException.wrap(e);
         }
@@ -131,16 +131,16 @@ public interface Session extends AutoCloseable {
      * Executes SQL statement in an asynchronous way and maps the result set to the specified type using the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param statement SQL statement to execute.
      * @param mapper Mapper.
+     * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
      * @return Operation future.
      * @throws SqlException If failed.
      */
     <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
             Statement statement,
-            Mapper<T> mapper,
             @Nullable Object... arguments);
 
     /**

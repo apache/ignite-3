@@ -372,7 +372,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         ResultSet<Pojo> resultSet = client().sql()
                 .createSession()
-                .execute(null, statement, Mapper.of(Pojo.class));
+                .execute(null, Mapper.of(Pojo.class), statement);
 
         assertTrue(resultSet.hasRowSet());
 
@@ -383,12 +383,12 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testAsyncResultSetMapping() {
+    void testResultSetMappingAsync() {
         Statement statement = client().sql().statementBuilder().query("select 1 as num, 'hello' as str").build();
 
         AsyncResultSet<Pojo> resultSet = client().sql()
                 .createSession()
-                .executeAsync(null, statement, Mapper.of(Pojo.class))
+                .executeAsync(null, Mapper.of(Pojo.class), statement)
                 .join();
 
         assertTrue(resultSet.hasRowSet());
