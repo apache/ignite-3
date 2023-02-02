@@ -1220,6 +1220,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                     name, tblId);
 
+            // TODO: IGNITE-18703 Destroy raft log and meta
+
             CompletableFuture<Void> destroyTableStoragesFuture = allOf(
                     table.internalTable().storage().destroy(),
                     runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor)
@@ -2102,6 +2104,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 InternalTable internalTable = tablesByIdVv.latest().get(tableId).internalTable();
+
+                // TODO: IGNITE-18703 Destroy raft log and meta
 
                 // Should be done fairly quickly.
                 allOf(
