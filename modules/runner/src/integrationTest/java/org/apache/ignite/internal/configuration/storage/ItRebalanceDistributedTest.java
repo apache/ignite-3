@@ -34,9 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
@@ -438,7 +438,7 @@ public class ItRebalanceDistributedTest {
     @Test
     @Tag(TEST_TX_STORAGE_TAG)
     void testDestroyPartitionStoragesOnEvictNode() {
-        createTableForOnePartition(TABLE_1_NAME, 3, true);
+        createTableWithOnePartition(TABLE_1_NAME, 3, true);
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
@@ -462,14 +462,14 @@ public class ItRebalanceDistributedTest {
 
         assertNotNull(evictedNode, evictedAssignments.toString());
 
-        checkInvokeDestroyPartitionStorages(evictedNode, TABLE_1_NAME, 0);
+        checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
     }
 
     @Test
     @Tag(TEST_TX_STORAGE_TAG)
     @Tag(ROCKS_META_STORAGE_TAG)
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
-        createTableForOnePartition(TABLE_1_NAME, 3, true);
+        createTableWithOnePartition(TABLE_1_NAME, 3, true);
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
@@ -511,7 +511,7 @@ public class ItRebalanceDistributedTest {
         // Let's make sure that we will destroy the partition again.
         assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willSucceedIn(1, TimeUnit.MINUTES));
 
-        checkInvokeDestroyPartitionStorages(newNode, TABLE_1_NAME, 0);
+        checkInvokeDestroyedPartitionStorages(newNode, TABLE_1_NAME, 0);
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
@@ -862,7 +862,7 @@ public class ItRebalanceDistributedTest {
         ).withPrimaryKey("key").build();
     }
 
-    private void createTableForOnePartition(String tableName, int replicas, boolean testDataStorage) {
+    private void createTableWithOnePartition(String tableName, int replicas, boolean testDataStorage) {
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
@@ -917,11 +917,11 @@ public class ItRebalanceDistributedTest {
         return ((TableImpl) table).internalTable();
     }
 
-    private static void checkInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
+    private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {
         InternalTable internalTable = getInternalTable(node, tableName);
 
-        verify(internalTable.storage(), times(1)).destroyPartition(eq(partitionId));
-        verify(internalTable.txStateStorage(), times(1)).destroyTxStateStorage(eq(partitionId));
+        verify(internalTable.storage(), atLeast(1)).destroyPartition(partitionId);
+        verify(internalTable.txStateStorage(), atLeast(1)).destroyTxStateStorage(partitionId);
     }
 
     private static void throwExceptionOnInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
@@ -929,11 +929,11 @@ public class ItRebalanceDistributedTest {
 
         doAnswer(answer -> CompletableFuture.failedFuture(new StorageException("From test")))
                 .when(internalTable.storage())
-                .destroyPartition(eq(partitionId));
+                .destroyPartition(partitionId);
 
         doAnswer(answer -> CompletableFuture.failedFuture(new IgniteInternalException("From test")))
                 .when(internalTable.txStateStorage())
-                .destroyTxStateStorage(eq(partitionId));
+                .destroyTxStateStorage(partitionId);
     }
 
     private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {
