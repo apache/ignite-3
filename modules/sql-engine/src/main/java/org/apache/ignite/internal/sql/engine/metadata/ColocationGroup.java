@@ -159,7 +159,7 @@ public class ColocationGroup implements Serializable {
                 for (int i = 0; i < assignments.size(); i++) {
                     List<NodeWithTerm> assignment = filterByNodeNames(assignments.get(i), new HashSet<>(nodeNames));
 
-                    if (assignment.isEmpty()) { // TODO check with partition filters
+                    if (assignment.isEmpty()) {
                         throw new ColocationMappingException("Failed to map fragment to location. "
                                 + "Partition mapping is empty [part=" + i + "]");
                     }
@@ -183,7 +183,7 @@ public class ColocationGroup implements Serializable {
 
                 List<NodeWithTerm> assignment = intersect(assignment0, assignment1, nodeNamesFilter, p);
 
-                if (assignment.isEmpty()) { // TODO check with partition filters
+                if (assignment.isEmpty()) {
                     throw new ColocationMappingException("Failed to map fragment to location. Partition mapping is empty [part=" + p + "]");
                 }
 
