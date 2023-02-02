@@ -20,12 +20,15 @@ package org.apache.ignite.internal.configuration.storage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -33,17 +36,18 @@ import static org.mockito.Mockito.verify;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
@@ -63,9 +67,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
@@ -93,7 +97,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
@@ -118,11 +122,9 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -130,6 +132,7 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -150,6 +153,8 @@ public class ItRebalanceDistributedTest {
     private static final String TABLE_1_NAME = "TBL1";
 
     private static final String TEST_TX_STORAGE_TAG = "TEST_TX_STORAGE";
+
+    private static final String ROCKS_META_STORAGE_TAG = "ROCKS_META_STORAGE";
 
     public static final int BASE_PORT = 20_000;
 
@@ -192,7 +197,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @AfterEach
-    void after() throws Exception {
+    void after() {
         for (Node node : nodes) {
             node.stop();
         }
@@ -421,12 +426,10 @@ public class ItRebalanceDistributedTest {
 
     @Test
     @Tag(TEST_TX_STORAGE_TAG)
-    void testDestroyPartitionStoragesOnEvictNodeForPartition() {
+    void testDestroyPartitionStoragesOnEvictNode() {
         createTableForOnePartition(TABLE_1_NAME, 3, true);
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
-
-        CompletableFuture<Void> waitChangeStableAssignmentsForAllNodesFuture = registerWatchForAllNodes(STABLE_ASSIGNMENTS_PREFIX);
 
         changeTableReplicasForSinglePartition(TABLE_1_NAME, 2);
 
@@ -440,13 +443,51 @@ public class ItRebalanceDistributedTest {
                 hasSize(1)
         );
 
-        assertThat(waitChangeStableAssignmentsForAllNodesFuture, willCompleteSuccessfully());
+        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null), willCompleteSuccessfully());
 
-        Node evictedNode = findNodeByConsistentId(CollectionUtils.first(evictedAssignments).consistentId());
+        Node evictedNode = findNodeByConsistentId(first(evictedAssignments).consistentId());
 
         assertNotNull(evictedNode, evictedAssignments.toString());
 
         checkInvokeDestroyPartitionStorages(evictedNode, TABLE_1_NAME, 0);
+    }
+
+    @Test
+    @Tag(TEST_TX_STORAGE_TAG)
+    @Tag(ROCKS_META_STORAGE_TAG)
+    void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
+        createTableForOnePartition(TABLE_1_NAME, 3, true);
+
+        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
+
+        nodes.forEach(node -> throwExceptionOnInvokeDestroyPartitionStorages(node, TABLE_1_NAME, 0));
+
+        changeTableReplicasForSinglePartition(TABLE_1_NAME, 2);
+
+        Assignment evictedAssignment = first(getEvictedAssignments(assignmentsBeforeChangeReplicas, getPartitionClusterNodes(0, 0)));
+
+        Node evictedNode = findNodeByConsistentId(evictedAssignment.consistentId());
+
+        // Let's make sure that we handled the events (STABLE_ASSIGNMENTS_PREFIX) from the metastore correctly.
+        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(node -> !node.equals(evictedNode)), willCompleteSuccessfully());
+
+        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFuture, willFailFast(Exception.class));
+
+        // Restart evicted node.
+        int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());
+
+        evictedNode.stop();
+
+        Node newNode = new Node(testInfo, evictedNode.networkAddress);
+
+        newNode.start();
+
+        nodes.set(evictedNodeIndex, newNode);
+
+        // Let's make sure that we will destroy the partition again.
+        assertThat(newNode.finishHandleChangeStableAssignmentEventFuture, willSucceedIn(1, TimeUnit.MINUTES));
+
+        checkInvokeDestroyPartitionStorages(newNode, TABLE_1_NAME, 0);
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
@@ -457,6 +498,10 @@ public class ItRebalanceDistributedTest {
 
     private Node findNodeByConsistentId(String consistentId) {
         return nodes.stream().filter(n -> n.name.equals(consistentId)).findFirst().orElseThrow();
+    }
+
+    private int findNodeIndexByConsistentId(String consistentId) {
+        return IntStream.range(0, nodes.size()).filter(i -> nodes.get(i).name.equals(consistentId)).findFirst().orElseThrow();
     }
 
     private Set<Assignment> getPartitionClusterNodes(int nodeNum, int partNum) {
@@ -509,10 +554,15 @@ public class ItRebalanceDistributedTest {
 
         private List<IgniteComponent> nodeComponents;
 
+        private final CompletableFuture<Void> finishHandleChangeStableAssignmentEventFuture = new CompletableFuture<>();
+
+        private final NetworkAddress networkAddress;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
         Node(TestInfo testInfo, NetworkAddress addr) {
+            networkAddress = addr;
 
             name = testNodeName(testInfo, addr.port());
 
@@ -567,12 +617,16 @@ public class ItRebalanceDistributedTest {
                     clusterManagementConfiguration
             );
 
+            String nodeName = clusterService.localConfiguration().getName();
+
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
                     clusterService,
                     cmgManager,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage(clusterService.localConfiguration().getName())
+                    testInfo.getTags().contains(ROCKS_META_STORAGE_TAG)
+                            ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
+                            : new SimpleInMemoryKeyValueStorage(nodeName)
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
@@ -655,6 +709,19 @@ public class ItRebalanceDistributedTest {
                             ? spy(new TestTxStateTableStorage())
                             : super.createTxStateTableStorage(tableCfg);
                 }
+
+                @Override
+                protected void handleChangeStableAssignmentEvent(WatchEvent evt) {
+                    try {
+                        super.handleChangeStableAssignmentEvent(evt);
+
+                        finishHandleChangeStableAssignmentEventFuture.complete(null);
+                    } catch (Throwable t) {
+                        finishHandleChangeStableAssignmentEventFuture.completeExceptionally(t);
+
+                        throw t;
+                    }
+                }
             };
         }
 
@@ -680,10 +747,13 @@ public class ItRebalanceDistributedTest {
 
             nodeComponents.forEach(IgniteComponent::start);
 
-            CompletableFuture.allOf(
-                    nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                    clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
-            ).get();
+            assertThat(
+                    CompletableFuture.allOf(
+                            nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+                    ),
+                    willSucceedIn(1, TimeUnit.MINUTES)
+            );
 
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches();
@@ -692,7 +762,7 @@ public class ItRebalanceDistributedTest {
         /**
          * Stops the created components.
          */
-        void stop() throws Exception {
+        void stop() {
             new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
                 try {
                     component.beforeNodeStop();
@@ -720,15 +790,24 @@ public class ItRebalanceDistributedTest {
      * Starts the Vault component.
      */
     private static VaultManager createVault(Path workDir) {
-        Path vaultPath = workDir.resolve(Paths.get("vault"));
+        return new VaultManager(new PersistentVaultService(resolveDir(workDir, "vault")));
+    }
+
+    private static Path resolveDir(Path workDir, String dirName) {
+        Path newDirPath = workDir.resolve(dirName);
 
         try {
-            Files.createDirectories(vaultPath);
+            return Files.createDirectories(newDirPath);
         } catch (IOException e) {
             throw new IgniteInternalException(e);
         }
+    }
 
-        return new VaultManager(new PersistentVaultService(vaultPath));
+    private static TableDefinition createTableDefinition(String tableName) {
+        return SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
     }
 
     private void createTableForOnePartition(String tableName, int replicas, boolean testDataStorage) {
@@ -778,47 +857,38 @@ public class ItRebalanceDistributedTest {
         return result;
     }
 
-    private static void checkInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
+    private static InternalTable getInternalTable(Node node, String tableName) {
         Table table = node.tableManager.table(tableName);
 
         assertNotNull(table, tableName);
 
-        InternalTable internalTable = ((TableImpl) table).internalTable();
-
-        MvTableStorage mvTableStorage = internalTable.storage();
-        TxStateTableStorage txStateTableStorage = internalTable.txStateStorage();
-
-        verify(mvTableStorage, times(1)).destroyPartition(eq(partitionId));
-        verify(txStateTableStorage, times(1)).destroyTxStateStorage(eq(partitionId));
+        return ((TableImpl) table).internalTable();
     }
 
-    private static TableDefinition createTableDefinition(String tableName) {
-        return SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
+    private static void checkInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
+        InternalTable internalTable = getInternalTable(node, tableName);
+
+        verify(internalTable.storage(), times(1)).destroyPartition(eq(partitionId));
+        verify(internalTable.txStateStorage(), times(1)).destroyTxStateStorage(eq(partitionId));
     }
 
-    private CompletableFuture<Void> registerWatchForAllNodes(String prefix) {
-        CompletableFuture<?>[] futures = new CompletableFuture<?>[nodes.size()];
+    private static void throwExceptionOnInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
+        InternalTable internalTable = getInternalTable(node, tableName);
 
-        for (int i = 0; i < nodes.size(); i++) {
-            CompletableFuture<Void> future = new CompletableFuture<>();
+        doAnswer(answer -> CompletableFuture.failedFuture(new StorageException("From test")))
+                .when(internalTable.storage())
+                .destroyPartition(eq(partitionId));
 
-            futures[i] = future;
+        doAnswer(answer -> CompletableFuture.failedFuture(new IgniteInternalException("From test")))
+                .when(internalTable.txStateStorage())
+                .destroyTxStateStorage(eq(partitionId));
+    }
 
-            nodes.get(i).metaStorageManager.registerPrefixWatch(ByteArray.fromString(prefix), new WatchListener() {
-                @Override
-                public void onUpdate(WatchEvent event) {
-                    future.complete(null);
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    future.completeExceptionally(e);
-                }
-            });
-        }
+    private CompletableFuture<?> collectFinishHandleChangeStableAssignmentEventFuture(@Nullable Predicate<Node> nodeFilter) {
+        CompletableFuture<?>[] futures = nodes.stream()
+                .filter(node -> nodeFilter == null || nodeFilter.test(node))
+                .map(node -> node.finishHandleChangeStableAssignmentEventFuture)
+                .toArray(CompletableFuture<?>[]::new);
 
         return CompletableFuture.allOf(futures);
     }
