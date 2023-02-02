@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.row;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.util.TemporalTypeUtils;
 
 /**
  * Helper class for temporal type conversions.
@@ -157,7 +158,7 @@ public class TemporalTypesHelper {
         time |= localTime.getMinute() << SECONDS_FIELD_LENGTH;
         time |= localTime.getSecond();
 
-        int fractional = truncateTo(type.precision(), localTime.getNano());
+        int fractional = truncateTo(localTime.getNano(), type.precision());
 
         return ((long) time << 32) | fractional;
     }
@@ -208,59 +209,17 @@ public class TemporalTypesHelper {
      * @return Normalized nanoseconds.
      */
     public static int normalizeNanos(int nanos, int precision) {
-        switch (precision) {
-            case 0:
-                nanos = 0;
-                break;
-            case 1:
-                nanos = (nanos / 100_000_000) * 100_000_000; // 100ms precision.
-                break;
-            case 2:
-                nanos = (nanos / 10_000_000) * 10_000_000; // 10ms precision.
-                break;
-            case 3: {
-                nanos = (nanos / 1_000_000) * 1_000_000; // 1ms precision.
-                break;
-            }
-            case 4: {
-                nanos = (nanos / 100_000) * 100_000; // 100mcs precision.
-                break;
-            }
-            case 5: {
-                nanos = (nanos / 10_000) * 10_000; // 10mcs precision.
-                break;
-            }
-            case 6: {
-                nanos = (nanos / 1_000) * 1_000; // 1mcs precision.
-                break;
-            }
-            case 7: {
-                nanos = (nanos / 100) * 100; // 100ns precision.
-                break;
-            }
-            case 8: {
-                nanos = (nanos / 10) * 10; // 10ns precision.
-                break;
-            }
-            case 9: {
-                // 1ns precision
-                break;
-            }
-            default: // Should never get here.
-                throw new IllegalArgumentException("Unsupported fractional seconds precision: " + precision);
-        }
-
-        return nanos;
+        return TemporalTypeUtils.normalizeNanos(nanos, precision);
     }
 
     /**
      * Normalize to given precision and truncate to meaningful time unit.
      *
+     * @param nanos Seconds' fractional part.
      * @param precision Precision.
-     * @param nanos     Seconds' fractional part.
      * @return Truncated fractional seconds (millis, micros or nanos).
      */
-    private static int truncateTo(int precision, int nanos) {
+    private static int truncateTo(int nanos, int precision) {
         switch (precision) {
             case 0:
                 return 0;
@@ -272,13 +231,13 @@ public class TemporalTypesHelper {
                 return nanos / 1_000_000; // 1ms precision.
             }
             case 4: {
-                return (nanos / 100_000) * 100; // 100mcs precision.
+                return (nanos / 100_000) * 100; // 100us precision.
             }
             case 5: {
-                return (nanos / 10_000) * 10; // 10mcs precision.
+                return (nanos / 10_000) * 10; // 10us precision.
             }
             case 6: {
-                return nanos / 1_000; // 1mcs precision.
+                return nanos / 1_000; // 1us precision.
             }
             case 7: {
                 return (nanos / 100) * 100; // 100ns precision.

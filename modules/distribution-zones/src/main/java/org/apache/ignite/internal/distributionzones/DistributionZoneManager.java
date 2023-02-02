@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -68,6 +69,9 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.tree.ConfigurationNodeAlreadyExistException;
+import org.apache.ignite.internal.configuration.tree.ConfigurationNodeDoesNotExistException;
+import org.apache.ignite.internal.configuration.tree.ConfigurationNodeRemovedException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
@@ -75,7 +79,6 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -85,7 +88,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.schema.configuration.TableChange;
@@ -272,7 +275,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                         zoneChange.changeZoneId(intZoneId);
                     });
-                } catch (IllegalArgumentException e) {
+                } catch (ConfigurationNodeAlreadyExistException e) {
                     throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                 }
             })).whenComplete((res, e) -> {
@@ -300,8 +303,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param name Distribution zone name.
      * @param distributionZoneCfg Distribution zone configuration.
      * @return Future representing pending completion of the operation. Future can be completed with:
-     *      {@link DistributionZoneRenameException} if a zone with the given name already exists
-     *      or zone with name for renaming already exists,
+     *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists.
      *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
      *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
      *      {@link IllegalArgumentException} if {@code name} or {@code distributionZoneCfg} is {@code null}
@@ -350,13 +352,15 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     try {
                         renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
-                    } catch (IllegalArgumentException e) {
-                        throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
+                    } catch (ConfigurationNodeAlreadyExistException e) {
+                        throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
+                    } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
+                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
                     }
 
                     try {
                         renameChange.update(distributionZoneCfg.name(), zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg));
-                    } catch (IllegalArgumentException e) {
+                    } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
                         throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
                     }
                 }));
@@ -367,8 +371,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     fut.completeExceptionally(
                             unwrapDistributionZoneException(
                                     e,
-                                    DistributionZoneRenameException.class,
                                     DistributionZoneNotFoundException.class,
+                                    DistributionZoneAlreadyExistsException.class,
                                     ConfigurationValidationException.class)
                     );
                 } else {
@@ -598,7 +602,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(zoneId, revision, dataNodes);
 
-            If iif = If.iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
+            Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
 
             metaStorageManager.invoke(iif).thenAccept(res -> {
                 if (res.getAsBoolean()) {
@@ -628,7 +632,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             Update removeKeysUpd = deleteDataNodesAndUpdateTriggerKeys(zoneId, revision);
 
-            If iif = If.iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
+            Iif iif = iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
 
             metaStorageManager.invoke(iif).thenAccept(res -> {
                 if (res.getAsBoolean()) {
@@ -693,7 +697,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 updateCondition = value(zonesLogicalTopologyVersionKey()).eq(ByteUtils.longToBytes(newTopology.version() - 1));
             }
 
-            If iff = If.iif(
+            Iif iff = iif(
                     updateCondition,
                     updateLogicalTopologyAndVersion(topologyFromCmg, newTopology.version()),
                     ops().yield(false)
@@ -752,7 +756,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                         ? notExists(zonesLogicalTopologyVersionKey()) :
                                         value(zonesLogicalTopologyVersionKey()).eq(topVerFromMetaStorage);
 
-                                If iff = If.iif(topologyVersionCondition,
+                                Iif iff = iif(topologyVersionCondition,
                                         updateLogicalTopologyAndVersion(topologyFromCmg, topologyVersionFromCmg),
                                         ops().yield(false)
                                 );
@@ -1042,7 +1046,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(zoneId, revision, toBytes(newDataNodes));
 
-                If iif = If.iif(
+                Iif iif = iif(
                         triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
                         dataNodesAndTriggerKeyUpd,
                         ops().yield(false)

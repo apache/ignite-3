@@ -178,13 +178,19 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     public void destroy() {
         closed = true;
 
-        clear();
+        clear0();
     }
 
     /**
      * Removes all index data.
      */
     public void clear() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        index.clear();
+    }
+
+    private void clear0() {
         index.clear();
     }
 
@@ -337,7 +343,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         rebalance = true;
 
-        clear();
+        clear0();
     }
 
     /**
@@ -352,7 +358,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         rebalance = false;
 
-        clear();
+        clear0();
     }
 
     /**

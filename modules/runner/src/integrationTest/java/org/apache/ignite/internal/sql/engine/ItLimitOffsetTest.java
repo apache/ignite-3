@@ -145,12 +145,14 @@ public class ItLimitOffsetTest extends AbstractBasicIntegrationTest {
         String request = createSql(lim, off, param, sorted);
 
         Object[] params = null;
-        if (lim >= 0 && off >= 0) {
-            params = new Object[]{off, lim};
-        } else if (lim >= 0) {
-            params = new Object[]{lim};
-        } else if (off >= 0) {
-            params = new Object[]{off};
+        if (param) {
+            if (lim >= 0 && off >= 0) {
+                params = new Object[]{off, lim};
+            } else if (lim >= 0) {
+                params = new Object[]{lim};
+            } else if (off >= 0) {
+                params = new Object[]{off};
+            }
         }
 
         log.info("SQL: " + request + (param ? "params=" + Arrays.toString(params) : ""));

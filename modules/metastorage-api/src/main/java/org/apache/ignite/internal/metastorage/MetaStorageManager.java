@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
@@ -103,7 +103,7 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Invoke, which supports nested conditional statements.
      */
-    CompletableFuture<StatementResult> invoke(If iif);
+    CompletableFuture<StatementResult> invoke(Iif iif);
 
     /**
      * Registers a watch listener by a key prefix.

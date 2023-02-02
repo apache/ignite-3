@@ -41,7 +41,6 @@ import java.time.LocalDate;
 import java.util.GregorianCalendar;
 import org.apache.ignite.internal.tostring.S;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -52,7 +51,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     private static final String STATIC_SQL =
             "SELECT 1::INTEGER as id, true as boolVal, 1::TINYINT as byteVal, 1::SMALLINT as shortVal, 1::INTEGER as intVal, 1::BIGINT "
                     + "as longVal, 1.0::FLOAT as floatVal, 1.0::DOUBLE as doubleVal, 1.0::DECIMAL as bigVal, "
-                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, 1::TIMESTAMP as tsVal;";
+                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, 0::TIMESTAMP as tsVal;";
 
     /** SQL query. */
     private static final String SQL_SINGLE_RES = "select id, boolVal, byteVal, shortVal, intVal, longVal, floatVal, "
@@ -486,7 +485,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16905")
     public void testDate() throws Exception {
         ResultSet rs = stmt.executeQuery(STATIC_SQL);
 
@@ -520,7 +518,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
      */
     @SuppressWarnings("deprecation")
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16905")
     public void testTime() throws Exception {
         ResultSet rs = stmt.executeQuery(STATIC_SQL);
 
@@ -546,28 +543,21 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16905")
     public void testTimestamp() throws Exception {
         ResultSet rs = stmt.executeQuery(STATIC_SQL);
 
-        int cnt = 0;
+        assertTrue(rs.next());
 
-        while (rs.next()) {
-            if (cnt == 0) {
-                assertEquals(-10800000, rs.getTimestamp("tsVal").getTime());
-                assertEquals(new Date(new Timestamp(-10800000).getTime()), rs.getDate(14));
-                assertEquals(new Time(new Timestamp(-10800000).getTime()), rs.getTime(14));
-                assertEquals(new Timestamp(-10800000), rs.getTimestamp(14));
+        assertEquals(-10800000, rs.getTimestamp("tsVal").getTime());
+        assertEquals(new Date(new Timestamp(-10800000).getTime()), rs.getDate(14));
+        assertEquals(new Time(new Timestamp(-10800000).getTime()), rs.getTime(14));
+        assertEquals(new Timestamp(-10800000), rs.getTimestamp(14));
 
-                assertEquals(new Date(new Timestamp(-10800000).getTime()), rs.getObject(14, Date.class));
-                assertEquals(new Time(new Timestamp(-10800000).getTime()), rs.getObject(14, Time.class));
-                assertEquals(new Timestamp(-10800000), rs.getObject(14, Timestamp.class));
-            }
+        assertEquals(new Date(new Timestamp(-10800000).getTime()), rs.getObject(14, Date.class));
+        assertEquals(new Time(new Timestamp(-10800000).getTime()), rs.getObject(14, Time.class));
+        assertEquals(new Timestamp(-10800000), rs.getObject(14, Timestamp.class));
 
-            cnt++;
-        }
-
-        assertEquals(1, cnt);
+        assertFalse(rs.next());
     }
 
     @Test

@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.info;
-
-import java.io.Serializable;
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.configuration.tree;
 
 /**
- * Simple result definition of statement execution, backed by byte[] array.
+ * The base class for exceptions that can be thrown during modification of {@link NamedListNode}.
  */
-@Transferable(MetastorageCommandsMessageGroup.STATEMENT_RESULT_INFO)
-public interface StatementResultInfo extends NetworkMessage, Serializable {
-    /**
-     * Returns result as row byte array.
-     *
-     * @return result as row byte array.
-     */
-    byte[] result();
+public abstract class ConfigurationNodeModificationException extends IllegalArgumentException {
+
+    private static final long serialVersionUID = 4149783684472013922L;
+
+    ConfigurationNodeModificationException(String message) {
+        super(message);
+    }
 }

@@ -154,7 +154,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         int partitionId = mvPartitionStorage.partitionId();
         TableView tableView = tableCfg.value();
 
-        volatilePartitionStorage.updateDataStructuresOnRebalance(
+        volatilePartitionStorage.updateDataStructures(
                 createVersionChainTree(partitionId, tableView),
                 createIndexMetaTree(partitionId, tableView)
         );

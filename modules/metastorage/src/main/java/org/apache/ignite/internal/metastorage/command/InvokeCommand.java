@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import java.util.List;
-import org.apache.ignite.internal.metastorage.command.info.ConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.OperationInfo;
+import java.util.Collection;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -33,19 +33,19 @@ public interface InvokeCommand extends WriteCommand {
      *
      * @return Condition.
      */
-    ConditionInfo condition();
+    Condition condition();
 
     /**
      * Returns success operations.
      *
      * @return Success operations.
      */
-    List<OperationInfo> success();
+    Collection<Operation> success();
 
     /**
      * Returns failure operations.
      *
      * @return Failure operations.
      */
-    List<OperationInfo> failure();
+    Collection<Operation> failure();
 }

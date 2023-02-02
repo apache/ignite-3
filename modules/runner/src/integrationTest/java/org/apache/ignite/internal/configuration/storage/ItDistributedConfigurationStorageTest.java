@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -63,6 +64,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItDistributedConfigurationStorageTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -104,7 +108,8 @@ public class ItDistributedConfigurationStorageTest {
                     clusterService,
                     raftManager,
                     clusterStateStorage,
-                    logicalTopologyService
+                    logicalTopologyService,
+                    clusterManagementConfiguration
             );
 
             metaStorageManager = new MetaStorageManagerImpl(

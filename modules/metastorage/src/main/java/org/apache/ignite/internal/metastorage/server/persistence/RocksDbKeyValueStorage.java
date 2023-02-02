@@ -1224,6 +1224,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         long minWatchRevision = watchProcessor.minWatchRevision().orElse(-1);
 
         if (minWatchRevision == -1 || minWatchRevision > upperRevision) {
+            // No events to replay, we can start processing more recent events from the event queue.
+            startWatchExecutor();
             return;
         }
 

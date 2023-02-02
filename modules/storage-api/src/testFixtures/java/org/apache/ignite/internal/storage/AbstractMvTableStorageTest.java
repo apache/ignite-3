@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
@@ -545,37 +544,30 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testDestroyTableStorage() throws Exception {
+    public void testDestroyTableStorage() {
         MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
-        RowId rowId = new RowId(PARTITION_ID);
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
+        );
 
-        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
-        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), tableRow, rowId);
-        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), tableRow, rowId);
-
-        mvPartitionStorage.runConsistently(() -> {
-            mvPartitionStorage.addWriteCommitted(rowId, tableRow, clock.now());
-
-            hashIndexStorage.put(hashIndexRow);
-
-            sortedIndexStorage.put(sortedIndexRow);
-
-            return null;
-        });
-
-        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rowId);
+        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.scanVersions(rows.get(0).get1());
         PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
+
+        IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), rows.get(0).get2(), rows.get(0).get1());
+        IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), rows.get(0).get2(), rows.get(0).get1());
 
         Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(hashIndexRow.indexColumns());
 
-        Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(hashIndexRow.indexColumns());
+        Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(sortedIndexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, 0);
 
-        tableStorage.destroy().get(1, SECONDS);
+        assertThat(tableStorage.destroy(), willCompleteSuccessfully());
 
         checkStorageDestroyed(mvPartitionStorage);
         checkStorageDestroyed(hashIndexStorage);
@@ -591,21 +583,28 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         // Let's check that nothing will happen if we try to destroy it again.
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
+
+        // Let's check that after restarting the table we will have an empty partition.
+        tableStorage = createMvTableStorage(tableStorage.tablesConfiguration());
+
+        tableStorage.start();
+
+        mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
     }
 
-    /**
-     * Checks that if we restart the storages after a crash in the middle of a rebalance, the storages will be empty.
-     */
     @Test
-    public void testRestartStoragesAfterFailDuringRebalance() {
-        assumeFalse(tableStorage.isVolatile());
-
+    public void testRestartStoragesInTheMiddleOfRebalance() {
         MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
         List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows = List.of(
-                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now())
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
         );
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
@@ -632,10 +631,76 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
-        // Let's check the repositories: they should be empty.
-        checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+        if (tableStorage.isVolatile()) {
+            // Let's check the repositories: they should be empty.
+            checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+
+            checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        } else {
+            checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+
+            checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+        }
+    }
+
+    @Test
+    void testClear() {
+        assertThrows(IllegalArgumentException.class, () -> tableStorage.clearPartition(getPartitionIdOutOfRange()));
+
+        // Let's check that there will be an error for a non-existent partition.
+        assertThrows(StorageException.class, () -> tableStorage.clearPartition(PARTITION_ID));
+
+        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
+
+        // Let's check the cleanup for an empty partition.
+        assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully());
 
         checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        assertNull(mvPartitionStorage.committedGroupConfiguration());
+
+        // Let's fill the storages and clean them.
+        List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows = List.of(
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(0, "0"), new TestValue(0, "0")), clock.now()),
+                new IgniteTuple3<>(new RowId(PARTITION_ID), tableRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
+        );
+
+        RaftGroupConfiguration raftGroupConfig = createRandomRaftGroupConfiguration();
+
+        fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+
+        mvPartitionStorage.runConsistently(() -> {
+            mvPartitionStorage.lastApplied(100, 500);
+
+            mvPartitionStorage.committedGroupConfiguration(raftGroupConfig);
+
+            return null;
+        });
+
+        // Let's clear the storages and check them out.
+        assertThat(tableStorage.clearPartition(PARTITION_ID), willCompleteSuccessfully());
+
+        checkLastApplied(mvPartitionStorage, 0, 0, 0);
+        assertNull(mvPartitionStorage.committedGroupConfiguration());
+
+        checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+    }
+
+    @Test
+    void testClearForCanceledOrRebalancedPartition() {
+        MvPartitionStorage mvPartitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.getOrCreateMvPartition(PARTITION_ID + 1);
+
+        mvPartitionStorage0.close();
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
+
+        try {
+            assertThrows(StorageClosedException.class, () -> tableStorage.clearPartition(PARTITION_ID));
+            assertThrows(StorageRebalanceException.class, () -> tableStorage.clearPartition(PARTITION_ID + 1));
+        } finally {
+            assertThat(tableStorage.abortRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
+        }
     }
 
     private static void createTestIndexes(TablesConfiguration tablesConfig) {
@@ -742,8 +807,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             SortedIndexStorage sortedIndexStorage,
             List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rowsBeforeRebalanceStart
     ) {
-        assertThat(rowsBeforeRebalanceStart, hasSize(greaterThanOrEqualTo(2)));
-
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
 
         // Let's open the cursors before start rebalance.
@@ -852,6 +915,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             SortedIndexStorage sortedIndexStorage,
             List<IgniteTuple3<RowId, TableRow, HybridTimestamp>> rows
     ) {
+        assertThat(rows, hasSize(greaterThanOrEqualTo(2)));
+
         for (int i = 0; i < rows.size(); i++) {
             int finalI = i;
 
@@ -865,8 +930,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), tableRow, rowId);
 
             mvPartitionStorage.runConsistently(() -> {
-                // If even.
-                if ((finalI & 1) == 0) {
+                if ((finalI % 2) == 0) {
                     mvPartitionStorage.addWrite(rowId, tableRow, UUID.randomUUID(), UUID.randomUUID(), rowId.partitionId());
 
                     mvPartitionStorage.commitWrite(rowId, timestamp);

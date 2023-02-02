@@ -15,16 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.info;
-
-import java.io.Serializable;
-import org.apache.ignite.network.NetworkMessage;
+package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 /**
- * Interface for condition definition.
- *
- * @see SimpleConditionInfo
- * @see CompoundConditionInfo
+ * ALTER ZONE ... RENAME statement.
  */
-public interface ConditionInfo extends NetworkMessage, Serializable {
+public class AlterZoneRenameCommand extends AbstractZoneDdlCommand {
+
+    /** Quietly ignore this command if zone does not exists. */
+    private boolean ifExists;
+
+    /** New zone name. */
+    private String newZoneName;
+
+    public boolean ifExists() {
+        return ifExists;
+    }
+
+    public void ifExists(boolean ifExists) {
+        this.ifExists = ifExists;
+    }
+
+    public String newZoneName() {
+        return newZoneName;
+    }
+
+    public void newZoneName(String newZoneName) {
+        this.newZoneName = newZoneName;
+    }
 }

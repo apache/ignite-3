@@ -231,6 +231,22 @@ public class TestTxStateStorage implements TxStateStorage {
                 .whenComplete((unused, throwable) -> lastApplied(lastAppliedIndex, lastAppliedTerm));
     }
 
+    @Override
+    public CompletableFuture<Void> clear() {
+        checkStorageClosed();
+
+        if (rebalanceFutureReference.get() != null) {
+            throw new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "In the process of rebalancing");
+        }
+
+        storage.clear();
+
+        lastAppliedIndex = 0;
+        lastAppliedTerm = 0;
+
+        return completedFuture(null);
+    }
+
     private void checkStorageInProgreesOfRebalance() {
         if (rebalanceFutureReference.get() != null) {
             throwRebalanceInProgressException();

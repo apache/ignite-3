@@ -27,6 +27,7 @@ import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -67,13 +68,19 @@ public class CmgRaftGroupListener implements RaftGroupListener {
      *
      * @param storage Storage where this listener local data will be stored.
      * @param logicalTopology Logical topology that will be updated by this listener.
+     * @param configuration Cluster management configuration.
      * @param onLogicalTopologyChanged Callback invoked (with the corresponding RAFT term) when logical topology gets changed.
      */
-    public CmgRaftGroupListener(ClusterStateStorage storage, LogicalTopology logicalTopology, LongConsumer onLogicalTopologyChanged) {
+    public CmgRaftGroupListener(
+            ClusterStateStorage storage,
+            LogicalTopology logicalTopology,
+            ClusterManagementConfiguration configuration,
+            LongConsumer onLogicalTopologyChanged
+    ) {
         this.storage = new RaftStorageManager(storage);
         this.logicalTopology = logicalTopology;
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
-        this.validationManager = new ValidationManager(this.storage, this.logicalTopology);
+        this.validationManager = new ValidationManager(this.storage, logicalTopology, configuration);
     }
 
     @Override

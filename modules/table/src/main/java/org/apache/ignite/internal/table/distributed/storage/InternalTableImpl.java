@@ -20,11 +20,14 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -34,6 +37,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -46,8 +50,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -68,9 +74,11 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteFiveFunction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -457,31 +465,28 @@ public class InternalTableImpl implements InternalTable {
      * @return The future.
      */
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean implicit, InternalTransaction tx0) {
-        return fut.handle(new BiFunction<T, Throwable, CompletableFuture<T>>() {
-            @Override
-            public CompletableFuture<T> apply(T r, Throwable e) {
-                if (e != null) {
-                    Throwable e0 = wrapReplicationException((RuntimeException) e);
+        return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
+            if (e != null) {
+                RuntimeException e0 = wrapReplicationException(e);
 
-                    return tx0.rollbackAsync().handle((ignored, err) -> {
+                return tx0.rollbackAsync().handle((ignored, err) -> {
 
-                        if (err != null) {
-                            e0.addSuppressed(err);
-                        }
-                        throw (RuntimeException) e0;
-                    }); // Preserve failed state.
-                } else {
-                    tx0.enlistResultFuture(fut);
-
-                    if (implicit) {
-                        return tx0.commitAsync()
-                                .exceptionally(ex -> {
-                                    throw wrapReplicationException((RuntimeException) ex);
-                                })
-                                .thenApply(ignored -> r);
-                    } else {
-                        return completedFuture(r);
+                    if (err != null) {
+                        e0.addSuppressed(err);
                     }
+                    throw e0;
+                }); // Preserve failed state.
+            } else {
+                tx0.enlistResultFuture(fut);
+
+                if (implicit) {
+                    return tx0.commitAsync()
+                            .exceptionally(ex -> {
+                                throw wrapReplicationException(ex);
+                            })
+                            .thenApply(ignored -> r);
+                } else {
+                    return completedFuture(r);
                 }
             }
         }).thenCompose(x -> x);
@@ -1063,6 +1068,24 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
+     * Returns map of partition -> list of peers and learners of that partition.
+     */
+    @TestOnly
+    public Map<Integer, List<String>> peersAndLearners() {
+        awaitLeaderInitialization();
+
+        return partitionMap.int2ObjectEntrySet().stream()
+                .collect(Collectors.toMap(Entry::getIntKey, e -> {
+                    RaftGroupService service = e.getValue();
+                    return Stream.of(service.peers(), service.learners())
+                            .filter(Objects::nonNull)
+                            .flatMap(Collection::stream)
+                            .map(Peer::consistentId)
+                            .collect(Collectors.toList());
+                }));
+    }
+
+    /**
      * Get partition id by key row.
      *
      * @param row Key row.
@@ -1343,19 +1366,28 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Wraps {@link ReplicationException} or {@link ConnectException} with {@link TransactionException}.
+     * Casts any exception type to a client exception, wherein {@link ReplicationException} and {@link LockException} are wrapped
+     * to {@link TransactionException}, but another exceptions are wrapped to a common exception.
+     * The method does not wrap an exception if the exception already inherits type of {@link RuntimeException}.
      *
-     * @param e {@link ReplicationException} or {@link CompletionException} with cause {@link ConnectException} or {@link TimeoutException}
-     * @return {@link TransactionException}
+     * @param e An instance exception to cast to client side one.
+     * @return {@link IgniteException} An instance of client side exception.
      */
-    private RuntimeException wrapReplicationException(RuntimeException e) {
+    private RuntimeException wrapReplicationException(Throwable e) {
+        if (e instanceof CompletionException) {
+            e = e.getCause();
+        }
+
         RuntimeException e0;
 
-        if (e instanceof ReplicationException || e.getCause() instanceof ReplicationException || e.getCause() instanceof ConnectException
-                || e.getCause() instanceof TimeoutException) {
+        if (e instanceof ReplicationException || e instanceof ConnectException || e instanceof TimeoutException) {
             e0 = withCause(TransactionException::new, TX_REPLICA_UNAVAILABLE_ERR, e);
+        } else if (e instanceof LockException) {
+            e0 = withCause(TransactionException::new, ACQUIRE_LOCK_ERR, e);
+        } else if (!(e instanceof RuntimeException)) {
+            e0 = withCause(IgniteException::new, UNEXPECTED_ERR, e);
         } else {
-            e0 = e;
+            e0 = (RuntimeException) e;
         }
 
         return e0;

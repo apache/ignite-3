@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.utils;
 
-import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.and;
-import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
-import static org.apache.ignite.internal.metastorage.dsl.If.iif;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -41,7 +41,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -380,7 +380,7 @@ public class RebalanceUtil {
         //     put(changeTriggerKey, revision)
         // }
 
-        If resultingOperation = iif(
+        Iif resultingOperation = iif(
                 and(
                         or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
                         and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))

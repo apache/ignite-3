@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
 
@@ -40,7 +41,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
@@ -68,6 +69,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * MetaStorage manager.
@@ -316,7 +318,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         busyLock.block();
 
-        metaStorageSvcFut.cancel(true);
+        cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close);
 
         IgniteUtils.closeAll(
                 () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
@@ -582,7 +584,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public CompletableFuture<StatementResult> invoke(If iif) {
+    public CompletableFuture<StatementResult> invoke(Iif iif) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -790,5 +792,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 throw new MetaStorageException(errorCode, e);
             }
         }
+    }
+
+    @TestOnly
+    CompletableFuture<MetaStorageServiceImpl> metaStorageServiceFuture() {
+        return metaStorageSvcFut;
     }
 }

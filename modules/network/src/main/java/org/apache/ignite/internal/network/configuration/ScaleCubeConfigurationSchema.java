@@ -30,13 +30,13 @@ public class ScaleCubeConfigurationSchema {
      * io.scalecube.cluster.ClusterMath#suspicionTimeout.
      */
     @Value(hasDefault = true)
-    public final int membershipSuspicionMultiplier = 1;
+    public final int membershipSuspicionMultiplier = 5;
 
     /**
      * Number of members to be randomly selected by a cluster node for an indirect ping request.
      */
     @Value(hasDefault = true)
-    public final int failurePingRequestMembers = 1;
+    public final int failurePingRequestMembers = 3;
 
     /**
      * Gossip spreading interval.
@@ -44,5 +44,5 @@ public class ScaleCubeConfigurationSchema {
      * @see <a href="https://en.wikipedia.org/wiki/Gossip_protocol">Gossip Protocol</a>
      */
     @Value(hasDefault = true)
-    public final int gossipInterval = 10;
+    public final int gossipInterval = 200;
 }

@@ -15,31 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.info;
-
-import java.io.Serializable;
-import java.util.Collection;
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.configuration.tree;
 
 /**
- * Simple operations + result wrapper definition to describe the terminal branch
- * of {@link IfInfo} execution.
+ * This exception is thrown when an operation attempts to create a node with a key that already exists.
  */
-@Transferable(MetastorageCommandsMessageGroup.UPDATE_INFO)
-public interface UpdateInfo extends NetworkMessage, Serializable {
-    /**
-     * Retunrs operations.
-     *
-     * @return operations.
-     */
-    Collection<OperationInfo> operations();
+public class ConfigurationNodeAlreadyExistException extends ConfigurationNodeModificationException {
+
+    private static final long serialVersionUID = 4545533114006120896L;
 
     /**
-     * Returns result.
+     * The constructor.
      *
-     * @return result.
+     * @param key   the key.
      */
-    StatementResultInfo result();
+    public ConfigurationNodeAlreadyExistException(String key) {
+        super(String.format("Named List element with key \"%s\" already exists", key));
+    }
 }

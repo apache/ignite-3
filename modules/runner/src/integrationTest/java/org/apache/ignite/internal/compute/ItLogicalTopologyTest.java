@@ -62,6 +62,11 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
         return 1;
     }
 
+    @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE;
+    }
+
     @Test
     void receivesLogicalTopologyEvents() throws Exception {
         IgniteImpl entryNode = node(0);
