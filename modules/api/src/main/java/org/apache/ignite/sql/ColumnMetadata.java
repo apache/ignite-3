@@ -63,7 +63,7 @@ public interface ColumnMetadata {
     int precision();
 
     /**
-     * Returns SQL column scale or {@code -1} if scale is not applicable for this type.
+     * Returns SQL column scale or {@link Integer#MIN_VALUE} if scale is not applicable for this type.
      *
      * @return Number of digits of scale.
      */
