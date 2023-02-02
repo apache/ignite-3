@@ -525,7 +525,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             BinaryTupleSchema tupleSchema = BinaryTupleSchema.createSchema(descriptor, indexedColumns);
             BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(descriptor);
 
-            var binaryRowConverter = new BinaryConverter(descriptor, tupleSchema, false);
+            var binaryRowConverter = new BinaryConverter(descriptor, tupleSchema);
             var tableRowConverter = new TableRowConverter(rowSchema, tupleSchema);
 
             return new VersionedConverter(descriptor.version(), binaryRowConverter::toTuple, tableRowConverter::toTuple);
