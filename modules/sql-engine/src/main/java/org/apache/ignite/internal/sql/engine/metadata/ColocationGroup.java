@@ -181,43 +181,7 @@ public class ColocationGroup implements Serializable {
                 List<NodeWithTerm> assignment0 = this.assignments.get(p);
                 List<NodeWithTerm> assignment1 = other.assignments.get(p);
 
-                List<NodeWithTerm> assignment;
-
-                if (assignment0.size() == 1 && assignment1.size() == 1) {
-                    NodeWithTerm first = assignment0.get(0);
-                    NodeWithTerm second = assignment1.get(0);
-
-                    if (nodeNamesFilter.test(first.name()) && first.name().equals(second.name())) {
-                        validateTerm(first, second, p);
-
-                        assignment = assignment0;
-                    } else {
-                        assignment = Collections.emptyList();
-                    }
-                } else {
-                    if (assignment0.size() > assignment1.size()) {
-                        List<NodeWithTerm> tmp = assignment0;
-                        assignment0 = assignment1;
-                        assignment1 = tmp;
-                    }
-
-                    assignment = new ArrayList<>();
-
-                    Map<String, NodeWithTerm> hashedByNameAssignment =
-                            assignment1.stream().collect(Collectors.toMap(NodeWithTerm::name, nodeWithTerm -> nodeWithTerm));
-
-                    for (NodeWithTerm first : assignment0) {
-                        NodeWithTerm second = hashedByNameAssignment.get(first.name());
-
-                        if (second == null || !nodeNamesFilter.test(first.name())) {
-                            continue;
-                        }
-
-                        validateTerm(first, second, p);
-
-                        assignment.add(second);
-                    }
-                }
+                List<NodeWithTerm> assignment = intersect(assignment0, assignment1, nodeNamesFilter, p);
 
                 if (assignment.isEmpty()) { // TODO check with partition filters
                     throw new ColocationMappingException("Failed to map fragment to location. Partition mapping is empty [part=" + p + "]");
@@ -228,6 +192,51 @@ public class ColocationGroup implements Serializable {
         }
 
         return new ColocationGroup(sourceIds, nodeNames, assignments);
+    }
+
+    private List<NodeWithTerm> intersect(List<NodeWithTerm> assignment0, List<NodeWithTerm> assignment1, Predicate<String> filter, int p)
+            throws ColocationMappingException {
+        if (assignment0.size() == 1 && assignment1.size() == 1) {
+            NodeWithTerm first = assignment0.get(0);
+            NodeWithTerm second = assignment1.get(0);
+
+            if (filter.test(first.name()) && first.name().equals(second.name())) {
+                validateTerm(first, second, p);
+
+                return assignment0;
+            }
+
+            return Collections.emptyList();
+        } else {
+            if (assignment0.size() > assignment1.size()) {
+                List<NodeWithTerm> tmp = assignment0;
+                assignment0 = assignment1;
+                assignment1 = tmp;
+            }
+
+            List<NodeWithTerm> assignment = new ArrayList<>();
+
+            Map<String, NodeWithTerm> hashedByNameAssignment =
+                    assignment1.stream().collect(Collectors.toMap(NodeWithTerm::name, nodeWithTerm -> nodeWithTerm));
+
+            for (NodeWithTerm first : assignment0) {
+                if (!filter.test(first.name())) {
+                    continue;
+                }
+
+                NodeWithTerm second = hashedByNameAssignment.get(first.name());
+
+                if (second == null) {
+                    continue;
+                }
+
+                validateTerm(first, second, p);
+
+                assignment.add(first);
+            }
+
+            return assignment;
+        }
     }
 
     private void validateTerm(NodeWithTerm first, NodeWithTerm second, int partId) throws ColocationMappingException {
