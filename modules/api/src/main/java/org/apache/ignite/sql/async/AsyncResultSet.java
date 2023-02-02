@@ -50,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
  * </code></pre>
  *
  * @param <T> A type of the objects contained by this result set (when row set is present). This will be either {@link SqlRow}
- * if no explicit mapper is provided or a particular type defined by supplied mapper.
+ *     if no explicit mapper is provided or a particular type defined by supplied mapper.
  *
  * @see ResultSet
  * @see Session#executeAsync(Transaction, String, Object...)

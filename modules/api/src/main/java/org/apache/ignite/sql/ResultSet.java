@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * {@code true}, or {@link #affectedRows()} return zero or higher value.
  *
  * @param <T> A type of the objects contained by this result set (when row set is present). This will be either {@link SqlRow}
- * if no explicit mapper is provided or a particular type defined by supplied mapper.
+ *     if no explicit mapper is provided or a particular type defined by supplied mapper.
  *
  * @see Session#execute(Transaction, String, Object...)
  * @see Session#execute(Transaction, Mapper, String, Object...)
