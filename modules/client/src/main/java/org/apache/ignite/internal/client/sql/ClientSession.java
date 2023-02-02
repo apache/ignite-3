@@ -114,7 +114,10 @@ public class ClientSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, Statement statement, Mapper<T> mapper,
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            Statement statement,
+            @Nullable Mapper<T> mapper,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
