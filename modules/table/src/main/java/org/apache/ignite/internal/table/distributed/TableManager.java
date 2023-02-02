@@ -1049,7 +1049,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new NodeStoppingException();
         }
         try {
-            return table(tableId).internalTable().assignments();
+            TableImpl table = table(tableId);
+
+            if (table == null) {
+                return null;
+            }
+
+            return table.internalTable().assignments();
         } finally {
             busyLock.leaveBusy();
         }
