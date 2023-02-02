@@ -214,7 +214,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                     row.add(readValue(tupleReader, j, col));
                 }
 
-                res.add((T)new ClientSqlRow(row, metadata));
+                res.add((T) new ClientSqlRow(row, metadata));
             }
         } else {
             // TODO: Convert meta to schema in ctor.

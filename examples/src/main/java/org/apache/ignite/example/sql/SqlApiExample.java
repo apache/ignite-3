@@ -147,40 +147,20 @@ public class SqlApiExample {
 
                 System.out.println("\nAccounts with balance lower than 1,500:");
 
-                try (ResultSet<SqlRow> rs = ses.execute(null,
-                        "SELECT a.FIRST_NAME, a.LAST_NAME, a.BALANCE FROM ACCOUNTS a WHERE a.BALANCE < 1500.0 "
-                                + "ORDER BY a.ACCOUNT_ID")) {
-                    while (rs.hasNext()) {
-                        SqlRow row = rs.next();
-
-                        System.out.println("    "
-                                + row.stringValue(1) + ", "
-                                + row.stringValue(2) + ", "
-                                + row.stringValue(3));
-                    }
-                }
-
-                //--------------------------------------------------------------------------------------
-                //
-                // Requesting accounts with balances lower than 1,500 with POJO mapping.
-                //
-                //--------------------------------------------------------------------------------------
-
-                System.out.println("\nAccounts with balance lower than 1,500 (POJO mapping):");
-
                 Statement statement = client.sql().statementBuilder()
-                        .query("SELECT a.FIRST_NAME, a.LAST_NAME, a.BALANCE FROM ACCOUNTS a "
+                        .query("SELECT a.FIRST_NAME as firstName, a.LAST_NAME as lastName, a.BALANCE FROM ACCOUNTS a "
                                 + "WHERE a.BALANCE < 1500.0 "
                                 + "ORDER BY a.ACCOUNT_ID")
                         .build();
 
+                // POJO mapping.
                 try (ResultSet<AccountInfo> rs = ses.execute(null, statement, Mapper.of(AccountInfo.class))) {
                     while (rs.hasNext()) {
                         AccountInfo row = rs.next();
 
                         System.out.println("    "
-                                + row.first_name + ", "
-                                + row.last_name + ", "
+                                + row.firstName + ", "
+                                + row.lastName + ", "
                                 + row.balance);
                     }
                 }
@@ -258,8 +238,8 @@ public class SqlApiExample {
     }
 
     private static class AccountInfo {
-        public String first_name;
-        public String last_name;
-        public double balance;
+        String firstName;
+        String lastName;
+        double balance;
     }
 }

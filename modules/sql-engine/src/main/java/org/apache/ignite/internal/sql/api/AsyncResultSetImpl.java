@@ -114,7 +114,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         final ResultSetMetadata meta0 = cur.metadata();
 
         // TODO
-        return () -> new TransformingIterator<>(it0, (item) -> (T)new SqlRowImpl(item, meta0));
+        return () -> new TransformingIterator<>(it0, (item) -> (T) new SqlRowImpl(item, meta0));
     }
 
     /** {@inheritDoc} */

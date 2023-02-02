@@ -156,7 +156,10 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            String query,
+            @Nullable Object... arguments) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new SqlException(SESSION_NOT_FOUND_ERR, "Session is closed."));
         }
