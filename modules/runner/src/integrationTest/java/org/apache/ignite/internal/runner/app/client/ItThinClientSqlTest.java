@@ -405,6 +405,18 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("hello world", row.str);
     }
 
+
+    @Test
+    void testResultSetMappingColumnNameMismatch() {
+        String query = "select 1 as foo, 2 as bar";
+
+        ResultSet<Pojo> resultSet = client().sql().createSession().execute(null, Mapper.of(Pojo.class), query);
+        Pojo row = resultSet.next();
+
+        assertEquals(0, row.num);
+        assertNull(row.str);
+    }
+
     private static class Pojo {
         public long num;
 
