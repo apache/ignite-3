@@ -109,7 +109,7 @@ public class ClientSession implements Session {
             @Nullable Transaction transaction,
             Statement statement,
             @Nullable Object... arguments) {
-        return executeAsync(transaction, statement, sqlRowMapper, arguments);
+        return executeAsync(transaction, sqlRowMapper, statement, arguments);
     }
 
     /** {@inheritDoc} */
