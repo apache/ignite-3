@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.lang.ThreadLocal.withInitial;
+import static java.nio.ByteBuffer.allocate;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.TableRowAndRowId;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -97,7 +99,8 @@ import org.rocksdb.WriteOptions;
  *
  * <p/>BE means Big Endian, meaning that lexicographical bytes order matches a natural order of partitions.
  *
- * <p/>DESC means that timestamps are sorted from newest to oldest (N2O). Please refer to {@link #putTimestamp(ByteBuffer, HybridTimestamp)}
+ * <p/>DESC means that timestamps are sorted from newest to oldest (N2O).
+ * Please refer to {@link #putTimestampDesc(ByteBuffer, HybridTimestamp)}
  * to see how it's achieved. Missing timestamp could be interpreted as a moment infinitely far away in the future.
  */
 public class RocksDbMvPartitionStorage implements MvPartitionStorage {
@@ -137,6 +140,15 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Maximum size of the key. */
     private static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
 
+    /** Garbage collector's queue key's timestamp offset. */
+    private static final int GC_KEY_TS_OFFSET = Short.BYTES;
+
+    /** Garbage collector's queue key's row id offset. */
+    private static final int GC_KEY_ROW_ID_OFFSET = GC_KEY_TS_OFFSET + HYBRID_TIMESTAMP_SIZE;
+
+    /** Garbage collector's queue key's size. */
+    private static final int GC_KEY_SIZE = GC_KEY_ROW_ID_OFFSET + ROW_ID_SIZE;
+
     private static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
     private static final ByteOrder TABLE_ROW_BYTE_ORDER = TableRow.ORDER;
@@ -148,6 +160,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private static final ThreadLocal<ByteBuffer> HEAP_KEY_BUFFER = withInitial(
             () -> ByteBuffer.allocate(MAX_KEY_SIZE).order(KEY_BYTE_ORDER)
     );
+
+    private static final ByteBuffer EMPTY_DIRECT_BUFFER = allocateDirect(0);
 
     /** Thread-local write batch for {@link #runConsistently(WriteClosure)}. */
     private final ThreadLocal<WriteBatchWithIndex> threadLocalWriteBatch = new ThreadLocal<>();
@@ -170,6 +184,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** Meta column family. */
     private final ColumnFamilyHandle meta;
+
+    /** GC queue column family. */
+    private final ColumnFamilyHandle gc;
 
     /** Write options. */
     private final WriteOptions writeOpts = new WriteOptions().setDisableWAL(true);
@@ -235,6 +252,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         db = tableStorage.db();
         cf = tableStorage.partitionCfHandle();
         meta = tableStorage.metaCfHandle();
+        gc = tableStorage.gcQueueHandle();
 
         upperBound = new Slice(partitionEndPrefix());
 
@@ -509,7 +527,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         byte[] rowBytes = rowBytes(row);
 
-        ByteBuffer value = ByteBuffer.allocate(rowBytes.length + VALUE_HEADER_SIZE);
+        ByteBuffer value = allocate(rowBytes.length + VALUE_HEADER_SIZE);
         byte[] array = value.array();
 
         putUuidToBytes(txId, array, TX_ID_OFFSET);
@@ -570,17 +588,23 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 byte[] valueBytes = writeBatch.getFromBatchAndDB(db, cf, readOpts, uncommittedKeyBytes);
 
                 if (valueBytes == null) {
-                    //the chain doesn't contain an uncommitted write intent
+                    // The chain doesn't contain an uncommitted write intent.
                     return null;
                 }
+
+                boolean isNewValueTombstone = valueBytes.length == VALUE_HEADER_SIZE;
+
+                boolean newAndPrevTombstones = maybeAddToGcQueue(writeBatch, rowId, timestamp, isNewValueTombstone);
 
                 // Delete pending write.
                 writeBatch.delete(cf, uncommittedKeyBytes);
 
-                // Add timestamp to the key, and put the value back into the storage.
-                putTimestamp(keyBuf, timestamp);
+                if (!newAndPrevTombstones) {
+                    // Add timestamp to the key, and put the value back into the storage.
+                    putTimestampDesc(keyBuf, timestamp);
 
-                writeBatch.put(cf, copyOf(keyBuf.array(), MAX_KEY_SIZE), copyOfRange(valueBytes, VALUE_HEADER_SIZE, valueBytes.length));
+                    writeBatch.put(cf, copyOf(keyBuf.array(), MAX_KEY_SIZE), copyOfRange(valueBytes, VALUE_HEADER_SIZE, valueBytes.length));
+                }
 
                 return null;
             } catch (RocksDBException e) {
@@ -595,19 +619,95 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
             ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
-            putTimestamp(keyBuf, commitTimestamp);
+            putTimestampDesc(keyBuf, commitTimestamp);
+
+            boolean isNewValueTombstone = row == null;
 
             //TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
-            byte[] rowBytes = rowBytes(row);
+            byte[] rowBytes = row != null ? rowBytes(row) : new byte[0];
 
+            boolean newAndPrevTombstones;
             try {
-                writeBatch.put(cf, copyOf(keyBuf.array(), MAX_KEY_SIZE), rowBytes);
-
-                return null;
+                newAndPrevTombstones = maybeAddToGcQueue(writeBatch, rowId, commitTimestamp, isNewValueTombstone);
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to update a row in storage", e);
+                throw new StorageException("Failed to add row to the GC queue", e);
             }
+
+            if (!newAndPrevTombstones) {
+                try {
+                    writeBatch.put(cf, copyOf(keyBuf.array(), MAX_KEY_SIZE), rowBytes);
+                } catch (RocksDBException e) {
+                    throw new StorageException("Failed to update a row in storage", e);
+                }
+            }
+
+            return null;
         });
+    }
+
+    /**
+     * Tries adding a row to the GC queue. We put new row's timestamp, because we can remove previous row only if both this row's
+     * and previous row's timestamps are below the watermark.
+     * Returns {@code true} if new value and previous value are both tombstones.
+     *
+     * @param writeBatch Write batch.
+     * @param rowId Row id.
+     * @param timestamp New row's timestamp.
+     * @param isNewValueTombstone If new row is a tombstone.
+     * @return {@code true} if new value and previous value are both tombstones.
+     * @throws RocksDBException If failed.
+     */
+    private boolean maybeAddToGcQueue(WriteBatchWithIndex writeBatch, RowId rowId, HybridTimestamp timestamp, boolean isNewValueTombstone)
+            throws RocksDBException {
+        boolean newAndPrevTombstones = false;
+
+        // Try find previous value for the row id.
+        ByteBuffer key = allocateDirect(MAX_KEY_SIZE);
+        key.putShort((short) partitionId);
+        putRowId(key, rowId);
+        putTimestampDesc(key, timestamp);
+
+        try (
+                Slice upperBound = new Slice(partitionEndPrefix());
+                ReadOptions readOpts = new ReadOptions().setTotalOrderSeek(true).setIterateUpperBound(upperBound);
+                RocksIterator it = db.newIterator(cf, readOpts)
+        ) {
+            key.flip();
+            it.seek(key);
+
+            if (!invalid(it)) {
+                key.clear();
+
+                int keyLen = it.key(key);
+
+                RowId readRowId = getRowId(key);
+
+                if (readRowId.equals(rowId)) {
+                    // Found previous value.
+                    assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
+
+                    if (isNewValueTombstone) {
+                        // If new value is a tombstone, lets check if previous value was also a tombstone.
+                        int valueSize = it.value(EMPTY_DIRECT_BUFFER);
+
+                        newAndPrevTombstones = valueSize == 0;
+                    }
+
+                    if (!newAndPrevTombstones) {
+                        key.clear();
+
+                        key.putShort((short) partitionId);
+                        putTimestampNatural(key, timestamp);
+                        putRowId(key, rowId);
+                        key.flip();
+
+                        writeBatch.put(gc, key, EMPTY_DIRECT_BUFFER);
+                    }
+                }
+            }
+        }
+
+        return newAndPrevTombstones;
     }
 
     @Override
@@ -682,7 +782,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         if (!isWriteIntent) {
             // There is no write-intent, return latest committed row.
-            return wrapCommittedValue(rowId, valueBytes, readTimestamp(keyBuf));
+            return wrapCommittedValue(rowId, valueBytes, readTimestampDesc(keyBuf));
         }
 
         return wrapUncommittedValue(rowId, valueBytes, null);
@@ -700,7 +800,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         // Put timestamp restriction according to N2O timestamps order.
-        putTimestamp(keyBuf, timestamp);
+        putTimestampDesc(keyBuf, timestamp);
 
         // This seek will either find a key with timestamp that's less or equal than required value, or a different key whatsoever.
         // It is guaranteed by descending order of timestamps.
@@ -779,7 +879,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // Should not be write-intent, as we were seeking with the timestamp.
             assert keyLength == MAX_KEY_SIZE;
 
-            HybridTimestamp rowTimestamp = readTimestamp(foundKeyBuf);
+            HybridTimestamp rowTimestamp = readTimestampDesc(foundKeyBuf);
 
             byte[] valueBytes = seekIterator.value();
 
@@ -811,7 +911,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 return wrapUncommittedValue(rowId, seekIterator.value(), rowTimestamp);
             }
 
-            return wrapCommittedValue(rowId, valueBytes, readTimestamp(foundKeyBuf));
+            return wrapCommittedValue(rowId, valueBytes, readTimestampDesc(foundKeyBuf));
         }
     }
 
@@ -913,7 +1013,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         keyBuf.putLong(ROW_ID_OFFSET + Long.BYTES, normalize(rowId.leastSignificantBits()));
 
         if (timestamp != null) {
-            putTimestamp(keyBuf.position(ROW_PREFIX_SIZE), timestamp);
+            putTimestampDesc(keyBuf.position(ROW_PREFIX_SIZE), timestamp);
         }
 
         keyBuf.position(0);
@@ -973,9 +1073,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private RowId getRowId(ByteBuffer keyBuffer) {
-        keyBuffer.position(ROW_ID_OFFSET);
+        return getRowId(keyBuffer, ROW_ID_OFFSET);
+    }
 
-        return new RowId(partitionId, normalize(keyBuffer.getLong()), normalize(keyBuffer.getLong()));
+    private RowId getRowId(ByteBuffer keyBuffer, int offset) {
+        return new RowId(partitionId, normalize(keyBuffer.getLong(offset)), normalize(keyBuffer.getLong(offset + Long.BYTES)));
     }
 
     @Override
@@ -1016,6 +1118,149 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        return busy(() -> {
+            WriteBatchWithIndex batch = requireWriteBatch();
+
+            try (
+                    var gcUpperBound = new Slice(partitionEndPrefix());
+                    ReadOptions gcOpts = new ReadOptions().setIterateUpperBound(gcUpperBound).setTotalOrderSeek(true);
+                    RocksIterator gcIt = db.newIterator(gc, gcOpts);
+            ) {
+                gcIt.seek(partitionStartPrefix());
+
+                if (invalid(gcIt)) {
+                    // GC queue is empty.
+                    return null;
+                }
+
+                ByteBuffer gcKey = allocateDirect(GC_KEY_SIZE);
+                ByteBuffer dataKey = MV_KEY_BUFFER.get();
+
+                gcKey.clear();
+                gcIt.key(gcKey);
+
+                HybridTimestamp timestamp = readTimestampNatural(gcKey, GC_KEY_TS_OFFSET);
+
+                if (timestamp.compareTo(lowWatermark) > 0) {
+                    // No elements to garbage collect.
+                    return null;
+                }
+
+                RowId readRowId = getRowId(gcKey, GC_KEY_ROW_ID_OFFSET);
+
+                try (
+                        var upperBound = new Slice(partitionEndPrefix());
+                        ReadOptions opts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
+                        RocksIterator it = db.newIterator(cf, opts);
+                ) {
+                    dataKey.clear();
+
+                    dataKey.putShort((short) partitionId);
+                    putRowId(dataKey, readRowId);
+                    putTimestampDesc(dataKey, timestamp);
+                    dataKey.flip();
+
+                    it.seek(dataKey);
+
+                    boolean noRowForGcElement = false;
+                    if (invalid(it)) {
+                        // There is no row for the GC queue element.
+                        noRowForGcElement = true;
+                    } else {
+                        dataKey.clear();
+
+                        it.key(dataKey);
+
+                        if (!getRowId(dataKey).equals(readRowId)) {
+                            // There is no row for the GC queue element.
+                            noRowForGcElement = true;
+                        }
+                    }
+
+                    if (noRowForGcElement) {
+                        gcKey.rewind();
+
+                        try {
+                            batch.delete(gc, gcKey);
+                        } catch (RocksDBException e) {
+                            throw new StorageException("Failed to collect garbage", e);
+                        }
+
+                        return null;
+                    }
+
+                    // Check if the new element, whose insertion scheduled the GC, was a tombstone.
+                    int len = it.value(EMPTY_DIRECT_BUFFER);
+                    if (len == 0) {
+                        // This is a tombstone, we need to delete it.
+                        try {
+                            batch.delete(cf, dataKey);
+                        } catch (RocksDBException e) {
+                            throw new StorageException("Failed to collect garbage", e);
+                        }
+                    }
+
+                    // Let's move to the element that was schedule for GC.
+                    it.next();
+
+                    RowId gcRowId = null;
+
+                    if (invalid(it)) {
+                        noRowForGcElement = true;
+                    } else {
+                        dataKey.clear();
+
+                        int keyLen = it.key(dataKey);
+
+                        if (keyLen != MAX_KEY_SIZE) {
+                            // We moved to the next row id's write-intent, so there was no row to GC for the current row id.
+                            noRowForGcElement = true;
+                        } else {
+                            gcRowId = getRowId(dataKey);
+
+                            if (!readRowId.equals(gcRowId)) {
+                                // We moved to the next row id, so there was no row to GC for the current row id.
+                                noRowForGcElement = true;
+                            }
+                        }
+                    }
+
+                    if (noRowForGcElement) {
+                        gcKey.rewind();
+
+                        try {
+                            batch.delete(gc, gcKey);
+                            db.write(writeOpts, batch);
+                        } catch (RocksDBException e) {
+                            throw new StorageException("Failed to collect garbage", e);
+                        }
+
+                        return null;
+                    }
+
+                    assert gcRowId != null;
+
+                    byte[] valueBytes = it.value();
+
+                    var row = new TableRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
+                    TableRowAndRowId retVal = new TableRowAndRowId(row, gcRowId);
+
+                    try {
+                        batch.delete(cf, dataKey);
+                        batch.delete(gc, gcKey);
+                        db.write(writeOpts, batch);
+                    } catch (RocksDBException e) {
+                        throw new StorageException("Failed to collect garbage", e);
+                    }
+
+                    return retVal;
+                }
+            }
+        });
+    }
+
+    @Override
     public void close() {
         if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
             StorageState state = this.state.get();
@@ -1049,10 +1294,18 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         ByteBuffer keyBuf = HEAP_KEY_BUFFER.get().position(0);
 
         keyBuf.putShort((short) rowId.partitionId());
-        keyBuf.putLong(normalize(rowId.mostSignificantBits()));
-        keyBuf.putLong(normalize(rowId.leastSignificantBits()));
+
+        putRowId(keyBuf, rowId);
 
         return keyBuf;
+    }
+
+    private void putRowId(ByteBuffer keyBuffer, RowId rowId) {
+        assert rowId.partitionId() == partitionId : rowId;
+        assert keyBuffer.order() == KEY_BYTE_ORDER;
+
+        keyBuffer.putLong(normalize(rowId.mostSignificantBits()));
+        keyBuffer.putLong(normalize(rowId.leastSignificantBits()));
     }
 
     /**
@@ -1069,7 +1322,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Writes a timestamp into a byte buffer, in descending lexicographical bytes order.
      */
-    private static void putTimestamp(ByteBuffer buf, HybridTimestamp ts) {
+    private static void putTimestampDesc(ByteBuffer buf, HybridTimestamp ts) {
         assert buf.order() == KEY_BYTE_ORDER;
 
         // "bitwise negation" turns ascending order into a descending one.
@@ -1077,11 +1330,34 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         buf.putInt(~ts.getLogical());
     }
 
-    private static HybridTimestamp readTimestamp(ByteBuffer keyBuf) {
+    private static HybridTimestamp readTimestampDesc(ByteBuffer keyBuf) {
         assert keyBuf.order() == KEY_BYTE_ORDER;
 
         long physical = ~keyBuf.getLong(ROW_PREFIX_SIZE);
         int logical = ~keyBuf.getInt(ROW_PREFIX_SIZE + Long.BYTES);
+
+        return new HybridTimestamp(physical, logical);
+    }
+
+    /**
+     * Writes a timestamp into a byte buffer, in ascending lexicographical bytes order.
+     */
+    private static void putTimestampNatural(ByteBuffer buf, HybridTimestamp ts) {
+        assert buf.order() == KEY_BYTE_ORDER;
+
+        buf.putLong(ts.getPhysical());
+        buf.putInt(ts.getLogical());
+    }
+
+    private static HybridTimestamp readTimestampNatural(ByteBuffer keyBuf) {
+        return readTimestampNatural(keyBuf, ROW_PREFIX_SIZE);
+    }
+
+    private static HybridTimestamp readTimestampNatural(ByteBuffer keyBuf, int offset) {
+        assert keyBuf.order() == KEY_BYTE_ORDER;
+
+        long physical = keyBuf.getLong(offset);
+        int logical = keyBuf.getInt(offset + Long.BYTES);
 
         return new HybridTimestamp(physical, logical);
     }
@@ -1361,7 +1637,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         if (matches(rowId, key)) {
                             // This is a next version of current row.
-                            nextCommitTimestamp = readTimestamp(key);
+                            nextCommitTimestamp = readTimestampDesc(key);
                         }
                     }
                 }
@@ -1374,7 +1650,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (!isWriteIntent) {
                     // There is no write-intent, return latest committed row.
-                    readResult = wrapCommittedValue(rowId, valueBytes, readTimestamp(currentKeyBuffer));
+                    readResult = wrapCommittedValue(rowId, valueBytes, readTimestampDesc(currentKeyBuffer));
                 } else {
                     readResult = wrapUncommittedValue(rowId, valueBytes, nextCommitTimestamp);
                 }

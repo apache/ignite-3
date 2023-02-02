@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.GC_QUEUE_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
@@ -115,6 +116,9 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Column Family handle for partition data. */
     private volatile ColumnFamily partitionCf;
 
+    /** Column Family handle for GC queue. */
+    private volatile ColumnFamily gcQueueCf;
+
     /** Column Family handle for Hash Index data. */
     private volatile ColumnFamily hashIndexCf;
 
@@ -187,6 +191,13 @@ public class RocksDbTableStorage implements MvTableStorage {
         return meta.columnFamily().handle();
     }
 
+    /**
+     * Returns a column family handle for GC queue.
+     */
+    public ColumnFamilyHandle gcQueueHandle() {
+        return gcQueueCf.handle();
+    }
+
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
@@ -241,6 +252,11 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                         case PARTITION:
                             partitionCf = cf;
+
+                            break;
+
+                        case GC_QUEUE:
+                            gcQueueCf = cf;
 
                             break;
 
@@ -572,7 +588,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Returns a list of Column Families' names that belong to a RocksDB instance in the given path.
      *
-     * @return Map with column families names.
+     * @return List with column families names.
      * @throws StorageException If something went wrong.
      */
     private List<String> getExistingCfNames() {
@@ -586,7 +602,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             // even if the database is new (no existing Column Families), we return the names of mandatory column families, that
             // will be created automatically.
-            return existingNames.isEmpty() ? List.of(META_CF_NAME, PARTITION_CF_NAME, HASH_INDEX_CF_NAME) : existingNames;
+            return existingNames.isEmpty() ? List.of(META_CF_NAME, PARTITION_CF_NAME, GC_QUEUE_CF_NAME, HASH_INDEX_CF_NAME) : existingNames;
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to read list of column families names for the RocksDB instance located at path " + absolutePathStr, e
@@ -612,6 +628,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         switch (ColumnFamilyType.fromCfName(cfName)) {
             case META:
             case PARTITION:
+            case GC_QUEUE:
                 return new ColumnFamilyDescriptor(
                         cfName.getBytes(UTF_8),
                         new ColumnFamilyOptions()

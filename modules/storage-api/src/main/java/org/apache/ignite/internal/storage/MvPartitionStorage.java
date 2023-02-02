@@ -225,8 +225,9 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
      * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
      *      {@code null} if there's no such value.
+     * @throws StorageException If failed to poll element for vacuum.
      */
-    default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) throws StorageException {
         throw new UnsupportedOperationException("pollForVacuum");
     }
 
