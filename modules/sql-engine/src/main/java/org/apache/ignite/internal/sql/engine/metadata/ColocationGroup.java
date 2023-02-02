@@ -150,14 +150,17 @@ public class ColocationGroup implements Serializable {
         }
 
         List<List<NodeWithTerm>> assignments;
+        Set<String> nodeNamesSet = nodeNames == null ? null : new HashSet<>(nodeNames);
+        Predicate<String> nodeNamesFilter = nodeNames == null ? v -> true : nodeNamesSet::contains;
+
         if (this.assignments == null || other.assignments == null) {
             assignments = firstNotNull(this.assignments, other.assignments);
 
-            if (assignments != null && nodeNames != null) {
+            if (assignments != null && nodeNamesSet != null) {
                 List<List<NodeWithTerm>> assignments0 = new ArrayList<>(assignments.size());
 
                 for (int i = 0; i < assignments.size(); i++) {
-                    List<NodeWithTerm> assignment = filterByNodeNames(assignments.get(i), new HashSet<>(nodeNames));
+                    List<NodeWithTerm> assignment = filterByNodeNames(assignments.get(i), nodeNamesFilter);
 
                     if (assignment.isEmpty()) {
                         throw new ColocationMappingException("Failed to map fragment to location. "
@@ -171,9 +174,6 @@ public class ColocationGroup implements Serializable {
             }
         } else {
             assert this.assignments.size() == other.assignments.size();
-
-            Set<String> nodeNamesSet = nodeNames == null ? null : new HashSet<>(nodeNames);
-            Predicate<String> nodeNamesFilter = nodeNames == null ? v -> true : nodeNamesSet::contains;
 
             assignments = new ArrayList<>(this.assignments.size());
 
@@ -200,7 +200,7 @@ public class ColocationGroup implements Serializable {
             NodeWithTerm first = assignment0.get(0);
             NodeWithTerm second = assignment1.get(0);
 
-            if (filter.test(first.name()) && first.name().equals(second.name())) {
+            if (filter.test(first.name()) && Objects.equals(first.name(), second.name())) {
                 validateTerm(first, second, p);
 
                 return assignment0;
@@ -249,15 +249,11 @@ public class ColocationGroup implements Serializable {
         }
     }
 
-    private List<NodeWithTerm> filterByNodeNames(List<NodeWithTerm> assignment, Set<String> filter) {
-        if (nullOrEmpty(assignment) || nullOrEmpty(filter)) {
-            return Collections.emptyList();
-        }
-
-        List<NodeWithTerm> res = new ArrayList<>();
+    private List<NodeWithTerm> filterByNodeNames(List<NodeWithTerm> assignment, Predicate<String> filter) {
+        List<NodeWithTerm> res = new ArrayList<>(assignment.size());
 
         for (NodeWithTerm nodeWithTerm : assignment) {
-            if (!filter.contains(nodeWithTerm.name())) {
+            if (!filter.test(nodeWithTerm.name())) {
                 continue;
             }
 
