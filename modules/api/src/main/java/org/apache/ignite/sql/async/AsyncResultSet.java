@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,8 +45,10 @@ import org.jetbrains.annotations.Nullable;
  *              .thenCompose(res -&gt; fetchAllRowsInto(res, target));
  *      }
  * </code></pre>
- *
  * @see ResultSet
+ *
+ * @param <T> Row type (when row set is present).
+ * Can be {@link SqlRow} (when {@link org.apache.ignite.table.mapper.Mapper} is not provided), or a custom type.
  */
 public interface AsyncResultSet<T> {
     /**
