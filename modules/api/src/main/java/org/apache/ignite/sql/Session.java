@@ -83,9 +83,10 @@ public interface Session extends AutoCloseable {
      * Executes single SQL statement and maps results to objects with the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param query SQL query template.
      * @param arguments Arguments for the statement.
+     * @param <T> Row type.
      * @return SQL query results set.
      */
     default <T> ResultSet<T> execute(
@@ -106,9 +107,10 @@ public interface Session extends AutoCloseable {
      * Executes single SQL statement and maps results to objects with the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
+     * @param <T> Row type.
      * @return SQL query results set.
      */
     default <T> ResultSet<T> execute(
@@ -154,11 +156,11 @@ public interface Session extends AutoCloseable {
      * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param query SQL query template.
      * @param arguments Arguments for the statement.
+     * @param <T> Row type.
      * @return Operation future.
-     * @throws SqlException If failed.
      */
     <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
@@ -170,11 +172,11 @@ public interface Session extends AutoCloseable {
      * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param mapper Mapper.
+     * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
+     * @param <T> Row type.
      * @return Operation future.
-     * @throws SqlException If failed.
      */
     <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
