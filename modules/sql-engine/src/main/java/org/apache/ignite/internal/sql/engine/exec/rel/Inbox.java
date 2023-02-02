@@ -44,23 +44,15 @@ import org.jetbrains.annotations.Nullable;
  */
 public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT> {
     private final ExchangeService exchange;
-
     private final MailboxRegistry registry;
-
     private final long exchangeId;
-
     private final long srcFragmentId;
-
+    private final Collection<String> srcNodeNames;
+    private final @Nullable Comparator<RowT> comp;
     private final Map<String, RemoteSource<RowT>> perNodeBuffers;
 
-    private final Collection<String> srcNodeNames;
-
-    private final @Nullable Comparator<RowT> comp;
-
     private @Nullable List<RemoteSource<RowT>> remoteSources;
-
     private int requested;
-
     private boolean inLoop;
 
     /**
@@ -93,7 +85,12 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         this.srcFragmentId = srcFragmentId;
         this.exchangeId = exchangeId;
 
-        perNodeBuffers = new HashMap<>();
+        Map<String, RemoteSource<RowT>> sources = new HashMap<>();
+        for (String nodeName : srcNodeNames) {
+            sources.put(nodeName, new RemoteSource<>((cnt, state) -> requestBatches(nodeName, cnt, state)));
+        }
+
+        this.perNodeBuffers = Map.copyOf(sources);
     }
 
     /** {@inheritDoc} */
@@ -140,10 +137,11 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     @Override
     protected void rewindInternal() {
         remoteSources = null;
-        perNodeBuffers.clear();
         requested = 0;
         for (String nodeName : srcNodeNames) {
-            RemoteSource<?> source = getOrCreateBuffer(nodeName);
+            RemoteSource<?> source = perNodeBuffers.get(nodeName);
+
+            assert source != null;
 
             source.reset(context().sharedState());
         }
@@ -158,7 +156,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param rows Rows.
      */
     public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<RowT> rows) throws Exception {
-        RemoteSource<RowT> source = getOrCreateBuffer(srcNodeName);
+        RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
         boolean waitingBefore = source.check() == State.WAITING;
 
@@ -184,7 +182,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             remoteSources = new ArrayList<>(srcNodeNames.size());
 
             for (String nodeName : srcNodeNames) {
-                remoteSources.add(getOrCreateBuffer(nodeName));
+                remoteSources.add(perNodeBuffers.get(nodeName));
             }
         }
 
@@ -341,10 +339,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state);
     }
 
-    private RemoteSource<RowT> getOrCreateBuffer(String nodeName) {
-        return perNodeBuffers.computeIfAbsent(nodeName, name -> new RemoteSource<>((cnt, state) -> requestBatches(name, cnt, state)));
-    }
-
     /**
      * OnNodeLeft.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -360,7 +354,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     private void onNodeLeft0(String nodeName) throws Exception {
         checkState();
 
-        if (getOrCreateBuffer(nodeName).check() != State.END) {
+        if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }

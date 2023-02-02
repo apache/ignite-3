@@ -46,9 +46,9 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     private final ExchangeService exchange;
     private final MailboxRegistry registry;
     private final Destination<RowT> dest;
+    private final Map<String, RemoteDownstream<RowT>> nodeBuffers;
 
     private final Deque<RowT> inBuf = new ArrayDeque<>(inBufSize);
-    private final Map<String, RemoteDownstream<RowT>> nodeBuffers = new HashMap<>();
 
     private int waiting;
 
@@ -77,13 +77,12 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         this.exchangeId = exchangeId;
         this.dest = dest;
 
-        initBuffers();
-    }
-
-    private void initBuffers() {
+        Map<String, RemoteDownstream<RowT>> downstreams = new HashMap<>();
         for (String nodeName : dest.targets()) {
-            nodeBuffers.put(nodeName, new RemoteDownstream<>(nodeName, this::sendBatch));
+            downstreams.put(nodeName, new RemoteDownstream<>(nodeName, this::sendBatch));
         }
+
+        this.nodeBuffers = Map.copyOf(downstreams);
     }
 
     /** {@inheritDoc} */
@@ -101,7 +100,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void onRequest(String nodeName, int amountOfBatches) throws Exception {
         checkState();
 
-        RemoteDownstream<?> downstream = getOrCreateBuffer(nodeName);
+        RemoteDownstream<?> downstream = nodeBuffers.get(nodeName);
 
         downstream.onBatchRequested(amountOfBatches);
 
@@ -185,7 +184,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
         // Send cancel message for the Inbox to close Inboxes created by batch message race.
         for (String node : dest.targets()) {
-            getOrCreateBuffer(node).close();
+            nodeBuffers.get(node).close();
         }
     }
 
@@ -199,10 +198,15 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     @Override
     protected void rewindInternal() {
         inBuf.clear();
-        nodeBuffers.clear();
         waiting = 0;
 
-        initBuffers();
+        for (String nodeName : dest.targets()) {
+            RemoteDownstream<?> downstream = nodeBuffers.get(nodeName);
+
+            assert downstream != null;
+
+            downstream.reset();
+        }
     }
 
     /** {@inheritDoc} */
@@ -231,10 +235,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
-    private RemoteDownstream<RowT> getOrCreateBuffer(String nodeName) {
-        return nodeBuffers.computeIfAbsent(nodeName, name -> new RemoteDownstream<>(name, this::sendBatch));
-    }
-
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
             checkState();
@@ -243,7 +243,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             List<RemoteDownstream<RowT>> buffers = new ArrayList<>(targets.size());
 
             for (String target : targets) {
-                RemoteDownstream<RowT> buffer = getOrCreateBuffer(target);
+                RemoteDownstream<RowT> buffer = nodeBuffers.get(target);
 
                 if (!buffer.ready()) {
                     return;
@@ -364,6 +364,18 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             this.nodeName = nodeName;
             this.sender = sender;
 
+            curr = new ArrayList<>(IO_BATCH_SIZE);
+        }
+
+        /**
+         * Resets the state of current downstream.
+         *
+         * <p>All collected so far rows will be truncated, all demanded batches will be considered as delivered.
+         */
+        void reset() {
+            state = State.FILLING;
+            lastSentBatchId += pendingCount;
+            pendingCount = 0;
             curr = new ArrayList<>(IO_BATCH_SIZE);
         }
 
