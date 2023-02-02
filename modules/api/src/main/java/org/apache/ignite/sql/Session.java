@@ -80,7 +80,30 @@ public interface Session extends AutoCloseable {
     }
 
     /**
-     * Executes single SQL statement.
+     * Executes single SQL statement and maps results to objects with the provided mapper.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param mapper Mapper.
+     * @param query SQL query template.
+     * @param arguments Arguments for the statement.
+     * @return SQL query results set.
+     */
+    default <T> ResultSet<T> execute(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            String query,
+            @Nullable Object... arguments) {
+        Objects.requireNonNull(query);
+
+        try {
+            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
+        } catch (CompletionException e) {
+            throw IgniteException.wrap(e);
+        }
+    }
+
+    /**
+     * Executes single SQL statement and maps results to objects with the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param mapper Mapper.
@@ -128,7 +151,23 @@ public interface Session extends AutoCloseable {
             @Nullable Object... arguments);
 
     /**
-     * Executes SQL statement in an asynchronous way and maps the result set to the specified type using the provided mapper.
+     * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param mapper Mapper.
+     * @param query SQL query template.
+     * @param arguments Arguments for the statement.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            String query,
+            @Nullable Object... arguments);
+
+    /**
+     * Executes SQL statement in an asynchronous way and maps results to objects with the provided mapper.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param mapper Mapper.
