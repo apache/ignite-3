@@ -87,6 +87,6 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         session.execute(null, "DROP TABLE DELME");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> table.recordView(Integer.class).delete(null, 1));
-        assertEquals(Client.TABLE_ID_NOT_FOUND_ERR, ex.code());
+        assertEquals(Client.TABLE_ID_NOT_FOUND_ERR, ex.code(), ex.getMessage());
     }
 }
