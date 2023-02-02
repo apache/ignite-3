@@ -208,8 +208,8 @@ public class SessionImpl implements Session {
     @Override
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, @Nullable Mapper<T> mapper,
             String query, @Nullable Object... arguments) {
-        // TODO: Separate ticket for server-side mapping.
-        return null;
+        // TODO: IGNITE-18695.
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -219,8 +219,8 @@ public class SessionImpl implements Session {
             @Nullable Mapper<T> mapper,
             Statement statement,
             @Nullable Object... arguments) {
-        // TODO: Separate ticket for server-side mapping.
-        return null;
+        // TODO: IGNITE-18695.
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
