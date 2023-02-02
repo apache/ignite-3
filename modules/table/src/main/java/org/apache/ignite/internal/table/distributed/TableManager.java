@@ -1220,6 +1220,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                     name, tblId);
 
+            // TODO: IGNITE-18703 Destroy raft log and meta
+
             CompletableFuture<Void> destroyTableStoragesFuture = allOf(
                     table.internalTable().storage().destroy(),
                     runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor)
@@ -1957,54 +1959,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
-                inBusyLock(busyLock, () -> {
-                    assert evt.single() : evt;
-
-                    Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
-
-                    if (stableAssignmentsWatchEvent.value() == null) {
-                        return;
-                    }
-
-                    int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-                    UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
-
-                    TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
-
-                    Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
-
-                    byte[] pendingAssignmentsFromMetaStorage = metaStorageMgr.get(
-                            pendingPartAssignmentsKey(tablePartitionId),
-                            stableAssignmentsWatchEvent.revision()
-                    ).join().value();
-
-                    Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null
-                            ? Set.of()
-                            : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
-
-                    String localMemberName = clusterService.topologyService().localMember().name();
-
-                    boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
-                            .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
-
-                    if (shouldStopLocalServices) {
-                        try {
-                            raftMgr.stopRaftNodes(tablePartitionId);
-
-                            replicaMgr.stopReplica(tablePartitionId);
-                        } catch (NodeStoppingException e) {
-                            // no-op
-                        }
-
-                        InternalTable internalTable = tablesByIdVv.latest().get(tableId).internalTable();
-
-                        // Should be done fairly quickly.
-                        allOf(
-                                internalTable.storage().destroyPartition(partitionId),
-                                runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-                        ).join();
-                    }
-                });
+                handleChangeStableAssignmentEvent(evt);
             }
 
             @Override
@@ -2101,5 +2056,63 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 }, ioExecutor)
                 .thenCompose(Function.identity());
+    }
+
+    /**
+     * Handles the {@link RebalanceUtil#STABLE_ASSIGNMENTS_PREFIX} update event.
+     *
+     * @param evt Event.
+     */
+    protected void handleChangeStableAssignmentEvent(WatchEvent evt) {
+        inBusyLock(busyLock, () -> {
+            assert evt.single() : evt;
+
+            Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
+
+            if (stableAssignmentsWatchEvent.value() == null) {
+                return;
+            }
+
+            int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
+            UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
+
+            Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
+
+            byte[] pendingAssignmentsFromMetaStorage = metaStorageMgr.get(
+                    pendingPartAssignmentsKey(tablePartitionId),
+                    stableAssignmentsWatchEvent.revision()
+            ).join().value();
+
+            Set<Assignment> pendingAssignments = pendingAssignmentsFromMetaStorage == null
+                    ? Set.of()
+                    : ByteUtils.fromBytes(pendingAssignmentsFromMetaStorage);
+
+            String localMemberName = clusterService.topologyService().localMember().name();
+
+            boolean shouldStopLocalServices = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
+                    .noneMatch(assignment -> assignment.consistentId().equals(localMemberName));
+
+            if (shouldStopLocalServices) {
+                try {
+                    raftMgr.stopRaftNodes(tablePartitionId);
+
+                    replicaMgr.stopReplica(tablePartitionId);
+                } catch (NodeStoppingException e) {
+                    // no-op
+                }
+
+                InternalTable internalTable = tablesByIdVv.latest().get(tableId).internalTable();
+
+                // TODO: IGNITE-18703 Destroy raft log and meta
+
+                // Should be done fairly quickly.
+                allOf(
+                        internalTable.storage().destroyPartition(partitionId),
+                        runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+                ).join();
+            }
+        });
     }
 }

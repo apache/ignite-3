@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static org.mockito.Mockito.spy;
+
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -55,6 +57,6 @@ public class TestStorageEngine implements StorageEngine {
 
         assert dataStorageName.equals(ENGINE_NAME) : dataStorageName;
 
-        return new TestMvTableStorage(tableCfg, tablesCfg);
+        return spy(new TestMvTableStorage(tableCfg, tablesCfg));
     }
 }
