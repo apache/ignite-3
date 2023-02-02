@@ -20,8 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -29,8 +29,11 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -58,11 +61,13 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.TableRowBuilder;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
@@ -138,21 +143,15 @@ public class IncomingSnapshotCopierTest {
 
         long expLastAppliedIndex = 100500L;
         long expLastAppliedTerm = 100L;
-        RaftGroupConfiguration expLastGroupConfig = new RaftGroupConfiguration(
-                List.of("peer"),
-                List.of("learner"),
-                List.of("old-peer"),
-                List.of("old-learner")
-        );
+        RaftGroupConfiguration expLastGroupConfig = generateRaftGroupConfig();
 
-        List<RowId> rowIds = fillMvPartitionStorage(outgoingMvPartitionStorage);
-        List<UUID> txIds = fillTxStatePartitionStorage(outgoingTxStatePartitionStorage);
+        List<RowId> rowIds = generateRowIds();
+        List<UUID> txIds = generateTxIds();
 
-        outgoingMvPartitionStorage.lastApplied(expLastAppliedIndex, expLastAppliedTerm);
-        outgoingMvPartitionStorage.committedGroupConfiguration(expLastGroupConfig);
-        outgoingTxStatePartitionStorage.lastApplied(expLastAppliedIndex, expLastAppliedTerm);
+        fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
+        fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
 
-        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
         incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
@@ -263,66 +262,60 @@ public class IncomingSnapshotCopierTest {
                 outgoingSnapshotsManager,
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
-                new PartitionAccessImpl(
+                spy(new PartitionAccessImpl(
                         new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
                         List::of
-                ),
+                )),
                 mock(SnapshotMeta.class),
                 executorService
         );
     }
 
-    private static List<RowId> fillMvPartitionStorage(MvPartitionStorage storage) {
-        List<RowId> rowIds = List.of(
-                new RowId(TEST_PARTITION),
-                new RowId(TEST_PARTITION),
-                new RowId(TEST_PARTITION),
-                new RowId(TEST_PARTITION)
-        );
+    private static void fillMvPartitionStorage(
+            MvPartitionStorage storage,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig,
+            List<RowId> rowIds
+    ) {
+        assertEquals(0, rowIds.size() % 2, "size=" + rowIds.size());
 
         storage.runConsistently(() -> {
-            // Writes committed version.
-            storage.addWriteCommitted(rowIds.get(0), createRow("k0", "v0"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(1), createRow("k1", "v1"), HYBRID_CLOCK.now());
+            for (int i = 0; i < rowIds.size(); i++) {
+                if (i % 2 == 0) {
+                    // Writes committed version.
+                    storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), HYBRID_CLOCK.now());
+                } else {
+                    // Writes an intent to write (uncommitted version).
+                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
+                }
+            }
 
-            storage.addWriteCommitted(rowIds.get(2), createRow("k20", "v20"), HYBRID_CLOCK.now());
-            storage.addWriteCommitted(rowIds.get(2), createRow("k21", "v21"), HYBRID_CLOCK.now());
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-            // Writes an intent to write (uncommitted version).
-            storage.addWrite(rowIds.get(2), createRow("k22", "v22"), UUID.randomUUID(), UUID.randomUUID(), TEST_PARTITION);
-
-            storage.addWrite(
-                    rowIds.get(3),
-                    createRow("k3", "v3"),
-                    UUID.randomUUID(),
-                    UUID.randomUUID(),
-                    TEST_PARTITION
-            );
+            storage.committedGroupConfiguration(raftGroupConfig);
 
             return null;
         });
-
-        return rowIds;
     }
 
-    private static List<UUID> fillTxStatePartitionStorage(TxStateStorage storage) {
-        List<UUID> txIds = List.of(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID()
-        );
+    private static void fillTxStatePartitionStorage(
+            TxStateStorage storage,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            List<UUID> txIds
+    ) {
+        assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
         UUID tableId = UUID.randomUUID();
 
-        storage.put(txIds.get(0), new TxMeta(COMMITED, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
-        storage.put(txIds.get(1), new TxMeta(COMMITED, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
-        storage.put(txIds.get(2), new TxMeta(ABORTED, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
-        storage.put(txIds.get(3), new TxMeta(ABORTED, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
+        for (UUID txId : txIds) {
+            storage.put(txId, new TxMeta(COMMITED, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
+        }
 
-        return txIds;
+        storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
     }
 
     private static List<ResponseEntry> createSnapshotMvDataEntries(MvPartitionStorage storage, List<RowId> rowIds) {
@@ -446,5 +439,153 @@ public class IncomingSnapshotCopierTest {
         });
 
         assertThat(cancelAndJoinFuture, willSucceedIn(1, TimeUnit.SECONDS));
+
+        verify(partitionSnapshotStorage.partition()).abortRebalance();
+    }
+
+    @Test
+    void testCancelOnMiddleRebalance() {
+        MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
+        TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
+
+        long expLastAppliedIndex = 100500L;
+        long expLastAppliedTerm = 100L;
+        RaftGroupConfiguration expLastGroupConfig = generateRaftGroupConfig();
+
+        List<RowId> rowIds = generateRowIds();
+        List<UUID> txIds = generateTxIds();
+
+        fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
+        fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
+
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
+
+        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
+
+        MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
+                outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds, txIds, snapshotId);
+
+        PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
+                snapshotId,
+                incomingMvTableStorage,
+                incomingTxStateTableStorage,
+                messagingService
+        );
+
+        // Let's add a rebalance interruption in the middle.
+        CompletableFuture<Void> startAddWriteFuture = new CompletableFuture<>();
+        CompletableFuture<Void> finishAddWriteFuture = new CompletableFuture<>();
+
+        doAnswer(answer -> {
+            startAddWriteFuture.complete(null);
+
+            assertThat(finishAddWriteFuture, willCompleteSuccessfully());
+
+            return null;
+        }).when(partitionSnapshotStorage.partition())
+                .addWrite(any(RowId.class), any(TableRow.class), any(UUID.class), any(UUID.class), anyInt());
+
+        // Let's start rebalancing.
+        SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
+                SnapshotUri.toStringUri(snapshotId, NODE_NAME),
+                mock(SnapshotCopierOptions.class)
+        );
+
+        // Let's try to cancel it in the middle of the rebalance.
+        CompletableFuture<?> cancelRebalanceFuture = runAsync(() -> {
+            assertThat(startAddWriteFuture, willCompleteSuccessfully());
+
+            CompletableFuture<?> cancelCopierFuture = runAsync(() -> finishAddWriteFuture.complete(null));
+
+            snapshotCopier.cancel();
+
+            snapshotCopier.join();
+
+            assertThat(cancelCopierFuture, willCompleteSuccessfully());
+        });
+
+        assertThat(cancelRebalanceFuture, willCompleteSuccessfully());
+
+        verify(partitionSnapshotStorage.partition()).abortRebalance();
+    }
+
+    @Test
+    void testErrorInProcessOfRebalance() {
+        MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
+        TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
+
+        long expLastAppliedIndex = 100500L;
+        long expLastAppliedTerm = 100L;
+        RaftGroupConfiguration expLastGroupConfig = generateRaftGroupConfig();
+
+        List<RowId> rowIds = generateRowIds();
+        List<UUID> txIds = generateTxIds();
+
+        fillMvPartitionStorage(outgoingMvPartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds);
+        fillTxStatePartitionStorage(outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, txIds);
+
+        MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
+        TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
+
+        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
+
+        MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
+                outgoingTxStatePartitionStorage, expLastAppliedIndex, expLastAppliedTerm, expLastGroupConfig, rowIds, txIds, snapshotId);
+
+        PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
+                snapshotId,
+                incomingMvTableStorage,
+                incomingTxStateTableStorage,
+                messagingService
+        );
+
+        // Let's add an error on the rebalance.
+        doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
+                .addWrite(any(RowId.class), any(TableRow.class), any(UUID.class), any(UUID.class), anyInt());
+
+        // Let's start rebalancing.
+        SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
+                SnapshotUri.toStringUri(snapshotId, NODE_NAME),
+                mock(SnapshotCopierOptions.class)
+        );
+
+        // Let's wait for an error on rebalancing.
+        assertThat(runAsync(snapshotCopier::join), willCompleteSuccessfully());
+
+        verify(partitionSnapshotStorage.partition()).abortRebalance();
+    }
+
+    private TableConfiguration getTableConfig() {
+        return tablesConfig.tables().get("foo");
+    }
+
+    private static List<RowId> generateRowIds() {
+        return List.of(
+                new RowId(TEST_PARTITION),
+                new RowId(TEST_PARTITION),
+                new RowId(TEST_PARTITION),
+                new RowId(TEST_PARTITION)
+        );
+    }
+
+    private static List<UUID> generateTxIds() {
+        return List.of(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID()
+        );
+    }
+
+    private static RaftGroupConfiguration generateRaftGroupConfig() {
+        return new RaftGroupConfiguration(
+                List.of("peer"),
+                List.of("learner"),
+                List.of("old-peer"),
+                List.of("old-learner")
+        );
     }
 }
