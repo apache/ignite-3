@@ -667,8 +667,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         synchronized (mux) {
             if (this.latestSequenceNumber < latestSequenceNumber) {
                 this.latestSequenceNumber = db.getLatestSequenceNumber();
-
-                db.syncWal();
             }
         }
     }
