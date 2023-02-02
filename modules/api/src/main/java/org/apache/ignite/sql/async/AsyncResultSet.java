@@ -45,10 +45,11 @@ import org.jetbrains.annotations.Nullable;
  *              .thenCompose(res -&gt; fetchAllRowsInto(res, target));
  *      }
  * </code></pre>
+ *
  * @see ResultSet
  *
  * @param <T> Row type (when row set is present).
- * Can be {@link SqlRow} (when {@link org.apache.ignite.table.mapper.Mapper} is not provided), or a custom type.
+ *     Can be {@link SqlRow} (when {@link org.apache.ignite.table.mapper.Mapper} is not provided), or a custom type.
  */
 public interface AsyncResultSet<T> {
     /**

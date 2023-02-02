@@ -32,8 +32,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Note: one and only one of following is possible: {@link #hasRowSet()} returns {@code true}, or {@link #wasApplied()} returns
  * {@code true}, or {@link #affectedRows()} return zero or higher value.
  *
- * @param <T> Row type (when row set is present).
- * Can be {@link SqlRow} (when {@link org.apache.ignite.table.mapper.Mapper} is not provided), or a custom type.
+ * @param <T> Row type (when row set is present).Can be {@link SqlRow}
+ *     (when {@link org.apache.ignite.table.mapper.Mapper} is not provided), or a custom type.
  */
 public interface ResultSet<T> extends Iterator<T>, AutoCloseable {
     /**
