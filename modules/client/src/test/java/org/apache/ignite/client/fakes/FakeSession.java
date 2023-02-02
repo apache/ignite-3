@@ -97,6 +97,13 @@ public class FakeSession implements Session {
 
     /** {@inheritDoc} */
     @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(@Nullable Transaction transaction, @Nullable Mapper<T> mapper,
+            String query, @Nullable Object... arguments) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
