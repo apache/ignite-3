@@ -1141,6 +1141,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             for (RowId rowId : cursor) {
                 ReadResult readResult = mvDataStorage.read(rowId, ts);
 
+                if (readResult.isEmpty()) {
+                    continue;
+                }
+
                 return resolveReadResult(readResult, ts, () -> {
                     HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 

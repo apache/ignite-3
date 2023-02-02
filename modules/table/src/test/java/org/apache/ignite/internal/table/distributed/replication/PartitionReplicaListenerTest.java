@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -155,7 +156,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Another (not local) cluster node. */
     private static final ClusterNode anotherNode = new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.2:127"));
 
-    private static PlacementDriver placementDriver = mock(PlacementDriver.class);
+    private static final PlacementDriver placementDriver = mock(PlacementDriver.class);
 
     private static PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
 
@@ -228,7 +229,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         HybridTimestamp txFixedTimestamp = clock.now();
 
-        when(placementDriver.sendMetaRequest(eq(grpId), any())).thenAnswer(invocationOnMock -> {
+        when(placementDriver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
             TxMeta txMeta;
 
             if (txState == null) {
@@ -1006,6 +1007,83 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         // Check that one more write after cleanup is discarded.
         CompletableFuture<?> writeAfterCleanupFuture = partitionReplicaListener.invoke(updatingRequestSupplier.get());
         assertThat(writeAfterCleanupFuture, willFailFast(TransactionException.class));
+    }
+
+    @Test
+    public void testReadOnlyGetAfterRowRewrite() {
+        BinaryRow br = binaryRow(1);
+        UUID tx0 = beginTx();
+        upsert(tx0, br);
+
+        while (true) {
+            delete(tx0, br);
+            upsert(tx0, br);
+
+            Cursor<RowId> cursor = pkStorage.get().get(br);
+
+            RowId rowId = cursor.next();
+
+            TableRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow();
+
+            if (row == null) {
+                break;
+            }
+        }
+
+        cleanup(tx0);
+
+        BinaryRow res = roGet(br, clock.now());
+
+        assertArrayEquals(res.bytes(), br.bytes());
+    }
+
+    private UUID beginTx() {
+        return Timestamp.nextVersion().toUuid();
+    }
+
+    private void upsert(UUID txId, BinaryRow row) {
+        partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                .requestType(RequestType.RW_UPSERT)
+                .transactionId(txId)
+                .binaryRow(row)
+                .term(1L)
+                .commitPartitionId(new TablePartitionId(tblId, partId))
+                .build()
+        );
+    }
+
+    private void delete(UUID txId, BinaryRow row) {
+        partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                .requestType(RequestType.RW_DELETE)
+                .transactionId(txId)
+                .binaryRow(row)
+                .term(1L)
+                .commitPartitionId(new TablePartitionId(tblId, partId))
+                .build()
+        );
+    }
+
+    private BinaryRow roGet(BinaryRow row, HybridTimestamp readTimestamp) {
+        CompletableFuture<Object> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlySingleRowReplicaRequest()
+                .requestType(RequestType.RO_GET)
+                .readTimestamp(readTimestamp)
+                .binaryRow(row)
+                .build()
+        );
+
+        return (BinaryRow) future.join();
+    }
+
+    private void cleanup(UUID txId) {
+        partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txCleanupReplicaRequest()
+                .txId(txId)
+                .commit(true)
+                .commitTimestamp(clock.now())
+                .term(1L)
+                .build()
+        );
+
+        txState = TxState.COMMITED;
     }
 
     private static BinaryTuplePrefix toIndexBound(int val) {
