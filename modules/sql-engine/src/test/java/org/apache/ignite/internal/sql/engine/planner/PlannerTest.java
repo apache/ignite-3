@@ -458,30 +458,30 @@ public class PlannerTest extends AbstractPlannerTest {
 
         publicSchema.addTable(tbl);
 
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1", publicSchema,
+        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1", List.of(10), publicSchema,
                 range("$GREATEST2(?0, 1)", "$NULL_BOUND()", true, false)
         );
 
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= ? AND C1 > ?", publicSchema,
+        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= ? AND C1 > ?", List.of(10, 10, 10), publicSchema,
                 range("$GREATEST2($GREATEST2(?0, ?1), ?2)", "$NULL_BOUND()", true, false)
         );
 
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1 AND C1 < ? AND C1 < ?", publicSchema,
+        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1 AND C1 < ? AND C1 < ?", List.of(10, 10, 10), publicSchema,
                 range("$GREATEST2(?0, 1)", "$LEAST2(?1, ?2)", true, false)
         );
 
-        assertBounds("SELECT * FROM TEST WHERE C1 < ? AND C1 BETWEEN 1 AND 10 ", publicSchema,
+        assertBounds("SELECT * FROM TEST WHERE C1 < ? AND C1 BETWEEN 1 AND 10 ", List.of(10), publicSchema,
                 range(1, "$LEAST2(?0, 10)", true, true)
         );
 
-        assertBounds("SELECT * FROM TEST WHERE C1 NOT IN (1, 2) AND C1 >= ?", publicSchema,
+        assertBounds("SELECT * FROM TEST WHERE C1 NOT IN (1, 2) AND C1 >= ?", List.of(10), publicSchema,
                 range("?0", "$NULL_BOUND()", true, false)
         );
 
         tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.DESC_NULLS_LAST),
                 TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4");
 
-        assertBounds("SELECT * FROM TEST WHERE C4 > ? AND C4 >= 1 AND C4 < ? AND C4 < ?", publicSchema,
+        assertBounds("SELECT * FROM TEST WHERE C4 > ? AND C4 >= 1 AND C4 < ? AND C4 < ?", List.of(10, 10, 10), publicSchema,
                 range("$LEAST2(?1, ?2)", "$GREATEST2(?0, 1)", false, true)
         );
     }
@@ -952,7 +952,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .and(t -> "COMPANY".equals(Util.last(t.getTable().getQualifiedName())))
                 .and(t -> t.getHints().size() == 1)));
 
-        assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies);
+        assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies, List.of());
     }
 
     /**

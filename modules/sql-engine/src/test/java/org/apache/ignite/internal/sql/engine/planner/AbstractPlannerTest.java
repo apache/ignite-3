@@ -238,17 +238,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Create planner context for specified query.
      */
     protected PlanningContext plannerCtx(String sql, IgniteSchema publicSchema, String... disabledRules) {
-        return plannerCtx(sql, Collections.singleton(publicSchema), null, disabledRules);
+        return plannerCtx(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
     }
 
-    protected PlanningContext plannerCtx(
+    private PlanningContext plannerCtx(
             String sql,
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,
+            List<Object> params,
             String... disabledRules
     ) {
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(schemas, hintStrategies))
+                .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
                 .query(sql)
                 .build();
 
@@ -261,7 +262,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return ctx;
     }
 
-    protected BaseQueryContext baseQueryContext(Collection<IgniteSchema> schemas, @Nullable HintStrategyTable hintStrategies) {
+    protected BaseQueryContext baseQueryContext(
+            Collection<IgniteSchema> schemas,
+            @Nullable HintStrategyTable hintStrategies,
+            Object... params
+    ) {
         SchemaPlus rootSchema = createRootSchema(false);
         SchemaPlus dfltSchema = null;
 
@@ -287,6 +292,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                                 .build()
                 )
                 .logger(log)
+                .parameters(params)
                 .build();
     }
 
@@ -324,16 +330,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Optimize the specified query and build query physical plan for a test.
      */
     protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
-        return physicalPlan(sql, Collections.singleton(publicSchema), null, disabledRules);
+        return physicalPlan(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
     }
 
     protected IgniteRel physicalPlan(
             String sql,
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,
+            List<Object> params,
             String... disabledRules
     ) throws Exception {
-        return physicalPlan(plannerCtx(sql, schemas, hintStrategies, disabledRules));
+        return physicalPlan(plannerCtx(sql, schemas, hintStrategies, params, disabledRules));
     }
 
     protected IgniteRel physicalPlan(PlanningContext ctx) throws Exception {
@@ -483,7 +490,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        assertPlan(sql, Collections.singleton(schema), predicate, disabledRules);
+        assertPlan(sql, Collections.singleton(schema), predicate, List.of(), disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            IgniteSchema schema,
+            Predicate<T> predicate,
+            List<Object> params
+    ) throws Exception {
+        assertPlan(sql, Collections.singleton(schema), predicate, params);
     }
 
     protected <T extends RelNode> void assertPlan(
@@ -492,7 +508,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        assertPlan(sql, schemas, predicate, null, disabledRules);
+        assertPlan(sql, schemas, predicate, null, List.of(), disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            Predicate<T> predicate,
+            List<Object> params,
+            String... disabledRules
+    ) throws Exception {
+        assertPlan(sql, schemas, predicate, null, params, disabledRules);
     }
 
     protected <T extends RelNode> void assertPlan(
@@ -500,9 +526,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Collection<IgniteSchema> schemas,
             Predicate<T> predicate,
             HintStrategyTable hintStrategies,
+            List<Object> params,
             String... disabledRules
     ) throws Exception {
-        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, disabledRules);
+        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, disabledRules);
 
         checkSplitAndSerialization(plan, schemas);
 
@@ -1276,9 +1303,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
-    void assertBounds(String sql, IgniteSchema schema, Predicate<SearchBounds>... predicates) throws Exception {
+    void assertBounds(String sql, List<Object> params, IgniteSchema schema, Predicate<SearchBounds>... predicates) throws Exception {
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
-                .and(scan -> matchBounds(scan.searchBounds(), predicates))));
+                .and(scan -> matchBounds(scan.searchBounds(), predicates))), params);
     }
 
     boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
