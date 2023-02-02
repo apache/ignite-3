@@ -21,7 +21,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,10 +49,12 @@ import org.jetbrains.annotations.Nullable;
  *      }
  * </code></pre>
  *
- * @see ResultSet
+ * @param <T> A type of the objects contained by this result set (when row set is present). This will be either {@link SqlRow}
+ * if no explicit mapper is provided or a particular type defined by supplied mapper.
  *
- * @param <T> Row type (when row set is present).
- *     Can be {@link SqlRow} (when {@link org.apache.ignite.table.mapper.Mapper} is not provided), or a custom type.
+ * @see ResultSet
+ * @see Session#executeAsync(Transaction, String, Object...)
+ * @see Session#executeAsync(Transaction, Mapper, String, Object...)
  */
 public interface AsyncResultSet<T> {
     /**

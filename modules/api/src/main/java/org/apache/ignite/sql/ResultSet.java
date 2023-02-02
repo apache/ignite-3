@@ -18,6 +18,8 @@
 package org.apache.ignite.sql;
 
 import java.util.Iterator;
+import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,8 +34,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>Note: one and only one of following is possible: {@link #hasRowSet()} returns {@code true}, or {@link #wasApplied()} returns
  * {@code true}, or {@link #affectedRows()} return zero or higher value.
  *
- * @param <T> Row type (when row set is present).Can be {@link SqlRow}
- *     (when {@link org.apache.ignite.table.mapper.Mapper} is not provided), or a custom type.
+ * @param <T> A type of the objects contained by this result set (when row set is present). This will be either {@link SqlRow}
+ * if no explicit mapper is provided or a particular type defined by supplied mapper.
+ *
+ * @see Session#execute(Transaction, String, Object...)
+ * @see Session#execute(Transaction, Mapper, String, Object...)
  */
 public interface ResultSet<T> extends Iterator<T>, AutoCloseable {
     /**

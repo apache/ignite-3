@@ -86,7 +86,7 @@ public interface Session extends AutoCloseable {
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param query SQL query template.
      * @param arguments Arguments for the statement.
-     * @param <T> Row type.
+     * @param <T> A type of object contained in result set.
      * @return SQL query results set.
      */
     default <T> ResultSet<T> execute(
@@ -110,7 +110,7 @@ public interface Session extends AutoCloseable {
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
-     * @param <T> Row type.
+     * @param <T> A type of object contained in result set.
      * @return SQL query results set.
      */
     default <T> ResultSet<T> execute(
@@ -159,7 +159,7 @@ public interface Session extends AutoCloseable {
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param query SQL query template.
      * @param arguments Arguments for the statement.
-     * @param <T> Row type.
+     * @param <T> A type of object contained in result set.
      * @return Operation future.
      */
     <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
@@ -175,7 +175,7 @@ public interface Session extends AutoCloseable {
      * @param mapper Mapper that defines the row type and the way to map columns to the type members. See {@link Mapper#of}.
      * @param statement SQL statement to execute.
      * @param arguments Arguments for the statement.
-     * @param <T> Row type.
+     * @param <T> A type of object contained in result set.
      * @return Operation future.
      */
     <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
