@@ -94,11 +94,11 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         for (String name : List.of("TEST0", "TEST1")) {
             sql(String.format("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH replicas=2,partitions=%d", parts));
 
+            sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
+
             // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
             waitForIndex(name + "_PK");
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
-            // sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
+            waitForIndex(name + "_jid_idx");
 
             insertData(name, List.of("ID", "JID", "VAL"), dataRows);
         }

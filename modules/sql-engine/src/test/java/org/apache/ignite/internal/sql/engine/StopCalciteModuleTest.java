@@ -230,7 +230,7 @@ public class StopCalciteModuleTest {
 
         qryProc.start();
 
-        testRevisionRegister.moveRevision.apply(0L).join();
+        await(testRevisionRegister.moveRevision.apply(0L));
 
         var cursors = qryProc.queryAsync(
                 "PUBLIC",

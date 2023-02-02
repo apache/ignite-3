@@ -173,7 +173,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Returns grid nodes.
      */
-    protected List<Ignite> startGrid() throws Exception {
+    protected List<Ignite> startGrid() {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
@@ -181,6 +181,8 @@ abstract class AbstractSchemaChangeTest {
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
         IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+
+        await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
 
         return futures.stream()
                 .map(CompletableFuture::join)
