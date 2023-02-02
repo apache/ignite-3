@@ -302,9 +302,11 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         tableManager.start();
 
+        watchListenerOnUpdate(1, null, 1);
+
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
-        watchListenerOnUpdate(1, nodes, 1);
+        watchListenerOnUpdate(1, nodes, 2);
 
         Map<Integer, Set<String>> zoneNodes = new HashMap<>();
 
@@ -316,7 +318,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
 
         nodes = emptySet();
 
-        watchListenerOnUpdate(1, nodes, 2);
+        watchListenerOnUpdate(1, nodes, 3);
 
         zoneNodes.clear();
         zoneNodes.put(1, nodes);
@@ -397,7 +399,13 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
     }
 
     private void watchListenerOnUpdate(int zoneId, Set<String> nodes, long rev) {
-        byte[] newLogicalTopology = toBytes(nodes);
+        byte[] newLogicalTopology;
+
+        if (nodes != null) {
+            newLogicalTopology = toBytes(nodes);
+        } else {
+            newLogicalTopology = null;
+        }
 
         Entry newEntry = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newLogicalTopology, rev, 1);
 

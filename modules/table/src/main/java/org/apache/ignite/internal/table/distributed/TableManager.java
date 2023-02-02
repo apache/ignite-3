@@ -451,11 +451,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
+                    byte[] dataNodesBytes = evt.entryEvent().newEntry().value();
+
+                    if (dataNodesBytes == null) {
+                        //The zone was removed so data nodes was removed too.
+                        return;
+                    }
+
                     NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    Set<String> nodesIds = ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
+                    Set<String> dataNodes = ByteUtils.fromBytes(dataNodesBytes);
 
                     for (int i = 0; i < tables.value().size(); i++) {
                         TableView tableView = tables.value().get(i);
@@ -473,7 +480,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 int partId = part;
 
                                 updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, nodesIds, tableView.replicas(),
+                                        tableView.name(), replicaGrpId, dataNodes, tableView.replicas(),
                                         evt.entryEvent().newEntry().revision(), metaStorageMgr, part
                                 ).exceptionally(e -> {
                                     LOG.error(
