@@ -23,10 +23,16 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
+import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
@@ -39,8 +45,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,6 +74,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -112,6 +122,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
@@ -431,6 +442,8 @@ public class ItRebalanceDistributedTest {
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
+        nodes.forEach(node -> prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0));
+
         changeTableReplicasForSinglePartition(TABLE_1_NAME, 2);
 
         Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(0, 0);
@@ -443,7 +456,7 @@ public class ItRebalanceDistributedTest {
                 hasSize(1)
         );
 
-        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null), willCompleteSuccessfully());
+        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null, TABLE_1_NAME, 0), willCompleteSuccessfully());
 
         Node evictedNode = findNodeByConsistentId(first(evictedAssignments).consistentId());
 
@@ -460,7 +473,11 @@ public class ItRebalanceDistributedTest {
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
-        nodes.forEach(node -> throwExceptionOnInvokeDestroyPartitionStorages(node, TABLE_1_NAME, 0));
+        nodes.forEach(node -> {
+            prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0);
+
+            throwExceptionOnInvokeDestroyPartitionStorages(node, TABLE_1_NAME, 0);
+        });
 
         changeTableReplicasForSinglePartition(TABLE_1_NAME, 2);
 
@@ -469,9 +486,14 @@ public class ItRebalanceDistributedTest {
         Node evictedNode = findNodeByConsistentId(evictedAssignment.consistentId());
 
         // Let's make sure that we handled the events (STABLE_ASSIGNMENTS_PREFIX) from the metastore correctly.
-        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(node -> !node.equals(evictedNode)), willCompleteSuccessfully());
+        assertThat(
+                collectFinishHandleChangeStableAssignmentEventFuture(node -> !node.equals(evictedNode), TABLE_1_NAME, 0),
+                willCompleteSuccessfully()
+        );
 
-        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFuture, willFailFast(Exception.class));
+        TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_1_NAME, 0);
+
+        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willFailFast(Exception.class));
 
         // Restart evicted node.
         int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());
@@ -480,12 +502,14 @@ public class ItRebalanceDistributedTest {
 
         Node newNode = new Node(testInfo, evictedNode.networkAddress);
 
+        newNode.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
+
         newNode.start();
 
         nodes.set(evictedNodeIndex, newNode);
 
         // Let's make sure that we will destroy the partition again.
-        assertThat(newNode.finishHandleChangeStableAssignmentEventFuture, willSucceedIn(1, TimeUnit.MINUTES));
+        assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willSucceedIn(1, TimeUnit.MINUTES));
 
         checkInvokeDestroyPartitionStorages(newNode, TABLE_1_NAME, 0);
     }
@@ -554,7 +578,8 @@ public class ItRebalanceDistributedTest {
 
         private List<IgniteComponent> nodeComponents;
 
-        private final CompletableFuture<Void> finishHandleChangeStableAssignmentEventFuture = new CompletableFuture<>();
+        private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
+                = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
 
@@ -712,12 +737,18 @@ public class ItRebalanceDistributedTest {
 
                 @Override
                 protected void handleChangeStableAssignmentEvent(WatchEvent evt) {
+                    TablePartitionId tablePartitionId = getTablePartitionId(evt);
+
                     try {
                         super.handleChangeStableAssignmentEvent(evt);
 
-                        finishHandleChangeStableAssignmentEventFuture.complete(null);
+                        if (tablePartitionId != null) {
+                            finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId).complete(null);
+                        }
                     } catch (Throwable t) {
-                        finishHandleChangeStableAssignmentEventFuture.completeExceptionally(t);
+                        if (tablePartitionId != null) {
+                            finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId).completeExceptionally(t);
+                        }
 
                         throw t;
                     }
@@ -783,6 +814,27 @@ public class ItRebalanceDistributedTest {
 
         NetworkAddress address() {
             return clusterService.topologyService().localMember().address();
+        }
+
+        @Nullable TablePartitionId getTablePartitionId(WatchEvent event) {
+            assertTrue(event.single(), event.toString());
+
+            Entry stableAssignmentsWatchEvent = event.entryEvent().newEntry();
+
+            if (stableAssignmentsWatchEvent.value() == null) {
+                return null;
+            }
+
+            int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
+            UUID tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
+
+            return new TablePartitionId(tableId, partitionId);
+        }
+
+        TablePartitionId getTablePartitionId(String tableName, int partitionId) {
+            InternalTable internalTable = getInternalTable(this, tableName);
+
+            return new TablePartitionId(internalTable.tableId(), partitionId);
         }
     }
 
@@ -857,7 +909,7 @@ public class ItRebalanceDistributedTest {
         return result;
     }
 
-    private static InternalTable getInternalTable(Node node, String tableName) {
+    private static @Nullable InternalTable getInternalTable(Node node, String tableName) {
         Table table = node.tableManager.table(tableName);
 
         assertNotNull(table, tableName);
@@ -884,12 +936,35 @@ public class ItRebalanceDistributedTest {
                 .destroyTxStateStorage(eq(partitionId));
     }
 
-    private CompletableFuture<?> collectFinishHandleChangeStableAssignmentEventFuture(@Nullable Predicate<Node> nodeFilter) {
-        CompletableFuture<?>[] futures = nodes.stream()
-                .filter(node -> nodeFilter == null || nodeFilter.test(node))
-                .map(node -> node.finishHandleChangeStableAssignmentEventFuture)
-                .toArray(CompletableFuture<?>[]::new);
+    private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {
+        TablePartitionId tablePartitionId = new TablePartitionId(getInternalTable(node, tableName).tableId(), partitionId);
 
-        return CompletableFuture.allOf(futures);
+        node.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
+    }
+
+    private CompletableFuture<?> collectFinishHandleChangeStableAssignmentEventFuture(
+            @Nullable Predicate<Node> nodeFilter,
+            String tableName,
+            int partitionId
+    ) {
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (Node node : nodes) {
+            if (nodeFilter != null && !nodeFilter.test(node)) {
+                continue;
+            }
+
+            TablePartitionId tablePartitionId = new TablePartitionId(getInternalTable(node, tableName).tableId(), partitionId);
+
+            CompletableFuture<Void> future = node.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId);
+
+            assertNotNull(future, String.format("node=%s, table=%s, partitionId=%s", node.name, tableName, partitionId));
+
+            futures.add(future);
+        }
+
+        assertThat(String.format("tableName=%s, partitionId=%s", tableName, partitionId), futures, not(empty()));
+
+        return CompletableFuture.allOf(futures.toArray(CompletableFuture<?>[]::new));
     }
 }
