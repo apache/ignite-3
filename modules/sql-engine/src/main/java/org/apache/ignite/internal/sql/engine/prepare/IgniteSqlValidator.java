@@ -26,6 +26,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -66,6 +67,7 @@ import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.jetbrains.annotations.Nullable;
@@ -271,6 +273,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             // validateDynamicParam is not called by a validator we must call it ourselves.
             validateDynamicParam(dynamicParam);
 
+            // We must check the number of dynamic parameters unless
+            // https://issues.apache.org/jira/browse/IGNITE-18653
+            // is resolved.
             if (idx < parameters.length) {
                 Object param = parameters[idx];
                 if (parameters[idx] instanceof Integer) {
@@ -307,6 +312,72 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         super.validateAggregateParams(aggCall, filter, null, orderList, scope);
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
+        RelDataType dataType;
+
+        if (expr instanceof SqlDynamicParam) {
+            // We need to set the type of a dynamic parameter
+            // otherwise the following error is triggered by calcite for some queries (e.g. CASE ? WHEN .. END):
+            //
+            //   java.lang.UnsupportedOperationException: class org.apache.calcite.sql.SqlDynamicParam: ?
+            //   at org.apache.calcite.util.Util.needToImplement(Util.java:1101)
+            //   at org.apache.calcite.sql.validate.SqlValidatorImpl.getValidatedNodeType(SqlValidatorImpl.java:1767)
+            //   at org.apache.calcite.sql.SqlBinaryOperator.convertType(SqlBinaryOperator.java:139)
+            //   at org.apache.calcite.sql.SqlBinaryOperator.adjustType(SqlBinaryOperator.java:132)
+            //   at org.apache.calcite.sql.SqlOperator.deriveType(SqlOperator.java:609)
+            //   at org.apache.calcite.sql.SqlBinaryOperator.deriveType(SqlBinaryOperator.java:178)
+            //
+            SqlDynamicParam dynamicParam = (SqlDynamicParam) expr;
+            dataType = inferDynamicParamType(dynamicParam);
+        } else {
+            dataType = super.deriveType(scope, expr);
+        }
+
+        if (!(expr instanceof SqlCall)) {
+            return dataType;
+        }
+
+        SqlKind sqlKind = expr.getKind();
+        // See the comments below.
+        if (!(SqlKind.BINARY_ARITHMETIC.contains(sqlKind) || SqlKind.BINARY_COMPARISON.contains(sqlKind))) {
+            return dataType;
+        }
+        // Comparison and arithmetic operators are SqlCalls.
+        SqlCall sqlCall = (SqlCall) expr;
+
+        for (var operand : sqlCall.getOperandList()) {
+            var operandType = getValidatedNodeType(operand);
+            if (operandType.getSqlTypeName() == SqlTypeName.ANY) {
+                //
+                // The correct way to implement the validation error bellow would be
+                // 1) Implement the SqlOperandTypeChecker that prohibit arithmetic operations
+                // between types that neither support binary/unary operators nor support type coercion.
+                // 2) Specify that SqlOperandTypeChecker for every operator defined in
+                // IgniteSqlOperatorTable
+                //
+                // This would allow to reject plans that contain type errors
+                // at the validation stage.
+                //
+                // Similar approach can also be use to handle casts between types that can not
+                // be converted into one another.
+                //
+                // And if applied to dynamic parameters this would allow to reject plans with
+                // invalid values w/o at validation stage.
+                //
+                var lhs = getValidatedNodeType(sqlCall.operand(0));
+                var rhs = getValidatedNodeType(sqlCall.operand(1));
+
+                if (lhs.getSqlTypeName() != rhs.getSqlTypeName()) {
+                    throw newValidationError(expr, IgniteResource.INSTANCE.noSqlOperator(lhs, sqlCall.getOperator(), rhs));
+                }
+            }
+        }
+        return dataType;
+    }
+
 
     /** {@inheritDoc} */
     @Override
@@ -499,28 +570,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     protected void inferUnknownTypes(RelDataType inferredType, SqlValidatorScope scope, SqlNode node) {
-
         if (node instanceof SqlDynamicParam && inferredType.equals(unknownType)) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
 
             // We explicitly call validateDynamicParam because the validator does not call it.
             validateDynamicParam(dynamicParam);
 
-            if (dynamicParam.getIndex() >= parameters.length) {
-                RelDataType type = typeFactory().createSqlType(SqlTypeName.NULL);
-                setValidatedNodeType(node, type);
-            } else {
-                RelDataType type;
-                // Parameter's index is always valid because otherwise validateDynamicParam throws an exception.
-                Object param = parameters[dynamicParam.getIndex()];
-                if (param == null) {
-                    type = typeFactory().createSqlType(SqlTypeName.NULL);
-                } else {
-                    type = typeFactory().toSql(typeFactory().createType(param.getClass()));
-                }
-
-                setValidatedNodeType(node, type);
-            }
+            RelDataType type = inferDynamicParamType(dynamicParam);
+            setValidatedNodeType(node, type);
         } else if (node instanceof SqlCall) {
             SqlValidatorScope newScope = scopes.get(node);
 
@@ -566,6 +623,28 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
         } else {
             super.inferUnknownTypes(inferredType, scope, node);
+        }
+    }
+
+    private RelDataType inferDynamicParamType(SqlDynamicParam dynamicParam) {
+        // We must check the number of dynamic parameters unless
+        // https://issues.apache.org/jira/browse/IGNITE-18653
+        // is resolved.
+        if (dynamicParam.getIndex() < parameters.length) {
+            Object param = parameters[dynamicParam.getIndex()];
+            // IgniteCustomType: first we must check whether dynamic parameter is a custom data type.
+            // If so call createCustomType with appropriate arguments.
+            if (param instanceof UUID) {
+                return typeFactory().createCustomType(UuidType.NAME);
+            } else if (param != null) {
+                return typeFactory().toSql(typeFactory().createType(param.getClass()));
+            } else {
+                return typeFactory().createSqlType(SqlTypeName.NULL);
+            }
+        } else {
+            // This query will be rejected since the number of dynamic parameters
+            // is not valid.
+            return typeFactory().createSqlType(SqlTypeName.NULL);
         }
     }
 }

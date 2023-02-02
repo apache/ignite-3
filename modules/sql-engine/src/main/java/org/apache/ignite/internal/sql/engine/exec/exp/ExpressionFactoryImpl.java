@@ -497,7 +497,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, hnd).build(nodes);
 
-        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
+        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, rexBuilder, conformance,
                 builder, null, ctx, inputGetter, correlates);
 
         assert nodes.size() == projects.size();

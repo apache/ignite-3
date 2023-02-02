@@ -115,6 +115,7 @@ import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.Affinity
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -380,6 +381,12 @@ class RelJson {
             }
             if (node.getSqlTypeName().allowsScale()) {
                 map.put("scale", node.getScale());
+            }
+            if (node instanceof IgniteCustomType) {
+                // In case of a custom data type we must store its name to correctly
+                // deserialize it because we to distinguish ourselves from ANY.
+                IgniteCustomType customType = (IgniteCustomType) node;
+                map.put("customType", customType.getTypeName());
             }
             return map;
         }
@@ -701,6 +708,8 @@ class RelJson {
             }
 
             Object fields = map.get("fields");
+            //IgniteCustomType: In case of a custom data type JSON must contain a name of that type.
+            String customType = (String) map.get("customType");
 
             if (fields != null) {
                 return toType(typeFactory, fields);
@@ -722,6 +731,8 @@ class RelJson {
                             toType(typeFactory, map.get("keyType")),
                             toType(typeFactory, map.get("valueType"))
                     );
+                } else if (sqlTypeName == SqlTypeName.ANY && customType != null) {
+                    type = ((IgniteTypeFactory) typeFactory).createCustomType(customType, precision);
                 } else if (precision == null) {
                     type = typeFactory.createSqlType(sqlTypeName);
                 } else if (scale == null) {

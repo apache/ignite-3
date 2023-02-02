@@ -72,6 +72,9 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.UuidFunctions;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 /**
@@ -158,7 +161,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
      * @return Sequence of expressions, optional condition
      */
     public static List<Expression> translateProjects(RexProgram program,
-            JavaTypeFactory typeFactory, SqlConformance conformance,
+            JavaTypeFactory typeFactory, RexBuilder rexBuilder, SqlConformance conformance,
             BlockBuilder list, PhysType outputPhysType, Expression root,
             InputGetter inputGetter, Function1<String, InputGetter> correlates) {
         List<Type> storageTypes = null;
@@ -169,9 +172,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 storageTypes.add(outputPhysType.getJavaFieldType(i));
             }
         }
-        return new RexToLixTranslator(program, typeFactory, root, inputGetter,
-                list, new RexBuilder(typeFactory), conformance, null)
-                .setCorrelates(correlates)
+        var rexToLixTranslator = new RexToLixTranslator(program, typeFactory, root, inputGetter,
+                list, rexBuilder, conformance, null)
+                .setCorrelates(correlates);
+        return rexToLixTranslator
                 .translateList(program.getProjectList(), storageTypes);
     }
 
@@ -214,7 +218,18 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         Expression convert = null;
         switch (targetType.getSqlTypeName()) {
             case ANY:
-                convert = operand;
+                // IgniteCustomType: conversion from some type to possibly a custom data type.
+                // Should we add a hook here that can short-circuit when a custom type can not be converted?
+                if (targetType instanceof UuidType) {
+                    // We need to convert an argument to an object so a call will throw a CastCastException
+                    // instead of a NoSuchMethodError in runtime.
+                    // It would be even better if this cast were not be necessary.
+                    return Expressions.call(UuidFunctions.class, "cast", Expressions.convert_(operand, Object.class));
+                } else if (targetType instanceof IgniteCustomType) {
+                    throw new AssertionError("IgniteCustomType: cast is not implemented for " + targetType);
+                } else {
+                    convert = operand;
+                }
                 break;
             case DATE:
                 switch (sourceType.getSqlTypeName()) {

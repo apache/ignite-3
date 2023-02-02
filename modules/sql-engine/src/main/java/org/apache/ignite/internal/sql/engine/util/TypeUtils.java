@@ -31,6 +31,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -50,7 +51,9 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -262,7 +265,11 @@ public class TypeUtils {
             return (int) ((Period) val).toTotalMonths();
         } else if (storageType == byte[].class) {
             return new ByteString((byte[]) val);
+        } else if (storageType == UUID.class) {
+            assert val instanceof UUID : storageTypeMismatch(val, UUID.class);
+            return val;
         } else {
+            // IgniteCustomType: Add storageTypeMismatch assertion for your type.
             return val;
         }
     }
@@ -287,7 +294,11 @@ public class TypeUtils {
             return Period.of((Integer) val / 12, (Integer) val % 12, 0);
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
+        } else if (storageType == UUID.class) {
+            assert val instanceof UUID : storageTypeMismatch(val, UUID.class);
+            return val;
         } else {
+            // IgniteCustomType: Add storageTypeMismatch assertion for your type.
             return val;
         }
     }
@@ -329,6 +340,11 @@ public class TypeUtils {
             case BINARY:
             case VARBINARY:
             case ANY:
+                if (type instanceof IgniteCustomType) {
+                    IgniteCustomType customType = (IgniteCustomType) type;
+                    return customType.columnType();
+                }
+                // fallthrough
             case OTHER:
                 return ColumnType.BYTE_ARRAY;
             case INTERVAL_YEAR:
@@ -394,8 +410,8 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.DECIMAL, decimal.precision(), decimal.scale());
             case UUID:
-                // TODO IGNITE-18431.
-                throw new AssertionError("UUID is not supported yet");
+                IgniteTypeFactory concreteTypeFactory = (IgniteTypeFactory) factory;
+                return concreteTypeFactory.createCustomType(UuidType.NAME);
             case STRING: {
                 assert nativeType instanceof VarlenNativeType;
 
@@ -442,5 +458,9 @@ public class TypeUtils {
             default:
                 throw new IllegalStateException("Unexpected native type " + nativeType);
         }
+    }
+
+    private static String storageTypeMismatch(Object value, Class<?> type) {
+        return String.format("storageType is %s value must also be UUID but it was not: %s", type, value);
     }
 }

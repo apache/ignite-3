@@ -47,6 +47,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assumptions;
@@ -257,6 +258,26 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18559")
     public void testNullIfWithMixedTypesIsRejected() {
         checkExprResultFails("NULLIF(12.2, 'b')", "Illegal mixing of types in CASE or COALESCE statement");
+    }
+
+    @ParameterizedTest
+    @MethodSource("varcharToUuid")
+    // VARCHAR can be implicitly casted to UUID
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18762")
+    public void testTypeCoercionBetweenUuidAndVarchar(TypeCoercionRule rule) {
+        var tester = new BinaryOpTypeCoercionTester(rule);
+        tester.execute();
+    }
+
+    private static Stream<TypeCoercionRule> varcharToUuid() {
+        List<TypeCoercionRule> rules = new ArrayList<>();
+
+        RelDataType uuidType = TYPE_FACTORY.createCustomType(UuidType.NAME);
+
+        rules.add(typeCoercionRule(VARCHAR, uuidType, new ToSpecificType(uuidType)));
+        rules.add(typeCoercionRule(uuidType, VARCHAR, new ToSpecificType(uuidType)));
+
+        return rules.stream();
     }
 
     private final class BinaryOpTypeCoercionTester {

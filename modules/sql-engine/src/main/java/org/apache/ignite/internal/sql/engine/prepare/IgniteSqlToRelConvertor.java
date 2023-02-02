@@ -65,7 +65,8 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         if (qry.getKind() == SqlKind.MERGE) {
             return RelRoot.of(convertMerge((SqlMerge) qry), qry.getKind());
         } else {
-            return super.convertQueryRecursive(qry, top, targetRowType);
+            RelRoot relRoot = super.convertQueryRecursive(qry, top, targetRowType);
+            return relRoot;
         }
     }
 
@@ -164,4 +165,6 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
                 relBuilder.build(), LogicalTableModify.Operation.MERGE,
                 targetColumnNameList, null, false);
     }
+
+
 }

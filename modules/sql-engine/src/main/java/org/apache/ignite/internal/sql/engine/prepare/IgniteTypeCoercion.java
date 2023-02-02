@@ -33,6 +33,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -44,6 +45,7 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Implicit type cast implementation. */
@@ -275,8 +277,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     }
 
     private static SqlNode castTo(SqlNode node, RelDataType type) {
-        return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node,
-                SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable()));
+        SqlDataTypeSpec targetDataType;
+        if (type instanceof IgniteCustomType) {
+            var customType = (IgniteCustomType) type;
+            var nameSpec = customType.createTypeNameSpec();
+
+            targetDataType = new SqlDataTypeSpec(nameSpec, SqlParserPos.ZERO);
+        } else {
+            targetDataType = SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable());
+        }
+
+        return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node, targetDataType);
     }
 
     /**
