@@ -113,7 +113,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         final Iterator<List<Object>> it0 = curPage.items().iterator();
         final ResultSetMetadata meta0 = cur.metadata();
 
-        // TODO
+        // TODO: IGNITE-18695 map rows to objects when mapper is provided.
         return () -> new TransformingIterator<>(it0, (item) -> (T) new SqlRowImpl(item, meta0));
     }
 
