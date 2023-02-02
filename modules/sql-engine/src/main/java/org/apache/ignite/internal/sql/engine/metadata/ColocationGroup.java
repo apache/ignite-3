@@ -184,9 +184,16 @@ public class ColocationGroup implements Serializable {
                 List<NodeWithTerm> assignment;
 
                 if (assignment0.size() == 1 && assignment1.size() == 1) {
-                    assignment = compareNodeWithTerm(assignment0.get(0), assignment1.get(0), nodeNamesFilter, p)
-                            ? assignment0
-                            : Collections.emptyList();
+                    NodeWithTerm first = assignment0.get(0);
+                    NodeWithTerm second = assignment1.get(0);
+
+                    if (nodeNamesFilter.test(first.name()) && first.name().equals(second.name())) {
+                        validateTerm(first, second, p);
+
+                        assignment = assignment0;
+                    } else {
+                        assignment = Collections.emptyList();
+                    }
                 } else {
                     if (assignment0.size() > assignment1.size()) {
                         List<NodeWithTerm> tmp = assignment0;
@@ -199,12 +206,16 @@ public class ColocationGroup implements Serializable {
                     Map<String, NodeWithTerm> hashedByNameAssignment =
                             assignment1.stream().collect(Collectors.toMap(NodeWithTerm::name, nodeWithTerm -> nodeWithTerm));
 
-                    for (NodeWithTerm nodeWithTerm : assignment0) {
-                        NodeWithTerm otherNodeWithTerm = hashedByNameAssignment.get(nodeWithTerm.name());
+                    for (NodeWithTerm first : assignment0) {
+                        NodeWithTerm second = hashedByNameAssignment.get(first.name());
 
-                        if (otherNodeWithTerm != null && compareNodeWithTerm(nodeWithTerm, otherNodeWithTerm, nodeNamesFilter, p)) {
-                            assignment.add(otherNodeWithTerm);
+                        if (second == null || !nodeNamesFilter.test(first.name())) {
+                            continue;
                         }
+
+                        validateTerm(first, second, p);
+
+                        assignment.add(second);
                     }
                 }
 
@@ -219,22 +230,15 @@ public class ColocationGroup implements Serializable {
         return new ColocationGroup(sourceIds, nodeNames, assignments);
     }
 
-    private boolean compareNodeWithTerm(NodeWithTerm curr, NodeWithTerm other, Predicate<String> filter, int partId)
-            throws ColocationMappingException {
-        if (!filter.test(curr.name())) {
-            return false;
-        }
-
-        if (other.term() != other.term()) {
+    private void validateTerm(NodeWithTerm first, NodeWithTerm second, int partId) throws ColocationMappingException {
+        if (first.term() != second.term()) {
             throw new ColocationMappingException("Primary replica term has been changed during mapping ["
-                    + "node=" + curr.name()
-                    + ", expectedTerm=" + curr.term()
-                    + ", actualTerm=" + other.term()
+                    + "node=" + first.name()
+                    + ", expectedTerm=" + first.term()
+                    + ", actualTerm=" + second.term()
                     + ", part=" + partId
                     + ']');
         }
-
-        return true;
     }
 
     private List<NodeWithTerm> filterByNodeNames(List<NodeWithTerm> assignment, Set<String> filter) {
