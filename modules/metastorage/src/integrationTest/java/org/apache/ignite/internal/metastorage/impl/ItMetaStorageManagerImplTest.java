@@ -20,6 +20,8 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.FlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBeCancelledFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
@@ -52,7 +54,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -132,7 +133,7 @@ public class ItMetaStorageManagerImplTest {
      * Tests a corner case when a prefix request contains a max unsigned byte value.
      */
     @Test
-    void testPrefixOverflow() throws NodeStoppingException {
+    void testPrefixOverflow() {
         byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
         var key1 = new ByteArray(new byte[]{1, (byte) 0xFF, 0});
@@ -157,11 +158,11 @@ public class ItMetaStorageManagerImplTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        try (Cursor<Entry> cursor = metaStorageManager.prefix(new ByteArray(new byte[]{1, (byte) 0xFF}))) {
-            List<byte[]> keys = cursor.stream().map(Entry::key).collect(toList());
+        CompletableFuture<List<byte[]>> actualKeysFuture =
+                subscribeToList(metaStorageManager.prefix(new ByteArray(new byte[]{1, (byte) 0xFF})))
+                        .thenApply(entries -> entries.stream().map(Entry::key).collect(toList()));
 
-            assertThat(keys, contains(key1.bytes(), key2.bytes(), key3.bytes()));
-        }
+        assertThat(actualKeysFuture, will(contains(key1.bytes(), key2.bytes(), key3.bytes())));
     }
 
     /**

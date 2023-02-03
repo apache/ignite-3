@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -28,7 +29,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
@@ -63,13 +63,13 @@ public interface MetaStorageManager extends IgniteComponent {
      * {@code revUpperBound == -1}.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @return Publisher that will provide entries corresponding to the given prefix.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
-    Cursor<Entry> prefix(ByteArray keyPrefix) throws NodeStoppingException;
+    Publisher<Entry> prefix(ByteArray keyPrefix);
 
     /**
      * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
@@ -77,18 +77,26 @@ public interface MetaStorageManager extends IgniteComponent {
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
-     * @return Cursor built upon entries corresponding to the given range and revision.
+     * @return Publisher that will provide entries corresponding to the given prefix and revision.
      * @throws OperationTimeoutException If the operation is timed out.
      * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
      * @see ByteArray
      * @see Entry
      */
-    Cursor<Entry> prefix(ByteArray keyPrefix, long revUpperBound) throws NodeStoppingException;
+    Publisher<Entry> prefix(ByteArray keyPrefix, long revUpperBound);
 
     /**
      * Retrieves entries for the given key range in lexicographic order.
+     *
+     * @param keyFrom Range lower bound (inclusive).
+     * @param keyTo Range upper bound (exclusive), {@code null} represents an unbound range.
+     * @return Publisher that will provide entries corresponding to the given range.
+     * @throws OperationTimeoutException If the operation is timed out.
+     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
+     * @see ByteArray
+     * @see Entry
      */
-    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException;
+    Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 
     /**
      * Invoke with single success/failure operation.

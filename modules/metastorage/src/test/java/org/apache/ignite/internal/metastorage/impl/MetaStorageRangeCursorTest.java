@@ -21,10 +21,10 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.testframework.flow.FlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -33,9 +33,9 @@ import static org.mockito.Mockito.when;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -77,8 +77,10 @@ public class MetaStorageRangeCursorTest {
     public void testCursor(int elementsCount, int keyTo) {
         int limit = Math.min(keyTo, elementsCount);
 
-        when(storage.range(any(), any(), anyBoolean())).thenReturn(new TestCursor(iterator(limit)));
-        when(storage.range(any(), any(), anyLong(), anyBoolean())).thenReturn(new TestCursor(iterator(limit)));
+        List<Entry> expectedEntries = generateRange(limit);
+
+        when(storage.range(any(), any(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
+        when(storage.range(any(), any(), anyLong(), anyBoolean())).thenReturn(Cursor.fromIterable(expectedEntries));
 
         listener = new MetaStorageListener(storage);
 
@@ -88,8 +90,8 @@ public class MetaStorageRangeCursorTest {
 
         MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, localNode);
 
-        checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo)), limit);
-        checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo), 0), limit);
+        checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo)), expectedEntries);
+        checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo), 0), expectedEntries);
     }
 
     private static Stream<Arguments> getParameters() {
@@ -107,37 +109,26 @@ public class MetaStorageRangeCursorTest {
         return args.stream();
     }
 
-    private void checkCursor(Cursor<Entry> range, int count) {
-        for (int i = 0; i < count; i++) {
-            String errorDetails = "count=" + count + ", i=" + i;
+    private static void checkCursor(Publisher<Entry> range, List<Entry> expectedEntries) {
+        CompletableFuture<List<Entry>> resultFuture = subscribeToList(range);
 
-            assertTrue(range.hasNext(), errorDetails);
-
-            Entry e = range.next();
-
-            assertArrayEquals(intToBytes(i).bytes(), e.key(), errorDetails);
-            assertArrayEquals(intToBytes(i).bytes(), e.value(), errorDetails);
-            assertEquals(i, e.revision(), errorDetails);
-            assertEquals(i, e.updateCounter(), errorDetails);
-        }
-
-        assertFalse(range.hasNext());
+        assertThat(resultFuture, willBe(expectedEntries));
     }
 
-    private Iterator<Entry> iterator(int elementsCount) {
-        return IntStream.range(0, elementsCount).mapToObj(this::intToEntry).iterator();
+    private static List<Entry> generateRange(int elementsCount) {
+        return IntStream.range(0, elementsCount)
+                .mapToObj(MetaStorageRangeCursorTest::intToEntry)
+                .collect(toUnmodifiableList());
     }
 
-    private Entry intToEntry(int i) {
-        return new EntryImpl(intToBytes(i).bytes(), intToBytes(i).bytes(), i, i);
+    private static Entry intToEntry(int i) {
+        byte[] bytes = intToBytes(i).bytes();
+
+        return new EntryImpl(bytes, bytes, i, i);
     }
 
-    private ByteArray intToBytes(int i) {
-        byte[] bytes = new byte[4];
-
-        ByteBuffer.wrap(bytes).putInt(i);
-
-        return new ByteArray(bytes);
+    private static ByteArray intToBytes(int i) {
+        return new ByteArray(ByteBuffer.allocate(Integer.BYTES).putInt(i).array());
     }
 
     private CompletableFuture<Serializable> runCommand(Command command) {
@@ -160,25 +151,5 @@ public class MetaStorageRangeCursorTest {
         }
 
         return resRef.get();
-    }
-
-    private static class TestCursor<T> implements Cursor<T> {
-        final Iterator<T> iterator;
-
-        private TestCursor(Iterator<T> iterator) {
-            this.iterator = iterator;
-        }
-
-        @Override public void close() {
-            // No-op.
-        }
-
-        @Override public boolean hasNext() {
-            return iterator.hasNext();
-        }
-
-        @Override public T next() {
-            return iterator.next();
-        }
     }
 }

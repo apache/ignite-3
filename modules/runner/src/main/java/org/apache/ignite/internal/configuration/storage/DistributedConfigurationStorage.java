@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -30,6 +29,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -142,39 +143,53 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
-        return registerFuture(supplyAsync(() -> {
-            var data = new HashMap<String, Serializable>();
+        var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
 
-            var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
+        var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
 
-            var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
+        var resultFuture = new CompletableFuture<Map<String, ? extends Serializable>>();
 
-            try (Cursor<Entry> entries = metaStorageMgr.range(rangeStart, rangeEnd)) {
-                for (Entry entry : entries) {
-                    byte[] key = entry.key();
-                    byte[] value = entry.value();
+        metaStorageMgr.range(rangeStart, rangeEnd).subscribe(new Subscriber<>() {
+            private final Map<String, Serializable> data = new HashMap<>();
 
-                    if (entry.tombstone()) {
-                        continue;
-                    }
-
-                    // Meta Storage should not return nulls as values
-                    assert value != null;
-
-                    if (Arrays.equals(key, MASTER_KEY.bytes())) {
-                        continue;
-                    }
-
-                    String dataKey = new String(key, UTF_8).substring(DISTRIBUTED_PREFIX.length());
-
-                    data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
-                }
-            } catch (Exception e) {
-                throw new StorageException("Exception when closing a Meta Storage cursor", e);
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                // Request unlimited demand.
+                subscription.request(Long.MAX_VALUE);
             }
 
-            return data;
-        }, threadPool));
+            @Override
+            public void onNext(Entry item) {
+                byte[] key = item.key();
+
+                // Skip the master key.
+                if (Arrays.equals(key, MASTER_KEY.bytes())) {
+                    return;
+                }
+
+                byte[] value = item.value();
+
+                // Meta Storage should not return nulls and tombstones.
+                assert !item.tombstone();
+                assert value != null;
+
+                String dataKey = new String(key, UTF_8).substring(DISTRIBUTED_PREFIX.length());
+
+                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+                resultFuture.completeExceptionally(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                resultFuture.complete(data);
+            }
+        });
+
+        return registerFuture(resultFuture);
     }
 
     /** {@inheritDoc} */

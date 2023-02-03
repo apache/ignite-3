@@ -27,8 +27,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
@@ -39,21 +45,20 @@ import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.PrefixCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
-import org.apache.ignite.internal.metastorage.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,8 +66,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link MetaStorageService} implementation.
  */
 public class MetaStorageServiceImpl implements MetaStorageService {
-    /** IgniteUuid generator. */
-    private static final IgniteUuidGenerator uuidGenerator = new IgniteUuidGenerator(UUID.randomUUID(), 0);
+    private static final IgniteLogger LOG = Loggers.forClass(MetaStorageService.class);
 
     /** Commands factory. */
     private final MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
@@ -73,6 +77,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Local node. */
     private final ClusterNode localNode;
 
+    private final ExecutorService executorService;
+
     /**
      * Constructor.
      *
@@ -82,13 +88,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, ClusterNode localNode) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.localNode = localNode;
+        this.executorService = Executors.newCachedThreadPool(NamedThreadFactory.create(localNode.name(), "metastorage-publisher", LOG));
     }
 
     RaftGroupService raftGroupService() {
         return metaStorageRaftGrpSvc;
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> get(ByteArray key) {
         GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
@@ -96,7 +102,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(getCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
         GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).revision(revUpperBound).build();
@@ -104,7 +109,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(getCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, 0);
@@ -113,7 +117,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
         GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, revUpperBound);
@@ -122,7 +125,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] value) {
         PutCommand putCommand = commandsFactory.putCommand().key(key.bytes()).value(value).build();
@@ -130,7 +132,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(putCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> getAndPut(ByteArray key, byte[] value) {
         GetAndPutCommand getAndPutCommand = commandsFactory.getAndPutCommand().key(key.bytes()).value(value).build();
@@ -138,7 +139,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(getAndPutCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         PutAllCommand putAllCommand = putAllCommand(commandsFactory, vals);
@@ -146,7 +146,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(putAllCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals) {
         GetAndPutAllCommand getAndPutAllCommand = getAndPutAllCommand(commandsFactory, vals);
@@ -155,7 +154,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         RemoveCommand removeCommand = commandsFactory.removeCommand().key(key.bytes()).build();
@@ -163,7 +161,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(removeCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Entry> getAndRemove(ByteArray key) {
         GetAndRemoveCommand getAndRemoveCommand = commandsFactory.getAndRemoveCommand().key(key.bytes()).build();
@@ -171,7 +168,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(getAndRemoveCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
         RemoveAllCommand removeAllCommand = removeAllCommand(commandsFactory, keys);
@@ -179,7 +175,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(removeAllCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys) {
         GetAndRemoveAllCommand getAndRemoveAllCommand = getAndRemoveAllCommand(commandsFactory, keys);
@@ -189,15 +184,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     @Override
-    public CompletableFuture<Boolean> invoke(
-            Condition condition,
-            Operation success,
-            Operation failure
-    ) {
+    public CompletableFuture<Boolean> invoke(Condition condition, Operation success, Operation failure) {
         return invoke(condition, List.of(success), List.of(failure));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> invoke(
             Condition condition,
@@ -213,7 +203,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(invokeCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
@@ -223,65 +212,51 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(multiInvokeCommand);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
         return range(keyFrom, keyTo, revUpperBound, false);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Cursor<Entry> range(
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
+        return range(keyFrom, keyTo, false);
+    }
+
+    @Override
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
+        return range(keyFrom, keyTo, -1, includeTombstones);
+    }
+
+    @Override
+    public Publisher<Entry> range(
             ByteArray keyFrom,
             @Nullable ByteArray keyTo,
             long revUpperBound,
             boolean includeTombstones
     ) {
-        return new CursorImpl(
-                commandsFactory,
-                metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(
-                        commandsFactory.rangeCommand()
-                                .keyFrom(keyFrom.bytes())
-                                .keyTo(keyTo == null ? null : keyTo.bytes())
-                                .requesterNodeId(localNode.id())
-                                .cursorId(uuidGenerator.randomUuid())
-                                .revUpperBound(revUpperBound)
-                                .includeTombstones(includeTombstones)
-                                .batchSize(RangeCommand.DEFAULT_BATCH_SIZE)
-                                .build()
-                )
-        );
-    }
+        Function<IgniteUuid, WriteCommand> createRangeCommand = cursorId -> commandsFactory.createRangeCursorCommand()
+                .keyFrom(keyFrom.bytes())
+                .keyTo(keyTo == null ? null : keyTo.bytes())
+                .revUpperBound(revUpperBound)
+                .requesterNodeId(localNode.id())
+                .cursorId(cursorId)
+                .includeTombstones(includeTombstones)
+                .build();
 
-    /** {@inheritDoc} */
-    @Override
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        return range(keyFrom, keyTo, false);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
-        return range(keyFrom, keyTo, -1, includeTombstones);
+        return new CursorPublisher(metaStorageRaftGrpSvc, commandsFactory, executorService, createRangeCommand);
     }
 
     @Override
-    public Cursor<Entry> prefix(ByteArray prefix, long revUpperBound) {
-        return new CursorImpl(
-                commandsFactory,
-                metaStorageRaftGrpSvc,
-                metaStorageRaftGrpSvc.run(
-                        commandsFactory.prefixCommand()
-                                .prefix(prefix.bytes())
-                                .revUpperBound(revUpperBound)
-                                .requesterNodeId(localNode.id())
-                                .cursorId(uuidGenerator.randomUuid())
-                                .includeTombstones(false)
-                                .batchSize(PrefixCommand.DEFAULT_BATCH_SIZE)
-                                .build()
-                )
-        );
+    public Publisher<Entry> prefix(ByteArray prefix, long revUpperBound) {
+        Function<IgniteUuid, WriteCommand> createPrefixCommand = cursorId -> commandsFactory.createPrefixCursorCommand()
+                .prefix(prefix.bytes())
+                .revUpperBound(revUpperBound)
+                .requesterNodeId(localNode.id())
+                .cursorId(cursorId)
+                .includeTombstones(false)
+                .build();
+
+        return new CursorPublisher(metaStorageRaftGrpSvc, commandsFactory, executorService, createPrefixCommand);
     }
 
     // TODO: IGNITE-14734 Implement.
@@ -290,14 +265,15 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeCursors(String nodeId) {
-        return metaStorageRaftGrpSvc.run(commandsFactory.cursorsCloseCommand().nodeId(nodeId).build());
+        return metaStorageRaftGrpSvc.run(commandsFactory.closeAllCursorsCommand().nodeId(nodeId).build());
     }
 
     @Override
     public void close() {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
+
         metaStorageRaftGrpSvc.shutdown();
     }
 

@@ -19,16 +19,16 @@ package org.apache.ignite.internal.metastorage.command.cursor;
 
 import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Command that closes all cursor for the specified node id. Common use case for a given command is to close cursors for the node that left
- * topology.
+ * Cursor close command for MetaStorageCommandListener that closes cursor with given id.
  */
-@Transferable(MetastorageCommandsMessageGroup.CURSORS_CLOSE)
-public interface CursorsCloseCommand extends WriteCommand {
+@Transferable(MetastorageCommandsMessageGroup.CLOSE_CURSOR)
+public interface CloseCursorCommand extends WriteCommand {
     /**
      * Returns cursor id.
      */
-    String nodeId();
+    IgniteUuid cursorId();
 }
