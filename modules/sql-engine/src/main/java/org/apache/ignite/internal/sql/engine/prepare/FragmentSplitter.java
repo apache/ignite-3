@@ -25,6 +25,7 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -43,6 +44,8 @@ public class FragmentSplitter extends IgniteRelShuttle {
 
     private FragmentProto curr;
 
+    private boolean correlated = false;
+
     public FragmentSplitter(RelNode cutPoint) {
         this.cutPoint = cutPoint;
     }
@@ -54,7 +57,8 @@ public class FragmentSplitter extends IgniteRelShuttle {
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        stack.push(new FragmentProto(IdGenerator.nextId(), fragment.root()));
+        correlated = fragment.correlated();
+        stack.push(new FragmentProto(IdGenerator.nextId(), correlated, fragment.root()));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
@@ -78,6 +82,30 @@ public class FragmentSplitter extends IgniteRelShuttle {
     @Override
     public IgniteRel visit(IgniteExchange rel) {
         throw new AssertionError();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteCorrelatedNestedLoopJoin rel) {
+        if (rel == cutPoint) {
+            cutPoint = null;
+
+            return split(rel);
+        }
+
+        List<IgniteRel> inputs = Commons.cast(rel.getInputs());
+
+        assert inputs.size() == 2;
+
+        visitChild(rel, 0, inputs.get(0));
+
+        boolean correlatedBefore = correlated;
+
+        correlated = true;
+        visitChild(rel, 1, inputs.get(1));
+        correlated = correlatedBefore;
+
+        return rel;
     }
 
     /**
@@ -115,25 +143,27 @@ public class FragmentSplitter extends IgniteRelShuttle {
         IgniteSender sender = new IgniteSender(cluster, traits, input, exchangeId, targetFragmentId, rel.distribution());
 
         curr.remotes.add(receiver);
-        stack.push(new FragmentProto(sourceFragmentId, sender));
+        stack.push(new FragmentProto(sourceFragmentId, correlated, sender));
 
         return receiver;
     }
 
     private static class FragmentProto {
         private final long id;
+        private final boolean correlated;
 
         private IgniteRel root;
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
 
-        private FragmentProto(long id, IgniteRel root) {
+        private FragmentProto(long id, boolean correlated, IgniteRel root) {
             this.id = id;
+            this.correlated = correlated;
             this.root = root;
         }
 
         Fragment build() {
-            return new Fragment(id, root, List.copyOf(remotes));
+            return new Fragment(id, correlated, root, List.copyOf(remotes));
         }
     }
 }

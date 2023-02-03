@@ -19,20 +19,12 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelHomogeneousShuttle;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rex.RexCorrelVariable;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexShuttle;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
@@ -63,31 +55,32 @@ public class Fragment {
 
     private final List<IgniteReceiver> remotes;
 
-    private final boolean expectsCorrelatesFromOutside;
+    private final boolean correlated;
 
     /**
      * Constructor.
      *
-     * @param id      Fragment id.
-     * @param root    Root node of the fragment.
+     * @param id An identifier of this fragment.
+     * @param correlated Whether some correlated variables should be set prior to fragment execution.
+     * @param root Root node of the fragment.
      * @param remotes Remote sources of the fragment.
      */
-    public Fragment(long id, IgniteRel root, List<IgniteReceiver> remotes) {
-        this(id, root, expectsCorrelatesFromOutside(root), remotes, null, null);
+    public Fragment(long id, boolean correlated, IgniteRel root, List<IgniteReceiver> remotes) {
+        this(id, root, correlated, remotes, null, null);
     }
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    Fragment(long id, IgniteRel root, boolean expectsCorrelatesFromOutside, List<IgniteReceiver> remotes,
+    Fragment(long id, IgniteRel root, boolean correlated, List<IgniteReceiver> remotes,
             @Nullable String rootSer, @Nullable FragmentMapping mapping) {
         this.id = id;
         this.root = root;
         this.remotes = List.copyOf(remotes);
         this.rootSer = rootSer != null ? rootSer : toJson(root);
         this.mapping = mapping;
-        this.expectsCorrelatesFromOutside = expectsCorrelatesFromOutside;
+        this.correlated = correlated;
     }
 
     /**
@@ -147,15 +140,8 @@ public class Fragment {
      *
      * @return {@code true} if correlated variables should be set prior to start the execution of this fragment.
      */
-    public boolean expectsCorrelatesFromOutside() {
-        return expectsCorrelatesFromOutside;
-    }
-
-    private static boolean expectsCorrelatesFromOutside(IgniteRel root) {
-        CorrelatesFragmentAnalyser analyser = new CorrelatesFragmentAnalyser();
-        analyser.visit(root);
-
-        return !analyser.selfSufficient();
+    public boolean correlated() {
+        return correlated;
     }
 
     /**
@@ -184,7 +170,7 @@ public class Fragment {
             return this;
         }
 
-        return new Fragment(id, root, expectsCorrelatesFromOutside, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
+        return new Fragment(id, root, correlated, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
     }
 
     private Supplier<List<String>> nodesSource(MappingService mappingSrvc, MappingQueryContext ctx) {
@@ -200,39 +186,5 @@ public class Fragment {
     @Override
     public String toString() {
         return S.toString(Fragment.class, this, "root", RelOptUtil.toString(root));
-    }
-
-    /**
-     * Finds all correlated variables which are set and used within this fragment, and
-     * returns whether this fragment has all required information to be executed in advance.
-     */
-    private static class CorrelatesFragmentAnalyser extends RelHomogeneousShuttle {
-        /** Set of correlated variables which are required by relations from this fragment. */
-        private final Set<CorrelationId> requiredSet = new HashSet<>();
-
-        /** Set of correlated variables which are set by relations from this fragment. */
-        private final Set<CorrelationId> providedSet = new HashSet<>();
-
-        private final RexShuttle rexShuttle = new RexShuttle() {
-            @Override public RexNode visitCorrelVariable(RexCorrelVariable variable) {
-                requiredSet.add(variable.id);
-
-                return variable;
-            }
-        };
-
-        /** Returns {@code true} if all required correlated variables are set in the fragment. */
-        public boolean selfSufficient() {
-            return providedSet.containsAll(requiredSet);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelNode visit(RelNode other) {
-            providedSet.addAll(other.getVariablesSet());
-            other.accept(rexShuttle);
-
-            return super.visit(other);
-        }
     }
 }
