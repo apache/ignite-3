@@ -198,7 +198,7 @@ public class ColocationGroup implements Serializable {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ColocationGroup finalaze() {
+    public ColocationGroup complete() {
         if (assignments == null && nodeNames == null) {
             return this;
         }

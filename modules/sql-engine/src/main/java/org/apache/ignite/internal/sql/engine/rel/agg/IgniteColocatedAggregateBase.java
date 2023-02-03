@@ -40,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  */
 public abstract class IgniteColocatedAggregateBase extends IgniteAggregate implements TraitsAwareIgniteRel {
     /** {@inheritDoc} */
-    protected IgniteColocatedAggregateBase(
+    IgniteColocatedAggregateBase(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             RelNode input,
@@ -51,8 +51,12 @@ public abstract class IgniteColocatedAggregateBase extends IgniteAggregate imple
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
     }
 
-    /** {@inheritDoc} */
-    protected IgniteColocatedAggregateBase(RelInput input) {
+    /**
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
+     */
+    IgniteColocatedAggregateBase(RelInput input) {
         super(TraitUtils.changeTraits(input, IgniteConvention.INSTANCE));
     }
 
