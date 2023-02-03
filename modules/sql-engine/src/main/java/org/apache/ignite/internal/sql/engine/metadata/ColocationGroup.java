@@ -268,7 +268,7 @@ public class ColocationGroup implements Serializable {
      *
      * @return Colocation group with primary assignments.
      */
-    public ColocationGroup finalaze() {
+    public ColocationGroup complete() {
         if (assignments != null) {
             List<List<NodeWithTerm>> assignments = new ArrayList<>(this.assignments.size());
             Set<String> nodes = new HashSet<>();

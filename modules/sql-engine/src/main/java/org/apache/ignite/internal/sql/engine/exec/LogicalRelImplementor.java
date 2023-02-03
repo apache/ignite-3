@@ -712,13 +712,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
+        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+
+        if (rel.getGroupSet().isEmpty() && comp == null) {
+            comp = (k1, k2) -> 0;
+        }
+
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                expressionFactory.comparator(rel.collation())
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());
@@ -743,13 +749,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
+        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+
+        if (rel.getGroupSet().isEmpty() && comp == null) {
+            comp = (k1, k2) -> 0;
+        }
+
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                expressionFactory.comparator(rel.collation())
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());

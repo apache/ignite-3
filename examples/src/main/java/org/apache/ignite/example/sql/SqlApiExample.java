@@ -27,6 +27,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Examples of using SQL API.
@@ -125,7 +126,7 @@ public class SqlApiExample {
 
                 System.out.println("\nAll accounts:");
 
-                try (ResultSet rs = ses.execute(null,
+                try (ResultSet<SqlRow> rs = ses.execute(null,
                         "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
                                 + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
                     while (rs.hasNext()) {
@@ -146,16 +147,21 @@ public class SqlApiExample {
 
                 System.out.println("\nAccounts with balance lower than 1,500:");
 
-                try (ResultSet rs = ses.execute(null,
-                        "SELECT a.FIRST_NAME, a.LAST_NAME, a.BALANCE FROM ACCOUNTS a WHERE a.BALANCE < 1500.0 "
-                                + "ORDER BY a.ACCOUNT_ID")) {
+                Statement statement = client.sql().statementBuilder()
+                        .query("SELECT a.FIRST_NAME as firstName, a.LAST_NAME as lastName, a.BALANCE FROM ACCOUNTS a "
+                                + "WHERE a.BALANCE < 1500.0 "
+                                + "ORDER BY a.ACCOUNT_ID")
+                        .build();
+
+                // POJO mapping.
+                try (ResultSet<AccountInfo> rs = ses.execute(null, Mapper.of(AccountInfo.class), statement)) {
                     while (rs.hasNext()) {
-                        SqlRow row = rs.next();
+                        AccountInfo row = rs.next();
 
                         System.out.println("    "
-                                + row.stringValue(1) + ", "
-                                + row.stringValue(2) + ", "
-                                + row.stringValue(3));
+                                + row.firstName + ", "
+                                + row.lastName + ", "
+                                + row.balance);
                     }
                 }
 
@@ -167,7 +173,7 @@ public class SqlApiExample {
 
                 System.out.println("\nDeleting one of the accounts...");
 
-                try (ResultSet rs = ses.execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
+                try (ResultSet<SqlRow> rs = ses.execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
                     System.out.println("\n Removed accounts: " + rs.affectedRows());
                 }
 
@@ -207,7 +213,7 @@ public class SqlApiExample {
      * @param resultSet Async result set.
      * @return Operation future.
      */
-    private static CompletionStage<Void> fetchAllRowsInto(AsyncResultSet resultSet) {
+    private static CompletionStage<Void> fetchAllRowsInto(AsyncResultSet<SqlRow> resultSet) {
         //
         // Process current page.
         //
@@ -229,5 +235,11 @@ public class SqlApiExample {
         // Request for the next page in async way, then subscribe to the response.
         //
         return resultSet.fetchNextPage().thenCompose(SqlApiExample::fetchAllRowsInto);
+    }
+
+    private static class AccountInfo {
+        String firstName;
+        String lastName;
+        double balance;
     }
 }
