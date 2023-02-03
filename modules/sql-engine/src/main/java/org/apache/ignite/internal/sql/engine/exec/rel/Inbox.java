@@ -29,7 +29,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -482,7 +481,6 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         }
 
         private final PriorityQueue<Batch<RowT>> batches = new PriorityQueue<>(IO_BATCH_CNT);
-        private final AtomicReference<SharedState> sharedStateHolder = new AtomicReference<>();
 
         private final BatchRequester batchRequester;
 
@@ -490,6 +488,14 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         private int lastEnqueued = -1;
         private int lastRequested = -1;
         private @Nullable Batch<RowT> curr = null;
+
+        /**
+         * The state should be propagated only once per every rewind iteration.
+         *
+         * <p>Thus, the new state is set on each rewind, propagated with the next request message,
+         * and then immediately reset to null to prevent the same state from being sent once again.
+         */
+        private @Nullable SharedState sharedStateHolder = null;
 
         private RemoteSource(BatchRequester batchRequester) {
             this.batchRequester = batchRequester;
@@ -502,7 +508,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
          * @param state State to propagate to the source.
          */
         void reset(SharedState state) {
-            sharedStateHolder.set(state);
+            sharedStateHolder = state;
             batches.clear();
 
             this.lastEnqueued = lastRequested;
@@ -535,13 +541,17 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
             // IO_BATCH_CNT should never be less than 1, but we don't have validation
             if (IO_BATCH_CNT <= 1 && inFlightCount == 0) {
-                batchRequester.request(1, sharedStateHolder.getAndSet(null));
+                batchRequester.request(1, sharedStateHolder);
+                // shared state should be send only once until next rewind
+                sharedStateHolder = null;
             } else if (IO_BATCH_CNT / 2 >= inFlightCount) {
                 int countOfBatches = IO_BATCH_CNT - inFlightCount;
 
                 lastRequested += countOfBatches;
 
-                batchRequester.request(countOfBatches, sharedStateHolder.getAndSet(null));
+                batchRequester.request(countOfBatches, sharedStateHolder);
+                // shared state should be send only once until next rewind
+                sharedStateHolder = null;
             }
         }
 
