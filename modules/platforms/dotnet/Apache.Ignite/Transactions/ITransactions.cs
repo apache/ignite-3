@@ -29,7 +29,7 @@ namespace Apache.Ignite.Transactions
         /// </summary>
         /// <param name="options">Transaction options.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITransaction> BeginAsync(IgniteTransactionOptions options);
+        Task<ITransaction> BeginAsync(TransactionOptions options);
 
         /// <summary>
         /// Starts a new transaction.

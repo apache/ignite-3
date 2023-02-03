@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Transactions;
     using Ignite.Transactions;
     using NUnit.Framework;
+    using TransactionOptions = Ignite.Transactions.TransactionOptions;
 
     /// <summary>
     /// Tests for <see cref="ITransactions"/> and <see cref="ITransaction"/>.
@@ -190,7 +191,7 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxThrowsOnWrite()
         {
-            await using var tx = await Client.Transactions.BeginAsync(new IgniteTransactionOptions { ReadOnly = true });
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
             var ex = Assert.ThrowsAsync<Tx.TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
 
             Assert.AreEqual(ErrorGroups.Transactions.TxFailedReadWriteOperation, ex!.Code, ex.Message);

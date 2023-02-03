@@ -39,7 +39,7 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc/>
-        public async Task<ITransaction> BeginAsync(IgniteTransactionOptions options)
+        public async Task<ITransaction> BeginAsync(TransactionOptions options)
         {
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(options.ReadOnly);
