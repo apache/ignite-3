@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndScaleDownTriggerKey;
@@ -46,6 +47,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +65,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
@@ -534,7 +535,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             zonesState.putIfAbsent(zoneId, zoneState);
 
-            saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), toBytes(logicalTopology));
+            saveDataNodesAndUpdateTriggerKeysInMetaStorage(zoneId, ctx.storageRevision(), logicalTopology);
 
             return completedFuture(null);
         }
@@ -573,51 +574,63 @@ public class DistributionZoneManager implements IgniteComponent {
 
             int newScaleUp = ctx.newValue().dataNodesAutoAdjustScaleUp();
 
-            int newScaleDown = ctx.newValue().dataNodesAutoAdjustScaleUp();
+            int newScaleDown = ctx.newValue().dataNodesAutoAdjustScaleDown();
 
             // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
             // and this map will me initialized on manager start or with onCreate
             ZoneState zoneState = zonesState.get(zoneId);
 
-            if (oldScaleUp != newScaleUp) {
-                if (newScaleUp != Integer.MAX_VALUE) {
-                    Optional<Map.Entry<Long, Augmentation>> entryWithHighestRevision = zoneState.topologyAugmentationMap().entrySet()
-                            .stream()
-                            .filter(e -> e.getValue().addition)
-                            .max(Map.Entry.comparingByKey());
-
-                    entryWithHighestRevision.ifPresent(entry -> zoneState.rescheduleScaleUp(
-                            newScaleUp,
-                            () -> CompletableFuture.supplyAsync(
-                                    () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, entry.getKey()),
-                                    Runnable::run
-                            )
-                    ));
-                } else {
-                    zoneState.stopScaleUp();
-                }
-            }
-
-            if (oldScaleDown != newScaleDown) {
-                if (newScaleDown != Integer.MAX_VALUE) {
-                    Optional<Map.Entry<Long, Augmentation>> entryWithHighestRevision = zoneState.topologyAugmentationMap().entrySet()
-                            .stream()
-                            .filter(e -> !e.getValue().addition)
-                            .max(Map.Entry.comparingByKey());
-
-                    entryWithHighestRevision.ifPresent(entry -> zoneState.rescheduleScaleDown(
-                            newScaleDown,
-                            () -> CompletableFuture.supplyAsync(
-                                    () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, entry.getKey()),
-                                    Runnable::run
-                            )
-                    ));
-                } else {
-                    zoneState.stopScaleDown();
-                }
-            }
+            scheduleTimersOnCfgUpdate(zoneId, oldScaleUp, oldScaleDown, newScaleUp, newScaleDown, zoneState);
 
             return completedFuture(null);
+        }
+    }
+
+    void scheduleTimersOnCfgUpdate(
+            int zoneId,
+            int oldScaleUp,
+            int oldScaleDown,
+            int newScaleUp,
+            int newScaleDown,
+            ZoneState zoneState
+    ) {
+        if (oldScaleUp != newScaleUp) {
+            if (newScaleUp != Integer.MAX_VALUE) {
+                //Refactor
+                Optional<Map.Entry<Long, Augmentation>> entryWithHighestRevision = zoneState.topologyAugmentationMap().entrySet()
+                        .stream()
+                        .filter(e -> e.getValue().addition)
+                        .max(Map.Entry.comparingByKey());
+
+                entryWithHighestRevision.ifPresent(entry -> zoneState.rescheduleScaleUp(
+                        newScaleUp,
+                        () -> CompletableFuture.supplyAsync(
+                                () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, entry.getKey()),
+                                Runnable::run
+                        )
+                ));
+            } else {
+                zoneState.stopScaleUp();
+            }
+        }
+
+        if (oldScaleDown != newScaleDown) {
+            if (newScaleDown != Integer.MAX_VALUE) {
+                Optional<Map.Entry<Long, Augmentation>> entryWithHighestRevision = zoneState.topologyAugmentationMap().entrySet()
+                        .stream()
+                        .filter(e -> !e.getValue().addition)
+                        .max(Map.Entry.comparingByKey());
+
+                entryWithHighestRevision.ifPresent(entry -> zoneState.rescheduleScaleDown(
+                        newScaleDown,
+                        () -> CompletableFuture.supplyAsync(
+                                () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, entry.getKey()),
+                                Runnable::run
+                        )
+                ));
+            } else {
+                zoneState.stopScaleDown();
+            }
         }
     }
 
@@ -630,7 +643,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param revision Revision of an event that has triggered this method.
      * @param dataNodes Data nodes.
      */
-    private void saveDataNodesAndUpdateTriggerKeysInMetaStorage(int zoneId, long revision, byte[] dataNodes) {
+    private void saveDataNodesAndUpdateTriggerKeysInMetaStorage(int zoneId, long revision, Set<String> dataNodes) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -640,7 +653,7 @@ public class DistributionZoneManager implements IgniteComponent {
             // so we do not react on a stale events
             CompoundCondition triggerKeyCondition = triggerKeyConditionForZonesChanges(revision, zoneId);
 
-            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(zoneId, revision, dataNodes);
+            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(zoneId, revision, toBytes(toDataNodesMap(dataNodes)));
 
             Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
 
@@ -859,7 +872,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                 saveDataNodesAndUpdateTriggerKeysInMetaStorage(
                                         DEFAULT_ZONE_ID,
                                         appliedRevision,
-                                        vaultEntry.value()
+                                        logicalTopology
                                 );
 
                                 zonesConfiguration.distributionZones().value().namedListKeys()
@@ -869,7 +882,7 @@ public class DistributionZoneManager implements IgniteComponent {
                                             saveDataNodesAndUpdateTriggerKeysInMetaStorage(
                                                     zoneId,
                                                     appliedRevision,
-                                                    vaultEntry.value()
+                                                    logicalTopology
                                             );
                                         });
                             }
@@ -1072,7 +1085,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Set<String> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
 
                 long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
 
@@ -1082,15 +1095,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Set<String> deltaToAdd = zoneState.nodesToAddToDataNodes(scaleUpTriggerRevision, scaleDownTriggerRevision, revision);
+                List<String> deltaToAdd = zoneState.nodesToAddToDataNodes(scaleUpTriggerRevision, revision);
 
-//                if (deltaToAdd.isEmpty()) {
-//                    return completedFuture(null);
-//                }
+                Map<String, Integer> newDataNodes = new HashMap<>(dataNodesFromMetaStorage);
 
-                Set<String> newDataNodes = new HashSet<>(dataNodesFromMetaStorage);
-
-                newDataNodes.addAll(deltaToAdd);
+                deltaToAdd.forEach(n -> newDataNodes.merge(n, 1, Integer::sum));
 
                 Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(zoneId, revision, toBytes(newDataNodes));
 
@@ -1160,7 +1169,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Set<String> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
+                Map<String, Integer> dataNodesFromMetaStorage = fromBytes(values.get(zoneDataNodesKey(zoneId)).value());
 
                 long scaleUpTriggerRevision = bytesToLong(values.get(zoneScaleUpChangeTriggerKey(zoneId)).value());
 
@@ -1170,19 +1179,11 @@ public class DistributionZoneManager implements IgniteComponent {
                     return completedFuture(null);
                 }
 
-                Set<String> deltaToRemove = zoneState.nodesToRemoveFromDataNodes(
-                        scaleUpTriggerRevision,
-                        scaleDownTriggerRevision,
-                        revision
-                );
+                List<String> deltaToRemove = zoneState.nodesToRemoveFromDataNodes(scaleDownTriggerRevision, revision);
 
-//                if (deltaToRemove.isEmpty()) {
-//                    return completedFuture(null);
-//                }
+                Map<String, Integer> newDataNodes = new HashMap<>(dataNodesFromMetaStorage);
 
-                Set<String> newDataNodes = new HashSet<>(dataNodesFromMetaStorage);
-
-                newDataNodes.removeAll(deltaToRemove);
+                deltaToRemove.forEach(n -> newDataNodes.merge(n, -1, Integer::sum));
 
                 Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(zoneId, revision, toBytes(newDataNodes));
 
@@ -1298,12 +1299,18 @@ public class DistributionZoneManager implements IgniteComponent {
             stopScaleDown();
         }
 
+        /**
+         * Cancels task for scale up.
+         */
         synchronized void stopScaleUp() {
             if (scaleUpTask != null) {
                 scaleUpTask.cancel(false);
             }
         }
 
+        /**
+         * Cancels task for scale down.
+         */
         synchronized void stopScaleDown() {
             if (scaleDownTask != null) {
                 scaleDownTask.cancel(false);
@@ -1314,49 +1321,38 @@ public class DistributionZoneManager implements IgniteComponent {
          * Returns a set of nodes that should be added to zone's data nodes.
          *
          * @param scaleUpRevision Last revision of the scale up event.
-         * @param scaleDownRevision Last revision of the scale down event.
          * @param revision Revision of the event for which this data nodes is needed.
-         * @return Set of nodes that should be added to zone's data nodes.
+         * @return List of nodes that should be added to zone's data nodes.
          */
-        Set<String> nodesToAddToDataNodes(long scaleUpRevision, long scaleDownRevision, long revision) {
+        List<String> nodesToAddToDataNodes(long scaleUpRevision, long revision) {
             Long toKey = topologyAugmentationMap.floorKey(revision);
 
+            Long fromKey = topologyAugmentationMap.ceilingKey(scaleUpRevision);
+
             if (toKey == null) {
-                return Set.of();
+                return List.of();
             }
 
-            //accumulate(ms.scaleUp, floor(timer.scaleUp)) -
-            // (accumulate(max(ms.scaleUp, ms.scaleDown), max(floor(timerScaleUp), ms.scaleDown)))
-
-            List<String> nodesToAdd = accumulateNodes(scaleUpRevision, toKey, true);
-
-            List<String> nodesToRemove = accumulateNodes(
-                    Math.max(scaleUpRevision, scaleDownRevision),
-                    Math.max(toKey, scaleDownRevision), false
-            );
-
-            nodesToRemove.forEach(nodesToAdd::remove);
-
-            return new HashSet<>(nodesToAdd);
+            return accumulateNodes(fromKey, toKey, true);
         }
 
-        Set<String> nodesToRemoveFromDataNodes(long scaleUpRevision, long scaleDownRevision, long revision) {
+        /**
+         * Returns a set of nodes that should be removed from zone's data nodes.
+         *
+         * @param scaleDownRevision Last revision of the scale down event.
+         * @param revision Revision of the event for which this data nodes is needed.
+         * @return List of nodes that should be removed from zone's data nodes.
+         */
+        List<String> nodesToRemoveFromDataNodes(long scaleDownRevision, long revision) {
             Long toKey = topologyAugmentationMap.floorKey(revision);
 
+            Long fromKey = topologyAugmentationMap.ceilingKey(scaleDownRevision);
+
             if (toKey == null) {
-                return Set.of();
+                return List.of();
             }
 
-            List<String> nodesToRemove = accumulateNodes(scaleDownRevision, toKey, false);
-
-            List<String> nodesToAdd = accumulateNodes(
-                    Math.max(scaleUpRevision, scaleDownRevision),
-                    Math.max(toKey, scaleUpRevision), true
-            );
-
-            nodesToAdd.forEach(nodesToRemove::remove);
-
-            return new HashSet<>(nodesToRemove);
+            return accumulateNodes(fromKey, toKey, false);
         }
 
         /**
@@ -1397,6 +1393,12 @@ public class DistributionZoneManager implements IgniteComponent {
                     .collect(toList());
         }
 
+        /**
+         * Cleans {@code topologyAugmentationMap} to the key, to which is safe to delete.
+         * Safe means that this key was handled both by scale up and scale down schedulers.
+         *
+         * @param toKey Key in map to which is safe to delete data from {@code topologyAugmentationMap}.
+         */
         private void cleanUp(long toKey) {
             long firstKey = topologyAugmentationMap.firstKey();
 
@@ -1407,6 +1409,16 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             topologyAugmentationMap.subMap(firstKey, true, lastKeyToRemove, true).clear();
+        }
+
+        @TestOnly
+        ScheduledFuture<?> scaleUpTask() {
+            return scaleUpTask;
+        }
+
+        @TestOnly
+        ScheduledFuture<?> scaleDownTask() {
+            return scaleDownTask;
         }
     }
 

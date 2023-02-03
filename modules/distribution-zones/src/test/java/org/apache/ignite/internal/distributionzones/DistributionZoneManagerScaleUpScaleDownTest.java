@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
@@ -78,7 +78,6 @@ import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -351,7 +350,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        mockCmgLocalNodes(1L, clusterNodes);
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
@@ -363,12 +362,10 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         Set<ClusterNode> clusterNodes2 = Set.of(node1, node2);
 
-        mockCmgLocalNodes(1L, clusterNodes2);
-
         assertLogicalTopology(clusterNodes2);
 
         distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(1).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
         ).get();
 
         assertDataNodesForZone(1, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
@@ -394,7 +391,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        mockCmgLocalNodes(2L, clusterNodes);
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
@@ -403,8 +400,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
         topology.removeNodes(Set.of(node2));
 
         Set<ClusterNode> clusterNodes2 = Set.of(node1);
-
-        mockCmgLocalNodes(3L, clusterNodes2);
 
         assertLogicalTopology(clusterNodes2);
 
@@ -431,7 +426,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        mockCmgLocalNodes(1L, clusterNodes);
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
@@ -442,8 +437,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
         topology.putNode(node2);
 
         Set<ClusterNode> clusterNodes2 = Set.of(node1, node2);
-
-        mockCmgLocalNodes(1L, clusterNodes2);
 
         assertLogicalTopology(clusterNodes2);
 
@@ -471,7 +464,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        mockCmgLocalNodes(2L, clusterNodes);
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
@@ -480,8 +473,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
         topology.removeNodes(Set.of(node2));
 
         Set<ClusterNode> clusterNodes2 = Set.of(node1);
-
-        mockCmgLocalNodes(3L, clusterNodes2);
 
         assertLogicalTopology(clusterNodes2);
 
@@ -505,7 +496,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        mockCmgLocalNodes(1L, clusterNodes);
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
@@ -514,8 +505,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
         topology.putNode(node2);
 
         Set<ClusterNode> clusterNodes2 = Set.of(node1, node2);
-
-        mockCmgLocalNodes(1L, clusterNodes2);
 
         assertLogicalTopology(clusterNodes2);
 
@@ -548,15 +537,13 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        mockCmgLocalNodes(2L, clusterNodes);
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
         topology.removeNodes(Set.of(node2));
 
         Set<ClusterNode> clusterNodes2 = Set.of(node1);
-
-        mockCmgLocalNodes(3L, clusterNodes2);
 
         assertLogicalTopology(clusterNodes2);
 
@@ -914,7 +901,222 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test1_1() throws Exception {
+    void testEmptyDataNodesOnStart() throws Exception {
+        mockVaultZonesLogicalTopologyKey(Set.of());
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        assertLogicalTopology(Set.of());
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of());
+
+        assertZoneScaleDownChangeTriggerKey(1, 1);
+
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        assertLogicalTopology(Set.of(node1));
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+
+        assertDataNodesForZone(1, Set.of(node1.name()));
+    }
+
+    @Test
+    void testUpdateZoneScaleUpTriggersDataNodePropagation() throws Exception {
+        mockVaultZonesLogicalTopologyKey(Set.of());
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        assertLogicalTopology(Set.of());
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(100).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of());
+
+        assertZoneScaleDownChangeTriggerKey(1, 1);
+
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        assertLogicalTopology(Set.of(node1));
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+
+        assertDataNodesForZone(1, Set.of());
+
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of(node1.name()));
+    }
+
+    @Test
+    void testUpdateZoneScaleDownTriggersDataNodePropagation() throws Exception {
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        mockVaultZonesLogicalTopologyKey(Set.of(node1.name()));
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        assertLogicalTopology(Set.of(node1));
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(100).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of(node1.name()));
+
+        assertZoneScaleDownChangeTriggerKey(1, 1);
+
+        topology.removeNodes(Set.of(node1));
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+
+        assertDataNodesForZone(1, Set.of(node1.name()));
+
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of());
+    }
+
+    @Test
+    void testCleanUpAfterSchedulers() throws Exception {
+        preparePrerequisites();
+
+        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
+
+        zoneState.addNodesToDataNodes(Set.of("D"), 3);
+        zoneState.addNodesToDataNodes(Set.of("E"), 4);
+        zoneState.removeNodesFromDataNodes(Set.of("C"), 7);
+
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
+
+        assertTrue(zoneState.topologyAugmentationMap().containsKey(3L));
+        assertTrue(zoneState.topologyAugmentationMap().containsKey(4L));
+        assertTrue(zoneState.topologyAugmentationMap().containsKey(7L));
+
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 4);
+
+        assertTrue(zoneState.topologyAugmentationMap().containsKey(3L));
+        assertTrue(zoneState.topologyAugmentationMap().containsKey(4L));
+        assertTrue(zoneState.topologyAugmentationMap().containsKey(7L));
+
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
+
+        assertFalse(zoneState.topologyAugmentationMap().containsKey(3L));
+        assertFalse(zoneState.topologyAugmentationMap().containsKey(4L));
+        assertTrue(zoneState.topologyAugmentationMap().containsKey(7L));
+
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 15);
+
+        assertTrue(zoneState.topologyAugmentationMap().isEmpty());
+        assertDataNodesForZone(1, Set.of("A", "B", "D", "E"));
+    }
+
+    @Test
+    void testScaleUpSetToMaxInt() throws Exception {
+        mockVaultZonesLogicalTopologyKey(Set.of());
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        assertLogicalTopology(Set.of());
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(100).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of());
+
+        assertZoneScaleDownChangeTriggerKey(1, 1);
+
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        assertLogicalTopology(Set.of(node1));
+
+        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
+
+        assertNull(zoneState.scaleUpTask());
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+
+        assertTrue(waitForCondition(() -> zoneState.scaleUpTask() != null, 1000L));
+
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).build()
+        ).get();
+
+        assertTrue(waitForCondition(() -> zoneState.scaleUpTask().isCancelled(), 1000L));
+    }
+
+    @Test
+    void testScaleDownSetToMaxInt() throws Exception {
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        mockVaultZonesLogicalTopologyKey(Set.of(node1.name()));
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        assertLogicalTopology(Set.of(node1));
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(100).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of(node1.name()));
+
+        assertZoneScaleDownChangeTriggerKey(1, 1);
+
+        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
+
+        assertNull(zoneState.scaleDownTask());
+
+        topology.removeNodes(Set.of(node1));
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+
+        assertTrue(waitForCondition(() -> zoneState.scaleDownTask() != null, 1000L));
+
+        distributionZoneManager.alterZone(
+                ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build()
+        ).get();
+
+        assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isCancelled(), 1000L));
+    }
+
+    @Test
+    void testVariousScaleUpScaleDownScenarios1_1() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -929,7 +1131,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test1_2() throws Exception {
+    void testVariousScaleUpScaleDownScenarios1_2() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -944,7 +1146,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test1_3() throws Exception {
+    void testVariousScaleUpScaleDownScenarios1_3() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -959,7 +1161,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test1_4() throws Exception {
+    void testVariousScaleUpScaleDownScenarios1_4() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -974,7 +1176,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test2_1() throws Exception {
+    void testVariousScaleUpScaleDownScenarios2_1() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -990,7 +1192,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test2_2() throws Exception {
+    void testVariousScaleUpScaleDownScenarios2_2() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1005,7 +1207,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test2_3() throws Exception {
+    void testVariousScaleUpScaleDownScenarios2_3() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1020,7 +1222,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test2_4() throws Exception {
+    void testVariousScaleUpScaleDownScenarios2_4() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1035,7 +1237,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test3_1() throws Exception {
+    void testVariousScaleUpScaleDownScenarios3_1() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1051,7 +1253,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test3_2() throws Exception {
+    void testVariousScaleUpScaleDownScenarios3_2() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1067,7 +1269,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test3_3() throws Exception {
+    void testVariousScaleUpScaleDownScenarios3_3() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1085,7 +1287,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test3_4() throws Exception {
+    void testVariousScaleUpScaleDownScenarios3_4() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1101,7 +1303,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test3_5() throws Exception {
+    void testVariousScaleUpScaleDownScenarios3_5() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1117,7 +1319,23 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test4_1() throws Exception {
+    void testVariousScaleUpScaleDownScenarios3_6() throws Exception {
+        preparePrerequisites();
+
+        ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
+
+        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
+        zoneState.addNodesToDataNodes(Set.of("C"), 7);
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
+
+        zoneState.removeNodesFromDataNodes(Set.of("C"), 9);
+        distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
+
+        assertDataNodesForZone(1, Set.of("A", "B"));
+    }
+
+    @Test
+    void testVariousScaleUpScaleDownScenarios4_1() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1134,7 +1352,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test4_2() throws Exception {
+    void testVariousScaleUpScaleDownScenarios4_2() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1150,7 +1368,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test4_3() throws Exception {
+    void testVariousScaleUpScaleDownScenarios4_3() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1166,7 +1384,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test4_4() throws Exception {
+    void testVariousScaleUpScaleDownScenarios4_4() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1182,7 +1400,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test4_5() throws Exception {
+    void testVariousScaleUpScaleDownScenarios4_5() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1198,7 +1416,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test4_6() throws Exception {
+    void testVariousScaleUpScaleDownScenarios4_6() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1214,7 +1432,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test5_1() throws Exception {
+    void testVariousScaleUpScaleDownScenarios5_1() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1230,7 +1448,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test5_2() throws Exception {
+    void testVariousScaleUpScaleDownScenarios5_2() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1246,7 +1464,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test5_3() throws Exception {
+    void testVariousScaleUpScaleDownScenarios5_3() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1262,7 +1480,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test5_4() throws Exception {
+    void testVariousScaleUpScaleDownScenarios5_4() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1278,7 +1496,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test5_5() throws Exception {
+    void testVariousScaleUpScaleDownScenarios5_5() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1294,7 +1512,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
     }
 
     @Test
-    void test5_6() throws Exception {
+    void testVariousScaleUpScaleDownScenarios5_6() throws Exception {
         preparePrerequisites();
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
@@ -1307,23 +1525,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
         assertDataNodesForZone(1, Set.of("A", "B"));
-    }
-
-    @Test
-    void test() throws Exception {
-        KeyValueStorage storage = new SimpleInMemoryKeyValueStorage("test");
-
-        Node node1 = new Node(storage);
-
-        Node node2 = new Node(storage);
-
-        node1.start();
-
-        node2.start();
-
-        node1.preparePrerequisites();
-
-        node2.preparePrerequisites();
     }
 
     /**
@@ -1344,7 +1545,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
 
-        mockCmgLocalNodes(3L, clusterNodes);
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
@@ -1378,7 +1579,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
                         return clusterNodes == null;
                     }
 
-                    Set<String> res = ByteUtils.fromBytes(dataNodes);
+                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes));
 
                     return res.equals(clusterNodes);
                 },
@@ -1395,7 +1596,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
                         return clusterNodes == null;
                     }
 
-                    Set<String> res = ByteUtils.fromBytes(dataNodes);
+                    Set<String> res = DistributionZonesUtil.dataNodes(ByteUtils.fromBytes(dataNodes));
 
                     return res.equals(clusterNodes);
                 },
@@ -1445,12 +1646,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
         watchListener.onUpdate(evt);
     }
 
-    private LogicalTopologySnapshot mockCmgLocalNodes(long version, Set<ClusterNode> clusterNodes) {
-        LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(version, clusterNodes);
-
-        when(cmgManager.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
-
-        return logicalTopologySnapshot;
+    private void mockCmgLocalNodes() {
+        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
     }
 
     private void assertLogicalTopology(@Nullable Set<ClusterNode> clusterNodes) throws InterruptedException {
@@ -1466,271 +1663,5 @@ public class DistributionZoneManagerScaleUpScaleDownTest {
 
         when(vaultMgr.get(zonesLogicalTopologyKey()))
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), newLogicalTopology)));
-    }
-
-    class Node {
-        private DistributionZoneManager distributionZoneManager;
-
-        private KeyValueStorage keyValueStorage;
-
-        private ConfigurationManager clusterCfgMgr;
-
-        @Mock
-        private LogicalTopologyServiceImpl logicalTopologyService;
-
-        private LogicalTopology topology;
-
-        private ClusterStateStorage clusterStateStorage;
-
-        private VaultManager vaultMgr;
-
-        private MetaStorageManager metaStorageManager;
-
-        private WatchListener watchListener;
-
-        private DistributionZonesConfiguration zonesConfiguration;
-
-        @Mock
-        private ClusterManagementGroupManager cmgManager;
-
-        Node(KeyValueStorage storage) {
-            clusterCfgMgr = new ConfigurationManager(
-                    List.of(DistributionZonesConfiguration.KEY),
-                    Set.of(),
-                    new TestConfigurationStorage(DISTRIBUTED),
-                    List.of(),
-                    List.of()
-            );
-
-            zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                    .getConfiguration(DistributionZonesConfiguration.KEY);
-
-            metaStorageManager = mock(MetaStorageManager.class);
-
-            cmgManager = mock(ClusterManagementGroupManager.class);
-
-            clusterStateStorage = new TestClusterStateStorage();
-
-            topology = new LogicalTopologyImpl(clusterStateStorage);
-
-            LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(topology, cmgManager);
-
-            vaultMgr = mock(VaultManager.class);
-
-            TablesConfiguration tablesConfiguration = mock(TablesConfiguration.class);
-
-            NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
-
-            when(tablesConfiguration.tables()).thenReturn(tables);
-
-            NamedListView<TableView> value = mock(NamedListView.class);
-
-            when(tables.value()).thenReturn(value);
-
-            when(value.namedListKeys()).thenReturn(new ArrayList<>());
-
-            distributionZoneManager = new DistributionZoneManager(
-                    zonesConfiguration,
-                    tablesConfiguration,
-                    metaStorageManager,
-                    logicalTopologyService,
-                    vaultMgr,
-                    "node"
-            );
-
-            clusterCfgMgr.start();
-
-            mockVaultAppliedRevision(1);
-
-            when(vaultMgr.get(zonesLogicalTopologyKey())).thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
-            when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
-
-            doAnswer(invocation -> {
-                watchListener = invocation.getArgument(1);
-
-                return null;
-            }).when(metaStorageManager).registerExactWatch(any(), any());
-
-            AtomicLong raftIndex = new AtomicLong();
-
-            keyValueStorage = spy(storage);
-
-            MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
-
-            RaftGroupService metaStorageService = mock(RaftGroupService.class);
-
-            // Delegate directly to listener.
-            lenient().doAnswer(
-                    invocationClose -> {
-                        Command cmd = invocationClose.getArgument(0);
-
-                        long commandIndex = raftIndex.incrementAndGet();
-
-                        CompletableFuture<Serializable> res = new CompletableFuture<>();
-
-                        CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                            /** {@inheritDoc} */
-                            @Override
-                            public long index() {
-                                return commandIndex;
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
-                            public WriteCommand command() {
-                                return (WriteCommand) cmd;
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
-                            public void result(@Nullable Serializable r) {
-                                if (r instanceof Throwable) {
-                                    res.completeExceptionally((Throwable) r);
-                                } else {
-                                    res.complete(r);
-                                }
-                            }
-                        };
-
-                        try {
-                            metaStorageListener.onWrite(List.of(clo).iterator());
-                        } catch (Throwable e) {
-                            res.completeExceptionally(new IgniteInternalException(e));
-                        }
-
-                        return res;
-                    }
-            ).when(metaStorageService).run(any(WriteCommand.class));
-
-            lenient().doAnswer(
-                    invocationClose -> {
-                        Command cmd = invocationClose.getArgument(0);
-
-                        long commandIndex = raftIndex.incrementAndGet();
-
-                        CompletableFuture<Serializable> res = new CompletableFuture<>();
-
-                        CommandClosure<ReadCommand> clo = new CommandClosure<>() {
-                            /** {@inheritDoc} */
-                            @Override
-                            public long index() {
-                                return commandIndex;
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
-                            public ReadCommand command() {
-                                return (ReadCommand) cmd;
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
-                            public void result(@Nullable Serializable r) {
-                                if (r instanceof Throwable) {
-                                    res.completeExceptionally((Throwable) r);
-                                } else {
-                                    res.complete(r);
-                                }
-                            }
-                        };
-
-                        try {
-                            metaStorageListener.onRead(List.of(clo).iterator());
-                        } catch (Throwable e) {
-                            res.completeExceptionally(new IgniteInternalException(e));
-                        }
-
-                        return res;
-                    }
-            ).when(metaStorageService).run(any(ReadCommand.class));
-
-            MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
-
-            lenient().doAnswer(invocationClose -> {
-                Iif iif = invocationClose.getArgument(0);
-
-                MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
-
-                return metaStorageService.run(multiInvokeCommand);
-            }).when(metaStorageManager).invoke(any());
-
-            lenient().doAnswer(invocationClose -> {
-                Set<ByteArray> keysSet = invocationClose.getArgument(0);
-
-                GetAllCommand getAllCommand = commandsFactory.getAllCommand().keys(
-                        keysSet.stream().map(ByteArray::bytes).collect(Collectors.toList())
-                ).revision(0).build();
-
-                return metaStorageService.run(getAllCommand).thenApply(bi -> {
-                    MultipleEntryResponse resp = (MultipleEntryResponse) bi;
-
-                    Map<ByteArray, Entry> res = new HashMap<>();
-
-                    for (SingleEntryResponse e : resp.entries()) {
-                        ByteArray key = new ByteArray(e.key());
-
-                        res.put(key, new EntryImpl(key.bytes(), e.value(), e.revision(), e.updateCounter()));
-                    }
-
-                    return res;
-                });
-            }).when(metaStorageManager).getAll(any());
-
-            lenient().doAnswer(invocationClose -> {
-                ByteArray key = invocationClose.getArgument(0);
-
-                GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
-
-                return metaStorageService.run(getCommand).thenApply(bi -> {
-                    SingleEntryResponse resp = (SingleEntryResponse) bi;
-
-                    return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
-                });
-            }).when(metaStorageManager).get(any());
-        }
-
-        public void start() {
-            distributionZoneManager.start();
-        }
-
-        void stop() throws Exception {
-            distributionZoneManager.stop();
-
-            clusterCfgMgr.stop();
-
-            keyValueStorage.close();
-
-            clusterStateStorage.destroy();
-        }
-
-        private void preparePrerequisites() throws Exception {
-            ClusterNode node1 = new ClusterNode("1", "A", new NetworkAddress("localhost", 123));
-            ClusterNode node2 = new ClusterNode("2", "B", new NetworkAddress("localhost", 123));
-            ClusterNode node3 = new ClusterNode("3", "C", new NetworkAddress("localhost", 123));
-
-            topology.putNode(node1);
-            topology.putNode(node2);
-            topology.putNode(node3);
-
-            Set<ClusterNode> clusterNodes = Set.of(node1, node2, node3);
-
-            mockVaultZonesLogicalTopologyKey(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
-
-            mockCmgLocalNodes(3L, clusterNodes);
-
-            distributionZoneManager.start();
-
-            distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                            .dataNodesAutoAdjustScaleUp(0)
-                            .dataNodesAutoAdjustScaleDown(0)
-                            .build()
-            ).get();
-
-            assertDataNodesForZone(1, clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
-
-            assertZoneScaleUpChangeTriggerKey(1, 1);
-            assertZoneScaleDownChangeTriggerKey(1, 1);
-        }
     }
 }

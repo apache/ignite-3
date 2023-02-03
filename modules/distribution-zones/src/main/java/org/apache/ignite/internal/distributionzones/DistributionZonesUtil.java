@@ -25,7 +25,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -206,5 +210,17 @@ class DistributionZonesUtil {
                 put(zonesLogicalTopologyVersionKey(), ByteUtils.longToBytes(topologyVersion)),
                 put(zonesLogicalTopologyKey(), ByteUtils.toBytes(logicalTopology))
         ).yield(true);
+    }
+
+    static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Entry::getKey).collect(Collectors.toSet());
+    }
+
+    static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
+        Map<String, Integer> dataNodesMap = new HashMap<>();
+
+        dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
+
+        return dataNodesMap;
     }
 }
