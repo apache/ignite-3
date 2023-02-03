@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -32,6 +31,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -270,6 +270,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
 
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors"));
+            assertEquals(ErrorGroups.Client.CONNECTION_ERR, ex.code());
         }
     }
 
@@ -282,7 +283,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         var ex = assertThrows(TransactionException.class, () -> kvView.put(tx, 1, "2"));
 
         assertThat(ex.getMessage(), containsString("Failed to enlist read-write operation into read-only transaction"));
-        assertEquals(TX_FAILED_READ_WRITE_OPERATION_ERR, ex.code());
+        assertEquals(ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, ex.code());
     }
 
     private KeyValueView<Integer, String> kvView() {
