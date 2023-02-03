@@ -21,7 +21,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
@@ -311,8 +314,10 @@ public class IncomingSnapshotCopierTest {
 
         UUID tableId = UUID.randomUUID();
 
-        for (UUID txId : txIds) {
-            storage.put(txId, new TxMeta(COMMITED, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
+        for (int i = 0; i < txIds.size(); i++) {
+            TxState txState = i % 2 == 0 ? COMMITED : ABORTED;
+
+            storage.put(txIds.get(i), new TxMeta(txState, List.of(new TablePartitionId(tableId, TEST_PARTITION)), HYBRID_CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -553,7 +558,7 @@ public class IncomingSnapshotCopierTest {
         );
 
         // Let's wait for an error on rebalancing.
-        assertThat(runAsync(snapshotCopier::join), willCompleteSuccessfully());
+        assertThat(runAsync(snapshotCopier::join), willFailFast(IllegalStateException.class));
 
         verify(partitionSnapshotStorage.partition()).abortRebalance();
     }
