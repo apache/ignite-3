@@ -42,6 +42,8 @@ namespace Apache.Ignite.Internal.Transactions
         public async Task<ITransaction> BeginAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
+
+            // TODO: IGNITE-18696
             writer.MessageWriter.Write(false); // Read-only.
 
             // Transaction and all corresponding operations must be performed using the same connection.
