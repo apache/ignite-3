@@ -1,4 +1,4 @@
- /*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,26 +15,13 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Transactions
-{
-    using System.Threading.Tasks;
+namespace Apache.Ignite.Transactions;
 
-    /// <summary>
-    /// Ignite transactions API.
-    /// </summary>
-    public interface ITransactions
-    {
-        /// <summary>
-        /// Starts a new transaction.
-        /// </summary>
-        /// <param name="options">Transaction options.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITransaction> BeginAsync(IgniteTransactionOptions options);
-
-        /// <summary>
-        /// Starts a new transaction.
-        /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITransaction> BeginAsync() => BeginAsync(default);
-    }
-}
+/// <summary>
+/// Ignite transaction options.
+/// </summary>
+/// <param name="ReadOnly">
+/// Whether to start a read-only transaction.
+/// Read-only transactions are lock-free and perform better, but do not permit data modifications.
+/// </param>
+public readonly record struct IgniteTransactionOptions(bool ReadOnly);

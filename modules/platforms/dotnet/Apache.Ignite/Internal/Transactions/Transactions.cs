@@ -39,12 +39,10 @@ namespace Apache.Ignite.Internal.Transactions
         }
 
         /// <inheritdoc/>
-        public async Task<ITransaction> BeginAsync()
+        public async Task<ITransaction> BeginAsync(IgniteTransactionOptions options)
         {
             using var writer = ProtoCommon.GetMessageWriter();
-
-            // TODO: IGNITE-18696
-            writer.MessageWriter.Write(false); // Read-only.
+            writer.MessageWriter.Write(options.ReadOnly);
 
             // Transaction and all corresponding operations must be performed using the same connection.
             var (resBuf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.TxBegin, request: writer).ConfigureAwait(false);
