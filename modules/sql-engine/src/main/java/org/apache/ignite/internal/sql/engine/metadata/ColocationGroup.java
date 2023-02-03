@@ -194,8 +194,12 @@ public class ColocationGroup implements Serializable {
         return new ColocationGroup(sourceIds, nodeNames, assignments);
     }
 
-    private List<NodeWithTerm> intersect(List<NodeWithTerm> assignment0, List<NodeWithTerm> assignment1, Predicate<String> filter, int p)
-            throws ColocationMappingException {
+    private List<NodeWithTerm> intersect(
+            List<NodeWithTerm> assignment0, 
+            List<NodeWithTerm> assignment1,
+            Predicate<String> filter, 
+            int p
+    ) throws ColocationMappingException {
         if (assignment0.size() == 1 && assignment1.size() == 1) {
             NodeWithTerm first = assignment0.get(0);
             NodeWithTerm second = assignment1.get(0);
