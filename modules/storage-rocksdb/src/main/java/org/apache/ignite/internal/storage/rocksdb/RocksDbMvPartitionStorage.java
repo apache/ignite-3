@@ -1126,6 +1126,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
             WriteBatchWithIndex batch = requireWriteBatch();
 
             try (
@@ -1140,57 +1142,58 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     return null;
                 }
 
-                ByteBuffer gcKey = allocateDirect(GC_KEY_SIZE);
-                ByteBuffer dataKey = MV_KEY_BUFFER.get();
+                ByteBuffer gcKeyBuffer = allocateDirect(GC_KEY_SIZE);
+                ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
 
-                gcKey.clear();
-                gcIt.key(gcKey);
+                gcKeyBuffer.clear();
+                gcIt.key(gcKeyBuffer);
 
-                HybridTimestamp timestamp = readTimestampNatural(gcKey, GC_KEY_TS_OFFSET);
+                HybridTimestamp gcElementTimestamp = readTimestampNatural(gcKeyBuffer, GC_KEY_TS_OFFSET);
 
-                if (timestamp.compareTo(lowWatermark) > 0) {
+                if (gcElementTimestamp.compareTo(lowWatermark) > 0) {
                     // No elements to garbage collect.
                     return null;
                 }
 
-                RowId readRowId = getRowId(gcKey, GC_KEY_ROW_ID_OFFSET);
+                RowId readRowId = getRowId(gcKeyBuffer, GC_KEY_ROW_ID_OFFSET);
 
                 try (
                         var upperBound = new Slice(partitionEndPrefix());
                         ReadOptions opts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
                         RocksIterator it = db.newIterator(cf, opts);
                 ) {
-                    dataKey.clear();
+                    dataKeyBuffer.clear();
 
-                    dataKey.putShort((short) partitionId);
-                    putRowId(dataKey, readRowId);
-                    putTimestampDesc(dataKey, timestamp);
-                    dataKey.flip();
+                    dataKeyBuffer.putShort((short) partitionId);
+                    putRowId(dataKeyBuffer, readRowId);
+                    putTimestampDesc(dataKeyBuffer, gcElementTimestamp);
+                    dataKeyBuffer.flip();
 
-                    it.seek(dataKey);
+                    it.seek(dataKeyBuffer);
 
                     boolean noRowForGcElement = false;
+
                     if (invalid(it)) {
                         // There is no row for the GC queue element.
                         noRowForGcElement = true;
                     } else {
-                        dataKey.clear();
+                        dataKeyBuffer.clear();
 
-                        it.key(dataKey);
+                        it.key(dataKeyBuffer);
 
-                        if (!getRowId(dataKey).equals(readRowId)) {
+                        if (!getRowId(dataKeyBuffer).equals(readRowId)) {
                             // There is no row for the GC queue element.
                             noRowForGcElement = true;
                         }
                     }
 
                     if (noRowForGcElement) {
-                        gcKey.rewind();
+                        gcKeyBuffer.rewind();
 
                         try {
-                            batch.delete(gc, gcKey);
+                            batch.delete(gc, gcKeyBuffer);
                         } catch (RocksDBException e) {
-                            throw new StorageException("Failed to collect garbage", e);
+                            throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
                         }
 
                         return null;
@@ -1198,16 +1201,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     // Check if the new element, whose insertion scheduled the GC, was a tombstone.
                     int len = it.value(EMPTY_DIRECT_BUFFER);
+
                     if (len == 0) {
                         // This is a tombstone, we need to delete it.
                         try {
-                            batch.delete(cf, dataKey);
+                            batch.delete(cf, dataKeyBuffer);
                         } catch (RocksDBException e) {
-                            throw new StorageException("Failed to collect garbage", e);
+                            throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
                         }
                     }
 
-                    // Let's move to the element that was schedule for GC.
+                    // Let's move to the element that was scheduled for GC.
                     it.next();
 
                     RowId gcRowId = null;
@@ -1215,15 +1219,15 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     if (invalid(it)) {
                         noRowForGcElement = true;
                     } else {
-                        dataKey.clear();
+                        dataKeyBuffer.clear();
 
-                        int keyLen = it.key(dataKey);
+                        int keyLen = it.key(dataKeyBuffer);
 
                         if (keyLen != MAX_KEY_SIZE) {
                             // We moved to the next row id's write-intent, so there was no row to GC for the current row id.
                             noRowForGcElement = true;
                         } else {
-                            gcRowId = getRowId(dataKey);
+                            gcRowId = getRowId(dataKeyBuffer);
 
                             if (!readRowId.equals(gcRowId)) {
                                 // We moved to the next row id, so there was no row to GC for the current row id.
@@ -1233,13 +1237,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     }
 
                     if (noRowForGcElement) {
-                        gcKey.rewind();
+                        gcKeyBuffer.rewind();
 
                         try {
-                            batch.delete(gc, gcKey);
+                            batch.delete(gc, gcKeyBuffer);
                             db.write(writeOpts, batch);
                         } catch (RocksDBException e) {
-                            throw new StorageException("Failed to collect garbage", e);
+                            throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
                         }
 
                         return null;
@@ -1253,11 +1257,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     TableRowAndRowId retVal = new TableRowAndRowId(row, gcRowId);
 
                     try {
-                        batch.delete(cf, dataKey);
-                        batch.delete(gc, gcKey);
+                        batch.delete(cf, dataKeyBuffer);
+                        batch.delete(gc, gcKeyBuffer);
                         db.write(writeOpts, batch);
                     } catch (RocksDBException e) {
-                        throw new StorageException("Failed to collect garbage", e);
+                        throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
                     }
 
                     return retVal;
@@ -1816,6 +1820,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.delete(meta, partitionIdKey(partitionId));
         writeBatch.deleteRange(cf, partitionStartPrefix(), partitionEndPrefix());
+        writeBatch.deleteRange(gc, partitionStartPrefix(), partitionEndPrefix());
     }
 
     private void saveLastApplied(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm) throws RocksDBException {

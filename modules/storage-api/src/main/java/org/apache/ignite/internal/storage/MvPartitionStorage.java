@@ -227,7 +227,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      *      {@code null} if there's no such value.
      * @throws StorageException If failed to poll element for vacuum.
      */
-    default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) throws StorageException {
+    default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         throw new UnsupportedOperationException("pollForVacuum");
     }
 
