@@ -1,7 +1,6 @@
 # name: test/sql/function/timestamp/test_extract_ms.test
 # description: Extract milliseconds from timestamp
 # group: [timestamp]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-17271
 
 statement ok
 CREATE TABLE timestamps(id INTEGER, i TIMESTAMP);
