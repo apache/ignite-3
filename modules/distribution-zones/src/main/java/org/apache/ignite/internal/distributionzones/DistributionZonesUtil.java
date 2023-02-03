@@ -243,7 +243,7 @@ public class DistributionZonesUtil {
         return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Entry::getKey).collect(Collectors.toSet());
     }
 
-    static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
+    public static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
         Map<String, Integer> dataNodesMap = new HashMap<>();
 
         dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
