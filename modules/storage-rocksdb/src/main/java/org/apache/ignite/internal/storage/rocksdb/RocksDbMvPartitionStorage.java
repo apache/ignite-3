@@ -57,6 +57,7 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TableRowAndRowId;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -113,14 +114,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Size of the key without timestamp. */
     private static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
 
+    /** Commit partition id size. */
+    private static final int PARTITION_ID_SIZE = Short.BYTES;
+
     /** Transaction id size (part of the transaction state). */
     private static final int TX_ID_SIZE = 2 * Long.BYTES;
 
     /** Commit table id size (part of the transaction state). */
     private static final int TABLE_ID_SIZE = 2 * Long.BYTES;
-
-    /** Commit partition id size (part of the transaction state). */
-    private static final int PARTITION_ID_SIZE = Short.BYTES;
 
     /** Size of the value header (transaction state). */
     private static final int VALUE_HEADER_SIZE = TX_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;
@@ -141,7 +142,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
 
     /** Garbage collector's queue key's timestamp offset. */
-    private static final int GC_KEY_TS_OFFSET = Short.BYTES;
+    private static final int GC_KEY_TS_OFFSET = PARTITION_ID_SIZE;
 
     /** Garbage collector's queue key's row id offset. */
     private static final int GC_KEY_ROW_ID_OFFSET = GC_KEY_TS_OFFSET + HYBRID_TIMESTAMP_SIZE;
@@ -506,7 +507,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     writeUnversioned(keyBufArray, row, txId, commitTableId, commitPartitionId);
                 }
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to update a row in storage", e);
+                throw new StorageException("Failed to update a row in storage: " + createStorageInfo(), e);
             }
 
             return res;
@@ -594,11 +595,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 boolean isNewValueTombstone = valueBytes.length == VALUE_HEADER_SIZE;
 
+                // Both this and previous values for the row id are tombstones.
                 boolean newAndPrevTombstones = maybeAddToGcQueue(writeBatch, rowId, timestamp, isNewValueTombstone);
 
                 // Delete pending write.
                 writeBatch.delete(cf, uncommittedKeyBytes);
 
+                // We only write tombstone if the previous value for the same row id was not a tombstone.
+                // So there won't be consecutive tombstones for the same row id.
                 if (!newAndPrevTombstones) {
                     // Add timestamp to the key, and put the value back into the storage.
                     putTimestampDesc(keyBuf, timestamp);
@@ -624,20 +628,22 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             boolean isNewValueTombstone = row == null;
 
             //TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
-            byte[] rowBytes = row != null ? rowBytes(row) : new byte[0];
+            byte[] rowBytes = row != null ? rowBytes(row) : ArrayUtils.BYTE_EMPTY_ARRAY;
 
-            boolean newAndPrevTombstones;
+            boolean newAndPrevTombstones; // Both this and previous values for the row id are tombstones.
             try {
                 newAndPrevTombstones = maybeAddToGcQueue(writeBatch, rowId, commitTimestamp, isNewValueTombstone);
             } catch (RocksDBException e) {
-                throw new StorageException("Failed to add row to the GC queue", e);
+                throw new StorageException("Failed to add row to the GC queue: " + createStorageInfo(), e);
             }
 
+            // We only write tombstone if the previous value for the same row id was not a tombstone.
+            // So there won't be consecutive tombstones for the same row id.
             if (!newAndPrevTombstones) {
                 try {
                     writeBatch.put(cf, copyOf(keyBuf.array(), MAX_KEY_SIZE), rowBytes);
                 } catch (RocksDBException e) {
-                    throw new StorageException("Failed to update a row in storage", e);
+                    throw new StorageException("Failed to update a row in storage: " + createStorageInfo(), e);
                 }
             }
 

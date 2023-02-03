@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -62,11 +61,11 @@ public abstract class BaseMvStoragesTest {
 
     /** Schema descriptor for tests. */
     protected static final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1, new Column[]{
-            new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-            new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
+            new Column("INTKEY", NativeTypes.INT32, false),
+            new Column("STRKEY", NativeTypes.STRING, false),
     }, new Column[]{
-            new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-            new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
+            new Column("INTVAL", NativeTypes.INT32, false),
+            new Column("STRVAL", NativeTypes.STRING, false),
     });
 
     /** Key-value marshaller for tests. */
