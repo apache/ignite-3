@@ -416,12 +416,6 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
-        // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.
-        try {
-            storage.close();
-        } catch (RuntimeException e) {
-            throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
-        }
     }
 
     /**

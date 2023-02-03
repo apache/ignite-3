@@ -61,8 +61,9 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteColocatedSortAggregate(RelInput input) {
         super(input);

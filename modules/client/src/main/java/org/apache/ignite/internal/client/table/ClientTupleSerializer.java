@@ -456,12 +456,19 @@ public class ClientTupleSerializer {
         return tx != null ? null : schema -> getColocationHash(schema, mapper, rec);
     }
 
-    private static Integer getColocationHash(ClientSchema schema, Tuple rec) {
+    /**
+     * Gets colocation hash for the specified tuple.
+     *
+     * @param schema Schema.
+     * @param rec Tuple.
+     * @return Colocation hash.
+     */
+    public static Integer getColocationHash(ClientSchema schema, Tuple rec) {
         var hashCalc = new HashCalculator();
 
         for (ClientColumn col : schema.colocationColumns()) {
             Object value = rec.valueOrDefault(col.name(), null);
-            hashCalc.append(value, col.scale());
+            hashCalc.append(value, col.scale(), col.precision());
         }
 
         return hashCalc.hash();
@@ -474,7 +481,7 @@ public class ClientTupleSerializer {
 
         for (ClientColumn col : schema.colocationColumns()) {
             Object value = marsh.value(rec, col.schemaIndex());
-            hashCalc.append(value, col.scale());
+            hashCalc.append(value, col.scale(), col.precision());
         }
 
         return hashCalc.hash();

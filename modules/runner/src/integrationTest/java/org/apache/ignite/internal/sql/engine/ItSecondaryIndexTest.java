@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.Matchers.not;
 
+import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -42,6 +44,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     private static final String NAME_DEPID_CITY_IDX = "NAME_DEPID_CITY_IDX";
 
+    private static final String NAME_DATE_IDX = "NAME_DATE_IDX";
+
     /**
      * Before all.
      */
@@ -52,10 +56,25 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
         sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
 
+        sql("CREATE TABLE birthday (id INT PRIMARY KEY, name VARCHAR, birthday DATE)");
+        sql("CREATE INDEX " + NAME_DATE_IDX + " ON birthday (name, birthday)");
+
         // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
         waitForIndex(DEPID_IDX);
         waitForIndex(NAME_CITY_IDX);
         waitForIndex(NAME_DEPID_CITY_IDX);
+        waitForIndex(NAME_DATE_IDX);
+
+        insertData("BIRTHDAY", List.of("ID", "NAME", "BIRTHDAY"), new Object[][]{
+                {1, "Mozart", LocalDate.parse("1756-01-27")},
+                {2, "Beethoven", LocalDate.parse("1756-01-27")},
+                {3, "Bach", LocalDate.parse("1756-01-27")},
+                {4, "Strauss", LocalDate.parse("1756-01-27")},
+                {5, "Vagner", LocalDate.parse("1756-01-27")},
+                {6, "Chaikovsky", LocalDate.parse("1756-01-27")},
+                {7, "Verdy", LocalDate.parse("1756-01-27")},
+                {8, null, null},
+        });
 
         insertData("DEVELOPER", List.of("ID", "NAME", "DEPID", "CITY", "AGE"), new Object[][]{
                 {1, "Mozart", 3, "Vienna", 33},
@@ -261,7 +280,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     @Test
     public void testIndexedFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE depId>21")
-                .withParams(3)
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .returns(23, "Musorgskii", 22, "", -1)
                 .check();
@@ -727,7 +745,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Test verifies that ranges would be serialized and desirialized without any errors.
+     * Test verifies that ranges would be serialized and deserialized without any errors.
      */
     @Test
     public void testSelectWithRanges() {
@@ -745,7 +763,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Test scan correclty handle 'nulls' when range condition is used.
+     * Test scan correctly handle 'nulls' when range condition is used.
      */
     @Test
     public void testIndexedNullableFieldGreaterThanFilter() {
@@ -757,7 +775,63 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Test scan correclty handle 'nulls' when range condition is used.
+     * Test index search bounds merge.
+     */
+    @Test
+    public void testIndexBoundsMerge() {
+        assertQuery("SELECT id FROM Developer WHERE depId < 2 AND depId < ?")
+                .withParams(3)
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=null, upperBound=$LEAST2(2, ?0)"))
+                .returns(3)
+                .check();
+
+        assertQuery("SELECT id FROM Developer WHERE depId > 19 AND depId > ?")
+                .withParams(20)
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(19, ?0), upperBound=$NULL_BOUND()"))
+                .returns(22)
+                .returns(23)
+                .check();
+
+        assertQuery("SELECT id FROM Developer WHERE depId > 20 AND depId > ?")
+                .withParams(19)
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=$NULL_BOUND()"))
+                .returns(22)
+                .returns(23)
+                .check();
+
+        assertQuery("SELECT id FROM Developer WHERE depId >= 20 AND depId > ?")
+                .withParams(19)
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(20, ?0), upperBound=$NULL_BOUND()"))
+                .returns(21)
+                .returns(22)
+                .returns(23)
+                .check();
+
+        assertQuery("SELECT id FROM Developer WHERE depId BETWEEN ? AND ? AND depId > 19")
+                .withParams(19, 21)
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(?0, 19), upperBound=?1"))
+                .returns(21)
+                .returns(22)
+                .check();
+
+        // Index with DESC ordering.
+        assertQuery("SELECT id FROM Birthday WHERE name BETWEEN 'B' AND 'D' AND name > ?")
+                .withParams("Bach")
+                .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(_UTF-8'B':VARCHAR(65536) "
+                        + "CHARACTER SET \"UTF-8\", ?0), upperBound=_UTF-8'D':VARCHAR(65536) CHARACTER SET \"UTF-8\""))
+                .returns(2)
+                .returns(6)
+                .check();
+    }
+
+    /**
+     * Test scan correctly handle 'nulls' when range condition is used.
      */
     @Test
     public void testIndexedNullableFieldLessThanFilter() {

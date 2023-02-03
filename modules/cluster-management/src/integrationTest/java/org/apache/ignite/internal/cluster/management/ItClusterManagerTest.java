@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -27,7 +26,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,7 +33,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -43,8 +40,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -54,57 +49,25 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Integration tests for {@link ClusterManagementGroupManager}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItClusterManagerTest {
-    private static final int PORT_BASE = 10000;
-
+public class ItClusterManagerTest extends BaseItClusterManagementTest {
     private final List<MockNode> cluster = new ArrayList<>();
 
     @WorkDirectory
     private Path workDir;
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         stopCluster();
     }
 
-    private void startCluster(int numNodes, TestInfo testInfo) throws IOException {
-        List<NetworkAddress> addrs = IntStream.range(0, numNodes)
-                .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
-                .collect(toList());
+    private void startCluster(int numNodes, TestInfo testInfo) {
+        cluster.addAll(createNodes(numNodes, testInfo, workDir));
 
-        var nodeFinder = new StaticNodeFinder(addrs);
-
-        for (int i = 0; i < numNodes; ++i) {
-            var node = new MockNode(testInfo, addrs.get(i), nodeFinder, workDir.resolve("node" + i));
-
-            cluster.add(node);
-        }
-
-        for (MockNode node : cluster) {
-            node.start();
-        }
+        cluster.parallelStream().forEach(MockNode::start);
     }
 
-    private void stopCluster() {
-        for (MockNode node : cluster) {
-            node.beforeNodeStop();
-        }
-
-        for (MockNode node : cluster) {
-            node.stop();
-        }
-    }
-
-    private MockNode addNodeToCluster(TestInfo testInfo) throws IOException {
-        var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
-
-        var nodeFinder = new StaticNodeFinder(clusterNodeAddresses());
-
-        var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
-
-        cluster.add(node);
-
-        return node;
+    private void stopCluster() throws Exception {
+        stopNodes(cluster);
     }
 
     /**
@@ -140,8 +103,7 @@ public class ItClusterManagerTest {
 
         MockNode nodeToStop = cluster.remove(0);
 
-        nodeToStop.beforeNodeStop();
-        nodeToStop.stop();
+        stopNodes(List.of(nodeToStop));
 
         assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
     }
@@ -159,8 +121,7 @@ public class ItClusterManagerTest {
 
         MockNode nodeToStop = cluster.remove(0);
 
-        nodeToStop.beforeNodeStop();
-        nodeToStop.stop();
+        stopNodes(List.of(nodeToStop));
 
         assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
 
@@ -196,6 +157,8 @@ public class ItClusterManagerTest {
         assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
 
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+
+        waitForLogicalTopology();
 
         ClusterNode[] expectedTopology = currentPhysicalTopology();
 
@@ -277,7 +240,7 @@ public class ItClusterManagerTest {
         initCluster(cmgNodes, cmgNodes);
 
         // create and start a new node
-        MockNode node = addNodeToCluster(testInfo);
+        MockNode node = addNodeToCluster(cluster, testInfo, workDir);
 
         node.start();
 
@@ -301,8 +264,7 @@ public class ItClusterManagerTest {
 
         MockNode nodeToStop = cluster.remove(1);
 
-        nodeToStop.beforeNodeStop();
-        nodeToStop.stop();
+        stopNodes(List.of(nodeToStop));
 
         waitForLogicalTopology();
 
@@ -361,7 +323,7 @@ public class ItClusterManagerTest {
         initCluster(cmgNodes, cmgNodes);
 
         // Start a new node, but do not send the JoinReadyCommand.
-        MockNode node = addNodeToCluster(testInfo);
+        MockNode node = addNodeToCluster(cluster, testInfo, workDir);
 
         node.startComponents();
 
@@ -379,8 +341,7 @@ public class ItClusterManagerTest {
                 .findAny()
                 .orElseThrow();
 
-        leaderNode.beforeNodeStop();
-        leaderNode.stop();
+        stopNodes(List.of(leaderNode));
 
         // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
@@ -408,11 +369,10 @@ public class ItClusterManagerTest {
                 .findAny()
                 .orElseThrow();
 
-        leaderNode.beforeNodeStop();
-        leaderNode.stop();
+        stopNodes(List.of(leaderNode));
 
         // Start a new node.
-        MockNode node = addNodeToCluster(testInfo);
+        MockNode node = addNodeToCluster(cluster, testInfo, workDir);
 
         node.start();
 
@@ -441,7 +401,7 @@ public class ItClusterManagerTest {
 
         initCluster(cmgNodes, cmgNodes);
 
-        MockNode nonCmgNode = addNodeToCluster(testInfo);
+        MockNode nonCmgNode = addNodeToCluster(cluster, testInfo, workDir);
         nonCmgNode.start();
         assertThat(nonCmgNode.startFuture(), willCompleteSuccessfully());
 
@@ -460,13 +420,6 @@ public class ItClusterManagerTest {
         return cluster.stream()
                 .map(MockNode::name)
                 .toArray(String[]::new);
-    }
-
-    private List<NetworkAddress> clusterNodeAddresses() {
-        return cluster.stream()
-                .map(MockNode::localMember)
-                .map(ClusterNode::address)
-                .collect(toList());
     }
 
     private void waitForLogicalTopology() throws InterruptedException {

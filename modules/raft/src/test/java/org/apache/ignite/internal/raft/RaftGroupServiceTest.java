@@ -19,8 +19,7 @@ package org.apache.ignite.internal.raft;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -51,6 +50,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -95,28 +97,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Test methods of raft group service.
  */
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
-    private static final PeersAndLearners CONFIGURATION = Stream.of(20000, 20001, 20002)
-            .map(port -> "localhost-" + port)
-            .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
-
-    private static final List<Peer> NODES = List.copyOf(CONFIGURATION.peers());
+    private static final List<Peer> NODES = Stream.of(20000, 20001, 20002)
+            .map(port -> new Peer("localhost-" + port))
+            .collect(toUnmodifiableList());
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     private volatile @Nullable Peer leader = NODES.get(0);
 
     /** Call timeout. */
-    private static final int TIMEOUT = 1000;
-
-    /** Retry delay. */
-    private static final int DELAY = 200;
+    private static final long TIMEOUT = 1000;
 
     /** Current term. */
     private static final long CURRENT_TERM = 1;
 
     /** Test group id. */
     private static final TestReplicationGroupId TEST_GRP = new TestReplicationGroupId("test");
+
+    @InjectConfiguration("mock.retryTimeout=" + TIMEOUT)
+    private RaftConfiguration raftConfiguration;
 
     /** Mock cluster. */
     @Mock
@@ -291,7 +292,11 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         mockLeaderRequest(false);
         mockUserInput(false, NODES.get(0));
 
-        RaftGroupService service = startRaftGroupService(NODES, true, TIMEOUT * 3);
+        CompletableFuture<Void> confUpdateFuture = raftConfiguration.retryTimeout().update(TIMEOUT * 3);
+
+        assertThat(confUpdateFuture, willCompleteSuccessfully());
+
+        RaftGroupService service = startRaftGroupService(NODES, true);
 
         Peer leader = this.leader;
 
@@ -556,14 +561,10 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     }
 
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
-        return startRaftGroupService(peers, getLeader, TIMEOUT);
-    }
-
-    private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader, int timeout) {
-        PeersAndLearners configuration = PeersAndLearners.fromPeers(peers, Set.of());
+        PeersAndLearners memberConfiguration = PeersAndLearners.fromPeers(peers, Set.of());
 
         CompletableFuture<RaftGroupService> service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, timeout, timeout, configuration, getLeader, DELAY, executor);
+                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, getLeader, executor);
 
         assertThat(service, willCompleteSuccessfully());
 

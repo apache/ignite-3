@@ -444,10 +444,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             } catch (Exception ex) {
                 fut.complete(null);
 
-                if (fragment.rootFragment()) {
-                    root.completeExceptionally(ex);
-                }
-
                 throw ex;
             }
         }
@@ -576,16 +572,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private AsyncCursor<List<Object>> execute(MultiStepPlan plan) {
             taskExecutor.execute(() -> {
-                plan.init(mappingSrvc, new MappingQueryContext(localNode.name()));
-
-                List<Fragment> fragments = plan.fragments();
-
-                // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
-                // the case when a non-root fragment will fail before the root is processed.
-                assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
-
-                // start remote execution
                 try {
+                    plan.init(mappingSrvc, new MappingQueryContext(localNode.name()));
+
+                    List<Fragment> fragments = plan.fragments();
+
+                    // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
+                    // the case when a non-root fragment will fail before the root is processed.
+                    assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
+
+                    // start remote execution
                     for (Fragment fragment : fragments) {
                         if (fragment.rootFragment()) {
                             assert rootFragmentId == null;
@@ -604,8 +600,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             sendFragment(nodeName, fragment, fragmentDesc);
                         }
                     }
-                } catch (Throwable e) {
-                    root.thenAccept(root -> root.onError(e));
+                } catch (Throwable t) {
+                    if (!root.completeExceptionally(t)) {
+                        root.thenAccept(root -> root.onError(t));
+                    }
                 }
             });
 

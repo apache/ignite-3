@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest.getClientAddresses;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -55,7 +54,7 @@ public class ItSqlClientAsynchronousApiTest extends ItSqlAsynchronousApiTest {
 
     @Override
     @Disabled("IGNITE-17134")
-    public void closeSession() throws ExecutionException, InterruptedException {
+    public void closeSession() {
         super.closeSession();
     }
 }

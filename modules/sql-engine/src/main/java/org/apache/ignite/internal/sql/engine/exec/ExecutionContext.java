@@ -35,6 +35,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
@@ -377,6 +378,11 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         ExecutionContext<?> context = (ExecutionContext<?>) o;
 
         return qryId.equals(context.qryId) && fragmentDesc.fragmentId() == context.fragmentDesc.fragmentId();
+    }
+
+    /** Null bound. */
+    public Object nullBound() {
+        return BinaryConverter.NULL_BOUND;
     }
 
     /** {@inheritDoc} */

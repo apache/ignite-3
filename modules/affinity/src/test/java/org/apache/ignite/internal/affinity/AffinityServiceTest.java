@@ -23,9 +23,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,16 +33,7 @@ public class AffinityServiceTest {
     @Test
     public void testCalculatedAssignmentHappyPath() {
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(
-                Arrays.asList(
-                        new ClusterNode(
-                                UUID.randomUUID().toString(), "node0",
-                                new NetworkAddress("localhost", 8080)
-                        ),
-                        new ClusterNode(
-                                UUID.randomUUID().toString(), "node1",
-                                new NetworkAddress("localhost", 8081)
-                        )
-                ),
+                Arrays.asList("node0", "node1"),
                 10,
                 3
         );

@@ -29,7 +29,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
  * Common SQL request handling logic.
  */
 class ClientSqlCommon {
-    static void packCurrentPage(ClientMessagePacker out, AsyncResultSet asyncResultSet) {
+    static void packCurrentPage(ClientMessagePacker out, AsyncResultSet<SqlRow> asyncResultSet) {
         ResultSetMetadata meta = asyncResultSet.metadata();
         assert meta != null : "Metadata can't be null when row set is present.";
 
