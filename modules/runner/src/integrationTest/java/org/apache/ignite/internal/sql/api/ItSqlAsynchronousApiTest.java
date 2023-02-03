@@ -235,7 +235,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         int txPrevCnt = txManagerInternal.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            CompletableFuture<AsyncResultSet> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
+            CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
 
             AsyncResultSet asyncRes = null;
 
@@ -444,7 +444,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
-        AsyncResultSet rs = await(ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST"));
+        AsyncResultSet<SqlRow> rs = await(ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST"));
 
         // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
@@ -488,7 +488,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
-        AsyncResultSet ars = await(ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B"));
+        AsyncResultSet<SqlRow> ars = await(ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B"));
 
         SqlRow r = CollectionUtils.first(ars.currentPage());
 
@@ -524,15 +524,15 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
-        AsyncResultSet ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID"));
+        AsyncResultSet<SqlRow> ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID"));
         var p0 = ars0.currentPage();
-        AsyncResultSet ars1 = await(ars0.fetchNextPage());
+        AsyncResultSet<SqlRow> ars1 = await(ars0.fetchNextPage());
         var p1 = ars1.currentPage();
-        AsyncResultSet ars2 = await(ars1.fetchNextPage().toCompletableFuture());
+        AsyncResultSet<SqlRow> ars2 = await(ars1.fetchNextPage().toCompletableFuture());
         var p2 = ars2.currentPage();
-        AsyncResultSet ars3 = await(ars1.fetchNextPage());
+        AsyncResultSet<SqlRow> ars3 = await(ars1.fetchNextPage());
         var p3 = ars3.currentPage();
-        AsyncResultSet ars4 = await(ars0.fetchNextPage());
+        AsyncResultSet<SqlRow> ars4 = await(ars0.fetchNextPage());
         var p4 = ars4.currentPage();
 
         assertSame(ars0, ars1);
@@ -689,12 +689,12 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     private static void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) {
-        CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
+        CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(
                 tx,
                 sql
         );
 
-        AsyncResultSet asyncRes = await(fut);
+        AsyncResultSet<SqlRow> asyncRes = await(fut);
 
         assertEquals(expectedApplied, asyncRes.wasApplied());
         assertFalse(asyncRes.hasMorePages());
@@ -736,7 +736,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     static class TestPageProcessor implements
-            Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+            Function<AsyncResultSet<SqlRow>, CompletionStage<AsyncResultSet<SqlRow>>> {
         private int expectedPages;
 
         private final List<SqlRow> res = new ArrayList<>();
@@ -746,7 +746,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         @Override
-        public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+        public CompletionStage<AsyncResultSet<SqlRow>> apply(AsyncResultSet<SqlRow> rs) {
             expectedPages--;
 
             assertTrue(rs.hasRowSet());

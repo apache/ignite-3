@@ -52,6 +52,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -168,7 +169,7 @@ public class SqlScriptRunner {
         log.info("Execute: " + sql);
 
         try (Session s = ignSql.createSession()) {
-            try (ResultSet rs = s.execute(null, sql)) {
+            try (ResultSet<SqlRow> rs = s.execute(null, sql)) {
                 if (rs.hasRowSet()) {
                     return Streams.stream(rs).map(
                                     r -> {

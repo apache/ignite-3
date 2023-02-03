@@ -193,14 +193,14 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
                 || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
     }
 
-    private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
+    private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return withRetry(() -> cluster.query(nodeIndex, sql, extractor));
     }
 
     /**
      * Reads all rows from TEST table.
      */
-    private static List<IgniteBiTuple<Integer, String>> readRows(ResultSet rs) {
+    private static List<IgniteBiTuple<Integer, String>> readRows(ResultSet<SqlRow> rs) {
         List<IgniteBiTuple<Integer, String>> rows = new ArrayList<>();
 
         while (rs.hasNext()) {
