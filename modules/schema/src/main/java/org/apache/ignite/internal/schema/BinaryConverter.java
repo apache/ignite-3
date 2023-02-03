@@ -42,6 +42,9 @@ public class BinaryConverter {
     /** Row schema. */
     private final SchemaDescriptor descriptor;
 
+    /** Placeholder for NULL values in search bounds. */
+    public static final Object NULL_BOUND = new Object();
+
     /** Tuple schema. */
     private final BinaryTupleSchema tupleSchema;
 
@@ -348,7 +351,7 @@ public class BinaryConverter {
     }
 
     /**
-     * Hepler method that adds value to the binary tuple builder.
+     * Helper method that adds value to the binary tuple builder.
      *
      * @param builder Binary tuple builder.
      * @param element Binary schema element.
@@ -356,7 +359,7 @@ public class BinaryConverter {
      * @return Binary tuple builder.
      */
     public static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, Element element, @Nullable Object value) {
-        if (value == null) {
+        if (value == null || value == NULL_BOUND) {
             if (!element.nullable()) {
                 throw new BinaryTupleFormatException("NULL value for non-nullable column in binary tuple builder.");
             }
