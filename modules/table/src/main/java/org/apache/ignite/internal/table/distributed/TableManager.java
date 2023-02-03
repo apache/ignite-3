@@ -24,6 +24,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -70,6 +72,7 @@ import java.util.function.IntSupplier;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
+import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -293,6 +296,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
+    /** Meta storage listener for changes in the distribution zones data nodes. */
+    private final WatchListener distributionZonesDataNodesListener;
+
+    /** Meta storage listener for pending assignments. */
+    private final WatchListener pendingAssignmentsRebalanceListener;
+
+    /** Meta storage listener for stable assignments. */
+    private final WatchListener stableAssignmentsRebalanceListener;
+
+    /** Meta storage listener for switch reduce assignments. */
+    private final WatchListener assignmentsSwitchRebalanceListener;
+
     /**
      * Creates a new table manager.
      *
@@ -427,6 +442,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG)
         );
+
+        distributionZonesDataNodesListener = createDistributionZonesDataNodesListener();
+
+        pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
+
+        stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
+
+        assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
     }
 
     /** {@inheritDoc} */
@@ -434,7 +457,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     public void start() {
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
-        registerRebalanceListeners();
+        // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
+        metaStorageMgr.registerPrefixWatch(zoneDataNodesPrefix(), distributionZonesDataNodesListener);
+
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
         ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(this::onUpdateAssignments);
 
@@ -606,7 +634,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 for (int i = 0; i < partCnt; i++) {
                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
-                    futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId, baselineMgr.nodes(), newReplicas,
+                    futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
+                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
                             replicasCtx.storageRevision(), metaStorageMgr, i);
                 }
 
@@ -953,6 +982,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return;
         }
 
+        metaStorageMgr.unregisterWatch(distributionZonesDataNodesListener);
+
+        metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
+        metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
+        metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
+
         busyLock.block();
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
@@ -1248,7 +1283,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private Set<Assignment> calculateAssignments(TableConfiguration tableCfg, int partNum) {
-        return AffinityUtils.calculateAssignmentForPartition(baselineMgr.nodes(), partNum, tableCfg.value().replicas());
+        return AffinityUtils.calculateAssignmentForPartition(
+                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                partNum,
+                tableCfg.value().replicas()
+        );
     }
 
     /**
@@ -1308,7 +1347,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                baselineMgr.nodes(),
+                                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                                 tableChange.partitions(),
                                 tableChange.replicas())));
                     });
@@ -1789,10 +1828,79 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Register the new meta storage listener for changes in the rebalance-specific keys.
+     * Creates meta storage listener for distribution zones data nodes updates.
+     *
+     * @return The watch listener.
      */
-    private void registerRebalanceListeners() {
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
+    private WatchListener createDistributionZonesDataNodesListener() {
+        return new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(new NodeStoppingException());
+                }
+
+                try {
+                    byte[] dataNodesBytes = evt.entryEvent().newEntry().value();
+
+                    if (dataNodesBytes == null) {
+                        //The zone was removed so data nodes was removed too.
+                        return;
+                    }
+
+                    NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesCfg.tables();
+
+                    int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
+
+                    Set<String> dataNodes = ByteUtils.fromBytes(dataNodesBytes);
+
+                    for (int i = 0; i < tables.value().size(); i++) {
+                        TableView tableView = tables.value().get(i);
+
+                        int tableZoneId = tableView.zoneId();
+
+                        if (zoneId == tableZoneId) {
+                            TableConfiguration tableCfg = tables.get(tableView.name());
+
+                            for (int part = 0; part < tableView.partitions(); part++) {
+                                UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
+
+                                TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
+
+                                int partId = part;
+
+                                updatePendingAssignmentsKeys(
+                                        tableView.name(), replicaGrpId, dataNodes, tableView.replicas(),
+                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part
+                                ).exceptionally(e -> {
+                                    LOG.error(
+                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(), partId
+                                    );
+
+                                    return null;
+                                });
+                            }
+                        }
+                    }
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process data nodes event", e);
+            }
+        };
+    }
+
+    /**
+     * Creates meta storage listener for pending assignments updates.
+     *
+     * @return The watch listener.
+     */
+    private WatchListener createPendingAssignmentsRebalanceListener() {
+        return new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
                 if (!busyLock.enterBusy()) {
@@ -1960,9 +2068,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             public void onError(Throwable e) {
                 LOG.warn("Unable to process pending assignments event", e);
             }
-        });
+        };
+    }
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
+    /**
+     * Creates meta storage listener for stable assignments updates.
+     *
+     * @return The watch listener.
+     */
+    private WatchListener createStableAssignmentsRebalanceListener() {
+        return new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
                 handleChangeStableAssignmentEvent(evt);
@@ -1972,9 +2087,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             public void onError(Throwable e) {
                 LOG.warn("Unable to process stable assignments event", e);
             }
-        });
+        };
+    }
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), new WatchListener() {
+    /**
+     * Creates meta storage listener for switch reduce assignments updates.
+     *
+     * @return The watch listener.
+     */
+    private WatchListener createAssignmentsSwitchRebalanceListener() {
+        return new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
                 byte[] key = evt.entryEvent().newEntry().key();
@@ -1990,7 +2112,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 RebalanceUtil.handleReduceChanged(
                         metaStorageMgr,
-                        baselineMgr.nodes(),
+                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                         tblCfg.value().replicas(),
                         partitionNumber,
                         replicaGrpId,
@@ -2002,7 +2124,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             public void onError(Throwable e) {
                 LOG.warn("Unable to process switch reduce event", e);
             }
-        });
+        };
     }
 
     private PartitionMover createPartitionMover(InternalTable internalTable, int partId) {
