@@ -111,7 +111,7 @@ private:
     void finish(bool commit, ignite_callback<void> callback) {
         auto writer_func = [id = m_id](protocol::writer &writer) {
             writer.write(id);
-            writer.write_bool(false);
+            writer.write_bool(false); // readOnly.
         };
 
         m_connection->perform_request_wr<void>(
