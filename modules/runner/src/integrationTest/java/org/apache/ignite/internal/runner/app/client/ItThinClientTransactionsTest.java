@@ -313,10 +313,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @ValueSource(booleans = {true, false})
     void testCommitRollbackReadOnlyTxDoesNothing(boolean commit) {
         KeyValueView<Integer, String> kvView = kvView();
-        kvView.put(null, 1, "1");
+        kvView.put(null, 10, "1");
 
         Transaction tx = client().transactions().readOnly().begin();
-        assertEquals("1", kvView().get(tx, 1));
+        assertEquals("1", kvView.get(tx, 10));
 
         if (commit) {
             tx.commit();
