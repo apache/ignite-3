@@ -350,6 +350,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         resources.add(meta.columnFamily().handle());
         resources.add(partitionCf.handle());
+        resources.add(gcQueueCf.handle());
         resources.add(hashIndexCf.handle());
         resources.addAll(
                 sortedIndices.values().stream()
@@ -713,7 +714,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             try (WriteBatch writeBatch = new WriteBatch()) {
-                mvPartitionStorage.abortReblance(writeBatch);
+                mvPartitionStorage.abortRebalance(writeBatch);
 
                 getHashIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
                 getSortedIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
