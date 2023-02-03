@@ -1821,6 +1821,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return new IgniteException(th);
     }
 
+    /**
+     * Creates meta storage listener for distribution zones data nodes updates.
+     *
+     * @return The watch listener.
+     */
     private WatchListener createDistributionZonesDataNodesListener() {
         return new WatchListener() {
             @Override
@@ -1883,6 +1888,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
+    /**
+     * Creates meta storage listener for pending assignments updates.
+     *
+     * @return The watch listener.
+     */
     private WatchListener createPendingAssignmentsRebalanceListener() {
         return new WatchListener() {
             @Override
@@ -2055,6 +2065,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
+    /**
+     * Creates meta storage listener for stable assignments updates.
+     *
+     * @return The watch listener.
+     */
     private WatchListener createStableAssignmentsRebalanceListener() {
         return new WatchListener() {
             @Override
@@ -2069,6 +2084,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
+    /**
+     * Creates meta storage listener for switch reduce assignments updates.
+     *
+     * @return The watch listener.
+     */
     private WatchListener createAssignmentsSwitchRebalanceListener() {
         return new WatchListener() {
             @Override
