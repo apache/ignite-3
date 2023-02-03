@@ -24,12 +24,9 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.junit.LocationProvider;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
 import java.util.Set;
-import java.util.jar.JarFile;
 import org.apache.ignite.client.ClientArchTest.ClassesWithLibsLocationProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 
@@ -46,26 +43,10 @@ public class ClientArchTest {
     static class ClassesWithLibsLocationProvider implements LocationProvider {
         @Override
         public Set<Location> get(Class<?> testClass) {
-            var locations = new HashSet<Location>();
+            // ignite-3/modules/client
+            Path modulesRoot = Path.of("").toAbsolutePath();
 
-            // both target/classes and target/libs defines a runtime scope of this particular module
-            locations.add(Location.of(directoryFromBuildDir("classes")));
-
-            var libDir = directoryFromBuildDir("libs").toFile();
-
-            for (var lib : libDir.listFiles()) {
-                if (!lib.getName().endsWith(".jar")) {
-                    continue;
-                }
-
-                try {
-                    locations.add(Location.of(new JarFile(lib)));
-                } catch (IOException e) {
-                    throw new AssertionError("Unable to read jar file", e);
-                }
-            }
-
-            return locations;
+            return Set.of(Location.of(modulesRoot));
         }
 
         private static Path directoryFromBuildDir(String folder) {

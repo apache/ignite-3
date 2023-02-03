@@ -63,7 +63,8 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
                 IgniteDistributions.affinity(0, UUID.randomUUID(), DEFAULT_ZONE_ID)
         );
 
-        String sql = "SELECT * FROM emps WHERE emps.salary = (SELECT AVG(emps.salary) FROM emps)";
+        String sql = "SELECT /*+ DISABLE_RULE('MapReduceSortAggregateConverterRule', 'ColocatedHashAggregateConverterRule', "
+                + "'ColocatedSortAggregateConverterRule') */ * FROM emps WHERE emps.salary = (SELECT AVG(emps.salary) FROM emps)";
 
         IgniteRel phys = physicalPlan(
                 sql,
@@ -101,7 +102,8 @@ public class HashAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         publicSchema.addTable(tbl);
 
-        String sqlCount = "SELECT COUNT(*) FROM test";
+        String sqlCount = "SELECT /*+ DISABLE_RULE('MapReduceSortAggregateConverterRule', 'ColocatedHashAggregateConverterRule', "
+                + "'ColocatedSortAggregateConverterRule') */ COUNT(*) FROM test";
 
         IgniteRel phys = physicalPlan(
                 sqlCount,

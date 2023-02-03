@@ -20,12 +20,11 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 
 import java.util.List;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -38,7 +37,6 @@ import org.junit.jupiter.api.Test;
  * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
  * 'Photo');
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-17304")
 public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     public static final String IDX_SUBCAT_ID = "IDX_SUBCAT_ID";
 
@@ -52,7 +50,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
      * Before all.
      */
     @BeforeAll
-    static void initTestData() {
+    static void initTestData() throws InterruptedException {
         sql("CREATE TABLE products (id INT PRIMARY KEY, category VARCHAR, cat_id INT NOT NULL,"
                 + " subcategory VARCHAR, subcat_id INT NOT NULL, name VARCHAR)");
 
@@ -60,6 +58,12 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
         sql("CREATE INDEX " + IDX_CAT_ID + " ON products (cat_id)");
         sql("CREATE INDEX " + IDX_SUBCATEGORY + " ON products (subcategory)");
         sql("CREATE INDEX " + IDX_SUBCAT_ID + " ON products (subcat_id)");
+
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        waitForIndex(IDX_CATEGORY);
+        waitForIndex(IDX_CAT_ID);
+        waitForIndex(IDX_SUBCATEGORY);
+        waitForIndex(IDX_SUBCAT_ID);
 
         insertData("products", List.of("ID", "CATEGORY", "CAT_ID", "SUBCATEGORY", "SUBCAT_ID", "NAME"), new Object[][]{
                 {1, "Photo", 1, "Camera Media", 11, "Media 1"},
@@ -111,27 +115,6 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Check 'OR -> UNION' rule is applied for equality conditions on indexed columns.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testNonDistinctOrToUnionAllRewrite() {
-        assertQuery("SELECT * "
-                + "FROM products "
-                + "WHERE subcategory = 'Camera Lens' "
-                + "OR subcategory = 'Other'")
-                .matches(containsUnion(true))
-                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
-                .returns(4, "Photo", 1, "Other", 12, "Charger 1")
-                .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
-                .returns(8, null, 0, "Camera Lens", 11, "Zeiss")
-                .check();
-    }
-
-    /**
      * Check 'OR -> UNION' rule is applied for mixed conditions on indexed columns.
      *
      * @throws Exception If failed.
@@ -153,10 +136,29 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
+    /*--- "Not contains union" section. ---*/
+
+    /**
+     * Check 'OR -> UNION' rule is NOT applied for equality conditions on the same indexed column.
+     */
+    @Test
+    public void testNonDistinctOrToUnionAllRewrite() {
+        assertQuery("SELECT * "
+                + "FROM products "
+                + "WHERE subcategory = 'Camera Lens' "
+                + "OR subcategory = 'Other'")
+                .matches(not(containsUnion(true)))
+                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
+                .matches(containsString("searchBounds=[[MultiBounds"))
+                .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
+                .returns(4, "Photo", 1, "Other", 12, "Charger 1")
+                .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
+                .returns(8, null, 0, "Camera Lens", 11, "Zeiss")
+                .check();
+    }
+
     /**
      * Check 'OR -> UNION' rule is not applied for range conditions on indexed columns.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testRangeOrToUnionAllRewrite() {
@@ -179,7 +181,7 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
     @Test
     public void testUnionRuleNotApplicable() {
         assertQuery("SELECT * FROM products WHERE name = 'Canon' OR subcat_id = 22")
-                .matches(CoreMatchers.not(containsUnion(true)))
+                .matches(not(containsUnion(true)))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(7, "Video", 1, null, 0, "Canon")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -195,8 +197,8 @@ public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
                 + "FROM products "
                 + "WHERE name = 'Canon' "
                 + "OR category = 'Video'")
-                .matches(containsUnion(true))
-                .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
+                .matches(not(containsUnion(true)))
+                .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
                 .returns(7, "Video", 1, null, 0, "Canon")

@@ -371,7 +371,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
-                cluster.stream().map(node -> node.topologyService().localMember()).collect(toList()),
+                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
                 replicas()
         );
@@ -477,11 +477,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 partitionReadyFutures.add(partitionReadyFuture);
             }
 
-            PeersAndLearners conf = PeersAndLearners.fromConsistentIds(partAssignments);
+            PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
 
             if (startClient()) {
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, client, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, client, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, service);
@@ -490,7 +490,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ClusterService tmpSvc = cluster.get(0);
 
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, tmpSvc, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, tmpSvc, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 Peer leader = service.leader();
@@ -503,7 +503,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         .orElseThrow();
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, leaderSrv, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);

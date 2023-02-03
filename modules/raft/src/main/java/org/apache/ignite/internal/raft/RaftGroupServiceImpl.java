@@ -54,6 +54,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -84,16 +85,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
 
-    private volatile long timeout;
-
-    /** Timeout for network calls. */
-    private final long rpcTimeout;
-
     private final String groupId;
 
     private final ReplicationGroupId realGroupId;
 
     private final RaftMessagesFactory factory;
+
+    private final RaftConfiguration configuration;
 
     @Nullable
     private volatile Peer leader;
@@ -103,8 +101,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private volatile List<Peer> learners;
 
     private final ClusterService cluster;
-
-    private final long retryDelay;
 
     /** Executor for scheduling retries of {@link RaftGroupServiceImpl#sendWithRetry} invocations. */
     private final ScheduledExecutorService executor;
@@ -118,32 +114,27 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param groupId Group id.
      * @param cluster A cluster.
      * @param factory A message factory.
-     * @param timeout Request timeout.
-     * @param configuration Raft members configuration.
+     * @param configuration Raft configuration.
+     * @param membersConfiguration Raft members configuration.
      * @param leader Group leader.
-     * @param retryDelay Retry delay.
      * @param executor Executor for retrying requests.
      */
     private RaftGroupServiceImpl(
             ReplicationGroupId groupId,
             ClusterService cluster,
             RaftMessagesFactory factory,
-            int timeout,
-            int rpcTimeout,
-            PeersAndLearners configuration,
+            RaftConfiguration configuration,
+            PeersAndLearners membersConfiguration,
             @Nullable Peer leader,
-            long retryDelay,
             ScheduledExecutorService executor
     ) {
         this.cluster = cluster;
-        this.peers = List.copyOf(configuration.peers());
-        this.learners = List.copyOf(configuration.learners());
+        this.configuration = configuration;
+        this.peers = List.copyOf(membersConfiguration.peers());
+        this.learners = List.copyOf(membersConfiguration.learners());
         this.factory = factory;
-        this.timeout = timeout;
-        this.rpcTimeout = rpcTimeout;
         this.groupId = groupId.toString();
         this.realGroupId = groupId;
-        this.retryDelay = retryDelay;
         this.leader = leader;
         this.executor = executor;
     }
@@ -154,11 +145,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param groupId Raft group id.
      * @param cluster Cluster service.
      * @param factory Message factory.
-     * @param timeout Timeout.
-     * @param rpcTimeout Network call timeout.
-     * @param configuration Raft members configuration.
+     * @param configuration Raft configuration.
+     * @param membersConfiguration Raft members configuration.
      * @param getLeader {@code True} to get the group's leader upon service creation.
-     * @param retryDelay Retry delay.
      * @param executor Executor for retrying requests.
      * @return Future representing pending completion of the operation.
      */
@@ -166,22 +155,18 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             ReplicationGroupId groupId,
             ClusterService cluster,
             RaftMessagesFactory factory,
-            int timeout,
-            int rpcTimeout,
-            PeersAndLearners configuration,
+            RaftConfiguration configuration,
+            PeersAndLearners membersConfiguration,
             boolean getLeader,
-            long retryDelay,
             ScheduledExecutorService executor
     ) {
         var service = new RaftGroupServiceImpl(
                 groupId,
                 cluster,
                 factory,
-                timeout,
-                rpcTimeout,
                 configuration,
+                membersConfiguration,
                 null,
-                retryDelay,
                 executor
         );
 
@@ -209,16 +194,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override
     public ReplicationGroupId groupId() {
         return realGroupId;
-    }
-
-    @Override
-    public long timeout() {
-        return timeout;
-    }
-
-    @Override
-    public void timeout(long newTimeout) {
-        this.timeout = newTimeout;
     }
 
     @Override
@@ -495,7 +470,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        sendWithRetry(peer, requestFactory, currentTimeMillis() + timeout, future);
+        sendWithRetry(peer, requestFactory, currentTimeMillis() + configuration.retryTimeout().value(), future);
 
         return future;
     }
@@ -529,7 +504,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
             resolvePeer(peer)
-                    .thenCompose(node -> cluster.messagingService().invoke(node, request, rpcTimeout))
+                    .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
                     .whenCompleteAsync((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry resp={} from={} to={} err={}",
@@ -659,7 +634,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     private void scheduleRetry(Runnable runnable) {
-        executor.schedule(runnable, retryDelay, TimeUnit.MILLISECONDS);
+        executor.schedule(runnable, configuration.retryDelay().value(), TimeUnit.MILLISECONDS);
     }
 
     /**

@@ -37,9 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -78,6 +76,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -120,7 +119,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void ddl() throws Exception {
+    public void ddl() {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
         Session ses = sql.createSession();
 
@@ -203,7 +202,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void dml() throws ExecutionException, InterruptedException {
+    public void dml() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
@@ -220,7 +219,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     /** Check all transactions are processed correctly even with case of sql Exception raised. */
     @Test
-    public void implicitTransactionsStates() throws Exception {
+    public void implicitTransactionsStates() {
         IgniteSql sql = igniteSql();
 
         if (sql instanceof ClientSql) {
@@ -236,18 +235,18 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         int txPrevCnt = txManagerInternal.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            CompletableFuture<AsyncResultSet> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
+            CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
 
             AsyncResultSet asyncRes = null;
 
             try {
-                asyncRes = fut.get();
+                asyncRes = await(fut);
             } catch (Throwable ignore) {
                 // No op.
             }
 
             if (asyncRes != null) {
-                asyncRes.closeAsync().toCompletableFuture().get();
+                await(asyncRes.closeAsync());
             }
         }
 
@@ -257,7 +256,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     /** Check correctness of explicit transaction rollback. */
     @Test
-    public void checkExplicitTxRollback() throws Exception {
+    public void checkExplicitTxRollback() {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -271,18 +270,18 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx, i, i);
         }
 
-        outerTx.rollbackAsync().get();
+        await(outerTx.rollbackAsync());
 
-        AsyncResultSet rs = ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+        AsyncResultSet rs = await(ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0"));
 
         assertEquals(0, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
 
-        rs.closeAsync();
+        await(rs.closeAsync());
     }
 
     /** Check correctness of implicit and explicit transactions. */
     @Test
-    public void checkTransactionsWithDml() throws Exception {
+    public void checkTransactionsWithDml() {
         IgniteSql sql = igniteSql();
 
         if (sql instanceof ClientSql) {
@@ -313,13 +312,13 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         // Outdated tx.
         Transaction outerTx0 = outerTx;
 
-        assertThrows(ExecutionException.class,
+        assertThrows(TransactionException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
 
-        assertThrows(ExecutionException.class,
+        assertThrows(SqlException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
 
-        AsyncResultSet rs = ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+        AsyncResultSet rs = await(ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0"));
 
         assertEquals(2 * ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
 
@@ -327,7 +326,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         outerTx = igniteTx().begin();
 
-        rs = ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0").get();
+        rs = await(ses.executeAsync(outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0"));
 
         assertEquals(2 * ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
 
@@ -348,7 +347,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
     /** Check correctness of rw and ro transactions for table scan. */
     @Test
-    public void checkMixedTransactionsForTable() throws Exception {
+    public void checkMixedTransactionsForTable() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         Matcher<String> planMatcher = containsTableScan("PUBLIC", "TEST");
@@ -370,7 +369,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         checkMixedTransactions(planMatcher);
     }
 
-    private void checkMixedTransactions(Matcher<String> planMatcher) throws Exception {
+    private void checkMixedTransactions(Matcher<String> planMatcher) {
         IgniteSql sql = igniteSql();
 
         if (sql instanceof ClientSql) {
@@ -393,14 +392,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
     }
 
-    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) throws Exception {
+    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) {
         Transaction outerTx = explicit ? (readOnly ? igniteTx().readOnly().begin() : igniteTx().begin()) : null;
 
         String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 
         assertQuery(outerTx, query).matches(planMatcher).check();
 
-        AsyncResultSet rs = ses.executeAsync(outerTx, query).get();
+        AsyncResultSet rs = await(ses.executeAsync(outerTx, query));
 
         assertEquals(ROW_COUNT, StreamSupport.stream(rs.currentPage().spliterator(), false).count());
 
@@ -416,7 +415,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void select() throws ExecutionException, InterruptedException {
+    public void select() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
@@ -426,7 +425,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
 
         TestPageProcessor pageProc = new TestPageProcessor(4);
-        ses.executeAsync(null, "SELECT ID FROM TEST").thenCompose(pageProc).get();
+        await(ses.executeAsync(null, "SELECT ID FROM TEST").thenCompose(pageProc));
 
         Set<Integer> rs = pageProc.result().stream().map(r -> r.intValue(0)).collect(Collectors.toSet());
 
@@ -438,14 +437,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void metadata() throws ExecutionException, InterruptedException {
+    public void metadata() {
         sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
         sql("INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
-        AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
+        AsyncResultSet<SqlRow> rs = await(ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST"));
 
         // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
@@ -478,18 +477,18 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         SqlRow row = rs.currentPage().iterator().next();
 
-        rs.closeAsync().toCompletableFuture().get();
+        await(rs.closeAsync());
 
         assertInstanceOf(meta.columns().get(0).valueClass(), row.value(0));
         assertInstanceOf(meta.columns().get(1).valueClass(), row.value(1));
     }
 
     @Test
-    public void sqlRow() throws ExecutionException, InterruptedException {
+    public void sqlRow() {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
 
-        AsyncResultSet ars = ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B").get();
+        AsyncResultSet<SqlRow> ars = await(ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B"));
 
         SqlRow r = CollectionUtils.first(ars.currentPage());
 
@@ -516,7 +515,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    public void pageSequence() throws ExecutionException, InterruptedException {
+    public void pageSequence() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
@@ -525,15 +524,15 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
-        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
+        AsyncResultSet<SqlRow> ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID"));
         var p0 = ars0.currentPage();
-        AsyncResultSet ars1 = ars0.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars1 = await(ars0.fetchNextPage());
         var p1 = ars1.currentPage();
-        AsyncResultSet ars2 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars2 = await(ars1.fetchNextPage().toCompletableFuture());
         var p2 = ars2.currentPage();
-        AsyncResultSet ars3 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars3 = await(ars1.fetchNextPage());
         var p3 = ars3.currentPage();
-        AsyncResultSet ars4 = ars0.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet<SqlRow> ars4 = await(ars0.fetchNextPage());
         var p4 = ars4.currentPage();
 
         assertSame(ars0, ars1);
@@ -546,7 +545,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 .collect(Collectors.toList());
 
         TestPageProcessor pageProc = new TestPageProcessor(ROW_COUNT - res.size());
-        ars4.fetchNextPage().thenCompose(pageProc).toCompletableFuture().get();
+        await(ars4.fetchNextPage().thenCompose(pageProc));
 
         res.addAll(pageProc.result());
 
@@ -566,46 +565,38 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         // Parse error.
-        {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT ID FROM");
-            assertThrowsWithCause(f::get, SqlException.class, "Failed to parse query");
-        }
+        assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT ID FROM")),
+                SqlException.class, "Failed to parse query");
 
         // Multiple statements error.
-        {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1; SELECT 2");
-            assertThrowsWithCause(f::get, SqlException.class, "Multiple statements aren't allowed");
-        }
+        assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1; SELECT 2")),
+                SqlException.class, "Multiple statements aren't allowed");
 
         // Planning error.
-        {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)");
-            assertThrowsWithCause(f::get, SqlException.class, "Table without PRIMARY KEY is not supported");
-        }
+        assertThrowsWithCause(() -> await(ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)")),
+                SqlException.class, "Table without PRIMARY KEY is not supported");
 
         // Execute error.
-        {
-            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
-            assertThrowsWithCause(f::get, IgniteException.class, "/ by zero");
-        }
+        assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1 / ?", 0)),
+                IgniteException.class, "/ by zero");
 
         // No result set error.
         {
-            AsyncResultSet ars = ses.executeAsync(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)").join();
-            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), NoRowSetExpectedException.class,
+            AsyncResultSet ars = await(ses.executeAsync(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)"));
+            assertThrowsWithCause(() -> await(ars.fetchNextPage()), NoRowSetExpectedException.class,
                     "Query has no result set");
         }
 
         // Cursor closed error.
         {
-            AsyncResultSet ars = ses.executeAsync(null, "SELECT * FROM TEST").join();
-            ars.closeAsync().toCompletableFuture().join();
-            assertThrowsWithCause(() -> ars.fetchNextPage().toCompletableFuture().get(), CursorClosedException.class);
+            AsyncResultSet ars = await(ses.executeAsync(null, "SELECT * FROM TEST"));
+            await(ars.closeAsync());
+            assertThrowsWithCause(() -> await(ars.fetchNextPage()), CursorClosedException.class);
         }
     }
 
     @Test
-    public void closeSession() throws ExecutionException, InterruptedException {
+    public void closeSession() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
@@ -614,20 +605,20 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
-        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
+        AsyncResultSet ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST"));
 
-        ses.closeAsync().get();
+        await(ses.closeAsync());
 
         // Fetched page is available after cancel.
         ars0.currentPage();
 
         assertThrowsWithCause(
-                () -> ars0.fetchNextPage().toCompletableFuture().get(),
+                () -> await(ars0.fetchNextPage()),
                 ExecutionCancelledException.class
         );
 
         assertThrowsWithCause(
-                () -> ses.executeAsync(null, "SELECT ID FROM TEST").get(),
+                () -> await(ses.executeAsync(null, "SELECT ID FROM TEST")),
                 SqlException.class,
                 "Session is closed"
         );
@@ -646,7 +637,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             args.add(i, i);
         }
 
-        long[] batchRes = ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join();
+        long[] batchRes = await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args));
 
         Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
 
@@ -656,13 +647,13 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         // Check invalid query type
         assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "SELECT * FROM TEST", args).get(),
+                () -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)),
                 SqlException.class,
                 "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
         );
 
         assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args).get(),
+                () -> await(ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args)),
                 SqlException.class,
                 "Invalid SQL statement type in the batch"
         );
@@ -687,26 +678,23 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             }
         }
 
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () -> ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join()
+        SqlBatchException ex = assertThrows(
+                SqlBatchException.class,
+                () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args))
         );
 
-        assertInstanceOf(SqlBatchException.class, ex.getCause());
-        SqlBatchException batchEx = (SqlBatchException) ex.getCause();
-
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, batchEx.code());
-        assertEquals(err, batchEx.updateCounters().length);
-        IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
+        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+        assertEquals(err, ex.updateCounters().length);
+        IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
     }
 
-    private static void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) throws Exception {
-        CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
+    private static void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) {
+        CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(
                 tx,
                 sql
         );
 
-        AsyncResultSet asyncRes = fut.get();
+        AsyncResultSet<SqlRow> asyncRes = await(fut);
 
         assertEquals(expectedApplied, asyncRes.wasApplied());
         assertFalse(asyncRes.hasMorePages());
@@ -715,28 +703,23 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertNull(asyncRes.metadata());
 
-        asyncRes.closeAsync().toCompletableFuture().get();
+        await(asyncRes.closeAsync());
     }
 
-    private static void checkDdl(boolean expectedApplied, Session ses, String sql) throws Exception {
+    private static void checkDdl(boolean expectedApplied, Session ses, String sql) {
         checkDdl(expectedApplied, ses, sql, null);
     }
 
     private static void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
-        CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
+        assertThrowsWithCause(() -> await(ses.executeAsync(
                 null,
                 sql,
                 args
-        );
-
-        assertThrowsWithCause(fut::get, expectedException, msg);
+        )), expectedException, msg);
     }
 
-    protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Transaction tx, Object... args)
-            throws ExecutionException, InterruptedException {
-        CompletableFuture<AsyncResultSet> fut = ses.executeAsync(tx, sql, args);
-
-        AsyncResultSet asyncRes = fut.get();
+    protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Transaction tx, Object... args) {
+        AsyncResultSet asyncRes = await(ses.executeAsync(tx, sql, args));
 
         assertFalse(asyncRes.wasApplied());
         assertFalse(asyncRes.hasMorePages());
@@ -745,16 +728,15 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertNull(asyncRes.metadata());
 
-        asyncRes.closeAsync().toCompletableFuture().get();
+        await(asyncRes.closeAsync());
     }
 
-    protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args)
-            throws ExecutionException, InterruptedException {
+    protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
         checkDml(expectedAffectedRows, ses, sql, null, args);
     }
 
     static class TestPageProcessor implements
-            Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+            Function<AsyncResultSet<SqlRow>, CompletionStage<AsyncResultSet<SqlRow>>> {
         private int expectedPages;
 
         private final List<SqlRow> res = new ArrayList<>();
@@ -764,7 +746,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         @Override
-        public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+        public CompletionStage<AsyncResultSet<SqlRow>> apply(AsyncResultSet<SqlRow> rs) {
             expectedPages--;
 
             assertTrue(rs.hasRowSet());

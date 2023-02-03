@@ -34,13 +34,16 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ItJoinTest extends AbstractBasicIntegrationTest {
     @BeforeAll
-    public static void beforeTestsStarted() {
+    public static void beforeTestsStarted() throws InterruptedException {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
         sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
-        // TODO: support indexes. https://issues.apache.org/jira/browse/IGNITE-17304
-        // sql("create index t1_idx on t1 (c3, c2, c1)");
-        // sql("create index t2_idx on t2 (c3, c2, c1)");
+        sql("create index t1_idx on t1 (c3, c2, c1)");
+        sql("create index t2_idx on t2 (c3, c2, c1)");
+
+        // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+        waitForIndex("t1_idx");
+        waitForIndex("t2_idx");
 
         insertData("t1", List.of("ID", "C1", "C2", "C3"),
                 new Object[] {0, 1, 1, 1},
