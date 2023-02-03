@@ -275,6 +275,27 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testReadOnlyTxSeesOldDataAfterUpdate() {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 1, "1");
+
+        Transaction tx = client().transactions().readOnly().begin();
+        assertEquals("1", kvView.get(tx,1));
+
+        // Update data in a different tx.
+        Transaction tx2 = client().transactions().begin();
+        kvView.put(tx2, 1, "2");
+        tx2.commit();
+
+        // Old tx sees old data.
+        assertEquals("1", kvView.get(tx,1));
+
+        // New tx sees new data
+        Transaction tx3 = client().transactions().readOnly().begin();
+        assertEquals("2", kvView.get(tx3,1));
+    }
+
+    @Test
     void testUpdateInReadOnlyTxThrows() {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
