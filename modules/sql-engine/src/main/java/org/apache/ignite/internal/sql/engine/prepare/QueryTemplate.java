@@ -61,14 +61,14 @@ public class QueryTemplate {
      * Map.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExecutionPlan map(MappingService mappingService, MappingQueryContext ctx) {
+    public ExecutionPlan map(MappingQueryContext ctx) {
         List<Fragment> fragments = Commons.transform(this.fragments, fragment -> fragment.attach(ctx.cluster()));
 
         Exception ex = null;
         RelMetadataQuery mq = first(fragments).root().getCluster().getMetadataQuery();
         for (int i = 0; i < 3; i++) {
             try {
-                return new ExecutionPlan(map(mappingService, fragments, ctx, mq));
+                return new ExecutionPlan(map(fragments, ctx, mq));
             } catch (FragmentMappingException e) {
                 if (ex == null) {
                     ex = e;
@@ -84,13 +84,13 @@ public class QueryTemplate {
     }
 
     @NotNull
-    private List<Fragment> map(MappingService mappingService, List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
+    private List<Fragment> map(List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
         List<Fragment> frgs = new ArrayList<>();
 
         RelOptCluster cluster = Commons.cluster();
 
         for (Fragment fragment : fragments) {
-            frgs.add(fragment.map(mappingService, ctx, mq).attach(cluster));
+            frgs.add(fragment.map(ctx, mq).attach(cluster));
         }
 
         return List.copyOf(frgs);

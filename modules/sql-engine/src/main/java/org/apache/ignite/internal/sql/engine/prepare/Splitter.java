@@ -55,6 +55,8 @@ public class Splitter extends IgniteRelShuttle {
         while (!stack.isEmpty()) {
             curr = stack.pop();
 
+            correlated = curr.correlated;
+
             curr.root = visit(curr.root);
 
             res.add(curr.build());

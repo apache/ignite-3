@@ -214,14 +214,18 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
     public FragmentMapping fragmentMapping(IgniteValues rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return FragmentMapping.create();
+        ColocationGroup group = ColocationGroup.forNodes(ctx.mappingService().executionNodes(false, null));
+
+        return FragmentMapping.create(rel.sourceId(), group);
     }
 
     /**
      * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
      */
     public FragmentMapping fragmentMapping(IgniteTableFunctionScan rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return FragmentMapping.create();
+        ColocationGroup group = ColocationGroup.forNodes(ctx.mappingService().executionNodes(false, null));
+
+        return FragmentMapping.create(rel.sourceId(), group);
     }
 
     private static FragmentMapping getFragmentMapping(long sourceId, ProjectableFilterableTableScan rel, MappingQueryContext ctx) {

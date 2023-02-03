@@ -55,26 +55,11 @@ public abstract class IgniteMapAggregateBase extends IgniteAggregate implements 
 
     /** {@inheritDoc} */
     @Override
-    public Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits) {
-        if (TraitUtils.distribution(nodeTraits).satisfies(IgniteDistributions.single())) {
-            return null;
-        } else {
-            return TraitsAwareIgniteRel.super.passThroughDistribution(nodeTraits, inTraits);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveDistribution(
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
         RelTraitSet in = inputTraits.get(0);
-
-        if (TraitUtils.distribution(in).satisfies(IgniteDistributions.single())) {
-            return List.of();
-        }
 
         return List.of(Pair.of(nodeTraits.replace(TraitUtils.distribution(in)), List.of(in)));
     }

@@ -25,15 +25,19 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
+import org.apache.ignite.internal.sql.engine.prepare.Splitter;
 
 /**
  * IgniteValues.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class IgniteValues extends Values implements IgniteRel {
+public class IgniteValues extends Values implements SourceAwareIgniteRel {
+    private final long sourceId;
+
     /**
      * Creates a new Values.
      *
@@ -47,7 +51,29 @@ public class IgniteValues extends Values implements IgniteRel {
      */
     public IgniteValues(RelOptCluster cluster, RelDataType rowType, ImmutableList<ImmutableList<RexLiteral>> tuples,
             RelTraitSet traits) {
+        this(-1L, cluster, rowType, tuples, traits);
+    }
+
+    /**
+     * Creates a new Values.
+     *
+     * <p>Note that tuples passed in become owned by this rel (without a deep copy),
+     * so caller must not modify them after this call, otherwise bad things will happen.
+     *
+     * @param sourceId An identifier of a source of rows. Will be assigned by {@link Splitter}.
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param rowType Row type for tuples produced by this rel.
+     * @param tuples  2-dimensional array of tuple values to be produced; outer list contains tuples; each inner list is
+     *               one tuple; all tuples must be of same length, conforming to rowType.
+     * @param traits A set of particular properties this relation satisfies.
+     *
+     * @see Splitter
+     */
+    private IgniteValues(long sourceId, RelOptCluster cluster, RelDataType rowType, ImmutableList<ImmutableList<RexLiteral>> tuples,
+            RelTraitSet traits) {
         super(cluster, rowType, tuples, traits);
+
+        this.sourceId = sourceId;
     }
 
     /**
@@ -57,6 +83,13 @@ public class IgniteValues extends Values implements IgniteRel {
      */
     public IgniteValues(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
+
+        Object srcIdObj = input.get("sourceId");
+        if (srcIdObj != null) {
+            sourceId = ((Number) srcIdObj).longValue();
+        } else {
+            sourceId = -1;
+        }
     }
 
     /** {@inheritDoc} */
@@ -77,5 +110,24 @@ public class IgniteValues extends Values implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteValues(cluster, getRowType(), getTuples(), getTraitSet());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel clone(long sourceId) {
+        return new IgniteValues(sourceId, getCluster(), getRowType(), getTuples(), getTraitSet());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelWriter explainTerms(RelWriter pw) {
+        return super.explainTerms(pw)
+                .itemIf("sourceId", sourceId, sourceId != -1);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long sourceId() {
+        return sourceId;
     }
 }

@@ -50,5 +50,5 @@ public interface MultiStepPlan extends QueryPlan {
      *
      * @param ctx Planner context.
      */
-    void init(MappingService mappingService, MappingQueryContext ctx);
+    void init(MappingQueryContext ctx);
 }

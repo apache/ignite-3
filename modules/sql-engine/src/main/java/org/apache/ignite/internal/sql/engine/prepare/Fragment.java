@@ -165,16 +165,16 @@ public class Fragment {
      * @param ctx Planner context.
      * @param mq  Metadata query.
      */
-    Fragment map(MappingService mappingSrvc, MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
+    Fragment map(MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
         if (mapping != null) {
             return this;
         }
 
-        return new Fragment(id, root, correlated, remotes, rootSer, mapping(ctx, mq, nodesSource(mappingSrvc, ctx)));
+        return new Fragment(id, root, correlated, remotes, rootSer, mapping(ctx, mq, nodesSource(ctx)));
     }
 
-    private Supplier<List<String>> nodesSource(MappingService mappingSrvc, MappingQueryContext ctx) {
-        return () -> mappingSrvc.executionNodes(single(), null);
+    private Supplier<List<String>> nodesSource(MappingQueryContext ctx) {
+        return () -> ctx.mappingService().executionNodes(single(), null);
     }
 
     private boolean single() {
