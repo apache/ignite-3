@@ -137,6 +137,10 @@ public:
         msgpack_pack_ext_with_body(m_packer.get(), data.data(), data.size(), std::int8_t(extension_type::BITMASK));
     }
 
+    void write_bool(bool value) {
+        // TODO
+    }
+
 private:
     /**
      * Write callback.
