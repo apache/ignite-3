@@ -187,6 +187,16 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual("Specified transaction belongs to a different IgniteClient instance.", ex!.Message);
         }
 
+        [Test]
+        public async Task TestReadOnlyTxThrowsOnWrite()
+        {
+            await using var tx = await Client.Transactions.BeginAsync(new IgniteTransactionOptions { ReadOnly = true });
+            var ex = Assert.ThrowsAsync<Tx.TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
+
+            Assert.AreEqual(ErrorGroups.Transactions.TxFailedReadWriteOperation, ex!.Code, ex.Message);
+            StringAssert.Contains("Failed to enlist read-write operation into read-only transaction", ex.Message);
+        }
+
         private class CustomTx : ITransaction
         {
             public ValueTask DisposeAsync()
