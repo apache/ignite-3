@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.command.GetAllCommand.getAllCommand;
 import static org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand.getAndPutAllCommand;
 import static org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand.getAndRemoveAllCommand;
@@ -25,7 +24,6 @@ import static org.apache.ignite.internal.metastorage.command.PutAllCommand.putAl
 import static org.apache.ignite.internal.metastorage.command.RemoveAllCommand.removeAllCommand;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,20 +39,19 @@ import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.command.PrefixCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.network.ClusterNode;
@@ -96,7 +93,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Entry> get(ByteArray key) {
         GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
 
-        return metaStorageRaftGrpSvc.run(getCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return metaStorageRaftGrpSvc.run(getCommand);
     }
 
     /** {@inheritDoc} */
@@ -104,7 +101,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
         GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).revision(revUpperBound).build();
 
-        return metaStorageRaftGrpSvc.run(getCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return metaStorageRaftGrpSvc.run(getCommand);
     }
 
     /** {@inheritDoc} */
@@ -112,7 +109,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, 0);
 
-        return metaStorageRaftGrpSvc.run(getAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return metaStorageRaftGrpSvc.<List<Entry>>run(getAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
@@ -120,7 +118,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
         GetAllCommand getAllCommand = getAllCommand(commandsFactory, keys, revUpperBound);
 
-        return metaStorageRaftGrpSvc.run(getAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return metaStorageRaftGrpSvc.<List<Entry>>run(getAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
@@ -136,7 +135,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Entry> getAndPut(ByteArray key, byte[] value) {
         GetAndPutCommand getAndPutCommand = commandsFactory.getAndPutCommand().key(key.bytes()).value(value).build();
 
-        return metaStorageRaftGrpSvc.run(getAndPutCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return metaStorageRaftGrpSvc.run(getAndPutCommand);
     }
 
     /** {@inheritDoc} */
@@ -152,7 +151,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals) {
         GetAndPutAllCommand getAndPutAllCommand = getAndPutAllCommand(commandsFactory, vals);
 
-        return metaStorageRaftGrpSvc.run(getAndPutAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return metaStorageRaftGrpSvc.<List<Entry>>run(getAndPutAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     /** {@inheritDoc} */
@@ -168,7 +168,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Entry> getAndRemove(ByteArray key) {
         GetAndRemoveCommand getAndRemoveCommand = commandsFactory.getAndRemoveCommand().key(key.bytes()).build();
 
-        return metaStorageRaftGrpSvc.run(getAndRemoveCommand).thenApply(MetaStorageServiceImpl::singleEntryResult);
+        return metaStorageRaftGrpSvc.run(getAndRemoveCommand);
     }
 
     /** {@inheritDoc} */
@@ -184,7 +184,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys) {
         GetAndRemoveAllCommand getAndRemoveAllCommand = getAndRemoveAllCommand(commandsFactory, keys);
 
-        return metaStorageRaftGrpSvc.run(getAndRemoveAllCommand).thenApply(MetaStorageServiceImpl::multipleEntryResult);
+        return metaStorageRaftGrpSvc.<List<Entry>>run(getAndRemoveAllCommand)
+                .thenApply(MetaStorageServiceImpl::multipleEntryResult);
     }
 
     @Override
@@ -236,7 +237,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             long revUpperBound,
             boolean includeTombstones
     ) {
-        return new CursorImpl<>(
+        return new CursorImpl(
                 commandsFactory,
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
@@ -249,8 +250,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 .includeTombstones(includeTombstones)
                                 .batchSize(RangeCommand.DEFAULT_BATCH_SIZE)
                                 .build()
-                ),
-                MetaStorageServiceImpl::multipleEntryResultForCache
+                )
         );
     }
 
@@ -268,7 +268,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public Cursor<Entry> prefix(ByteArray prefix, long revUpperBound) {
-        return new CursorImpl<>(
+        return new CursorImpl(
                 commandsFactory,
                 metaStorageRaftGrpSvc,
                 metaStorageRaftGrpSvc.run(
@@ -280,8 +280,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                                 .includeTombstones(false)
                                 .batchSize(PrefixCommand.DEFAULT_BATCH_SIZE)
                                 .build()
-                ),
-                MetaStorageServiceImpl::multipleEntryResultForCache
+                )
         );
     }
 
@@ -302,29 +301,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         metaStorageRaftGrpSvc.shutdown();
     }
 
-    private static Map<ByteArray, Entry> multipleEntryResult(Object obj) {
-        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
+    private static Map<ByteArray, Entry> multipleEntryResult(List<Entry> entries) {
+        Map<ByteArray, Entry> res = IgniteUtils.newHashMap(entries.size());
 
-        Map<ByteArray, Entry> res = new HashMap<>();
-
-        for (SingleEntryResponse e : resp.entries()) {
-            res.put(new ByteArray(e.key()), new EntryImpl(e.key(), e.value(), e.revision(), e.updateCounter()));
+        for (Entry e : entries) {
+            res.put(new ByteArray(e.key()), e);
         }
 
         return res;
-    }
-
-    private static List<Entry> multipleEntryResultForCache(Object obj) {
-        MultipleEntryResponse resp = (MultipleEntryResponse) obj;
-
-        return resp.entries().stream()
-                .map(MetaStorageServiceImpl::singleEntryResult)
-                .collect(toList());
-    }
-
-    private static Entry singleEntryResult(Object obj) {
-        SingleEntryResponse resp = (SingleEntryResponse) obj;
-
-        return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
     }
 }
