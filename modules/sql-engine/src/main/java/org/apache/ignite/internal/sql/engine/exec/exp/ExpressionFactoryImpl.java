@@ -312,8 +312,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 rowType,
                 rowFactory,
                 0,
-                Arrays.asList(new RexNode[searchBounds.size()]),
-                Arrays.asList(new RexNode[searchBounds.size()]),
+                Arrays.asList(new RexNode[rowType.getFieldCount()]),
+                Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 true,
                 true
         );
