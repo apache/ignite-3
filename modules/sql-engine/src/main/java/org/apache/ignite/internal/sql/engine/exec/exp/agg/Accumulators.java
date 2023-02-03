@@ -22,6 +22,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
+import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
@@ -32,9 +33,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Accumulators.
@@ -161,6 +164,9 @@ public class Accumulators {
             case CHAR:
             case VARCHAR:
                 return VarCharMinMax.MIN_FACTORY;
+            case BINARY:
+            case VARBINARY:
+                return VarBinaryMinMax.MIN_FACTORY;
             case BIGINT:
             default:
                 // IgniteCustomType: MIN for a custom type should go here.
@@ -184,6 +190,9 @@ public class Accumulators {
             case CHAR:
             case VARCHAR:
                 return VarCharMinMax.MAX_FACTORY;
+            case BINARY:
+            case VARBINARY:
+                return VarBinaryMinMax.MAX_FACTORY;
             case BIGINT:
             default:
                 // IgniteCustomType: MAX for a custom type should go here.
@@ -216,7 +225,8 @@ public class Accumulators {
         }
 
         /** {@inheritDoc} */
-        @Override public void apply(Accumulator other) {
+        @Override
+        public void apply(Accumulator other) {
             if (((SingleVal) other).touched) {
                 if (touched) {
                     throw new IllegalArgumentException("Subquery returned more than 1 value.");
@@ -430,7 +440,8 @@ public class Accumulators {
         }
 
         /** {@inheritDoc} */
-        @Override public void add(Object... args) {
+        @Override
+        public void add(Object... args) {
             if (args[0] == null) {
                 return;
             }
@@ -440,7 +451,8 @@ public class Accumulators {
         }
 
         /** {@inheritDoc} */
-        @Override public void apply(Accumulator other) {
+        @Override
+        public void apply(Accumulator other) {
             Sum other0 = (Sum) other;
 
             if (other0.empty) {
@@ -452,17 +464,20 @@ public class Accumulators {
         }
 
         /** {@inheritDoc} */
-        @Override public Object end() {
+        @Override
+        public Object end() {
             return empty ? null : acc.end();
         }
 
         /** {@inheritDoc} */
-        @Override public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
             return acc.argumentTypes(typeFactory);
         }
 
         /** {@inheritDoc} */
-        @Override public RelDataType returnType(IgniteTypeFactory typeFactory) {
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return acc.returnType(typeFactory);
         }
     }
@@ -964,6 +979,78 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
+        }
+    }
+
+    private static class VarBinaryMinMax implements Accumulator {
+
+        public static final Supplier<Accumulator> MIN_FACTORY = () -> new VarBinaryMinMax(true);
+
+
+        public static final Supplier<Accumulator> MAX_FACTORY = () -> new VarBinaryMinMax(false);
+
+
+        private final boolean min;
+
+
+        private ByteString val;
+
+
+        private boolean empty = true;
+
+
+        private VarBinaryMinMax(boolean min) {
+            this.min = min;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void add(Object... args) {
+            ByteString in = (ByteString) args[0];
+
+            if (in == null) {
+                return;
+            }
+
+            val = empty ? in : min
+                    ? (val.compareTo(in) < 0 ? val : in)
+                    : (val.compareTo(in) < 0 ? in : val);
+
+            empty = false;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void apply(Accumulator other) {
+            VarBinaryMinMax other0 = (VarBinaryMinMax) other;
+
+            if (other0.empty) {
+                return;
+            }
+
+            val = empty ? other0.val : min
+                    ? (val.compareTo(other0.val) < 0 ? val : other0.val)
+                    : (val.compareTo(other0.val) < 0 ? other0.val : val);
+
+            empty = false;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object end() {
+            return empty ? null : val;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return ArrayUtils.asList(typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true);
         }
     }
 

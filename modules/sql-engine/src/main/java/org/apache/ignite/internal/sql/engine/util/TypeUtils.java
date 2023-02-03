@@ -424,7 +424,7 @@ public class TypeUtils {
 
                 var varlen = (VarlenNativeType) nativeType;
 
-                return factory.createSqlType(SqlTypeName.BINARY, varlen.length());
+                return factory.createSqlType(SqlTypeName.VARBINARY, varlen.length());
             }
             case BITMASK:
                 // TODO IGNITE-18431.

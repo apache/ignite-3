@@ -19,9 +19,12 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -208,6 +211,62 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
                 .returns("2021-11-07 01:30:00").check();
         assertQuery("SELECT (timestamp '2021-11-06 01:30:00' + interval (24) hours)::varchar")
                 .returns("2021-11-07 01:30:00").check();
+    }
+
+    /** Test Binary type. */
+    @Test
+    public void testBinarySql() {
+        sql("CREATE TABLE tbl(b BINARY(3) PRIMARY KEY, v VARBINARY)");
+        byte[] val = {1, 2, 3};
+
+        // From parameters to internal, from internal to store, from store to internal and from internal to user.
+        sql("INSERT INTO tbl VALUES (?, ?)", val, val);
+
+        List<List<Object>> res = sql("SELECT b, v FROM tbl");
+
+        assertEquals(1, res.size());
+        assertEquals(2, res.get(0).size());
+        assertTrue(Objects.deepEquals(val, res.get(0).get(0)));
+        assertTrue(Objects.deepEquals(val, res.get(0).get(1)));
+
+        sql("DELETE FROM tbl");
+
+        // From literal to internal, from internal to store, from store to internal and from internal to user.
+        sql("INSERT INTO tbl VALUES (x'1A2B3C', x'AABBCC')");
+
+        res = sql("SELECT b, v FROM tbl");
+
+        assertEquals(1, res.size());
+        assertEquals(2, res.get(0).size());
+        assertTrue(Objects.deepEquals(new byte[]{0x1A, 0x2B, 0x3C}, res.get(0).get(0)));
+        assertTrue(Objects.deepEquals(new byte[]{(byte) 0xAA, (byte) 0xBB, (byte) 0xCC}, res.get(0).get(1)));
+    }
+
+    /** Test Aggregation functions for Binary type. */
+    @Test
+    public void testBinaryAggregation() {
+        sql("CREATE TABLE tbl(p int PRIMARY KEY,b varbinary)");
+        sql("INSERT INTO tbl VALUES (1, NULL)");
+        sql("INSERT INTO tbl VALUES (2, x'010203')");
+        sql("INSERT INTO tbl VALUES (3, x'040506')");
+        List<List<Object>> res = sql("SELECT MIN(b), MAX(b) FROM tbl");
+
+        assertEquals(1, res.size());
+        assertEquals(2, res.get(0).size());
+        assertTrue(Objects.deepEquals(new byte[]{1, 2, 3}, res.get(0).get(0)));
+        assertTrue(Objects.deepEquals(new byte[]{4, 5, 6}, res.get(0).get(1)));
+    }
+
+    /** Test concatenation for Binary type. */
+    @Test
+    public void testBinaryConcat() {
+        sql("CREATE TABLE tbl(p int PRIMARY KEY, b varbinary)");
+        sql("INSERT INTO tbl VALUES (1, x'010203')");
+        List<List<Object>> res = sql("SELECT b || x'040506' FROM tbl");
+
+        assertEquals(1, res.size());
+        assertEquals(1, res.get(0).size());
+        assertTrue(Objects.deepEquals(new byte[]{1, 2, 3, 4, 5, 6}, res.get(0).get(0)));
     }
 
     private LocalDate sqlDate(String str) {
