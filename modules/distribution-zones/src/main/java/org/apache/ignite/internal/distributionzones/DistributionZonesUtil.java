@@ -100,7 +100,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's creation and deletion.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zonesChangeTriggerKey(int zoneId) {
+    public static ByteArray zonesChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX + zoneId);
     }
 
@@ -108,7 +108,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's data node propagation on scale up.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
+    public static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
@@ -116,7 +116,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
+    public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
@@ -239,7 +239,7 @@ public class DistributionZonesUtil {
         ).yield(true);
     }
 
-    static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
+    public static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
         return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Entry::getKey).collect(Collectors.toSet());
     }
 

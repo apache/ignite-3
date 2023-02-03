@@ -48,7 +48,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
