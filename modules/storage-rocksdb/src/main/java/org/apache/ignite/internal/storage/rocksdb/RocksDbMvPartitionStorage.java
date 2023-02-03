@@ -1130,6 +1130,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             WriteBatchWithIndex batch = requireWriteBatch();
 
+            // We retrieve the first element of the GC queue and seeking for it in the data CF.
+            // However, the element that we need to garbage collect is the next (older one) element.
+            // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
+            // If the next element is exists, that should be the element that we want to garbage collect.
             try (
                     var gcUpperBound = new Slice(partitionEndPrefix());
                     ReadOptions gcOpts = new ReadOptions().setIterateUpperBound(gcUpperBound).setTotalOrderSeek(true);
@@ -1143,9 +1147,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 ByteBuffer gcKeyBuffer = allocateDirect(GC_KEY_SIZE);
-                ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
-
                 gcKeyBuffer.clear();
+
+                ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
+                dataKeyBuffer.clear();
+
                 gcIt.key(gcKeyBuffer);
 
                 HybridTimestamp gcElementTimestamp = readTimestampNatural(gcKeyBuffer, GC_KEY_TS_OFFSET);
@@ -1155,109 +1161,39 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     return null;
                 }
 
-                RowId readRowId = getRowId(gcKeyBuffer, GC_KEY_ROW_ID_OFFSET);
+                RowId gcElementRowId = getRowId(gcKeyBuffer, GC_KEY_ROW_ID_OFFSET);
 
                 try (
                         var upperBound = new Slice(partitionEndPrefix());
                         ReadOptions opts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
                         RocksIterator it = db.newIterator(cf, opts);
                 ) {
-                    dataKeyBuffer.clear();
+                    // Process the element in data cf that triggered the addition to the GC queue.
+                    boolean proceed = processGcEntryPhaseOne(it, batch, gcKeyBuffer, dataKeyBuffer, gcElementRowId, gcElementTimestamp);
 
-                    dataKeyBuffer.putShort((short) partitionId);
-                    putRowId(dataKeyBuffer, readRowId);
-                    putTimestampDesc(dataKeyBuffer, gcElementTimestamp);
-                    dataKeyBuffer.flip();
-
-                    it.seek(dataKeyBuffer);
-
-                    boolean noRowForGcElement = false;
-
-                    if (invalid(it)) {
-                        // There is no row for the GC queue element.
-                        noRowForGcElement = true;
-                    } else {
-                        dataKeyBuffer.clear();
-
-                        it.key(dataKeyBuffer);
-
-                        if (!getRowId(dataKeyBuffer).equals(readRowId)) {
-                            // There is no row for the GC queue element.
-                            noRowForGcElement = true;
-                        }
-                    }
-
-                    if (noRowForGcElement) {
-                        gcKeyBuffer.rewind();
-
-                        try {
-                            batch.delete(gc, gcKeyBuffer);
-                        } catch (RocksDBException e) {
-                            throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
-                        }
-
+                    if (!proceed) {
+                        // No further processing required.
                         return null;
                     }
 
-                    // Check if the new element, whose insertion scheduled the GC, was a tombstone.
-                    int len = it.value(EMPTY_DIRECT_BUFFER);
+                    // Process the element in data cf that should be garbage collected.
+                    proceed = processGcEntryPhaseTwo(it, batch, gcKeyBuffer, dataKeyBuffer, gcElementRowId);
 
-                    if (len == 0) {
-                        // This is a tombstone, we need to delete it.
-                        try {
-                            batch.delete(cf, dataKeyBuffer);
-                        } catch (RocksDBException e) {
-                            throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
-                        }
-                    }
-
-                    // Let's move to the element that was scheduled for GC.
-                    it.next();
-
-                    RowId gcRowId = null;
-
-                    if (invalid(it)) {
-                        noRowForGcElement = true;
-                    } else {
-                        dataKeyBuffer.clear();
-
-                        int keyLen = it.key(dataKeyBuffer);
-
-                        if (keyLen != MAX_KEY_SIZE) {
-                            // We moved to the next row id's write-intent, so there was no row to GC for the current row id.
-                            noRowForGcElement = true;
-                        } else {
-                            gcRowId = getRowId(dataKeyBuffer);
-
-                            if (!readRowId.equals(gcRowId)) {
-                                // We moved to the next row id, so there was no row to GC for the current row id.
-                                noRowForGcElement = true;
-                            }
-                        }
-                    }
-
-                    if (noRowForGcElement) {
-                        gcKeyBuffer.rewind();
-
-                        try {
-                            batch.delete(gc, gcKeyBuffer);
-                            db.write(writeOpts, batch);
-                        } catch (RocksDBException e) {
-                            throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
-                        }
-
+                    if (!proceed) {
+                        // No further processing required.
                         return null;
                     }
 
-                    assert gcRowId != null;
-
+                    // At this point there's definitely a value that needs to be garbage collected in the iterator.
                     byte[] valueBytes = it.value();
 
                     var row = new TableRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
-                    TableRowAndRowId retVal = new TableRowAndRowId(row, gcRowId);
+                    TableRowAndRowId retVal = new TableRowAndRowId(row, gcElementRowId);
 
                     try {
+                        // Delete the row from the data cf.
                         batch.delete(cf, dataKeyBuffer);
+                        // Delete element from the GC queue.
                         batch.delete(gc, gcKeyBuffer);
                         db.write(writeOpts, batch);
                     } catch (RocksDBException e) {
@@ -1268,6 +1204,135 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
             }
         });
+    }
+
+    /**
+     * Processes the entry that triggered adding row id to garbage collector's queue.
+     * <br/>
+     * If there is no entry in data column family, simply removes element from GC's queue and returns {@code false} as no further processing
+     * is required.
+     * if there is an entry and this entry is a tombstone, removes tombstone.
+     *
+     * @param it RocksDB data column family iterator.
+     * @param batch Write batch.
+     * @param gcKeyBuffer Buffer with key from the GC queue.
+     * @param dataKeyBuffer Buffer for the data column family key.
+     * @param gcElementRowId Row id of the element from the GC queue/
+     * @return {@code true} if further processing by garbage collector is needed.
+     */
+    private boolean processGcEntryPhaseOne(RocksIterator it, WriteBatchWithIndex batch, ByteBuffer gcKeyBuffer, ByteBuffer dataKeyBuffer,
+            RowId gcElementRowId, HybridTimestamp gcElementTimestamp) {
+        // Set up the data key.
+        dataKeyBuffer.putShort((short) partitionId);
+        putRowId(dataKeyBuffer, gcElementRowId);
+        putTimestampDesc(dataKeyBuffer, gcElementTimestamp);
+        dataKeyBuffer.flip();
+
+        // Seek to the row id and timestamp from the GC queue.
+        // Note that it doesn't mean that the element in this iterator has matching row id or even partition id.
+        it.seek(dataKeyBuffer);
+
+        boolean noRowForGcElement = false;
+
+        if (invalid(it)) {
+            // There is no row for the GC queue element.
+            noRowForGcElement = true;
+        } else {
+            dataKeyBuffer.clear();
+
+            it.key(dataKeyBuffer);
+
+            if (!getRowId(dataKeyBuffer).equals(gcElementRowId)) {
+                // There is no row for the GC queue element.
+                noRowForGcElement = true;
+            }
+        }
+
+        if (noRowForGcElement) {
+            gcKeyBuffer.rewind();
+
+            try {
+                // No row in data, just delete the element from the GC queue.
+                batch.delete(gc, gcKeyBuffer);
+            } catch (RocksDBException e) {
+                throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
+            }
+
+            return false;
+        }
+
+        // Check if the new element, whose insertion scheduled the GC, was a tombstone.
+        int len = it.value(EMPTY_DIRECT_BUFFER);
+
+        if (len == 0) {
+            // This is a tombstone, we need to delete it.
+            try {
+                batch.delete(cf, dataKeyBuffer);
+            } catch (RocksDBException e) {
+                throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Processes the entry that should be garbage collected.
+     * <br/>
+     * If there is no entry in data column family, simply removes element from GC's queue and returns {@code false} as no further processing
+     * is required.
+     *
+     * @param it RocksDB data column family iterator.
+     * @param batch Write batch.
+     * @param gcKeyBuffer Buffer with key from the GC queue.
+     * @param dataKeyBuffer Buffer for the data column family key.
+     * @param gcElementRowId Row id of the element from the GC queue/
+     * @return {@code true} if further processing by garbage collector is needed.
+     */
+    private boolean processGcEntryPhaseTwo(RocksIterator it, WriteBatchWithIndex batch, ByteBuffer gcKeyBuffer, ByteBuffer dataKeyBuffer,
+            RowId gcElementRowId) {
+        // Let's move to the element that was scheduled for GC.
+        it.next();
+
+        boolean noRowForGcElement = false;
+
+        RowId gcRowId;
+
+        if (invalid(it)) {
+            noRowForGcElement = true;
+        } else {
+            dataKeyBuffer.clear();
+
+            int keyLen = it.key(dataKeyBuffer);
+
+            if (keyLen != MAX_KEY_SIZE) {
+                // We moved to the next row id's write-intent, so there was no row to GC for the current row id.
+                noRowForGcElement = true;
+            } else {
+                gcRowId = getRowId(dataKeyBuffer);
+
+                if (!gcElementRowId.equals(gcRowId)) {
+                    // We moved to the next row id, so there was no row to GC for the current row id.
+                    noRowForGcElement = true;
+                }
+            }
+        }
+
+        if (noRowForGcElement) {
+            gcKeyBuffer.rewind();
+
+            try {
+                // No row in data, just delete the element from the GC queue.
+                batch.delete(gc, gcKeyBuffer);
+                db.write(writeOpts, batch);
+            } catch (RocksDBException e) {
+                throw new StorageException("Failed to collect garbage: " + createStorageInfo(), e);
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     @Override
