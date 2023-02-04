@@ -47,5 +47,5 @@ public interface ConstructableTreeNode {
      *
      * @return {@code true} if node became immutable, {@code false} if it has already been immutable before.
      */
-    boolean publish();
+    boolean makeImmutable();
 }

@@ -154,10 +154,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /**
-     * Makes the node immutable by calling {@link ConstructableTreeNode#publish()} on each sub-node recursively.
+     * Makes the node immutable by calling {@link ConstructableTreeNode#makeImmutable()} on each sub-node recursively.
      */
     private static void publishNode(InnerNode node) {
-        if (!node.publish()) {
+        if (!node.makeImmutable()) {
             return;
         }
 
@@ -171,7 +171,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             @Override
             public @Nullable Object visitNamedListNode(String key, NamedListNode<?> node) {
-                if (node.publish()) {
+                if (node.makeImmutable()) {
                     for (String namedListKey : node.namedListKeys()) {
                         publishNode(node.getInnerNode(namedListKey));
                     }

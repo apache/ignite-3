@@ -358,6 +358,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * @param internalId New id to associate with the key.
      */
     public void setInternalId(String key, UUID internalId) {
+        assertMutability();
+
         ElementDescriptor element = map.get(key);
 
         if (element != null) {
@@ -499,12 +501,20 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         return new NamedListNode<>(this);
     }
 
+    /**
+     * Checks that current instance is mutable.
+     *
+     * @throws AssertionError If the object is immutable.
+     * @see ConstructableTreeNode#makeImmutable()
+     */
     private void assertMutability() {
-        assert !immutable : "Mutating immutable configuration";
+        if (immutable) {
+            throw new AssertionError("Mutating immutable configuration");
+        }
     }
 
     @Override
-    public boolean publish() {
+    public boolean makeImmutable() {
         boolean updated = !immutable;
 
         immutable = true;
