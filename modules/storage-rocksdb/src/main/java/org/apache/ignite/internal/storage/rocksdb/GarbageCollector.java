@@ -54,7 +54,7 @@ import org.rocksdb.WriteBatchWithIndex;
  * }</pre>
  * Value is an empty byte array.
  *
- * <p>For further information refer to the tech-notes/garbage-collection.md in this module.
+ * <p>For more information refer to the tech-notes/garbage-collection.md in this module.
  */
 class GarbageCollector {
     /**
@@ -116,31 +116,33 @@ class GarbageCollector {
         ) {
             it.seek(keyBuffer);
 
-            if (!invalid(it)) {
-                keyBuffer.clear();
+            if (invalid(it)) {
+                return false;
+            }
 
-                int keyLen = it.key(keyBuffer);
+            keyBuffer.clear();
 
-                RowId readRowId = helper.getRowId(keyBuffer, ROW_ID_OFFSET);
+            int keyLen = it.key(keyBuffer);
 
-                if (readRowId.equals(rowId)) {
-                    // Found previous value.
-                    assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
+            RowId readRowId = helper.getRowId(keyBuffer, ROW_ID_OFFSET);
 
-                    if (isNewValueTombstone) {
-                        // If new value is a tombstone, lets check if previous value was also a tombstone.
-                        int valueSize = it.value(EMPTY_DIRECT_BUFFER);
+            if (readRowId.equals(rowId)) {
+                // Found previous value.
+                assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
 
-                        newAndPrevTombstones = valueSize == 0;
-                    }
+                if (isNewValueTombstone) {
+                    // If new value is a tombstone, lets check if previous value was also a tombstone.
+                    int valueSize = it.value(EMPTY_DIRECT_BUFFER);
 
-                    if (!newAndPrevTombstones) {
-                        keyBuffer.clear();
+                    newAndPrevTombstones = valueSize == 0;
+                }
 
-                        helper.putGcKey(keyBuffer, rowId, timestamp);
+                if (!newAndPrevTombstones) {
+                    keyBuffer.clear();
 
-                        writeBatch.put(gc, keyBuffer, EMPTY_DIRECT_BUFFER);
-                    }
+                    helper.putGcKey(keyBuffer, rowId, timestamp);
+
+                    writeBatch.put(gc, keyBuffer, EMPTY_DIRECT_BUFFER);
                 }
             }
         }
