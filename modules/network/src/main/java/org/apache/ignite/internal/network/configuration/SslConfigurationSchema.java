@@ -15,34 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.network.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
-import org.apache.ignite.internal.network.configuration.SslConfigurationValidator;
 
-/**
- * Configuration schema for REST endpoint subtree.
- */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
-public class RestConfigurationSchema {
-    /** TCP port. */
-    @Range(min = 1024, max = 0xFFFF)
+/** SSL configuration. */
+@Config
+public class SslConfigurationSchema {
     @Value(hasDefault = true)
-    public final int port = 10300;
+    public final boolean enabled = false;
 
-    /** TCP port range. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int portRange = 100;
-
-    /** SSL configuration. */
-    @SslConfigurationValidator
+    @KeyStoreConfigurationValidator
     @ConfigValue
-    public SslConfigurationSchema ssl;
+    public KeyStoreConfigurationSchema keyStore;
+
+    @KeyStoreConfigurationValidator
+    @ConfigValue
+    public KeyStoreConfigurationSchema trustStore;
 }

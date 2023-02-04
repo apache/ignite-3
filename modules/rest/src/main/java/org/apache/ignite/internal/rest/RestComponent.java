@@ -36,6 +36,7 @@ import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
 import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
@@ -146,7 +147,7 @@ public class RestComponent implements IgniteComponent {
         Micronaut micronaut = Micronaut.build("");
         setFactories(micronaut);
         return micronaut
-                .properties(Map.of("micronaut.server.port", portCandidate))
+                .properties(properties(portCandidate, restConfiguration.ssl().value()))
                 .banner(false)
                 .mapError(ServerStartupException.class, this::mapServerStartupException)
                 .mapError(ApplicationStartupException.class, ex -> -1);
@@ -163,6 +164,22 @@ public class RestComponent implements IgniteComponent {
             return -1; // -1 forces the micronaut to throw an ApplicationStartupException
         } else {
             return 1;
+        }
+    }
+
+    private Map<String, Object> properties(int portCandidate, SslView ssl) {
+        if (ssl.enabled()) {
+            return Map.of(
+                    "micronaut.server.port", -1, // Micronaut is not going to handle requests on that port, but it's required
+                    "micronaut.server.dual-protocol", false,
+                    "micronaut.server.ssl.port", portCandidate,
+                    "micronaut.server.ssl.enabled", ssl.enabled(),
+                    "micronaut.server.ssl.key-store.path", "file:" + ssl.keyStore().path(),
+                    "micronaut.server.ssl.key-store.password", ssl.keyStore().password(),
+                    "micronaut.server.ssl.key-store.type", ssl.keyStore().type()
+            );
+        } else {
+            return Map.of("micronaut.server.port", portCandidate);
         }
     }
 
