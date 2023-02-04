@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -286,14 +286,14 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
     }
 
     /**
-     * Updates the internal data structures of the storage on rebalance.
+     * Updates the internal data structures of the storage on rebalance or cleanup.
      *
      * @param freeList Free list to store index columns.
      * @param hashIndexTree Hash index tree instance.
-     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     * @throws StorageException If failed.
      */
-    public void updateDataStructuresOnRebalance(IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
-        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+    public void updateDataStructures(IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
+        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
         this.freeList = freeList;
         this.hashIndexTree = hashIndexTree;
@@ -301,5 +301,32 @@ public class PageMemoryHashIndexStorage implements HashIndexStorage {
 
     private String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
+    }
+
+    /**
+     * Prepares the storage for cleanup.
+     *
+     * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.
+     */
+    public void startCleanup() {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        try {
+            hashIndexTree.close();
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    /**
+     * Finishes cleanup up the storage.
+     */
+    public void finishCleanup() {
+        state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
     }
 }

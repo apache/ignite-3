@@ -40,6 +40,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -76,8 +77,10 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
@@ -90,6 +93,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -145,6 +149,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected Int2ObjectOpenHashMap<RaftGroupService> accRaftClients;
 
     protected Int2ObjectOpenHashMap<RaftGroupService> custRaftClients;
+
+    protected Map<String, TxStateStorage> txStateStorages;
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
@@ -250,6 +256,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        txStateStorages = new HashMap<>(nodes);
 
         executor = new ScheduledThreadPoolExecutor(20,
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
@@ -296,6 +303,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             txMgr.start();
 
             txManagers.put(node.name(), txMgr);
+
+            txStateStorages.put(node.name(), new TestTxStateStorage());
         }
 
         log.info("Raft servers have been started");
@@ -313,18 +322,16 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         String localNodeName = accRaftClients.get(0).clusterService().topologyService().localMember().name();
 
-        TxManager txMgr;
-
         if (startClient()) {
-            txMgr = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock);
+            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock);
         } else {
             // Collocated mode.
-            txMgr = txManagers.get(localNodeName);
+            clientTxManager = txManagers.get(localNodeName);
         }
 
-        assertNotNull(txMgr);
+        assertNotNull(clientTxManager);
 
-        igniteTransactions = new IgniteTransactionsImpl(txMgr);
+        igniteTransactions = new IgniteTransactionsImpl(clientTxManager);
 
         this.accounts = new TableImpl(new InternalTableImpl(
                 accountsName,
@@ -332,12 +339,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 accRaftClients,
                 1,
                 consistentIdToNode,
-                txMgr,
+                clientTxManager,
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
-        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), txMgr.lockManager());
+        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
@@ -345,12 +352,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 custRaftClients,
                 1,
                 consistentIdToNode,
-                txMgr,
+                clientTxManager,
                 Mockito.mock(MvTableStorage.class),
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
-        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), txMgr.lockManager());
+        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
 
         log.info("Tables have been started");
     }
@@ -364,7 +371,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
-                cluster.stream().map(node -> node.topologyService().localMember()).collect(toList()),
+                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
                 replicas()
         );
@@ -388,7 +395,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             for (String assignment : partAssignments) {
                 var testMpPartStorage = new TestMvPartitionStorage(0);
-                var txStateStorage = new TestTxStateStorage();
+                var txStateStorage = txStateStorages.get(assignment);
                 var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
@@ -421,15 +428,17 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 PendingComparableValuesTracker<HybridTimestamp> safeTime =
                         new PendingComparableValuesTracker<>(clocks.get(assignment).now());
 
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
+                Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
+                StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(partId, partitionDataStorage, indexes);
+
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
                         new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
                         new PartitionListener(
-                                new TestPartitionDataStorage(testMpPartStorage),
-                                new TestTxStateStorage(),
-                                txManagers.get(assignment),
-                                () -> Map.of(pkStorage.get().id(), pkStorage.get()),
-                                partId,
+                                partitionDataStorage,
+                                storageUpdateHandler,
+                                txStateStorage,
                                 safeTime
                         ),
                         RaftGroupEventsListener.noopLsnr
@@ -454,6 +463,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 safeTime,
                                                 txStateStorage,
                                                 placementDriver,
+                                                storageUpdateHandler,
                                                 peer -> assignment.equals(peer.consistentId()),
                                                 CompletableFuture.completedFuture(schemaManager)
                                         )
@@ -467,11 +477,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 partitionReadyFutures.add(partitionReadyFuture);
             }
 
-            PeersAndLearners conf = PeersAndLearners.fromConsistentIds(partAssignments);
+            PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
 
             if (startClient()) {
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, client, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, client, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, service);
@@ -480,7 +490,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ClusterService tmpSvc = cluster.get(0);
 
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, tmpSvc, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, tmpSvc, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 Peer leader = service.leader();
@@ -493,7 +503,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         .orElseThrow();
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, leaderSrv, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);
@@ -583,6 +593,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         network.start();
 
         return network;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected TxManager clientTxManager() {
+        return clientTxManager;
     }
 
     /** {@inheritDoc} */

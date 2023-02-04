@@ -64,15 +64,6 @@ public class Loza implements RaftManager {
     /** Raft client pool size. Size was taken from jraft's TimeManager. */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
 
-    /** Timeout. */
-    private static final int RETRY_TIMEOUT = 10000;
-
-    /** Network timeout. */
-    private static final int RPC_TIMEOUT = 3000;
-
-    /** Retry delay. */
-    private static final int DELAY = 200;
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
 
@@ -227,16 +218,16 @@ public class Loza implements RaftManager {
         return startRaftGroupServiceInternal(nodeId.groupId(), configuration);
     }
 
-    private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(ReplicationGroupId grpId, PeersAndLearners configuration) {
+    private CompletableFuture<RaftGroupService> startRaftGroupServiceInternal(
+            ReplicationGroupId grpId, PeersAndLearners membersConfiguration
+    ) {
         return RaftGroupServiceImpl.start(
                 grpId,
                 clusterNetSvc,
                 FACTORY,
-                RETRY_TIMEOUT,
-                RPC_TIMEOUT,
-                configuration,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                DELAY,
                 executor
         );
     }

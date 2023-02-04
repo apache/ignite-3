@@ -70,8 +70,13 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        indexManager.createIndexAsync("PUBLIC", "INAME", "TNAME", true, tableIndexChange ->
-                tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")).join();
+        await(indexManager.createIndexAsync(
+                "PUBLIC",
+                "INAME",
+                "TNAME",
+                true,
+                tableIndexChange -> tableIndexChange.convert(HashIndexChange.class).changeColumnNames("C3", "C2")
+                ));
 
         UUID createdIndexId;
         {
@@ -87,7 +92,7 @@ public class ItIndexManagerTest extends AbstractBasicIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        indexManager.dropIndexAsync("PUBLIC", "INAME", true).join();
+        await(indexManager.dropIndexAsync("PUBLIC", "INAME", true));
 
         {
             IndexEventParameters params = await(indexDroppedFuture);

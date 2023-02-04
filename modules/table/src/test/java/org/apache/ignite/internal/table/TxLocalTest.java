@@ -113,6 +113,11 @@ public class TxLocalTest extends TxAbstractTest {
     }
 
     @Override
+    protected TxManager clientTxManager() {
+        return txManager;
+    }
+
+    @Override
     protected TxManager txManager(Table t) {
         return txManager;
     }

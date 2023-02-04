@@ -15,46 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.info;
-
-import java.io.Serializable;
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.metastorage.dsl.OperationType;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.sql.engine.metadata;
 
 /**
- * Defines operation.
+ * Tuple representing the number of the partition with its current primary replica term.
  */
-@Transferable(MetastorageCommandsMessageGroup.OPERATION_INFO)
-public interface OperationInfo extends NetworkMessage, Serializable {
-    /**
-     * Returns key.
-     *
-     * @return Key.
-     */
-    byte[] key();
+public class PartitionWithTerm {
+    /** Partition number. */
+    private final int partId;
+
+    /** Primary replica term. */
+    private final long term;
 
     /**
-     * Returns value.
+     * Constructor.
      *
-     * @return Value.
+     * @param partId partition number
+     * @param term Primary replica term.
      */
-    byte[] value();
+    public PartitionWithTerm(int partId, Long term) {
+        this.partId = partId;
+        this.term = term;
+    }
 
     /**
-     * Returns operation type.
+     * Gets partition number.
      *
-     * @return Operation type.
+     * @return Partition number.
      */
-    int operationType();
+    public int partId() {
+        return partId;
+    }
 
     /**
-     * Returns operation type.
+     * Gets primary replica term.
      *
-     * @return Operation type.
+     * @return Primary replica term.
      */
-    default OperationType type() {
-        return OperationType.values()[operationType()];
+    public long term() {
+        return term;
     }
 }

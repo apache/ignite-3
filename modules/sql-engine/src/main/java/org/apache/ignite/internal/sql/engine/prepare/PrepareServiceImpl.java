@@ -199,13 +199,14 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
-            SqlNode sql = ((SqlExplain) explain).getExplicandum();
-
             // Validate
-            sql = planner.validate(sql);
+            // We extract query subtree inside the validator.
+            SqlNode explainNode = planner.validate(explain);
+            // Extract validated query.
+            SqlNode validNode = ((SqlExplain) explainNode).getExplicandum();
 
             // Convert to Relational operators graph
-            IgniteRel igniteRel = optimize(sql, planner);
+            IgniteRel igniteRel = optimize(validNode, planner);
 
             String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
 

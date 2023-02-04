@@ -19,19 +19,19 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.and;
-import static org.apache.ignite.internal.metastorage.dsl.CompoundCondition.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
-import static org.apache.ignite.internal.metastorage.dsl.If.iif;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
-import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerUpdateMatcher.upd;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,8 +49,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -67,17 +65,15 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.If;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractSimpleCondition;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
@@ -734,7 +730,7 @@ public class ItMetaStorageServiceTest {
             return false
          */
 
-        var iif = If.iif(or(value(key1).eq(val1), value(key2).ne(val2)),
+        var iif = iif(or(value(key1).eq(val1), value(key2).ne(val2)),
                 iif(or(revision(key3).eq(3), or(value(key2).gt(val1), value(key1).ge(val2))),
                         ops(put(key1, rval1)).yield(true),
                         iif(and(value(key2).lt(val1), value(key1).le(val2)),
@@ -742,9 +738,9 @@ public class ItMetaStorageServiceTest {
                                 ops().yield(true))),
                 ops(put(key2, rval2)).yield(false));
 
-        var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
+        var ifCaptor = ArgumentCaptor.forClass(If.class);
 
-        when(node.mockStorage.invoke(any())).thenReturn(new StatementResult(true));
+        when(node.mockStorage.invoke(any())).thenReturn(ops().yield(true).result());
 
         assertTrue(node.metaStorageService.invoke(iif).get().getAsBoolean());
 
@@ -764,20 +760,25 @@ public class ItMetaStorageServiceTest {
                 cond(new AndCondition(new ValueCondition(ValueCondition.Type.LESS, key2.bytes(), val1), new ValueCondition(
                         Type.LESS_OR_EQUAL, key1.bytes(), val2))));
 
-        assertThat(resultIf.andThen().iif().andThen().update(), upd(new Update(
-                List.of(Operation.put(key1.bytes(), rval1)),
-                new StatementResult(true))));
+        assertThat(
+                resultIf.andThen().iif().andThen().update(),
+                is(ops(put(key1, rval1)).yield(true))
+        );
 
-        assertThat(resultIf.andThen().iif().orElse().iif().andThen().update(), upd(new Update(
-                Arrays.asList(Operation.put(key1.bytes(), rval1), Operation.remove(key2.bytes())),
-                new StatementResult(false))));
+        assertThat(
+                resultIf.andThen().iif().orElse().iif().andThen().update(),
+                is(ops(put(key1, rval1), remove(key2)).yield(false))
+        );
 
-        assertThat(resultIf.andThen().iif().orElse().iif().orElse().update(),
-                upd(new Update(Collections.emptyList(), new StatementResult(true))));
+        assertThat(
+                resultIf.andThen().iif().orElse().iif().orElse().update(),
+                is(ops().yield(true))
+        );
 
-        assertThat(resultIf.orElse().update(), upd(new Update(
-                List.of(Operation.put(key2.bytes(), rval2)),
-                new StatementResult(false))));
+        assertThat(
+                resultIf.orElse().update(),
+                is(ops(put(key2, rval2)).yield(false))
+        );
     }
 
     @Test
@@ -883,58 +884,6 @@ public class ItMetaStorageServiceTest {
         assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
 
         assertEquals(EXPECTED_RESULT_ENTRY, cursorNode1.iterator().next());
-    }
-
-    /**
-     * Matcher for {@link Update}.
-     */
-    protected static class ServerUpdateMatcher extends TypeSafeMatcher<Update> {
-
-        private final Update update;
-
-        public ServerUpdateMatcher(Update update) {
-            this.update = update;
-        }
-
-        public static ServerUpdateMatcher upd(Update update) {
-            return new ServerUpdateMatcher(update);
-        }
-
-        @Override
-        protected boolean matchesSafely(Update item) {
-            return item.operations().size() == update.operations().size()
-                    && Arrays.equals(item.result().bytes(), update.result().bytes())
-                    && opsEqual(item.operations().iterator(), update.operations().iterator());
-
-        }
-
-        @Override
-        public void describeTo(Description description) {
-            description.appendText(toString(update));
-        }
-
-        @Override
-        protected void describeMismatchSafely(Update item, Description mismatchDescription) {
-            mismatchDescription.appendText(toString(item));
-        }
-
-        private String toString(Update upd) {
-            return "Update([" + upd.operations().stream()
-                    .map(o -> o.type() + "(" + Arrays.toString(o.key()) + ", " + Arrays.toString(o.value()) + ")")
-                    .collect(Collectors.joining(",")) + "])";
-        }
-
-        private boolean opsEqual(Iterator<Operation> ops1, Iterator<Operation> ops2) {
-            if (!ops1.hasNext()) {
-                return true;
-            } else {
-                return opEqual(ops1.next(), ops2.next()) && opsEqual(ops1, ops2);
-            }
-        }
-
-        private boolean opEqual(Operation op1, Operation op2) {
-            return Arrays.equals(op1.key(), op2.key()) && Arrays.equals(op1.value(), op2.value()) && op1.type() == op2.type();
-        }
     }
 
     /**

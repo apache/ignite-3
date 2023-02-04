@@ -55,6 +55,7 @@ import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -390,9 +391,9 @@ public class Cluster {
      * @param extractor Used to extract the result from a {@link ResultSet}.
      * @return Query result.
      */
-    public <T> T query(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
+    public <T> T query(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return doInSession(nodeIndex, session -> {
-            try (ResultSet resultSet = session.execute(null, sql)) {
+            try (ResultSet<SqlRow> resultSet = session.execute(null, sql)) {
                 return extractor.apply(resultSet);
             }
         });

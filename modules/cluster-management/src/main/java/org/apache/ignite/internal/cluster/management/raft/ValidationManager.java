@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
@@ -55,14 +56,17 @@ class ValidationManager implements ManuallyCloseable {
 
     private final LogicalTopology logicalTopology;
 
+    private final ClusterManagementConfiguration configuration;
+
     /**
      * Map for storing tasks, submitted to the {@link #executor}, so that it is possible to cancel them.
      */
     private final Map<String, Future<?>> cleanupFutures = new ConcurrentHashMap<>();
 
-    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology) {
+    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology, ClusterManagementConfiguration configuration) {
         this.storage = storage;
         this.logicalTopology = logicalTopology;
+        this.configuration = configuration;
 
         // Schedule removal of possibly stale node IDs in case the leader has changed or the node has been restarted.
         storage.getValidatedNodeIds().forEach(this::scheduleValidatedNodeRemoval);
@@ -167,14 +171,13 @@ class ValidationManager implements ManuallyCloseable {
     }
 
     private void scheduleValidatedNodeRemoval(String nodeId) {
-        // TODO: delay should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
         Future<?> future = executor.schedule(() -> {
             LOG.info("Removing node from the list of validated nodes since no JoinReady requests have been received [node={}]", nodeId);
 
             cleanupFutures.remove(nodeId);
 
             storage.removeValidatedNode(nodeId);
-        }, 1, TimeUnit.HOURS);
+        }, configuration.incompleteJoinTimeout().value(), TimeUnit.MILLISECONDS);
 
         cleanupFutures.put(nodeId, future);
     }

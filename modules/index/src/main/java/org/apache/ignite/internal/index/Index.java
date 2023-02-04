@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,8 +54,28 @@ public interface Index<DescriptorT extends IndexDescriptor> {
      * @param key Key to lookup.
      * @param columns Columns to include.
      * @return A cursor from resulting rows.
+     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, PrimaryReplica, BinaryTuple, BitSet)}  instead.
      */
+    @Deprecated
     Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns);
+
+    /**
+     * Returns cursor for the values corresponding to the given key.
+     *
+     * @param partId Partition id.
+     * @param txId Transaction id.
+     * @param recipient Primary replica that will handle given get request.
+     * @param key Key to lookup.
+     * @param columns Columns to include.
+     * @return A cursor from resulting rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    );
 
     /**
      * Returns cursor for the values corresponding to the given key.

@@ -24,10 +24,13 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 description = 'ignite-cluster-management'
 
 dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor project(":ignite-network-annotation-processor")
     annotationProcessor libs.micronaut.inject.annotation.processor
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-core')
+    implementation project(':ignite-configuration')
     implementation project(':ignite-network')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-vault')
@@ -37,10 +40,12 @@ dependencies {
     implementation libs.micronaut.http.core
     implementation libs.micronaut.http.server.core
     implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
 
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-network')
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit

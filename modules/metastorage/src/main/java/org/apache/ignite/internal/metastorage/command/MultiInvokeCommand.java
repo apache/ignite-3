@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.metastorage.command.info.IfInfo;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -31,5 +31,5 @@ public interface MultiInvokeCommand extends WriteCommand {
      *
      * @return if statement.
      */
-    IfInfo iif();
+    Iif iif();
 }

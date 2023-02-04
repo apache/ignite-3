@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sqllogic;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -300,7 +301,7 @@ public class ItSqlLogicTest {
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
 
-            CLUSTER_NODES.add(future.join());
+            CLUSTER_NODES.add(await(future));
         }
     }
 

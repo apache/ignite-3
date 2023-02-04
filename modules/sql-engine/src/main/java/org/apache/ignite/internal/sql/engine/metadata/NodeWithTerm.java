@@ -15,31 +15,49 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.info;
+package org.apache.ignite.internal.sql.engine.metadata;
 
 import java.io.Serializable;
-import java.util.Collection;
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Simple operations + result wrapper definition to describe the terminal branch
- * of {@link IfInfo} execution.
+ * Tuple representing primary replica node name with current term.
  */
-@Transferable(MetastorageCommandsMessageGroup.UPDATE_INFO)
-public interface UpdateInfo extends NetworkMessage, Serializable {
-    /**
-     * Retunrs operations.
-     *
-     * @return operations.
-     */
-    Collection<OperationInfo> operations();
+public class NodeWithTerm implements Serializable {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
+
+    /** Primary replica node name. */
+    private final String name;
+
+    /** Primary replica term. */
+    private final long term;
 
     /**
-     * Returns result.
+     * Constructor.
      *
-     * @return result.
+     * @param name Primary replica node name.
+     * @param term Primary replica term.
      */
-    StatementResultInfo result();
+    public NodeWithTerm(String name, Long term) {
+        this.name = name;
+        this.term = term;
+    }
+
+    /**
+     * Gets primary replica node name.
+     *
+     * @return Primary replica node name.
+     */
+    public String name() {
+        return name;
+    }
+
+    /**
+     * Gets primary replica term.
+     *
+     * @return Primary replica term.
+     */
+    public long term() {
+        return term;
+    }
 }

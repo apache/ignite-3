@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -38,6 +37,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -48,11 +49,11 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -77,9 +78,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Meta storage client tests.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
-public class ItMetaStorageRaftGroupTest {
+@ExtendWith(ConfigurationExtension.class)
+public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItMetaStorageRaftGroupTest.class);
 
@@ -135,11 +136,11 @@ public class ItMetaStorageRaftGroupTest {
     @Mock
     private KeyValueStorage mockStorage;
 
-    @WorkDirectory
-    private Path dataPath;
-
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     /**
      * Run {@code NODES} cluster nodes.
@@ -280,7 +281,7 @@ public class ItMetaStorageRaftGroupTest {
 
     private List<Pair<RaftServer, RaftGroupService>> prepareJraftMetaStorages(AtomicInteger replicatorStartedCounter,
             AtomicInteger replicatorStoppedCounter) throws InterruptedException, ExecutionException {
-        PeersAndLearners configuration = cluster.stream()
+        PeersAndLearners membersConfiguration = cluster.stream()
                 .map(ItMetaStorageRaftGroupTest::localMemberName)
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
 
@@ -298,11 +299,11 @@ public class ItMetaStorageRaftGroupTest {
         opt3.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
 
-        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), dataPath.resolve("node1"), opt1);
+        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), workDir.resolve("node1"), opt1);
 
-        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), dataPath.resolve("node2"), opt2);
+        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), workDir.resolve("node2"), opt2);
 
-        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), dataPath.resolve("node3"), opt3);
+        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), workDir.resolve("node3"), opt3);
 
         metaStorageRaftSrv1.start();
 
@@ -310,27 +311,25 @@ public class ItMetaStorageRaftGroupTest {
 
         metaStorageRaftSrv3.start();
 
-        var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, configuration.peer(localMemberName(cluster.get(0))));
+        var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 
-        metaStorageRaftSrv1.startRaftNode(raftNodeId1, configuration, new MetaStorageListener(mockStorage), defaults());
+        metaStorageRaftSrv1.startRaftNode(raftNodeId1, membersConfiguration, new MetaStorageListener(mockStorage), defaults());
 
-        var raftNodeId2 = new RaftNodeId(MetastorageGroupId.INSTANCE, configuration.peer(localMemberName(cluster.get(1))));
+        var raftNodeId2 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(1))));
 
-        metaStorageRaftSrv2.startRaftNode(raftNodeId2, configuration, new MetaStorageListener(mockStorage), defaults());
+        metaStorageRaftSrv2.startRaftNode(raftNodeId2, membersConfiguration, new MetaStorageListener(mockStorage), defaults());
 
-        var raftNodeId3 = new RaftNodeId(MetastorageGroupId.INSTANCE, configuration.peer(localMemberName(cluster.get(2))));
+        var raftNodeId3 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(2))));
 
-        metaStorageRaftSrv3.startRaftNode(raftNodeId3, configuration, new MetaStorageListener(mockStorage), defaults());
+        metaStorageRaftSrv3.startRaftNode(raftNodeId3, membersConfiguration, new MetaStorageListener(mockStorage), defaults());
 
         metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(0),
                 FACTORY,
-                10_000,
-                10_000,
-                configuration,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                200,
                 executor
         ).get();
 
@@ -338,11 +337,9 @@ public class ItMetaStorageRaftGroupTest {
                 MetastorageGroupId.INSTANCE,
                 cluster.get(1),
                 FACTORY,
-                10_000,
-                10_000,
-                configuration,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                200,
                 executor
         ).get();
 
@@ -350,11 +347,9 @@ public class ItMetaStorageRaftGroupTest {
                 MetastorageGroupId.INSTANCE,
                 cluster.get(2),
                 FACTORY,
-                10_000,
-                10_000,
-                configuration,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                200,
                 executor
         ).get();
 

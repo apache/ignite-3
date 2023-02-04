@@ -22,7 +22,6 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,9 +59,7 @@ import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.dsl.If;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -146,7 +143,8 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
                 tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
-                vaultMgr
+                vaultMgr,
+                "node"
         );
 
         clusterCfgMgr.start();
@@ -247,11 +245,11 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
         lenient().doAnswer(invocationClose -> {
-            If iif = invocationClose.getArgument(0);
+            Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(toIfInfo(iif, commandsFactory)).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
 
-            return metaStorageService.run(multiInvokeCommand).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+            return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
 
         lenient().doAnswer(invocationClose -> {

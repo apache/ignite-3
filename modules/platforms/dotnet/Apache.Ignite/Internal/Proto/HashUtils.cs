@@ -21,6 +21,7 @@ using System;
 using System.Buffers.Binary;
 using System.Numerics;
 using NodaTime;
+using Table;
 
 /// <summary>
 /// Hash function based on MurmurHash3
@@ -107,21 +108,24 @@ internal static class HashUtils
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
+    /// <param name="precision">Precision.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalTime data, int seed)
+    public static int Hash32(LocalTime data, int precision, int seed)
     {
-        // TODO IGNITE-17992 Account for column precision.
-        return Hash32((long)data.NanosecondOfSecond, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
+        var nanos = (long)TemporalTypes.NormalizeNanos(data.NanosecondOfSecond, precision);
+
+        return Hash32(nanos, Hash32((long)data.Second, Hash32((long)data.Minute, Hash32((long)data.Hour, seed))));
     }
 
     /// <summary>
     /// Generates 32-bit hash.
     /// </summary>
     /// <param name="data">Input data.</param>
+    /// <param name="precision">Precision.</param>
     /// <param name="seed">Current hash.</param>
     /// <returns>Resulting hash.</returns>
-    public static int Hash32(LocalDateTime data, int seed) => Hash32(data.TimeOfDay, Hash32(data.Date, seed));
+    public static int Hash32(LocalDateTime data, int precision, int seed) => Hash32(data.TimeOfDay, precision, Hash32(data.Date, seed));
 
     private static int Hash32Internal(ulong data, ulong seed, byte byteCount)
     {

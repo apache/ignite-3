@@ -209,7 +209,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         mockMetastore();
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
-            function.apply(0L).join();
+            await(function.apply(0L));
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
                 log.info("Notify about revision: {}", newStorageRevision);
@@ -304,7 +304,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
-        // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1,primary_zone='zone123'")));
 

@@ -37,7 +37,6 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -124,19 +123,5 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18523")
-    @Override
-    public void testDestroyTableStorage() throws Exception {
-        super.testDestroyTableStorage();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18027")
-    @Override
-    public void testRestartStoragesAfterFailDuringRebalance() {
-        super.testRestartStoragesAfterFailDuringRebalance();
     }
 }

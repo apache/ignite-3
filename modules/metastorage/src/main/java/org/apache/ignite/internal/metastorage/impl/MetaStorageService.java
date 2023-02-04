@@ -21,9 +21,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Defines interface for access to a meta storage service.
  */
-public interface MetaStorageService {
+public interface MetaStorageService extends ManuallyCloseable {
     /**
      * Retrieves an entry for the given key.
      *
@@ -212,15 +213,15 @@ public interface MetaStorageService {
     CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
 
     /**
-     * Invoke, which supports nested conditional statements. For detailed docs about construction of new if statement, look at {@link If}
+     * Invoke, which supports nested conditional statements. For detailed docs about construction of new if statement, look at {@link Iif}
      * javadocs.
      *
-     * @param iif {@link If} statement to invoke
+     * @param iif {@link Iif} statement to invoke
      * @return execution result
-     * @see If
+     * @see Iif
      * @see StatementResult
      */
-    CompletableFuture<StatementResult> invoke(If iif);
+    CompletableFuture<StatementResult> invoke(Iif iif);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision

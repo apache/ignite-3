@@ -66,7 +66,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param ctx Execution context.
+     * @param type Aggregation operation (phase) type.
+     * @param grpSet Bit set of grouping fields.
+     * @param accFactory Accumulators.
+     * @param rowFactory Row factory.
+     * @param comp Comparator.
      */
     public SortAggregateNode(
             ExecutionContext<RowT> ctx,

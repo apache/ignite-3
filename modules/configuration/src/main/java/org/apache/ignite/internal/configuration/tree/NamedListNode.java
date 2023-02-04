@@ -311,7 +311,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * Checks that this new key can be inserted into the map.
      *
      * @param key New key.
-     * @throws IllegalArgumentException If key already exists.
+     * @throws ConfigurationNodeAlreadyExistException If key already exists.
      */
     private void checkNewKey(String key) {
         ElementDescriptor element = map.get(key);
@@ -377,7 +377,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      *
      * @param key Key.
      * @return Internal id.
-     * @throws IllegalArgumentException If {@code key} is not found in the named list.
+     * @throws ConfigurationNodeDoesNotExistException If {@code key} is not found in the named list.
      */
     public UUID internalId(String key) {
         ElementDescriptor element = map.get(key);
@@ -625,15 +625,15 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         return value == null ? null : value.specificNode();
     }
 
-    private static IllegalArgumentException elementMissingException(String key) {
-        return new IllegalArgumentException("Named List element with key \"" + key + "\" does not exist");
+    private static ConfigurationNodeDoesNotExistException elementMissingException(String key) {
+        return new ConfigurationNodeDoesNotExistException(key);
     }
 
-    private static IllegalArgumentException elementExistsException(String key) {
-        return new IllegalArgumentException("Named List element with key \"" + key + "\" already exists");
+    private static ConfigurationNodeAlreadyExistException elementExistsException(String key) {
+        return new ConfigurationNodeAlreadyExistException(key);
     }
 
-    private static IllegalArgumentException elementRemovedException(String key) {
-        return new IllegalArgumentException("Named List element with key \"" + key + "\" has been removed");
+    private static ConfigurationNodeRemovedException elementRemovedException(String key) {
+        return new ConfigurationNodeRemovedException(key);
     }
 }

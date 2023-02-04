@@ -92,7 +92,7 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
 
             if (colIdx >= 0)
             {
-                tupleBuilder.AppendObject(rec[colIdx], col.Type, col.Scale);
+                tupleBuilder.AppendObject(rec[colIdx], col.Type, col.Scale, col.Precision);
             }
             else
             {

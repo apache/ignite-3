@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.index;
 
 import java.util.BitSet;
+import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,24 +41,28 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     byte INCLUDE_RIGHT = 0b10;
 
     /**
-     * Opens a range cursor for given bounds with left bound included in result and right excluded.
+     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code flags} mask.
      *
      * @param partId Partition.
-     * @param tx Transaction.
-     * @param left Left bound of range.
-     * @param right Right bound of range.
-     * @param columns Columns to include.
+     * @param txId Transaction id.
+     * @param recipient Primary replica that will handle given get request.
+     * @param leftBound Left bound of range.
+     * @param rightBound Right bound of range.
+     * @param flags A mask that defines whether to include bounds into the final result or not.
+     * @param columnsToInclude Columns to include.
      * @return A cursor from resulting rows.
+     * @see SortedIndex#INCLUDE_LEFT
+     * @see SortedIndex#INCLUDE_RIGHT
      */
-    default Publisher<BinaryRow> scan(
+    Publisher<BinaryRow> scan(
             int partId,
-            @Nullable InternalTransaction tx,
-            @Nullable BinaryTuplePrefix left,
-            @Nullable BinaryTuplePrefix right,
-            @Nullable BitSet columns
-    ) {
-        return scan(partId, tx, left, right, INCLUDE_LEFT, columns);
-    }
+            UUID txId,
+            PrimaryReplica recipient,
+            @Nullable BinaryTuplePrefix leftBound,
+            @Nullable BinaryTuplePrefix rightBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    );
 
     /**
      * Opens a read-only range cursor for given bounds with left bound included in result and right excluded.
@@ -81,7 +87,7 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
     }
 
     /**
-     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
+     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code flags} mask.
      *
      * @param partId Partition.
      * @param tx Transaction.
@@ -92,7 +98,9 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
      * @return A cursor from resulting rows.
      * @see SortedIndex#INCLUDE_LEFT
      * @see SortedIndex#INCLUDE_RIGHT
+     * @deprecated IGNITE-17952 Use {@link #scan(int, UUID, PrimaryReplica, BinaryTuplePrefix, BinaryTuplePrefix, int, BitSet)} instead.
      */
+    @Deprecated
     Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
@@ -102,9 +110,8 @@ public interface SortedIndex extends Index<SortedIndexDescriptor> {
             @Nullable BitSet columnsToInclude
     );
 
-
     /**
-     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code includeBounds} mask.
+     * Opens a range cursor for given bounds. Inclusion of the bounds is defined by {@code flags} mask.
      *
      * @param partId Partition.
      * @param readTimestamp Read timestamp.

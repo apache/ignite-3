@@ -87,6 +87,11 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         return TopLevelCliReplCommand.class;
     }
 
+    @Override
+    protected String nodeBootstrapConfigTemplate() {
+        return FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE;
+    }
+
     @BeforeEach
     @Override
     public void setUp(TestInfo testInfo) throws Exception {
@@ -211,7 +216,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("rest", "compute", "clientConnector", "raft", "network")
+                containsInAnyOrder("rest", "compute", "clientConnector", "raft", "network", "cluster")
         );
     }
 
@@ -238,7 +243,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder("rest", "clientConnector", "network")
+                containsInAnyOrder("rest", "clientConnector", "network", "cluster")
         );
     }
 

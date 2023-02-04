@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.apache.ignite.network.NetworkMessage;
+
 /**
  * Interface for boolean conditions.
  *
- * @see If
+ * @see Iif
  * @see SimpleCondition
  * @see CompoundCondition
  */
-public interface Condition {}
+public interface Condition extends NetworkMessage {}

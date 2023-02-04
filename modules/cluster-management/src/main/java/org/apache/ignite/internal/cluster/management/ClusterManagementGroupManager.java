@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 
 import java.util.Collection;
 import java.util.List;
@@ -35,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
@@ -82,9 +84,6 @@ import org.jetbrains.annotations.TestOnly;
  * for the description of the Cluster Management Group and its responsibilities.
  */
 public class ClusterManagementGroupManager implements IgniteComponent {
-    // TODO: timeout should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
-    private static final int NETWORK_INVOKE_TIMEOUT = 500;
-
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
     /** Busy lock to stop synchronously. */
@@ -120,6 +119,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final LogicalTopology logicalTopology;
 
+    private final ClusterManagementConfiguration configuration;
+
     /** Local state. */
     private final LocalStateStorage localStateStorage;
 
@@ -146,12 +147,15 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterService clusterService,
             RaftManager raftManager,
             ClusterStateStorage clusterStateStorage,
-            LogicalTopology logicalTopology
+            LogicalTopology logicalTopology,
+            ClusterManagementConfiguration configuration
     ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.clusterStateStorage = clusterStateStorage;
         this.logicalTopology = logicalTopology;
+        this.configuration = configuration;
+
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
     }
@@ -505,9 +509,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         Set<String> learnerNames = isLearner ? Set.of(thisNodeConsistentId) : Set.of();
 
-        PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(nodeNames, learnerNames);
+        PeersAndLearners raftConfiguration = PeersAndLearners.fromConsistentIds(nodeNames, learnerNames);
 
-        Peer serverPeer = isLearner ? configuration.learner(thisNodeConsistentId) : configuration.peer(thisNodeConsistentId);
+        Peer serverPeer = isLearner ? raftConfiguration.learner(thisNodeConsistentId) : raftConfiguration.peer(thisNodeConsistentId);
 
         assert serverPeer != null;
 
@@ -515,8 +519,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             return raftManager
                     .startRaftGroupNode(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
-                            configuration,
-                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
+                            raftConfiguration,
+                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, configuration, this::onLogicalTopologyChanged),
                             createCmgRaftGroupEventsListener()
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
@@ -596,14 +600,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void scheduleRemoveFromLogicalTopology(CmgRaftService raftService, ClusterNode node) {
-        // TODO: delay should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
         scheduledExecutor.schedule(() -> {
             ClusterNode physicalTopologyNode = clusterService.topologyService().getByConsistentId(node.name());
 
             if (physicalTopologyNode == null || !physicalTopologyNode.id().equals(node.id())) {
                 raftService.removeFromCluster(Set.of(node));
             }
-        }, 0, TimeUnit.MILLISECONDS);
+        }, configuration.failoverTimeout().value(), TimeUnit.MILLISECONDS);
     }
 
     private void sendClusterState(CmgRaftService raftService, ClusterNode node) {
@@ -647,7 +650,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void sendWithRetry(ClusterNode node, NetworkMessage msg, CompletableFuture<Void> result, int attempts) {
-        clusterService.messagingService().invoke(node, msg, NETWORK_INVOKE_TIMEOUT)
+        clusterService.messagingService().invoke(node, msg, configuration.networkInvokeTimeout().value())
                 .whenComplete((response, e) -> {
                     if (e == null) {
                         result.complete(null);
@@ -668,6 +671,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+        if (serviceFuture != null) {
+            cancelOrConsume(serviceFuture, CmgRaftService::close);
+        }
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 

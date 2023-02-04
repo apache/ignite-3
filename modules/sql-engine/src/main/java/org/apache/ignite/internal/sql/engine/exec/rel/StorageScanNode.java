@@ -80,7 +80,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     ) {
         super(ctx);
 
-        assert context().transaction() != null || context().transactionTime() != null : "Transaction not initialized.";
+        assert ctx.transaction() != null : "Transaction not initialized.";
 
         tableRowConverter = row -> schemaTable.toRow(context(), row, rowFactory, requiredColumns);
 

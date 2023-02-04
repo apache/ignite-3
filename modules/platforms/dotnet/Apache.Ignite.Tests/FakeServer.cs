@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -164,7 +165,7 @@ namespace Apache.Ignite.Tests
 
                 if (res == 0)
                 {
-                    throw new Exception("Connection lost");
+                    throw new ConnectionLostException();
                 }
 
                 received += res;
@@ -339,53 +340,58 @@ namespace Apache.Ignite.Tests
             if (tableId == ExistingTableId)
             {
                 writer.WriteArrayHeader(1); // Columns.
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("ID");
                 writer.Write((int)ClientDataType.Int32);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
             }
             else if (tableId == CompositeKeyTableId)
             {
                 writer.WriteArrayHeader(2); // Columns.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ClientDataType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ClientDataType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
             }
             else if (tableId == CustomColocationKeyTableId)
             {
                 writer.WriteArrayHeader(2); // Columns.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ClientDataType.String);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(true); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.WriteArrayHeader(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ClientDataType.Uuid);
                 writer.Write(true); // Key.
                 writer.Write(false); // Nullable.
                 writer.Write(false); // Colocation.
                 writer.Write(0); // Scale.
+                writer.Write(0); // Precision.
             }
 
             Send(handler, requestId, arrayBufferWriter);
@@ -401,6 +407,11 @@ namespace Apache.Ignite.Tests
                 }
                 catch (Exception e)
                 {
+                    if (e is SocketException or ConnectionLostException)
+                    {
+                        continue;
+                    }
+
                     Console.WriteLine("Error in FakeServer: " + e);
                 }
             }
@@ -588,6 +599,12 @@ namespace Apache.Ignite.Tests
 
                 handler.Disconnect(true);
             }
+        }
+
+        [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
+        [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]
+        private class ConnectionLostException : Exception
+        {
         }
     }
 }

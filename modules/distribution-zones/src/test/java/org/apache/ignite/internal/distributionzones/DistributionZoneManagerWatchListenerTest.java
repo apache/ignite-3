@@ -22,9 +22,10 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl.toIfInfo;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -44,11 +45,15 @@ import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
@@ -66,15 +71,17 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.dsl.If;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
+import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -85,6 +92,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -154,7 +162,8 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                 tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
-                vaultMgr
+                vaultMgr,
+                "node"
         );
 
         clusterCfgMgr.start();
@@ -223,17 +232,81 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
                     return res;
                 }
-        ).when(metaStorageService).run(any());
+        ).when(metaStorageService).run(any(WriteCommand.class));
+
+        lenient().doAnswer(
+                invocationClose -> {
+                    Command cmd = invocationClose.getArgument(0);
+
+                    long commandIndex = raftIndex.incrementAndGet();
+
+                    CompletableFuture<Serializable> res = new CompletableFuture<>();
+
+                    CommandClosure<ReadCommand> clo = new CommandClosure<>() {
+                        /** {@inheritDoc} */
+                        @Override
+                        public long index() {
+                            return commandIndex;
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public ReadCommand command() {
+                            return (ReadCommand) cmd;
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public void result(@Nullable Serializable r) {
+                            if (r instanceof Throwable) {
+                                res.completeExceptionally((Throwable) r);
+                            } else {
+                                res.complete(r);
+                            }
+                        }
+                    };
+
+                    try {
+                        metaStorageListener.onRead(List.of(clo).iterator());
+                    } catch (Throwable e) {
+                        res.completeExceptionally(new IgniteInternalException(e));
+                    }
+
+                    return res;
+                }
+        ).when(metaStorageService).run(any(ReadCommand.class));
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
         lenient().doAnswer(invocationClose -> {
-            If iif = invocationClose.getArgument(0);
+            Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(toIfInfo(iif, commandsFactory)).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
 
-            return metaStorageService.run(multiInvokeCommand).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+            return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
+
+        lenient().doAnswer(invocationClose -> {
+            Set<ByteArray> keysSet = invocationClose.getArgument(0);
+
+            GetAllCommand getAllCommand = commandsFactory.getAllCommand().keys(
+                    keysSet.stream().map(ByteArray::bytes).collect(Collectors.toList())
+            ).revision(0).build();
+
+            return metaStorageService.run(getAllCommand).thenApply(bi -> {
+                MultipleEntryResponse resp = (MultipleEntryResponse) bi;
+
+                Map<ByteArray, org.apache.ignite.internal.metastorage.Entry> res = new HashMap<>();
+
+                for (SingleEntryResponse e : resp.entries()) {
+                    ByteArray key = new ByteArray(e.key());
+
+                    res.put(key, new EntryImpl(key.bytes(), e.value(), e.revision(), e.updateCounter()));
+                }
+
+                return res;
+            });
+        }).when(metaStorageManager).getAll(any());
     }
 
     @AfterEach
@@ -271,6 +344,9 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
+        nodes = Set.of("node1", "node2", "node3");
+
+        // Scale up just adds node to data nodes
         checkDataNodesOfZone(DEFAULT_ZONE_ID, nodes);
 
         //third event
@@ -279,14 +355,25 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         watchListenerOnUpdate(nodes, 4);
 
-        verify(keyValueStorage, timeout(1000).times(4)).invoke(any());
+        verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
 
+        nodes = Set.of("node1", "node2", "node3");
+
+        // Scale up wasn't triggered
         checkDataNodesOfZone(DEFAULT_ZONE_ID, nodes);
+    }
+
+    private void assertDataNodesForZone(int zoneId, @Nullable Set<String> clusterNodes) throws InterruptedException {
+        byte[] nodes = clusterNodes == null ? null : toBytes(clusterNodes);
+
+        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value(), nodes), 1000));
     }
 
     @Test
     void testStaleWatchEvent() {
         mockVaultZonesLogicalTopologyKey(Set.of());
+
+        mockZones(mockZoneWithAutoAdjustScaleUp(100));
 
         distributionZoneManager.start();
 
@@ -294,7 +381,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         long revision = 100;
 
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(revision));
+        keyValueStorage.put(zoneScaleUpChangeTriggerKey(1).bytes(), longToBytes(revision));
 
         Set<String> nodes = Set.of("node1", "node2");
 
@@ -309,7 +396,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     void testStaleVaultRevisionOnZoneManagerStart() {
         long revision = 100;
 
-        keyValueStorage.put(zonesChangeTriggerKey().bytes(), longToBytes(revision));
+        keyValueStorage.put(zonesChangeTriggerKey(0).bytes(), longToBytes(revision));
 
         Set<String> nodes = Set.of("node1", "node2");
 
@@ -466,7 +553,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     private DistributionZoneView mockDefaultZoneView() {
-        DistributionZoneView defaultZone = mockZoneView(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
+        DistributionZoneView defaultZone = mockZoneView(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, Integer.MAX_VALUE, 0,
                 Integer.MAX_VALUE);
 
         DistributionZonesView zonesView = mock(DistributionZonesView.class);
@@ -476,6 +563,11 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         return defaultZone;
     }
+
+    private DistributionZoneConfiguration mockZoneWithAutoAdjustScaleUp(int scaleUp) {
+        return mockZoneConfiguration(1, ZONE_NAME_1, Integer.MAX_VALUE, scaleUp, Integer.MAX_VALUE);
+    }
+
 
     private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
         byte[] newLogicalTopology = toBytes(nodes);
