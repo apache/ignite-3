@@ -189,7 +189,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     /**
-     * Test that aggregate has single distribution output even if parent node accept random distibution inputs.
+     * Test that aggregate has single distribution output even if parent node accept random distribution inputs.
      *
      * @throws Exception If failed.
      */

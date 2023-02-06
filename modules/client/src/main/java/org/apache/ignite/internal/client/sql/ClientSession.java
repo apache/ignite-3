@@ -33,9 +33,11 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL session.
  */
 public class ClientSession implements Session {
+    private static final Mapper<SqlRow> sqlRowMapper = () -> SqlRow.class;
+
     private final ReliableChannel ch;
 
     @Nullable
@@ -88,7 +92,10 @@ public class ClientSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            String query,
+            @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
         ClientStatement statement = new ClientStatement(query, null, null, null, null);
@@ -98,8 +105,32 @@ public class ClientSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(
+    public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
+            Statement statement,
+            @Nullable Object... arguments) {
+        return executeAsync(transaction, sqlRowMapper, statement, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
+            String query,
+            @Nullable Object... arguments) {
+        Objects.requireNonNull(query);
+
+        ClientStatement statement = new ClientStatement(query, null, null, null, null);
+
+        return executeAsync(transaction, mapper, statement, arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <T> CompletableFuture<AsyncResultSet<T>> executeAsync(
+            @Nullable Transaction transaction,
+            @Nullable Mapper<T> mapper,
             Statement statement,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
@@ -124,7 +155,7 @@ public class ClientSession implements Session {
             w.out().packString(clientStatement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
-        }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in()));
+        }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in(), mapper));
     }
 
     /** {@inheritDoc} */

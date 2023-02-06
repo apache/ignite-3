@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
@@ -300,6 +301,29 @@ public interface InternalTable extends ManuallyCloseable {
      * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
      *
      * @param partId The partition.
+     * @param txId Transaction id.
+     * @param recipient Primary replica that will handle given get request.
+     * @param lowerBound Lower search bound.
+     * @param upperBound Upper search bound.
+     * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
+     * @param columnsToInclude Row projection.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            @Nullable UUID indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    );
+
+    /**
+     * Scans given partition index, providing {@link Publisher} that reactively notifies about partition rows.
+     *
+     * @param partId The partition.
      * @param tx The transaction.
      * @param indexId Index id.
      * @param lowerBound Lower search bound.
@@ -348,11 +372,34 @@ public interface InternalTable extends ManuallyCloseable {
      * @param key Key to search.
      * @param columnsToInclude Row projection.
      * @return {@link Publisher} that reactively notifies about partition rows.
+     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, PrimaryReplica, UUID, BinaryTuple, BitSet)} instead.
      */
+    @Deprecated
     Publisher<BinaryRow> lookup(
             int partId,
             @Nullable InternalTransaction tx,
             @NotNull UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    );
+
+    /**
+     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
+     * that reactively notifies about partition rows.
+     *
+     * @param partId The partition.
+     * @param txId Transaction id.
+     * @param recipient Primary replica that will handle given get request.
+     * @param indexId Index id.
+     * @param key Key to search.
+     * @param columnsToInclude Row projection.
+     * @return {@link Publisher} that reactively notifies about partition rows.
+     */
+    Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            UUID indexId,
             BinaryTuple key,
             @Nullable BitSet columnsToInclude
     );
@@ -373,6 +420,13 @@ public interface InternalTable extends ManuallyCloseable {
      * @return List of current assignments.
      */
     List<String> assignments();
+
+    /**
+     * Gets a list of current primary replicas for each partition.
+     *
+     * @return List of current primary replicas for each partition.
+     */
+    List<PrimaryReplica> primaryReplicas();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if

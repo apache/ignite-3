@@ -41,6 +41,11 @@ public class IgniteColocatedHashAggregate extends IgniteColocatedAggregateBase i
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
     }
 
+    /**
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
+     */
     public IgniteColocatedHashAggregate(RelInput input) {
         super(input);
     }

@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import java.util.ArrayList;
+import java.io.Serializable;
 import java.util.Collection;
-import java.util.List;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
@@ -27,12 +26,10 @@ import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -80,7 +77,7 @@ class MetaStorageWriteHandler {
 
             Entry e = storage.getAndPut(getAndPutCmd.key(), getAndPutCmd.value());
 
-            clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+            clo.result(e);
         } else if (command instanceof PutAllCommand) {
             PutAllCommand putAllCmd = (PutAllCommand) command;
 
@@ -92,13 +89,7 @@ class MetaStorageWriteHandler {
 
             Collection<Entry> entries = storage.getAndPutAll(getAndPutAllCmd.keys(), getAndPutAllCmd.values());
 
-            List<SingleEntryResponse> resp = new ArrayList<>(entries.size());
-
-            for (Entry e : entries) {
-                resp.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
-            }
-
-            clo.result(new MultipleEntryResponse(resp));
+            clo.result((Serializable) entries);
         } else if (command instanceof RemoveCommand) {
             RemoveCommand rmvCmd = (RemoveCommand) command;
 
@@ -110,7 +101,7 @@ class MetaStorageWriteHandler {
 
             Entry e = storage.getAndRemove(getAndRmvCmd.key());
 
-            clo.result(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+            clo.result(e);
         } else if (command instanceof RemoveAllCommand) {
             RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
 
@@ -122,13 +113,7 @@ class MetaStorageWriteHandler {
 
             Collection<Entry> entries = storage.getAndRemoveAll(getAndRmvAllCmd.keys());
 
-            List<SingleEntryResponse> resp = new ArrayList<>(entries.size());
-
-            for (Entry e : entries) {
-                resp.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
-            }
-
-            clo.result(new MultipleEntryResponse(resp));
+            clo.result((Serializable) entries);
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 

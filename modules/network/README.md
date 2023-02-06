@@ -29,9 +29,9 @@ Messages are then passed on to message listeners of the ConnectionManager.
 In case of ClusterService over ScaleCube (see `ScaleCubeClusterServiceFactory`),
 messages are passed down to the ClusterService via the Project Reactor's Sink which enforces a strict order of message handling:
 a new message can't be received by ClusterService until a previous message is **handled** (see [message handling](#message-handling)).
-![Threading](docs/threading.png)
+![Threading](tech-notes/threading.png)
 Message handling can also be offloaded to another thread:
-![Threading](docs/threading-2.png)
+![Threading](tech-notes/threading-2.png)
 Note that in this case the network message would be considered **handled** before it is processed  
 by another thread.
 
@@ -46,4 +46,4 @@ Message is considered **handled** after all the message handlers have been invok
 ## Message's flow example
 Two nodes, Alice and Bob.
 User is sending a message from Alice to Bob within any thread.
-![Network flow between two nodes](docs/network-flow.png)
+![Network flow between two nodes](tech-notes/network-flow.png)

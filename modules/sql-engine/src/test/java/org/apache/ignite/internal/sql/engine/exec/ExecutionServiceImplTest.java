@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
+import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -82,6 +83,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -89,6 +91,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -119,6 +122,7 @@ public class ExecutionServiceImplTest {
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
     private PrepareService prepareService;
+    private RuntimeException mappingException;
 
     @BeforeEach
     public void init() {
@@ -252,6 +256,35 @@ public class ExecutionServiceImplTest {
     }
 
     /**
+     * A query initialization is failed on the initiator during the mapping phase.
+     * Need to verify that the exception is handled properly.
+     */
+    @Test
+    public void testQueryMappingFailure() {
+        mappingException = new IllegalStateException("Query mapping error");
+
+        var execService = executionServices.get(0);
+        var ctx = createContext();
+        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        var cursor = execService.executePlan(plan, ctx);
+
+        var batchFut = cursor.requestNextAsync(1);
+
+        await(batchFut.exceptionally(ex -> {
+            assertInstanceOf(CompletionException.class, ex);
+            assertInstanceOf(mappingException.getClass(), ex.getCause());
+            assertEquals(mappingException.getMessage(), ex.getCause().getMessage());
+
+            return null;
+        }));
+
+        assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
+    }
+
+    /**
      * The very simple case where a query is cancelled in the middle of a normal execution on non-initiator node.
      */
     @Test
@@ -352,12 +385,17 @@ public class ExecutionServiceImplTest {
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
+        var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
+
+        var topologyService = mock(TopologyService.class);
+
+        when(topologyService.localMember()).thenReturn(clusterNode);
+
         when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
 
-        var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
         var executionService = new ExecutionServiceImpl<>(
-                clusterNode,
                 messageService,
+                topologyService,
                 (single, filter) -> single ? List.of(nodeNames.get(ThreadLocalRandom.current().nextInt(nodeNames.size()))) : nodeNames,
                 schemaManagerMock,
                 mock(DdlCommandHandler.class),
@@ -382,6 +420,7 @@ public class ExecutionServiceImplTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
+                .transaction(new LocalTxAttributesHolder(UUID.randomUUID(), null))
                 .logger(LOG)
                 .build();
     }
@@ -399,7 +438,7 @@ public class ExecutionServiceImplTest {
 
         assertThat(nodes, hasSize(1));
 
-        return prepareService.prepareAsync(nodes.get(0), ctx).join();
+        return await(prepareService.prepareAsync(nodes.get(0), ctx));
     }
 
     static class TestCluster {
@@ -608,6 +647,16 @@ public class ExecutionServiceImplTest {
                 name,
                 ColocationGroup.forNodes(nodeNames),
                 size
-        );
+        ) {
+            @Override
+            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+                // Make sure the exception is handled properly if it occurs during the mapping phase.
+                if (mappingException != null) {
+                    throw mappingException;
+                }
+
+                return super.colocationGroup(ctx);
+            }
+        };
     }
 }
