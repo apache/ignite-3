@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import static org.apache.ignite.internal.schema.BinaryRow.HAS_VALUE_FLD_LEN;
-import static org.apache.ignite.internal.schema.BinaryRow.SCHEMA_VERSION_FLD_LEN;
-import static org.apache.ignite.internal.schema.ByteBufferRow.ORDER;
+import static org.apache.ignite.internal.schema.BinaryRow.HAS_VALUE_OFFSET;
+import static org.apache.ignite.internal.schema.BinaryRow.SCHEMA_VERSION_OFFSET;
+import static org.apache.ignite.internal.schema.BinaryRow.TUPLE_OFFSET;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -244,7 +245,7 @@ public class RowAssembler {
         this.valueColumns = valueColumns;
         this.schemaVersion = schemaVersion;
         int numElements = keyColumns.length() + (valueColumns != null ? valueColumns.length() : 0);
-        builder = new BinaryTupleBuilder(numElements, hasNulls, totalValueSize);
+        builder = new RowBinaryTupleBuilder(numElements, hasNulls, totalValueSize);
         curCols = keyColumns;
         curCol = 0;
     }
@@ -658,20 +659,24 @@ public class RowAssembler {
     }
 
     /**
-     * Builds serialized row. The row buffer contains a schema version at the start of the buffer if value was appended, or {@code 0}
-     * if only the key columns were populated.
+     * Builds serialized row. The row buffer contains a {@code short} schema version at the start of the buffer, then {@code 1} if value
+     * was appended, or {@code 0} if only the key columns were populated.
      *
      * @return Created {@link BinaryRow}.
      */
     public BinaryRow build() {
-        //TODO reuse buffer https://issues.apache.org/jira/browse/IGNITE-18697
         boolean hasValue = flush();
 
-        ByteBuffer tupleBuffer = builder.build();
-        ByteBuffer buffer = ByteBuffer.allocate(SCHEMA_VERSION_FLD_LEN + HAS_VALUE_FLD_LEN + tupleBuffer.limit()).order(ORDER);
-        buffer.putShort((short) schemaVersion);
-        buffer.put(hasValue ? (byte) 1 : 0);
-        buffer.put(tupleBuffer);
+        ByteBuffer result = builder.build();
+
+        // Calculate the offset in the backing array to the start of additional fields. Unlike the reallocateBuffer method in the
+        // RowBinaryTupleBuilder, the arrayOffset here could be different due to slicing in the build method.
+        int offset = result.arrayOffset() - TUPLE_OFFSET;
+        int length = result.remaining() + TUPLE_OFFSET;
+        ByteBuffer buffer = ByteBuffer.wrap(result.array(), offset, length).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+        buffer.putShort(SCHEMA_VERSION_OFFSET, (short) schemaVersion);
+        buffer.put(HAS_VALUE_OFFSET, hasValue ? (byte) 1 : 0);
         buffer.position(0);
         return new ByteBufferRow(buffer);
     }

@@ -60,7 +60,7 @@ public class BinaryTupleBuilder {
     private final int valueBase;
 
     /** Buffer for tuple content. */
-    private ByteBuffer buffer;
+    protected ByteBuffer buffer;
 
     /** Charset encoder for strings. Initialized lazily. */
     private CharsetEncoder cachedEncoder;
@@ -854,9 +854,14 @@ public class BinaryTupleBuilder {
 
     /** Allocate a non-direct buffer for tuple. */
     private void allocate(int totalValueSize) {
-        buffer = ByteBuffer.allocate(estimateBufferCapacity(totalValueSize));
+        buffer = allocateBuffer(estimateBufferCapacity(totalValueSize));
         buffer.order(ByteOrder.LITTLE_ENDIAN);
         buffer.position(valueBase);
+    }
+
+    /** Allocate a non-direct buffer for tuple. */
+    protected ByteBuffer allocateBuffer(int capacity) {
+        return ByteBuffer.allocate(capacity);
     }
 
     /** Do our best to find initial buffer capacity. */
@@ -884,11 +889,15 @@ public class BinaryTupleBuilder {
             }
         } while ((capacity - buffer.position()) < size);
 
+        buffer = reallocateBuffer(capacity);
+    }
+
+    /** Reallocate the buffer to the new capacity. */
+    protected ByteBuffer reallocateBuffer(int capacity) {
         ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
         newBuffer.order(ByteOrder.LITTLE_ENDIAN);
         newBuffer.put(buffer.flip());
-
-        buffer = newBuffer;
+        return newBuffer;
     }
 
     /**
