@@ -192,7 +192,25 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
         {
-            await Task.Delay(1);
+            var key = new Poco { Key = 1 };
+            await PocoView.UpsertAsync(null, new Poco { Key = 1, Val = "11" });
+
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            Assert.AreEqual("11", (await PocoView.GetAsync(tx, key)).Value.Val);
+
+            // Update data in a different tx.
+            await using (var tx2 = await Client.Transactions.BeginAsync())
+            {
+                await PocoView.UpsertAsync(null, new Poco { Key = 1, Val = "22" });
+                await tx2.CommitAsync();
+            }
+
+            // Old tx sees old data.
+            Assert.AreEqual("11", (await PocoView.GetAsync(tx, key)).Value.Val);
+
+            // New tx sees new data
+            await using var tx3 = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            Assert.AreEqual("22", (await PocoView.GetAsync(tx3, key)).Value.Val);
         }
 
         [Test]
