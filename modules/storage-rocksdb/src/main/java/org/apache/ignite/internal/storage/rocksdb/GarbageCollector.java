@@ -20,14 +20,14 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.KEY_BYTE_ORDER;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.MAX_KEY_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.MV_KEY_BUFFER;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.PARTITION_ID_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.ROW_ID_OFFSET;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.ROW_ID_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.TABLE_ROW_BYTE_ORDER;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.readTimestampNatural;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.PARTITION_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.TABLE_ROW_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampNatural;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStorage.invalid;
 
 import java.nio.ByteBuffer;
@@ -37,11 +37,9 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.TableRowAndRowId;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -77,9 +75,9 @@ class GarbageCollector {
     private static final ThreadLocal<ByteBuffer> GC_KEY_BUFFER = withInitial(() -> allocateDirect(GC_KEY_SIZE).order(KEY_BYTE_ORDER));
 
     /** Helper for the rocksdb partition. */
-    private final Helper helper;
+    private final PartitionDataHelper helper;
 
-    GarbageCollector(Helper helper) {
+    GarbageCollector(PartitionDataHelper helper) {
         this.helper = helper;
     }
 
@@ -99,7 +97,7 @@ class GarbageCollector {
             throws RocksDBException {
         RocksDB db = helper.db;
         ColumnFamilyHandle gc = helper.gc;
-        ColumnFamilyHandle cf = helper.cf;
+        ColumnFamilyHandle partCf = helper.partCf;
 
         boolean newAndPrevTombstones = false;
 
@@ -109,11 +107,7 @@ class GarbageCollector {
 
         helper.putDataKey(keyBuffer, rowId, timestamp);
 
-        try (
-                Slice upperBound = new Slice(helper.partitionEndPrefix());
-                ReadOptions readOpts = new ReadOptions().setTotalOrderSeek(true).setIterateUpperBound(upperBound);
-                RocksIterator it = db.newIterator(cf, readOpts)
-        ) {
+        try (RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts)) {
             it.seek(keyBuffer);
 
             if (invalid(it)) {
@@ -161,17 +155,13 @@ class GarbageCollector {
     @Nullable TableRowAndRowId pollForVacuum(WriteBatchWithIndex batch, HybridTimestamp lowWatermark) throws RocksDBException {
         RocksDB db = helper.db;
         ColumnFamilyHandle gc = helper.gc;
-        ColumnFamilyHandle cf = helper.cf;
+        ColumnFamilyHandle partCf = helper.partCf;
 
         // We retrieve the first element of the GC queue and seek for it in the data CF.
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
-        try (
-                var gcUpperBound = new Slice(helper.partitionEndPrefix());
-                ReadOptions gcOpts = new ReadOptions().setIterateUpperBound(gcUpperBound);
-                RocksIterator gcIt = db.newIterator(gc, gcOpts)
-        ) {
+        try (RocksIterator gcIt = db.newIterator(gc, helper.upperBoundReadOpts)) {
             gcIt.seek(helper.partitionStartPrefix());
 
             if (invalid(gcIt)) {
@@ -196,11 +186,7 @@ class GarbageCollector {
             // Delete element from the GC queue.
             batch.delete(gc, gcKeyBuffer);
 
-            try (
-                    var upperBound = new Slice(helper.partitionEndPrefix());
-                    ReadOptions opts = new ReadOptions().setIterateUpperBound(upperBound);
-                    RocksIterator it = db.newIterator(cf, opts)
-            ) {
+            try (RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts)) {
                 ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
                 dataKeyBuffer.clear();
 
@@ -227,7 +213,7 @@ class GarbageCollector {
                 TableRowAndRowId retVal = new TableRowAndRowId(row, gcElementRowId);
 
                 // Delete the row from the data cf.
-                batch.delete(cf, dataKeyBuffer);
+                batch.delete(partCf, dataKeyBuffer);
 
                 return retVal;
             }
@@ -249,7 +235,7 @@ class GarbageCollector {
      */
     private boolean checkHasNewerRowAndRemoveTombstone(RocksIterator it, WriteBatchWithIndex batch, ByteBuffer dataKeyBuffer,
             RowId gcElementRowId, HybridTimestamp gcElementTimestamp) throws RocksDBException {
-        ColumnFamilyHandle cf = helper.cf;
+        ColumnFamilyHandle partCf = helper.partCf;
 
         // Set up the data key.
         helper.putDataKey(dataKeyBuffer, gcElementRowId, gcElementTimestamp);
@@ -258,11 +244,9 @@ class GarbageCollector {
         // Note that it doesn't mean that the element in this iterator has matching row id or even partition id.
         it.seek(dataKeyBuffer);
 
-        boolean hasRowForGc = true;
-
         if (invalid(it)) {
             // There is no row for the GC queue element.
-            hasRowForGc = false;
+            return false;
         } else {
             dataKeyBuffer.clear();
 
@@ -270,12 +254,8 @@ class GarbageCollector {
 
             if (!helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET).equals(gcElementRowId)) {
                 // There is no row for the GC queue element.
-                hasRowForGc = false;
+                return false;
             }
-        }
-
-        if (!hasRowForGc) {
-            return false;
         }
 
         // Check if the new element, whose insertion scheduled the GC, was a tombstone.
@@ -283,7 +263,7 @@ class GarbageCollector {
 
         if (len == 0) {
             // This is a tombstone, we need to delete it.
-            batch.delete(cf, dataKeyBuffer);
+            batch.delete(partCf, dataKeyBuffer);
         }
 
         return true;
@@ -302,12 +282,10 @@ class GarbageCollector {
         // Let's move to the element that was scheduled for GC.
         it.next();
 
-        boolean hasRowForGc = true;
-
         RowId gcRowId;
 
         if (invalid(it)) {
-            hasRowForGc = false;
+            return false;
         } else {
             dataKeyBuffer.clear();
 
@@ -315,18 +293,14 @@ class GarbageCollector {
 
             if (keyLen != MAX_KEY_SIZE) {
                 // We moved to the next row id's write-intent, so there was no row to GC for the current row id.
-                hasRowForGc = false;
+                return false;
             } else {
                 gcRowId = helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET);
 
-                if (!gcElementRowId.equals(gcRowId)) {
-                    // We moved to the next row id, so there was no row to GC for the current row id.
-                    hasRowForGc = false;
-                }
+                // We might have moved to the next row id.
+                return gcElementRowId.equals(gcRowId);
             }
         }
-
-        return hasRowForGc;
     }
 
     /**

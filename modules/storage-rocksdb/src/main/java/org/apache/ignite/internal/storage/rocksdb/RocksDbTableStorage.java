@@ -628,11 +628,16 @@ public class RocksDbTableStorage implements MvTableStorage {
     private ColumnFamilyDescriptor cfDescriptorFromName(String cfName) {
         switch (ColumnFamilyType.fromCfName(cfName)) {
             case META:
-            case PARTITION:
             case GC_QUEUE:
                 return new ColumnFamilyDescriptor(
                         cfName.getBytes(UTF_8),
                         new ColumnFamilyOptions()
+                );
+
+            case PARTITION:
+                return new ColumnFamilyDescriptor(
+                        cfName.getBytes(UTF_8),
+                        new ColumnFamilyOptions().useFixedLengthPrefixExtractor(PartitionDataHelper.ROW_PREFIX_SIZE)
                 );
 
             case HASH_INDEX:

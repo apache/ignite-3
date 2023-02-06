@@ -21,20 +21,20 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocate;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.KEY_BYTE_ORDER;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.MAX_KEY_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.MV_KEY_BUFFER;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.PARTITION_ID_OFFSET;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.ROW_ID_OFFSET;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.ROW_PREFIX_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.TABLE_ID_OFFSET;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.TABLE_ROW_BYTE_ORDER;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.TX_ID_OFFSET;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.VALUE_HEADER_SIZE;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.VALUE_OFFSET;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.normalize;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.putTimestampDesc;
-import static org.apache.ignite.internal.storage.rocksdb.Helper.readTimestampDesc;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.PARTITION_ID_OFFSET;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_PREFIX_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.TABLE_ID_OFFSET;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.TABLE_ROW_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.TX_ID_OFFSET;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.VALUE_HEADER_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.VALUE_OFFSET;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.normalize;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putTimestampDesc;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.partitionIdKey;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
@@ -112,7 +112,7 @@ import org.rocksdb.WriteOptions;
  * <p>BE means Big Endian, meaning that lexicographical bytes order matches a natural order of partitions.
  *
  * <p>DESC means that timestamps are sorted from newest to oldest (N2O).
- * Please refer to {@link Helper#putTimestampDesc(ByteBuffer, HybridTimestamp)}
+ * Please refer to {@link PartitionDataHelper#putTimestampDesc(ByteBuffer, HybridTimestamp)}
  * to see how it's achieved. Missing timestamp could be interpreted as a moment infinitely far away in the future.
  */
 public class RocksDbMvPartitionStorage implements MvPartitionStorage {
@@ -136,10 +136,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private final RocksDB db;
 
     /** Helper for the rocksdb partition. */
-    private final Helper helper;
-
-    /** Partitions column family. */
-    private final ColumnFamilyHandle cf;
+    private final PartitionDataHelper helper;
 
     /** Garbage collector. */
     private final GarbageCollector gc;
@@ -155,14 +152,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** Read options for reading persisted data. */
     private final ReadOptions persistedTierReadOpts = new ReadOptions().setReadTier(PERSISTED_TIER);
-
-    /** Upper bound for scans and reads. */
-    private final Slice upperBound;
-
-    private final ReadOptions upperBoundReadOpts;
-
-    /** Read options for scan iterators. */
-    private final ReadOptions scanReadOptions;
 
     /** Key to store applied index value in meta. */
     private final byte[] lastAppliedIndexKey;
@@ -209,15 +198,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         this.tableStorage = tableStorage;
         this.partitionId = partitionId;
         db = tableStorage.db();
-        cf = tableStorage.partitionCfHandle();
         meta = tableStorage.metaCfHandle();
-        helper = new Helper(partitionId, db, cf, tableStorage.gcQueueHandle());
+        helper = new PartitionDataHelper(partitionId, db, tableStorage.partitionCfHandle(), tableStorage.gcQueueHandle());
         gc = new GarbageCollector(helper);
-
-        upperBound = new Slice(helper.partitionEndPrefix());
-
-        upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);
-        scanReadOptions = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
 
         lastAppliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
         lastAppliedTermKey = ("term" + partitionId).getBytes(StandardCharsets.UTF_8);
@@ -439,7 +422,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 byte[] keyBytes = copyOf(keyBufArray, ROW_PREFIX_SIZE);
 
-                byte[] previousValue = writeBatch.getFromBatchAndDB(db, cf, readOpts, keyBytes);
+                byte[] previousValue = writeBatch.getFromBatchAndDB(db, helper.partCf, readOpts, keyBytes);
 
                 // Previous value must belong to the same transaction.
                 if (previousValue != null) {
@@ -452,7 +435,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     // Write empty value as a tombstone.
                     if (previousValue != null) {
                         // Reuse old array with transaction id already written to it.
-                        writeBatch.put(cf, keyBytes, copyOf(previousValue, VALUE_HEADER_SIZE));
+                        writeBatch.put(helper.partCf, keyBytes, copyOf(previousValue, VALUE_HEADER_SIZE));
                     } else {
                         byte[] valueHeaderBytes = new byte[VALUE_HEADER_SIZE];
 
@@ -460,7 +443,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         putUuidToBytes(commitTableId, valueHeaderBytes, TABLE_ID_OFFSET);
                         putShort(valueHeaderBytes, PARTITION_ID_OFFSET, (short) commitPartitionId);
 
-                        writeBatch.put(cf, keyBytes, valueHeaderBytes);
+                        writeBatch.put(helper.partCf, keyBytes, valueHeaderBytes);
                     }
                 } else {
                     writeUnversioned(keyBufArray, row, txId, commitTableId, commitPartitionId);
@@ -497,7 +480,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         value.position(VALUE_OFFSET).put(rowBytes);
 
         // Write table row data as a value.
-        writeBatch.put(cf, copyOf(keyArray, ROW_PREFIX_SIZE), value.array());
+        writeBatch.put(helper.partCf, copyOf(keyArray, ROW_PREFIX_SIZE), value.array());
     }
 
     private static byte[] rowBytes(TableRow row) {
@@ -517,7 +500,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             try {
                 byte[] keyBytes = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
 
-                byte[] previousValue = writeBatch.getFromBatchAndDB(db, cf, readOpts, keyBytes);
+                byte[] previousValue = writeBatch.getFromBatchAndDB(db, helper.partCf, readOpts, keyBytes);
 
                 if (previousValue == null) {
                     //the chain doesn't contain an uncommitted write intent
@@ -525,7 +508,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 }
 
                 // Perform unconditional remove for the key without associated timestamp.
-                writeBatch.delete(cf, keyBytes);
+                writeBatch.delete(helper.partCf, keyBytes);
 
                 return wrapValueIntoTableRow(previousValue, true);
             } catch (RocksDBException e) {
@@ -545,7 +528,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // Read a value associated with pending write.
                 byte[] uncommittedKeyBytes = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
 
-                byte[] valueBytes = writeBatch.getFromBatchAndDB(db, cf, readOpts, uncommittedKeyBytes);
+                byte[] valueBytes = writeBatch.getFromBatchAndDB(db, helper.partCf, readOpts, uncommittedKeyBytes);
 
                 if (valueBytes == null) {
                     // The chain doesn't contain an uncommitted write intent.
@@ -558,7 +541,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 boolean newAndPrevTombstones = gc.tryAddToGcQueue(writeBatch, rowId, timestamp, isNewValueTombstone);
 
                 // Delete pending write.
-                writeBatch.delete(cf, uncommittedKeyBytes);
+                writeBatch.delete(helper.partCf, uncommittedKeyBytes);
 
                 // We only write tombstone if the previous value for the same row id was not a tombstone.
                 // So there won't be consecutive tombstones for the same row id.
@@ -566,7 +549,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     // Add timestamp to the key, and put the value back into the storage.
                     putTimestampDesc(keyBuf, timestamp);
 
-                    writeBatch.put(cf, copyOf(keyBuf.array(), MAX_KEY_SIZE), copyOfRange(valueBytes, VALUE_HEADER_SIZE, valueBytes.length));
+                    writeBatch.put(
+                            helper.partCf,
+                            copyOf(keyBuf.array(), MAX_KEY_SIZE),
+                            copyOfRange(valueBytes, VALUE_HEADER_SIZE, valueBytes.length)
+                    );
                 }
 
                 return null;
@@ -600,7 +587,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // So there won't be consecutive tombstones for the same row id.
             if (!newAndPrevTombstones) {
                 try {
-                    writeBatch.put(cf, copyOf(keyBuf.array(), MAX_KEY_SIZE), rowBytes);
+                    writeBatch.put(helper.partCf, copyOf(keyBuf.array(), MAX_KEY_SIZE), rowBytes);
                 } catch (RocksDBException e) {
                     throw new StorageException("Failed to update a row in storage: " + createStorageInfo(), e);
                 }
@@ -625,11 +612,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             try (
                     // Set next partition as an upper bound.
-                    RocksIterator baseIterator = db.newIterator(cf, upperBoundReadOpts);
+                    RocksIterator baseIterator = db.newIterator(helper.partCf, helper.upperBoundReadOpts);
                     // "count()" check is mandatory. Write batch iterator without any updates just crashes everything.
                     // It's not documented, but this is exactly how it should be used.
                     RocksIterator seekIterator = writeBatch != null && writeBatch.count() > 0
-                            ? writeBatch.newIteratorWithBase(cf, baseIterator)
+                            ? writeBatch.newIteratorWithBase(helper.partCf, baseIterator)
                             : baseIterator
             ) {
                 if (lookingForLatestVersions(timestamp)) {
@@ -844,12 +831,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
 
-            RocksIterator it = db.newIterator(cf, options);
+            RocksIterator it = db.newIterator(helper.partCf, options);
 
             WriteBatchWithIndex writeBatch = threadLocalWriteBatch.get();
 
             if (writeBatch != null && writeBatch.count() > 0) {
-                it = writeBatch.newIteratorWithBase(cf, it);
+                it = writeBatch.newIteratorWithBase(helper.partCf, it);
             }
 
             it.seek(lowerBound);
@@ -926,7 +913,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             ByteBuffer keyBuf = prepareHeapKeyBuf(lowerBound).rewind().limit(ROW_PREFIX_SIZE);
 
-            try (RocksIterator it = db.newIterator(cf, scanReadOptions)) {
+            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
                 it.seek(keyBuf);
 
                 if (!it.isValid()) {
@@ -984,7 +971,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             try (
                     var upperBound = new Slice(helper.partitionEndPrefix());
                     var options = new ReadOptions().setIterateUpperBound(upperBound);
-                    RocksIterator it = db.newIterator(cf, options)
+                    RocksIterator it = db.newIterator(helper.partCf, options)
             ) {
                 it.seek(helper.partitionStartPrefix());
 
@@ -1010,7 +997,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         writeBatch.delete(meta, partitionIdKey(partitionId));
 
-        writeBatch.deleteRange(cf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
+        writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
 
         gc.deleteQueue(writeBatch);
     }
@@ -1040,7 +1027,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         busyLock.block();
 
-        RocksUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts, scanReadOptions, upperBoundReadOpts, upperBound);
+        RocksUtils.closeAll(persistedTierReadOpts, readOpts, writeOpts);
+
+        helper.close();
     }
 
     private WriteBatchWithIndex requireWriteBatch() {
@@ -1180,7 +1169,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private abstract class BasePartitionTimestampCursor implements PartitionTimestampCursor {
-        protected final RocksIterator it = db.newIterator(cf, scanReadOptions);
+        protected final RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts);
 
         // Here's seek buffer itself. Originally it contains a valid partition id, row id payload that's filled with zeroes, and maybe
         // a timestamp value. Zero row id guarantees that it's lexicographically less than or equal to any other row id stored in the
@@ -1512,7 +1501,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.delete(meta, partitionIdKey(partitionId));
-        writeBatch.deleteRange(cf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
+        writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
 
         gc.deleteQueue(writeBatch);
     }

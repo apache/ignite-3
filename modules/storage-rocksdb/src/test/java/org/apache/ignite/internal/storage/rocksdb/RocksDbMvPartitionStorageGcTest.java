@@ -31,7 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageGcTest {
-    @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16777216, writeBufferSize = 16777216}}")
+    @InjectConfiguration
     private RocksDbStorageEngineConfiguration engineConfig;
 
     @WorkDirectory

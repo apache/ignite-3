@@ -23,14 +23,18 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SI
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
+import org.rocksdb.Slice;
 
 /** Helper for the partition data. */
-class Helper {
+class PartitionDataHelper implements ManuallyCloseable {
     /** Commit partition id size. */
     static final int PARTITION_ID_SIZE = Short.BYTES;
 
@@ -41,7 +45,7 @@ class Helper {
     static final int ROW_ID_OFFSET = Short.BYTES;
 
     /** Size of the key without timestamp. */
-    static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
+    public static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
 
     /** Maximum size of the data key. */
     static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
@@ -74,19 +78,36 @@ class Helper {
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
-    final int partitionId;
+    /** Partition id. */
+    private final int partitionId;
 
+    /** Upper bound for scans and reads. */
+    private final Slice upperBound;
+
+    /** RocksDB instance. */
     final RocksDB db;
 
-    final ColumnFamilyHandle cf;
+    /** Partition data column family. */
+    final ColumnFamilyHandle partCf;
 
+    /** GC queue column family. */
     final ColumnFamilyHandle gc;
 
-    Helper(int partitionId, RocksDB db, ColumnFamilyHandle cf, ColumnFamilyHandle gc) {
+    /** Read options for regular reads and scans. */
+    final ReadOptions upperBoundReadOpts;
+
+    /** Read options for total order scans. */
+    final ReadOptions scanReadOpts;
+
+    PartitionDataHelper(int partitionId, RocksDB db, ColumnFamilyHandle partCf, ColumnFamilyHandle gc) {
         this.partitionId = partitionId;
         this.db = db;
-        this.cf = cf;
+        this.partCf = partCf;
         this.gc = gc;
+
+        this.upperBound = new Slice(partitionEndPrefix());
+        this.upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);
+        this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
     }
 
     /**
@@ -191,5 +212,10 @@ class Helper {
         int logical = keyBuf.getInt(offset + Long.BYTES);
 
         return new HybridTimestamp(physical, logical);
+    }
+
+    @Override
+    public void close() {
+        RocksUtils.closeAll(upperBoundReadOpts, upperBound);
     }
 }
