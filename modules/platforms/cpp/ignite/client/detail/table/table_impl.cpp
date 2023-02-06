@@ -61,18 +61,22 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t i
             builder.claim_uuid(tuple.get<uuid>(index));
             break;
         case ignite_type::STRING:
-            builder.claim(SizeT(tuple.get<std::string>(index).size()));
+            builder.claim_string(tuple.get<std::string>(index));
             break;
         case ignite_type::BINARY:
-            builder.claim(SizeT(tuple.get<std::vector<std::byte>>(index).size()));
+            builder.claim_bytes(tuple.get<std::vector<std::byte>>(index));
+            break;
+        case ignite_type::DECIMAL:
+            builder.claim_number(tuple.get<big_decimal>(index));
+            break;
+        case ignite_type::NUMBER:
+            builder.claim_number(tuple.get<big_integer>(index));
             break;
         case ignite_type::BITMASK:
         case ignite_type::DATE:
         case ignite_type::TIME:
         case ignite_type::DATETIME:
         case ignite_type::TIMESTAMP:
-        case ignite_type::DECIMAL:
-        case ignite_type::NUMBER:
         default:
             // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
@@ -110,22 +114,23 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
         case ignite_type::UUID:
             builder.append_uuid(tuple.get<uuid>(index));
             break;
-        case ignite_type::STRING: {
-            const auto &str = tuple.get<std::string>(index);
-            bytes_view view{reinterpret_cast<const std::byte *>(str.data()), str.size()};
-            builder.append(typ, view);
+        case ignite_type::STRING:
+            builder.append_string(tuple.get<std::string>(index));
             break;
-        }
         case ignite_type::BINARY:
-            builder.append(typ, tuple.get<std::vector<std::byte>>(index));
+            builder.append_bytes(tuple.get<std::vector<std::byte>>(index));
+            break;
+        case ignite_type::DECIMAL:
+            builder.append_number(tuple.get<big_decimal>(index));
+            break;
+        case ignite_type::NUMBER:
+            builder.append_number(tuple.get<big_integer>(index));
             break;
         case ignite_type::BITMASK:
         case ignite_type::DATE:
         case ignite_type::TIME:
         case ignite_type::DATETIME:
         case ignite_type::TIMESTAMP:
-        case ignite_type::DECIMAL:
-        case ignite_type::NUMBER:
         default:
             // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
@@ -247,7 +252,7 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, const ignit
         if (i < sch->key_column_count) {
             res.set(column.name, key.get(column.name));
         } else {
-            res.set(column.name, read_next_column(parser, column.type));
+            res.set(column.name, read_next_column(parser, column.type, column.scale));
         }
     }
     return res;
@@ -270,7 +275,7 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_on
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto &column = sch->columns[i];
-        res.set(column.name, read_next_column(parser, column.type));
+        res.set(column.name, read_next_column(parser, column.type, column.scale));
     }
     return res;
 }

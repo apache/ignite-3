@@ -20,6 +20,8 @@
 #include "ignite/client/sql/sql_column_type.h"
 #include "ignite/common/ignite_error.h"
 #include "ignite/common/uuid.h"
+#include "ignite/common/big_decimal.h"
+#include "ignite/common/big_integer.h"
 
 #include <cstdint>
 #include <type_traits>
@@ -126,6 +128,22 @@ public:
         : m_value(std::vector<std::byte>(buf, buf + len)) {}
 
     /**
+     * Constructor for big decimal value.
+     *
+     * @param value Value.
+     */
+    primitive(big_decimal value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
+
+    /**
+     * Constructor for big integer value.
+     *
+     * @param value Value.
+     */
+    primitive(big_integer value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
+
+    /**
      * Get underlying value.
      *
      * @tparam T Type of value to try and get.
@@ -135,8 +153,19 @@ public:
     template<typename T>
     [[nodiscard]] const T &get() const {
         if constexpr (
-            std::is_same_v<
-                T, bool> || std::is_same_v<T, std::int8_t> || std::is_same_v<T, std::int16_t> || std::is_same_v<T, std::int32_t> || std::is_same_v<T, std::int64_t> || std::is_same_v<T, float> || std::is_same_v<T, double> || std::is_same_v<T, uuid> || std::is_same_v<T, std::string> || std::is_same_v<T, std::vector<std::byte>>) {
+            std::is_same_v< T, bool>
+            || std::is_same_v<T, std::int8_t>
+            || std::is_same_v<T, std::int16_t>
+            || std::is_same_v<T, std::int32_t>
+            || std::is_same_v<T, std::int64_t>
+            || std::is_same_v<T, float>
+            || std::is_same_v<T, double>
+            || std::is_same_v<T, uuid>
+            || std::is_same_v<T, std::string>
+            || std::is_same_v<T, std::vector<std::byte>>
+            || std::is_same_v<T, big_decimal>
+            || std::is_same_v<T, big_integer>)
+        {
             return std::get<T>(m_value);
         } else {
             static_assert(sizeof(T) == 0, "Type is not an Ignite primitive type or is not yet supported");
@@ -158,8 +187,7 @@ private:
     typedef void *unsupported_type;
 
     /** Value type. */
-    typedef std::variant<bool, std::int8_t, std::int16_t, std::int32_t, std::int64_t, float, double,
-        unsupported_type, // Decimal
+    typedef std::variant<bool, std::int8_t, std::int16_t, std::int32_t, std::int64_t, float, double, big_decimal,
         unsupported_type, // Date
         unsupported_type, // Time
         unsupported_type, // Datetime
@@ -169,7 +197,7 @@ private:
         std::string, std::vector<std::byte>,
         unsupported_type, // Period
         unsupported_type, // Duration
-        unsupported_type // Number
+        big_integer
         >
         value_type;
 
