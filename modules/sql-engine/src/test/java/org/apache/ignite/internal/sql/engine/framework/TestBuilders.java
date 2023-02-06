@@ -157,7 +157,7 @@ public class TestBuilders {
     }
 
     private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
-        private FragmentDescription description = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+        private FragmentDescription description = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;

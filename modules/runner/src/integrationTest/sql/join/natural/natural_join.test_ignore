@@ -65,9 +65,12 @@ SELECT * FROM t1 NATURAL JOIN t2 NATURAL JOIN t3
 ----
 1	2	3
 
-# no matching columns
-statement error
+# natural join chain on not matching columns behaves like join on true
+query I
 select * from (values (1)) tbl(a) natural join (values (1), (2)) tbl2(b) order by 1, 2
+----
+1  1
+1  2
 
 # long join chain
 query I

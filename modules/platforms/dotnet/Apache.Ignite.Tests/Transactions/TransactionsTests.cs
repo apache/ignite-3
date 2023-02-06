@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Transactions
 {
     using System;
-    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using System.Transactions;

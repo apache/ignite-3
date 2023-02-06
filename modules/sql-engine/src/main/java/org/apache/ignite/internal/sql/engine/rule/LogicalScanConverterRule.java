@@ -17,13 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.util.CollectionUtils.concat;
-
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
@@ -31,7 +27,6 @@ import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -47,11 +42,7 @@ import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.sql.engine.util.RexUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * LogicalScanConverterRule.
@@ -88,29 +79,21 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         outputCollation = outputCollation.apply(mapping);
                     }
 
-                    Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
-
-                    if (!CollectionUtils.nullOrEmpty(rel.projects())) {
-                        corrIds = new HashSet<>(concat(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
-                    }
-
                     RelTraitSet traits = rel.getCluster().traitSetOf(IgniteConvention.INSTANCE)
-                            .replace(RewindabilityTrait.REWINDABLE)
                             .replace(distribution)
-                            .replace(outputCollation)
-                            .replace(corrIds.isEmpty() ? CorrelationTrait.UNCORRELATED : CorrelationTrait.correlations(corrIds));
+                            .replace(outputCollation);
 
                     return new IgniteIndexScan(
-                        cluster,
-                        traits,
-                        rel.getTable(),
-                        rel.indexName(),
-                        index.type(),
-                        collation,
-                        rel.projects(),
-                        rel.condition(),
-                        rel.searchBounds(),
-                        rel.requiredColumns()
+                            cluster,
+                            traits,
+                            rel.getTable(),
+                            rel.indexName(),
+                            index.type(),
+                            collation,
+                            rel.projects(),
+                            rel.condition(),
+                            rel.searchBounds(),
+                            rel.requiredColumns()
                     );
                 }
             };
@@ -138,16 +121,8 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         distribution = distribution.apply(mapping);
                     }
 
-                    Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.condition());
-
-                    if (!CollectionUtils.nullOrEmpty(rel.projects())) {
-                        corrIds = new HashSet<>(concat(corrIds, RexUtils.extractCorrelationIds(rel.projects())));
-                    }
-
                     RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                            .replace(RewindabilityTrait.REWINDABLE)
-                            .replace(distribution)
-                            .replace(corrIds.isEmpty() ? CorrelationTrait.UNCORRELATED : CorrelationTrait.correlations(corrIds));
+                            .replace(distribution);
 
                     return new IgniteTableScan(rel.getCluster(), traits, rel.getTable(), rel.getHints(),
                         rel.projects(), rel.condition(), rel.requiredColumns());
