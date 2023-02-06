@@ -45,6 +45,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -186,7 +187,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -264,7 +265,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -347,7 +348,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -428,7 +429,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -573,7 +574,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -650,7 +651,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -969,7 +970,8 @@ public class PlannerTest extends AbstractPlannerTest {
         return single ? select(NODES, 0) : select(NODES, 0, 1, 2, 3);
     }
 
-    private static MappingQueryContext mapContext(String locNodeId) {
-        return new MappingQueryContext(locNodeId);
+    private static MappingQueryContext mapContext(String locNodeName,
+            MappingService mappingService) {
+        return new MappingQueryContext(locNodeName, mappingService);
     }
 }

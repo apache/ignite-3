@@ -103,6 +103,12 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
 
     /** {@inheritDoc} */
     @Override
+    public IgniteRel clone(long sourceId) {
+        return new IgniteTableFunctionScan(sourceId, getCluster(), getTraitSet(), getCall(), getRowType());
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
     }
@@ -114,12 +120,6 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
         assert nullOrEmpty(inputs);
 
         return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteRel clone(long sourceId) {
-        return new IgniteTableFunctionScan(sourceId, getCluster(), getTraitSet(), getCall(), getRowType());
     }
 
     /** {@inheritDoc} */

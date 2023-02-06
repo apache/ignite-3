@@ -21,7 +21,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 
 /**
  * Regular query or DML.
