@@ -15,28 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Transactions
-{
-    using System;
-    using System.Threading.Tasks;
+namespace Apache.Ignite.Transactions;
 
-    /// <summary>
-    /// Ignite transaction.
-    /// <para />
-    /// Use <see cref="ITransactions.BeginAsync()"/> to start a new transaction.
-    /// </summary>
-    public interface ITransaction : IAsyncDisposable
-    {
-        /// <summary>
-        /// Commits the transaction.
-        /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task CommitAsync();
-
-        /// <summary>
-        /// Rolls back the transaction.
-        /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task RollbackAsync();
-    }
-}
+/// <summary>
+/// Ignite transaction options.
+/// </summary>
+/// <param name="ReadOnly">
+/// Whether to start a read-only transaction.
+/// Read-only transactions provide a snapshot view of data at a certain point in time.
+/// They are lock-free and perform better than normal transactions, but do not permit data modifications.
+/// </param>
+public readonly record struct TransactionOptions(bool ReadOnly);

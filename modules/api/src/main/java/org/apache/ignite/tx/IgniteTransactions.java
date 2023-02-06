@@ -73,6 +73,9 @@ public interface IgniteTransactions {
     /**
      * Returns a decorated {@code IgniteTransactions} instance that will start read-only transactions.
      *
+     * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
+     * They are lock-free and perform better than normal transactions, but do not permit data modifications.
+     *
      * @return Decorated {@code IgniteTransactions} instance that will start read-only transactions.
      */
     IgniteTransactions readOnly();
