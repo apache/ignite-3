@@ -55,10 +55,10 @@ public class TransactionOptions {
     /**
      * Returns a value indicating whether a read-only transaction should be used.
      *
-     * @return Whether a read-only transaction should be used.
-     *
      * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
      * They are lock-free and perform better than normal transactions, but do not permit data modifications.
+     *
+     * @return Whether a read-only transaction should be used.
      */
     public boolean readOnly() {
         return readOnly;
@@ -67,10 +67,10 @@ public class TransactionOptions {
     /**
      * Sets a value indicating whether a read-only transaction should be used.
      *
-     * @param readOnly Whether a read-only transaction should be used.
-     *
      * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
      * They are lock-free and perform better than normal transactions, but do not permit data modifications.
+     *
+     * @param readOnly Whether a read-only transaction should be used.
      *
      * @return {@code this} for chaining.
      */
