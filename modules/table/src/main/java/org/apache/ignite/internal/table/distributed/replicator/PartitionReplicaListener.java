@@ -1141,7 +1141,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             for (RowId rowId : cursor) {
                 ReadResult readResult = mvDataStorage.read(rowId, ts);
 
-                if (readResult.isEmpty()) {
+                if (readResult.isEmpty() && !readResult.isWriteIntent()) {
                     continue;
                 }
 

@@ -37,12 +37,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -89,6 +92,9 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
+import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
@@ -123,19 +129,47 @@ import org.mockito.Mock;
 
 /** There are tests for partition replica listener. */
 public class PartitionReplicaListenerTest extends IgniteAbstractTest {
-    private static final Supplier<CompletableFuture<?>> DEFAULT_MOCK_RAFT_FUTURE_SUPPLIER = () -> completedFuture(null);
+    /** Partition id. */
+    private static final int partId = 0;
+
+    /** Table id. */
+    private static final UUID tblId = UUID.randomUUID();
+
+    private static final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
+
+    /** The storage stores partition data. */
+    private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
+
+    private static final Function<PartitionCommand, CompletableFuture<?>> DEFAULT_MOCK_RAFT_FUTURE_CLOSURE = cmd -> {
+        if (cmd instanceof TxCleanupCommand) {
+            Set<RowId> rows = pendingRows.remove(cmd.txId());
+
+            if (rows != null) {
+                for (RowId row : rows) {
+                    testMvPartitionStorage.commitWrite(row, ((TxCleanupCommand) cmd).commitTimestamp().asHybridTimestamp());
+                }
+            }
+        } else if (cmd instanceof UpdateCommand) {
+            pendingRows.compute(cmd.txId(), (txId, v) -> {
+                if (v == null) {
+                    v = new HashSet<>();
+                }
+
+                RowId rowId = new RowId(partId, ((UpdateCommand) cmd).rowUuid());
+                v.add(rowId);
+
+                return v;
+            });
+        }
+
+        return completedFuture(null);
+    };
 
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     /** Table messages factory. */
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
-
-    /** Partition id. */
-    private static final int partId = 0;
-
-    /** Table id. */
-    private static final UUID tblId = UUID.randomUUID();
 
     /** Replication group id. */
     private static final ReplicationGroupId grpId = new TablePartitionId(tblId, partId);
@@ -145,9 +179,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** The storage stores transaction states. */
     private static final TestTxStateStorage txStateStorage = new TestTxStateStorage();
-
-    /** The storage stores partition data. */
-    private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
 
     /** Local cluster node. */
     private static final ClusterNode localNode = new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127"));
@@ -197,7 +228,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Secondary hash index. */
     private static TableSchemaAwareIndexStorage hashIndexStorage;
 
-    private static Supplier<CompletableFuture<?>> raftClientFutureSupplier = DEFAULT_MOCK_RAFT_FUTURE_SUPPLIER;
+    private static Function<PartitionCommand, CompletableFuture<?>> raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
 
     private static LockManager lockManager = new HeapLockManager();
 
@@ -211,7 +242,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return completedFuture(new LeaderWithTerm(new Peer(localNode.name()), 1L));
         });
 
-        when(mockRaftClient.run(any())).thenAnswer(invocationOnMock -> raftClientFutureSupplier.get());
+        when(mockRaftClient.run(any())).thenAnswer(invocationOnMock -> raftClientFutureClosure.apply(invocationOnMock.getArgument(0)));
 
         when(topologySrv.getByConsistentId(any())).thenAnswer(invocationOnMock -> {
             String consistentId = invocationOnMock.getArgument(0);
@@ -334,6 +365,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ((TestHashIndexStorage) hashIndexStorage.storage()).clear();
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
         testMvPartitionStorage.clear();
+        pendingRows.clear();
     }
 
     @Test
@@ -972,14 +1004,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         // Check that cleanup request processing awaits all write requests.
         CompletableFuture<?> writeFut = new CompletableFuture<>();
 
-        raftClientFutureSupplier = () -> writeFut;
+        raftClientFutureClosure = cmd -> writeFut;
 
         try {
             CompletableFuture<?> replicaWriteFut = partitionReplicaListener.invoke(updatingRequestSupplier.get());
 
             assertFalse(replicaWriteFut.isDone());
 
-            raftClientFutureSupplier = DEFAULT_MOCK_RAFT_FUTURE_SUPPLIER;
+            raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
 
             HybridTimestamp now = clock.now();
 
@@ -1000,7 +1032,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertThat(replicaCleanupFut, willSucceedFast());
         } finally {
-            raftClientFutureSupplier = DEFAULT_MOCK_RAFT_FUTURE_SUPPLIER;
+            raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
         }
 
         // Check that one more write after cleanup is discarded.
