@@ -109,7 +109,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
-import org.apache.ignite.internal.sql.engine.rel.InternalIgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
@@ -242,7 +242,7 @@ class RelJson {
     }
 
     String classToTypeName(Class<? extends RelNode> cls) {
-        if (InternalIgniteRel.class.isAssignableFrom(cls)) {
+        if (IgniteRel.class.isAssignableFrom(cls)) {
             return cls.getSimpleName();
         }
 

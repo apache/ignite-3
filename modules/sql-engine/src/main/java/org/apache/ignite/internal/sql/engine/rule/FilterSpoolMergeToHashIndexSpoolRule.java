@@ -36,8 +36,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.immutables.value.Value;
@@ -63,11 +61,6 @@ public class FilterSpoolMergeToHashIndexSpoolRule extends RelRule<FilterSpoolMer
         RelOptCluster cluster = spool.getCluster();
 
         RelTraitSet trait = spool.getTraitSet();
-        CorrelationTrait filterCorr = TraitUtils.correlation(filter);
-
-        if (filterCorr.correlated()) {
-            trait = trait.replace(filterCorr);
-        }
 
         final RelNode input = spool.getInput();
 
