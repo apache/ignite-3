@@ -1042,13 +1042,37 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAfterRowRewrite() {
+        testReadOnlyGetAfterRowRewrite0(true, true, true);
+        testReadOnlyGetAfterRowRewrite0(true, true, false);
+        testReadOnlyGetAfterRowRewrite0(true, false, true);
+        testReadOnlyGetAfterRowRewrite0(true, false, false);
+        testReadOnlyGetAfterRowRewrite0(false, true, true);
+        testReadOnlyGetAfterRowRewrite0(false, true, false);
+        testReadOnlyGetAfterRowRewrite0(false, false, true);
+        testReadOnlyGetAfterRowRewrite0(false, false, false);
+    }
+
+    public void testReadOnlyGetAfterRowRewrite0(boolean insertFirst, boolean u, boolean committed) {
         BinaryRow br = binaryRow(1);
-        UUID tx0 = beginTx();
-        upsert(tx0, br);
+
+        if (insertFirst) {
+            UUID tx0 = beginTx();
+            upsert(tx0, br);
+            cleanup(tx0);
+        }
+
+        txState = null;
+
+        UUID tx1 = beginTx();
+        delete(tx1, br);
+        upsert(tx1, br);
 
         while (true) {
-            delete(tx0, br);
-            upsert(tx0, br);
+            delete(tx1, br);
+
+            if (u) {
+                upsert(tx1, br);
+            }
 
             Cursor<RowId> cursor = pkStorage.get().get(br);
 
@@ -1061,7 +1085,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             }
         }
 
-        cleanup(tx0);
+        if (committed) {
+            cleanup(tx1);
+        }
 
         BinaryRow res = roGet(br, clock.now());
 

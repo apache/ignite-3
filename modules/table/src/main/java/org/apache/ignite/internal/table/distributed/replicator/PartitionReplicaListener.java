@@ -474,7 +474,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
 
-        return safeReadFuture.thenCompose(unused -> resolveRowByPk(searchRow, readTimestamp));
+        return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(searchRow, readTimestamp));
     }
 
     /**
@@ -502,7 +502,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(searchRows.size());
 
             for (BinaryRow searchRow : searchRows) {
-                CompletableFuture<BinaryRow> fut = resolveRowByPk(searchRow, readTimestamp);
+                CompletableFuture<BinaryRow> fut = resolveRowByPkForReadOnly(searchRow, readTimestamp);
 
                 resolutionFuts.add(fut);
             }
@@ -1136,8 +1136,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param ts A timestamp regarding which we need to resolve the given row.
      * @return Result of the given action.
      */
-    private CompletableFuture<BinaryRow> resolveRowByPk(BinaryRow searchKey, HybridTimestamp ts) {
+    private CompletableFuture<BinaryRow> resolveRowByPkForReadOnly(BinaryRow searchKey, HybridTimestamp ts) {
         try (Cursor<RowId> cursor = pkIndexStorage.get().get(searchKey)) {
+            List<CompletableFuture<BinaryRow>> candidates = new ArrayList<>();
+
             for (RowId rowId : cursor) {
                 ReadResult readResult = mvDataStorage.read(rowId, ts);
 
@@ -1145,7 +1147,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     continue;
                 }
 
-                return resolveReadResult(readResult, ts, () -> {
+                CompletableFuture<BinaryRow> resolutionSuture = resolveReadResult(readResult, ts, () -> {
                     HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 
                     if (newestCommitTimestamp == null) {
@@ -1160,9 +1162,25 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return toBinaryRow(committedReadResult.tableRow());
                 });
+
+                candidates.add(resolutionSuture);
             }
 
-            return completedFuture(null);
+            if (candidates.isEmpty()) {
+                return completedFuture(null);
+            } else {
+                return allOf(candidates.toArray(new CompletableFuture[candidates.size()]))
+                        .thenApply(ignored -> {
+                            for (CompletableFuture<BinaryRow> candidate : candidates) {
+                                BinaryRow row = candidate.join();
+                                if (row != null) {
+                                    return row;
+                                }
+                            }
+
+                            return null;
+                        });
+            }
         } catch (Exception e) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unable to close cursor [tableId={}]", tableId), e);
