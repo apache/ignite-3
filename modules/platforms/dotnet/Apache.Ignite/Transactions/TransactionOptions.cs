@@ -22,6 +22,7 @@ namespace Apache.Ignite.Transactions;
 /// </summary>
 /// <param name="ReadOnly">
 /// Whether to start a read-only transaction.
-/// Read-only transactions are lock-free and perform better, but do not permit data modifications.
+/// Read-only transactions provide a snapshot view of data at a certain point in time.
+/// They are lock-free and perform better than normal transactions, but do not permit data modifications.
 /// </param>
 public readonly record struct TransactionOptions(bool ReadOnly);
