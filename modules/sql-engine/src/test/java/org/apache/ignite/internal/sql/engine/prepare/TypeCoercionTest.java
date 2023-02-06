@@ -229,6 +229,9 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         checkExprResult("COALESCE(2, 12.2)", decimal);
     }
 
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
     @ParameterizedTest
     @ValueSource(strings = {
             "COALESCE('b', 2)",
@@ -247,6 +250,9 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         checkExprResult("NULLIF(12.2, 2)", nullable(decimal));
     }
 
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-18559")
     public void testNullIfWithMixedTypesIsRejected() {

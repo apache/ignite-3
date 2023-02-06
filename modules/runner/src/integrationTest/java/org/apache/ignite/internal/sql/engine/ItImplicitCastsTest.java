@@ -67,8 +67,11 @@ public class ItImplicitCastsTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT T11.c2, T12.c2 FROM T11, T12 WHERE T11.c2 IS DISTINCT FROM T12.c2").check();
     }
 
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
     @Test
-    public void testCaseWhenExpressionWithMixedParametersIsIllegal() {
+    public void expressionWithMixedParametersIsIllegal() {
         assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, 'b')").check());
     }
 

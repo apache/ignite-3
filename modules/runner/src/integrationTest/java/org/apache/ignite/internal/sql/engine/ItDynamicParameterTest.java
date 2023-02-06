@@ -125,7 +125,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Mixing types in CASE/COALESCE expressions in illegal.
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
      */
     @Test
     public void testWithDifferentParametersTypesMismatch() {
