@@ -21,14 +21,14 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transactions facade implementation.
  */
 public class IgniteTransactionsImpl implements IgniteTransactions {
     private final TxManager txManager;
-
-    private boolean readOnly = false;
 
     /**
      * The constructor.
@@ -39,39 +39,17 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
         this.txManager = txManager;
     }
 
-    /**
-     * The constructor.
-     *
-     * @param txManager The manager.
-     * @param readOnly Read-only
-     */
-    public IgniteTransactionsImpl(TxManager txManager, boolean readOnly) {
-        this(txManager);
-        this.readOnly = readOnly;
-    }
-
     /** {@inheritDoc} */
     @Override
-    public IgniteTransactions withTimeout(long timeout) {
-        // TODO: IGNITE-15936.
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteTransactions readOnly() {
-        return new IgniteTransactionsImpl(txManager, true);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Transaction begin() {
+    public Transaction begin(@Nullable TransactionOptions options) {
+        boolean readOnly = options != null && options.readOnly();
         return txManager.begin(readOnly);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Transaction> beginAsync() {
+    public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
+        boolean readOnly = options != null && options.readOnly();
         return CompletableFuture.completedFuture(txManager.begin(readOnly));
     }
 }
