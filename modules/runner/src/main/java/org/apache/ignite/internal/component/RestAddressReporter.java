@@ -55,7 +55,7 @@ public class RestAddressReporter {
     private String report(@Nullable NetworkAddress httpAddress, @Nullable NetworkAddress httpsAddress) {
         return Stream.of(report("http", httpAddress), report("https", httpsAddress))
                 .filter(Objects::nonNull)
-                .collect(Collectors.joining(System.lineSeparator()));
+                .collect(Collectors.joining(", "));
     }
 
     @Nullable

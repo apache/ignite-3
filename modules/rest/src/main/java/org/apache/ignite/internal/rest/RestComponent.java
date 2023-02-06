@@ -110,7 +110,7 @@ public class RestComponent implements IgniteComponent {
         boolean dualProtocol = restConfiguration.dualProtocol().value();
         int desiredHttpPort = restConfigurationView.port();
         int portRange = restConfigurationView.portRange();
-        int desiredHttpsPort = sslConfigurationView.port();
+        int desiredHttpsPort = sslEnabled ? sslConfigurationView.port() : UNAVAILABLE_PORT;
         int httpsPortRange = sslEnabled ? sslConfigurationView.portRange() : 0;
         int httpPortCandidate = desiredHttpPort;
         int httpsPortCandidate = desiredHttpsPort;

@@ -49,7 +49,7 @@ class RestAddressReporterTest {
 
         // Then there is a report
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
-        assertThat(restAddress, equalTo("http://localhost:9999\nhttps://localhost:8443"));
+        assertThat(restAddress, equalTo("http://localhost:9999, https://localhost:8443"));
     }
 
     @Test
@@ -127,6 +127,6 @@ class RestAddressReporterTest {
 
         // Then file rewritten
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
-        assertThat(restAddress, equalTo("http://localhost:4444\nhttps://localhost:8443"));
+        assertThat(restAddress, equalTo("http://localhost:4444, https://localhost:8443"));
     }
 }
