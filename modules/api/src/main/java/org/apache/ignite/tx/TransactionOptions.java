@@ -28,6 +28,8 @@ public class TransactionOptions {
     private boolean readOnly = false;
 
     /**
+     * Returns transaction timeout, in milliseconds.
+     *
      * @return Transaction timeout, in milliseconds.
      */
     public long timeoutMillis() {
@@ -35,6 +37,8 @@ public class TransactionOptions {
     }
 
     /**
+     * Sets transaction timeout, in milliseconds.
+     *
      * @param timeoutMillis Transaction timeout, in milliseconds.
      * @return {@code this} for chaining.
      */
@@ -49,6 +53,8 @@ public class TransactionOptions {
     }
 
     /**
+     * Returns a value indicating whether a read-only transaction should be used.
+     *
      * @return Whether a read-only transaction should be used.
      *
      * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
@@ -59,6 +65,8 @@ public class TransactionOptions {
     }
 
     /**
+     * Sets a value indicating whether a read-only transaction should be used.
+     *
      * @param readOnly Whether a read-only transaction should be used.
      *
      * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
