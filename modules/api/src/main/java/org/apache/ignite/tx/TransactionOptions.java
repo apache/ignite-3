@@ -21,9 +21,6 @@ package org.apache.ignite.tx;
  * Ignite transaction options.
  */
 public class TransactionOptions {
-    /** Default instance. Not public to avoid modification. */
-    static final TransactionOptions DEFAULT = new TransactionOptions();
-
     /** Transaction timeout. */
     private long timeoutMillis = 0;
 
