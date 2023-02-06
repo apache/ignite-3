@@ -350,6 +350,8 @@ class ItScaleCubeNetworkMessagingTest {
 
         ((InternalTopologyService) bob.topologyService()).removeFromPhysicalTopology(alice.topologyService().localMember());
 
+        assertTrue(aliceShutdownLatch.await(10, TimeUnit.SECONDS));
+
         Collection<ClusterNode> networkMembers = bob.topologyService().allMembers();
 
         assertEquals(1, networkMembers.size());
