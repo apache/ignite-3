@@ -36,13 +36,16 @@ public class TransactionOptions {
 
     /**
      * @param timeoutMillis Transaction timeout, in milliseconds.
+     * @return {@code this} for chaining.
      */
-    public void timeoutMillis(long timeoutMillis) {
+    public TransactionOptions timeoutMillis(long timeoutMillis) {
         if (readOnly && timeoutMillis != 0) {
             throw illegalStateException();
         }
 
         this.timeoutMillis = timeoutMillis;
+
+        return this;
     }
 
     /**
@@ -60,13 +63,17 @@ public class TransactionOptions {
      *
      * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
      * They are lock-free and perform better than normal transactions, but do not permit data modifications.
+     *
+     * @return {@code this} for chaining.
      */
-    public void readOnly(boolean readOnly) {
+    public TransactionOptions readOnly(boolean readOnly) {
         if (readOnly && timeoutMillis != 0) {
             throw illegalStateException();
         }
 
         this.readOnly = readOnly;
+
+        return this;
     }
 
     private static IllegalStateException illegalStateException() {
