@@ -28,7 +28,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
 @ExtendWith(WorkDirectoryExtension.class)
 class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
     @InjectConfiguration
