@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Transactions;
     using Ignite.Transactions;
     using NUnit.Framework;
+    using Table;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
 
     /// <summary>
@@ -189,13 +190,37 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public async Task TestReadOnlyTxThrowsOnWrite()
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
+        {
+            await Task.Delay(1);
+        }
+
+        [Test]
+        public async Task TestUpdateInReadOnlyTxThrows()
         {
             await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
             var ex = Assert.ThrowsAsync<Tx.TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
 
             Assert.AreEqual(ErrorGroups.Transactions.TxFailedReadWriteOperation, ex!.Code, ex.Message);
             StringAssert.Contains("Failed to enlist read-write operation into read-only transaction", ex.Message);
+        }
+
+        [Test]
+        public async Task TestCommitRollbackReadOnlyTxDoesNothing([Values(true, false)] bool commit)
+        {
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            var res = await PocoView.GetAsync(tx, new Poco { Key = 123 });
+
+            if (commit)
+            {
+                await tx.CommitAsync();
+            }
+            else
+            {
+                await tx.RollbackAsync();
+            }
+
+            Assert.IsFalse(res.HasValue);
         }
 
         private class CustomTx : ITransaction
