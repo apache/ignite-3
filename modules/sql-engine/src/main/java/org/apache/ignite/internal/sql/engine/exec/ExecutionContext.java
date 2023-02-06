@@ -34,7 +34,7 @@ import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.BinaryConverter;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
@@ -370,7 +370,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     /** Null bound. */
     public Object nullBound() {
-        return BinaryConverter.NULL_BOUND;
+        return BinaryRowConverter.NULL_BOUND;
     }
 
     /** {@inheritDoc} */

@@ -490,7 +490,7 @@ public class IncomingSnapshotCopierTest {
 
             return null;
         }).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(TableRow.class), any(UUID.class), any(UUID.class), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), any(UUID.class), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -549,7 +549,7 @@ public class IncomingSnapshotCopierTest {
 
         // Let's add an error on the rebalance.
         doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(TableRow.class), any(UUID.class), any(UUID.class), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), any(UUID.class), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
