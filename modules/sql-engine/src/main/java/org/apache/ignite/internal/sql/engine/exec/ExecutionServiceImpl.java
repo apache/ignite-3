@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
@@ -56,24 +57,35 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.FragmentPlan;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -98,6 +110,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     private final MessageService msgSrvc;
+
+    private final TopologyService topSrvc;
 
     private final ClusterNode localNode;
 
@@ -142,8 +156,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc
     ) {
         return new ExecutionServiceImpl<>(
-                topSrvc.localMember(),
                 msgSrvc,
+                topSrvc,
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
                 ddlCommandHandler,
@@ -160,11 +174,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     /**
-     * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor.
+     *
+     * @param msgSrvc Message service.
+     * @param topSrvc Topology service.
+     * @param mappingSrvc Nodes mapping calculation service.
+     * @param sqlSchemaManager Schema manager.
+     * @param ddlCmdHnd Handler of the DDL commands.
+     * @param taskExecutor Task executor.
+     * @param handler Row handler.
+     * @param exchangeSrvc Exchange service.
+     * @param implementorFactory Relational node implementor factory.
      */
     public ExecutionServiceImpl(
-            ClusterNode localNode,
             MessageService msgSrvc,
+            TopologyService topSrvc,
             MappingService mappingSrvc,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCmdHnd,
@@ -173,10 +197,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc,
             ImplementorFactory<RowT> implementorFactory
     ) {
-        this.localNode = localNode;
+        this.localNode = topSrvc.localMember();
         this.handler = handler;
         this.msgSrvc = msgSrvc;
         this.mappingSrvc = mappingSrvc;
+        this.topSrvc = topSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.exchangeSrvc = exchangeSrvc;
@@ -197,11 +222,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             BaseQueryContext ctx,
             MultiStepPlan plan
     ) {
-        DistributedQueryManager queryManager;
+        DistributedQueryManager queryManager = new DistributedQueryManager(ctx, ctx.transaction());
 
-        InternalTransaction tx = ctx.transaction();
-
-        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager = new DistributedQueryManager(ctx, tx));
+        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager);
 
         assert old == null;
 
@@ -210,7 +233,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params, HybridTimestamp txTime) {
+    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params, HybridTimestamp txTime, UUID txId) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
@@ -220,7 +243,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .build()
                 )
                 .logger(LOG)
-                .transactionTime(txTime)
+                .transaction(new LocalTxAttributesHolder(txId, txTime))
                 .build();
     }
 
@@ -303,7 +326,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert nodeName != null && msg != null;
 
         DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters(), msg.txTime());
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters(), msg.txTime(), msg.txId());
 
             return new DistributedQueryManager(ctx);
         });
@@ -433,7 +456,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .root(fragment.serialized())
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
-                    .txTime(ctx.transactionTime())
+                    .txTime(ctx.transaction().readTimestamp())
+                    .txId(ctx.transaction().id())
                     .build();
 
             var fut = new CompletableFuture<Void>();
@@ -538,8 +562,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     initiatorNodeName,
                     desc,
                     handler,
-                    Commons.parametersMap(ctx.parameters()),
-                    tx
+                    Commons.parametersMap(ctx.parameters())
             );
         }
 
@@ -583,6 +606,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     // start remote execution
                     for (Fragment fragment : fragments) {
+                        if (tx != null && !tx.isReadOnly()) {
+                            enlistPartitions(fragment, tx);
+                        }
+
                         if (fragment.rootFragment()) {
                             assert rootFragmentId == null;
 
@@ -629,6 +656,50 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return root.thenCompose(none -> DistributedQueryManager.this.close(false));
                 }
             };
+        }
+
+        private void enlistPartitions(Fragment fragment, InternalTransaction tx) {
+            // TODO IGNITE-17952 Next condition should be removed.
+            if (!TraitUtils.distributionEnabled(fragment.root())) {
+                return;
+            }
+
+            new IgniteRelShuttle() {
+                @Override
+                public IgniteRel visit(IgniteIndexScan rel) {
+                    enlist(rel);
+
+                    return super.visit(rel);
+                }
+
+                @Override
+                public IgniteRel visit(IgniteTableScan rel) {
+                    enlist(rel);
+
+                    return super.visit(rel);
+                }
+
+                private void enlist(SourceAwareIgniteRel rel) {
+                    InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
+                    ColocationGroup grp = fragment.mapping().findGroup(rel.sourceId());
+
+                    if (grp.assignments().isEmpty()) {
+                        return;
+                    }
+
+                    int partsCnt = grp.assignments().size();
+
+                    tx.assignCommitPartition(new TablePartitionId(tbl.id(), ThreadLocalRandom.current().nextInt(partsCnt)));
+
+                    for (int p = 0; p < partsCnt; p++) {
+                        List<NodeWithTerm> assign = grp.assignments().get(p);
+                        NodeWithTerm leaderWithTerm = assign.get(0);
+
+                        tx.enlist(new TablePartitionId(tbl.id(), p),
+                                new IgniteBiTuple<>(topSrvc.getByConsistentId(leaderWithTerm.name()), leaderWithTerm.term()));
+                    }
+                }
+            }.visit(fragment.root());
         }
 
         private CompletableFuture<Void> close(boolean cancel) {

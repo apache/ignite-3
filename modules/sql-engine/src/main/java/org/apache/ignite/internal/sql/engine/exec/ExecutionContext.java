@@ -31,7 +31,6 @@ import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryConverter;
@@ -81,9 +80,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
-    /** Transaction. */
-    private InternalTransaction tx;
-
     /**
      * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
      * query.
@@ -101,7 +97,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param fragmentDesc Partitions information.
      * @param handler Row handler.
      * @param params Parameters.
-     * @param tx Transaction.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -112,8 +107,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             String originatingNodeName,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
-            Map<String, Object> params,
-            InternalTransaction tx
+            Map<String, Object> params
     ) {
         super(qctx);
 
@@ -125,7 +119,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
-        this.tx = tx;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -349,12 +342,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     /** Transaction for current context. */
     public InternalTransaction transaction() {
-        return tx;
-    }
-
-    /** Read only transaction time. */
-    public HybridTimestamp transactionTime() {
-        return qctx.transactionTime();
+        return qctx.transaction();
     }
 
     /**
