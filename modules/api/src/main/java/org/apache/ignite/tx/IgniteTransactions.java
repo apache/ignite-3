@@ -214,8 +214,33 @@ public interface IgniteTransactions {
      * @return The result.
      */
     default <T> CompletableFuture<T> runInTransactionAsync(Function<Transaction, CompletableFuture<T>> clo) {
+        return runInTransactionAsync(clo, TransactionOptions.DEFAULT);
+    }
+
+    /**
+     * Executes a closure within a transaction asynchronously.
+     *
+     * <p>A returned future must be the last in the asynchronous chain. This means all transaction operations happen before the future
+     * is completed.
+     *
+     * <p>Consider the example:
+     * <pre>
+     * {@code
+     *     igniteTransactions.runInTransactionAsync(tx -> view.getAsync(tx, Tuple.create().set("accountId", 1)).thenCompose(
+     *         acc -> view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))));
+     * }
+     * </pre>
+     *
+     * <p>If the asynchronous chain resulted in no exception, the commitAsync will be automatically called.
+     *
+     * @param clo The closure.
+     * @param options Transaction options.
+     * @param <T> Closure result type.
+     * @return The result.
+     */
+    default <T> CompletableFuture<T> runInTransactionAsync(Function<Transaction, CompletableFuture<T>> clo, TransactionOptions options) {
         // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-17838 Implement auto retries
-        return beginAsync().thenCompose(tx -> {
+        return beginAsync(options).thenCompose(tx -> {
             try {
                 return clo.apply(tx).handle((res, e) -> {
                     if (e != null) {
