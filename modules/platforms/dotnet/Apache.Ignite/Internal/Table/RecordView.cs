@@ -104,15 +104,7 @@ namespace Apache.Ignite.Internal.Table
             return _ser.ReadValue(resBuf, resSchema, key);
         }
 
-        /// <summary>
-        /// Determines if the table contains an entry for the specified key.
-        /// </summary>
-        /// <param name="transaction">Transaction.</param>
-        /// <param name="key">Key.</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the asynchronous operation.
-        /// The task result contains a value indicating whether a record with the specified key exists in the table.
-        /// </returns>
+        /// <inheritdoc/>
         public async Task<bool> ContainsAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
