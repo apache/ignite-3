@@ -1394,6 +1394,14 @@ public class DistributionZoneManager implements IgniteComponent {
             topologyAugmentationMap.subMap(firstKey, true, lastKeyToRemove, true).clear();
         }
 
+        /**
+         * Returns the highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()} taking into account
+         * the {@code addition} flag.
+         *
+         * @param addition Flag indicating the type of the nodes for which we want to find the highest revision.
+         * @return The highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()} taking into account
+         *         the {@code addition} flag.
+         */
         Optional<Long> highestRevision(boolean addition) {
             return topologyAugmentationMap().entrySet()
                     .stream()

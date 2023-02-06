@@ -239,10 +239,26 @@ public class DistributionZonesUtil {
         ).yield(true);
     }
 
+    /**
+     * Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
+     *
+     * @param dataNodesMap This map has the following structure: node name is mapped to an integer,
+     *                     an integer represents counter for node joining or leaving the topology.
+     *                     Joining increases the counter, leaving decreases.
+     * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
+     */
     public static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
         return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Entry::getKey).collect(Collectors.toSet());
     }
 
+    /**
+     * Returns a map from a set of data nodes. This map has the following structure: node name is mapped to integer,
+     * integer represents how often node joined or leaved topology. In this case, set of nodes is interpreted as nodes
+     * that joined topology, so all mappings will be node -> 1.
+     *
+     * @param dataNodes Set of data nodes.
+     * @return Returns a map from a set of data nodes.
+     */
     public static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
         Map<String, Integer> dataNodesMap = new HashMap<>();
 

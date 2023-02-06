@@ -41,8 +41,6 @@ import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -268,12 +266,10 @@ public class DistributionZonesTestUtil {
                     keysSet.stream().map(ByteArray::bytes).collect(Collectors.toList())
             ).revision(0).build();
 
-            return metaStorageService.run(getAllCommand).thenApply(bi -> {
-                MultipleEntryResponse resp = (MultipleEntryResponse) bi;
-
+            return metaStorageService.<List<Entry>>run(getAllCommand).thenApply(entries -> {
                 Map<ByteArray, Entry> res = new HashMap<>();
 
-                for (SingleEntryResponse e : resp.entries()) {
+                for (Entry e : entries) {
                     ByteArray key = new ByteArray(e.key());
 
                     res.put(key, new EntryImpl(key.bytes(), e.value(), e.revision(), e.updateCounter()));
@@ -288,11 +284,9 @@ public class DistributionZonesTestUtil {
 
             GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
 
-            return metaStorageService.run(getCommand).thenApply(bi -> {
-                SingleEntryResponse resp = (SingleEntryResponse) bi;
-
-                return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
-            });
+            return metaStorageService.<Entry>run(getCommand).thenApply(
+                    entry -> new EntryImpl(entry.key(), entry.value(), entry.revision(), entry.updateCounter())
+            );
         }).when(metaStorageManager).get(any());
     }
 }
