@@ -21,4 +21,55 @@ package org.apache.ignite.tx;
  * Ignite transaction options.
  */
 public class TransactionOptions {
+    /** Transaction timeout. */
+    private long timeoutMillis = 0;
+
+    /** Read-only transaction. */
+    private boolean readOnly = false;
+
+    /**
+     * @return Transaction timeout, in milliseconds.
+     */
+    public long timeoutMillis() {
+        return timeoutMillis;
+    }
+
+    /**
+     * @param timeoutMillis Transaction timeout, in milliseconds.
+     */
+    public void timeoutMillis(long timeoutMillis) {
+        if (readOnly && timeoutMillis != 0) {
+            throw illegalStateException();
+        }
+
+        this.timeoutMillis = timeoutMillis;
+    }
+
+    /**
+     * @return Whether a read-only transaction should be used.
+     *
+     * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
+     * They are lock-free and perform better than normal transactions, but do not permit data modifications.
+     */
+    public boolean readOnly() {
+        return readOnly;
+    }
+
+    /**
+     * @param readOnly Whether a read-only transaction should be used.
+     *
+     * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
+     * They are lock-free and perform better than normal transactions, but do not permit data modifications.
+     */
+    public void readOnly(boolean readOnly) {
+        if (readOnly && timeoutMillis != 0) {
+            throw illegalStateException();
+        }
+
+        this.readOnly = readOnly;
+    }
+
+    private static IllegalStateException illegalStateException() {
+        return new IllegalStateException("Read-only transactions cannot have a timeout");
+    }
 }
