@@ -42,14 +42,22 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public Transaction begin(@Nullable TransactionOptions options) {
-        boolean readOnly = options != null && options.readOnly();
-        return txManager.begin(readOnly);
+        if (options != null && options.timeoutMillis() != 0) {
+            // TODO: IGNITE-15936.
+            throw new UnsupportedOperationException("Timeouts are not supported yet");
+        }
+
+        return txManager.begin(options != null && options.readOnly());
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-        boolean readOnly = options != null && options.readOnly();
-        return CompletableFuture.completedFuture(txManager.begin(readOnly));
+        if (options != null && options.timeoutMillis() != 0) {
+            // TODO: IGNITE-15936.
+            throw new UnsupportedOperationException("Timeouts are not supported yet");
+        }
+
+        return CompletableFuture.completedFuture(txManager.begin(options != null && options.readOnly()));
     }
 }
