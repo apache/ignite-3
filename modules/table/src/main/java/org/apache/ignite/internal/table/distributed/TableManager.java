@@ -1129,7 +1129,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
-        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
+        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new ConcurrentHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API

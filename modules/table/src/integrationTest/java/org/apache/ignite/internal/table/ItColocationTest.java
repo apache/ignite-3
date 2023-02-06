@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -149,7 +150,7 @@ public class ItColocationTest {
         };
         txManager.start();
 
-        Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
+        ConcurrentHashMap<Integer, RaftGroupService> partRafts = new ConcurrentHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
         UUID tblId = UUID.randomUUID();

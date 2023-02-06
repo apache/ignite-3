@@ -24,6 +24,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
@@ -127,7 +128,11 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         @Override
         public InternalTable table() {
-            return new TestInternalTableImpl(mock(ReplicaService.class));
+            ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
+
+            partMap.put(0, mock(RaftGroupService.class));
+
+            return new TestInternalTableImpl(mock(ReplicaService.class), partMap);
         }
 
         @Override
@@ -145,12 +150,13 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         private final ByteBufferRow bbRow = new ByteBufferRow(new byte[1]);
 
         public TestInternalTableImpl(
-                ReplicaService replicaSvc
+                ReplicaService replicaSvc,
+                ConcurrentHashMap partMap
         ) {
             super(
                     "test",
                     UUID.randomUUID(),
-                    Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
+                    partMap,
                     PART_CNT,
                     addr -> mock(ClusterNode.class),
                     new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()),

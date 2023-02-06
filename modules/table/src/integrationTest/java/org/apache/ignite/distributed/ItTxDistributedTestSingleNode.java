@@ -36,6 +36,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -146,9 +147,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     protected Map<String, TxManager> txManagers;
 
-    protected Int2ObjectOpenHashMap<RaftGroupService> accRaftClients;
+    protected ConcurrentHashMap<Integer, RaftGroupService> accRaftClients;
 
-    protected Int2ObjectOpenHashMap<RaftGroupService> custRaftClients;
+    protected ConcurrentHashMap<Integer, RaftGroupService> custRaftClients;
 
     protected Map<String, TxStateStorage> txStateStorages;
 
@@ -369,7 +370,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
+    private ConcurrentHashMap<Integer, RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
@@ -384,7 +385,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 .mapToObj(i -> new TablePartitionId(tblId, i))
                 .collect(toList());
 
-        Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
+        ConcurrentHashMap<Integer, RaftGroupService> clients = new ConcurrentHashMap<>();
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
@@ -604,7 +605,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /** {@inheritDoc} */
     @Override
     protected TxManager txManager(Table t) {
-        Int2ObjectOpenHashMap<RaftGroupService> clients = null;
+        ConcurrentHashMap<Integer, RaftGroupService> clients = null;
 
         if (t == accounts) {
             clients = accRaftClients;
