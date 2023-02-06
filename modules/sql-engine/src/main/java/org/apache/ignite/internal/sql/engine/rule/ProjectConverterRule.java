@@ -17,22 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import java.util.Collection;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
-import org.apache.ignite.internal.sql.engine.util.RexUtils;
 
 /**
  * ProjectConverterRule.
@@ -57,14 +52,6 @@ public class ProjectConverterRule extends AbstractIgniteConverterRule<LogicalPro
         RelTraitSet traits = cluster
                 .traitSetOf(IgniteConvention.INSTANCE)
                 .replace(IgniteDistributions.single());
-
-        Collection<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.getProjects());
-
-        if (!corrIds.isEmpty()) {
-            traits = traits
-                    .replace(CorrelationTrait.correlations(corrIds))
-                    .replace(RewindabilityTrait.REWINDABLE);
-        }
 
         RelNode input = convert(rel.getInput(), traits);
 

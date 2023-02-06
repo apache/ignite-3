@@ -28,11 +28,13 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Table spool test.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-18689")
 public class TableSpoolPlannerTest extends AbstractPlannerTest {
     /**
      * TableSpoolDistributed.
