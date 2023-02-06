@@ -39,13 +39,27 @@ class RestAddressReporterTest {
     private static final String REST_ADDRESS_FILENAME = "rest-address";
 
     @Test
-    @DisplayName("REST server network address is reported to file")
-    void networkAddressReported(@TempDir Path tmpDir) throws IOException {
+    @DisplayName("REST server network addresses is reported to file")
+    void httpAndHttpsAddressesReported(@TempDir Path tmpDir) throws IOException {
         // Given
         RestAddressReporter reporter = new RestAddressReporter(tmpDir);
 
         // When
-        reporter.writeReport(new NetworkAddress("localhost", 9999));
+        reporter.writeReport(new NetworkAddress("localhost", 9999), new NetworkAddress("localhost", 8443));
+
+        // Then there is a report
+        String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
+        assertThat(restAddress, equalTo("http://localhost:9999\nhttps://localhost:8443"));
+    }
+
+    @Test
+    @DisplayName("REST server HTTP address is reported to file")
+    void httpAddressReported(@TempDir Path tmpDir) throws IOException {
+        // Given
+        RestAddressReporter reporter = new RestAddressReporter(tmpDir);
+
+        // When
+        reporter.writeReport(new NetworkAddress("localhost", 9999), null);
 
         // Then there is a report
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
@@ -53,11 +67,25 @@ class RestAddressReporterTest {
     }
 
     @Test
+    @DisplayName("REST server HTTPS address is reported to file")
+    void httpsAddressReported(@TempDir Path tmpDir) throws IOException {
+        // Given
+        RestAddressReporter reporter = new RestAddressReporter(tmpDir);
+
+        // When
+        reporter.writeReport(null, new NetworkAddress("localhost", 8443));
+
+        // Then there is a report
+        String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
+        assertThat(restAddress, equalTo("https://localhost:8443"));
+    }
+
+    @Test
     @DisplayName("File with network address is removed")
     void reportDeleted(@TempDir Path tmpDir) throws IOException {
         // Given reported address
         RestAddressReporter reporter = new RestAddressReporter(tmpDir);
-        reporter.writeReport(new NetworkAddress("localhost", 9999));
+        reporter.writeReport(new NetworkAddress("localhost", 9999), new NetworkAddress("localhost", 8443));
         // And file exists
         assertThat(Files.exists(tmpDir.resolve(REST_ADDRESS_FILENAME)), is(true));
 
@@ -94,10 +122,11 @@ class RestAddressReporterTest {
         );
 
         // When try to write it again but with another port
-        new RestAddressReporter(tmpDir).writeReport(new NetworkAddress("localhost", 4444));
+        RestAddressReporter reporter = new RestAddressReporter(tmpDir);
+        reporter.writeReport(new NetworkAddress("localhost", 4444), new NetworkAddress("localhost", 8443));
 
         // Then file rewritten
         String restAddress = Files.readString(tmpDir.resolve(REST_ADDRESS_FILENAME));
-        assertThat(restAddress, equalTo("http://localhost:4444"));
+        assertThat(restAddress, equalTo("http://localhost:4444\nhttps://localhost:8443"));
     }
 }

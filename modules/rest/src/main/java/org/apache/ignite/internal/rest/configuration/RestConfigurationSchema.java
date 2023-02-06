@@ -22,8 +22,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
-import org.apache.ignite.internal.network.configuration.SslConfigurationValidator;
 
 /**
  * Configuration schema for REST endpoint subtree.
@@ -41,8 +39,15 @@ public class RestConfigurationSchema {
     @Value(hasDefault = true)
     public final int portRange = 100;
 
+    /** The dual protocol (http/https) configuration. */
+    @Value(hasDefault = true)
+    public final boolean dualProtocol = false;
+
+    /** HTTP to HTTPS redirection. */
+    @Value(hasDefault = true)
+    public final boolean httpToHttpsRedirection = false;
+
     /** SSL configuration. */
-    @SslConfigurationValidator
     @ConfigValue
-    public SslConfigurationSchema ssl;
+    public RestSslConfigurationSchema ssl;
 }

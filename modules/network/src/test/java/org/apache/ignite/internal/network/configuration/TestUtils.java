@@ -40,24 +40,4 @@ class TestUtils {
             }
         };
     }
-
-    /** Creates a stub for {@link SslView}. */
-    static SslView stubSslView(boolean enabled, KeyStoreView keyStore, KeyStoreView trustStore) {
-        return new SslView() {
-            @Override
-            public boolean enabled() {
-                return enabled;
-            }
-
-            @Override
-            public KeyStoreView keyStore() {
-                return keyStore;
-            }
-
-            @Override
-            public KeyStoreView trustStore() {
-                return trustStore;
-            }
-        };
-    }
 }

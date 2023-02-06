@@ -26,7 +26,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.network.configuration.KeyStoreConfigurationValidatorImpl;
-import org.apache.ignite.internal.network.configuration.SslConfigurationValidatorImpl;
 
 /**
  * {@link ConfigurationModule} for node-local configuration provided by ignite-rest.
@@ -45,9 +44,6 @@ public class RestConfigurationModule implements ConfigurationModule {
 
     @Override
     public Set<Validator<?, ?>> validators() {
-        return Set.of(
-                KeyStoreConfigurationValidatorImpl.INSTANCE,
-                SslConfigurationValidatorImpl.INSTANCE
-        );
+        return Set.of(KeyStoreConfigurationValidatorImpl.INSTANCE);
     }
 }

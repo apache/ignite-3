@@ -15,23 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.rest.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.network.configuration.KeyStoreConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.KeyStoreConfigurationValidator;
 
-/** SSL configuration. */
+/** REST SSL configuration. */
 @Config
-public class SslConfigurationSchema {
+public class RestSslConfigurationSchema {
+
+    /** Whether SSL is enabled. */
     @Value(hasDefault = true)
     public final boolean enabled = false;
 
+    /** SSL port. */
+    @Range(min = 1024, max = 0xFFFF)
+    @Value(hasDefault = true)
+    public final int port = 10400;
+
+    /** SSL port range. */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public final int portRange = 100;
+
+    /** SSL keystore. */
     @KeyStoreConfigurationValidator
     @ConfigValue
     public KeyStoreConfigurationSchema keyStore;
-
-    @KeyStoreConfigurationValidator
-    @ConfigValue
-    public KeyStoreConfigurationSchema trustStore;
 }
