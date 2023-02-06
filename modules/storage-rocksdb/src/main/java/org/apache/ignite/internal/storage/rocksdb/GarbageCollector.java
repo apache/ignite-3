@@ -77,8 +77,16 @@ class GarbageCollector {
     /** Helper for the rocksdb partition. */
     private final PartitionDataHelper helper;
 
-    GarbageCollector(PartitionDataHelper helper) {
+    /** RocksDB instance. */
+    private final RocksDB db;
+
+    /** GC queue column family. */
+    private final ColumnFamilyHandle gcQueueCf;
+
+    GarbageCollector(PartitionDataHelper helper, RocksDB db, ColumnFamilyHandle gcQueueCf) {
         this.helper = helper;
+        this.db = db;
+        this.gcQueueCf = gcQueueCf;
     }
 
     /**
@@ -95,8 +103,6 @@ class GarbageCollector {
      */
     boolean tryAddToGcQueue(WriteBatchWithIndex writeBatch, RowId rowId, HybridTimestamp timestamp, boolean isNewValueTombstone)
             throws RocksDBException {
-        RocksDB db = helper.db;
-        ColumnFamilyHandle gc = helper.gc;
         ColumnFamilyHandle partCf = helper.partCf;
 
         boolean newAndPrevTombstones = false;
@@ -136,7 +142,7 @@ class GarbageCollector {
 
                     helper.putGcKey(keyBuffer, rowId, timestamp);
 
-                    writeBatch.put(gc, keyBuffer, EMPTY_DIRECT_BUFFER);
+                    writeBatch.put(gcQueueCf, keyBuffer, EMPTY_DIRECT_BUFFER);
                 }
             }
         }
@@ -153,15 +159,13 @@ class GarbageCollector {
      * @throws RocksDBException If failed to collect the garbage.
      */
     @Nullable TableRowAndRowId pollForVacuum(WriteBatchWithIndex batch, HybridTimestamp lowWatermark) throws RocksDBException {
-        RocksDB db = helper.db;
-        ColumnFamilyHandle gc = helper.gc;
         ColumnFamilyHandle partCf = helper.partCf;
 
         // We retrieve the first element of the GC queue and seek for it in the data CF.
         // However, the element that we need to garbage collect is the next (older one) element.
         // First we check if there's anything to garbage collect. If the element is a tombstone we remove it.
         // If the next element exists, that should be the element that we want to garbage collect.
-        try (RocksIterator gcIt = db.newIterator(gc, helper.upperBoundReadOpts)) {
+        try (RocksIterator gcIt = db.newIterator(gcQueueCf, helper.upperBoundReadOpts)) {
             gcIt.seek(helper.partitionStartPrefix());
 
             if (invalid(gcIt)) {
@@ -184,25 +188,22 @@ class GarbageCollector {
             RowId gcElementRowId = helper.getRowId(gcKeyBuffer, GC_KEY_ROW_ID_OFFSET);
 
             // Delete element from the GC queue.
-            batch.delete(gc, gcKeyBuffer);
+            batch.delete(gcQueueCf, gcKeyBuffer);
 
             try (RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts)) {
-                ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
-                dataKeyBuffer.clear();
-
                 // Process the element in data cf that triggered the addition to the GC queue.
-                boolean proceed = checkHasNewerRowAndRemoveTombstone(it, batch, dataKeyBuffer, gcElementRowId, gcElementTimestamp);
+                boolean proceed = checkHasNewerRowAndRemoveTombstone(it, batch, gcElementRowId, gcElementTimestamp);
 
                 if (!proceed) {
                     // No further processing required.
                     return null;
                 }
 
-                // Process the element in data cf that should be garbage collected.
-                proceed = checkHasRowForGc(it, dataKeyBuffer, gcElementRowId);
+                // Find the row that should be garbage collected.
+                ByteBuffer dataKey = getRowForGcKey(it, gcElementRowId);
 
-                if (!proceed) {
-                    // No further processing required.
+                if (dataKey == null) {
+                    // No row for GC.
                     return null;
                 }
 
@@ -213,7 +214,7 @@ class GarbageCollector {
                 TableRowAndRowId retVal = new TableRowAndRowId(row, gcElementRowId);
 
                 // Delete the row from the data cf.
-                batch.delete(partCf, dataKeyBuffer);
+                batch.delete(partCf, dataKey);
 
                 return retVal;
             }
@@ -229,12 +230,14 @@ class GarbageCollector {
      *
      * @param it RocksDB data column family iterator.
      * @param batch Write batch.
-     * @param dataKeyBuffer Buffer for the data column family key.
      * @param gcElementRowId Row id of the element from the GC queue/
      * @return {@code true} if further processing by garbage collector is needed.
      */
-    private boolean checkHasNewerRowAndRemoveTombstone(RocksIterator it, WriteBatchWithIndex batch, ByteBuffer dataKeyBuffer,
-            RowId gcElementRowId, HybridTimestamp gcElementTimestamp) throws RocksDBException {
+    private boolean checkHasNewerRowAndRemoveTombstone(RocksIterator it, WriteBatchWithIndex batch, RowId gcElementRowId,
+            HybridTimestamp gcElementTimestamp) throws RocksDBException {
+        ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
+        dataKeyBuffer.clear();
+
         ColumnFamilyHandle partCf = helper.partCf;
 
         // Set up the data key.
@@ -270,37 +273,39 @@ class GarbageCollector {
     }
 
     /**
-     * Checks if there is a row for garbage collection.
+     * Checks if there is a row for garbage collection and returns this row's key if it exists.
      * There might already be no row in the data column family, because GC can be run in parallel.
      *
      * @param it RocksDB data column family iterator.
-     * @param dataKeyBuffer Buffer for the data column family key.
      * @param gcElementRowId Row id of the element from the GC queue/
-     * @return {@code true} if further processing by garbage collector is needed.
+     * @return Key of the row that needs to be garbage collected, or {@code null} if such row doesn't exist.
      */
-    private boolean checkHasRowForGc(RocksIterator it, ByteBuffer dataKeyBuffer, RowId gcElementRowId) {
+    private @Nullable ByteBuffer getRowForGcKey(RocksIterator it, RowId gcElementRowId) {
         // Let's move to the element that was scheduled for GC.
         it.next();
 
         RowId gcRowId;
 
         if (invalid(it)) {
-            return false;
-        } else {
-            dataKeyBuffer.clear();
+            return null;
+        }
 
-            int keyLen = it.key(dataKeyBuffer);
+        ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
+        dataKeyBuffer.clear();
 
-            if (keyLen != MAX_KEY_SIZE) {
-                // We moved to the next row id's write-intent, so there was no row to GC for the current row id.
-                return false;
-            } else {
-                gcRowId = helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET);
+        int keyLen = it.key(dataKeyBuffer);
 
-                // We might have moved to the next row id.
-                return gcElementRowId.equals(gcRowId);
+        // Check if we moved to another row id's write-intent, that would mean that there is no row to GC for the current row id.
+        if (keyLen == MAX_KEY_SIZE) {
+            gcRowId = helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET);
+
+            // We might have moved to the next row id.
+            if (gcElementRowId.equals(gcRowId)) {
+                return dataKeyBuffer;
             }
         }
+
+        return null;
     }
 
     /**
@@ -310,6 +315,6 @@ class GarbageCollector {
      * @throws RocksDBException If failed to delete the queue.
      */
     void deleteQueue(WriteBatch writeBatch) throws RocksDBException {
-        writeBatch.deleteRange(helper.gc, helper.partitionStartPrefix(), helper.partitionEndPrefix());
+        writeBatch.deleteRange(gcQueueCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
     }
 }

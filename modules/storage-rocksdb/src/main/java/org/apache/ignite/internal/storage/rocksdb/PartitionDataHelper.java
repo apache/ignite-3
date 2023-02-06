@@ -30,7 +30,6 @@ import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
-import org.rocksdb.RocksDB;
 import org.rocksdb.Slice;
 
 /** Helper for the partition data. */
@@ -45,16 +44,16 @@ class PartitionDataHelper implements ManuallyCloseable {
     static final int ROW_ID_OFFSET = Short.BYTES;
 
     /** Size of the key without timestamp. */
-    public static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
+    static final int ROW_PREFIX_SIZE = ROW_ID_OFFSET + ROW_ID_SIZE;
 
     /** Maximum size of the data key. */
     static final int MAX_KEY_SIZE = ROW_PREFIX_SIZE + HYBRID_TIMESTAMP_SIZE;
 
     /** Transaction id size (part of the transaction state). */
-    static final int TX_ID_SIZE = 2 * Long.BYTES;
+    private static final int TX_ID_SIZE = 2 * Long.BYTES;
 
     /** Commit table id size (part of the transaction state). */
-    static final int TABLE_ID_SIZE = 2 * Long.BYTES;
+    private static final int TABLE_ID_SIZE = 2 * Long.BYTES;
 
     /** Size of the value header (transaction state). */
     static final int VALUE_HEADER_SIZE = TX_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;
@@ -81,29 +80,21 @@ class PartitionDataHelper implements ManuallyCloseable {
     /** Partition id. */
     private final int partitionId;
 
-    /** Upper bound for scans and reads. */
+    /** Upper bound for scans. */
     private final Slice upperBound;
-
-    /** RocksDB instance. */
-    final RocksDB db;
 
     /** Partition data column family. */
     final ColumnFamilyHandle partCf;
 
-    /** GC queue column family. */
-    final ColumnFamilyHandle gc;
-
-    /** Read options for regular reads and scans. */
+    /** Read options for regular scans. */
     final ReadOptions upperBoundReadOpts;
 
     /** Read options for total order scans. */
     final ReadOptions scanReadOpts;
 
-    PartitionDataHelper(int partitionId, RocksDB db, ColumnFamilyHandle partCf, ColumnFamilyHandle gc) {
+    PartitionDataHelper(int partitionId, ColumnFamilyHandle partCf) {
         this.partitionId = partitionId;
-        this.db = db;
         this.partCf = partCf;
-        this.gc = gc;
 
         this.upperBound = new Slice(partitionEndPrefix());
         this.upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);

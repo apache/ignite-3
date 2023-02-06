@@ -24,7 +24,9 @@ is being cleared or destroyed.
 
 ## Garbage Collection algorithm
 
-It's important to understand when we actually need to perform garbage collection.   
+It's important to understand when we actually need to perform garbage collection. Older versions of rows can 
+be garbage collected if and only if there's a newer version of the row and this new version's timestamp
+is below the low watermark. This low watermark indicates the minimal timestamp that a running transaction might have.  
 
 Consider the following example:  
 *Note that **Record number** is a hypothetical value that helps referring to the specific entries, there
@@ -57,7 +59,7 @@ a tombstone. So if the watermark is higher or equal to 10 and there is a transac
 
 So to sum up, the algorithm looks like this:
 1. Get an element from the GC queue, exiting if the queue is empty
-2. Add that element to the batch for removal from RocksDB
+2. Add that element to the batch for removal from RocksDB, if the element's timestamp is below the watermark, exiting otherwise
 3. Find an element in the data column family that corresponds to the element of GC queue. If a value doesn't exist, exit
 4. Test if it is a tombstone, if yes, add it to the batch for removal
 5. Seek for a previous version. If it doesn't exist, exit

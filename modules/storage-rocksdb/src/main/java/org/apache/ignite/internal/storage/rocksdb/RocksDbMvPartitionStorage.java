@@ -199,8 +199,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         this.partitionId = partitionId;
         db = tableStorage.db();
         meta = tableStorage.metaCfHandle();
-        helper = new PartitionDataHelper(partitionId, db, tableStorage.partitionCfHandle(), tableStorage.gcQueueHandle());
-        gc = new GarbageCollector(helper);
+        helper = new PartitionDataHelper(partitionId, tableStorage.partitionCfHandle());
+        gc = new GarbageCollector(helper, db, tableStorage.gcQueueHandle());
 
         lastAppliedIndexKey = ("index" + partitionId).getBytes(StandardCharsets.UTF_8);
         lastAppliedTermKey = ("term" + partitionId).getBytes(StandardCharsets.UTF_8);
