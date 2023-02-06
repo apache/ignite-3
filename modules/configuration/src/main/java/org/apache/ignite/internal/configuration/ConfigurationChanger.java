@@ -149,14 +149,14 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             this.roots = roots;
             this.version = version;
 
-            publishNode(roots);
+            makeImmutable(roots);
         }
     }
 
     /**
      * Makes the node immutable by calling {@link ConstructableTreeNode#makeImmutable()} on each sub-node recursively.
      */
-    private static void publishNode(InnerNode node) {
+    private static void makeImmutable(InnerNode node) {
         if (!node.makeImmutable()) {
             return;
         }
@@ -164,7 +164,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         node.traverseChildren(new ConfigurationVisitor<>() {
             @Override
             public @Nullable Object visitInnerNode(String key, InnerNode node) {
-                publishNode(node);
+                makeImmutable(node);
 
                 return null;
             }
@@ -173,7 +173,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             public @Nullable Object visitNamedListNode(String key, NamedListNode<?> node) {
                 if (node.makeImmutable()) {
                     for (String namedListKey : node.namedListKeys()) {
-                        publishNode(node.getInnerNode(namedListKey));
+                        makeImmutable(node.getInnerNode(namedListKey));
                     }
                 }
 

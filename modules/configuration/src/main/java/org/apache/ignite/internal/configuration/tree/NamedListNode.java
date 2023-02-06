@@ -153,6 +153,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> create(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
         assertMutability();
 
         checkNewKey(key);
@@ -173,6 +174,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> create(int index, String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
         assertMutability();
 
         if (index < 0 || index > map.size()) {
@@ -198,6 +200,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         Objects.requireNonNull(precedingKey, "precedingKey");
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
         assertMutability();
 
         ElementDescriptor precedingElement = map.get(precedingKey);
@@ -226,6 +229,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> createOrUpdate(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
         assertMutability();
 
         ElementDescriptor element = map.get(key);
@@ -254,6 +258,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> update(String key, Consumer<N> valConsumer) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(valConsumer, "valConsumer");
+
         assertMutability();
 
         ElementDescriptor element = map.get(key);
@@ -278,6 +283,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     public NamedListChange<N, N> rename(String oldKey, String newKey) {
         Objects.requireNonNull(oldKey, "oldKey");
         Objects.requireNonNull(newKey, "newKey");
+
         assertMutability();
 
         if (oldKey.equals(newKey)) {
@@ -329,6 +335,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public NamedListChange<N, N> delete(String key) {
         Objects.requireNonNull(key, "key");
+
         assertMutability();
 
         ElementDescriptor element = map.get(key);
@@ -438,6 +445,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
     @Override
     public void construct(String key, ConfigurationSource src, boolean includeInternal) {
         Objects.requireNonNull(key, "key");
+
         assertMutability();
 
         if (src == null) {
