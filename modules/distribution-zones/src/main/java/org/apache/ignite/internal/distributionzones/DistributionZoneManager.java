@@ -579,60 +579,42 @@ public class DistributionZoneManager implements IgniteComponent {
             int newScaleDown = ctx.newValue().dataNodesAutoAdjustScaleDown();
 
             // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
-            // and this map will me initialized on manager start or with onCreate
+            // and this map will me initialized on a manager start or with onCreate configuration notification
             ZoneState zoneState = zonesState.get(zoneId);
 
-            scheduleTimersOnCfgUpdate(zoneId, oldScaleUp, oldScaleDown, newScaleUp, newScaleDown, zoneState);
+            if (oldScaleUp != newScaleUp) {
+                if (newScaleUp != Integer.MAX_VALUE) {
+                    Optional<Long> highestRevision = zoneState.highestRevision(true);
+
+                    highestRevision.ifPresent(rev -> zoneState.rescheduleScaleUp(
+                            newScaleUp,
+                            () -> CompletableFuture.supplyAsync(
+                                    () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, rev),
+                                    Runnable::run
+                            )
+                    ));
+                } else {
+                    zoneState.stopScaleUp();
+                }
+            }
+
+            if (oldScaleDown != newScaleDown) {
+                if (newScaleDown != Integer.MAX_VALUE) {
+                    Optional<Long> highestRevision = zoneState.highestRevision(false);
+
+                    highestRevision.ifPresent(rev -> zoneState.rescheduleScaleDown(
+                            newScaleDown,
+                            () -> CompletableFuture.supplyAsync(
+                                    () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, rev),
+                                    Runnable::run
+                            )
+                    ));
+                } else {
+                    zoneState.stopScaleDown();
+                }
+            }
 
             return completedFuture(null);
-        }
-    }
-
-    void scheduleTimersOnCfgUpdate(
-            int zoneId,
-            int oldScaleUp,
-            int oldScaleDown,
-            int newScaleUp,
-            int newScaleDown,
-            ZoneState zoneState
-    ) {
-        if (oldScaleUp != newScaleUp) {
-            if (newScaleUp != Integer.MAX_VALUE) {
-                //Refactor
-                Optional<Map.Entry<Long, Augmentation>> entryWithHighestRevision = zoneState.topologyAugmentationMap().entrySet()
-                        .stream()
-                        .filter(e -> e.getValue().addition)
-                        .max(Map.Entry.comparingByKey());
-
-                entryWithHighestRevision.ifPresent(entry -> zoneState.rescheduleScaleUp(
-                        newScaleUp,
-                        () -> CompletableFuture.supplyAsync(
-                                () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, entry.getKey()),
-                                Runnable::run
-                        )
-                ));
-            } else {
-                zoneState.stopScaleUp();
-            }
-        }
-
-        if (oldScaleDown != newScaleDown) {
-            if (newScaleDown != Integer.MAX_VALUE) {
-                Optional<Map.Entry<Long, Augmentation>> entryWithHighestRevision = zoneState.topologyAugmentationMap().entrySet()
-                        .stream()
-                        .filter(e -> !e.getValue().addition)
-                        .max(Map.Entry.comparingByKey());
-
-                entryWithHighestRevision.ifPresent(entry -> zoneState.rescheduleScaleDown(
-                        newScaleDown,
-                        () -> CompletableFuture.supplyAsync(
-                                () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, entry.getKey()),
-                                Runnable::run
-                        )
-                ));
-            } else {
-                zoneState.stopScaleDown();
-            }
         }
     }
 
@@ -1284,7 +1266,6 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param runnable Custom logic to run.
          */
         synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
-            //TODO: IGNITE-18132 Create scale down scheduler with dataNodesAutoAdjustScaleDown timer.
             if (scaleDownTask != null) {
                 scaleDownTask.cancel(false);
             }
@@ -1411,6 +1392,14 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             topologyAugmentationMap.subMap(firstKey, true, lastKeyToRemove, true).clear();
+        }
+
+        Optional<Long> highestRevision(boolean addition) {
+            return topologyAugmentationMap().entrySet()
+                    .stream()
+                    .filter(e -> e.getValue().addition == addition)
+                    .max(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getKey);
         }
 
         @TestOnly
