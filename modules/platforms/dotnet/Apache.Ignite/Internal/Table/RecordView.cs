@@ -105,7 +105,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public async Task<bool> ContainsAsync(ITransaction? transaction, T key)
+        public async Task<bool> ContainsKeyAsync(ITransaction? transaction, T key)
         {
             IgniteArgumentCheck.NotNull(key, nameof(key));
 

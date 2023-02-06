@@ -50,7 +50,7 @@ namespace Apache.Ignite.Table
         /// A <see cref="Task"/> representing the asynchronous operation.
         /// The task result is <c>true</c> if a value exists for the specified key, and <c>false</c> otherwise.
         /// </returns>
-        Task<bool> ContainsAsync(ITransaction? transaction, T key);
+        Task<bool> ContainsKeyAsync(ITransaction? transaction, T key);
 
         /// <summary>
         /// Gets multiple records by keys.
