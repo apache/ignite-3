@@ -25,8 +25,20 @@ dependencies {
     implementation project(':ignite-metastorage-api')
 
     implementation project(':ignite-core')
+    implementation project(':ignite-raft-api')
+    implementation project(':ignite-raft')
+    implementation project(':ignite-cluster-management')
 
     implementation libs.jetbrains.annotations
+
+    testFixturesImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-cluster-management')
+
+    integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-network')))
 }
 
 description = 'ignite-placement-driver'
