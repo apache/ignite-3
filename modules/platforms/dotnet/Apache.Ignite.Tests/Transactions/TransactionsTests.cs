@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Transactions
 {
+    using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using System.Transactions;
@@ -192,7 +194,7 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
         {
-            var key = 128;
+            var key = Random.Shared.NextInt64(1000, long.MaxValue);
             var keyPoco = new Poco { Key = key };
 
             await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
