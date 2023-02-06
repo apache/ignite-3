@@ -367,7 +367,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
                 tbl,
-                group.partitions(ctx.localNode().name()),
+                group.partitionsWithTerms(ctx.localNode().name()),
                 comp,
                 ranges,
                 filters,
@@ -404,7 +404,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 tbl,
-                group.partitions(ctx.localNode().name()),
+                group.partitionsWithTerms(ctx.localNode().name()),
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()

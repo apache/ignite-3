@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
-
-import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
@@ -36,12 +34,16 @@ import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,7 +59,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowHandler.RowFactory<RowT> factory;
 
-    private final int[] parts;
+    /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
+    private final Collection<PartitionWithTerm> partsWithTerms;
 
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
@@ -72,7 +75,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param parts Partition numbers to scan.
+     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -84,7 +87,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
             InternalIgniteTable schemaTable,
-            int[] parts,
+            Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -93,11 +96,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     ) {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
-        assert !nullOrEmpty(parts);
+        assert partsWithTerms != null && !partsWithTerms.isEmpty();
         assert rangeConditions == null || rangeConditions.size() > 0;
 
         this.schemaIndex = schemaIndex;
-        this.parts = parts;
+        this.partsWithTerms = partsWithTerms;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -110,16 +113,17 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     @Override
     protected Publisher<RowT> scan() {
         if (rangeConditions != null) {
-            return SubscriptionUtils.concat(new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(parts, cond)));
+            return SubscriptionUtils.concat(
+                    new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(partsWithTerms, cond)));
         } else {
-            return indexPublisher(parts, null);
+            return indexPublisher(partsWithTerms, null);
         }
     }
 
-    private Publisher<RowT> indexPublisher(int[] parts, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> indexPublisher(Collection<PartitionWithTerm> partsWithTerms, @Nullable RangeCondition<RowT> cond) {
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                Arrays.stream(parts).iterator(),
-                part -> partitionPublisher(part, cond)
+                partsWithTerms.iterator(),
+                partWithTerm -> partitionPublisher(partWithTerm, cond)
         );
 
         if (comp != null) {
@@ -129,9 +133,9 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         }
     }
 
-    private Publisher<RowT> partitionPublisher(int part, @Nullable RangeCondition<RowT> cond) {
+    private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
-        boolean roTx = context().transactionTime() != null;
+        InternalTransaction tx = context().transaction();
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -148,11 +152,22 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            if (roTx) {
+            if (tx.isReadOnly()) {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
-                        part,
-                        context().transactionTime(),
+                        partWithTerm.partId(),
+                        tx.readTimestamp(),
                         context().localNode(),
+                        lower,
+                        upper,
+                        flags,
+                        requiredColumns
+                );
+            } else if (!(tx instanceof LocalTxAttributesHolder)) {
+                // TODO IGNITE-17952 This block should be removed.
+                // Workaround to make RW scan work from tx coordinator.
+                pub = ((SortedIndex) schemaIndex.index()).scan(
+                        partWithTerm.partId(),
+                        tx,
                         lower,
                         upper,
                         flags,
@@ -160,8 +175,9 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 );
             } else {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
-                        part,
-                        context().transaction(),
+                        partWithTerm.partId(),
+                        tx.id(),
+                        new PrimaryReplica(context().localNode(), partWithTerm.term()),
                         lower,
                         upper,
                         flags,
@@ -174,18 +190,28 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
             BinaryTuple key = toBinaryTuple(cond.lower());
 
-            if (roTx) {
+            if (tx.isReadOnly()) {
                 pub = schemaIndex.index().lookup(
-                        part,
-                        context().transactionTime(),
+                        partWithTerm.partId(),
+                        tx.readTimestamp(),
                         context().localNode(),
+                        key,
+                        requiredColumns
+                );
+            } else if (!(tx instanceof LocalTxAttributesHolder)) {
+                // TODO IGNITE-17952 This block should be removed.
+                // Workaround to make RW lookup work from tx coordinator.
+                pub = schemaIndex.index().lookup(
+                        partWithTerm.partId(),
+                        tx,
                         key,
                         requiredColumns
                 );
             } else {
                 pub = schemaIndex.index().lookup(
-                        part,
-                        context().transaction(),
+                        partWithTerm.partId(),
+                        tx.id(),
+                        new PrimaryReplica(context().localNode(), partWithTerm.term()),
                         key,
                         requiredColumns
                 );

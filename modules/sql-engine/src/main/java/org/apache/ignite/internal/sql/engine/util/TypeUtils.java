@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * TypeUtils.
@@ -235,7 +236,7 @@ public class TypeUtils {
      * ToInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Object toInternal(ExecutionContext<?> ectx, Object val) {
+    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val) {
         return val == null ? null : toInternal(ectx, val, val.getClass());
     }
 
@@ -243,7 +244,7 @@ public class TypeUtils {
      * ToInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class) {

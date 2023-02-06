@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -37,6 +38,7 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -87,7 +90,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     private MvPartitionStorage mockStorage;
 
     /** Internal table to test. */
-    protected InternalTable internalTbl;
+    DummyInternalTableImpl internalTbl;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -196,7 +199,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             return cursor;
         });
 
-        scan(0, null).subscribe(new Subscriber<>() {
+        InternalTransaction tx = startTx();
+
+        scan(0, tx).subscribe(new Subscriber<>() {
 
             @Override
             public void onSubscribe(Subscription subscription) {
@@ -212,6 +217,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             public void onError(Throwable throwable) {
                 gotException.set(throwable);
                 subscriberFinishedLatch.countDown();
+
+                // Rollback the transaction manually, because only ID of the explicit transaction is passed to the internal table.
+                tx.rollback();
             }
 
             @Override
@@ -220,9 +228,13 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
         });
 
-        subscriberFinishedLatch.await();
+        assertTrue(subscriberFinishedLatch.await(10, TimeUnit.SECONDS), "count=" + subscriberFinishedLatch.getCount());
 
         assertEquals(gotException.get().getCause().getClass(), NoSuchElementException.class);
+
+        if (tx != null) {
+            assertEquals(TxState.ABORTED, tx.state());
+        }
     }
 
     /**
@@ -237,7 +249,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         when(mockStorage.scan(any(HybridTimestamp.class))).thenThrow(new StorageException("Some storage exception"));
 
-        scan(0, null).subscribe(new Subscriber<>() {
+        InternalTransaction tx = startTx();
+
+        scan(0, tx).subscribe(new Subscriber<>() {
 
             @Override
             public void onSubscribe(Subscription subscription) {
@@ -253,6 +267,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             public void onError(Throwable throwable) {
                 gotException.set(throwable);
                 gotExceptionLatch.countDown();
+
+                // Rollback the transaction manually, because only ID of the explicit transaction is passed to the internal table.
+                tx.rollback();
             }
 
             @Override
@@ -264,8 +281,11 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
         gotExceptionLatch.await();
 
         assertEquals(gotException.get().getCause().getClass(), StorageException.class);
-    }
 
+        if (tx != null) {
+            assertEquals(TxState.ABORTED, tx.state());
+        }
+    }
 
     /**
      * Checks that {@link IllegalArgumentException} is thrown in case of invalid partition.
@@ -398,7 +418,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
         // The latch that allows to await Subscriber.onError() before asserting test invariants.
         CountDownLatch subscriberAllDataAwaitLatch = new CountDownLatch(1);
 
-        scan(0, null).subscribe(new Subscriber<>() {
+        InternalTransaction tx = startTx();
+
+        scan(0, tx).subscribe(new Subscriber<>() {
             private Subscription subscription;
 
             @Override
@@ -438,6 +460,19 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
         for (int i = 0; i < expItems.size(); i++) {
             assertArrayEquals(expItems.get(i), gotItems.get(i));
         }
+
+        if (tx != null) {
+            tx.commit();
+        }
+    }
+
+    /**
+     * Start transaction if needed.
+     *
+     * @return Started transaction or {@code null}.
+     */
+    protected InternalTransaction startTx() {
+        return null;
     }
 
     /**

@@ -77,6 +77,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteFiveFunction;
@@ -350,7 +351,7 @@ public class InternalTableImpl implements InternalTable {
      * @param columnsToInclude Row projection.
      * @return Batch of retrieved rows.
      */
-    protected CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
+    private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
             @NotNull InternalTransaction tx,
             int partId,
             long scanId,
@@ -855,6 +856,19 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            UUID indexId,
+            BinaryTuple key,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return scan(partId, txId, recipient, indexId, key, null, null, 0, columnsToInclude);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Publisher<BinaryRow> scan(
             int partId,
             @NotNull HybridTimestamp readTimestamp,
@@ -967,6 +981,57 @@ public class InternalTableImpl implements InternalTable {
         );
     }
 
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            @Nullable UUID indexId,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return scan(partId, txId, recipient, indexId, null, lowerBound, upperBound, flags, columnsToInclude);
+    }
+
+    private Publisher<BinaryRow> scan(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            @Nullable UUID indexId,
+            @Nullable BinaryTuple exactKey,
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            @Nullable BitSet columnsToInclude
+    ) {
+        return new PartitionScanPublisher(
+                (scanId, batchSize) -> {
+                    ReplicationGroupId partGroupId = partitionMap.get(partId).groupId();
+
+                    ReadWriteScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readWriteScanRetrieveBatchReplicaRequest()
+                            .groupId(partGroupId)
+                            .transactionId(txId)
+                            .scanId(scanId)
+                            .indexToUse(indexId)
+                            .exactKey(exactKey)
+                            .lowerBound(lowerBound)
+                            .upperBound(upperBound)
+                            .flags(flags)
+                            .columnsToInclude(columnsToInclude)
+                            .batchSize(batchSize)
+                            .term(recipient.term())
+                            .build();
+
+                    return replicaSvc.invoke(recipient.node(), request);
+                },
+                // TODO: IGNITE-17666 Close cursor tx finish.
+                Function.identity());
+    }
+
     /**
      * Validates partition index.
      *
@@ -1013,6 +1078,30 @@ public class InternalTableImpl implements InternalTable {
                 .map(Map.Entry::getValue)
                 .map(service -> service.leader().consistentId())
                 .collect(Collectors.toList());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<PrimaryReplica> primaryReplicas() {
+        List<Entry<RaftGroupService>> entries = new ArrayList<>(partitionMap.int2ObjectEntrySet());
+        List<CompletableFuture<LeaderWithTerm>> futs = new ArrayList<>();
+
+        entries.sort(Comparator.comparingInt(Entry::getIntKey));
+
+        for (Entry<RaftGroupService> e : entries) {
+            futs.add(e.getValue().refreshAndGetLeaderWithTerm());
+        }
+
+        List<PrimaryReplica> primaryReplicas = new ArrayList<>(entries.size());
+
+        for (CompletableFuture<LeaderWithTerm> fut : futs) {
+            LeaderWithTerm leaderWithTerm = fut.join();
+            ClusterNode primaryNode = clusterNodeResolver.apply(leaderWithTerm.leader().consistentId());
+
+            primaryReplicas.add(new PrimaryReplica(primaryNode, leaderWithTerm.term()));
+        }
+
+        return primaryReplicas;
     }
 
     @Override

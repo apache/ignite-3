@@ -15,33 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
-
-import java.io.Serializable;
-import java.util.List;
+package org.apache.ignite.internal.sql.engine.metadata;
 
 /**
- * Defines response for command which returns a number of results.
+ * Tuple representing the number of the partition with its current primary replica term.
  */
-public class MultipleEntryResponse implements Serializable {
-    /** Single responses. */
-    private final List<SingleEntryResponse> entries;
+public class PartitionWithTerm {
+    /** Partition number. */
+    private final int partId;
+
+    /** Primary replica term. */
+    private final long term;
 
     /**
-     * Constructs multiple entries response.
+     * Constructor.
      *
-     * @param entries The ;list of single responses.
+     * @param partId partition number
+     * @param term Primary replica term.
      */
-    public MultipleEntryResponse(List<SingleEntryResponse> entries) {
-        this.entries = entries;
+    public PartitionWithTerm(int partId, Long term) {
+        this.partId = partId;
+        this.term = term;
     }
 
     /**
-     * Returns the list of single responses.
+     * Gets partition number.
      *
-     * @return The list of single responses.
+     * @return Partition number.
      */
-    public List<SingleEntryResponse> entries() {
-        return entries;
+    public int partId() {
+        return partId;
+    }
+
+    /**
+     * Gets primary replica term.
+     *
+     * @return Primary replica term.
+     */
+    public long term() {
+        return term;
     }
 }
