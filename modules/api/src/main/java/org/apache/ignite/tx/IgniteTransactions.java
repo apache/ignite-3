@@ -62,37 +62,38 @@ import org.apache.ignite.table.Table;
  */
 public interface IgniteTransactions {
     /**
-     * Returns a facade with new default timeout.
-     *
-     * @param timeout The timeout in milliseconds.
-     *
-     * @return A facade using a new timeout.
-     */
-    IgniteTransactions withTimeout(long timeout);
-
-    /**
-     * Returns a decorated {@code IgniteTransactions} instance that will start read-only transactions.
-     *
-     * <p>Read-only transactions provide a snapshot view of data at a certain point in time.
-     * They are lock-free and perform better than normal transactions, but do not permit data modifications.
-     *
-     * @return Decorated {@code IgniteTransactions} instance that will start read-only transactions.
-     */
-    IgniteTransactions readOnly();
-
-    /**
      * Begins a transaction.
      *
      * @return The started transaction.
      */
-    Transaction begin();
+    default Transaction begin() {
+        return begin(TransactionOptions.DEFAULT);
+    }
+
+    /**
+     * Begins a transaction.
+     *
+     * @param options Transaction options.
+     * @return The started transaction.
+     */
+    Transaction begin(TransactionOptions options);
 
     /**
      * Begins an async transaction.
      *
      * @return The future holding the started transaction.
      */
-    CompletableFuture<Transaction> beginAsync();
+    default CompletableFuture<Transaction> beginAsync() {
+        return beginAsync(TransactionOptions.DEFAULT);
+    }
+
+    /**
+     * Begins an async transaction.
+     *
+     * @param options Transaction options.
+     * @return The future holding the started transaction.
+     */
+    CompletableFuture<Transaction> beginAsync(TransactionOptions options);
 
     /**
      * Executes a closure within a transaction.
