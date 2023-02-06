@@ -74,8 +74,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -293,12 +291,10 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                     keysSet.stream().map(ByteArray::bytes).collect(Collectors.toList())
             ).revision(0).build();
 
-            return metaStorageService.run(getAllCommand).thenApply(bi -> {
-                MultipleEntryResponse resp = (MultipleEntryResponse) bi;
+            return metaStorageService.<List<Entry>>run(getAllCommand).thenApply(entries -> {
+                Map<ByteArray, Entry> res = new HashMap<>();
 
-                Map<ByteArray, org.apache.ignite.internal.metastorage.Entry> res = new HashMap<>();
-
-                for (SingleEntryResponse e : resp.entries()) {
+                for (Entry e : entries) {
                     ByteArray key = new ByteArray(e.key());
 
                     res.put(key, new EntryImpl(key.bytes(), e.value(), e.revision(), e.updateCounter()));
