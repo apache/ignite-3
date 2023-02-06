@@ -369,7 +369,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
-                cluster.stream().map(node -> node.topologyService().localMember()).collect(toList()),
+                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
                 replicas()
         );

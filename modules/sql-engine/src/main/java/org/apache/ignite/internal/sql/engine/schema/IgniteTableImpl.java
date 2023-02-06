@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
@@ -433,7 +434,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     }
 
     private ColocationGroup partitionedGroup() {
-        List<List<String>> assignments = table.assignments().stream()
+        List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
+                .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
                 .map(Collections::singletonList)
                 .collect(Collectors.toList());
 

@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Stateless affinity utils that produces helper methods for an affinity assignments calculation.
@@ -34,13 +33,14 @@ public class AffinityUtils {
     /**
      * Calculates affinity assignments.
      *
+     * @param dataNodes Data nodes.
      * @param partitions Partitions count.
      * @param replicas Replicas count.
      * @return List assignments by partition.
      */
-    public static List<Set<Assignment>> calculateAssignments(Collection<ClusterNode> baselineNodes, int partitions, int replicas) {
-        List<Set<ClusterNode>> affinityNodes = RendezvousAffinityFunction.assignPartitions(
-                baselineNodes,
+    public static List<Set<Assignment>> calculateAssignments(Collection<String> dataNodes, int partitions, int replicas) {
+        List<Set<String>> affinityNodes = RendezvousAffinityFunction.assignPartitions(
+                dataNodes,
                 partitions,
                 replicas,
                 false,
@@ -48,21 +48,21 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return affinityNodes.stream().map(AffinityUtils::clusterNodesToAssignments).collect(toList());
+        return affinityNodes.stream().map(AffinityUtils::dataNodesToAssignments).collect(toList());
     }
 
     /**
      * Calculates affinity assignments for a single partition.
      *
-     * @param baselineNodes Nodes.
+     * @param dataNodes Data nodes.
      * @param partition Partition id.
      * @param replicas Replicas count.
-     * @return List of assignments.
+     * @return Set of assignments.
      */
-    public static Set<Assignment> calculateAssignmentForPartition(Collection<ClusterNode> baselineNodes, int partition, int replicas) {
-        Set<ClusterNode> affinityNodes = RendezvousAffinityFunction.assignPartition(
+    public static Set<Assignment> calculateAssignmentForPartition(Collection<String> dataNodes, int partition, int replicas) {
+        Set<String> affinityNodes = RendezvousAffinityFunction.assignPartition(
                 partition,
-                new ArrayList<>(baselineNodes),
+                new ArrayList<>(dataNodes),
                 replicas,
                 null,
                 false,
@@ -70,10 +70,10 @@ public class AffinityUtils {
                 HashSet::new
         );
 
-        return clusterNodesToAssignments(affinityNodes);
+        return dataNodesToAssignments(affinityNodes);
     }
 
-    private static Set<Assignment> clusterNodesToAssignments(Collection<ClusterNode> nodes) {
-        return nodes.stream().map(node -> Assignment.forPeer(node.name())).collect(toSet());
+    private static Set<Assignment> dataNodesToAssignments(Collection<String> nodes) {
+        return nodes.stream().map(Assignment::forPeer).collect(toSet());
     }
 }

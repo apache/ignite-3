@@ -20,11 +20,11 @@ package org.apache.ignite.internal.metastorage.server.raft;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
 
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,10 +32,8 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
-import org.apache.ignite.internal.metastorage.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.command.PrefixCommand;
 import org.apache.ignite.internal.metastorage.command.RangeCommand;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.command.cursor.CursorCloseCommand;
 import org.apache.ignite.internal.metastorage.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.command.cursor.CursorNextCommand;
@@ -93,9 +91,7 @@ public class MetaStorageListener implements RaftGroupListener {
                     e = storage.get(getCmd.key());
                 }
 
-                SingleEntryResponse resp = new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter());
-
-                clo.result(resp);
+                clo.result(e);
             } else if (command instanceof GetAllCommand) {
                 GetAllCommand getAllCmd = (GetAllCommand) command;
 
@@ -107,13 +103,7 @@ public class MetaStorageListener implements RaftGroupListener {
                     entries = storage.getAll(getAllCmd.keys());
                 }
 
-                List<SingleEntryResponse> res = new ArrayList<>(entries.size());
-
-                for (Entry e : entries) {
-                    res.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
-                }
-
-                clo.result(new MultipleEntryResponse(res));
+                clo.result((Serializable) entries);
             } else if (command instanceof CursorHasNextCommand) {
                 CursorHasNextCommand cursorHasNextCmd = (CursorHasNextCommand) command;
 
@@ -180,17 +170,17 @@ public class MetaStorageListener implements RaftGroupListener {
                 try {
                     int batchSize = requireNonNull(cursorDesc.batchSize());
 
-                    var resp = new ArrayList<SingleEntryResponse>(batchSize);
+                    var resp = new ArrayList<Entry>(batchSize);
 
                     Cursor<Entry> cursor = cursorDesc.cursor();
 
                     for (int i = 0; i < batchSize && cursor.hasNext(); i++) {
                         Entry e = cursor.next();
 
-                        resp.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                        resp.add(e);
                     }
 
-                    clo.result(new MultipleEntryResponse(resp));
+                    clo.result(resp);
                 } catch (NoSuchElementException e) {
                     clo.result(e);
                 }

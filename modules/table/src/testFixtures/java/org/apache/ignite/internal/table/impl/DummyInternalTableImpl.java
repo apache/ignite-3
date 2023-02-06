@@ -308,6 +308,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         return groupId;
     }
 
+    /**
+     * Gets the transaction manager that is bound to the table.
+     *
+     * @return Transaction manager.
+     */
+    public TxManager txManager() {
+        return txManager;
+    }
+
     /** {@inheritDoc} */
     @Override
     public @NotNull String name() {

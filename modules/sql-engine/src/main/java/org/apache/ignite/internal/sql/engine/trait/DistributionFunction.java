@@ -28,6 +28,8 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -223,7 +225,7 @@ public abstract class DistributionFunction {
         public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
             assert m != null && !nullOrEmpty(m.assignments()) && !k.isEmpty();
 
-            List<List<String>> assignments = m.assignments();
+            List<List<String>> assignments = Commons.transform(m.assignments(), v -> Commons.transform(v, NodeWithTerm::name));
 
             if (IgniteUtils.assertionsEnabled()) {
                 for (List<String> assignment : assignments) {

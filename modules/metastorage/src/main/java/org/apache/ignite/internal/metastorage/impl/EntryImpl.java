@@ -43,6 +43,8 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public final class EntryImpl implements Entry {
+    private static final long serialVersionUID = 3636551347117181271L;
+
     /** Key. */
     private final byte[] key;
 

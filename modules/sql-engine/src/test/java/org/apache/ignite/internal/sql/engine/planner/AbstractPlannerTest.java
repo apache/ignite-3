@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
@@ -67,7 +68,9 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -103,6 +106,8 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -125,6 +130,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -233,17 +239,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Create planner context for specified query.
      */
     protected PlanningContext plannerCtx(String sql, IgniteSchema publicSchema, String... disabledRules) {
-        return plannerCtx(sql, Collections.singleton(publicSchema), null, disabledRules);
+        return plannerCtx(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
     }
 
-    protected PlanningContext plannerCtx(
+    private PlanningContext plannerCtx(
             String sql,
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,
+            List<Object> params,
             String... disabledRules
     ) {
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(schemas, hintStrategies))
+                .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
                 .query(sql)
                 .build();
 
@@ -256,7 +263,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return ctx;
     }
 
-    protected BaseQueryContext baseQueryContext(Collection<IgniteSchema> schemas, @Nullable HintStrategyTable hintStrategies) {
+    protected BaseQueryContext baseQueryContext(
+            Collection<IgniteSchema> schemas,
+            @Nullable HintStrategyTable hintStrategies,
+            Object... params
+    ) {
         SchemaPlus rootSchema = createRootSchema(false);
         SchemaPlus dfltSchema = null;
 
@@ -282,6 +293,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                                 .build()
                 )
                 .logger(log)
+                .parameters(params)
                 .build();
     }
 
@@ -319,16 +331,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Optimize the specified query and build query physical plan for a test.
      */
     protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
-        return physicalPlan(sql, Collections.singleton(publicSchema), null, disabledRules);
+        return physicalPlan(sql, Collections.singleton(publicSchema), null, List.of(), disabledRules);
     }
 
     protected IgniteRel physicalPlan(
             String sql,
             Collection<IgniteSchema> schemas,
             HintStrategyTable hintStrategies,
+            List<Object> params,
             String... disabledRules
     ) throws Exception {
-        return physicalPlan(plannerCtx(sql, schemas, hintStrategies, disabledRules));
+        return physicalPlan(plannerCtx(sql, schemas, hintStrategies, params, disabledRules));
     }
 
     protected IgniteRel physicalPlan(PlanningContext ctx) throws Exception {
@@ -478,7 +491,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        assertPlan(sql, Collections.singleton(schema), predicate, disabledRules);
+        assertPlan(sql, Collections.singleton(schema), predicate, List.of(), disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            IgniteSchema schema,
+            Predicate<T> predicate,
+            List<Object> params
+    ) throws Exception {
+        assertPlan(sql, Collections.singleton(schema), predicate, params);
     }
 
     protected <T extends RelNode> void assertPlan(
@@ -487,7 +509,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Predicate<T> predicate,
             String... disabledRules
     ) throws Exception {
-        assertPlan(sql, schemas, predicate, null, disabledRules);
+        assertPlan(sql, schemas, predicate, null, List.of(), disabledRules);
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            Predicate<T> predicate,
+            List<Object> params,
+            String... disabledRules
+    ) throws Exception {
+        assertPlan(sql, schemas, predicate, null, params, disabledRules);
     }
 
     protected <T extends RelNode> void assertPlan(
@@ -495,9 +527,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             Collection<IgniteSchema> schemas,
             Predicate<T> predicate,
             HintStrategyTable hintStrategies,
+            List<Object> params,
             String... disabledRules
     ) throws Exception {
-        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, disabledRules);
+        IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, disabledRules);
 
         checkSplitAndSerialization(plan, schemas);
 
@@ -1199,6 +1232,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
+        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
+                @Nullable BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
@@ -1213,6 +1253,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public Publisher<BinaryRow> scan(int partId, HybridTimestamp timestamp, ClusterNode recipient,
                 @Nullable BinaryTuplePrefix leftBound, @Nullable BinaryTuplePrefix rightBound, int flags, BitSet columnsToInclude) {
+            throw new AssertionError("Should not be called");
+        }
+
+        @Override
+        public Publisher<BinaryRow> scan(int partId, UUID txId, PrimaryReplica recipient, @Nullable BinaryTuplePrefix leftBound,
+                @Nullable BinaryTuplePrefix rightBound, int flags, @Nullable BitSet columnsToInclude) {
             throw new AssertionError("Should not be called");
         }
     }
@@ -1266,8 +1312,55 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
+        public Publisher<BinaryRow> lookup(int partId, UUID txId, PrimaryReplica recipient, BinaryTuple key,
+                @Nullable BitSet columns) {
+            throw new AssertionError("Should not be called");
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
+    }
+
+    void assertBounds(String sql, List<Object> params, IgniteSchema schema, Predicate<SearchBounds>... predicates) throws Exception {
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
+                .and(scan -> matchBounds(scan.searchBounds(), predicates))), params);
+    }
+
+    boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
+        for (int i = 0; i < predicates.length; i++) {
+            if (!predicates[i].test(searchBounds.get(i))) {
+                lastErrorMsg = "Not expected bounds: " + searchBounds.get(i);
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    Predicate<SearchBounds> range(Object lower, Object upper, boolean lowerInclude, boolean upperInclude) {
+        return b -> b instanceof RangeBounds
+                && matchValue(lower, ((RangeBounds) b).lowerBound())
+                && matchValue(upper, ((RangeBounds) b).upperBound())
+                && lowerInclude == ((RangeBounds) b).lowerInclude()
+                && upperInclude == ((RangeBounds) b).upperInclude();
+    }
+
+    private boolean matchValue(Object val, RexNode bound) {
+        if (val == null || bound == null) {
+            return val == bound;
+        }
+
+        bound = RexUtil.removeCast(bound);
+
+        return Objects.toString(val).equals(Objects.toString(
+                bound instanceof RexLiteral ? ((RexLiteral) bound).getValueAs(val.getClass()) : bound));
+    }
+
+    Predicate<SearchBounds> empty() {
+        return Objects::isNull;
     }
 }

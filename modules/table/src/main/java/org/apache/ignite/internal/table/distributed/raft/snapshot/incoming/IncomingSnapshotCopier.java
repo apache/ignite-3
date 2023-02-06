@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CancellationException;
@@ -346,7 +347,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     setError(RaftError.UNKNOWN, throwable.getMessage());
                 }
 
-                return partitionSnapshotStorage.partition().abortRebalance();
+                return partitionSnapshotStorage.partition().abortRebalance().thenCompose(unused -> failedFuture(throwable));
             }
 
             SnapshotMeta meta = snapshotMeta;
