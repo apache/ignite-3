@@ -63,8 +63,6 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-//TODO: IGNITE-14487 Add bulk operations tests.
-//TODO: IGNITE-14487 Add async operations tests.
 public class KeyValueViewOperationsTest {
     private final Random rnd = new Random();
 
