@@ -22,6 +22,8 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
@@ -29,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.util.DistributionZone
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockMetaStorageListener;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -36,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -67,6 +71,9 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
+import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -115,6 +122,9 @@ public class DistributionZoneManagerScaleUpTest {
 
     @Mock
     private ClusterManagementGroupManager cmgManager;
+
+    @Mock
+    RaftGroupService metaStorageService;
 
     @BeforeEach
     public void setUp() {
@@ -181,7 +191,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
-        RaftGroupService metaStorageService = mock(RaftGroupService.class);
+        metaStorageService = mock(RaftGroupService.class);
 
         mockMetaStorageListener(raftIndex, metaStorageListener, metaStorageService, metaStorageManager);
     }
@@ -973,6 +983,98 @@ public class DistributionZoneManagerScaleUpTest {
     }
 
     @Test
+    void testScaleUpDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
+        mockVaultZonesLogicalTopologyKey(Set.of());
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        assertLogicalTopology(Set.of(), keyValueStorage);
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of(), keyValueStorage);
+
+        assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
+
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        assertLogicalTopology(Set.of(node1), keyValueStorage);
+
+        MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
+
+        lenient().doAnswer(invocationClose -> {
+            // First invoke of data nodes propagation on scale up do not pass because of trigger key revision condition.
+            // We had scaleUpChangeTriggerKey = 1 from ms, but after that it was changed to 100, so on the next call
+            // invoke won't be even triggered because event become stale.
+            keyValueStorage.put(zoneScaleUpChangeTriggerKey(1).bytes(), longToBytes(100));
+
+            Iif iif = invocationClose.getArgument(0);
+
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
+
+            return metaStorageService.run(multiInvokeCommand);
+        }).when(metaStorageManager).invoke(any());
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+
+        assertZoneScaleUpChangeTriggerKey(100, 1, keyValueStorage);
+
+        assertDataNodesForZone(1, Set.of(), keyValueStorage);
+    }
+
+    @Test
+    void testScaleDownDidNotChangeDataNodesWhenTriggerKeyWasConcurrentlyChanged() throws Exception {
+        ClusterNode node1 = new ClusterNode("1", "name1", new NetworkAddress("localhost", 123));
+
+        topology.putNode(node1);
+
+        mockVaultZonesLogicalTopologyKey(Set.of(node1.name()));
+
+        mockCmgLocalNodes();
+
+        distributionZoneManager.start();
+
+        assertLogicalTopology(Set.of(node1), keyValueStorage);
+
+        distributionZoneManager.createZone(
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()
+        ).get();
+
+        assertDataNodesForZone(1, Set.of(node1.name()), keyValueStorage);
+
+        assertZoneScaleDownChangeTriggerKey(1, 1, keyValueStorage);
+
+        topology.removeNodes(Set.of(node1));
+
+        MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
+
+        lenient().doAnswer(invocationClose -> {
+            // First invoke of data nodes propagation on scale down do not pass because of trigger key revision condition.
+            // We had scaleDownChangeTriggerKey = 1 from ms, but after that it was changed to 100, so on the next call
+            // invoke won't be even triggered because event become stale.
+            keyValueStorage.put(zoneScaleDownChangeTriggerKey(1).bytes(), longToBytes(100));
+
+            Iif iif = invocationClose.getArgument(0);
+
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
+
+            return metaStorageService.run(multiInvokeCommand);
+        }).when(metaStorageManager).invoke(any());
+
+        watchListenerOnUpdate(topology.getLogicalTopology().nodes().stream().map(ClusterNode::name).collect(Collectors.toSet()), 2);
+
+        assertDataNodesForZone(1, Set.of(node1.name()), keyValueStorage);
+
+        assertZoneScaleDownChangeTriggerKey(100, 1, keyValueStorage);
+    }
+
+    @Test
     void testVariousScaleUpScaleDownScenarios1_1() throws Exception {
         preparePrerequisites();
 
@@ -1385,7 +1487,7 @@ public class DistributionZoneManagerScaleUpTest {
     }
 
     /**
-     * Creates a zone with the auto adjust scale up trigger equals to 0 and the data nodes equals ["A"].
+     * Creates a zone with the auto adjust scale up scale down trigger equals to 0 and the data nodes equals ["A", "B", "C"].
      *
      * @throws Exception when something goes wrong.
      */
