@@ -15,10 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.rel;
+package org.apache.ignite.internal.sqllogic;
 
 /**
- * Marker interface to segregate internal relations from those provided by extensions.
+ * A base class for script commands.
  */
-public interface InternalIgniteRel extends IgniteRel {
+abstract class Command {
+    /** The position of this command in a script file. **/
+    final ScriptPosition posDesc;
+
+    Command(ScriptPosition posDesc) {
+        this.posDesc = posDesc;
+    }
+
+    /** Executes the command. **/
+    abstract void execute(ScriptContext ctx);
 }

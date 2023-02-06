@@ -26,9 +26,14 @@ SELECT i, (SELECT MIN(i+2*i1.i) FROM integers) FROM integers i1 ORDER BY i;
 NULL	NULL
 
 # this will fail, because "i" is not an aggregate but the SUM(i1.i) turns this query into an aggregate
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18666
 statement error
 SELECT i, (SELECT SUM(i1.i)) FROM integers i1;
 
+# PG: ERROR:  column "i1.i" must appear in the GROUP BY clause or be used in an aggregate function
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18666
 statement error
 SELECT i+1, (SELECT SUM(i1.i)) FROM integers i1;
 

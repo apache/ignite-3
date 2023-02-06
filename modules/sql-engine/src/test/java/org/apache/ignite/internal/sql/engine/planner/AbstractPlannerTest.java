@@ -660,10 +660,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param tbls Tables to create schema for.
      * @return Public schema.
      */
-    protected static IgniteSchema createSchema(TestTable... tbls) {
+    protected static IgniteSchema createSchema(InternalIgniteTable... tbls) {
         IgniteSchema schema = new IgniteSchema("PUBLIC");
 
-        for (TestTable tbl : tbls) {
+        for (InternalIgniteTable tbl : tbls) {
             schema.addTable(tbl);
         }
 

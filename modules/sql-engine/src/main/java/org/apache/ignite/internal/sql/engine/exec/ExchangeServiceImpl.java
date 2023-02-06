@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Message-based implementation of {@link ExchangeService} interface.
@@ -92,8 +93,8 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches)
-            throws IgniteInternalCheckedException {
+    public void request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
+            @Nullable SharedState state) throws IgniteInternalCheckedException {
         messageService.send(
                 nodeName,
                 FACTORY.queryBatchRequestMessage()
@@ -101,6 +102,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .fragmentId(fragmentId)
                         .exchangeId(exchangeId)
                         .amountOfBatches(amountOfBatches)
+                        .sharedState(state)
                         .build()
         );
     }
@@ -166,6 +168,13 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         Consumer<Outbox<?>> onRequestHandler = outbox -> {
             try {
+                SharedState state = msg.sharedState();
+                if (state != null) {
+                    outbox.context().sharedState(state);
+
+                    outbox.rewind();
+                }
+
                 outbox.onRequest(nodeName, msg.amountOfBatches());
             } catch (Throwable e) {
                 outbox.onError(e);
