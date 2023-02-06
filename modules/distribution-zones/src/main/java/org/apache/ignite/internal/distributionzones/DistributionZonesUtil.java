@@ -124,7 +124,7 @@ public class DistributionZonesUtil {
      * The key that represents logical topology nodes, needed for distribution zones. It is needed to store them in the metastore
      * to serialize data nodes changes triggered by topology changes and changes of distribution zones configurations.
      */
-    static ByteArray zonesLogicalTopologyKey() {
+    public static ByteArray zonesLogicalTopologyKey() {
         return DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY;
     }
 
