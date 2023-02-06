@@ -20,9 +20,14 @@ package org.apache.ignite.internal.network.configuration;
 import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
 
+/** Supported key store types. */
 public enum KeyStoreType {
     JKS, PKCS12;
 
+    /** Parses key store type from a provided string.
+     *
+     * @return Key store type or {@code null}.
+     */
     @Nullable
     public static KeyStoreType fromName(String name) {
         return Arrays.stream(KeyStoreType.values())

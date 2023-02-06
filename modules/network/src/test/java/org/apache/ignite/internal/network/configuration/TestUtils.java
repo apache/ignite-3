@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-public class TestUtils {
+/** Utility class for configuration tests. */
+class TestUtils {
 
-    public static KeyStoreView stubKeyStoreView(String type, String path, String password) {
+    /** Create a stub for {@link KeyStoreView}. */
+    static KeyStoreView stubKeyStoreView(String type, String path, String password) {
         return new KeyStoreView() {
 
             @Override
@@ -39,7 +41,8 @@ public class TestUtils {
         };
     }
 
-    public static SslView stubSslView(boolean enabled, KeyStoreView keyStore, KeyStoreView trustStore) {
+    /** Creates a stub for {@link SslView}. */
+    static SslView stubSslView(boolean enabled, KeyStoreView keyStore, KeyStoreView trustStore) {
         return new SslView() {
             @Override
             public boolean enabled() {
