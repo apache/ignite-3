@@ -89,7 +89,7 @@ import org.mockito.Mock;
 /**
  * Test scenarios for the distribution zone scale up and scale down.
  */
-public class DistributionZoneManagerScaleUpDownTest {
+public class DistributionZoneManagerScaleUpTest {
     private static final String ZONE_NAME = "zone1";
 
     private DistributionZoneManager distributionZoneManager;
