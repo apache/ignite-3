@@ -76,4 +76,8 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.dropwizard.metrics
+
+    compileJava {
+        println "outputDir "
+    }
 }

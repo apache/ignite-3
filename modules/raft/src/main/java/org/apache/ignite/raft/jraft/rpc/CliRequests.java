@@ -20,8 +20,10 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.Collection;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup;
 
 public final class CliRequests {
@@ -186,5 +188,23 @@ public final class CliRequests {
         Collection<String> oldLearnersList();
 
         Collection<String> newLearnersList();
+    }
+
+    @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_REQUEST)
+    public interface SubscriptionLeaderChangeRequest extends Message {
+        @Marshallable
+        ReplicationGroupId groupId();
+
+        /**
+        * Gets a subscription flag.
+        *
+        * @return True if subscription is started, false when it finished.
+        */
+        boolean subscribe();
+    }
+
+    @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_RESPONSE)
+    public interface SubscriptionLeaderChangeResponse extends Message {
+        long term();
     }
 }

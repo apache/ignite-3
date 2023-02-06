@@ -25,19 +25,28 @@ import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 
 class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
+
+    private final RaftServiceEventListener serviceEventListener;
     private final RaftGroupEventsListener delegate;
 
-    RaftGroupEventsListenerAdapter(RaftGroupEventsListener delegate) {
+    private final ReplicationGroupId grpId;
+
+    RaftGroupEventsListenerAdapter(ReplicationGroupId grpId, RaftServiceEventListener serviceEventListener, RaftGroupEventsListener delegate) {
+        this.grpId = grpId;
+        this.serviceEventListener = serviceEventListener;
         this.delegate = delegate;
     }
 
     @Override
     public void onLeaderElected(long term) {
+        serviceEventListener.onLeaderElected(grpId, term);
+
         delegate.onLeaderElected(term);
     }
 
