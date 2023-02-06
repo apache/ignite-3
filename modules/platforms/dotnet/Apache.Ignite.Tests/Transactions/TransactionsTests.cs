@@ -17,11 +17,15 @@
 
 namespace Apache.Ignite.Tests.Transactions
 {
+    using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
     using NUnit.Framework;
+    using Table;
+    using TransactionOptions = Ignite.Transactions.TransactionOptions;
 
     /// <summary>
     /// Tests for <see cref="ITransactions"/> and <see cref="ITransaction"/>.
@@ -185,6 +189,60 @@ namespace Apache.Ignite.Tests.Transactions
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
             Assert.AreEqual("Specified transaction belongs to a different IgniteClient instance.", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
+        {
+            var key = Random.Shared.NextInt64(1000, long.MaxValue);
+            var keyPoco = new Poco { Key = key };
+
+            await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
+
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            Assert.AreEqual("11", (await PocoView.GetAsync(tx, keyPoco)).Value.Val);
+
+            // Update data in a different tx.
+            await using (var tx2 = await Client.Transactions.BeginAsync())
+            {
+                await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "22" });
+                await tx2.CommitAsync();
+            }
+
+            // Old tx sees old data.
+            Assert.AreEqual("11", (await PocoView.GetAsync(tx, keyPoco)).Value.Val);
+
+            // New tx sees new data
+            await using var tx3 = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            Assert.AreEqual("22", (await PocoView.GetAsync(tx3, keyPoco)).Value.Val);
+        }
+
+        [Test]
+        public async Task TestUpdateInReadOnlyTxThrows()
+        {
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            var ex = Assert.ThrowsAsync<Tx.TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
+
+            Assert.AreEqual(ErrorGroups.Transactions.TxFailedReadWriteOperation, ex!.Code, ex.Message);
+            StringAssert.Contains("Failed to enlist read-write operation into read-only transaction", ex.Message);
+        }
+
+        [Test]
+        public async Task TestCommitRollbackReadOnlyTxDoesNothing([Values(true, false)] bool commit)
+        {
+            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
+            var res = await PocoView.GetAsync(tx, new Poco { Key = 123 });
+
+            if (commit)
+            {
+                await tx.CommitAsync();
+            }
+            else
+            {
+                await tx.RollbackAsync();
+            }
+
+            Assert.IsFalse(res.HasValue);
         }
 
         private class CustomTx : ITransaction
