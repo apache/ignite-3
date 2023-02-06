@@ -57,11 +57,13 @@ public class FragmentSplitter extends IgniteRelShuttle {
     public List<Fragment> go(Fragment fragment) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        correlated = fragment.correlated();
-        stack.push(new FragmentProto(IdGenerator.nextId(), correlated, fragment.root()));
+        stack.push(new FragmentProto(IdGenerator.nextId(), fragment.correlated(), fragment.root()));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
+
+            correlated = curr.correlated;
+
             curr.root = visit(curr.root);
             res.add(curr.build());
             curr = null;
