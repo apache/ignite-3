@@ -21,7 +21,7 @@ import java.nio.file.Path;
 import org.apache.ignite.IgnitionManager;
 
 /** Presentation of Ignite node for tests. */
-public class RestNode implements AutoCloseable {
+public class RestNode {
 
     /** Key store path. */
     private static final String keyStorePath = "ssl/keystore.p12";
@@ -96,10 +96,5 @@ public class RestNode implements AutoCloseable {
                 + "    }\n"
                 + "  }"
                 + "}";
-    }
-
-    @Override
-    public void close() {
-        stop();
     }
 }
