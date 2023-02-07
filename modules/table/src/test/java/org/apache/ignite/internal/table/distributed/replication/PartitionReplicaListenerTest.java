@@ -140,6 +140,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** The storage stores partition data. */
     private static final TestMvPartitionStorage testMvPartitionStorage = new TestMvPartitionStorage(partId);
 
+    private static LockManager lockManager = new HeapLockManager();
+
     private static final Function<PartitionCommand, CompletableFuture<?>> DEFAULT_MOCK_RAFT_FUTURE_CLOSURE = cmd -> {
         if (cmd instanceof TxCleanupCommand) {
             Set<RowId> rows = pendingRows.remove(cmd.txId());
@@ -149,6 +151,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     testMvPartitionStorage.commitWrite(row, ((TxCleanupCommand) cmd).commitTimestamp().asHybridTimestamp());
                 }
             }
+
+            lockManager.locks(cmd.txId()).forEachRemaining(lock -> lockManager.release(lock));
         } else if (cmd instanceof UpdateCommand) {
             pendingRows.compute(cmd.txId(), (txId, v) -> {
                 if (v == null) {
@@ -229,8 +233,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static TableSchemaAwareIndexStorage hashIndexStorage;
 
     private static Function<PartitionCommand, CompletableFuture<?>> raftClientFutureClosure = DEFAULT_MOCK_RAFT_FUTURE_CLOSURE;
-
-    private static LockManager lockManager = new HeapLockManager();
 
     @BeforeAll
     private static void beforeAll() {
@@ -366,6 +368,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
         testMvPartitionStorage.clear();
         pendingRows.clear();
+        //lockManager.locks(txId).forEachRemaining(lock -> lockManager.release(lock));
     }
 
     @Test
@@ -854,7 +857,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         doSingleRowRequest(txId, binaryRow(0), RequestType.RW_DELETE_EXACT);
         checkRowInMvStorage(binaryRow(0), false);
 
-        lockManager.locks(txId).forEachRemaining(lock -> lockManager.release(lock));
+        cleanup(txId);
     }
 
     @Test
@@ -890,7 +893,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkRowInMvStorage(row0, false);
         checkRowInMvStorage(row1, false);
 
-        lockManager.locks(txId).forEachRemaining(lock -> lockManager.release(lock));
+        cleanup(txId);
     }
 
     private void doSingleRowRequest(UUID txId, BinaryRow binaryRow, RequestType requestType) {
@@ -936,7 +939,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> checkRowInMvStorage(binaryRow(0), true)
         );
 
-        lockManager.locks(txId).forEachRemaining(lock -> lockManager.release(lock));
+        cleanup(txId);
     }
 
     @Test
@@ -962,7 +965,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> checkRowInMvStorage(binaryRow(0), true)
         );
 
-        lockManager.locks(txId).forEachRemaining(lock -> lockManager.release(lock));
+        cleanup(txId);
     }
 
     private void checkRowInMvStorage(BinaryRow binaryRow, boolean shouldBePresent) {
@@ -1042,39 +1045,55 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAfterRowRewrite() {
-        testReadOnlyGetAfterRowRewrite0(true, true, true);
-        testReadOnlyGetAfterRowRewrite0(true, true, false);
-        testReadOnlyGetAfterRowRewrite0(true, false, true);
-        testReadOnlyGetAfterRowRewrite0(true, false, false);
-        testReadOnlyGetAfterRowRewrite0(false, true, true);
-        testReadOnlyGetAfterRowRewrite0(false, true, false);
-        testReadOnlyGetAfterRowRewrite0(false, false, true);
-        testReadOnlyGetAfterRowRewrite0(false, false, false);
+        testReadOnlyGetAfterRowRewrite0(true,  true,  true,  false);
+        testReadOnlyGetAfterRowRewrite0(true,  true,  false, false);
+        testReadOnlyGetAfterRowRewrite0(true,  false, true,  false);
+        testReadOnlyGetAfterRowRewrite0(true,  false, false, false);
+        testReadOnlyGetAfterRowRewrite0(false, true,  true,  false);
+        testReadOnlyGetAfterRowRewrite0(false, true,  false, false);
+        testReadOnlyGetAfterRowRewrite0(false, false, true,  false);
+        testReadOnlyGetAfterRowRewrite0(false, false, false, false);
     }
 
-    public void testReadOnlyGetAfterRowRewrite0(boolean insertFirst, boolean u, boolean committed) {
-        BinaryRow br = binaryRow(1);
+    @Test
+    public void testReadOnlyGetAllAfterRowRewrite() {
+        //testReadOnlyGetAfterRowRewrite0(true,  true,  true,  true);
+        //testReadOnlyGetAfterRowRewrite0(true,  true,  false, true);
+        testReadOnlyGetAfterRowRewrite0(true,  false, true,  true);
+        testReadOnlyGetAfterRowRewrite0(true,  false, false, true);
+        testReadOnlyGetAfterRowRewrite0(false, true,  true,  true);
+        testReadOnlyGetAfterRowRewrite0(false, true,  false, true);
+        testReadOnlyGetAfterRowRewrite0(false, false, true,  true);
+        testReadOnlyGetAfterRowRewrite0(false, false, false, true);
+    }
+
+    public void testReadOnlyGetAfterRowRewrite0(boolean insertFirst, boolean upsertAfterDelete, boolean committed, boolean multiple) {
+        beforeTest();
+
+        BinaryRow br1 = binaryRow(1);
+        BinaryRow br2 = binaryRow(2);
 
         if (insertFirst) {
             UUID tx0 = beginTx();
-            upsert(tx0, br);
+            upsert(tx0, br1);
+            upsert(tx0, br2);
             cleanup(tx0);
         }
 
         txState = null;
 
         UUID tx1 = beginTx();
-        delete(tx1, br);
-        upsert(tx1, br);
+        delete(tx1, br1);
+        upsert(tx1, br1);
 
         while (true) {
-            delete(tx1, br);
+            delete(tx1, br1);
 
-            if (u) {
-                upsert(tx1, br);
+            if (upsertAfterDelete) {
+                upsert(tx1, br1);
             }
 
-            Cursor<RowId> cursor = pkStorage.get().get(br);
+            Cursor<RowId> cursor = pkStorage.get().get(br1);
 
             RowId rowId = cursor.next();
 
@@ -1089,9 +1108,32 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             cleanup(tx1);
         }
 
-        BinaryRow res = roGet(br, clock.now());
+        if (multiple) {
+            Set<BinaryRow> allRows = insertFirst ? Set.of(br1, br2) : Set.of(br1);
+            Set<BinaryRow> allRowsButModified = insertFirst ? Set.of(br2) : Set.of();
+            Set<BinaryRow> expected = committed
+                    ? (upsertAfterDelete ? allRows : allRowsButModified)
+                    : (insertFirst ? allRows : Set.of());
+            Set<BinaryRow> res = new HashSet<>(roGetAll(allRows, clock.now()));
 
-        assertArrayEquals(res.bytes(), br.bytes());
+            assertEquals(expected.size(), res.size());
+            for (BinaryRow e : expected) {
+                res.contains(e);
+            }
+        } else {
+            BinaryRow res = roGet(br1, clock.now());
+            BinaryRow expected = committed
+                    ? (upsertAfterDelete ? br1 : null)
+                    : (insertFirst ? br1 : null);
+
+            if (expected == null) {
+                assertNull(res);
+            } else {
+                assertArrayEquals(expected.bytes(), res.bytes());
+            }
+        }
+
+        cleanup(tx1);
     }
 
     private UUID beginTx() {
@@ -1129,6 +1171,17 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
 
         return (BinaryRow) future.join();
+    }
+
+    private List<BinaryRow> roGetAll(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {
+        CompletableFuture<Object> future = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readOnlyMultiRowReplicaRequest()
+                .requestType(RequestType.RO_GET_ALL)
+                .readTimestamp(readTimestamp)
+                .binaryRows(rows)
+                .build()
+        );
+
+        return (List<BinaryRow>) future.join();
     }
 
     private void cleanup(UUID txId) {

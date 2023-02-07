@@ -1138,48 +1138,75 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<BinaryRow> resolveRowByPkForReadOnly(BinaryRow searchKey, HybridTimestamp ts) {
         try (Cursor<RowId> cursor = pkIndexStorage.get().get(searchKey)) {
-            List<CompletableFuture<BinaryRow>> candidates = new ArrayList<>();
+            List<ReadResult> candidatesR = new ArrayList<>();
 
             for (RowId rowId : cursor) {
                 ReadResult readResult = mvDataStorage.read(rowId, ts);
 
-                if (readResult.isEmpty() && !readResult.isWriteIntent()) {
-                    continue;
+                if (!readResult.isEmpty() || readResult.isWriteIntent()) {
+                    candidatesR.add(readResult);
                 }
-
-                CompletableFuture<BinaryRow> resolutionSuture = resolveReadResult(readResult, ts, () -> {
-                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
-
-                    if (newestCommitTimestamp == null) {
-                        return completedFuture(null);
-                    }
-
-                    ReadResult committedReadResult = mvDataStorage.read(rowId, newestCommitTimestamp);
-
-                    assert !committedReadResult.isWriteIntent() :
-                            "The result is not committed [rowId=" + rowId + ", timestamp="
-                                    + newestCommitTimestamp + ']';
-
-                    return toBinaryRow(committedReadResult.tableRow());
-                });
-
-                candidates.add(resolutionSuture);
             }
 
-            if (candidates.isEmpty()) {
+            if (candidatesR.isEmpty()) {
                 return completedFuture(null);
-            } else {
-                return allOf(candidates.toArray(new CompletableFuture[candidates.size()]))
-                        .thenApply(ignored -> {
-                            for (CompletableFuture<BinaryRow> candidate : candidates) {
-                                BinaryRow row = candidate.join();
-                                if (row != null) {
-                                    return row;
+            }
+
+            List<ReadResult> writeIntents = new ArrayList<>();
+            for (ReadResult r : candidatesR) {
+                if (r.isWriteIntent()) {
+                    writeIntents.add(r);
+                }
+            }
+
+            if (!writeIntents.isEmpty()) {
+                ReadResult writeIntent = writeIntents.get(0);
+
+                for (ReadResult r : writeIntents) {
+                    assert r.commitPartitionId() == writeIntent.commitPartitionId()
+                            && r.commitTableId().equals(writeIntent.commitTableId())
+                            && r.transactionId().equals(writeIntent.transactionId());
+                }
+
+                return resolveTxState(
+                                new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
+                                writeIntent.transactionId(),
+                                ts)
+                        .thenCompose(readLastCommitted -> {
+                            if (readLastCommitted) {
+                                for (ReadResult wi : writeIntents) {
+                                    HybridTimestamp newestCommitTimestamp = wi.newestCommitTimestamp();
+
+                                    if (newestCommitTimestamp == null) {
+                                        continue;
+                                    }
+
+                                    ReadResult committedReadResult = mvDataStorage.read(wi.rowId(), newestCommitTimestamp);
+
+                                    assert !committedReadResult.isWriteIntent() :
+                                            "The result is not committed [rowId=" + wi.rowId() + ", timestamp="
+                                                    + newestCommitTimestamp + ']';
+
+                                    return toBinaryRow(committedReadResult.tableRow());
+                                }
+                            } else {
+                                for (ReadResult r : writeIntents) {
+                                    if (!r.isEmpty()) {
+                                        return toBinaryRow(r.tableRow());
+                                    }
                                 }
                             }
 
-                            return null;
+                            return completedFuture(null);
                         });
+            } else {
+                for (ReadResult r : candidatesR) {
+                    if (!r.isEmpty()) {
+                        return toBinaryRow(r.tableRow());
+                    }
+                }
+
+                return completedFuture(null);
             }
         } catch (Exception e) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
@@ -2007,22 +2034,42 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp timestamp,
             Supplier<CompletableFuture<BinaryRow>> lastCommitted
     ) {
-        ReplicationGroupId commitGrpId = new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId());
+        return resolveTxState(
+                        new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
+                        readResult.transactionId(),
+                        timestamp)
+                .thenCompose(readLastCommitted -> {
+                    if (readLastCommitted) {
+                        return lastCommitted.get();
+                    } else {
+                        return toBinaryRow(readResult.tableRow());
+                    }
+                });
+    }
 
+    private CompletableFuture<Boolean> resolveTxState(
+            ReplicationGroupId commitGrpId,
+            UUID txId,
+            HybridTimestamp timestamp
+    ) {
         return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
                         .commitTimestamp(timestamp)
-                        .txId(readResult.transactionId())
+                        .txId(txId)
                         .build())
-                .thenCompose(txMeta -> {
+                .thenApply(txMeta -> {
                     if (txMeta == null) {
-                        return lastCommitted.get();
-                    } else if (txMeta.txState() == TxState.COMMITED && txMeta.commitTimestamp().compareTo(timestamp) <= 0) {
-                        return toBinaryRow(readResult.tableRow());
+                        return true;
+                    } else if (txMeta.txState() == TxState.COMMITED) {
+                        if (txMeta.commitTimestamp().compareTo(timestamp) <= 0) {
+                            return false;
+                        } else {
+                            return true;
+                        }
                     } else {
                         assert txMeta.txState() == TxState.ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
-                        return lastCommitted.get();
+                        return true;
                     }
                 });
     }
