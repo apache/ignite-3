@@ -55,6 +55,8 @@ public class NotifyElectProcessor implements RpcProcessor<SubscriptionLeaderChan
         } else {
             serviceEventListener.unsubscribe(request.groupId(), rpcCtx.getSender());
         }
+
+        rpcCtx.sendResponse(msgFactory.subscriptionLeaderChangeRequestAcknowledge().build());
     }
 
     @Override

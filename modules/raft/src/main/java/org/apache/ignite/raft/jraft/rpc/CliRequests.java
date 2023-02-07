@@ -203,6 +203,10 @@ public final class CliRequests {
         boolean subscribe();
     }
 
+    @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_RESPONSE_ACKNOWLEDGE)
+    public interface SubscriptionLeaderChangeRequestAcknowledge extends Message {
+    }
+
     @Transferable(value = RpcClientMessageGroup.SUBSCRIPTION_LEADER_CHANGE_RESPONSE)
     public interface SubscriptionLeaderChangeResponse extends Message {
         long term();

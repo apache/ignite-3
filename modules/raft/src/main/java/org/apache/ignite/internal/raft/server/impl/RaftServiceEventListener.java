@@ -22,8 +22,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -38,7 +36,6 @@ public class RaftServiceEventListener {
     /** Callbacks by cluster nodes. */
     private HashMap<ClusterNode, Set<Consumer<Long>>> nosesSubscriptions = new HashMap<>();
 
-
     /**
      * Subscribes a node to notification.
      *
@@ -46,19 +43,19 @@ public class RaftServiceEventListener {
      * @param subscriber Subscriber node.
      * @param notifyAction Notify action.
      */
-   public void subscribe(ReplicationGroupId groupId, ClusterNode subscriber, Consumer<Long> notifyAction) {
-       subscriptions.compute(groupId, (id, actions) -> {
-           if (actions == null) {
-               actions = new HashSet<>();
-           }
+    public void subscribe(ReplicationGroupId groupId, ClusterNode subscriber, Consumer<Long> notifyAction) {
+        subscriptions.compute(groupId, (id, actions) -> {
+            if (actions == null) {
+                actions = new HashSet<>();
+            }
 
-           actions.add(notifyAction);
-           nosesSubscriptions.computeIfAbsent(subscriber, node -> new HashSet<>())
-                   .add(notifyAction);
+            actions.add(notifyAction);
+            nosesSubscriptions.computeIfAbsent(subscriber, node -> new HashSet<>())
+                    .add(notifyAction);
 
-           return actions;
-       });
-   }
+            return actions;
+        });
+    }
 
     /**
      * Unsubscribes a node.
@@ -66,36 +63,36 @@ public class RaftServiceEventListener {
      * @param groupId Group id.
      * @param clusterNode Subscriber node.
      */
-   public void unsubscribe(ReplicationGroupId groupId, ClusterNode clusterNode) {
-       subscriptions.compute(groupId, (id, actions) -> {
-           if (CollectionUtils.nullOrEmpty(actions)) {
-               return null;
-           }
+    public void unsubscribe(ReplicationGroupId groupId, ClusterNode clusterNode) {
+        subscriptions.compute(groupId, (id, actions) -> {
+            if (CollectionUtils.nullOrEmpty(actions)) {
+                return null;
+            }
 
-           Set<Consumer<Long>> nodeActions = nosesSubscriptions.get(clusterNode);
+            Set<Consumer<Long>> nodeActions = nosesSubscriptions.get(clusterNode);
 
-           assert !CollectionUtils.nullOrEmpty(nodeActions);
+            assert !CollectionUtils.nullOrEmpty(nodeActions);
 
-           Set<Consumer<Long>> grpNodeActions = new HashSet<>(actions);
+            Set<Consumer<Long>> grpNodeActions = new HashSet<>(actions);
 
-           grpNodeActions.retainAll(nodeActions);
+            grpNodeActions.retainAll(nodeActions);
 
-           assert grpNodeActions.size() == 1 : "Node is not subscribed [node=" + clusterNode + "groupId=" + groupId + ']';
+            assert grpNodeActions.size() == 1 : "Node is not subscribed [node=" + clusterNode + "groupId=" + groupId + ']';
 
-           nodeActions.remove(grpNodeActions.iterator().next());
-           actions.remove(grpNodeActions.iterator().next());
+            nodeActions.remove(grpNodeActions.iterator().next());
+            actions.remove(grpNodeActions.iterator().next());
 
-           if (CollectionUtils.nullOrEmpty(nodeActions)) {
-               nosesSubscriptions.remove(clusterNode);
-           }
+            if (CollectionUtils.nullOrEmpty(nodeActions)) {
+                nosesSubscriptions.remove(clusterNode);
+            }
 
-           if (CollectionUtils.nullOrEmpty(actions)) {
-               return null;
-           }
+            if (CollectionUtils.nullOrEmpty(actions)) {
+                return null;
+            }
 
-           return actions;
-       });
-   }
+            return actions;
+        });
+    }
 
     /**
      * Unsubscribes a node from all replication groups.
@@ -107,8 +104,6 @@ public class RaftServiceEventListener {
             unsubscribe(grpId, clusterNode);
         }
     }
-
-    IgniteLogger LOG = Loggers.forClass(RaftServiceEventListener.class);
 
     /**
      * Initiates callbacks on a specific replication group.

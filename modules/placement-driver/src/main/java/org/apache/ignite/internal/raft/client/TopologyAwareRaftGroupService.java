@@ -35,6 +35,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -74,6 +75,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     /** Executor to invoke RPC requests. */
     private final ScheduledExecutorService executor;
 
+    /** RAFT configuration. */
+    private final RaftConfiguration raftConfiguration;
+
 
     /**
      * The constructor.
@@ -88,12 +92,14 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             ClusterService cluster,
             RaftMessagesFactory factory,
             ScheduledExecutorService executor,
+            RaftConfiguration raftConfiguration,
             RaftGroupService raftClient,
             LogicalTopologyService logicalTopologyService
     ) {
         this.clusterService = cluster;
         this.factory = factory;
         this.executor = executor;
+        this.raftConfiguration = raftConfiguration;
         this.raftClient = raftClient;
         this.logicalTopologyService = logicalTopologyService;
         this.serverEventHandler = new ServerEventHandler();
@@ -117,18 +123,20 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         sendSubscribeMessage(appearedNode, TopologyAwareRaftGroupService.this.factory.subscriptionLeaderChangeRequest()
                                 .groupId(groupId())
                                 .subscribe(true)
-                                .build()).thenComposeAsync(couldLeaderChange -> {
-                            if (couldLeaderChange) {
-                                return refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
-                                    if (leaderWithTerm.leader() != null
-                                            && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
-                                        serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
+                                .build())
+                                .thenComposeAsync(couldLeaderChange -> {
+                                    if (couldLeaderChange) {
+                                        return refreshAndGetLeaderWithTerm()
+                                                .thenAcceptAsync(leaderWithTerm -> {
+                                                    if (leaderWithTerm.leader() != null
+                                                            && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
+                                                        serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
+                                                    }
+                                                }, executor);
                                     }
-                                }, executor);
-                            }
 
-                            return CompletableFuture.completedFuture(null);
-                        }, executor);
+                                    return CompletableFuture.completedFuture(null);
+                                }, executor);
                     }
                 }
             }
@@ -141,11 +149,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param groupId Replication group id.
      * @param cluster Cluster service.
      * @param factory Message factory.
-     * @param timeout Timeout.
-     * @param rpcTimeout RPC timeout..
+     * @param raftConfiguration RAFT configuration.
      * @param configuration Group configuration.
      * @param getLeader True to get the group's leader upon service creation.
-     * @param retryDelay Retry delay.
      * @param executor RPC executor.
      * @param logicalTopologyService Logical topology service.
      * @return Future to create a raft client.
@@ -154,17 +160,15 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             ReplicationGroupId groupId,
             ClusterService cluster,
             RaftMessagesFactory factory,
-            int timeout,
-            int rpcTimeout,
+            RaftConfiguration raftConfiguration,
             PeersAndLearners configuration,
             boolean getLeader,
-            long retryDelay,
             ScheduledExecutorService executor,
             LogicalTopologyService logicalTopologyService
     ) {
-        return RaftGroupServiceImpl.start(groupId, cluster, factory, timeout, rpcTimeout, configuration, getLeader, retryDelay, executor)
-                .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftGroupService,
-                        logicalTopologyService));
+        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor)
+                .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
+                        raftGroupService, logicalTopologyService));
     }
 
     /**
@@ -190,9 +194,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param msgSendFut Future that will completed when the message is send or an issue prevent that.
      */
     private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
-        clusterService.messagingService().send(node, msg).whenCompleteAsync((unused, throwable) -> {
-            if (throwable != null) {
-                if (recoverable(throwable)) {
+        clusterService.messagingService().invoke(node, msg, raftConfiguration.responseTimeout().value()).whenCompleteAsync((unused, th) -> {
+            if (th != null) {
+                if (recoverable(th)) {
                     logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetIssue) -> {
                         if (topologyGetIssue != null) {
                             LOG.error("Actual logical topology snapshot was not get.", topologyGetIssue);
@@ -212,9 +216,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         }
                     }, executor);
                 } else {
-                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", throwable, node, msg);
+                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
 
-                    msgSendFut.completeExceptionally(throwable);
+                    msgSendFut.completeExceptionally(th);
                 }
 
                 return;
@@ -244,20 +248,20 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param callback Callback closure.
      */
     public void subscribeLeader(Consumer<ClusterNode> callback) {
-        int peers = raftClient.peers().size();
+        int peers = peers().size();
 
         var futs = new CompletableFuture[peers];
 
         serverEventHandler.setOnLeaderElectedCallback(callback);
 
         for (int i = 0; i < peers; i++) {
-            Peer peer = raftClient.peers().get(i);
+            Peer peer = peers().get(i);
 
             ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
             if (node != null) {
                 futs[i] = sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
-                        .groupId(raftClient.groupId())
+                        .groupId(groupId())
                         .subscribe(true)
                         .build());
             } else {
@@ -270,7 +274,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 throw new IgniteException(Common.UNEXPECTED_ERR, throwable);
             }
 
-            raftClient.refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
+            refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
                 if (leaderWithTerm.leader() != null) {
                     serverEventHandler.onLeaderElected(
                             clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
@@ -287,12 +291,12 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     public void unsubscribeLeader() {
         serverEventHandler.setOnLeaderElectedCallback(null);
 
-        for (Peer peer : raftClient.peers()) {
+        for (Peer peer : peers()) {
             ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
             if (node != null) {
                 sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
-                        .groupId(raftClient.groupId())
+                        .groupId(groupId())
                         .subscribe(false)
                         .build());
             }
@@ -302,16 +306,6 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     @Override
     public ReplicationGroupId groupId() {
         return raftClient.groupId();
-    }
-
-    @Override
-    public long timeout() {
-        return raftClient.timeout();
-    }
-
-    @Override
-    public void timeout(long newTimeout) {
-        raftClient.timeout(newTimeout);
     }
 
     @Override

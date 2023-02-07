@@ -39,6 +39,7 @@ dependencies {
 
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
+    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
 }
 
 description = 'ignite-placement-driver'

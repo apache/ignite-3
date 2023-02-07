@@ -30,14 +30,33 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 
+/**
+ * RAFT node event listener adapter.
+ */
 class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
 
+    /**
+     * RAFT service event listener.
+     * The listener the only for all RAFT nodes that start with this service.
+     */
     private final RaftServiceEventListener serviceEventListener;
     private final RaftGroupEventsListener delegate;
 
+    /** RAFT group id. */
     private final ReplicationGroupId grpId;
 
-    RaftGroupEventsListenerAdapter(ReplicationGroupId grpId, RaftServiceEventListener serviceEventListener, RaftGroupEventsListener delegate) {
+    /**
+     * The constructor.
+     *
+     * @param grpId RAFT group id.
+     * @param serviceEventListener Service event listener.
+     * @param delegate Node event listener.
+     */
+    RaftGroupEventsListenerAdapter(
+            ReplicationGroupId grpId,
+            RaftServiceEventListener serviceEventListener,
+            RaftGroupEventsListener delegate
+    ) {
         this.grpId = grpId;
         this.serviceEventListener = serviceEventListener;
         this.delegate = delegate;

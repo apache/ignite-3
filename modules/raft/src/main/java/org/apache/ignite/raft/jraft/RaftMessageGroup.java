@@ -95,6 +95,9 @@ public class RaftMessageGroup {
 
         /** */
         public static final short SUBSCRIPTION_LEADER_CHANGE_RESPONSE = 1020;
+
+        /** */
+        public static final short SUBSCRIPTION_LEADER_CHANGE_RESPONSE_ACKNOWLEDGE = 1021;
     }
 
     /**

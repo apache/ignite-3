@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.raft.client;/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,6 +15,9 @@ package org.apache.ignite.internal.raft.client;/*
  * limitations under the License.
  */
 
+package org.apache.ignite.internal.raft.client;
+
+import static org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest.TestReplicationGroup.GROUP_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,10 +38,14 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -56,19 +63,21 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Topology aware client tests.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     /** RAFT message factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     /** Base node port. */
-    private static int PORT_BASE = 1234;
+    private static final int PORT_BASE = 1234;
 
-    /** Replication group id. */
-    ReplicationGroupId GROUP_ID = new TestReplicationGroup();
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     /** RPC executor. */
     private ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory("Raft-Group-Client", log));
@@ -102,7 +111,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testChangeLeader(TestInfo testInfo) throws Exception {
+    public void testChangeLeaderWhenActualLeft(TestInfo testInfo) throws Exception {
         var clusterServices = new HashMap<NetworkAddress, ClusterService>();
         var raftServers = new HashMap<NetworkAddress, JraftServerImpl>();
 
@@ -136,6 +145,51 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         clusterServices.remove(new NetworkAddress("localhost", leader.address().port())).stop();
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> !leader.equals(leaderRef.get()), 10_000));
+
+        log.info("New Leader: " + leaderRef.get());
+
+        raftClient.refreshLeader().get();
+
+        assertEquals(raftClient.leader().consistentId(), leaderRef.get().name());
+
+        stopCluster(clusterServices, raftServers, raftClient, 4);
+    }
+
+    @Test
+    public void testChangeLeaderForce(TestInfo testInfo) throws Exception {
+        var clusterServices = new HashMap<NetworkAddress, ClusterService>();
+        var raftServers = new HashMap<NetworkAddress, JraftServerImpl>();
+
+        TopologyAwareRaftGroupService raftClient = startCluster(
+                testInfo,
+                clusterServices,
+                raftServers,
+                addr -> addr.port() < PORT_BASE + 3,
+                4,
+                PORT_BASE + 3
+        );
+
+        AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+
+        raftClient.subscribeLeader(node -> {
+            leaderRef.set(node);
+        });
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> leaderRef.get() != null, 10_000));
+
+        ClusterNode leader = leaderRef.get();
+
+        assertNotNull(leader);
+
+        log.info("Leader: " + leader);
+
+        Peer newLeaderPeer = raftClient.peers().stream().filter(peer -> !leader.name().equals(peer.consistentId())).findAny().get();
+
+        log.info("Peer to transfer leader: " + newLeaderPeer);
+
+        raftClient.transferLeadership(newLeaderPeer).get();
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> newLeaderPeer.consistentId().equals(leaderRef.get().name()), 10_000));
 
         log.info("New Leader: " + leaderRef.get());
 
@@ -241,11 +295,9 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                         GROUP_ID,
                         cluster,
                         FACTORY,
-                        3_000,
-                        1_000,
+                        raftConfiguration,
                         peersAndLearners,
                         true,
-                        200,
                         executor,
                         new LogicalTopologyServiceTestImpl(cluster)
                 ).join();
@@ -267,21 +319,17 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         return addresses;
     }
 
-    public static class TestReplicationGroup implements ReplicationGroupId {
+    /**
+     * Replication test group class.
+     */
+    public enum TestReplicationGroup implements ReplicationGroupId {
+        /** Replication group id. */
+        GROUP_ID;
+
         /** {@inheritDoc} */
         @Override
         public String toString() {
             return "TestReplicationGroup";
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof TestReplicationGroup;
-        }
-
-        @Override
-        public int hashCode() {
-            return 1;
         }
     }
 
