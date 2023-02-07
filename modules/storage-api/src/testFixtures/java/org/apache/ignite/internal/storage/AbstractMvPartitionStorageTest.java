@@ -555,8 +555,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
     @Test
     void addWriteCommittedTombstone() {
-        addWriteCommitted(ROW_ID, tableRow, clock.now());
-        assertRowMatches(read(ROW_ID, HybridTimestamp.MAX_VALUE), tableRow);
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+        assertRowMatches(read(ROW_ID, HybridTimestamp.MAX_VALUE), binaryRow);
 
         addWriteCommitted(ROW_ID, null, clock.now());
         assertNull(read(ROW_ID, HybridTimestamp.MAX_VALUE));
