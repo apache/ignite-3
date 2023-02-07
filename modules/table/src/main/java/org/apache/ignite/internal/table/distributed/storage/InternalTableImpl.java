@@ -101,7 +101,7 @@ public class InternalTableImpl implements InternalTable {
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
     /** Partition map. */
-    protected final Int2ObjectMap<RaftGroupService> partitionMap;
+    protected volatile Int2ObjectMap<RaftGroupService> partitionMap;
 
     /** Partitions. */
     private final int partitions;
@@ -141,7 +141,6 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param tableName Table name.
      * @param tableId Table id.
-     * @param partMap Map partition id to raft group.
      * @param partitions Partitions.
      * @param txManager Transaction manager.
      * @param tableStorage Table storage.
@@ -152,7 +151,6 @@ public class InternalTableImpl implements InternalTable {
     public InternalTableImpl(
             String tableName,
             UUID tableId,
-            Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             Function<String, ClusterNode> clusterNodeResolver,
             TxManager txManager,
@@ -163,7 +161,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
-        this.partitionMap = partMap;
+        this.partitionMap = new Int2ObjectOpenHashMap<>();
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
@@ -1219,7 +1217,11 @@ public class InternalTableImpl implements InternalTable {
         RaftGroupService oldSrvc;
 
         synchronized (updatePartMapMux) {
-            oldSrvc = partitionMap.put(p, raftGrpSvc);
+            Int2ObjectMap<RaftGroupService> newPartitionMap = new Int2ObjectOpenHashMap<>(partitionMap);
+
+            oldSrvc = newPartitionMap.put(p, raftGrpSvc);
+
+            partitionMap = newPartitionMap;
         }
 
         if (oldSrvc != null) {

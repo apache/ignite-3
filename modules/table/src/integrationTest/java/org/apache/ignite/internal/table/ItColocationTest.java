@@ -111,7 +111,7 @@ public class ItColocationTest {
     private static final int KEYS = 100;
 
     /** Dummy internal table for tests. */
-    private static final InternalTable INT_TABLE;
+    private static final InternalTableImpl INT_TABLE;
 
     /** Map of the Raft commands are set by table operation. */
     private static final Int2ObjectMap<Set<Command>> CMDS_MAP = new Int2ObjectOpenHashMap<>();
@@ -223,7 +223,6 @@ public class ItColocationTest {
         INT_TABLE = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
-                partRafts,
                 PARTS,
                 name -> clusterNode,
                 txManager,
@@ -232,6 +231,9 @@ public class ItColocationTest {
                 replicaService,
                 Mockito.mock(HybridClock.class)
         );
+
+        partRafts.int2ObjectEntrySet()
+                .forEach(entry -> INT_TABLE.updateInternalTableRaftGroupService(entry.getIntKey(), entry.getValue()));
     }
 
     @BeforeEach

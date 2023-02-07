@@ -21,7 +21,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -169,7 +168,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         super(
                 "test",
                 UUID.randomUUID(),
-                Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),
                 txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
@@ -178,6 +176,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 replicaSvc,
                 new HybridClockImpl()
         );
+
+        updateInternalTableRaftGroupService(PART_ID, mock(RaftGroupService.class));
+
         RaftGroupService svc = partitionMap.get(0);
 
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
