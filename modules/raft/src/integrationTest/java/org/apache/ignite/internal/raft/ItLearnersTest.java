@@ -92,7 +92,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
             new NetworkAddress("localhost", 5002)
     );
 
-    @InjectConfiguration("mock.retryTimeout=" + 1000)
+    @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());

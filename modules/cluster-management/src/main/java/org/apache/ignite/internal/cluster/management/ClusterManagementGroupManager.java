@@ -386,6 +386,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
+                    // TODO: IGNITE-18681 - respect removal timeout.
                     return nodesToRemove.isEmpty() ? completedFuture(null) : service.removeFromCluster(nodesToRemove);
                 })
                 .thenApply(v -> service);

@@ -23,9 +23,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
@@ -60,20 +58,6 @@ public interface IgniteRel extends PhysicalNode {
      */
     default RelCollation collation() {
         return TraitUtils.collation(getTraitSet());
-    }
-
-    /**
-     * Get node rewindability.
-     */
-    default RewindabilityTrait rewindability() {
-        return TraitUtils.rewindability(getTraitSet());
-    }
-
-    /**
-     * Get node correlation.
-     */
-    default CorrelationTrait correlation() {
-        return TraitUtils.correlation(getTraitSet());
     }
 
     /** {@inheritDoc} */

@@ -58,9 +58,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -257,11 +255,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
             GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
 
-            return metaStorageService.run(getCommand).thenApply(bi -> {
-                SingleEntryResponse resp = (SingleEntryResponse) bi;
-
-                return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
-            });
+            return metaStorageService.run(getCommand);
         }).when(metaStorageManager).get(any());
 
         return distributionZoneManager;

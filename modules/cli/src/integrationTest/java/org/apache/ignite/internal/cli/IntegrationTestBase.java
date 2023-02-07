@@ -101,8 +101,8 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
             + "  }\n"
             + "}";
 
-    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    protected static final String FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    /** Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection. */
+    protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
@@ -117,7 +117,8 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
             + "        gossipInterval: 10\n"
             + "      },\n"
             + "    }\n"
-            + "  }\n"
+            + "  },"
+            + "  cluster.failoverTimeout: 100\n"
             + "}";
 
     /** Futures that are going to be completed when all nodes are started and the cluster is initialized. */

@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Wrapper that holds both {@link TableRow} and {@link RowId}. {@link TableRow} is null for tombstones.
  */
 public class TableRowAndRowId {
-    /** Table row. */
+    /** Table row. {@code null} if tombstone. */
     private final @Nullable TableRow tableRow;
 
     /** Row id. */

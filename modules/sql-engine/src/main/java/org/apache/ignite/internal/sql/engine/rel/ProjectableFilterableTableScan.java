@@ -141,6 +141,15 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         );
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        shuttle.apply(condition);
+        shuttle.apply(projects);
+
+        return super.accept(shuttle);
+    }
+
     protected RelWriter explainTerms0(RelWriter pw) {
         if (condition != null) {
             pw.item("filters", pw.nest() ? condition :

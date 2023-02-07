@@ -15,33 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+namespace Apache.Ignite.Transactions;
 
-import java.io.Serializable;
-import java.util.List;
-
-/**
- * Defines response for command which returns a number of results.
- */
-public class MultipleEntryResponse implements Serializable {
-    /** Single responses. */
-    private final List<SingleEntryResponse> entries;
-
-    /**
-     * Constructs multiple entries response.
-     *
-     * @param entries The ;list of single responses.
-     */
-    public MultipleEntryResponse(List<SingleEntryResponse> entries) {
-        this.entries = entries;
-    }
-
-    /**
-     * Returns the list of single responses.
-     *
-     * @return The list of single responses.
-     */
-    public List<SingleEntryResponse> entries() {
-        return entries;
-    }
-}
+/// <summary>
+/// Ignite transaction options.
+/// </summary>
+/// <param name="ReadOnly">
+/// Whether to start a read-only transaction.
+/// Read-only transactions provide a snapshot view of data at a certain point in time.
+/// They are lock-free and perform better than normal transactions, but do not permit data modifications.
+/// </param>
+public readonly record struct TransactionOptions(bool ReadOnly);

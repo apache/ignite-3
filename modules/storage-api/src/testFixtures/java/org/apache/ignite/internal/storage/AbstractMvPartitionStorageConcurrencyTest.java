@@ -19,11 +19,9 @@ package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -85,9 +83,6 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
     void testRegularGcAndRead(AddAndCommit addAndCommit) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-18020
-        assumeTrue(engine instanceof TestStorageEngine);
-
         for (int i = 0; i < REPEATS; i++) {
             HybridTimestamp firstCommitTs = addAndCommit(TABLE_ROW);
 
@@ -108,9 +103,6 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
     void testTombstoneGcAndRead(AddAndCommit addAndCommit) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-18020
-        assumeTrue(engine instanceof TestStorageEngine);
-
         for (int i = 0; i < REPEATS; i++) {
             HybridTimestamp firstCommitTs = addAndCommit.perform(this, TABLE_ROW);
 
@@ -129,9 +121,6 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
     void testTombstoneGcAndAddWrite(AddAndCommit addAndCommit) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-18020
-        assumeTrue(engine instanceof TestStorageEngine);
-
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
@@ -153,9 +142,6 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
     void testTombstoneGcAndCommitWrite(AddAndCommit addAndCommit) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-18020
-        assumeTrue(engine instanceof TestStorageEngine);
-
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
@@ -179,9 +165,6 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
     void testTombstoneGcAndAbortWrite(AddAndCommit addAndCommit) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-18020
-        assumeTrue(engine instanceof TestStorageEngine);
-
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
@@ -192,6 +175,25 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
                     () -> abortWrite(ROW_ID)
+            );
+
+            assertNull(storage.closestRowId(ROW_ID));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(AddAndCommit.class)
+    void testConcurrentGc(AddAndCommit addAndCommit) {
+        for (int i = 0; i < REPEATS; i++) {
+            addAndCommit.perform(this, TABLE_ROW);
+
+            addAndCommit.perform(this, null);
+
+            runRace(
+                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
+                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
+                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
+                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE)
             );
 
             assertNull(storage.closestRowId(ROW_ID));

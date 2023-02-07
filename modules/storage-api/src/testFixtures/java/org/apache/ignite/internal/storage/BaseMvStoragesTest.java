@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -52,57 +51,35 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Base test for MV storages, contains pojo classes, their descriptor and a marshaller instance.
  */
 public abstract class BaseMvStoragesTest {
     /** Default reflection marshaller factory. */
-    protected static MarshallerFactory marshallerFactory;
+    protected static final MarshallerFactory marshallerFactory = new ReflectionMarshallerFactory();
 
     /** Schema descriptor for tests. */
-    protected static SchemaDescriptor schemaDescriptor;
+    protected static final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1, new Column[]{
+            new Column("INTKEY", NativeTypes.INT32, false),
+            new Column("STRKEY", NativeTypes.STRING, false),
+    }, new Column[]{
+            new Column("INTVAL", NativeTypes.INT32, false),
+            new Column("STRVAL", NativeTypes.STRING, false),
+    });
 
     /** Key-value marshaller for tests. */
-    protected static KvMarshaller<TestKey, TestValue> kvMarshaller;
+    protected static final KvMarshaller<TestKey, TestValue> kvMarshaller
+            = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
 
     /** Key-value {@link BinaryTuple} converter for tests. */
-    protected static BinaryConverter kvBinaryConverter;
+    protected static final BinaryConverter kvBinaryConverter = BinaryConverter.forRow(schemaDescriptor);
 
     /** Key {@link BinaryTuple} converter for tests. */
-    protected static BinaryConverter kBinaryConverter;
+    protected static final BinaryConverter kBinaryConverter = BinaryConverter.forKey(schemaDescriptor);
 
     /** Hybrid clock to generate timestamps. */
     protected final HybridClock clock = new HybridClockImpl();
-
-    @BeforeAll
-    static void beforeAll() {
-        marshallerFactory = new ReflectionMarshallerFactory();
-
-        schemaDescriptor = new SchemaDescriptor(1, new Column[]{
-                new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        }, new Column[]{
-                new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        });
-
-        kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
-
-        kvBinaryConverter = BinaryConverter.forRow(schemaDescriptor);
-        kBinaryConverter = BinaryConverter.forKey(schemaDescriptor);
-    }
-
-    @AfterAll
-    static void afterAll() {
-        kvMarshaller = null;
-        schemaDescriptor = null;
-        marshallerFactory = null;
-        kvBinaryConverter = null;
-        kBinaryConverter = null;
-    }
 
     protected static TableRow tableRow(TestKey key, TestValue value) {
         return TableRowConverter.fromBinaryRow(binaryRow(key, value), kvBinaryConverter);
@@ -181,7 +158,7 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected final void assertRowMatches(TableRow rowUnderQuestion, TableRow expectedRow) {
+    protected final void assertRowMatches(@Nullable TableRow rowUnderQuestion, TableRow expectedRow) {
         assertThat(rowUnderQuestion, is(notNullValue()));
         assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }
