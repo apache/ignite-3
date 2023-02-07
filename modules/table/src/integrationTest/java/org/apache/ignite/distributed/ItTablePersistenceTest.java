@@ -22,7 +22,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -134,7 +133,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
 
-        partMap.put(0, mock(RaftGroupService.class));
+        partMap.put(0, service);
 
         var table = new InternalTableImpl(
                 "table",
@@ -164,7 +163,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
 
-        partMap.put(0, mock(RaftGroupService.class));
+        partMap.put(0, service);
 
         var table = new InternalTableImpl(
                 "table",
@@ -200,7 +199,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
 
-        partMap.put(0, mock(RaftGroupService.class));
+        partMap.put(0, service);
 
         var table = new InternalTableImpl(
                 "table",
