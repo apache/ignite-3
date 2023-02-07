@@ -25,11 +25,10 @@ import org.apache.ignite.internal.storage.ReadResult;
  * Implementation of the {@link PartitionTimestampCursor} over the page memory storage. See {@link PartitionTimestampCursor} for the
  * details on the API.
  */
-class TimestampCursor0 extends AbstractPartitionTimestampCursor {
+class TimestampCursor extends AbstractPartitionTimestampCursor {
     private final HybridTimestamp timestamp;
 
-
-    TimestampCursor0(
+    TimestampCursor(
             AbstractPageMemoryMvPartitionStorage storage,
             HybridTimestamp timestamp
     ) {

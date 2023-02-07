@@ -24,8 +24,8 @@ import org.apache.ignite.internal.storage.ReadResult;
  * and returns a cursor of values. All filtered values must either be uncommitted in the current transaction or already committed in a
  * different transaction.
  */
-class LatestVersionsCursor0 extends AbstractPartitionTimestampCursor {
-    LatestVersionsCursor0(AbstractPageMemoryMvPartitionStorage storage) {
+class LatestVersionsCursor extends AbstractPartitionTimestampCursor {
+    LatestVersionsCursor(AbstractPageMemoryMvPartitionStorage storage) {
         super(storage);
     }
 

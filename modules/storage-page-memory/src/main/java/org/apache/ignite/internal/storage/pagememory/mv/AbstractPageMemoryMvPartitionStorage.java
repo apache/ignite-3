@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -734,9 +733,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwExceptionIfStorageNotInRunnableState();
 
             if (lookingForLatestVersion(timestamp)) {
-                return new LatestVersionsCursor0(this);
+                return new LatestVersionsCursor(this);
             } else {
-                return new TimestampCursor0(this, timestamp);
+                return new TimestampCursor(this, timestamp);
             }
         });
     }
@@ -765,164 +764,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 throw new StorageException("Error occurred while fetching the size.", e);
             }
         });
-    }
-
-    private abstract class BasePartitionTimestampCursor implements PartitionTimestampCursor {
-        protected final Cursor<VersionChain> treeCursor;
-
-        @Nullable
-        protected ReadResult nextRead = null;
-
-        @Nullable
-        protected VersionChain currentChain = null;
-
-        protected BasePartitionTimestampCursor(Cursor<VersionChain> treeCursor) {
-            this.treeCursor = treeCursor;
-        }
-
-        @Override
-        public final ReadResult next() {
-            return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState();
-
-                if (!hasNext()) {
-                    throw new NoSuchElementException("The cursor is exhausted");
-                }
-
-                assert nextRead != null;
-
-                ReadResult res = nextRead;
-
-                nextRead = null;
-
-                return res;
-            });
-        }
-
-        @Override
-        public void close() {
-            treeCursor.close();
-        }
-
-        @Override
-        public @Nullable TableRow committed(HybridTimestamp timestamp) {
-            return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState();
-
-                if (currentChain == null) {
-                    throw new IllegalStateException();
-                }
-
-                ReadResult result = findRowVersionByTimestamp(currentChain, timestamp);
-
-                if (result.isEmpty()) {
-                    return null;
-                }
-
-                // We don't check if row conforms the key filter here, because we've already checked it.
-                return result.tableRow();
-            });
-        }
-    }
-
-    /**
-     * Implementation of the {@link PartitionTimestampCursor} over the page memory storage. See {@link PartitionTimestampCursor} for the
-     * details on the API.
-     */
-    private class TimestampCursor extends BasePartitionTimestampCursor {
-        private final HybridTimestamp timestamp;
-
-        private boolean iterationExhausted = false;
-
-        public TimestampCursor(Cursor<VersionChain> treeCursor, HybridTimestamp timestamp) {
-            super(treeCursor);
-
-            this.timestamp = timestamp;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState();
-
-                if (nextRead != null) {
-                    return true;
-                }
-
-                if (iterationExhausted) {
-                    return false;
-                }
-
-                currentChain = null;
-
-                while (true) {
-                    if (!treeCursor.hasNext()) {
-                        iterationExhausted = true;
-
-                        return false;
-                    }
-
-                    VersionChain chain = treeCursor.next();
-                    ReadResult result = findRowVersionByTimestamp(chain, timestamp);
-
-                    if (result.isEmpty() && !result.isWriteIntent()) {
-                        continue;
-                    }
-
-                    nextRead = result;
-                    currentChain = chain;
-
-                    return true;
-                }
-            });
-        }
-    }
-
-    /**
-     * Implementation of the cursor that iterates over the page memory storage with the respect to the transaction id. Scans the partition
-     * and returns a cursor of values. All filtered values must either be uncommitted in the current transaction or already committed in a
-     * different transaction.
-     */
-    private class LatestVersionsCursor extends BasePartitionTimestampCursor {
-        private boolean iterationExhausted = false;
-
-        public LatestVersionsCursor(Cursor<VersionChain> treeCursor) {
-            super(treeCursor);
-        }
-
-        @Override
-        public boolean hasNext() {
-            return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState();
-
-                if (nextRead != null) {
-                    return true;
-                }
-
-                if (iterationExhausted) {
-                    return false;
-                }
-
-                while (true) {
-                    if (!treeCursor.hasNext()) {
-                        iterationExhausted = true;
-                        return false;
-                    }
-
-                    VersionChain chain = treeCursor.next();
-                    ReadResult result = findLatestRowVersion(chain);
-
-                    if (result.isEmpty() && !result.isWriteIntent()) {
-                        continue;
-                    }
-
-                    nextRead = result;
-                    currentChain = chain;
-
-                    return true;
-                }
-            });
-        }
     }
 
     /**
