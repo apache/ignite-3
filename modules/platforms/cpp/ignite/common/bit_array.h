@@ -110,6 +110,27 @@ public:
      */
     [[nodiscard]] constexpr bool is_empty() const noexcept { return m_size == 0; }
 
+    /**
+     * @brief Comparison operator.
+     *
+     * @param lhs First value.
+     * @param rhs Second value.
+     * @return true If values are equal.
+     */
+    friend constexpr bool operator==(const bit_array &lhs, const bit_array &rhs) noexcept {
+        return lhs.m_size == rhs.m_size && lhs.m_data == rhs.m_data;
+    }
+
+    /**
+     * @brief Comparison operator.
+     *
+     * @param lhs First value.
+     * @param rhs Second value.
+     * @return true If values are not equal.
+     */
+    friend constexpr bool operator!=(const bit_array &lhs, const bit_array &rhs) noexcept {
+        return !(lhs == rhs);
+    }
 private:
     /**
      * Check that index is not out of bounds.

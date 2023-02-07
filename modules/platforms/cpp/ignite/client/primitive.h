@@ -116,6 +116,22 @@ public:
         : m_value(std::move(value)) {}
 
     /**
+     * Constructor for string value.
+     *
+     * @param value Value.
+     */
+    primitive(std::string_view value) // NOLINT(google-explicit-constructor)
+        : m_value(std::string(value)) {}
+
+    /**
+     * Constructor for string value.
+     *
+     * @param value Value.
+     */
+    primitive(const char* value) // NOLINT(google-explicit-constructor)
+        : m_value(std::string(value)) {}
+
+    /**
      * Constructor for byte array value.
      *
      * @param value Value.
@@ -228,6 +244,28 @@ public:
      * @return Primitive type.
      */
     [[nodiscard]] column_type get_type() const { return static_cast<column_type>(m_value.index()); }
+
+    /**
+     * @brief Comparison operator.
+     *
+     * @param lhs First value.
+     * @param rhs Second value.
+     * @return true If values are equal.
+     */
+    friend constexpr bool operator==(const primitive &lhs, const primitive &rhs) noexcept {
+        return lhs.m_value == rhs.m_value;
+    }
+
+    /**
+     * @brief Comparison operator.
+     *
+     * @param lhs First value.
+     * @param rhs Second value.
+     * @return true If values are not equal.
+     */
+    friend constexpr bool operator!=(const primitive &lhs, const primitive &rhs) noexcept {
+        return lhs.m_value != rhs.m_value;
+    }
 
 private:
     /** Unsupported type. */
