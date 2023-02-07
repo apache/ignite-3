@@ -40,4 +40,7 @@ public interface IgniteResource {
 
     @Resources.BaseMessage("Invalid decimal literal")
     Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
+
+    @Resources.BaseMessage("Value too long for type {0}")
+    Resources.ExInst<SqlValidatorException> valueNotFitType(String a0);
 }

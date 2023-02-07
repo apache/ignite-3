@@ -22,7 +22,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link RexBuilder} that provides support for {@link IgniteCustomType custom data types}.

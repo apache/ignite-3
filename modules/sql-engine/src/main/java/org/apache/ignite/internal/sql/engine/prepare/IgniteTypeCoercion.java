@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
+import static org.apache.calcite.sql.type.SqlTypeUtil.equalSansNullability;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -30,6 +31,7 @@ import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
+import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
@@ -49,7 +51,7 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /** Implicit type cast implementation. */
 public class IgniteTypeCoercion extends TypeCoercionImpl {
@@ -167,6 +169,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             if (toType instanceof IgniteCustomType) {
                 IgniteCustomType to = (IgniteCustomType) toType;
                 return typeCoercionRules.needToCast(fromType, to);
+            }
+        } else if (SqlTypeUtil.isCharacter(toType)) {
+            RelDataType fromType = validator.deriveType(scope, node);
+
+            if (equalSansNullability(toType, fromType)) {
+                return false;
+            }
+
+            // Need to cast between char and varchar.
+            if (SqlTypeUtil.isCharacter(fromType) && !(fromType instanceof JavaType)) {
+                return true;
             }
         }
 
