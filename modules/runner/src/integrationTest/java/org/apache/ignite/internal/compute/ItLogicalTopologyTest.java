@@ -28,12 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
-import org.apache.ignite.internal.BootstrapConfigTemplateMethod;
 import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
@@ -173,9 +175,10 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
     }
 
     @Test
-    @BootstrapConfigTemplateMethod("templateWithVeryLongDelayToRemoveFromLogicalTopology")
     void nodeDoesNotLeaveLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
         IgniteImpl entryNode = node(0);
+
+        setInfiniteClusterFailoverTimeout(entryNode);
 
         startNode(1);
 
@@ -191,9 +194,12 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
         assertThat(events, is(empty()));
     }
 
-    private static String templateWithVeryLongDelayToRemoveFromLogicalTopology() {
-        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE
-                .replaceAll("cluster.failoverTimeout: \\d+", "cluster.failoverTimeout: 1000000");
+    private static void setInfiniteClusterFailoverTimeout(IgniteImpl node)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        node.nodeConfiguration().getConfiguration(ClusterManagementConfiguration.KEY)
+                .failoverTimeout()
+                .update(Long.MAX_VALUE)
+                .get(10, TimeUnit.SECONDS);
     }
 
     private static class Event {

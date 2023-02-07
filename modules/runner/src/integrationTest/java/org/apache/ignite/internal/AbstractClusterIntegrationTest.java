@@ -23,7 +23,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -109,14 +108,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     @BeforeEach
     void startAndInitCluster(TestInfo testInfo) {
-        BootstrapConfigTemplateMethod bootstrapConfigTemplateMethod = testInfo.getTestMethod().orElseThrow()
-                .getAnnotation(BootstrapConfigTemplateMethod.class);
-
-        String templateToUse = bootstrapConfigTemplateMethod != null
-                ? invokeArglessMethod(testInfo.getTestClass().orElseThrow(), Objects.requireNonNull(bootstrapConfigTemplateMethod.value()))
-                : getNodeBootstrapConfigTemplate();
-
-        cluster = new Cluster(testInfo, workDir, templateToUse);
+        cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
         cluster.startAndInit(initialNodes());
     }
