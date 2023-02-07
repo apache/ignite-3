@@ -88,7 +88,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, ClusterNode localNode) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.localNode = localNode;
-        this.executorService = Executors.newCachedThreadPool(NamedThreadFactory.create(localNode.name(), "metastorage-publisher", LOG));
+        this.executorService = Executors.newFixedThreadPool(5, NamedThreadFactory.create(localNode.name(), "metastorage-publisher", LOG));
     }
 
     RaftGroupService raftGroupService() {

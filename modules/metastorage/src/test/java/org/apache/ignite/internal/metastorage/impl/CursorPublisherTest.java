@@ -46,7 +46,7 @@ import org.apache.ignite.internal.metastorage.command.cursor.CreateRangeCursorCo
 import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.testframework.flow.FlowUtils;
+import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -116,7 +116,7 @@ public class CursorPublisherTest {
 
         when(raftService.run(any(CreateRangeCursorCommand.class))).thenReturn(completedFuture(null));
 
-        CompletableFuture<List<Entry>> future = FlowUtils.subscribeToList(publisher);
+        CompletableFuture<List<Entry>> future = TestFlowUtils.subscribeToList(publisher);
 
         assertThat(future, will(hasSize(11)));
 

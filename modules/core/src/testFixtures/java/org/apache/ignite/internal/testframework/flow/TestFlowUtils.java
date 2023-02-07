@@ -30,7 +30,7 @@ import org.apache.ignite.internal.util.Cursor;
 /**
  * Utility methods for extracting data from {@link Publisher}s.
  */
-public class FlowUtils {
+public class TestFlowUtils {
     /**
      * Subscribes to the given publisher, collecting all values into a list.
      */
@@ -66,25 +66,22 @@ public class FlowUtils {
 
     /**
      * Subscribes to the given publisher, extracting a single value from it.
+     *
+     * @return Future that completes with the first value that was produced by this publisher, or fails with
+     *     {@link NoSuchElementException}, if the publisher did not produce any items.
      */
     public static <T> CompletableFuture<T> subscribeToValue(Publisher<T> publisher) {
         var resultFuture = new CompletableFuture<T>();
 
         publisher.subscribe(new Subscriber<>() {
-            private Subscription subscription;
-
             @Override
             public void onSubscribe(Subscription subscription) {
-                this.subscription = subscription;
-
                 subscription.request(1);
             }
 
             @Override
             public void onNext(T item) {
                 resultFuture.complete(item);
-
-                subscription.cancel();
             }
 
             @Override
@@ -102,7 +99,7 @@ public class FlowUtils {
     }
 
     /**
-     * Creates a Publisher that provides data form a given cursor.
+     * Creates a Publisher that provides data from a given cursor.
      */
     public static <T> Publisher<T> fromCursor(Cursor<T> cursor) {
         return subscriber -> subscriber.onSubscribe(new Subscription() {
@@ -136,6 +133,8 @@ public class FlowUtils {
                             subscriber.onComplete();
                         }
                     } catch (Exception e) {
+                        cancel();
+
                         subscriber.onError(e);
                     }
                 });

@@ -433,6 +433,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tblId Table id.
      * @return The latest schema version.
      */
+    // TODO: Make this method async, see https://issues.apache.org/jira/browse/IGNITE-18732
     private int latestSchemaVersion(UUID tblId) {
         var latestVersionFuture = new CompletableFuture<Integer>();
 
@@ -483,6 +484,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tblId Table id.
      * @return Schema representation if schema found, {@code null} otherwise.
      */
+    // TODO: Make this method async, see https://issues.apache.org/jira/browse/IGNITE-18732
     private byte[] schemaByVersion(UUID tblId, int ver) {
         try {
             return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))

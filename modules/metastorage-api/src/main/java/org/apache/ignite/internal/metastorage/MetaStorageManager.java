@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -63,11 +64,13 @@ public interface MetaStorageManager extends IgniteComponent {
      * {@code revUpperBound == -1}.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @return Publisher that will provide entries corresponding to the given prefix.
-     * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     * @see ByteArray
-     * @see Entry
+     * @return Publisher that will provide entries corresponding to the given prefix. This Publisher may also fail (by calling
+     *     {@link Subscriber#onError}) with one of the following exceptions:
+     *     <ul>
+     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
+     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
+     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
+     *     </ul>
      */
     Publisher<Entry> prefix(ByteArray keyPrefix);
 
@@ -77,11 +80,13 @@ public interface MetaStorageManager extends IgniteComponent {
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
-     * @return Publisher that will provide entries corresponding to the given prefix and revision.
-     * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     * @see ByteArray
-     * @see Entry
+     * @return Publisher that will provide entries corresponding to the given prefix and revision. This Publisher may also fail (by calling
+     *     {@link Subscriber#onError}) with one of the following exceptions:
+     *     <ul>
+     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
+     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
+     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
+     *     </ul>
      */
     Publisher<Entry> prefix(ByteArray keyPrefix, long revUpperBound);
 
@@ -90,11 +95,13 @@ public interface MetaStorageManager extends IgniteComponent {
      *
      * @param keyFrom Range lower bound (inclusive).
      * @param keyTo Range upper bound (exclusive), {@code null} represents an unbound range.
-     * @return Publisher that will provide entries corresponding to the given range.
-     * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     * @see ByteArray
-     * @see Entry
+     * @return Publisher that will provide entries corresponding to the given range. This Publisher may also fail (by calling
+     *     {@link Subscriber#onError}) with one of the following exceptions:
+     *     <ul>
+     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
+     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
+     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
+     *     </ul>
      */
     Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 

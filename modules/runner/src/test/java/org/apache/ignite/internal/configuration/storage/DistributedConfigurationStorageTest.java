@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static org.apache.ignite.internal.testframework.flow.FlowUtils.fromCursor;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.fromCursor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
