@@ -89,7 +89,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
     @Override
     protected String nodeBootstrapConfigTemplate() {
-        return FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE;
+        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
     @BeforeEach

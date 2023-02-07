@@ -19,6 +19,8 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.Ignite;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.platform.commons.support.ReflectionSupport;
 
 /**
  * Abstract integration test that starts and stops a cluster.
@@ -55,8 +58,8 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
             + "  }\n"
             + "}";
 
-    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    protected static final String FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+    /** Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection. */
+    protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
             + "    nodeFinder: {\n"
@@ -71,7 +74,8 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
             + "        gossipInterval: 10\n"
             + "      },\n"
             + "    }\n"
-            + "  }\n"
+            + "  },"
+            + "  cluster.failoverTimeout: 100\n"
             + "}";
 
     protected Cluster cluster;
@@ -109,6 +113,16 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
         cluster.startAndInit(initialNodes());
     }
 
+    private String invokeArglessMethod(Class<?> testClass, String methodName) {
+        Method method = ReflectionSupport.findMethod(testClass, methodName).orElseThrow();
+
+        if (!Modifier.isStatic(method.getModifiers())) {
+            throw new IllegalStateException(methodName + " is expected to be static");
+        }
+
+        return (String) ReflectionSupport.invokeMethod(method, null);
+    }
+
     @AfterEach
     @Timeout(60)
     void shutdownCluster() {
@@ -141,6 +155,17 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
      */
     protected final IgniteImpl startNode(int nodeIndex) {
         return cluster.startNode(nodeIndex);
+    }
+
+    /**
+     * Starts an Ignite node with the given index.
+     *
+     * @param nodeIndex Zero-based index (used to build node name).
+     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @return Started Ignite node.
+     */
+    protected final IgniteImpl startNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+        return cluster.startNode(nodeIndex, nodeBootstrapConfigTemplate);
     }
 
     /**

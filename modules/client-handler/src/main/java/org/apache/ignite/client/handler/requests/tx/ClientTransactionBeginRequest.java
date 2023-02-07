@@ -25,6 +25,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionOptions;
 
 /**
  * Client transaction begin request.
@@ -44,11 +45,13 @@ public class ClientTransactionBeginRequest {
             ClientMessagePacker out,
             IgniteTransactions transactions,
             ClientResourceRegistry resources) {
+        TransactionOptions options = null;
+
         if (in.unpackBoolean()) {
-            transactions = transactions.readOnly();
+            options = new TransactionOptions().readOnly(true);
         }
 
-        return transactions.beginAsync().thenAccept(t -> {
+        return transactions.beginAsync(options).thenAccept(t -> {
             try {
                 long resourceId = resources.put(new ClientResource(t, t::rollbackAsync));
                 out.packLong(resourceId);
