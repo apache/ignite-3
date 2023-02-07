@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCursor {
     protected final AbstractPageMemoryMvPartitionStorage storage;
 
-    private final Cursor<VersionChain> versionChainCursor;
+    private @Nullable Cursor<VersionChain> versionChainCursor;
 
     /** {@link ReadResult} obtained by caching {@link VersionChain} with {@link BplusTree#find(Object, Object, TreeRowClosure, Object)}. */
     private final Map<RowId, ReadResult> readResultByRowId = new HashMap<>();
@@ -46,34 +46,8 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
     private @Nullable VersionChain currentChain;
 
-    /**
-     * Constructor.
-     *
-     * @throws StorageException If there was an error when creating a cursor by version chains.
-     */
     AbstractPartitionTimestampCursor(AbstractPageMemoryMvPartitionStorage storage) {
         this.storage = storage;
-
-        try {
-            versionChainCursor = storage.versionChainTree.find(null, null, (tree, io, pageAddr, idx) -> {
-                // Since the BplusTree cursor caches rows that are on the same page, we should try to get actual ReadResult for them in this
-                // filter so as not to get into a situation when we read the chain and the links in it are no longer valid.
-
-                VersionChain versionChain = tree.getRow(io, pageAddr, idx);
-
-                // TODO: IGNITE-18717 Perhaps add lock by rowId
-
-                ReadResult readResult = findRowVersion(versionChain);
-
-                if (!readResult.isEmpty()) {
-                    readResultByRowId.put(versionChain.rowId(), readResult);
-                }
-
-                return true;
-            }, null);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(e, "Find failed: " + storage.createStorageInfo());
-        }
     }
 
     @Override
@@ -88,6 +62,8 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
             if (iterationExhausted) {
                 return false;
             }
+
+            createVersionChainCursorIfMissing();
 
             currentChain = null;
 
@@ -146,7 +122,9 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
     @Override
     public void close() {
-        versionChainCursor.close();
+        if (versionChainCursor != null) {
+            versionChainCursor.close();
+        }
     }
 
     @Override
@@ -177,4 +155,31 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
     }
 
     abstract ReadResult findRowVersion(VersionChain versionChain);
+
+    private void createVersionChainCursorIfMissing() {
+        if (versionChainCursor != null) {
+            return;
+        }
+
+        try {
+            versionChainCursor = storage.versionChainTree.find(null, null, (tree, io, pageAddr, idx) -> {
+                // Since the BplusTree cursor caches rows that are on the same page, we should try to get actual ReadResult for them in this
+                // filter so as not to get into a situation when we read the chain and the links in it are no longer valid.
+
+                VersionChain versionChain = tree.getRow(io, pageAddr, idx);
+
+                // TODO: IGNITE-18717 Perhaps add lock by rowId
+
+                ReadResult readResult = findRowVersion(versionChain);
+
+                if (!readResult.isEmpty()) {
+                    readResultByRowId.put(versionChain.rowId(), readResult);
+                }
+
+                return true;
+            }, null);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(e, "Find failed: " + storage.createStorageInfo());
+        }
+    }
 }
