@@ -49,12 +49,12 @@ public:
     /**
      * Gets the date part of this date-time.
      */
-    constexpr const ignite_date &date() const noexcept { return *this; }
+    [[nodiscard]] constexpr const ignite_date &date() const noexcept { return *this; }
 
     /**
      * Gets the time part of this date-time.
      */
-    constexpr const ignite_time &time() const noexcept { return *this; }
+    [[nodiscard]] constexpr const ignite_time &time() const noexcept { return *this; }
 
     /**
      * Compare to another value.
@@ -62,7 +62,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const ignite_date_time &other) const noexcept {
+    [[nodiscard]] constexpr int compare(const ignite_date_time &other) const noexcept {
         if (int cmp = date().compare(other.date())) {
             return cmp;
         }

@@ -43,32 +43,32 @@ public:
      */
     constexpr ignite_time(
         std::int_fast8_t hour, std::int_fast8_t minute, std::int_fast8_t second = 0, std::int32_t nano = 0)
-        : hour(hour)
-        , minute(minute)
-        , second(second)
-        , nano(nano) {
+        : m_hour(hour)
+        , m_minute(minute)
+        , m_second(second)
+        , m_nano(nano) {
         // TODO: check that arguments are in valid ranges.
     }
 
     /**
      * Gets the hour-of-day field.
      */
-    constexpr auto get_hour() const noexcept { return hour; }
+    [[nodiscard]] constexpr auto get_hour() const noexcept { return m_hour; }
 
     /**
-     * Gets the minute-of-hour field.
+     * Gets the m_minute-of-m_hour field.
      */
-    constexpr auto get_minute() const noexcept { return minute; }
+    [[nodiscard]] constexpr auto get_minute() const noexcept { return m_minute; }
 
     /**
-     * Gets the second-of-minute field.
+     * Gets the second-of-m_minute field.
      */
-    constexpr auto get_second() const noexcept { return second; }
+    [[nodiscard]] constexpr auto get_second() const noexcept { return m_second; }
 
     /**
      * Gets the nano-of-second field.
      */
-    constexpr std::int32_t get_nano() const noexcept { return nano; }
+    [[nodiscard]] constexpr std::int32_t get_nano() const noexcept { return m_nano; }
 
     /**
      * Compare to another value.
@@ -76,24 +76,24 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const ignite_time &other) const noexcept {
-        if (hour != other.hour) {
-            return hour - other.hour;
+    [[nodiscard]] constexpr int compare(const ignite_time &other) const noexcept {
+        if (m_hour != other.m_hour) {
+            return m_hour - other.m_hour;
         }
-        if (minute != other.minute) {
-            return minute - other.minute;
+        if (m_minute != other.m_minute) {
+            return m_minute - other.m_minute;
         }
-        if (second != other.second) {
-            return second - other.second;
+        if (m_second != other.m_second) {
+            return m_second - other.m_second;
         }
-        return nano - other.nano;
+        return m_nano - other.m_nano;
     }
 
 private:
-    std::int8_t hour = 0;
-    std::int8_t minute = 0;
-    std::int8_t second = 0;
-    std::int32_t nano = 0;
+    std::int8_t m_hour = 0;
+    std::int8_t m_minute = 0;
+    std::int8_t m_second = 0;
+    std::int32_t m_nano = 0;
 };
 
 /**

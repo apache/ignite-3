@@ -40,20 +40,20 @@ public:
      * @param nanos Fractional second component in nanoseconds, from 0 to 999,999,999.
      */
     constexpr ignite_timestamp(std::int64_t seconds, std::int32_t nanos)
-        : seconds(seconds)
-        , nanos(nanos) {
+        : m_seconds(seconds)
+        , m_nanos(nanos) {
         // TODO: check that arguments are in valid ranges.
     }
 
     /**
      * Gets the number of seconds since 00:00 hours, Jan 1, 1970 UTC.
      */
-    constexpr std::int64_t get_epoch_second() const noexcept { return seconds; }
+    [[nodiscard]] constexpr std::int64_t get_epoch_second() const noexcept { return m_seconds; }
 
     /**
      * Gets the number of nanoseconds from the start of the second.
      */
-    constexpr std::int32_t get_nano() const noexcept { return nanos; }
+    [[nodiscard]] constexpr std::int32_t get_nano() const noexcept { return m_nanos; }
 
     /**
      * Compare to another value.
@@ -61,19 +61,19 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const ignite_timestamp &other) const noexcept {
-        if (seconds != other.seconds) {
-            return seconds < other.seconds ? -1 : 1;
+    [[nodiscard]] constexpr int compare(const ignite_timestamp &other) const noexcept {
+        if (m_seconds != other.m_seconds) {
+            return m_seconds < other.m_seconds ? -1 : 1;
         }
-        return nanos - other.nanos;
+        return m_nanos - other.m_nanos;
     }
 
 private:
     /** Number of seconds since 00:00 hours, Jan 1, 1970 UTC. */
-    std::int64_t seconds = 0;
+    std::int64_t m_seconds = 0;
 
     /** Fractional second component in nanoseconds. */
-    std::int32_t nanos = 0;
+    std::int32_t m_nanos = 0;
 };
 
 /**

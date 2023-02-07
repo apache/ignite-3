@@ -41,26 +41,26 @@ public:
      * @param day_of_month Day-of-month, from 1 to 31.
      */
     constexpr ignite_date(int year, int month, int day_of_month)
-        : year(year)
-        , month(month)
-        , day(day_of_month) {
+        : m_year(year)
+        , m_month(std::int8_t(month))
+        , m_day(std::int8_t(day_of_month)) {
         // TODO: check that arguments are in valid ranges.
     }
 
     /**
      * Gets the year field.
      */
-    constexpr int get_year() const noexcept { return year; }
+    [[nodiscard]] constexpr int get_year() const noexcept { return m_year; }
 
     /**
      * Gets the month-of-year field.
      */
-    constexpr int get_month() const noexcept { return month; }
+    [[nodiscard]] constexpr int get_month() const noexcept { return m_month; }
 
     /**
      * Gets the day-of-month field.
      */
-    constexpr int get_day_of_month() const noexcept { return day; }
+    [[nodiscard]] constexpr int get_day_of_month() const noexcept { return m_day; }
 
     /**
      * Compare to another value.
@@ -68,20 +68,20 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const ignite_date &other) const noexcept {
-        if (year != other.year) {
-            return year - other.year;
+    [[nodiscard]] constexpr int compare(const ignite_date &other) const noexcept {
+        if (m_year != other.m_year) {
+            return m_year - other.m_year;
         }
-        if (month != other.month) {
-            return month - other.month;
+        if (m_month != other.m_month) {
+            return m_month - other.m_month;
         }
-        return day - other.day;
+        return m_day - other.m_day;
     }
 
 private:
-    std::int32_t year = 0;
-    std::int8_t month = 1;
-    std::int8_t day = 1;
+    std::int32_t m_year = 0;
+    std::int8_t m_month = 1;
+    std::int8_t m_day = 1;
 };
 
 /**
