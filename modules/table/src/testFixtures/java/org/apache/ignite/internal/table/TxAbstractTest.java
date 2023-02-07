@@ -72,6 +72,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -1740,7 +1741,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testReadOnlyGet() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
     }
 
@@ -1753,7 +1754,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().upsert(tx, makeValue(1, 300.));
 
         // Update
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
 
         // Commit pending tx.
@@ -1763,7 +1764,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
 
         // New read-only transaction.
-        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertEquals(300., accounts.recordView().get(readOnlyTx2, makeKey(1)).doubleValue("balance"));
     }
 
@@ -1776,7 +1777,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().delete(tx, makeKey(1));
 
         // Remove.
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
 
         // Commit pending tx.
@@ -1786,7 +1787,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
 
         // New read-only transaction.
-        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         Tuple row = accounts.recordView().get(readOnlyTx2, makeKey(1));
         assertNull(row);
     }
@@ -1797,7 +1798,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().upsert(null, makeValue(2, 200.));
         accounts.recordView().upsert(null, makeValue(3, 300.));
 
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         Collection<Tuple> retrievedKeys = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
         validateBalance(retrievedKeys, 100., 200.);
     }
@@ -1812,7 +1813,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accounts.recordView().delete(tx, makeKey(1));
         accounts.recordView().upsert(tx, makeValue(2, 300.));
 
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         Collection<Tuple> retrievedKeys = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
         validateBalance(retrievedKeys, 100., 200.);
 
@@ -1822,7 +1823,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         Collection<Tuple> retrievedKeys2 = accounts.recordView().getAll(readOnlyTx, List.of(makeKey(1), makeKey(2)));
         validateBalance(retrievedKeys2, 100., 200.);
 
-        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
         validateBalance(retrievedKeys3, 300.);
     }
