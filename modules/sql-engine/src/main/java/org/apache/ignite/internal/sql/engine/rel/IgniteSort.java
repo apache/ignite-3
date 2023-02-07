@@ -41,7 +41,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 /**
  * Ignite sort operator.
  */
-public class IgniteSort extends Sort implements InternalIgniteRel {
+public class IgniteSort extends Sort implements IgniteRel {
     /**
      * Constructor.
      *

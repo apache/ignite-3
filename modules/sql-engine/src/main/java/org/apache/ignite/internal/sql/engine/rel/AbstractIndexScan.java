@@ -18,17 +18,21 @@
 package org.apache.ignite.internal.sql.engine.rel;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
@@ -44,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     protected final String idxName;
 
-    protected final List<SearchBounds> searchBounds;
+    protected final @Nullable List<SearchBounds> searchBounds;
 
     protected final IgniteIndex.Type type;
 
@@ -90,6 +94,21 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
                 .item("type", type.name())
                 .itemIf("searchBounds", searchBounds, searchBounds != null);
         return super.explainTerms0(pw);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        if (searchBounds != null) {
+            List<RexNode> expressions = searchBounds.stream()
+                    .filter(Objects::nonNull)
+                    .map(SearchBounds::condition)
+                    .collect(Collectors.toList());
+
+            shuttle.apply(expressions);
+        }
+
+        return super.accept(shuttle);
     }
 
     /**

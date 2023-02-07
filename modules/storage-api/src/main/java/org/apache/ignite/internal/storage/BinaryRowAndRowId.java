@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
  */
 public class BinaryRowAndRowId {
-    /** Binary row. */
+    /** Binary row. {@code null} if tombstone. */
     private final @Nullable BinaryRow binaryRow;
 
     /** Row id. */

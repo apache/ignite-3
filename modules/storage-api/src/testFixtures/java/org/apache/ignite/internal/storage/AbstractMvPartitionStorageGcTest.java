@@ -29,14 +29,14 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionStorageTest {
     @Test
     void testEmptyStorage() {
-        assertNull(storage.pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(clock.now()));
     }
 
     @Test
     void testSingleValueStorage() {
         addAndCommit(TABLE_ROW);
 
-        assertNull(storage.pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(clock.now()));
     }
 
     @Test
@@ -48,13 +48,13 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         HybridTimestamp secondCommitTs = addAndCommit(TABLE_ROW2);
 
         // Data is still visible for older timestamps.
-        assertNull(storage.pollForVacuum(firstCommitTs));
+        assertNull(pollForVacuum(firstCommitTs));
 
-        assertNull(storage.pollForVacuum(tsBetweenCommits));
+        assertNull(pollForVacuum(tsBetweenCommits));
 
         // Once a low watermark value becomes equal to second commit timestamp, previous value
         // becomes completely inaccessible and should be purged.
-        BinaryRowAndRowId gcedRow = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId gcedRow = pollForVacuum(secondCommitTs);
 
         assertNotNull(gcedRow);
 
@@ -72,7 +72,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(TABLE_ROW);
         HybridTimestamp secondCommitTs = addAndCommit(null);
 
-        BinaryRowAndRowId row = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(secondCommitTs);
 
         assertNotNull(row);
         assertRowMatches(row.binaryRow(), TABLE_ROW);
@@ -89,7 +89,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(null);
         HybridTimestamp lastCommitTs = addAndCommit(null);
 
-        BinaryRowAndRowId row = storage.pollForVacuum(lastCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(lastCommitTs);
 
         assertNotNull(row);
         assertRowMatches(row.binaryRow(), TABLE_ROW);

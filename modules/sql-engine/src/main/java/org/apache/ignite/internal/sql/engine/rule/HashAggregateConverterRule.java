@@ -92,7 +92,7 @@ public class HashAggregateConverterRule {
             RelOptCluster cluster = agg.getCluster();
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
-            RelNode input = convert(agg.getInput(), inTrait);
+            RelNode input = convert(agg.getInput(), inTrait.replace(IgniteDistributions.random()));
 
             RelNode map = new IgniteMapHashAggregate(
                     cluster,
