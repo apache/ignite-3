@@ -72,13 +72,21 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t i
         case ignite_type::NUMBER:
             builder.claim_number(tuple.get<big_integer>(index));
             break;
-        case ignite_type::BITMASK:
         case ignite_type::DATE:
+            builder.claim_date(tuple.get<ignite_date>(index));
+            break;
         case ignite_type::TIME:
+            builder.claim_time(tuple.get<ignite_time>(index));
+            break;
         case ignite_type::DATETIME:
+            builder.claim_date_time(tuple.get<ignite_date_time>(index));
+            break;
         case ignite_type::TIMESTAMP:
+            builder.claim_timestamp(tuple.get<ignite_timestamp>(index));
+            break;
+        case ignite_type::BITMASK:
+            // TODO: IGNITE-18035 Support bitmask
         default:
-            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }
@@ -126,13 +134,21 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
         case ignite_type::NUMBER:
             builder.append_number(tuple.get<big_integer>(index));
             break;
-        case ignite_type::BITMASK:
         case ignite_type::DATE:
+            builder.append_date(tuple.get<ignite_date>(index));
+            break;
         case ignite_type::TIME:
+            builder.append_time(tuple.get<ignite_time>(index));
+            break;
         case ignite_type::DATETIME:
+            builder.append_date_time(tuple.get<ignite_date_time>(index));
+            break;
         case ignite_type::TIMESTAMP:
+            builder.append_timestamp(tuple.get<ignite_timestamp>(index));
+            break;
+        case ignite_type::BITMASK:
+            // TODO: IGNITE-18035 Support bitmask
         default:
-            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }

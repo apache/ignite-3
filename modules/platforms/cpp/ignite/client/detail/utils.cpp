@@ -213,12 +213,16 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
         case ignite_type::NUMBER:
             return binary_tuple_parser::get_number(val);
         case ignite_type::DATE:
+            return binary_tuple_parser::get_date(val);
         case ignite_type::TIME:
+            return binary_tuple_parser::get_time(val);
         case ignite_type::DATETIME:
+            return binary_tuple_parser::get_date_time(val);
         case ignite_type::TIMESTAMP:
+            return binary_tuple_parser::get_timestamp(val);
         case ignite_type::BITMASK:
+            // TODO: IGNITE-18035 Support bitmask type
         default:
-            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }
@@ -256,14 +260,18 @@ primitive read_next_column(binary_tuple_parser &parser, column_type typ, std::in
         case column_type::NUMBER:
             return binary_tuple_parser::get_number(val);
         case column_type::DATE:
+            return binary_tuple_parser::get_date(val);
         case column_type::TIME:
+            return binary_tuple_parser::get_time(val);
         case column_type::DATETIME:
+            return binary_tuple_parser::get_date_time(val);
         case column_type::TIMESTAMP:
+            return binary_tuple_parser::get_timestamp(val);
         case column_type::BITMASK:
         case column_type::PERIOD:
         case column_type::DURATION:
+            // TODO: IGNITE-18035 Support bitmask, period and duration types
         default:
-            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }

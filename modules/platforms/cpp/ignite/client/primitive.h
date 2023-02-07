@@ -22,6 +22,10 @@
 #include "ignite/common/uuid.h"
 #include "ignite/common/big_decimal.h"
 #include "ignite/common/big_integer.h"
+#include "ignite/common/ignite_date.h"
+#include "ignite/common/ignite_date_time.h"
+#include "ignite/common/ignite_time.h"
+#include "ignite/common/ignite_timestamp.h"
 
 #include <cstdint>
 #include <type_traits>
@@ -144,6 +148,38 @@ public:
         : m_value(std::move(value)) {}
 
     /**
+     * Constructor for date value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_date value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for date-time value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_date_time value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for time value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_time value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for timestamp value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_timestamp value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
      * Get underlying value.
      *
      * @tparam T Type of value to try and get.
@@ -164,8 +200,12 @@ public:
             || std::is_same_v<T, std::string>
             || std::is_same_v<T, std::vector<std::byte>>
             || std::is_same_v<T, big_decimal>
-            || std::is_same_v<T, big_integer>)
-        {
+            || std::is_same_v<T, big_integer>
+            || std::is_same_v<T, ignite_date>
+            || std::is_same_v<T, ignite_date_time>
+            || std::is_same_v<T, ignite_time>
+            || std::is_same_v<T, ignite_timestamp>
+        ) {
             return std::get<T>(m_value);
         } else {
             static_assert(sizeof(T) == 0, "Type is not an Ignite primitive type or is not yet supported");
@@ -187,19 +227,27 @@ private:
     typedef void *unsupported_type;
 
     /** Value type. */
-    typedef std::variant<bool, std::int8_t, std::int16_t, std::int32_t, std::int64_t, float, double, big_decimal,
-        unsupported_type, // Date
-        unsupported_type, // Time
-        unsupported_type, // Datetime
-        unsupported_type, // Timestamp
-        uuid,
-        unsupported_type, // Bitmask
-        std::string, std::vector<std::byte>,
-        unsupported_type, // Period
-        unsupported_type, // Duration
-        big_integer
-        >
-        value_type;
+    typedef std::variant<
+        bool,                   // Bool = 0
+        std::int8_t,            // Int8 = 1
+        std::int16_t,           // Int16 = 2
+        std::int32_t,           // Int32 = 3
+        std::int64_t,           // Int64 = 4
+        float,                  // Float = 5
+        double,                 // Double = 6
+        big_decimal,            // Decimal = 7
+        ignite_date,            // Date = 8
+        ignite_time,            // Time = 9
+        ignite_date_time,       // Datetime = 10
+        ignite_timestamp,       // Timestamp = 11
+        uuid,                   // UUID = 12
+        unsupported_type,       // Bitmask = 13
+        std::string,            // String = 14
+        std::vector<std::byte>, // Bytes = 15
+        unsupported_type,       // Period = 16
+        unsupported_type,       // Duration = 17
+        big_integer             // Big Integer = 18
+    > value_type;
 
     /** Value. */
     value_type m_value;
