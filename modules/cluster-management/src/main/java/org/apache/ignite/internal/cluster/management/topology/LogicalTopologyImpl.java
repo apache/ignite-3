@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -63,6 +64,16 @@ public class LogicalTopologyImpl implements LogicalTopology {
         byte[] bytes = storage.get(LOGICAL_TOPOLOGY_KEY);
 
         return bytes == null ? LogicalTopologySnapshot.INITIAL : fromBytes(bytes);
+    }
+
+    @Override
+    public void onNodeValidated(ClusterNode node) {
+        notifyListeners(listener -> listener.onNodeValidated(node), "onNodeValidated");
+    }
+
+    @Override
+    public void onNodeInvalidated(ClusterNode node) {
+        notifyListeners(listener -> listener.onNodeInvalidated(node), "onNodeInvalidated");
     }
 
     @Override
@@ -146,38 +157,32 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private void fireAppeared(ClusterNode appearedNode, LogicalTopologySnapshot snapshot) {
-        for (LogicalTopologyEventListener listener : listeners) {
-            try {
-                listener.onAppeared(appearedNode, snapshot);
-            } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying onAppear() listener {}", listener);
-            }
-        }
+        notifyListeners(listener -> listener.onNodeJoined(appearedNode, snapshot), "onNodeJoined");
     }
 
     private void fireDisappeared(ClusterNode oldNode, LogicalTopologySnapshot snapshot) {
-        for (LogicalTopologyEventListener listener : listeners) {
-            try {
-                listener.onDisappeared(oldNode, snapshot);
-            } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying onDisappear() listener {}", listener);
-            }
-        }
+        notifyListeners(listener -> listener.onNodeLeft(oldNode, snapshot), "onNodeLeft");
     }
 
     @Override
     public void fireTopologyLeap() {
+        LogicalTopologySnapshot logicalTopology = readLogicalTopology();
+
+        notifyListeners(listener -> listener.onTopologyLeap(logicalTopology), "onTopologyLeap");
+    }
+
+    private void notifyListeners(Consumer<LogicalTopologyEventListener> action, String methodName) {
         for (LogicalTopologyEventListener listener : listeners) {
             try {
-                listener.onTopologyLeap(readLogicalTopology());
+                action.accept(listener);
             } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying onTopologyLeap() listener {}", listener);
+                logAndRethrowIfError(e, "Failure while notifying {}() listener {}", methodName, listener);
             }
         }
     }
 
-    private static void logAndRethrowIfError(Throwable e, String logMessagePattern, LogicalTopologyEventListener listener) {
-        LOG.error(logMessagePattern, e, listener);
+    private static void logAndRethrowIfError(Throwable e, String logMessagePattern, Object... params) {
+        LOG.error(logMessagePattern, e, params);
 
         if (e instanceof Error) {
             throw (Error) e;

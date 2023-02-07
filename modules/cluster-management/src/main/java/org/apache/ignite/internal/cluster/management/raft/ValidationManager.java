@@ -17,25 +17,15 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.close.ManuallyCloseable;
+import java.util.Collection;
+import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,30 +36,14 @@ import org.jetbrains.annotations.Nullable;
  * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation
  * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
-class ValidationManager implements ManuallyCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(CmgRaftGroupListener.class);
-
-    private final ScheduledExecutorService executor =
-            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator", LOG));
-
+class ValidationManager {
     private final RaftStorageManager storage;
 
     private final LogicalTopology logicalTopology;
 
-    private final ClusterManagementConfiguration configuration;
-
-    /**
-     * Map for storing tasks, submitted to the {@link #executor}, so that it is possible to cancel them.
-     */
-    private final Map<String, Future<?>> cleanupFutures = new ConcurrentHashMap<>();
-
-    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology, ClusterManagementConfiguration configuration) {
+    ValidationManager(RaftStorageManager storage, LogicalTopology logicalTopology) {
         this.storage = storage;
         this.logicalTopology = logicalTopology;
-        this.configuration = configuration;
-
-        // Schedule removal of possibly stale node IDs in case the leader has changed or the node has been restarted.
-        storage.getValidatedNodeIds().forEach(this::scheduleValidatedNodeRemoval);
     }
 
     /**
@@ -146,7 +120,25 @@ class ValidationManager implements ManuallyCloseable {
     }
 
     boolean isNodeValidated(ClusterNode node) {
-        return storage.isNodeValidated(node.id()) || logicalTopology.isNodeInLogicalTopology(node);
+        return storage.isNodeValidated(node) || logicalTopology.isNodeInLogicalTopology(node);
+    }
+
+    void putValidatedNode(ClusterNode node) {
+        storage.putValidatedNode(node);
+
+        logicalTopology.onNodeValidated(node);
+    }
+
+    void removeValidatedNodes(Collection<ClusterNode> nodes) {
+        Set<ClusterNode> validatedNodes = storage.getValidatedNodes();
+
+        nodes.forEach(node -> {
+            if (validatedNodes.contains(node)) {
+                storage.removeValidatedNode(node);
+
+                logicalTopology.onNodeInvalidated(node);
+            }
+        });
     }
 
     /**
@@ -155,37 +147,6 @@ class ValidationManager implements ManuallyCloseable {
      * @param node Node that wishes to join the logical topology.
      */
     void completeValidation(ClusterNode node) {
-        Future<?> cleanupFuture = cleanupFutures.remove(node.id());
-
-        if (cleanupFuture != null) {
-            cleanupFuture.cancel(false);
-        }
-
-        storage.removeValidatedNode(node.id());
-    }
-
-    private void putValidatedNode(ClusterNode node) {
-        storage.putValidatedNode(node.id());
-
-        scheduleValidatedNodeRemoval(node.id());
-    }
-
-    private void scheduleValidatedNodeRemoval(String nodeId) {
-        Future<?> future = executor.schedule(() -> {
-            LOG.info("Removing node from the list of validated nodes since no JoinReady requests have been received [node={}]", nodeId);
-
-            cleanupFutures.remove(nodeId);
-
-            storage.removeValidatedNode(nodeId);
-        }, configuration.incompleteJoinTimeout().value(), TimeUnit.MILLISECONDS);
-
-        cleanupFutures.put(nodeId, future);
-    }
-
-    @Override
-    public void close() {
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
-        cleanupFutures.clear();
+        storage.removeValidatedNode(node);
     }
 }

@@ -18,16 +18,17 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
@@ -68,19 +70,17 @@ public class CmgRaftGroupListener implements RaftGroupListener {
      *
      * @param storage Storage where this listener local data will be stored.
      * @param logicalTopology Logical topology that will be updated by this listener.
-     * @param configuration Cluster management configuration.
      * @param onLogicalTopologyChanged Callback invoked (with the corresponding RAFT term) when logical topology gets changed.
      */
     public CmgRaftGroupListener(
             ClusterStateStorage storage,
             LogicalTopology logicalTopology,
-            ClusterManagementConfiguration configuration,
             LongConsumer onLogicalTopologyChanged
     ) {
         this.storage = new RaftStorageManager(storage);
         this.logicalTopology = logicalTopology;
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
-        this.validationManager = new ValidationManager(this.storage, logicalTopology, configuration);
+        this.validationManager = new ValidationManager(this.storage, logicalTopology);
     }
 
     @Override
@@ -94,8 +94,22 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 clo.result(storage.getClusterState());
             } else if (command instanceof ReadLogicalTopologyCommand) {
                 clo.result(new LogicalTopologyResponse(logicalTopology.getLogicalTopology()));
+            } else if (command instanceof ReadValidatedNodesCommand) {
+                clo.result(getValidatedNodes());
             }
         }
+    }
+
+    private HashSet<ClusterNode> getValidatedNodes() {
+        Set<ClusterNode> validatedNodes = storage.getValidatedNodes();
+        Set<ClusterNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
+
+        var result = new HashSet<ClusterNode>(capacity(validatedNodes.size() + logicalTopologyNodes.size()));
+
+        result.addAll(validatedNodes);
+        result.addAll(logicalTopologyNodes);
+
+        return result;
     }
 
     @Override
@@ -181,6 +195,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
         logicalTopology.removeNodes(nodes);
+        validationManager.removeValidatedNodes(nodes);
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(ClusterNode::name).collect(toList()));
@@ -211,7 +226,6 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     @Override
     public void onShutdown() {
         // Raft storage lifecycle is managed by outside components.
-        validationManager.close();
     }
 
     @TestOnly
