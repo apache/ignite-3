@@ -36,7 +36,7 @@ public class KeyStoreConfigurationValidatorImpl implements Validator<KeyStoreCon
         String type = keyStore.type();
         String path = keyStore.path();
         String password = keyStore.password();
-        if (nullOrBlank(type) && nullOrBlank(path) && nullOrBlank(password)) {
+        if (nullOrBlank(path) && nullOrBlank(password)) {
             return;
         } else {
             if (nullOrBlank(type)) {

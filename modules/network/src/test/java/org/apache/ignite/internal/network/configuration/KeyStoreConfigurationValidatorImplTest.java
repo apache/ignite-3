@@ -30,7 +30,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void nullPath() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                new StubKeyStoreView("PKCS12", null, null)
+                new StubKeyStoreView("PKCS12", null, "changeIt")
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx,
                 "Key store path must not be blank");
@@ -40,7 +40,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void emptyPath() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                new StubKeyStoreView("PKCS12", "", null)
+                new StubKeyStoreView("PKCS12", "", "changeIt")
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx,
                 "Key store path must not be blank");
