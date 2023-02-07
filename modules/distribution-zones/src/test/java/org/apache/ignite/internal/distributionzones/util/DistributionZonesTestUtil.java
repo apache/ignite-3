@@ -63,7 +63,6 @@ import org.jetbrains.annotations.Nullable;
  * Util class for methods for Distribution zones tests.
  */
 public class DistributionZonesTestUtil {
-
     /**
      * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)}.
      *

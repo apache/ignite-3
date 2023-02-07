@@ -43,18 +43,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -74,27 +73,39 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 
 /**
  * Tests distribution zones logical topology changes and reaction to that changes.
  */
 //TODO: IGNITE-18564 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
 public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest {
-    private static final String ZONE_NAME_1 = "zone1";
-
-    private VaultManager vaultMgr;
-
     private DistributionZoneManager distributionZoneManager;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
     private ConfigurationManager clusterCfgMgr;
 
+    @Mock
+    private LogicalTopologyServiceImpl logicalTopologyService;
+
+    private LogicalTopology topology;
+
+    private ClusterStateStorage clusterStateStorage;
+
+    private VaultManager vaultMgr;
+
+    private MetaStorageManager metaStorageManager;
+
     private WatchListener watchListener;
 
     private DistributionZonesConfiguration zonesConfiguration;
 
-    private MetaStorageManager metaStorageManager;
+    @Mock
+    private ClusterManagementGroupManager cmgManager;
+
+    @Mock
+    RaftGroupService metaStorageService;
 
     @BeforeEach
     public void setUp() {
@@ -106,18 +117,18 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
                 List.of()
         );
 
-        zonesConfiguration = mock(DistributionZonesConfiguration.class);
+        zonesConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(DistributionZonesConfiguration.KEY);
 
         metaStorageManager = mock(MetaStorageManager.class);
 
-        LogicalTopologyServiceImpl logicalTopologyService = mock(LogicalTopologyServiceImpl.class);
+        cmgManager = mock(ClusterManagementGroupManager.class);
 
-        LogicalTopologySnapshot topologySnapshot = mock(LogicalTopologySnapshot.class);
+        clusterStateStorage = new TestClusterStateStorage();
 
-        when(topologySnapshot.version()).thenReturn(1L);
-        when(topologySnapshot.nodes()).thenReturn(Collections.emptySet());
+        topology = new LogicalTopologyImpl(clusterStateStorage);
 
-        when(logicalTopologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(topologySnapshot));
+        LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(topology, cmgManager);
 
         vaultMgr = mock(VaultManager.class);
 
@@ -155,17 +166,13 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
             return null;
         }).when(metaStorageManager).registerExactWatch(any(), any());
 
-        mockDefaultZoneConfiguration();
-        mockDefaultZoneView();
-        mockEmptyZonesList();
-
         AtomicLong raftIndex = new AtomicLong();
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
 
         MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage);
 
-        RaftGroupService metaStorageService = mock(RaftGroupService.class);
+        metaStorageService = mock(RaftGroupService.class);
 
         mockMetaStorageListener(raftIndex, metaStorageListener, metaStorageService, metaStorageManager);
     }
@@ -182,10 +189,17 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     @Test
-    void testDataNodesOfDefaultZoneUpdatedOnWatchListenerEvent() throws InterruptedException {
+    void testDataNodesOfDefaultZoneUpdatedOnWatchListenerEvent() throws Exception {
         mockVaultZonesLogicalTopologyKey(Set.of());
 
+        mockCmgLocalNodes();
+
         distributionZoneManager.start();
+
+        distributionZoneManager.alterZone(
+                DEFAULT_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+        ).get();
 
         //first event
 
@@ -225,32 +239,37 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
     }
 
     @Test
-    void testStaleWatchEvent() throws InterruptedException {
+    void testStaleWatchEvent() throws Exception {
         mockVaultZonesLogicalTopologyKey(Set.of());
 
-        mockZones(mockZoneWithAutoAdjustScaleUp(0));
+        mockCmgLocalNodes();
 
         distributionZoneManager.start();
 
+        distributionZoneManager.alterZone(
+                DEFAULT_ZONE_NAME,
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+        ).get();
+
         long revision = 100;
 
-        keyValueStorage.put(zoneScaleUpChangeTriggerKey(1).bytes(), longToBytes(revision));
+        keyValueStorage.put(zoneScaleUpChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision));
 
         Set<String> nodes = Set.of("node1", "node2");
 
         watchListenerOnUpdate(nodes, revision);
 
-        // two invokes on start, one for scale up
-        verify(keyValueStorage, timeout(1000).times(3)).invoke(any());
+        // two invokes on start, and invoke for update scale up won't be triggered, because revision == zoneScaleUpChangeTriggerKey
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
 
-        assertDataNodesForZone(DEFAULT_ZONE_ID, Collections.emptySet(), keyValueStorage);
+        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(), keyValueStorage);
     }
 
     @Test
     void testStaleVaultRevisionOnZoneManagerStart() throws InterruptedException {
         long revision = 100;
 
-        keyValueStorage.put(zonesChangeTriggerKey(0).bytes(), longToBytes(revision));
+        keyValueStorage.put(zonesChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision));
 
         Set<String> nodes = Set.of("node1", "node2");
 
@@ -258,11 +277,13 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         mockVaultAppliedRevision(revision);
 
+        mockCmgLocalNodes();
+
         distributionZoneManager.start();
 
         verify(metaStorageManager, timeout(1000).times(2)).invoke(any());
 
-        assertDataNodesForZone(1, null, keyValueStorage);
+        assertDataNodesForZone(DEFAULT_ZONE_ID, null, keyValueStorage);
     }
 
     @Test
@@ -273,6 +294,8 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         mockVaultZonesLogicalTopologyKey(nodes);
 
+        mockCmgLocalNodes();
+
         distributionZoneManager.start();
 
         verify(keyValueStorage, timeout(1000).times(2)).invoke(any());
@@ -282,9 +305,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     @Test
     void testLogicalTopologyIsNullOnZoneManagerStart1() {
-        mockZones(mockZoneWithAutoAdjust());
-
-        mockVaultAppliedRevision(2);
+        mockCmgLocalNodes();
 
         when(vaultMgr.get(zonesLogicalTopologyKey()))
                 .thenReturn(completedFuture(new VaultEntry(zonesLogicalTopologyKey(), null)));
@@ -297,116 +318,6 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         assertNull(keyValueStorage.get(zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()).value());
         assertNull(keyValueStorage.get(zoneDataNodesKey(1).bytes()).value());
     }
-
-    private void mockEmptyZonesList() {
-        NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> namedConfigurationTree =
-                mock(NamedConfigurationTree.class);
-        when(zonesConfiguration.distributionZones()).thenReturn(namedConfigurationTree);
-
-        NamedListView<DistributionZoneView> namedListView = mock(NamedListView.class);
-        when(namedConfigurationTree.value()).thenReturn(namedListView);
-
-        when(zonesConfiguration.distributionZones().value().namedListKeys()).thenReturn(Collections.emptyList());
-    }
-
-    private void mockZones(DistributionZoneConfiguration... zones) {
-        List<String> names = new ArrayList<>();
-
-        NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> namedConfigurationTree =
-                mock(NamedConfigurationTree.class);
-        when(zonesConfiguration.distributionZones()).thenReturn(namedConfigurationTree);
-
-        NamedListView<DistributionZoneView> namedListView = mock(NamedListView.class);
-        when(namedConfigurationTree.value()).thenReturn(namedListView);
-
-        for (DistributionZoneConfiguration zone : zones) {
-            names.add(zone.name().value());
-
-            when(namedConfigurationTree.get(zone.name().value())).thenReturn(zone);
-        }
-
-        when(namedListView.namedListKeys()).thenReturn(names);
-    }
-
-    private DistributionZoneConfiguration mockZoneConfiguration(
-            Integer zoneId,
-            String name,
-            Integer dataNodesAutoAdjustTime,
-            Integer dataNodesAutoAdjustScaleUpTime,
-            Integer dataNodesAutoAdjustScaleDownTime
-    ) {
-        DistributionZoneConfiguration distributionZoneConfiguration = mock(DistributionZoneConfiguration.class);
-
-        ConfigurationValue<String> nameValue = mock(ConfigurationValue.class);
-        when(distributionZoneConfiguration.name()).thenReturn(nameValue);
-        when(nameValue.value()).thenReturn(name);
-
-        ConfigurationValue<Integer> zoneIdValue = mock(ConfigurationValue.class);
-        when(distributionZoneConfiguration.zoneId()).thenReturn(zoneIdValue);
-        when(zoneIdValue.value()).thenReturn(zoneId);
-
-        ConfigurationValue<Integer> dataNodesAutoAdjust = mock(ConfigurationValue.class);
-        when(distributionZoneConfiguration.dataNodesAutoAdjust()).thenReturn(dataNodesAutoAdjust);
-        when(dataNodesAutoAdjust.value()).thenReturn(dataNodesAutoAdjustTime);
-
-        ConfigurationValue<Integer> dataNodesAutoAdjustScaleUp = mock(ConfigurationValue.class);
-        when(distributionZoneConfiguration.dataNodesAutoAdjustScaleUp()).thenReturn(dataNodesAutoAdjustScaleUp);
-        when(dataNodesAutoAdjustScaleUp.value()).thenReturn(dataNodesAutoAdjustScaleUpTime);
-
-        ConfigurationValue<Integer> dataNodesAutoAdjustScaleDown = mock(ConfigurationValue.class);
-        when(distributionZoneConfiguration.dataNodesAutoAdjustScaleDown()).thenReturn(dataNodesAutoAdjustScaleDown);
-        when(dataNodesAutoAdjustScaleDown.value()).thenReturn(dataNodesAutoAdjustScaleDownTime);
-
-        return distributionZoneConfiguration;
-    }
-
-    private DistributionZoneView mockZoneView(
-            Integer zoneId,
-            String name,
-            Integer dataNodesAutoAdjustTime,
-            Integer dataNodesAutoAdjustScaleUpTime,
-            Integer dataNodesAutoAdjustScaleDownTime
-    ) {
-        DistributionZoneView distributionZoneView = mock(DistributionZoneView.class);
-
-        when(distributionZoneView.name()).thenReturn(name);
-        when(distributionZoneView.zoneId()).thenReturn(zoneId);
-        when(distributionZoneView.dataNodesAutoAdjust()).thenReturn(dataNodesAutoAdjustTime);
-        when(distributionZoneView.dataNodesAutoAdjustScaleUp()).thenReturn(dataNodesAutoAdjustScaleUpTime);
-        when(distributionZoneView.dataNodesAutoAdjustScaleDown()).thenReturn(dataNodesAutoAdjustScaleDownTime);
-
-        return distributionZoneView;
-    }
-
-    private DistributionZoneConfiguration mockZoneWithAutoAdjust() {
-        return mockZoneConfiguration(1, ZONE_NAME_1, 100, Integer.MAX_VALUE, Integer.MAX_VALUE);
-    }
-
-    private DistributionZoneConfiguration mockDefaultZoneConfiguration() {
-        DistributionZoneConfiguration defaultZone = mockZoneConfiguration(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, 100, Integer.MAX_VALUE,
-                Integer.MAX_VALUE);
-
-        when(zonesConfiguration.defaultDistributionZone()).thenReturn(defaultZone);
-
-        return defaultZone;
-    }
-
-    private DistributionZoneView mockDefaultZoneView() {
-        DistributionZoneView defaultZone = mockZoneView(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME, Integer.MAX_VALUE, 0,
-                Integer.MAX_VALUE);
-
-        DistributionZonesView zonesView = mock(DistributionZonesView.class);
-
-        when(zonesView.defaultDistributionZone()).thenReturn(defaultZone);
-        when(zonesConfiguration.value()).thenReturn(zonesView);
-
-        return defaultZone;
-    }
-
-    private DistributionZoneConfiguration mockZoneWithAutoAdjustScaleUp(int scaleUp) {
-        return mockZoneConfiguration(1, ZONE_NAME_1, Integer.MAX_VALUE, scaleUp, Integer.MAX_VALUE);
-    }
-
 
     private void mockVaultZonesLogicalTopologyKey(Set<String> nodes) {
         byte[] newLogicalTopology = toBytes(nodes);
@@ -429,5 +340,9 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     private void mockVaultAppliedRevision(long revision) {
         when(metaStorageManager.appliedRevision()).thenReturn(revision);
+    }
+
+    private void mockCmgLocalNodes() {
+        when(cmgManager.logicalTopology()).thenReturn(completedFuture(topology.getLogicalTopology()));
     }
 }

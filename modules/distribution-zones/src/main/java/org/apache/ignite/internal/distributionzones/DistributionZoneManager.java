@@ -67,6 +67,7 @@ import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListChange;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -487,8 +488,12 @@ public class DistributionZoneManager implements IgniteComponent {
             ZonesConfigurationListener zonesConfigurationListener = new ZonesConfigurationListener();
 
             zonesConfiguration.distributionZones().listenElements(zonesConfigurationListener);
+            zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
+            zonesConfiguration.distributionZones().any().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
 
             zonesConfiguration.defaultDistributionZone().listen(zonesConfigurationListener);
+            zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().listen(onUpdateScaleUp());
+            zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().listen(onUpdateScaleDown());
 
             // Init timers after restart.
             zonesState.putIfAbsent(DEFAULT_ZONE_ID, new ZoneState(executor));
@@ -510,6 +515,94 @@ public class DistributionZoneManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Creates configuration listener for updates of scale up value.
+     *
+     * @return Configuration listener for updates of scale up value.
+     */
+    private ConfigurationListener<Integer> onUpdateScaleUp() {
+        return ctx -> {
+            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
+
+            int oldScaleUp;
+
+            if (ctx.oldValue() == null) {
+                // zone creation, already handled in a separate listener.
+                return completedFuture(null);
+            } else {
+                oldScaleUp = ctx.oldValue().intValue();
+            }
+
+            int newScaleUp = ctx.newValue().intValue();
+
+            // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
+            // and this map will me initialized on a manager start or with onCreate configuration notification
+            ZoneState zoneState = zonesState.get(zoneId);
+
+            if (oldScaleUp != newScaleUp) {
+                if (newScaleUp != Integer.MAX_VALUE) {
+                    Optional<Long> highestRevision = zoneState.highestRevision(true);
+
+                    highestRevision.ifPresent(rev -> zoneState.rescheduleScaleUp(
+                            newScaleUp,
+                            () -> CompletableFuture.supplyAsync(
+                                    () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, rev),
+                                    Runnable::run
+                            )
+                    ));
+                } else {
+                    zoneState.stopScaleUp();
+                }
+            }
+
+            return completedFuture(null);
+        };
+    }
+
+    /**
+     * Creates configuration listener for updates of scale down value.
+     *
+     * @return Configuration listener for updates of scale down value.
+     */
+    private ConfigurationListener<Integer> onUpdateScaleDown() {
+        return ctx -> {
+            int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
+
+            int oldScaleDown;
+
+            if (ctx.oldValue() == null) {
+                // zone creation, already handled in a separate listener.
+                return completedFuture(null);
+            } else {
+                oldScaleDown = ctx.oldValue().intValue();
+            }
+
+            int newScaleDown = ctx.newValue().intValue();
+
+            // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
+            // and this map will me initialized on a manager start or with onCreate configuration notification
+            ZoneState zoneState = zonesState.get(zoneId);
+
+            if (oldScaleDown != newScaleDown) {
+                if (newScaleDown != Integer.MAX_VALUE) {
+                    Optional<Long> highestRevision = zoneState.highestRevision(false);
+
+                    highestRevision.ifPresent(rev -> zoneState.rescheduleScaleDown(
+                            newScaleDown,
+                            () -> CompletableFuture.supplyAsync(
+                                    () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, rev),
+                                    Runnable::run
+                            )
+                    ));
+                } else {
+                    zoneState.stopScaleDown();
+                }
+            }
+
+            return completedFuture(null);
+        };
     }
 
     /** {@inheritDoc} */
@@ -551,68 +644,6 @@ public class DistributionZoneManager implements IgniteComponent {
             removeTriggerKeysAndDataNodes(zoneId, ctx.storageRevision());
 
             zonesState.remove(zoneId);
-
-            return completedFuture(null);
-        }
-
-        @Override
-        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
-            int zoneId = ctx.newValue().zoneId();
-
-            int oldScaleUp;
-
-            int oldScaleDown;
-
-            // ctx.oldValue() could be null for the default zone on a first start.
-            if (ctx.oldValue() == null) {
-                oldScaleUp = Integer.MAX_VALUE;
-
-                oldScaleDown = Integer.MAX_VALUE;
-            } else {
-                oldScaleUp = ctx.oldValue().dataNodesAutoAdjustScaleUp();
-
-                oldScaleDown = ctx.oldValue().dataNodesAutoAdjustScaleDown();
-            }
-
-            int newScaleUp = ctx.newValue().dataNodesAutoAdjustScaleUp();
-
-            int newScaleDown = ctx.newValue().dataNodesAutoAdjustScaleDown();
-
-            // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
-            // and this map will me initialized on a manager start or with onCreate configuration notification
-            ZoneState zoneState = zonesState.get(zoneId);
-
-            if (oldScaleUp != newScaleUp) {
-                if (newScaleUp != Integer.MAX_VALUE) {
-                    Optional<Long> highestRevision = zoneState.highestRevision(true);
-
-                    highestRevision.ifPresent(rev -> zoneState.rescheduleScaleUp(
-                            newScaleUp,
-                            () -> CompletableFuture.supplyAsync(
-                                    () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, rev),
-                                    Runnable::run
-                            )
-                    ));
-                } else {
-                    zoneState.stopScaleUp();
-                }
-            }
-
-            if (oldScaleDown != newScaleDown) {
-                if (newScaleDown != Integer.MAX_VALUE) {
-                    Optional<Long> highestRevision = zoneState.highestRevision(false);
-
-                    highestRevision.ifPresent(rev -> zoneState.rescheduleScaleDown(
-                            newScaleDown,
-                            () -> CompletableFuture.supplyAsync(
-                                    () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, rev),
-                                    Runnable::run
-                            )
-                    ));
-                } else {
-                    zoneState.stopScaleDown();
-                }
-            }
 
             return completedFuture(null);
         }
