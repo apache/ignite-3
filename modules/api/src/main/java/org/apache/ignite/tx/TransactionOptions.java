@@ -44,7 +44,7 @@ public class TransactionOptions {
      */
     public TransactionOptions timeoutMillis(long timeoutMillis) {
         if (readOnly && timeoutMillis != 0) {
-            throw illegalStateException();
+            throw illegalArgumentException();
         }
 
         this.timeoutMillis = timeoutMillis;
@@ -76,7 +76,7 @@ public class TransactionOptions {
      */
     public TransactionOptions readOnly(boolean readOnly) {
         if (readOnly && timeoutMillis != 0) {
-            throw illegalStateException();
+            throw illegalArgumentException();
         }
 
         this.readOnly = readOnly;
@@ -84,7 +84,7 @@ public class TransactionOptions {
         return this;
     }
 
-    private static IllegalStateException illegalStateException() {
-        return new IllegalStateException("Read-only transactions cannot have a timeout");
+    private static IllegalArgumentException illegalArgumentException() {
+        return new IllegalArgumentException("Read-only transactions cannot have a timeout");
     }
 }
