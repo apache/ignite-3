@@ -18,6 +18,7 @@
 package org.apache.ignite.network;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * Contains metadata of the cluster node.
@@ -72,9 +73,6 @@ public class NodeMetadata implements Serializable {
 
     @Override
     public int hashCode() {
-        int result = restHost != null ? restHost.hashCode() : 0;
-        result = 31 * result + httpPort;
-        result = 31 * result + httpsPort;
-        return result;
+        return Objects.hash(restHost, httpPort, httpsPort);
     }
 }

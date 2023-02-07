@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.Value;
 public class KeyStoreConfigurationSchema {
 
     @Value(hasDefault = true)
-    public String type = "";
+    public String type = "PKCS12";
 
     @Value(hasDefault = true)
     public String path = "";

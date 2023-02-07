@@ -19,7 +19,6 @@ package org.apache.ignite.internal.network.configuration;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
-import java.util.Arrays;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -40,12 +39,10 @@ public class KeyStoreConfigurationValidatorImpl implements Validator<KeyStoreCon
         if (nullOrBlank(type) && nullOrBlank(path) && nullOrBlank(password)) {
             return;
         } else {
-
-            KeyStoreType keyStoreType = KeyStoreType.fromName(type);
-            if (keyStoreType == null) {
+            if (nullOrBlank(type)) {
                 ctx.addIssue(new ValidationIssue(
                         ctx.currentKey(),
-                        String.format("Key store type must be one of %s", Arrays.toString(KeyStoreType.values()))
+                        "Key store type must not be blank"
                 ));
             }
 
