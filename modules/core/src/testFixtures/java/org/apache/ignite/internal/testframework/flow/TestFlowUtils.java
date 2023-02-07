@@ -74,14 +74,20 @@ public class TestFlowUtils {
         var resultFuture = new CompletableFuture<T>();
 
         publisher.subscribe(new Subscriber<>() {
+            private Subscription subscription;
+
             @Override
             public void onSubscribe(Subscription subscription) {
+                this.subscription = subscription;
+
                 subscription.request(1);
             }
 
             @Override
             public void onNext(T item) {
                 resultFuture.complete(item);
+
+                subscription.cancel();
             }
 
             @Override
