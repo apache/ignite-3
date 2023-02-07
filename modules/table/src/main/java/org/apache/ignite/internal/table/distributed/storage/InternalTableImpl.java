@@ -26,6 +26,8 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -125,6 +127,9 @@ public class InternalTableImpl implements InternalTable {
 
     /** Replica service. */
     protected final ReplicaService replicaSvc;
+
+    /** Mutex for the partition map update. */
+    private final Object updatePartMapMux = new Object();
 
     /** Table messages factory. */
     private final TableMessagesFactory tableMessagesFactory;
@@ -1214,7 +1219,9 @@ public class InternalTableImpl implements InternalTable {
     public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
         RaftGroupService oldSrvc;
 
-        oldSrvc = partitionMap.put(p, raftGrpSvc);
+        synchronized (updatePartMapMux) {
+            oldSrvc = partitionMap.put(p, raftGrpSvc);
+        }
 
         if (oldSrvc != null) {
             oldSrvc.shutdown();
