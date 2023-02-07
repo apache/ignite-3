@@ -43,10 +43,6 @@ public class TransactionOptions {
      * @return {@code this} for chaining.
      */
     public TransactionOptions timeoutMillis(long timeoutMillis) {
-        if (readOnly && timeoutMillis != 0) {
-            throw illegalArgumentException();
-        }
-
         this.timeoutMillis = timeoutMillis;
 
         return this;
@@ -75,16 +71,8 @@ public class TransactionOptions {
      * @return {@code this} for chaining.
      */
     public TransactionOptions readOnly(boolean readOnly) {
-        if (readOnly && timeoutMillis != 0) {
-            throw illegalArgumentException();
-        }
-
         this.readOnly = readOnly;
 
         return this;
-    }
-
-    private static IllegalArgumentException illegalArgumentException() {
-        return new IllegalArgumentException("Read-only transactions cannot have a timeout");
     }
 }
