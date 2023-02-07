@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableState;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -147,7 +147,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public void start() {
         busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             try (Cursor<IndexMeta> cursor = indexMetaTree.find(null, null)) {
                 NamedListView<TableIndexView> indexesCfgView = tableStorage.tablesConfiguration().indexes().value();
@@ -202,7 +202,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(IndexMeta indexMeta) {
-        throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+        throwExceptionIfStorageNotInRunnableState();
 
         var indexDescriptor = new HashIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
@@ -254,7 +254,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(IndexMeta indexMeta) {
-        throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+        throwExceptionIfStorageNotInRunnableState();
 
         var indexDescriptor = new SortedIndexDescriptor(indexMeta.id(), tableStorage.tablesConfiguration().value());
 
@@ -309,7 +309,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             if (rowId.partitionId() != partitionId) {
                 throw new IllegalArgumentException(
@@ -572,7 +572,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         assert rowId.partitionId() == partitionId : rowId;
 
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             VersionChain currentVersionChain = findVersionChain(rowId);
 
@@ -704,9 +704,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
-            return new ScanVersionsCursor0(rowId, this);
+            return new ScanVersionsCursor(rowId, this);
         });
     }
 
@@ -730,7 +730,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             Cursor<VersionChain> treeCursor;
 
@@ -751,7 +751,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public @Nullable RowId closestRowId(RowId lowerBound) throws StorageException {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             try (Cursor<VersionChain> cursor = versionChainTree.find(new VersionChainKey(lowerBound), null)) {
                 return cursor.hasNext() ? cursor.next().rowId() : null;
@@ -764,7 +764,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     public long rowsCount() {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             try {
                 return versionChainTree.size();
@@ -790,7 +790,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public final ReadResult next() {
             return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+                throwExceptionIfStorageNotInRunnableState();
 
                 if (!hasNext()) {
                     throw new NoSuchElementException("The cursor is exhausted");
@@ -814,7 +814,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public @Nullable TableRow committed(HybridTimestamp timestamp) {
             return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+                throwExceptionIfStorageNotInRunnableState();
 
                 if (currentChain == null) {
                     throw new IllegalStateException();
@@ -850,7 +850,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public boolean hasNext() {
             return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+                throwExceptionIfStorageNotInRunnableState();
 
                 if (nextRead != null) {
                     return true;
@@ -900,7 +900,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         @Override
         public boolean hasNext() {
             return busy(() -> {
-                throwExceptionIfStorageNotInRunnableState(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
+                throwExceptionIfStorageNotInRunnableState();
 
                 if (nextRead != null) {
                     return true;
@@ -929,74 +929,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     return true;
                 }
             });
-        }
-    }
-
-    private class ScanVersionsCursor implements Cursor<ReadResult> {
-        final RowId rowId;
-
-        @Nullable
-        private Boolean hasNext;
-
-        @Nullable
-        private VersionChain versionChain;
-
-        @Nullable
-        private RowVersion rowVersion;
-
-        private ScanVersionsCursor(RowId rowId) {
-            this.rowId = rowId;
-        }
-
-        @Override
-        public void close() {
-            // No-op.
-        }
-
-        @Override
-        public boolean hasNext() {
-            return busy(() -> {
-                advanceIfNeeded();
-
-                return hasNext;
-            });
-        }
-
-        @Override
-        public ReadResult next() {
-            return busy(() -> {
-                advanceIfNeeded();
-
-                if (!hasNext) {
-                    throw new NoSuchElementException();
-                }
-
-                hasNext = null;
-
-                return rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersion);
-            });
-        }
-
-        private void advanceIfNeeded() {
-            throwExceptionIfStorageNotInRunnableState(state.get(), AbstractPageMemoryMvPartitionStorage.this::createStorageInfo);
-
-            if (hasNext != null) {
-                return;
-            }
-
-            if (versionChain == null) {
-                try {
-                    versionChain = versionChainTree.findOne(new VersionChainKey(rowId));
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException(e);
-                }
-
-                rowVersion = versionChain == null ? null : readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
-            } else {
-                rowVersion = !rowVersion.hasNextLink() ? null : readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
-            }
-
-            hasNext = rowVersion != null;
         }
     }
 
@@ -1183,5 +1115,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(e, "Error getting version chain: [rowId={}, {}]", rowId, createStorageInfo());
         }
+    }
+
+    void throwExceptionIfStorageNotInRunnableState() {
+        StorageUtils.throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
     }
 }

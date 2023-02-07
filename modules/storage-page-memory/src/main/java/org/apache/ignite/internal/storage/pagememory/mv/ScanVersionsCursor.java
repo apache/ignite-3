@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>In the constructor, reads all versions of the chain and then iterates over them.
  */
-class ScanVersionsCursor0 implements Cursor<ReadResult> {
+class ScanVersionsCursor implements Cursor<ReadResult> {
     private final AbstractPageMemoryMvPartitionStorage storage;
 
     private final @Nullable VersionChain versionChain;
@@ -50,7 +50,7 @@ class ScanVersionsCursor0 implements Cursor<ReadResult> {
      * @param storage Multi-versioned partition storage.
      * @throws StorageException If there is an error when collecting all versions of the chain.
      */
-    ScanVersionsCursor0(
+    ScanVersionsCursor(
             RowId rowId,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
@@ -68,12 +68,20 @@ class ScanVersionsCursor0 implements Cursor<ReadResult> {
 
     @Override
     public boolean hasNext() {
-        return storage.busy(rowVersionIterator::hasNext);
+        return storage.busy(() -> {
+            storage.throwExceptionIfStorageNotInRunnableState();
+
+            return rowVersionIterator.hasNext();
+        });
     }
 
     @Override
     public ReadResult next() {
-        return storage.busy(() -> rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersionIterator.next()));
+        return storage.busy(() -> {
+            storage.throwExceptionIfStorageNotInRunnableState();
+
+            return rowVersionToResultNotFillingLastCommittedTs(versionChain, rowVersionIterator.next());
+        });
     }
 
     private Iterator<RowVersion> collectRowVersions() {
