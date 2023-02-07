@@ -953,7 +953,6 @@ public class IgniteUtils {
      * @param collection Collection.
      * @param predicate Predicate.
      * @return Filtered list.
-     * @param <T> Type.
      */
     public static <T> List<T> filter(Collection<T> collection, Predicate<T> predicate) {
         List<T> result = new ArrayList<>();
@@ -972,7 +971,6 @@ public class IgniteUtils {
      *
      * @param collection Collection.
      * @return Optional containing element (if present).
-     * @param <T> Type.
      */
     public static <T> Optional<T> findAny(Collection<T> collection) {
         if (collection.isEmpty()) {
