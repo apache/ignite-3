@@ -30,7 +30,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void nullPath() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                TestUtils.stubKeyStoreView(KeyStoreType.PKCS12.toString(), null, null)
+                new StubKeyStoreView(KeyStoreType.PKCS12.toString(), null, null)
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx,
                 "Key store path must not be blank");
@@ -40,7 +40,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void emptyPath() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                TestUtils.stubKeyStoreView(KeyStoreType.PKCS12.toString(), "", null)
+                new StubKeyStoreView(KeyStoreType.PKCS12.toString(), "", null)
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx,
                 "Key store path must not be blank");
@@ -50,7 +50,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void nullType() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                TestUtils.stubKeyStoreView(null, "/path/to/keystore.p12", null)
+                new StubKeyStoreView(null, "/path/to/keystore.p12", null)
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx,
                 "Key store type must be one of");
@@ -60,7 +60,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void emptyType() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                TestUtils.stubKeyStoreView("", "/path/to/keystore.p12", null)
+                new StubKeyStoreView("", "/path/to/keystore.p12", null)
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx,
                 "Key store type must be one of");
@@ -70,7 +70,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void invalidType() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                TestUtils.stubKeyStoreView("invalid", "/path/to/keystore.p12", null)
+                new StubKeyStoreView("invalid", "/path/to/keystore.p12", null)
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx,
                 "Key store type must be one of");
@@ -80,7 +80,7 @@ class KeyStoreConfigurationValidatorImplTest {
     public void validConfig() {
         ValidationContext<KeyStoreView> ctx = mockValidationContext(
                 null,
-                TestUtils.stubKeyStoreView(KeyStoreType.PKCS12.toString(), "/path/to/keystore.p12", null)
+                new StubKeyStoreView(KeyStoreType.PKCS12.toString(), "/path/to/keystore.p12", null)
         );
         validate(KeyStoreConfigurationValidatorImpl.INSTANCE, mock(KeyStoreConfigurationValidator.class), ctx, null);
     }

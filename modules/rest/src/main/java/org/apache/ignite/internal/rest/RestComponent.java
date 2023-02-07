@@ -117,7 +117,7 @@ public class RestComponent implements IgniteComponent {
 
         while (httpPortCandidate <= desiredHttpPort + portRange
                 && httpsPortCandidate <= desiredHttpsPort + httpsPortRange) {
-            if (startHttpServer(httpPortCandidate, httpsPortCandidate)) {
+            if (startServer(httpPortCandidate, httpsPortCandidate)) {
                 return;
             }
 
@@ -138,7 +138,7 @@ public class RestComponent implements IgniteComponent {
         LOG.debug("Unable to start REST endpoint."
                         + " Couldn't find available port for HTTP or HTTPS"
                         + " [HTTP ports=[{}, {}]],"
-                        + " [HTTP ports=[{}, {}]]",
+                        + " [HTTPS ports=[{}, {}]]",
                 desiredHttpPort, (desiredHttpPort + portRange),
                 desiredHttpsPort, (desiredHttpsPort + httpsPortRange));
 
@@ -156,7 +156,7 @@ public class RestComponent implements IgniteComponent {
      * @param httpsPortCandidate HTTPS port candidate.
      * @return {@code True} if server was started successfully, {@code False} if couldn't bind one of the ports.
      */
-    private boolean startHttpServer(int httpPortCandidate, int httpsPortCandidate) {
+    private boolean startServer(int httpPortCandidate, int httpsPortCandidate) {
         try {
             httpPort = httpPortCandidate;
             httpsPort = httpsPortCandidate;

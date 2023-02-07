@@ -17,27 +17,34 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-/** Utility class for configuration tests. */
-class TestUtils {
+/** Stub of {@link KeyStoreView} for tests. */
+public class StubKeyStoreView implements KeyStoreView {
 
-    /** Create a stub for {@link KeyStoreView}. */
-    static KeyStoreView stubKeyStoreView(String type, String path, String password) {
-        return new KeyStoreView() {
+    private String type;
 
-            @Override
-            public String type() {
-                return type;
-            }
+    private String path;
 
-            @Override
-            public String path() {
-                return path;
-            }
+    private String password;
 
-            @Override
-            public String password() {
-                return password;
-            }
-        };
+    /** Constructor. */
+    public StubKeyStoreView(String type, String path, String password) {
+        this.type = type;
+        this.path = path;
+        this.password = password;
+    }
+
+    @Override
+    public String type() {
+        return type;
+    }
+
+    @Override
+    public String path() {
+        return path;
+    }
+
+    @Override
+    public String password() {
+        return password;
     }
 }
