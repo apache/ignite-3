@@ -55,7 +55,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -1129,7 +1128,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
-        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new ConcurrentSkipListMap<>(),
+        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new ConcurrentHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API

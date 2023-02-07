@@ -23,8 +23,7 @@ import static org.mockito.Mockito.mock;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
@@ -128,7 +127,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         @Override
         public InternalTable table() {
-            ConcurrentMap<Integer, RaftGroupService> partMap = new ConcurrentSkipListMap<>();
+            ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
 
             partMap.put(0, mock(RaftGroupService.class));
 
@@ -151,7 +150,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         public TestInternalTableImpl(
                 ReplicaService replicaSvc,
-                ConcurrentMap partMap
+                ConcurrentHashMap partMap
         ) {
             super(
                     "test",
