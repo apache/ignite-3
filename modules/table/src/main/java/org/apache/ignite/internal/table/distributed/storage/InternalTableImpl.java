@@ -39,7 +39,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -100,7 +100,7 @@ public class InternalTableImpl implements InternalTable {
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
     /** Partition map. */
-    protected final ConcurrentHashMap<Integer, RaftGroupService> partitionMap;
+    protected final ConcurrentMap<Integer, RaftGroupService> partitionMap;
 
     /** Partitions. */
     private final int partitions;
@@ -148,7 +148,7 @@ public class InternalTableImpl implements InternalTable {
     public InternalTableImpl(
             String tableName,
             UUID tableId,
-            ConcurrentHashMap<Integer, RaftGroupService> partMap,
+            ConcurrentMap<Integer, RaftGroupService> partMap,
             int partitions,
             Function<String, ClusterNode> clusterNodeResolver,
             TxManager txManager,

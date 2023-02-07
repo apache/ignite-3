@@ -35,7 +35,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -146,9 +147,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     protected Map<String, TxManager> txManagers;
 
-    protected ConcurrentHashMap<Integer, RaftGroupService> accRaftClients;
+    protected ConcurrentMap<Integer, RaftGroupService> accRaftClients;
 
-    protected ConcurrentHashMap<Integer, RaftGroupService> custRaftClients;
+    protected ConcurrentMap<Integer, RaftGroupService> custRaftClients;
 
     protected Map<String, TxStateStorage> txStateStorages;
 
@@ -369,7 +370,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      * @param schemaDescriptor Schema descriptor.
      * @return Groups map.
      */
-    private ConcurrentHashMap<Integer, RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
+    private ConcurrentMap<Integer, RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
@@ -384,7 +385,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 .mapToObj(i -> new TablePartitionId(tblId, i))
                 .collect(toList());
 
-        ConcurrentHashMap<Integer, RaftGroupService> clients = new ConcurrentHashMap<>();
+        ConcurrentMap<Integer, RaftGroupService> clients = new ConcurrentSkipListMap<>();
 
         List<CompletableFuture<Void>> partitionReadyFutures = new ArrayList<>();
 
@@ -604,7 +605,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /** {@inheritDoc} */
     @Override
     protected TxManager txManager(Table t) {
-        ConcurrentHashMap<Integer, RaftGroupService> clients = null;
+        ConcurrentMap<Integer, RaftGroupService> clients = null;
 
         if (t == accounts) {
             clients = accRaftClients;

@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -131,7 +133,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
+        ConcurrentMap<Integer, RaftGroupService> partMap = new ConcurrentSkipListMap<>();
 
         partMap.put(0, service);
 
@@ -161,7 +163,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
+        ConcurrentMap<Integer, RaftGroupService> partMap = new ConcurrentSkipListMap<>();
 
         partMap.put(0, service);
 
@@ -197,7 +199,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
+        ConcurrentMap<Integer, RaftGroupService> partMap = new ConcurrentSkipListMap<>();
 
         partMap.put(0, service);
 

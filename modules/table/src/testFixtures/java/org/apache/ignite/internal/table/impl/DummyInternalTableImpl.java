@@ -26,7 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -299,8 +300,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
     }
 
-    private static ConcurrentHashMap<Integer, RaftGroupService> createPartitionMap() {
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
+    private static ConcurrentMap<Integer, RaftGroupService> createPartitionMap() {
+        ConcurrentMap<Integer, RaftGroupService> partMap = new ConcurrentSkipListMap<>();
 
         partMap.put(PART_ID, mock(RaftGroupService.class));
 
