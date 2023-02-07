@@ -80,7 +80,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
 
-    private static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
+    static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
     protected final int partitionId;
 
@@ -369,7 +369,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             rowVersionDataPageReader.traverse(rowVersionLink, read, loadValue);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Row version lookup failed", e);
+            throw new StorageException(e, "Row version lookup failed: [link={}, {}]", rowVersionLink, createStorageInfo());
         }
 
         return read.result();
@@ -706,11 +706,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
 
-            return new ScanVersionsCursor(rowId);
+            return new ScanVersionsCursor0(rowId, this);
         });
     }
 
-    private static ReadResult rowVersionToResultNotFillingLastCommittedTs(VersionChain versionChain, RowVersion rowVersion) {
+    static ReadResult rowVersionToResultNotFillingLastCommittedTs(VersionChain versionChain, RowVersion rowVersion) {
         TableRow row = new TableRow(rowVersion.value());
 
         if (rowVersion.isCommitted()) {
@@ -1174,6 +1174,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         if (state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE)) {
             hashIndexes.values().forEach(PageMemoryHashIndexStorage::finishCleanup);
             sortedIndexes.values().forEach(PageMemorySortedIndexStorage::finishCleanup);
+        }
+    }
+
+    @Nullable VersionChain readVersionChain(RowId rowId) {
+        try {
+            return versionChainTree.findOne(new VersionChainKey(rowId));
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(e, "Error getting version chain: [rowId={}, {}]", rowId, createStorageInfo());
         }
     }
 }
