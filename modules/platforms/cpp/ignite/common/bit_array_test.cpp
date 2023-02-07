@@ -21,7 +21,7 @@
 
 using namespace ignite;
 
-void check_index_out_of_bounds(bit_array& array, std::int32_t index) {
+void check_index_out_of_bounds(bit_array &array, std::int32_t index) {
     std::string error_string =
         "Index is out of bounds: index=" + std::to_string(index) + ", size=" + std::to_string(array.get_size());
 
@@ -122,12 +122,12 @@ TEST(bit_array, different_short) {
     for (int i = 0; i < 8; ++i)
         EXPECT_FALSE(value.test(i));
 
-    for (int i = 0; i < 8; i+=2) {
+    for (int i = 0; i < 8; i += 2) {
         value.set(i, true);
         EXPECT_TRUE(value.test(i));
     }
 
-    for (int i = 1; i < 8; i+=2)
+    for (int i = 1; i < 8; i += 2)
         EXPECT_FALSE(value.test(i));
 
     check_index_out_of_bounds(value, 8);

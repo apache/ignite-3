@@ -18,15 +18,15 @@
 #pragma once
 
 #include "ignite/client/sql/sql_column_type.h"
-#include "ignite/common/ignite_error.h"
-#include "ignite/common/uuid.h"
 #include "ignite/common/big_decimal.h"
 #include "ignite/common/big_integer.h"
+#include "ignite/common/bit_array.h"
 #include "ignite/common/ignite_date.h"
 #include "ignite/common/ignite_date_time.h"
+#include "ignite/common/ignite_error.h"
 #include "ignite/common/ignite_time.h"
 #include "ignite/common/ignite_timestamp.h"
-#include "ignite/common/bit_array.h"
+#include "ignite/common/uuid.h"
 
 #include <cstdint>
 #include <type_traits>
@@ -128,7 +128,7 @@ public:
      *
      * @param value Value.
      */
-    primitive(const char* value) // NOLINT(google-explicit-constructor)
+    primitive(const char *value) // NOLINT(google-explicit-constructor)
         : m_value(std::string(value)) {}
 
     /**
@@ -213,24 +213,23 @@ public:
      */
     template<typename T>
     [[nodiscard]] const T &get() const {
-        if constexpr (
-            std::is_same_v< T, bool>
-            || std::is_same_v<T, std::int8_t>
-            || std::is_same_v<T, std::int16_t>
-            || std::is_same_v<T, std::int32_t>
-            || std::is_same_v<T, std::int64_t>
-            || std::is_same_v<T, float>
-            || std::is_same_v<T, double>
-            || std::is_same_v<T, uuid>
-            || std::is_same_v<T, std::string>
-            || std::is_same_v<T, std::vector<std::byte>>
-            || std::is_same_v<T, big_decimal>
-            || std::is_same_v<T, big_integer>
-            || std::is_same_v<T, ignite_date>
-            || std::is_same_v<T, ignite_date_time>
-            || std::is_same_v<T, ignite_time>
-            || std::is_same_v<T, ignite_timestamp>
-            || std::is_same_v<T, bit_array>
+        if constexpr (std::is_same_v<T, bool> // Bool
+            || std::is_same_v<T, std::int8_t> // Int8
+            || std::is_same_v<T, std::int16_t> // Int16
+            || std::is_same_v<T, std::int32_t> // Int32
+            || std::is_same_v<T, std::int64_t> // Int64
+            || std::is_same_v<T, float> // Float
+            || std::is_same_v<T, double> // Double
+            || std::is_same_v<T, uuid> // Uuid
+            || std::is_same_v<T, std::string> // String
+            || std::is_same_v<T, std::vector<std::byte>> // Bytes
+            || std::is_same_v<T, big_decimal> // Decimal
+            || std::is_same_v<T, big_integer> // Number
+            || std::is_same_v<T, ignite_date> // Date
+            || std::is_same_v<T, ignite_date_time> // DateTime
+            || std::is_same_v<T, ignite_time> // Time
+            || std::is_same_v<T, ignite_timestamp> // Timestamp
+            || std::is_same_v<T, bit_array> // Bit Array
         ) {
             return std::get<T>(m_value);
         } else {
@@ -272,27 +271,27 @@ private:
     typedef void *unsupported_type;
 
     /** Value type. */
-    typedef std::variant<
-        bool,                   // Bool = 0
-        std::int8_t,            // Int8 = 1
-        std::int16_t,           // Int16 = 2
-        std::int32_t,           // Int32 = 3
-        std::int64_t,           // Int64 = 4
-        float,                  // Float = 5
-        double,                 // Double = 6
-        big_decimal,            // Decimal = 7
-        ignite_date,            // Date = 8
-        ignite_time,            // Time = 9
-        ignite_date_time,       // Datetime = 10
-        ignite_timestamp,       // Timestamp = 11
-        uuid,                   // UUID = 12
-        bit_array,              // Bitmask = 13
-        std::string,            // String = 14
+    typedef std::variant<bool, // Bool = 0
+        std::int8_t, // Int8 = 1
+        std::int16_t, // Int16 = 2
+        std::int32_t, // Int32 = 3
+        std::int64_t, // Int64 = 4
+        float, // Float = 5
+        double, // Double = 6
+        big_decimal, // Decimal = 7
+        ignite_date, // Date = 8
+        ignite_time, // Time = 9
+        ignite_date_time, // Datetime = 10
+        ignite_timestamp, // Timestamp = 11
+        uuid, // UUID = 12
+        bit_array, // Bitmask = 13
+        std::string, // String = 14
         std::vector<std::byte>, // Bytes = 15
-        unsupported_type,       // Period = 16
-        unsupported_type,       // Duration = 17
-        big_integer             // Big Integer = 18
-    > value_type;
+        unsupported_type, // Period = 16
+        unsupported_type, // Duration = 17
+        big_integer // Big Integer = 18
+        >
+        value_type;
 
     /** Value. */
     value_type m_value;

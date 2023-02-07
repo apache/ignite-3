@@ -940,7 +940,7 @@ TEST_F(record_binary_view_test, types_test) {
     auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
     tuple_view = table->record_binary_view();
 
-    ignite_tuple inserted {
+    ignite_tuple inserted{
         {"key", std::int64_t(42)},
         {"str", "test"},
         {"int8", std::int8_t(1)},
@@ -969,7 +969,7 @@ TEST_F(record_binary_view_test, types_test) {
     ASSERT_EQ(res->column_count(), inserted.column_count());
 
     for (int i = 0; i < res->column_count(); ++i) {
-        const auto& column = inserted.column_name(i);
+        const auto &column = inserted.column_name(i);
 
         if (column == "time2") {
             EXPECT_EQ(res->get(column), primitive{ignite_time(17, 4, 12)});

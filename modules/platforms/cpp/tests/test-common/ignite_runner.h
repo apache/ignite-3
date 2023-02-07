@@ -34,9 +34,7 @@ public:
     /**
      * Destructor.
      */
-    ~IgniteRunner() {
-        stop();
-    }
+    ~IgniteRunner() { stop(); }
 
     /**
      * Start node.

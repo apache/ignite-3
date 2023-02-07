@@ -39,8 +39,7 @@ protected:
 
         client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TEST"}, {});
 
-        auto res =
-            client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+        auto res = client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
         if (!res.was_applied()) {
             client.get_sql().execute(nullptr, {"DELETE FROM TEST"}, {});
@@ -340,4 +339,3 @@ TEST_F(sql_test, decimal_literal) {
 
     EXPECT_EQ("12345.6789", value_str);
 }
-

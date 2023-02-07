@@ -51,7 +51,7 @@ public:
      */
     big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool bigEndian = true)
         : m_scale(scale & 0x7FFFFFFF)
-        , m_magnitude(mag, len, sign, bigEndian) { }
+        , m_magnitude(mag, len, sign, bigEndian) {}
 
     /**
      * Integer constructor.
@@ -60,7 +60,7 @@ public:
      */
     explicit big_decimal(int64_t val)
         : m_scale(0)
-        , m_magnitude(val) { }
+        , m_magnitude(val) {}
 
     /**
      * Integer constructor with scale.
@@ -70,7 +70,7 @@ public:
      */
     big_decimal(int64_t val, int32_t scale)
         : m_scale(scale)
-        , m_magnitude(val) { }
+        , m_magnitude(val) {}
 
     /**
      * big_integer constructor with scale.
@@ -80,7 +80,7 @@ public:
      */
     big_decimal(big_integer val, int32_t scale)
         : m_scale(scale)
-        , m_magnitude(std::move(val)) { }
+        , m_magnitude(std::move(val)) {}
 
     /**
      * String constructor.
@@ -90,8 +90,7 @@ public:
      */
     big_decimal(const char *val, int32_t len)
         : m_scale(0)
-        , m_magnitude(0)
-    {
+        , m_magnitude(0) {
         assign_string(val, len);
     }
 
@@ -102,24 +101,19 @@ public:
      */
     explicit big_decimal(const std::string &val)
         : m_scale(0)
-        , m_magnitude(0)
-    {
+        , m_magnitude(0) {
         assign_string(val);
     }
 
     /**
      * Convert to double.
      */
-    explicit operator double() const {
-        return ToDouble();
-    }
+    explicit operator double() const { return ToDouble(); }
 
     /**
      * Convert to int64_t.
      */
-    explicit operator int64_t() const {
-        return to_int64();
-    }
+    explicit operator int64_t() const { return to_int64(); }
 
     /**
      * Convert to double.
@@ -198,9 +192,7 @@ public:
      *
      * @return Length of the magnitude.
      */
-    [[nodiscard]] int32_t get_magnitude_length() const {
-        return int32_t(m_magnitude.mag.size());
-    }
+    [[nodiscard]] int32_t get_magnitude_length() const { return int32_t(m_magnitude.mag.size()); }
 
     /**
      * Assign specified value to this Decimal.

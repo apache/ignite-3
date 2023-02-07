@@ -73,9 +73,8 @@ public:
      */
     template<typename T>
     void with_latest_schema_async(
-        ignite_callback<T> handler, std::function<void(const schema &, ignite_callback<T>)> callback)
-    {
-        auto func = [this, handler = std::move(handler), callback = std::move(callback)] (auto &&res) mutable {
+        ignite_callback<T> handler, std::function<void(const schema &, ignite_callback<T>)> callback) {
+        auto func = [this, handler = std::move(handler), callback = std::move(callback)](auto &&res) mutable {
             if (res.has_error()) {
                 handler(ignite_error{res.error()});
                 return;

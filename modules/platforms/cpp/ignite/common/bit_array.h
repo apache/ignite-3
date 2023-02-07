@@ -17,12 +17,12 @@
 
 #pragma once
 
-#include "ignite_error.h"
 #include "bytes_view.h"
+#include "ignite_error.h"
 
-#include <vector>
-#include <cstdint>
 #include <climits>
+#include <cstdint>
+#include <vector>
 
 namespace ignite {
 
@@ -44,7 +44,7 @@ public:
      */
     bit_array(bytes_view data, std::int32_t size)
         : m_size(size)
-        , m_data(data.begin(), data.end()) { }
+        , m_data(data.begin(), data.end()) {}
 
     /**
      * Construct a new bit_array from raw data.
@@ -54,7 +54,7 @@ public:
      */
     explicit bit_array(bytes_view data)
         : m_size(std::int32_t(data.size() * CHAR_BIT))
-        , m_data(data.begin(), data.end()) { }
+        , m_data(data.begin(), data.end()) {}
 
     /**
      * Construct a new bit_array of specified size with all bits set to @c value.
@@ -64,7 +64,7 @@ public:
      */
     explicit bit_array(std::int32_t size, bool value = false)
         : m_size(size)
-        , m_data((size + (CHAR_BIT - 1)) / CHAR_BIT, value ? std::byte(0xFF) : std::byte()) { }
+        , m_data((size + (CHAR_BIT - 1)) / CHAR_BIT, value ? std::byte(0xFF) : std::byte()) {}
 
     /**
      * Tests a specified bit.
@@ -98,7 +98,7 @@ public:
     /**
      * Gets the raw data.
      */
-    [[nodiscard]] constexpr const std::vector<std::byte>& get_raw() const noexcept { return m_data; }
+    [[nodiscard]] constexpr const std::vector<std::byte> &get_raw() const noexcept { return m_data; }
 
     /**
      * Gets the size in bits.
@@ -128,9 +128,8 @@ public:
      * @param rhs Second value.
      * @return true If values are not equal.
      */
-    friend constexpr bool operator!=(const bit_array &lhs, const bit_array &rhs) noexcept {
-        return !(lhs == rhs);
-    }
+    friend constexpr bool operator!=(const bit_array &lhs, const bit_array &rhs) noexcept { return !(lhs == rhs); }
+
 private:
     /**
      * Check that index is not out of bounds.
@@ -149,6 +148,5 @@ private:
     /** Data. */
     std::vector<std::byte> m_data{};
 };
-
 
 } // namespace ignite
