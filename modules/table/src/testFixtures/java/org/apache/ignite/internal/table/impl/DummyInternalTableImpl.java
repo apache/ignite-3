@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -170,7 +169,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         super(
                 "test",
                 UUID.randomUUID(),
-                createPartitionMap(),
+                Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
                 name -> mock(ClusterNode.class),
                 txManager == null ? new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()) : txManager,
@@ -298,14 +297,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime
         );
-    }
-
-    private static ConcurrentHashMap<Integer, RaftGroupService> createPartitionMap() {
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
-
-        partMap.put(PART_ID, mock(RaftGroupService.class));
-
-        return partMap;
     }
 
     /**

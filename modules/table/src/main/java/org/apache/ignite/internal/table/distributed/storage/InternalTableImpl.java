@@ -41,7 +41,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -102,7 +101,7 @@ public class InternalTableImpl implements InternalTable {
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
     /** Partition map. */
-    protected final ConcurrentHashMap<Integer, RaftGroupService> partitionMap;
+    protected final Int2ObjectMap<RaftGroupService> partitionMap;
 
     /** Partitions. */
     private final int partitions;
@@ -153,7 +152,7 @@ public class InternalTableImpl implements InternalTable {
     public InternalTableImpl(
             String tableName,
             UUID tableId,
-            ConcurrentHashMap<Integer, RaftGroupService> partMap,
+            Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             Function<String, ClusterNode> clusterNodeResolver,
             TxManager txManager,
@@ -1074,8 +1073,8 @@ public class InternalTableImpl implements InternalTable {
     public List<String> assignments() {
         awaitLeaderInitialization();
 
-        return partitionMap.entrySet().stream()
-                .sorted(Comparator.comparingInt(Map.Entry::getKey))
+        return partitionMap.int2ObjectEntrySet().stream()
+                .sorted(Comparator.comparingInt(Int2ObjectOpenHashMap.Entry::getIntKey))
                 .map(Map.Entry::getValue)
                 .map(service -> service.leader().consistentId())
                 .collect(Collectors.toList());
@@ -1084,12 +1083,12 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public List<PrimaryReplica> primaryReplicas() {
-        List<Map.Entry<Integer, RaftGroupService>> entries = new ArrayList<>(partitionMap.entrySet());
+        List<Entry<RaftGroupService>> entries = new ArrayList<>(partitionMap.int2ObjectEntrySet());
         List<CompletableFuture<LeaderWithTerm>> futs = new ArrayList<>();
 
-        entries.sort(Comparator.comparingInt(Map.Entry::getKey));
+        entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
-        for (Map.Entry<Integer, RaftGroupService> e : entries) {
+        for (Entry<RaftGroupService> e : entries) {
             futs.add(e.getValue().refreshAndGetLeaderWithTerm());
         }
 
@@ -1164,8 +1163,8 @@ public class InternalTableImpl implements InternalTable {
     public Map<Integer, List<String>> peersAndLearners() {
         awaitLeaderInitialization();
 
-        return partitionMap.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> {
+        return partitionMap.int2ObjectEntrySet().stream()
+                .collect(Collectors.toMap(Entry::getIntKey, e -> {
                     RaftGroupService service = e.getValue();
                     return Stream.of(service.peers(), service.learners())
                             .filter(Objects::nonNull)

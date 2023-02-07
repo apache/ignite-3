@@ -132,14 +132,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
-
-        partMap.put(0, mock(RaftGroupService.class));
-
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
-                partMap,
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
                 txManager,
@@ -162,14 +158,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
-
-        partMap.put(0, mock(RaftGroupService.class));
-
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
-                partMap,
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
                 txManager,
@@ -198,14 +190,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         txManager.start();
 
-        ConcurrentHashMap<Integer, RaftGroupService> partMap = new ConcurrentHashMap<>();
-
-        partMap.put(0, mock(RaftGroupService.class));
-
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
-                partMap,
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
                 txManager,
