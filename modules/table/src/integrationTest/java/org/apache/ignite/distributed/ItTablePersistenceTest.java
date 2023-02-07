@@ -18,6 +18,8 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.hybridTimestamp;
+import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,8 +49,6 @@ import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -72,7 +72,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -105,9 +104,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
-
-    /** Factory for creating replica command messages. */
-    private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     @InjectConfiguration("mock.tables.foo = {}")
     private TablesConfiguration tablesCfg;
@@ -185,10 +181,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         when(replicaService.invoke(any(), any()))
                 .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(1)));
 
-        for (int i = 0; i <= 2; i++) {
+        for (int i = 0; i < nodes(); i++) {
             TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock);
             txManagers.put(i, txManager);
+            closeables.add(txManager::stop);
         }
+
+        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock);
+        closeables.add(txManager::stop);
 
         table = new InternalTableImpl(
                 "table",
@@ -196,7 +196,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
-                txManagers.get(0),
+                txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
@@ -269,33 +269,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         });
 
         return partitionReplicaListener;
-    }
-
-    /**
-     * Method to convert from {@link HybridTimestamp} object to NetworkMessage-based {@link HybridTimestampMessage} object.
-     *
-     * @param tmstmp {@link HybridTimestamp} object to convert to {@link HybridTimestampMessage}.
-     * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
-     */
-    private HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
-        return tmstmp != null ? replicaMessagesFactory.hybridTimestampMessage()
-                .physical(tmstmp.getPhysical())
-                .logical(tmstmp.getLogical())
-                .build()
-                : null;
-    }
-
-    /**
-     * Method to convert from {@link TablePartitionId} object to command-based {@link TablePartitionIdMessage} object.
-     *
-     * @param tablePartId {@link TablePartitionId} object to convert to {@link TablePartitionIdMessage}.
-     * @return {@link TablePartitionIdMessage} object converted from argument.
-     */
-    private TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
-        return msgFactory.tablePartitionIdMessage()
-                .tableId(tablePartId.tableId())
-                .partitionId(tablePartId.partitionId())
-                .build();
     }
 
     /** {@inheritDoc} */

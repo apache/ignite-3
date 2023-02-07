@@ -110,7 +110,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     public void beforeTest(TestInfo testInfo) {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
-        initialMemberConf = IntStream.rangeClosed(0, 2)
+        initialMemberConf = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
     }
@@ -135,6 +135,15 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         IgniteUtils.closeAll(
                 Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop, nodeStop).flatMap(Function.identity())
         );
+    }
+
+    /**
+     * Nodes count.
+     *
+     * @return Nodes count.
+     */
+    protected int nodes() {
+        return 3;
     }
 
     /**
