@@ -342,7 +342,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private ReadResult findLatestRowVersion(VersionChain versionChain) {
+    ReadResult findLatestRowVersion(VersionChain versionChain) {
         RowVersion rowVersion = readRowVersion(versionChain.headLink(), ALWAYS_LOAD_VALUE);
 
         if (versionChain.isUncommitted()) {
@@ -398,7 +398,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param timestamp Timestamp.
      * @return Read result.
      */
-    private ReadResult findRowVersionByTimestamp(VersionChain versionChain, HybridTimestamp timestamp) {
+    ReadResult findRowVersionByTimestamp(VersionChain versionChain, HybridTimestamp timestamp) {
         assert timestamp != null;
 
         long headLink = versionChain.headLink();
@@ -733,18 +733,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            Cursor<VersionChain> treeCursor;
-
-            try {
-                treeCursor = versionChainTree.find(null, null);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException(e, "Find failed: [timestamp={}, {}]", timestamp, createStorageInfo());
-            }
-
             if (lookingForLatestVersion(timestamp)) {
-                return new LatestVersionsCursor(treeCursor);
+                return new LatestVersionsCursor0(this);
             } else {
-                return new TimestampCursor(treeCursor, timestamp);
+                return new TimestampCursor0(this, timestamp);
             }
         });
     }
