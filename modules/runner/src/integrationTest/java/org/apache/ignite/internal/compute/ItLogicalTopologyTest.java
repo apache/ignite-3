@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,10 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
@@ -64,7 +69,7 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE;
+        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
     @Test
@@ -143,7 +148,6 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
                 if (appearedNode.name().equals(secondIgnite.name())) {
                     secondIgniteAppeared.countDown();
                 }
-
             }
         });
 
@@ -168,6 +172,34 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
                 secondIgnite.node().name().equals(recipientConsistentId) && message instanceof ScaleCubeMessage);
 
         assertTrue(secondIgniteDisappeared.await(10, TimeUnit.SECONDS), "Did not see second node leaving in time");
+    }
+
+    @Test
+    void nodeDoesNotLeaveLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        setInfiniteClusterFailoverTimeout(entryNode);
+
+        startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        // Knock the node out without allowing it to say good bye.
+        cluster.knockOutNode(1, NodeKnockout.PARTITION_NETWORK);
+
+        // 1 second is usually insufficient on my machine to get an event, even if it's produced. On the CI we
+        // should probably account for spurious delays due to other processes, hence 2 seconds.
+        waitForCondition(() -> !events.isEmpty(), 2_000);
+
+        assertThat(events, is(empty()));
+    }
+
+    private static void setInfiniteClusterFailoverTimeout(IgniteImpl node)
+            throws InterruptedException, ExecutionException, TimeoutException {
+        node.nodeConfiguration().getConfiguration(ClusterManagementConfiguration.KEY)
+                .failoverTimeout()
+                .update(Long.MAX_VALUE)
+                .get(10, TimeUnit.SECONDS);
     }
 
     private static class Event {
