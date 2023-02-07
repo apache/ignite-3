@@ -22,6 +22,7 @@ set(TARGET ${PROJECT_NAME})
 set(PUBLIC_HEADERS
     big_decimal.h
     big_integer.h
+    bit_array.h
     bits.h
     bytes.h
     bytes_view.h
@@ -52,3 +53,4 @@ ignite_test(bits_test bits_test.cpp LIBS ${TARGET})
 ignite_test(bytes_test bytes_test.cpp LIBS ${TARGET})
 ignite_test(uuid_test uuid_test.cpp LIBS ${TARGET})
 ignite_test(bignum_test bignum_test.cpp LIBS ${TARGET})
+ignite_test(bit_array_test bit_array_test.cpp LIBS ${TARGET})

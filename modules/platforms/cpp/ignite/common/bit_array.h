@@ -50,7 +50,7 @@ public:
      * @param size Size in bits.
      * @param value All bits value.
      */
-    bit_array(std::int32_t size, bool value)
+    bit_array(std::int32_t size, bool value = false)
         : m_size(size)
         , m_data((size + 7) / 8, value ? 0xFF : 0) { }
 
@@ -80,7 +80,7 @@ public:
         if (value)
             m_data[byte_index] |= 1 << bit_index;
         else
-            m_data[byte_index] &= 1 << bit_index;
+            m_data[byte_index] &= ~(1 << bit_index);
     }
 
     /**
