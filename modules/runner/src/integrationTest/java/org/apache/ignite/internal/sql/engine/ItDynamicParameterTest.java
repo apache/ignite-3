@@ -76,7 +76,6 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testDynamicParameters() {
-        assertQuery("SELECT COALESCE(?, ?)").withParams("a", 10).returns("a").check();
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
@@ -118,7 +117,6 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, null).returns(null).check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, 13).returns(13).check();
-        assertQuery("SELECT COALESCE(?, ?)").withParams("a", 10).returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams("a", "b").returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(22, 33).returns(22).check();
 
@@ -126,12 +124,13 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1d).returns("DOUBLE").check();
     }
 
-    // After fix the mute reason need to merge the test with above testWithDifferentParametersTypes
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18369")
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
     @Test
-    public void testWithDifferentParametersTypes2() {
-        assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check();
-        assertQuery("SELECT COALESCE(?, ?)").withParams(12, "b").returns(12).check();
+    public void testWithDifferentParametersTypesMismatch() {
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").returns(12.2).check());
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check());
     }
 
     @Test

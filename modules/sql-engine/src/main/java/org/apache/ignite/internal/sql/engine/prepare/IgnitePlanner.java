@@ -299,7 +299,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return w.toString();
     }
 
-    private SqlValidator validator() {
+    /** Returns the validator. **/
+    public SqlValidator validator() {
         if (validator == null) {
             validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg, ctx.parameters());
         }
