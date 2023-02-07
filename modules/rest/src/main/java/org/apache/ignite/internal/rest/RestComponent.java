@@ -110,8 +110,8 @@ public class RestComponent implements IgniteComponent {
         boolean dualProtocol = restConfiguration.dualProtocol().value();
         int desiredHttpPort = restConfigurationView.port();
         int portRange = restConfigurationView.portRange();
-        int desiredHttpsPort = sslEnabled ? sslConfigurationView.port() : UNAVAILABLE_PORT;
-        int httpsPortRange = sslEnabled ? sslConfigurationView.portRange() : 0;
+        int desiredHttpsPort = sslConfigurationView.port();
+        int httpsPortRange = sslConfigurationView.portRange();
         int httpPortCandidate = desiredHttpPort;
         int httpsPortCandidate = desiredHttpsPort;
 
@@ -250,7 +250,12 @@ public class RestComponent implements IgniteComponent {
      * @throws IgniteInternalException if the component has not been started yet.
      */
     public int httpPort() {
-        return httpPort;
+        RestView restView = restConfiguration.value();
+        if (!restView.ssl().enabled() || restView.dualProtocol()) {
+            return httpPort;
+        } else {
+            return UNAVAILABLE_PORT;
+        }
     }
 
     /**
@@ -260,7 +265,12 @@ public class RestComponent implements IgniteComponent {
      * @throws IgniteInternalException if the component has not been started yet.
      */
     public int httpsPort() {
-        return httpsPort;
+        RestView restView = restConfiguration.value();
+        if (restView.ssl().enabled()) {
+            return httpsPort;
+        } else {
+            return UNAVAILABLE_PORT;
+        }
     }
 
     /**

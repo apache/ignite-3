@@ -18,7 +18,6 @@
 package org.apache.ignite.network;
 
 import java.io.Serializable;
-import java.util.Objects;
 
 /**
  * Contains metadata of the cluster node.
