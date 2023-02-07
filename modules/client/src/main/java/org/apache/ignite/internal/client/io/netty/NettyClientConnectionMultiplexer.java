@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CLIENT_SSL_CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import io.netty.bootstrap.Bootstrap;
@@ -35,7 +36,6 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -72,38 +72,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
-                    if (clientCfg.sslConfiguration().enabled()) {
-                        try {
-                            // todo: what if null? password?
-                            KeyStore store = KeyStore.getInstance(clientCfg.sslConfiguration().trustStoreType());
-                            store.load(
-                                    Files.newInputStream(Path.of(clientCfg.sslConfiguration().trustStorePath())),
-                                    clientCfg.sslConfiguration().trustStorePassword() == null
-                                            ? null
-                                            : clientCfg.sslConfiguration().trustStorePassword().toCharArray()
-                            );
-
-                            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
-                                    TrustManagerFactory.getDefaultAlgorithm()
-                            );
-                            trustManagerFactory.init(store);
-
-                            var context = SslContextBuilder.forClient()
-                                    .trustManager(trustManagerFactory)
-                                    .build();
-                            ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
-                        } catch (SSLException e) {
-                            throw new RuntimeException(e);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        } catch (CertificateException e) {
-                            throw new RuntimeException(e);
-                        } catch (KeyStoreException e) {
-                            throw new RuntimeException(e);
-                        } catch (NoSuchAlgorithmException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
+                    setupSsl(ch, clientCfg);
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());
@@ -114,6 +83,36 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             workerGroup.shutdownGracefully();
 
             throw t;
+        }
+    }
+
+    private static void setupSsl(SocketChannel ch, IgniteClientConfiguration clientCfg) {
+        if (clientCfg.sslConfiguration().enabled()) {
+            try {
+                String type = clientCfg.sslConfiguration().trustStoreType() == null
+                        ? "PKCS12"
+                        : clientCfg.sslConfiguration().trustStoreType();
+
+                KeyStore store = KeyStore.getInstance(type);
+                store.load(
+                        Files.newInputStream(Path.of(clientCfg.sslConfiguration().trustStorePath())),
+                        clientCfg.sslConfiguration().trustStorePassword() == null
+                                ? null
+                                : clientCfg.sslConfiguration().trustStorePassword().toCharArray()
+                );
+
+                TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                        TrustManagerFactory.getDefaultAlgorithm()
+                );
+                trustManagerFactory.init(store);
+
+                var context = SslContextBuilder.forClient()
+                        .trustManager(trustManagerFactory)
+                        .build();
+                ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
+            } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException e) {
+                throw new IgniteClientConnectionException(CLIENT_SSL_CONFIGURATION_ERR, "Client ssl configuration error", e);
+            }
         }
     }
 

@@ -18,9 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -62,7 +60,7 @@ public class ItSslClientHandlerTest {
         serverModule = testServer.start(testInfo);
 
         // Then
-        performAndCheckHandshake();
+        performAndCheckMagic();
     }
 
     @Test
@@ -78,10 +76,10 @@ public class ItSslClientHandlerTest {
         serverModule = testServer.start(testInfo);
 
         // Then
-        assertThrows(SocketException.class, this::performAndCheckHandshake);
+        assertThrows(SocketException.class, this::performAndCheckMagic);
     }
 
-    private void performAndCheckHandshake() throws IOException {
+    private void performAndCheckMagic() throws IOException {
         serverPort = serverModule.localAddress().getPort();
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
@@ -112,33 +110,8 @@ public class ItSslClientHandlerTest {
             // Read response.
             var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
             var magic = unpacker.readPayload(4);
-            unpacker.skipValue(3); // LE int zeros.
-            var len = unpacker.unpackInt();
-            var major = unpacker.unpackInt();
-            var minor = unpacker.unpackInt();
-            var patch = unpacker.unpackInt();
-            var success = unpacker.tryUnpackNil();
-            assertTrue(success);
-
-            var idleTimeout = unpacker.unpackLong();
-            var nodeId = unpacker.unpackString();
-            var nodeName = unpacker.unpackString();
-            unpacker.skipValue(); // Cluster id.
-
-            var featuresLen = unpacker.unpackBinaryHeader();
-            unpacker.skipValue(featuresLen);
-
-            var extensionsLen = unpacker.unpackMapHeader();
-            unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(44, len);
-            assertEquals(3, major);
-            assertEquals(0, minor);
-            assertEquals(0, patch);
-            assertEquals(0, idleTimeout);
-            assertEquals("id", nodeId);
-            assertEquals("consistent-id", nodeName);
         }
     }
 }

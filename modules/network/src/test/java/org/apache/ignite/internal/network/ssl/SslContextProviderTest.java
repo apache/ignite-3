@@ -104,7 +104,7 @@ class SslContextProviderTest {
 
         // Then
         assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
-        assertThat(thrown.code(), equalTo(Common.ILLEGAL_ARGUMENT_ERR));
+        assertThat(thrown.code(), equalTo(Common.SSL_CONFIGURATION_ERR));
         assertThat(thrown.getMessage(), containsString("File /no/such/file.pfx not found"));
     }
 
@@ -121,7 +121,7 @@ class SslContextProviderTest {
 
         // Then
         assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
-        assertThat(thrown.code(), equalTo(Common.ILLEGAL_ARGUMENT_ERR));
+        assertThat(thrown.code(), equalTo(Common.SSL_CONFIGURATION_ERR));
         assertThat(thrown.getMessage(), containsString("File /no/such/file.pfx not found"));
     }
 
@@ -139,7 +139,7 @@ class SslContextProviderTest {
 
         // Then
         assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
-        assertThat(thrown.code(), equalTo(Common.ILLEGAL_ARGUMENT_ERR));
+        assertThat(thrown.code(), equalTo(Common.SSL_CONFIGURATION_ERR));
         assertThat(thrown.getMessage(), containsString("keystore password was incorrect"));
     }
 
@@ -157,7 +157,7 @@ class SslContextProviderTest {
 
         // Then
         assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
-        assertThat(thrown.code(), equalTo(Common.ILLEGAL_ARGUMENT_ERR));
+        assertThat(thrown.code(), equalTo(Common.SSL_CONFIGURATION_ERR));
         assertThat(thrown.getMessage(), containsString("keystore password was incorrect"));
     }
 }

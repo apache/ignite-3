@@ -50,18 +50,10 @@ public class ServerSslContextProvider implements SslContextProvider {
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keystore, keyStoreView.password().toCharArray());
             return SslContextBuilder.forServer(keyManagerFactory).build();
-        } catch (KeyStoreException e) {
-            throw new RuntimeException(e);
-        } catch (UnrecoverableKeyException e) {
-            throw new RuntimeException(e);
-        } catch (CertificateException e) {
-            throw new RuntimeException(e);
         } catch (NoSuchFileException e) {
-            throw new IgniteException(Common.ILLEGAL_ARGUMENT_ERR, String.format("File %s not found", keyStoreView.path()), e);
-        } catch (IOException e) {
-            throw new IgniteException(Common.ILLEGAL_ARGUMENT_ERR, e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", keyStoreView.path()), e);
+        } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | IOException e) {
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, e);
         }
     }
 }

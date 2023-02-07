@@ -39,6 +39,9 @@ public class ErrorGroups {
         /** Illegal argument or argument in a wrong format has been passed. */
         public static final int ILLEGAL_ARGUMENT_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
 
+        /** Ssl can not be configured error. */
+        public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(5);
+
         /** Unknown error. */
         @Deprecated
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
@@ -93,6 +96,9 @@ public class ErrorGroups {
 
         /** Cluster ID mismatch error. */
         public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode(8);
+
+        /** Client ssl configuration error. */
+        public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(9);
     }
 
     /** SQL error group. */

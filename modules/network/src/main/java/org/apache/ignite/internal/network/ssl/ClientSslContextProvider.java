@@ -57,15 +57,9 @@ public class ClientSslContextProvider implements SslContextProvider {
                     .trustManager(trustManagerFactory)
                     .build();
         } catch (NoSuchFileException e) {
-            throw new IgniteException(Common.ILLEGAL_ARGUMENT_ERR, String.format("File %s not found", trustStoreView.path()), e);
-        } catch (IOException e) {
-            throw new IgniteException(Common.ILLEGAL_ARGUMENT_ERR, e);
-        } catch (CertificateException e) {
-            throw new RuntimeException(e);
-        } catch (KeyStoreException e) {
-            throw new RuntimeException(e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", trustStoreView.path()), e);
+        } catch (IOException | CertificateException | KeyStoreException | NoSuchAlgorithmException e) {
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, e);
         }
     }
 }
