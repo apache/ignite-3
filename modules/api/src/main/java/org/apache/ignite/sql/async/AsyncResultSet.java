@@ -21,7 +21,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,9 +49,14 @@ import org.jetbrains.annotations.Nullable;
  *      }
  * </code></pre>
  *
+ * @param <T> A type of the objects contained by this result set (when row set is present). This will be either {@link SqlRow}
+ *     if no explicit mapper is provided or a particular type defined by supplied mapper.
+ *
  * @see ResultSet
+ * @see Session#executeAsync(Transaction, String, Object...)
+ * @see Session#executeAsync(Transaction, Mapper, String, Object...)
  */
-public interface AsyncResultSet {
+public interface AsyncResultSet<T> {
     /**
      * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}), or {@code null} if
      * inapplicable.
@@ -98,7 +106,7 @@ public interface AsyncResultSet {
      * @return Iterable over rows.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    Iterable<SqlRow> currentPage();
+    Iterable<T> currentPage();
 
     /**
      * Returns the current page size if the query return rows.
@@ -118,7 +126,7 @@ public interface AsyncResultSet {
      * @return Operation future.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
      */
-    CompletableFuture<? extends AsyncResultSet> fetchNextPage();
+    CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
 
     /**
      * Returns whether there are more pages of results.

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.schema;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -388,7 +389,7 @@ public class SqlSchemaManagerTest {
          * Moves forward token.
          */
         void moveForward() {
-            moveRevision.apply(token.incrementAndGet()).join();
+            await(moveRevision.apply(token.incrementAndGet()));
         }
 
         /**

@@ -55,7 +55,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testExecuteAsync() {
         Session session = client.sql().createSession();
-        AsyncResultSet resultSet = session.executeAsync(null, "SELECT 1").join();
+        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, "SELECT 1").join();
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -68,7 +68,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testExecute() {
         Session session = client.sql().createSession();
-        ResultSet resultSet = session.execute(null, "SELECT 1");
+        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT 1");
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -87,7 +87,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .property("prop2", "2")
                 .build();
 
-        AsyncResultSet resultSet = session.executeAsync(null, "SELECT PROPS").join();
+        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, "SELECT PROPS").join();
 
         Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
@@ -118,7 +118,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .property("prop3", "3")
                 .build();
 
-        AsyncResultSet resultSet = session.executeAsync(null, statement).join();
+        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, statement).join();
 
         Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
@@ -134,7 +134,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testMetadata() {
         Session session = client.sql().createSession();
-        ResultSet resultSet = session.execute(null, "SELECT META");
+        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT META");
         ResultSetMetadata meta = resultSet.metadata();
         SqlRow row = resultSet.next();
 

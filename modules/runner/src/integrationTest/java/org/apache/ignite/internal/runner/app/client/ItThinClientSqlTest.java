@@ -38,10 +38,12 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client SQL integration test.
@@ -49,7 +51,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteAsyncSimpleSelect() {
-        AsyncResultSet resultSet = client().sql()
+        AsyncResultSet<SqlRow> resultSet = client().sql()
                 .createSession()
                 .executeAsync(null, "select 1 as num, 'hello' as str")
                 .join();
@@ -75,7 +77,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteSimpleSelect() {
-        ResultSet resultSet = client().sql()
+        ResultSet<SqlRow> resultSet = client().sql()
                 .createSession()
                 .execute(null, "select 1 as num, 'hello' as str");
 
@@ -147,7 +149,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             ses.execute(null, "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
         }
 
-        ResultSet selectRes = ses.execute(null, "SELECT * FROM testExecuteDdlDml ORDER BY ID");
+        ResultSet<SqlRow> selectRes = ses.execute(null, "SELECT * FROM testExecuteDdlDml ORDER BY ID");
 
         var rows = new ArrayList<SqlRow>();
         selectRes.forEachRemaining(rows::add);
@@ -187,7 +189,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         }
 
         // Query data.
-        AsyncResultSet selectRes = session
+        AsyncResultSet<SqlRow> selectRes = session
                 .executeAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
                 .join();
 
@@ -255,7 +257,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         }
 
         // Query data.
-        ResultSet selectRes = session
+        ResultSet<SqlRow> selectRes = session
                 .execute(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteDdlDml ORDER BY ID");
 
         assertTrue(selectRes.hasRowSet());
@@ -321,7 +323,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         Statement statement = client().sql().statementBuilder().pageSize(4).query("SELECT ID FROM testFetchNextPage ORDER BY ID").build();
 
-        AsyncResultSet asyncResultSet = session.executeAsync(null, statement).join();
+        AsyncResultSet<SqlRow> asyncResultSet = session.executeAsync(null, statement).join();
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
@@ -352,7 +354,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("IGNITE-16952")
     void testTransactionRollbackRevertsSqlUpdate() {
         Session session = client().sql().createSession();
 
@@ -365,5 +366,60 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         var res = session.executeAsync(null, "SELECT VAL FROM testTx").join();
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testResultSetMapping(boolean useStatement) {
+        Session session = client().sql().createSession();
+        String query = "select 123 + ? as num, 'Hello!' as str";
+
+        ResultSet<Pojo> resultSet = useStatement
+                ? session.execute(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), 10)
+                : session.execute(null, Mapper.of(Pojo.class), query, 10);
+
+        assertTrue(resultSet.hasRowSet());
+
+        Pojo row = resultSet.next();
+
+        assertEquals(133, row.num);
+        assertEquals("Hello!", row.str);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testResultSetMappingAsync(boolean useStatement) {
+        Session session = client().sql().createSession();
+        String query = "select 1 as num, concat('hello ', ?) as str";
+
+        AsyncResultSet<Pojo> resultSet = useStatement
+                ? session.executeAsync(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), "world").join()
+                : session.executeAsync(null, Mapper.of(Pojo.class), query, "world").join();
+
+        assertTrue(resultSet.hasRowSet());
+        assertEquals(1, resultSet.currentPageSize());
+
+        Pojo row = resultSet.currentPage().iterator().next();
+
+        assertEquals(1, row.num);
+        assertEquals("hello world", row.str);
+    }
+
+
+    @Test
+    void testResultSetMappingColumnNameMismatch() {
+        String query = "select 1 as foo, 2 as bar";
+
+        ResultSet<Pojo> resultSet = client().sql().createSession().execute(null, Mapper.of(Pojo.class), query);
+        Pojo row = resultSet.next();
+
+        assertEquals(0, row.num);
+        assertNull(row.str);
+    }
+
+    private static class Pojo {
+        public long num;
+
+        public String str;
     }
 }

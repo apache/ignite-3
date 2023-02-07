@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
-
-import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
@@ -28,10 +26,14 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,7 +44,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** Table that provides access to underlying data. */
     private final InternalTable physTable;
 
-    private final int[] parts;
+    /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
+    private final Collection<PartitionWithTerm> partsWithTerms;
 
     /**
      * Constructor.
@@ -50,7 +53,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param schemaTable The table this node should scan.
-     * @param parts Partition numbers to scan.
+     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -59,31 +62,37 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             InternalIgniteTable schemaTable,
-            int[] parts,
+            Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
         super(ctx, rowFactory, schemaTable, filters, rowTransformer, requiredColumns);
 
-        assert !nullOrEmpty(parts);
+        assert partsWithTerms != null && !partsWithTerms.isEmpty();
 
         this.physTable = schemaTable.table();
-        this.parts = parts;
+        this.partsWithTerms = partsWithTerms;
     }
 
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        boolean roTx = context().transactionTime() != null;
-
+        InternalTransaction tx = context().transaction();
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                Arrays.stream(parts).iterator(), part -> {
+                partsWithTerms.iterator(), partWithTerm -> {
             Publisher<BinaryRow> pub;
-            if (roTx) {
-                pub = physTable.scan(part, context().transactionTime(), context().localNode());
+
+            if (tx.isReadOnly()) {
+                pub = physTable.scan(partWithTerm.partId(), tx.readTimestamp(), context().localNode());
+            } else if (!(tx instanceof LocalTxAttributesHolder)) {
+                // TODO IGNITE-17952 This block should be removed.
+                // Workaround to make RW scan work from tx coordinator.
+                pub = physTable.scan(partWithTerm.partId(), tx);
             } else {
-                pub = physTable.scan(part, context().transaction());
+                PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.term());
+
+                pub = physTable.scan(partWithTerm.partId(), tx.id(), recipient, null, null, null, 0, null);
             }
 
             return convertPublisher(pub);

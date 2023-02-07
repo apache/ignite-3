@@ -46,7 +46,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -82,14 +81,14 @@ public class RebalanceUtil {
      *
      * @param tableName Table name.
      * @param partId Unique identifier of a partition.
-     * @param baselineNodes Nodes in baseline.
+     * @param dataNodes Data nodes.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName, TablePartitionId partId, Collection<ClusterNode> baselineNodes,
+            String tableName, TablePartitionId partId, Collection<String> dataNodes,
             int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
@@ -99,7 +98,7 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
 
@@ -341,14 +340,14 @@ public class RebalanceUtil {
      * If there is rebalancing in progress, then new assignments will be applied when rebalance finishes.
      *
      * @param metaStorageMgr MetaStorage manager.
-     * @param baselineNodes Baseline nodes.
+     * @param dataNodes Data nodes.
      * @param replicas Replicas count.
      * @param partNum Number of the partition.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<ClusterNode> baselineNodes,
+    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
             int replicas, int partNum, TablePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
@@ -359,7 +358,7 @@ public class RebalanceUtil {
             return CompletableFuture.completedFuture(null);
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

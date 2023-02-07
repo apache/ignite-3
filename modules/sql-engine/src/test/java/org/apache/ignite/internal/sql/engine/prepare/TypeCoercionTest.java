@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIntervalQualifier;
@@ -49,8 +50,11 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests type coercion behaviour.
@@ -72,7 +76,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("booleanToNumeric")
     public void testBooleanToNumeric(TypeCoercionRule rule) {
-        Tester tester = new Tester(rule);
+        var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
 
@@ -91,7 +95,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("varCharToNumeric")
     public void testVarCharToNumeric(TypeCoercionRule rule) {
-        Tester tester = new Tester(rule);
+        var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
 
@@ -119,7 +123,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("numericCoercionRules")
     public void testTypeCoercionBetweenNumericTypes(TypeCoercionRule rule) {
-        Tester tester = new Tester(rule);
+        var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
 
@@ -142,7 +146,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("numericToInterval")
     public void testNumericToInterval(TypeCoercionRule rule) {
-        Tester tester = new Tester(rule);
+        var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
 
@@ -182,7 +186,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         Assumptions.assumeFalse(tinyIntDate || smallIntDate || bigIntDate || intDate);
         Assumptions.assumeFalse(decimalDateLhsIsDecimal);
 
-        Tester tester = new Tester(rule);
+        var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
 
@@ -201,7 +205,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("varcharToInterval")
     public void testTypeCoercionBetweenIntervalAndVarchar(TypeCoercionRule rule) {
-        Tester tester = new Tester(rule);
+        var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
 
@@ -217,11 +221,49 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         return numericRules.stream();
     }
 
-    private final class Tester {
+    @Test
+    public void testCaseWhenExpression() {
+        RelDataType decimal = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 11, 1);
+
+        checkExprResult("COALESCE(12.2, 2)", decimal);
+        checkExprResult("COALESCE(2, 12.2)", decimal);
+    }
+
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "COALESCE('b', 2)",
+            "COALESCE(2, 'b')",
+            "COALESCE(2, COALESCE('b', 2))",
+            "COALESCE(2, COALESCE(2, 'b'))",
+            "COALESCE('b', COALESCE(2, 3))",
+    })
+    public void testCaseWhenExpressionWithMixedTypesIsRejected(String expr) {
+        checkExprResultFails(expr, "Illegal mixing of types in CASE or COALESCE statement");
+    }
+
+    @Test
+    public void testNullIf() {
+        RelDataType decimal = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 1);
+        checkExprResult("NULLIF(12.2, 2)", nullable(decimal));
+    }
+
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18559")
+    public void testNullIfWithMixedTypesIsRejected() {
+        checkExprResultFails("NULLIF(12.2, 'b')", "Illegal mixing of types in CASE or COALESCE statement");
+    }
+
+    private final class BinaryOpTypeCoercionTester {
 
         final TypeCoercionRule rule;
 
-        private Tester(TypeCoercionRule rule) {
+        private BinaryOpTypeCoercionTester(TypeCoercionRule rule) {
             this.rule = rule;
         }
 
@@ -238,14 +280,14 @@ public class TypeCoercionTest extends AbstractPlannerTest {
                 throw new IllegalStateException("rule type is not specified");
             }
 
-            runTest(rule, (planner, node) -> {
+            runBinaryOpTypeCoercionTest(rule, (planner, node) -> {
                 SqlNode validNode = planner.validate(node);
                 SqlSelect sqlSelect = (SqlSelect) validNode;
                 String originalExpr = String.format("`A`.`C1` %s `A`.`C2`", rule.operator.getName());
 
                 SqlCall sqlBasicCall = (SqlCall) sqlSelect.getSelectList().get(0);
                 boolean coerced = !originalExpr.equals(sqlBasicCall.toString());
-                checkResult(sqlBasicCall, rule.lhs, rule.rhs, rule.operator, coerced, rule.type);
+                checkBinaryOpTypeCoercionResult(sqlBasicCall, rule.lhs, rule.rhs, rule.operator, coerced, rule.type);
             });
         }
 
@@ -254,7 +296,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
                 throw new IllegalStateException("rule type is specified. Call expectCoercion instead.");
             }
 
-            runTest(rule, (planner, node) -> {
+            runBinaryOpTypeCoercionTest(rule, (planner, node) -> {
                 String error = String.format("Cannot apply '%s' to arguments of type '<%s> %s <%s>",
                         rule.operator.getName(), rule.lhs, rule.operator.getName(), rule.rhs
                 );
@@ -262,33 +304,46 @@ public class TypeCoercionTest extends AbstractPlannerTest {
                 assertThat(e.getMessage(), containsString(error));
             });
         }
+    }
 
-        private void runTest(TypeCoercionRule rule, BiConsumer<IgnitePlanner, SqlNode> testCase) {
-            RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                    .add("C1", rule.lhs)
-                    .add("C2", rule.rhs)
-                    .build();
+    private void runBinaryOpTypeCoercionTest(TypeCoercionRule rule, BiConsumer<IgnitePlanner, SqlNode> testCase) {
+        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
+                .add("C1", rule.lhs)
+                .add("C2", rule.rhs)
+                .build();
 
+        String dummyQuery = String.format("SELECT c1 %s c2 FROM A", rule.operator.getName());
+        runTest(dummyQuery, testCase, tableType);
+    }
+
+    private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase) {
+        runTest(query, testCase, null);
+    }
+
+    private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase, @Nullable RelDataType tableType) {
+        IgniteSchema igniteSchema;
+        if (tableType != null) {
             TestTable testTable = createTable("A", tableType, DEFAULT_TBL_SIZE, IgniteDistributions.single());
-            IgniteSchema igniteSchema = createSchema(testTable);
+            igniteSchema = createSchema(testTable);
+        } else {
+            igniteSchema = createSchema();
+        }
 
-            String dummyQuery = String.format("SELECT c1 %s c2 FROM A", rule.operator.getName());
-            PlanningContext planningCtx = plannerCtx(dummyQuery, igniteSchema);
+        PlanningContext planningCtx = plannerCtx(query, igniteSchema);
 
-            try (IgnitePlanner planner = planningCtx.planner()) {
-                SqlNode node;
-                try {
-                    node = planner.parse(dummyQuery);
-                } catch (SqlParseException e) {
-                    throw new IllegalStateException("Unable to parse a query: " + dummyQuery, e);
-                }
-
-                testCase.accept(planner, node);
+        try (IgnitePlanner planner = planningCtx.planner()) {
+            SqlNode node;
+            try {
+                node = planner.parse(query);
+            } catch (SqlParseException e) {
+                throw new IllegalStateException("Unable to parse a query: " + query, e);
             }
+
+            testCase.accept(planner, node);
         }
     }
 
-    private static void checkResult(SqlCall sqlCall, RelDataType lhs, RelDataType rhs,
+    private static void checkBinaryOpTypeCoercionResult(SqlCall sqlCall, RelDataType lhs, RelDataType rhs,
             SqlOperator operator, boolean coerced, TypeCoercionRuleType ruleType) {
 
         String originalExpression = sqlCall.toString();
@@ -319,6 +374,46 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
             assertTrue(coerced, "should have been coerced. Expr: " + sqlCall);
             assertEquals(expectedExpr, sqlCall.toString(), "expression with casts");
+        }
+    }
+
+    private void checkExprResult(String expr, RelDataType expectedType) {
+        IgniteSchema igniteSchema = createSchema();
+        String query = "SELECT " + expr;
+        PlanningContext planningCtx = plannerCtx(query, igniteSchema);
+
+        try (IgnitePlanner planner = planningCtx.planner()) {
+            SqlNode sqlNode;
+            try {
+                sqlNode = planner.parse(query);
+            } catch (SqlParseException e) {
+                throw new IllegalStateException("Unable to parse a query: " + query, e);
+            }
+            sqlNode = planner.validate(sqlNode);
+
+            RelDataType actualType = planner.validator().getValidatedNodeType(sqlNode);
+            RelDataTypeField firstField = actualType.getFieldList().get(0);
+            RelDataType firstFieldType = firstField.getType();
+
+            assertEquals(expectedType, firstFieldType, sqlNode.toString());
+        }
+    }
+
+    private void checkExprResultFails(String expr, String errorMessage) {
+        IgniteSchema igniteSchema = createSchema();
+        String query = "SELECT " + expr;
+        PlanningContext planningCtx = plannerCtx(query, igniteSchema);
+
+        try (IgnitePlanner planner = planningCtx.planner()) {
+            SqlNode sqlNode;
+            try {
+                sqlNode = planner.parse(query);
+            } catch (SqlParseException e) {
+                throw new IllegalStateException("Unable to parse a query: " + query, e);
+            }
+
+            var err = assertThrows(CalciteContextException.class, () -> planner.validate(sqlNode));
+            assertThat(err.getMessage(), containsString(errorMessage));
         }
     }
 
@@ -411,5 +506,9 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         public String toString() {
             return S.toString(ToSpecificType.class, this);
         }
+    }
+
+    private static RelDataType nullable(RelDataType relDataType) {
+        return TYPE_FACTORY.createTypeWithNullability(relDataType, true);
     }
 }

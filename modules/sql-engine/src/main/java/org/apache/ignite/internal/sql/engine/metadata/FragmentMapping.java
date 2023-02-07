@@ -156,7 +156,7 @@ public class FragmentMapping implements Serializable {
 
         List<ColocationGroup> colocationGroups = this.colocationGroups;
 
-        colocationGroups = Commons.transform(colocationGroups, ColocationGroup::finalaze);
+        colocationGroups = Commons.transform(colocationGroups, ColocationGroup::complete);
 
         List<String> nodes = nodeNames();
         List<String> nodes0 = nodes.isEmpty() ? nodesSource.get() : nodes;

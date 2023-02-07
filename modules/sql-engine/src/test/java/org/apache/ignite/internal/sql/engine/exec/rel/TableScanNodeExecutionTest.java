@@ -21,23 +21,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -48,12 +50,11 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -72,7 +73,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
-        int[] parts = {0, 1, 2};
+        List<PartitionWithTerm> partsWithTerms = Stream.of(0, 1, 2)
+                .map(p -> new PartitionWithTerm(p, -1L))
+                .collect(Collectors.toList());
 
         int probingCnt = 50;
 
@@ -93,7 +96,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
             dataAmount = size;
 
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, parts, null, null, null);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, tbl, partsWithTerms, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 
@@ -106,7 +109,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                 ++cnt;
             }
 
-            assertEquals(sizes[i++] * parts.length, cnt);
+            assertEquals(sizes[i++] * partsWithTerms.size(), cnt);
         }
     }
 
@@ -161,29 +164,39 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
         }
 
         @Override
-        protected CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
-                @NotNull InternalTransaction tx,
+        public Publisher<BinaryRow> scan(
                 int partId,
-                long scanId,
-                int batchSize,
+                UUID txId,
+                PrimaryReplica recipient,
                 @Nullable UUID indexId,
-                @Nullable BinaryTuple exactKey,
                 @Nullable BinaryTuplePrefix lowerBound,
                 @Nullable BinaryTuplePrefix upperBound,
                 int flags,
                 @Nullable BitSet columnsToInclude
         ) {
-            int fillAmount = Math.min(dataAmount - processedPerPart[partId], batchSize);
+            return s -> {
+                s.onSubscribe(new Subscription() {
+                    @Override
+                    public void request(long n) {
+                        int fillAmount = Math.min(dataAmount - processedPerPart[partId], (int) n);
 
-            Collection<BinaryRow> out = new ArrayList<>(fillAmount);
+                        processedPerPart[partId] += fillAmount;
 
-            for (int i = 0; i < fillAmount; ++i) {
-                out.add(bbRow);
-            }
+                        for (int i = 0; i < fillAmount; ++i) {
+                            s.onNext(bbRow);
+                        }
 
-            processedPerPart[partId] += fillAmount;
+                        if (processedPerPart[partId] == dataAmount) {
+                            s.onComplete();
+                        }
+                    }
 
-            return CompletableFuture.completedFuture(out);
+                    @Override
+                    public void cancel() {
+                        // No-op.
+                    }
+                });
+            };
         }
     }
 }

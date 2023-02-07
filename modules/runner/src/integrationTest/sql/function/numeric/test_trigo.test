@@ -332,6 +332,8 @@ SELECT cast(ACOS(n::double)*1000 as bigint) FROM numbers  WHERE n between -1 and
 1570
 0
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18672
 statement error
 SELECT cast(ASIN(n)*1000 as bigint) FROM numbers ORDER BY n
 

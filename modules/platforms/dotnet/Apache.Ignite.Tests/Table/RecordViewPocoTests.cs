@@ -782,6 +782,19 @@ namespace Apache.Ignite.Tests.Table
                 ex!.Message);
         }
 
+        [Test]
+        public async Task TestContainsKey()
+        {
+            var keyPoco = GetPoco(1);
+            var poco = GetPoco(1, "foo");
+
+            await PocoView.UpsertAsync(null, poco);
+
+            Assert.IsTrue(await PocoView.ContainsKeyAsync(null, keyPoco));
+            Assert.IsTrue(await PocoView.ContainsKeyAsync(null, poco));
+            Assert.IsFalse(await PocoView.ContainsKeyAsync(null, GetPoco(-128)));
+        }
+
         // ReSharper disable once NotAccessedPositionalProperty.Local
         private record UnsupportedByteType(byte Int8);
     }

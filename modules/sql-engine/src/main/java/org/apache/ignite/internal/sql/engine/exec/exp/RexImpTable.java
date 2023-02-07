@@ -170,6 +170,9 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.TRUNCATE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UNARY_MINUS;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UNARY_PLUS;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.GREATEST2;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.LEAST2;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.NULL_BOUND;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
 
@@ -499,6 +502,10 @@ public class RexImpTable {
         map.put(LOCALTIMESTAMP, systemFunctionImplementor);
 
         map.put(TYPEOF, systemFunctionImplementor);
+        map.put(NULL_BOUND, systemFunctionImplementor);
+
+        defineMethod(LEAST2, IgniteMethod.LEAST2.method(), NullPolicy.ALL);
+        defineMethod(GREATEST2, IgniteMethod.GREATEST2.method(), NullPolicy.ALL);
 
         // Operator IS_NOT_DISTINCT_FROM is removed by RexSimplify, but still possible in join conditions, so
         // implementation required.
@@ -1653,6 +1660,8 @@ public class RexImpTable {
                 assert call.getOperands().size() == 1 : call.getOperands();
 
                 return Expressions.constant(call.getOperands().get(0).getType().toString());
+            } else if (op == NULL_BOUND) {
+                return Expressions.call(root, IgniteMethod.CONTEXT_NULL_BOUND.method());
             }
 
             throw new AssertionError("unknown function " + op);

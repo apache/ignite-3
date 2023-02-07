@@ -19,14 +19,18 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
@@ -50,7 +54,7 @@ import org.mockito.stubbing.Answer;
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     /** Holder of the result of the invoked method. */
-    private final AtomicReference<Object> invocationResultHolder = new AtomicReference<>();
+    private final AtomicReference<Object[]> invocationResultHolder = new AtomicReference<>();
 
     @Mock
     private TableManager tableManager;
@@ -69,7 +73,8 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     void before() {
         DistributionZoneManager distributionZoneManager = Mockito.mock(DistributionZoneManager.class,
                 (Answer<CompletableFuture<Void>>) invocationOnMock -> {
-                    invocationResultHolder.set(invocationOnMock.getArgument(0));
+                    Object[] arguments = invocationOnMock.getArguments();
+                    invocationResultHolder.set(Arrays.copyOf(arguments, arguments.length, Object[].class));
 
                     return CompletableFuture.completedFuture(null);
                 });
@@ -83,7 +88,8 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName("test_zone");
 
-        DistributionZoneConfigurationParameters params = invokeHandler(cmd);
+        invokeHandler(cmd);
+        DistributionZoneConfigurationParameters params = getArgument(0);
 
         assertNotNull(params);
         assertThat(params.name(), equalTo(cmd.zoneName()));
@@ -110,7 +116,8 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         cmdValidArguments1.zoneName(name);
         cmdValidArguments1.dataNodesAutoAdjust(autoAdjust);
 
-        DistributionZoneConfigurationParameters params = invokeHandler(cmdValidArguments1);
+        invokeHandler(cmdValidArguments1);
+        DistributionZoneConfigurationParameters params = getArgument(0);
 
         assertNotNull(params);
         assertThat(params.dataNodesAutoAdjust(), equalTo(autoAdjust));
@@ -121,10 +128,58 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         cmdValidArguments2.dataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
         cmdValidArguments2.dataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
 
-        params = invokeHandler(cmdValidArguments2);
+        invokeHandler(cmdValidArguments2);
+        params = getArgument(0);
 
         assertThat(params.dataNodesAutoAdjustScaleUp(), equalTo(autoAdjustScaleUp));
         assertThat(params.dataNodesAutoAdjustScaleDown(), equalTo(autoAdjustScaleDown));
+    }
+
+    @Test
+    public void testRenameZone() {
+        String name = "test_zone";
+        String newName = "new_test_zone";
+
+        AlterZoneRenameCommand renameCmd = new AlterZoneRenameCommand();
+        renameCmd.zoneName(name);
+        renameCmd.newZoneName(newName);
+        invokeHandler(renameCmd);
+
+        String zoneName = getArgument(0);
+        DistributionZoneConfigurationParameters params = getArgument(1);
+
+        assertEquals(name, zoneName);
+        assertEquals(newName, params.name());
+    }
+
+    @Test
+    public void testAlterZone() {
+        String name = "test_zone";
+        int autoAdjust = 1;
+        int autoAdjustScaleUp = 2;
+        int autoAdjustScaleDown = 3;
+
+        // Valid options combination.
+        AlterZoneSetCommand cmdValidArguments1 = new AlterZoneSetCommand();
+        cmdValidArguments1.zoneName(name);
+        cmdValidArguments1.dataNodesAutoAdjust(autoAdjust);
+
+        invokeHandler(cmdValidArguments1);
+
+        assertEquals(name, getArgument(0));
+        DistributionZoneConfigurationParameters params = getArgument(1);
+
+        assertNotNull(params);
+        assertThat(params.dataNodesAutoAdjust(), equalTo(autoAdjust));
+
+        // Invalid options combination.
+        AlterZoneSetCommand cmdInvalidOptions = new AlterZoneSetCommand();
+        cmdInvalidOptions.zoneName(name);
+        cmdInvalidOptions.dataNodesAutoAdjust(autoAdjust);
+        cmdInvalidOptions.dataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
+        cmdInvalidOptions.dataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
+
+        assertThrows(IllegalArgumentException.class, () -> invokeHandler(cmdInvalidOptions));
     }
 
     @Test
@@ -132,13 +187,27 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         DropZoneCommand cmd = new DropZoneCommand();
         cmd.zoneName("test_zone");
 
-        String name = invokeHandler(cmd);
+        invokeHandler(cmd);
+
+        String name = getArgument(0);
         assertThat(name, equalTo(cmd.zoneName()));
     }
 
-    private <T> T invokeHandler(DdlCommand cmd) {
+    private void invokeHandler(DdlCommand cmd) {
         commandHandler.handle(cmd);
+    }
 
-        return (T) invocationResultHolder.get();
+    private <T> T getArgument(int index) {
+        Object[] arguments = invocationResultHolder.get();
+        if (index >= arguments.length) {
+            String errorMessage = String.format(
+                    "DistributionZoneManager has been called with the following arguments: %s"
+                            + "The index %d is out of bounds for the arguments array of size %d.",
+                    Arrays.toString(arguments), index, arguments.length);
+
+            throw new IllegalArgumentException(errorMessage);
+        }
+
+        return (T) arguments[index];
     }
 }

@@ -79,9 +79,13 @@ SELECT i, i=ANY(SELECT i FROM integers WHERE 1=0 AND i1.i=i) AS j FROM integers 
 NULL	false
 
 # subquery with OFFSET is not supported
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18664
 statement error
 SELECT i, (SELECT i+i1.i FROM integers LIMIT 1 OFFSET 1) AS j FROM integers i1 ORDER BY i;
 
+# subquery with ORDER BY is not supported
+skipif ignite3
 # subquery with ORDER BY is not supported
 statement error
 SELECT i, (SELECT i+i1.i FROM integers ORDER BY 1 LIMIT 1 OFFSET 1) AS j FROM integers i1 ORDER BY i;

@@ -43,6 +43,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -56,9 +57,13 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigura
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -107,11 +112,12 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testInsertWaitScanComplete() throws Exception {
+        int partId = 0;
         TableImpl table = getOrCreateTable();
         IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
 
         InternalTransaction tx0 = (InternalTransaction) transactions.begin();
-        InternalTransaction tx1 = (InternalTransaction) transactions.begin();
+        InternalTransaction tx1 = startTxWithEnlistedPartition(partId);
 
         InternalTable internalTable = table.internalTable();
 
@@ -119,7 +125,11 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         ArrayList<BinaryRow> scannedRows = new ArrayList<>();
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, tx1, sortedIndexId, null, null, 0, null);
+        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx1.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+
+        Publisher<BinaryRow> publisher = internalTable.scan(partId, tx1.id(), recipient, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -459,9 +469,15 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         ArrayList<BinaryRow> scannedRows = new ArrayList<>();
 
-        InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
+        int partId = 0;
 
-        Publisher<BinaryRow> publisher = internalTable.scan(0, tx, sortedIndexId, null, null, 0, null);
+        InternalTransaction tx = startTxWithEnlistedPartition(partId);
+
+        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
+
+        Publisher<BinaryRow> publisher = internalTable.scan(partId, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -487,7 +503,7 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        var publisher1 = internalTable.scan(0, tx, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher1 = internalTable.scan(0, tx.id(), recipient, sortedIndexId, null, null, 0, null);
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
 
@@ -515,11 +531,16 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
 
         UUID soredIndexId = getSortedIndexId();
 
-        InternalTransaction tx = (InternalTransaction) CLUSTER_NODES.get(0).transactions().begin();
+        int partId = 0;
+
+        InternalTransaction tx = startTxWithEnlistedPartition(partId);
+        IgniteBiTuple<ClusterNode, Long> leaderWithTerm = tx.enlistedNodeAndTerm(new TablePartitionId(table.tableId(), partId));
+        PrimaryReplica recipient = new PrimaryReplica(leaderWithTerm.get1(), leaderWithTerm.get2());
 
         Publisher<BinaryRow> publisher = internalTable.scan(
-                0,
-                tx,
+                partId,
+                tx.id(),
+                recipient,
                 soredIndexId,
                 lowBound,
                 upperBound,
@@ -540,8 +561,9 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
                 kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")));
 
         Publisher<BinaryRow> publisher1 = internalTable.scan(
-                0,
-                tx,
+                partId,
+                tx.id(),
+                recipient,
                 soredIndexId,
                 lowBound,
                 upperBound,
@@ -762,5 +784,27 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
         rowBuilder.appendInt(id);
 
         return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+    }
+
+    /**
+     * Starts an RW transaction and enlists the specified partition in it.
+     *
+     * @param partId Partition ID.
+     * @return Transaction.
+     */
+    private InternalTransaction startTxWithEnlistedPartition(int partId) {
+        Ignite ignite = CLUSTER_NODES.get(0);
+
+        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin();
+
+        InternalTable table = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
+        TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
+        RaftGroupService raftSvc = table.partitionRaftGroupService(partId);
+        long term = IgniteTestUtils.await(raftSvc.refreshAndGetLeaderWithTerm()).term();
+
+        tx.assignCommitPartition(tblPartId);
+        tx.enlist(tblPartId, new IgniteBiTuple<>(table.leaderAssignment(partId), term));
+
+        return tx;
     }
 }
