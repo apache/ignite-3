@@ -22,6 +22,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <climits>
 
 namespace ignite {
 
@@ -46,6 +47,16 @@ public:
         , m_data(data.begin(), data.end()) { }
 
     /**
+     * Construct a new bit_array from raw data.
+     * All bits are considered valid.
+     *
+     * @param data Data.
+     */
+    explicit bit_array(bytes_view data)
+        : m_size(std::int32_t(data.size() * CHAR_BIT))
+        , m_data(data.begin(), data.end()) { }
+
+    /**
      * Construct a new bit_array of specified size with all bits set to @c value.
      *
      * @param size Size in bits.
@@ -53,7 +64,7 @@ public:
      */
     explicit bit_array(std::int32_t size, bool value = false)
         : m_size(size)
-        , m_data((size + 7) / 8, value ? std::byte(0xFF) : std::byte()) { }
+        , m_data((size + (CHAR_BIT - 1)) / CHAR_BIT, value ? std::byte(0xFF) : std::byte()) { }
 
     /**
      * Tests a specified bit.
@@ -63,8 +74,8 @@ public:
      */
     [[nodiscard]] bool test(std::int32_t index) const {
         check_index(index);
-        std::size_t byte_index = index / 8;
-        std::size_t bit_index = index % 8;
+        std::size_t byte_index = index / CHAR_BIT;
+        std::size_t bit_index = index % CHAR_BIT;
         return int(m_data[byte_index]) & (1 << bit_index);
     }
 
@@ -76,8 +87,8 @@ public:
      */
     void set(std::int32_t index, bool value) {
         check_index(index);
-        std::size_t byte_index = index / 8;
-        std::size_t bit_index = index % 8;
+        std::size_t byte_index = index / CHAR_BIT;
+        std::size_t bit_index = index % CHAR_BIT;
         if (value)
             m_data[byte_index] |= std::byte(1 << bit_index);
         else

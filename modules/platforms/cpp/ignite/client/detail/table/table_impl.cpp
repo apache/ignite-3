@@ -85,7 +85,7 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t i
             builder.claim_timestamp(tuple.get<ignite_timestamp>(index));
             break;
         case ignite_type::BITMASK:
-            // TODO: IGNITE-18035 Support bitmask
+            builder.claim_bytes(tuple.get<bit_array>(index).get_raw());
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
@@ -147,7 +147,7 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, std::int32_t 
             builder.append_timestamp(tuple.get<ignite_timestamp>(index));
             break;
         case ignite_type::BITMASK:
-            // TODO: IGNITE-18035 Support bitmask
+            builder.append_bytes(tuple.get<bit_array>(index).get_raw());
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }

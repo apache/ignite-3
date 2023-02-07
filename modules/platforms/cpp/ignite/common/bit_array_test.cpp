@@ -167,6 +167,20 @@ TEST(bit_array, different_long) {
     check_index_out_of_bounds(value, -1);
 }
 
+TEST(bit_array, from_raw_empty) {
+    std::vector<std::byte> raw;
+    bit_array value(raw);
+
+    EXPECT_TRUE(value.is_empty());
+    EXPECT_TRUE(value.get_raw().empty());
+
+    EXPECT_EQ(value.get_size(), 0);
+    EXPECT_EQ(value.get_raw().size(), 0);
+
+    check_index_out_of_bounds(value, 0);
+    check_index_out_of_bounds(value, -1);
+}
+
 TEST(bit_array, from_raw) {
     std::vector<std::byte> raw;
     raw.push_back(std::byte(0));

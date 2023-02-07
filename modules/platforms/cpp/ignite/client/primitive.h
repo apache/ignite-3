@@ -26,6 +26,7 @@
 #include "ignite/common/ignite_date_time.h"
 #include "ignite/common/ignite_time.h"
 #include "ignite/common/ignite_timestamp.h"
+#include "ignite/common/bit_array.h"
 
 #include <cstdint>
 #include <type_traits>
@@ -180,6 +181,14 @@ public:
         : m_value(value) {}
 
     /**
+     * Constructor for bitmask value.
+     *
+     * @param value Value.
+     */
+    primitive(bit_array value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
      * Get underlying value.
      *
      * @tparam T Type of value to try and get.
@@ -205,6 +214,7 @@ public:
             || std::is_same_v<T, ignite_date_time>
             || std::is_same_v<T, ignite_time>
             || std::is_same_v<T, ignite_timestamp>
+            || std::is_same_v<T, bit_array>
         ) {
             return std::get<T>(m_value);
         } else {
@@ -241,7 +251,7 @@ private:
         ignite_date_time,       // Datetime = 10
         ignite_timestamp,       // Timestamp = 11
         uuid,                   // UUID = 12
-        unsupported_type,       // Bitmask = 13
+        bit_array,              // Bitmask = 13
         std::string,            // String = 14
         std::vector<std::byte>, // Bytes = 15
         unsupported_type,       // Period = 16
