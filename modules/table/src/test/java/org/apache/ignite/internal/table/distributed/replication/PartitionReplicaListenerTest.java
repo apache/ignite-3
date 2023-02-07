@@ -1057,8 +1057,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testReadOnlyGetAllAfterRowRewrite() {
-        //testReadOnlyGetAfterRowRewrite0(true,  true,  true,  true);
-        //testReadOnlyGetAfterRowRewrite0(true,  true,  false, true);
+        testReadOnlyGetAfterRowRewrite0(true,  true,  true,  true);
+        testReadOnlyGetAfterRowRewrite0(true,  true,  false, true);
         testReadOnlyGetAfterRowRewrite0(true,  false, true,  true);
         testReadOnlyGetAfterRowRewrite0(true,  false, false, true);
         testReadOnlyGetAfterRowRewrite0(false, true,  true,  true);
@@ -1067,6 +1067,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         testReadOnlyGetAfterRowRewrite0(false, false, false, true);
     }
 
+    /**
+     * Puts several records into the storage, optionally leaving them as write intents, alternately deleting and upserting the same row
+     * within the same RW transaction, then checking read correctness via read only request.
+     *
+     * @param insertFirst Whether to insert some values before RW transaction.
+     * @param upsertAfterDelete Whether to insert value after delete in RW transaction, so that it would present as non-null write intent.
+     * @param committed Whether to commit RW transaction before doing RO request.
+     * @param multiple Whether to check multiple rows via getAll request.
+     */
     public void testReadOnlyGetAfterRowRewrite0(boolean insertFirst, boolean upsertAfterDelete, boolean committed, boolean multiple) {
         beforeTest();
 

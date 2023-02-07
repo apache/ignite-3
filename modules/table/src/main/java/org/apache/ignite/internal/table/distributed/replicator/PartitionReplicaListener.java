@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.IgniteUtils.filter;
+import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -1138,35 +1140,28 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<BinaryRow> resolveRowByPkForReadOnly(BinaryRow searchKey, HybridTimestamp ts) {
         try (Cursor<RowId> cursor = pkIndexStorage.get().get(searchKey)) {
-            List<ReadResult> candidatesR = new ArrayList<>();
+            List<ReadResult> candidates = new ArrayList<>();
 
             for (RowId rowId : cursor) {
                 ReadResult readResult = mvDataStorage.read(rowId, ts);
 
                 if (!readResult.isEmpty() || readResult.isWriteIntent()) {
-                    candidatesR.add(readResult);
+                    candidates.add(readResult);
                 }
             }
 
-            if (candidatesR.isEmpty()) {
+            if (candidates.isEmpty()) {
                 return completedFuture(null);
             }
 
-            List<ReadResult> writeIntents = new ArrayList<>();
-            for (ReadResult r : candidatesR) {
-                if (r.isWriteIntent()) {
-                    writeIntents.add(r);
-                }
-            }
+            List<ReadResult> writeIntents = filter(candidates, ReadResult::isWriteIntent);
 
             if (!writeIntents.isEmpty()) {
                 ReadResult writeIntent = writeIntents.get(0);
 
-                for (ReadResult r : writeIntents) {
-                    assert r.commitPartitionId() == writeIntent.commitPartitionId()
-                            && r.commitTableId().equals(writeIntent.commitTableId())
-                            && r.transactionId().equals(writeIntent.transactionId());
-                }
+                // Assume that all write intents for the same key belong to the same transaction, as the key should be exclusively locked.
+                // This means that we can just resolve the state of this transaction.
+                checkWriteIntentsBelongSameTx(writeIntents);
 
                 return resolveTxState(
                                 new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
@@ -1190,27 +1185,40 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     return toBinaryRow(committedReadResult.tableRow());
                                 }
                             } else {
-                                for (ReadResult r : writeIntents) {
-                                    if (!r.isEmpty()) {
-                                        return toBinaryRow(r.tableRow());
-                                    }
-                                }
+                                return findAny(filter(writeIntents, wi -> !wi.isEmpty())).map(r -> toBinaryRow(r.tableRow()))
+                                        .orElse(completedFuture(null));
                             }
 
                             return completedFuture(null);
                         });
             } else {
-                for (ReadResult r : candidatesR) {
-                    if (!r.isEmpty()) {
-                        return toBinaryRow(r.tableRow());
-                    }
-                }
-
-                return completedFuture(null);
+                return findAny(filter(candidates, r -> !r.isEmpty())).map(r -> toBinaryRow(r.tableRow()))
+                        .orElse(completedFuture(null));
             }
         } catch (Exception e) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unable to close cursor [tableId={}]", tableId), e);
+        }
+    }
+
+    /**
+     * Check that all given write intents belong to the same transaction.
+     *
+     * @param writeIntents Write intents.
+     */
+    private static void checkWriteIntentsBelongSameTx(Collection<ReadResult> writeIntents) {
+        ReadResult writeIntent = findAny(writeIntents).orElseThrow();
+
+        for (ReadResult wi : writeIntents) {
+            assert wi.transactionId().equals(writeIntent.transactionId())
+                    : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
+
+            assert wi.commitTableId().equals(writeIntent.commitTableId())
+                    : "Unexpected write intent, commitTableId1=" + writeIntent.commitTableId() + ", commitTableId2=" + wi.commitTableId();
+
+            assert wi.commitPartitionId() == writeIntent.commitPartitionId()
+                    : "Unexpected write intent, commitPartitionId1=" + writeIntent.commitPartitionId()
+                    + ", commitPartitionId2=" + wi.commitPartitionId();
         }
     }
 
@@ -2047,6 +2055,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
+    /**
+     * Resolve the actual tx state.
+     *
+     * @param commitGrpId Commit partition id.
+     * @param txId Transaction id.
+     * @param timestamp Timestamp.
+     * @return Future with boolean value, indicating whether the transaction was committed before timestamp.
+     */
     private CompletableFuture<Boolean> resolveTxState(
             ReplicationGroupId commitGrpId,
             UUID txId,
