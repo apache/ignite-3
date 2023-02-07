@@ -22,7 +22,6 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -30,16 +29,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Physical node for REDUCE phase of set op (MINUS, INTERSECT).
  */
 public interface IgniteReduceSetOp extends IgniteSetOp {
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits
-    ) {
-        return List.of(
-                Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY), List.of(inputTraits.get(0))));
-    }
-
     /** {@inheritDoc} */
     @Override
     public default Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
@@ -59,16 +48,6 @@ public interface IgniteReduceSetOp extends IgniteSetOp {
     ) {
         return List.of(Pair.of(nodeTraits.replace(IgniteDistributions.single()),
                 List.of(inputTraits.get(0).replace(IgniteDistributions.single()))));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits
-    ) {
-        return List.of(Pair.of(nodeTraits.replace(TraitUtils.correlation(inTraits.get(0))),
-                inTraits));
     }
 
     /** {@inheritDoc} */

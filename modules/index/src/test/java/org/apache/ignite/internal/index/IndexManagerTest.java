@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -330,18 +332,18 @@ public class IndexManagerTest {
         assertThat(holder.get().indexId(), equalTo(indexId));
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void createIndexWithExistingTableName() {
         CompletableFuture<Boolean> createIdxFut = indexManager.createIndexAsync("sName", "tName", "tName", true, indexChange ->
                 indexChange.convert(SortedIndexChange.class).changeColumns(columns ->
                         columns.create("c2", columnChange -> columnChange.changeAsc(true))));
 
-        CompletionException completionException = assertThrows(CompletionException.class, createIdxFut::join);
-
-        assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                "Table with the same name already exists."));
+        assertThrowsWithCause(() -> await(createIdxFut), ConfigurationValidationException.class,
+                "Table with the same name already exists.");
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void createTableWithExistingIndexName() {
         String indexName = "idx" + index.incrementAndGet();
@@ -369,10 +371,8 @@ public class IndexManagerTest {
                         .changePrimaryKey(pk -> pk.changeColumns("c1").changeColocationColumns("c1"));
             }));
 
-            CompletionException completionException = assertThrows(CompletionException.class, createTblFut::join);
-
-            assertTrue(IgniteTestUtils.hasCause(completionException, ConfigurationValidationException.class,
-                    "Index with the same name already exists."));
+            assertThrowsWithCause(() -> await(createTblFut), ConfigurationValidationException.class,
+                    "Index with the same name already exists.");
         } finally {
             indexManager.dropIndexAsync("sName", indexName, true).join();
         }

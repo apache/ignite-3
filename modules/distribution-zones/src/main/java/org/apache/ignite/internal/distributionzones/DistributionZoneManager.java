@@ -69,6 +69,9 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.tree.ConfigurationNodeAlreadyExistException;
+import org.apache.ignite.internal.configuration.tree.ConfigurationNodeDoesNotExistException;
+import org.apache.ignite.internal.configuration.tree.ConfigurationNodeRemovedException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
@@ -76,7 +79,6 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -273,7 +275,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                         zoneChange.changeZoneId(intZoneId);
                     });
-                } catch (IllegalArgumentException e) {
+                } catch (ConfigurationNodeAlreadyExistException e) {
                     throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                 }
             })).whenComplete((res, e) -> {
@@ -301,8 +303,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param name Distribution zone name.
      * @param distributionZoneCfg Distribution zone configuration.
      * @return Future representing pending completion of the operation. Future can be completed with:
-     *      {@link DistributionZoneRenameException} if a zone with the given name already exists
-     *      or zone with name for renaming already exists,
+     *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists.
      *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
      *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
      *      {@link IllegalArgumentException} if {@code name} or {@code distributionZoneCfg} is {@code null}
@@ -351,13 +352,15 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     try {
                         renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
-                    } catch (IllegalArgumentException e) {
-                        throw new DistributionZoneRenameException(name, distributionZoneCfg.name(), e);
+                    } catch (ConfigurationNodeAlreadyExistException e) {
+                        throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
+                    } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
+                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
                     }
 
                     try {
                         renameChange.update(distributionZoneCfg.name(), zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg));
-                    } catch (IllegalArgumentException e) {
+                    } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
                         throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
                     }
                 }));
@@ -368,8 +371,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     fut.completeExceptionally(
                             unwrapDistributionZoneException(
                                     e,
-                                    DistributionZoneRenameException.class,
                                     DistributionZoneNotFoundException.class,
+                                    DistributionZoneAlreadyExistsException.class,
                                     ConfigurationValidationException.class)
                     );
                 } else {

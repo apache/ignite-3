@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.mock;
@@ -108,8 +109,8 @@ public class TestNode implements LifecycleAware {
         ));
 
         executionService = registerService(new ExecutionServiceImpl<>(
-                topologyService.localMember(),
                 messageService,
+                topologyService,
                 new MappingServiceImpl(topologyService),
                 schemaManager,
                 mock(DdlCommandHandler.class),
@@ -177,7 +178,7 @@ public class TestNode implements LifecycleAware {
 
         assertThat(nodes, hasSize(1));
 
-        return prepareService.prepareAsync(nodes.get(0), createContext()).join();
+        return await(prepareService.prepareAsync(nodes.get(0), createContext()));
     }
 
     private BaseQueryContext createContext() {

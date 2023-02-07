@@ -30,6 +30,7 @@ import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
@@ -37,7 +38,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /** Relational expression that applies a limit and/or offset to its input. */
-public class IgniteLimit extends SingleRel implements InternalIgniteRel {
+public class IgniteLimit extends SingleRel implements IgniteRel {
     /** In case the fetch value is a DYNAMIC_PARAM. */
     private static final double FETCH_IS_PARAM_FACTOR = 0.01;
 
@@ -106,6 +107,15 @@ public class IgniteLimit extends SingleRel implements InternalIgniteRel {
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        shuttle.apply(offset);
+        shuttle.apply(fetch);
+
+        return super.accept(shuttle);
     }
 
     /** {@inheritDoc} */

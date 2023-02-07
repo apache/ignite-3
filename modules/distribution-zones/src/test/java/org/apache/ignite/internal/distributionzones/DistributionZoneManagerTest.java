@@ -47,7 +47,6 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -378,7 +377,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertTrue(e != null, "Expected exception was not thrown.");
         assertTrue(
-                e.getCause() instanceof DistributionZoneRenameException,
+                e.getCause() instanceof DistributionZoneNotFoundException,
                 "Unexpected type of exception (requires DistributionZoneRenameException): " + e
         );
     }
@@ -404,7 +403,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertTrue(e != null, "Expected exception was not thrown.");
         assertTrue(
-                e.getCause() instanceof DistributionZoneRenameException,
+                e.getCause() instanceof DistributionZoneAlreadyExistsException,
                 "Unexpected type of exception (requires DistributionZoneRenameException): " + e
         );
     }

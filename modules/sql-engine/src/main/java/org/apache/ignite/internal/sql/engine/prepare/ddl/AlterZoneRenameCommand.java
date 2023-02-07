@@ -15,24 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.sql.ResultSetMetadata;
+package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 /**
- * Sql query cursor.
- *
- * @param <T> Type of elements.
+ * ALTER ZONE ... RENAME statement.
  */
-public interface SqlCursor<T> extends Cursor<T> {
-    /**
-     * Get query type.
-     */
-    SqlQueryType queryType();
+public class AlterZoneRenameCommand extends AbstractZoneDdlCommand {
 
-    /**
-     * Get column metadata.
-     */
-    ResultSetMetadata metadata();
+    /** Quietly ignore this command if zone does not exists. */
+    private boolean ifExists;
+
+    /** New zone name. */
+    private String newZoneName;
+
+    public boolean ifExists() {
+        return ifExists;
+    }
+
+    public void ifExists(boolean ifExists) {
+        this.ifExists = ifExists;
+    }
+
+    public String newZoneName() {
+        return newZoneName;
+    }
+
+    public void newZoneName(String newZoneName) {
+        this.newZoneName = newZoneName;
+    }
 }

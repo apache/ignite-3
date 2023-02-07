@@ -22,6 +22,9 @@ import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
@@ -45,6 +48,10 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Implicit type cast implementation. */
 public class IgniteTypeCoercion extends TypeCoercionImpl {
+
+    // We are using thread local here b/c TypeCoercion is expected to be stateless.
+    private static final ThreadLocal<ContextStack> contextStack = ThreadLocal.withInitial(ContextStack::new);
+
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
         super(typeFactory, validator);
     }
@@ -95,6 +102,32 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
                 return coerced;
             }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean caseWhenCoercion(SqlCallBinding callBinding) {
+        ContextStack ctxStack = contextStack.get();
+        Context ctx = ctxStack.push(ContextType.CASE_EXPR);
+        try {
+            return super.caseWhenCoercion(callBinding);
+        } finally {
+            ctxStack.pop(ctx);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable RelDataType getWiderTypeFor(List<RelDataType> typeList, boolean stringPromotion) {
+        ContextStack ctxStack = contextStack.get();
+        ContextType ctxType = ctxStack.currentContext();
+        // Disable string promotion for case expression operands
+        // to comply with 9.5 clause of the SQL standard (Result of data type combinations).
+        if (ctxType == ContextType.CASE_EXPR) {
+            return super.getWiderTypeFor(typeList, false);
+        } else {
+            return super.getWiderTypeFor(typeList, stringPromotion);
         }
     }
 
@@ -244,5 +277,52 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     private static SqlNode castTo(SqlNode node, RelDataType type) {
         return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node,
                 SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable()));
+    }
+
+    /**
+     * A context in which {@link IgniteTypeCoercion#getWiderTypeFor(List, boolean)} is being called.
+     */
+    enum ContextType {
+        /**
+         * Corresponds to {@link IgniteTypeCoercion#caseWhenCoercion(SqlCallBinding)}.
+         */
+        CASE_EXPR,
+        /**
+         * Unspecified context.
+         */
+        UNSPECIFIED
+    }
+
+    private static class Context {
+        final ContextType type;
+
+        private Context(ContextType type) {
+            this.type = requireNonNull(type, "type");
+        }
+    }
+
+    /**
+     * We need a stack of type coercion "contexts" to distinguish between possibly
+     * nested calls for {@link #getWiderTypeFor(List, boolean)}.
+     */
+    private static final class ContextStack {
+        private final LinkedList<Context> stack = new LinkedList<>();
+
+        Context push(ContextType contextType) {
+            Context scope = new Context(contextType);
+            stack.push(scope);
+            return scope;
+        }
+
+        void pop(Context current) {
+            if (Objects.equals(stack.peek(), current)) {
+                stack.pop();
+            }
+        }
+
+        ContextType currentContext() {
+            Context current = stack.peek();
+            return current != null ? current.type : ContextType.UNSPECIFIED;
+        }
     }
 }

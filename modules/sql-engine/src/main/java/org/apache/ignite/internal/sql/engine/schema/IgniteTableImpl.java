@@ -55,13 +55,13 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -188,8 +188,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
     ) {
-        RelTraitSet traitSet = cluster.traitSetOf(distribution())
-                .replace(RewindabilityTrait.REWINDABLE);
+        RelTraitSet traitSet = cluster.traitSetOf(distribution());
 
         return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, proj, cond, requiredColumns);
     }
@@ -210,7 +209,6 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
         RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
                 .replace(distribution())
-                .replace(RewindabilityTrait.REWINDABLE)
                 .replace(index.type() == Type.HASH ? RelCollations.EMPTY : collation);
 
         return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idxName, proj, condition, requiredCols);
@@ -481,7 +479,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     }
 
     private ColocationGroup partitionedGroup() {
-        List<List<String>> assignments = table.assignments().stream()
+        List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
+                .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
                 .map(Collections::singletonList)
                 .collect(Collectors.toList());
 

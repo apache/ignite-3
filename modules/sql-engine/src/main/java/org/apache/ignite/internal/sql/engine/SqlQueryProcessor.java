@@ -45,7 +45,6 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -399,22 +399,19 @@ public class SqlQueryProcessor implements QueryProcessor {
                     return nodes.get(0);
                 })
                 .thenCompose(sqlNode -> {
-                    final boolean rwOp = dataModificationOp(sqlNode);
-                    final HybridTimestamp txTime = outerTx != null ? outerTx.readTimestamp() : rwOp ? null : clock.now();
+                    boolean rwOp = dataModificationOp(sqlNode);
+                    boolean useDistributedTraits = outerTx != null ? outerTx.isReadOnly() : !rwOp;
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(rwOp || (outerTx != null && !outerTx.isReadOnly()) ? Commons.LOCAL_TRAITS_SET :
-                                                    Commons.DISTRIBUTED_TRAITS_SET)
+                                            .traitDefs(useDistributedTraits ? Commons.DISTRIBUTED_TRAITS_SET : Commons.LOCAL_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
-                            .transaction(outerTx)
-                            .transactionTime(txTime)
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
@@ -425,17 +422,17 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 boolean implicitTxRequired = outerTx == null && rwOp;
 
-                                InternalTransaction implicitTx = implicitTxRequired ? txManager.begin() : null;
+                                InternalTransaction tx = implicitTxRequired ? txManager.begin()
+                                        : outerTx != null ? outerTx : new LocalTxAttributesHolder(null, clock.now());
 
-                                BaseQueryContext enrichedContext =
-                                        implicitTxRequired ? ctx.toBuilder().transaction(implicitTx).build() : ctx;
+                                BaseQueryContext enrichedContext = ctx.toBuilder().transaction(tx).build();
 
                                 var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
 
                                 return new AsyncSqlCursorImpl<>(
                                         SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                         plan.metadata(),
-                                        implicitTx,
+                                        implicitTxRequired ? tx : null,
                                         new AsyncCursor<List<Object>>() {
                                             @Override
                                             public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {

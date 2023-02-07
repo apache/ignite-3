@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -39,7 +40,10 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client transactions integration test.
@@ -269,6 +273,56 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             var ex = assertThrows(IgniteException.class, () -> recordView.upsert(tx, Tuple.create()));
 
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors"));
+            assertEquals(ErrorGroups.Client.CONNECTION_ERR, ex.code());
+        }
+    }
+
+    @Test
+    void testReadOnlyTxSeesOldDataAfterUpdate() {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 1, "1");
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals("1", kvView.get(tx, 1));
+
+        // Update data in a different tx.
+        Transaction tx2 = client().transactions().begin();
+        kvView.put(tx2, 1, "2");
+        tx2.commit();
+
+        // Old tx sees old data.
+        assertEquals("1", kvView.get(tx, 1));
+
+        // New tx sees new data
+        Transaction tx3 = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals("2", kvView.get(tx3, 1));
+    }
+
+    @Test
+    void testUpdateInReadOnlyTxThrows() {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 1, "1");
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        var ex = assertThrows(TransactionException.class, () -> kvView.put(tx, 1, "2"));
+
+        assertThat(ex.getMessage(), containsString("Failed to enlist read-write operation into read-only transaction"));
+        assertEquals(ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR, ex.code());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testCommitRollbackReadOnlyTxDoesNothing(boolean commit) {
+        KeyValueView<Integer, String> kvView = kvView();
+        kvView.put(null, 10, "1");
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals("1", kvView.get(tx, 10));
+
+        if (commit) {
+            tx.commit();
+        } else {
+            tx.rollback();
         }
     }
 

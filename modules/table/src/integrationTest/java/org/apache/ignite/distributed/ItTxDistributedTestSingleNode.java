@@ -108,6 +108,7 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -371,7 +372,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
-                cluster.stream().map(node -> node.topologyService().localMember()).collect(toList()),
+                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
                 replicas()
         );
@@ -659,13 +660,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         assertFalse(readWriteTx.isReadOnly());
         assertNull(readWriteTx.readTimestamp());
 
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertTrue(readOnlyTx.isReadOnly());
         assertNotNull(readOnlyTx.readTimestamp());
 
         readWriteTx.commit();
 
-        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         readOnlyTx2.rollback();
     }
 }

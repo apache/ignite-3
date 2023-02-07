@@ -145,7 +145,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
 
-            CLUSTER_NODES.add(future.join());
+            CLUSTER_NODES.add(await(future));
         }
     }
 

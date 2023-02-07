@@ -584,5 +584,18 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(tuple["Time"], res["Time"]);
             Assert.AreEqual(tuple["DateTime"], res["DateTime"]);
         }
+
+        [Test]
+        public async Task TestContainsKey()
+        {
+            var keyTuple = GetTuple(1);
+            var tuple = GetTuple(1, "foo");
+
+            await TupleView.UpsertAsync(null, tuple);
+
+            Assert.IsTrue(await TupleView.ContainsKeyAsync(null, keyTuple));
+            Assert.IsTrue(await TupleView.ContainsKeyAsync(null, tuple));
+            Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(-128)));
+        }
     }
 }

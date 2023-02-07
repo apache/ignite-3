@@ -60,7 +60,7 @@ public interface IKeyValueView<TK, TV>
     /// Determines if the table contains an entry for the specified key.
     /// </summary>
     /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
-    /// <param name="key">Keys.</param>
+    /// <param name="key">Key.</param>
     /// <returns>
     /// A <see cref="Task"/> representing the asynchronous operation.
     /// The task result is <c>true</c> if a value exists for the specified key, and <c>false</c> otherwise.
