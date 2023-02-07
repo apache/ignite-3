@@ -1,0 +1,97 @@
+# name: test/sql/_runner/self.test
+# description: Tests for SqlScriptRunner.
+# group: [self_test]
+# prefixed with _ so they will run first.
+
+statement ok
+PRAGMA enable_verification
+
+# check null value
+statement ok
+PRAGMA null=X
+
+query I
+SELECT NULL
+----
+X
+
+# check query by rows
+query I
+SELECT c1 FROM (VALUES(1), (2)) t(c1)
+----
+1
+2
+
+# check query by rows with rowsort
+query I rowsort
+SELECT c1 FROM (VALUES(2), (1)) t(c1) ORDER BY c1 DESC
+----
+1
+2
+
+# check query by hash
+query I
+SELECT c1 FROM (VALUES(1), (2)) t(c1)
+----
+2 values hashing to 6DDB4095EB719E2A9F0A3F95677D24E0
+
+# expecting the results of multiple queries to be equal + eq label usage
+query I nosort select-1
+SELECT 1
+----
+1 values hashing to B026324C6904B2A9CB4B88D6D61C81D1
+
+# result should be the same as SELECT 1.
+# Otherwise "Results of queries need to be equal: [SELECT 1] and SELECT 1 + 0" error is returned.
+query I nosort select-1
+SELECT 1 + 0
+----
+1 values hashing to B026324C6904B2A9CB4B88D6D61C81D1
+
+# error w/o message
+statement error
+SELECT...
+
+# error with message
+# checks whether a message from an exception contains the given substring
+statement error: From line 1, column 8 to line 1, column 10: Column 'COL' not found in any table
+SELECT col
+
+# error with message
+# CAVEAT: currently it collapses multiple spaces inside a error message into one.
+statement error: From line 1,    column 8
+SELECT col
+
+# check loop
+loop i 0 10
+
+query I
+SELECT MIN(c1) FROM (VALUES(${i}), (-1), (2)) t(c1);
+----
+-1
+
+endloop
+
+# skipif <engine>
+
+skipif ignite3
+statement ok
+SELECT...
+
+skipif ignite3
+query I
+SELECT 1
+----
+2
+
+# onlyif <engine>
+
+onlyif ignite3
+statement ok
+SELECT 1
+
+onlyif ignite3
+query I
+SELECT 2
+----
+2

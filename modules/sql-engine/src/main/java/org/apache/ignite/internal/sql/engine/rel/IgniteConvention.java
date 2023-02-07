@@ -30,7 +30,7 @@ public class IgniteConvention extends Convention.Impl {
     public static final IgniteConvention INSTANCE = new IgniteConvention();
 
     private IgniteConvention() {
-        super("IGNITE", InternalIgniteRel.class);
+        super("IGNITE", IgniteRel.class);
     }
 
     /** {@inheritDoc} */

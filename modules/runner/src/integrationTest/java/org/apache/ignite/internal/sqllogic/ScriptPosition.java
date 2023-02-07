@@ -15,24 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.sql.ResultSetMetadata;
+package org.apache.ignite.internal.sqllogic;
 
 /**
- * Sql query cursor.
- *
- * @param <T> Type of elements.
+ * Position in a script file.
  */
-public interface SqlCursor<T> extends Cursor<T> {
-    /**
-     * Get query type.
-     */
-    SqlQueryType queryType();
+final class ScriptPosition {
 
-    /**
-     * Get column metadata.
-     */
-    ResultSetMetadata metadata();
+    private final String fileName;
+
+    private final int lineNum;
+
+    ScriptPosition(String fileName, int lineNum) {
+        this.fileName = fileName;
+        this.lineNum = lineNum;
+    }
+
+    @Override
+    public String toString() {
+        // The format below is understood by Intellij IDEA
+        // and displayed as a link to a line in a file in assertion errors.
+        return '(' + fileName + ':' + lineNum + ')';
+    }
 }

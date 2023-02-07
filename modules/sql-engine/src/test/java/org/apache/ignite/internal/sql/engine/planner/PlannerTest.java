@@ -45,6 +45,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -187,7 +187,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -265,7 +265,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -348,7 +348,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -429,7 +429,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -574,7 +574,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -651,7 +651,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
+        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
 
         assertNotNull(plan);
 
@@ -797,7 +797,6 @@ public class PlannerTest extends AbstractPlannerTest {
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
                     .replace(IgniteDistributions.single())
-                    .replace(CorrelationTrait.UNCORRELATED)
                     .simplify();
 
             IgniteRel phys = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
@@ -806,7 +805,7 @@ public class PlannerTest extends AbstractPlannerTest {
             assertEquals(
                     "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
                             + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], joinType=[inner], "
-                            + "variablesSet=[[$cor2]], correlationVariables=[[$cor2]])\n"
+                            + "variablesSet=[[$cor2]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(CAST(+($t0, $cor2.DEPTNO)):INTEGER, 2)])\n",
                     RelOptUtil.toString(phys),
@@ -971,7 +970,8 @@ public class PlannerTest extends AbstractPlannerTest {
         return single ? select(NODES, 0) : select(NODES, 0, 1, 2, 3);
     }
 
-    private static MappingQueryContext mapContext(String locNodeId) {
-        return new MappingQueryContext(locNodeId);
+    private static MappingQueryContext mapContext(String locNodeName,
+            MappingService mappingService) {
+        return new MappingQueryContext(locNodeName, mappingService);
     }
 }

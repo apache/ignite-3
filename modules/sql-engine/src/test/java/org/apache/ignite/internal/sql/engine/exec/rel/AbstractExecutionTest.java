@@ -63,7 +63,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     private Throwable lastE;
     private List<UUID> nodes;
 
-    protected QueryTaskExecutorImpl taskExecutor;
+    private QueryTaskExecutorImpl taskExecutor;
 
     @BeforeEach
     public void beforeTest() {
@@ -98,7 +98,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
-        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+        FragmentDescription fragmentDesc = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
 
         return new ExecutionContext<>(
                 BaseQueryContext.builder()

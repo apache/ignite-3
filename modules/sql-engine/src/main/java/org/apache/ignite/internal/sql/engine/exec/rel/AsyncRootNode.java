@@ -184,6 +184,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      * <p>Note: this method must be called by the same thread that will execute the whole fragment.
      */
     public void prefetch() {
+        assert source.context().description().prefetch();
+
         if (waiting == 0) {
             try {
                 source.request(waiting = IN_BUFFER_SIZE);
