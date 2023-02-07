@@ -77,6 +77,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     /** Local node. */
     private final ClusterNode localNode;
 
+    /** Thread pool used to dispatch Publishers of range commands. */
     private final ExecutorService executorService;
 
     /**
@@ -88,6 +89,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public MetaStorageServiceImpl(RaftGroupService metaStorageRaftGrpSvc, ClusterNode localNode) {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.localNode = localNode;
+        // TODO: Extract the pool size into configuration, see https://issues.apache.org/jira/browse/IGNITE-18735
         this.executorService = Executors.newFixedThreadPool(5, NamedThreadFactory.create(localNode.name(), "metastorage-publisher", LOG));
     }
 
