@@ -706,6 +706,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
+            // TODO: IGNITE-18717 Add lock by rowId
             return new ScanVersionsCursor(rowId, this);
         });
     }
@@ -737,7 +738,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             try {
                 treeCursor = versionChainTree.find(null, null);
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Find failed", e);
+                throw new StorageException(e, "Find failed: [timestamp={}, {}]", timestamp, createStorageInfo());
             }
 
             if (lookingForLatestVersion(timestamp)) {
