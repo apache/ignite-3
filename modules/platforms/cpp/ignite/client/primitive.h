@@ -227,10 +227,7 @@ public:
      *
      * @return Primitive type.
      */
-    [[nodiscard]] column_type get_type() const {
-        // TODO: Ensure by tests
-        return static_cast<column_type>(m_value.index());
-    }
+    [[nodiscard]] column_type get_type() const { return static_cast<column_type>(m_value.index()); }
 
 private:
     /** Unsupported type. */
