@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBeCancelledFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -247,7 +248,7 @@ public class ItMetaStorageManagerImplTest {
 
         CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
 
-        assertThat(fut, willBeCancelledFast());
+        assertThat(fut, willFailFast(NodeStoppingException.class));
     }
 
     @Test
