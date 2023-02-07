@@ -84,6 +84,8 @@ TEST(bit_array, one_false) {
     EXPECT_FALSE(value.test(0));
     value.set(0, true);
     EXPECT_TRUE(value.test(0));
+    value.set(0, true);
+    EXPECT_TRUE(value.test(0));
 
     check_index_out_of_bounds(value, 1);
     check_index_out_of_bounds(value, -1);
@@ -101,7 +103,122 @@ TEST(bit_array, one_true) {
     EXPECT_TRUE(value.test(0));
     value.set(0, false);
     EXPECT_FALSE(value.test(0));
+    value.set(0, false);
+    EXPECT_FALSE(value.test(0));
 
     check_index_out_of_bounds(value, 1);
     check_index_out_of_bounds(value, -1);
+}
+
+TEST(bit_array, different_short) {
+    bit_array value(8);
+
+    EXPECT_TRUE(!value.is_empty());
+    EXPECT_TRUE(!value.get_raw().empty());
+
+    EXPECT_EQ(value.get_size(), 8);
+    EXPECT_EQ(value.get_raw().size(), 1);
+
+    for (int i = 0; i < 8; ++i)
+        EXPECT_FALSE(value.test(i));
+
+    for (int i = 0; i < 8; i+=2) {
+        value.set(i, true);
+        EXPECT_TRUE(value.test(i));
+    }
+
+    for (int i = 1; i < 8; i+=2)
+        EXPECT_FALSE(value.test(i));
+
+    check_index_out_of_bounds(value, 8);
+    check_index_out_of_bounds(value, -1);
+}
+
+TEST(bit_array, different_long) {
+    constexpr auto size = 387;
+    bit_array value(size);
+
+    EXPECT_TRUE(!value.is_empty());
+    EXPECT_TRUE(!value.get_raw().empty());
+
+    EXPECT_EQ(value.get_size(), size);
+    EXPECT_EQ(value.get_raw().size(), (size + 7) / 8);
+
+    for (int step = 1; step < size; ++step) {
+        for (int i = 0; i < size; ++i) {
+            value.set(i, false);
+            EXPECT_FALSE(value.test(i));
+        }
+
+        for (int i = 0; i < size; i += step) {
+            value.set(i, true);
+            EXPECT_TRUE(value.test(i));
+        }
+
+        for (int i = 0; i < size; ++i) {
+            if (i % step == 0)
+                EXPECT_TRUE(value.test(i));
+            else
+                EXPECT_FALSE(value.test(i));
+        }
+    }
+
+    check_index_out_of_bounds(value, 387);
+    check_index_out_of_bounds(value, -1);
+}
+
+TEST(bit_array, from_raw) {
+    std::vector<std::byte> raw;
+    raw.push_back(std::byte(0));
+    raw.push_back(std::byte(1));
+    raw.push_back(std::byte(2));
+    raw.push_back(std::byte(0xFF));
+
+    constexpr auto bit_size = 8 * 3 + 5;
+
+    bit_array value(raw, bit_size);
+
+    EXPECT_TRUE(!value.is_empty());
+    EXPECT_TRUE(!value.get_raw().empty());
+
+    EXPECT_EQ(value.get_size(), bit_size);
+    EXPECT_EQ(value.get_raw().size(), 4);
+
+    for (int i = 0; i < bit_size; ++i) {
+        if (i == 8 || i == 17 || i > 23)
+            EXPECT_TRUE(value.test(i));
+        else
+            EXPECT_FALSE(value.test(i));
+    }
+
+    check_index_out_of_bounds(value, bit_size);
+    check_index_out_of_bounds(value, bit_size + 1);
+    check_index_out_of_bounds(value, -1);
+}
+
+TEST(bit_array, to_raw) {
+    constexpr auto bit_size = 8 * 3 + 5;
+
+    bit_array value(bit_size);
+
+    EXPECT_TRUE(!value.is_empty());
+    EXPECT_TRUE(!value.get_raw().empty());
+
+    EXPECT_EQ(value.get_size(), bit_size);
+
+    for (int i = 0; i < bit_size; ++i)
+        value.set(i, i == 8 || i == 17 || i > 23);
+
+    check_index_out_of_bounds(value, bit_size);
+    check_index_out_of_bounds(value, bit_size + 1);
+    check_index_out_of_bounds(value, -1);
+
+    auto raw = value.get_raw();
+
+    EXPECT_EQ(value.get_raw().size(), 4);
+
+    EXPECT_EQ(raw[0], std::byte(0));
+    EXPECT_EQ(raw[1], std::byte(1));
+    EXPECT_EQ(raw[2], std::byte(2));
+    EXPECT_EQ(raw[3] & std::byte(0x1F), std::byte(0x1F));
 }

@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite_error.h"
+#include "bytes_view.h"
 
 #include <vector>
 #include <cstdint>
@@ -40,9 +41,9 @@ public:
      * @param data Data.
      * @param size Size in bits.
      */
-    bit_array(std::vector<uint8_t> data, std::int32_t size)
+    bit_array(bytes_view data, std::int32_t size)
         : m_size(size)
-        , m_data(std::move(data)) { }
+        , m_data(data.begin(), data.end()) { }
 
     /**
      * Construct a new bit_array of specified size with all bits set to @c value.
@@ -50,9 +51,9 @@ public:
      * @param size Size in bits.
      * @param value All bits value.
      */
-    bit_array(std::int32_t size, bool value = false)
+    explicit bit_array(std::int32_t size, bool value = false)
         : m_size(size)
-        , m_data((size + 7) / 8, value ? 0xFF : 0) { }
+        , m_data((size + 7) / 8, value ? std::byte(0xFF) : std::byte()) { }
 
     /**
      * Tests a specified bit.
@@ -64,7 +65,7 @@ public:
         check_index(index);
         std::size_t byte_index = index / 8;
         std::size_t bit_index = index % 8;
-        return m_data[byte_index] & (1 << bit_index);
+        return int(m_data[byte_index]) & (1 << bit_index);
     }
 
     /**
@@ -78,15 +79,15 @@ public:
         std::size_t byte_index = index / 8;
         std::size_t bit_index = index % 8;
         if (value)
-            m_data[byte_index] |= 1 << bit_index;
+            m_data[byte_index] |= std::byte(1 << bit_index);
         else
-            m_data[byte_index] &= ~(1 << bit_index);
+            m_data[byte_index] &= std::byte(~(1 << bit_index));
     }
 
     /**
      * Gets the raw data.
      */
-    [[nodiscard]] constexpr const std::vector<uint8_t>& get_raw() const noexcept { return m_data; }
+    [[nodiscard]] constexpr const std::vector<std::byte>& get_raw() const noexcept { return m_data; }
 
     /**
      * Gets the size in bits.
@@ -114,7 +115,7 @@ private:
     std::int32_t m_size = 0;
 
     /** Data. */
-    std::vector<uint8_t> m_data{};
+    std::vector<std::byte> m_data{};
 };
 
 
