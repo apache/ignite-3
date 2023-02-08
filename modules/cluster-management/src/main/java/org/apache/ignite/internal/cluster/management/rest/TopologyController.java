@@ -87,6 +87,6 @@ public class TopologyController implements TopologyApi {
         if (metadata == null) {
             return null;
         }
-        return new NodeMetadataDto(metadata.restHost(), metadata.restPort());
+        return new NodeMetadataDto(metadata.restHost(), metadata.httpPort(), metadata.httpsPort());
     }
 }

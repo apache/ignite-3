@@ -77,6 +77,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -393,7 +394,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) {
-        Transaction outerTx = explicit ? (readOnly ? igniteTx().readOnly().begin() : igniteTx().begin()) : null;
+        Transaction outerTx = explicit ? (readOnly ? igniteTx().begin(new TransactionOptions().readOnly(true)) : igniteTx().begin()) : null;
 
         String query = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 

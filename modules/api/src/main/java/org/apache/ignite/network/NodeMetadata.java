@@ -28,19 +28,27 @@ public class NodeMetadata implements Serializable {
 
     private final String restHost;
 
-    private final int restPort;
+    private final int httpPort;
 
-    public NodeMetadata(String restHost, int restPort) {
+    private final int httpsPort;
+
+    /** Constructor. */
+    public NodeMetadata(String restHost, int httpPort, int httpsPort) {
         this.restHost = restHost;
-        this.restPort = restPort;
+        this.httpPort = httpPort;
+        this.httpsPort = httpsPort;
     }
 
     public String restHost() {
         return restHost;
     }
 
-    public int restPort() {
-        return restPort;
+    public int httpPort() {
+        return httpPort;
+    }
+
+    public int httpsPort() {
+        return httpsPort;
     }
 
     @Override
@@ -48,15 +56,23 @@ public class NodeMetadata implements Serializable {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof NodeMetadata)) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         NodeMetadata that = (NodeMetadata) o;
-        return restPort == that.restPort && Objects.equals(restHost, that.restHost);
+
+        if (httpPort != that.httpPort) {
+            return false;
+        }
+        if (httpsPort != that.httpsPort) {
+            return false;
+        }
+        return restHost != null ? restHost.equals(that.restHost) : that.restHost == null;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(restHost, restPort);
+        return Objects.hash(restHost, httpPort, httpsPort);
     }
 }

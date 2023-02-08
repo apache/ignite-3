@@ -57,33 +57,18 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** Checks that correlates can't be moved under the table spool. */
-    @Test
-    public void testCorrelatesWithTableSpool() {
-        sql("CREATE TABLE test(k INTEGER primary key, i1 INT, i2 INT)");
-
-        //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
-        CLUSTER_NODES.get(0).tables().tables();
-
-        sql("INSERT INTO test VALUES (1, 1, 1), (2, 2, 2)");
-
-        assertQuery("SELECT " + DISABLED_JOIN_RULES + " (SELECT t1.i1 + t1.i2 + t0.i2 FROM test t1 WHERE i1 = 1) FROM test t0")
-                .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
-                .matches(containsSubPlan("IgniteTableSpool"))
-                .returns(3)
-                .returns(4)
-                .check();
-    }
-
     /**
      * Tests resolving of collisions in correlates.
      */
     @Test
-    public void testCorrelatesCollision() {
+    public void testCorrelatesCollision() throws InterruptedException {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
         sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
+
+        waitForIndex("TEST1_PK");
+        waitForIndex("TEST2_PK");
 
         // Collision by correlate variables in the left hand.
         assertQuery("SELECT * FROM test1 WHERE "

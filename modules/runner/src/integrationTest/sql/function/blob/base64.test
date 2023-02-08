@@ -19,9 +19,13 @@ select from_base64('AAAA');
 
 # malformed base64
 # must be multiple of 4
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18669
 statement error
 SELECT from_base64('ab');
 
 # unknown bytes
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18669
 statement error
 SELECT from_base64('üab');

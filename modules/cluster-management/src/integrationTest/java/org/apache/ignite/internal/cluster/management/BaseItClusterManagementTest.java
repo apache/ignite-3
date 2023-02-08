@@ -44,7 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class BaseItClusterManagementTest extends BaseIgniteAbstractTest {
     private static final int PORT_BASE = 10000;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.failoverTimeout: 100")
     private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration

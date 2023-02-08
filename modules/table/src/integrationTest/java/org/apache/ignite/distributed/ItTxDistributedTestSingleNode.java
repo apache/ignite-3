@@ -63,12 +63,10 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -108,6 +106,7 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -406,22 +405,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 UUID indexId = UUID.randomUUID();
 
-                BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-                BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
-
-                BinaryConverter binaryRowConverter = BinaryConverter.forKey(schemaDescriptor);
-                Function<BinaryRow, BinaryTuple> binaryRow2Tuple = binaryRowConverter::toTuple;
-
-                var rowConverter = new TableRowConverter(tupleSchema, indexSchema);
+                Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
                         new TestHashIndexStorage(null),
-                        binaryRow2Tuple,
-                        rowConverter::toTuple
+                        row2Tuple
                 ));
 
-                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), binaryRow2Tuple);
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
@@ -659,13 +651,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         assertFalse(readWriteTx.isReadOnly());
         assertNull(readWriteTx.readTimestamp());
 
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertTrue(readOnlyTx.isReadOnly());
         assertNotNull(readOnlyTx.readTimestamp());
 
         readWriteTx.commit();
 
-        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         readOnlyTx2.rollback();
     }
 }

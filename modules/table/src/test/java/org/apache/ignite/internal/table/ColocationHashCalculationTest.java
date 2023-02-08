@@ -73,7 +73,7 @@ public class ColocationHashCalculationTest {
                 },
                 new Column[]{new Column(3, "val", INT32, true).copy(3)});
 
-        RowAssembler rasm = new RowAssembler(schema, 1, 0);
+        RowAssembler rasm = new RowAssembler(schema);
 
         rasm.appendByte((byte) 1);
         rasm.appendInt(2);

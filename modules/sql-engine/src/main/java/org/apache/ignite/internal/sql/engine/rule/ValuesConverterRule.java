@@ -28,7 +28,6 @@ import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 
 /**
  * ValuesConverterRule.
@@ -49,8 +48,7 @@ public class ValuesConverterRule extends AbstractIgniteConverterRule<LogicalValu
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalValues rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(broadcast())
-                .replace(RewindabilityTrait.REWINDABLE);
+                .replace(broadcast());
 
         return new IgniteValues(cluster, rel.getRowType(), rel.getTuples(), traits);
     }

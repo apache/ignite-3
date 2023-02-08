@@ -40,6 +40,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -281,7 +282,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
-        Transaction tx = client().transactions().readOnly().begin();
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals("1", kvView.get(tx, 1));
 
         // Update data in a different tx.
@@ -293,7 +294,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals("1", kvView.get(tx, 1));
 
         // New tx sees new data
-        Transaction tx3 = client().transactions().readOnly().begin();
+        Transaction tx3 = client().transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals("2", kvView.get(tx3, 1));
     }
 
@@ -302,7 +303,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 1, "1");
 
-        Transaction tx = client().transactions().readOnly().begin();
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         var ex = assertThrows(TransactionException.class, () -> kvView.put(tx, 1, "2"));
 
         assertThat(ex.getMessage(), containsString("Failed to enlist read-write operation into read-only transaction"));
@@ -315,7 +316,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
         kvView.put(null, 10, "1");
 
-        Transaction tx = client().transactions().readOnly().begin();
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals("1", kvView.get(tx, 10));
 
         if (commit) {

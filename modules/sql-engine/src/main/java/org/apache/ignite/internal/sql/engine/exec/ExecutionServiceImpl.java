@@ -596,7 +596,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private AsyncCursor<List<Object>> execute(MultiStepPlan plan) {
             taskExecutor.execute(() -> {
                 try {
-                    plan.init(mappingSrvc, new MappingQueryContext(localNode.name()));
+                    plan.init(new MappingQueryContext(localNode.name(), mappingSrvc));
 
                     List<Fragment> fragments = plan.fragments();
 
@@ -618,6 +618,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                         FragmentDescription fragmentDesc = new FragmentDescription(
                                 fragment.fragmentId(),
+                                !fragment.correlated(),
                                 plan.mapping(fragment),
                                 plan.target(fragment),
                                 plan.remotes(fragment)

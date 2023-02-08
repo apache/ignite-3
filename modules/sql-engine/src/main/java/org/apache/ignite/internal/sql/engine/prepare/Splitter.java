@@ -22,6 +22,7 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Splits a query into a list of query fragments.
@@ -39,6 +41,8 @@ public class Splitter extends IgniteRelShuttle {
 
     private FragmentProto curr;
 
+    private boolean correlated = false;
+
     /**
      * Go.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -46,10 +50,12 @@ public class Splitter extends IgniteRelShuttle {
     public List<Fragment> go(IgniteRel root) {
         ArrayList<Fragment> res = new ArrayList<>();
 
-        stack.push(new FragmentProto(IdGenerator.nextId(), root));
+        stack.push(new FragmentProto(IdGenerator.nextId(), false, root));
 
         while (!stack.isEmpty()) {
             curr = stack.pop();
+
+            correlated = curr.correlated;
 
             curr.root = visit(curr.root);
 
@@ -69,6 +75,24 @@ public class Splitter extends IgniteRelShuttle {
 
     /** {@inheritDoc} */
     @Override
+    public IgniteRel visit(IgniteCorrelatedNestedLoopJoin rel) {
+        List<IgniteRel> inputs = Commons.cast(rel.getInputs());
+
+        assert inputs.size() == 2;
+
+        visitChild(rel, 0, inputs.get(0));
+
+        boolean correlatedBefore = correlated;
+
+        correlated = true;
+        visitChild(rel, 1, inputs.get(1));
+        correlated = correlatedBefore;
+
+        return rel;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public IgniteRel visit(IgniteExchange rel) {
         RelOptCluster cluster = rel.getCluster();
 
@@ -81,7 +105,7 @@ public class Splitter extends IgniteRelShuttle {
                 rel.distribution());
 
         curr.remotes.add(receiver);
-        stack.push(new FragmentProto(sourceFragmentId, sender));
+        stack.push(new FragmentProto(sourceFragmentId, correlated, sender));
 
         return receiver;
     }
@@ -106,18 +130,20 @@ public class Splitter extends IgniteRelShuttle {
 
     private static class FragmentProto {
         private final long id;
+        private final boolean correlated;
 
         private IgniteRel root;
 
         private final List<IgniteReceiver> remotes = new ArrayList<>();
 
-        private FragmentProto(long id, IgniteRel root) {
+        private FragmentProto(long id, boolean correlated, IgniteRel root) {
             this.id = id;
+            this.correlated = correlated;
             this.root = root;
         }
 
         Fragment build() {
-            return new Fragment(id, root, List.copyOf(remotes));
+            return new Fragment(id, correlated, root, List.copyOf(remotes));
         }
     }
 }

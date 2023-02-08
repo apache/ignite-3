@@ -30,7 +30,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -147,26 +147,26 @@ public class PartitionAccessImplTest {
         );
 
         RowId rowId = new RowId(TEST_PARTITION_ID);
-        TableRow tableRow = mock(TableRow.class);
+        BinaryRow binaryRow = mock(BinaryRow.class);
         UUID txId = UUID.randomUUID();
         UUID commitTableId = UUID.randomUUID();
 
-        partitionAccess.addWrite(rowId, tableRow, txId, commitTableId, TEST_PARTITION_ID);
+        partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID);
 
-        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(tableRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexStorage, times(1)).put(eq(tableRow), eq(rowId));
+        verify(indexStorage, times(1)).put(eq(binaryRow), eq(rowId));
 
-        // Let's check with a null tableRow.
-        tableRow = null;
+        // Let's check with a null binaryRow.
+        binaryRow = null;
 
         reset(mvPartitionStorage, indexStorage);
 
-        partitionAccess.addWrite(rowId, tableRow, txId, commitTableId, TEST_PARTITION_ID);
+        partitionAccess.addWrite(rowId, binaryRow, txId, commitTableId, TEST_PARTITION_ID);
 
-        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(tableRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+        verify(mvPartitionStorage, times(1)).addWrite(eq(rowId), eq(binaryRow), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
-        verify(indexStorage, never()).put(eq(tableRow), eq(rowId));
+        verify(indexStorage, never()).put(eq(binaryRow), eq(rowId));
     }
 
     @Test
@@ -185,23 +185,23 @@ public class PartitionAccessImplTest {
         );
 
         RowId rowId = new RowId(TEST_PARTITION_ID);
-        TableRow tableRow = mock(TableRow.class);
+        BinaryRow binaryRow = mock(BinaryRow.class);
 
-        partitionAccess.addWriteCommitted(rowId, tableRow, HybridTimestamp.MAX_VALUE);
+        partitionAccess.addWriteCommitted(rowId, binaryRow, HybridTimestamp.MAX_VALUE);
 
-        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(tableRow), eq(HybridTimestamp.MAX_VALUE));
+        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
 
-        verify(indexStorage, times(1)).put(eq(tableRow), eq(rowId));
+        verify(indexStorage, times(1)).put(eq(binaryRow), eq(rowId));
 
-        // Let's check with a null tableRow.
-        tableRow = null;
+        // Let's check with a null binaryRow.
+        binaryRow = null;
 
         reset(mvPartitionStorage, indexStorage);
 
-        partitionAccess.addWriteCommitted(rowId, tableRow, HybridTimestamp.MAX_VALUE);
+        partitionAccess.addWriteCommitted(rowId, binaryRow, HybridTimestamp.MAX_VALUE);
 
-        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(tableRow), eq(HybridTimestamp.MAX_VALUE));
+        verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
 
-        verify(indexStorage, never()).put(eq(tableRow), eq(rowId));
+        verify(indexStorage, never()).put(eq(binaryRow), eq(rowId));
     }
 }
