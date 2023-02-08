@@ -59,8 +59,10 @@ class SslContextProviderTest {
         configuration.trustStore().path().update(keyStorePkcs12Path).get();
         configuration.trustStore().password().update(password).get();
 
+        // When
         SslContext clientSslContext = SslContextProvider.forClient(configuration.value()).createSslContext();
 
+        // Then
         assertThat(clientSslContext, notNullValue());
     }
 

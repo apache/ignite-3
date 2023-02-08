@@ -41,11 +41,13 @@ public class SslConfigurationBuilder {
 
     private String trustStoreType = DEFAULT_KEYSTORE_TYPE;
 
+    /** Enabled/disabled setter. */
     public SslConfigurationBuilder enabled(boolean enabled) {
         this.enabled = enabled;
         return this;
     }
 
+    /** SSL client authentication setter. */
     public SslConfigurationBuilder clientAuth(@Nullable ClientAuthConfiguration clientAuth) {
         if (clientAuth == null) {
             this.clientAuth = ClientAuthConfiguration.NONE;
@@ -56,16 +58,19 @@ public class SslConfigurationBuilder {
         return this;
     }
 
+    /** Keystore path setter. */
     public SslConfigurationBuilder keyStorePath(@Nullable String keyStorePath) {
         this.keyStorePath = keyStorePath;
         return this;
     }
 
+    /** Keystore password setter. */
     public SslConfigurationBuilder keyStorePassword(@Nullable String keyStorePassword) {
         this.keyStorePassword = keyStorePassword;
         return this;
     }
 
+    /** Keystore type setter. If set to {@code null} then the default PKCS12 type is used. */
     public SslConfigurationBuilder keyStoreType(@Nullable String keyStoreType) {
         if (keyStoreType == null) {
             this.keyStoreType = DEFAULT_KEYSTORE_TYPE;
@@ -76,16 +81,19 @@ public class SslConfigurationBuilder {
         return this;
     }
 
+    /** Truststore path setter. */
     public SslConfigurationBuilder trustStorePath(@Nullable String trustStorePath) {
         this.trustStorePath = trustStorePath;
         return this;
     }
 
+    /** Truststore password setter. */
     public SslConfigurationBuilder trustStorePassword(@Nullable String trustStorePassword) {
         this.trustStorePassword = trustStorePassword;
         return this;
     }
 
+    /** Truststore type setter. If set to {@code null} then the default PKCS12 type is used. */
     public SslConfigurationBuilder trustStoreType(@Nullable String trustStoreType) {
         if (trustStoreType == null) {
             this.trustStoreType = DEFAULT_KEYSTORE_TYPE;

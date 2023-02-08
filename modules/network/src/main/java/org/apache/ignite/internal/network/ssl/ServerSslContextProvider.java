@@ -21,10 +21,7 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
@@ -43,34 +40,28 @@ public class ServerSslContextProvider implements SslContextProvider {
         this.ssl = ssl;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SslContext createSslContext() {
         try {
-            KeyStore keystore = KeyStore.getInstance(ssl.keyStore().type());
-            keystore.load(Files.newInputStream(Path.of(ssl.keyStore().path())), ssl.keyStore().password().toCharArray());
-
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            keyManagerFactory.init(keystore, ssl.keyStore().password().toCharArray());
+            keyManagerFactory.init(KeystoreLoader.load(ssl.keyStore()), ssl.keyStore().password().toCharArray());
 
             var builder = SslContextBuilder.forServer(keyManagerFactory);
 
             ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
-            if (ClientAuth.NONE != clientAuth) {
-                KeyStore store = KeyStore.getInstance(ssl.keyStore().type());
-                store.load(
-                        Files.newInputStream(Path.of(ssl.keyStore().path())),
-                        ssl.keyStore().password() == null ? null : ssl.keyStore().password().toCharArray()
-                );
-
-                TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-                trustManagerFactory.init(store);
-
-                builder.clientAuth(clientAuth).trustManager(trustManagerFactory);
+            if (ClientAuth.NONE == clientAuth) {
+                return builder.build();
             }
+
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(KeystoreLoader.load(ssl.trustStore()));
+
+            builder.clientAuth(clientAuth).trustManager(trustManagerFactory);
 
             return builder.build();
         } catch (NoSuchFileException e) {
-            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", ssl.keyStore().path()), e);
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", e.getMessage()), e);
         } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | IOException e) {
             throw new IgniteException(Common.SSL_CONFIGURATION_ERR, e);
         }
