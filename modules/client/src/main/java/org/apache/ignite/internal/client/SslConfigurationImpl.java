@@ -34,7 +34,7 @@ public class SslConfigurationImpl implements SslConfiguration {
 
     /** Main constructor. */
     SslConfigurationImpl(boolean enabled, ClientAuthConfiguration clientAuth,
-            KeystoreConfiguration keyStore, KeystoreConfiguration trustStore) {
+            @Nullable KeystoreConfiguration keyStore, @Nullable KeystoreConfiguration trustStore) {
         this.enabled = enabled;
         this.clientAuth = clientAuth;
         this.keyStore = keyStore;

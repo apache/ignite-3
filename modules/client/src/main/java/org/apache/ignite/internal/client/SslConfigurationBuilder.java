@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import org.apache.ignite.client.ClientAuthConfiguration;
 import org.apache.ignite.client.SslConfiguration;
+import org.jetbrains.annotations.Nullable;
 
 /** SSL configuration builder. */
 public class SslConfigurationBuilder {
@@ -28,15 +29,15 @@ public class SslConfigurationBuilder {
 
     private ClientAuthConfiguration clientAuth = ClientAuthConfiguration.NONE;
 
-    private String keyStorePath;
+    private @Nullable String keyStorePath;
 
-    private String keyStorePassword;
+    private @Nullable String keyStorePassword;
 
     private String keyStoreType = DEFAULT_KEYSTORE_TYPE;
 
-    private String trustStorePath;
+    private @Nullable String trustStorePath;
 
-    private String trustStorePassword;
+    private @Nullable String trustStorePassword;
 
     private String trustStoreType = DEFAULT_KEYSTORE_TYPE;
 
@@ -45,37 +46,52 @@ public class SslConfigurationBuilder {
         return this;
     }
 
-    public SslConfigurationBuilder clientAuth(ClientAuthConfiguration clientAuth) {
+    public SslConfigurationBuilder clientAuth(@Nullable ClientAuthConfiguration clientAuth) {
+        if (clientAuth == null) {
+            this.clientAuth = ClientAuthConfiguration.NONE;
+            return this;
+        }
+
         this.clientAuth = clientAuth;
         return this;
     }
 
-    public SslConfigurationBuilder keyStorePath(String keyStorePath) {
+    public SslConfigurationBuilder keyStorePath(@Nullable String keyStorePath) {
         this.keyStorePath = keyStorePath;
         return this;
     }
 
-    public SslConfigurationBuilder keyStorePassword(String keyStorePassword) {
+    public SslConfigurationBuilder keyStorePassword(@Nullable String keyStorePassword) {
         this.keyStorePassword = keyStorePassword;
         return this;
     }
 
-    public SslConfigurationBuilder keyStoreType(String keyStoreType) {
+    public SslConfigurationBuilder keyStoreType(@Nullable String keyStoreType) {
+        if (keyStoreType == null) {
+            this.keyStoreType = DEFAULT_KEYSTORE_TYPE;
+            return this;
+        }
+
         this.keyStoreType = keyStoreType;
         return this;
     }
 
-    public SslConfigurationBuilder trustStorePath(String trustStorePath) {
+    public SslConfigurationBuilder trustStorePath(@Nullable String trustStorePath) {
         this.trustStorePath = trustStorePath;
         return this;
     }
 
-    public SslConfigurationBuilder trustStorePassword(String trustStorePassword) {
+    public SslConfigurationBuilder trustStorePassword(@Nullable String trustStorePassword) {
         this.trustStorePassword = trustStorePassword;
         return this;
     }
 
-    public SslConfigurationBuilder trustStoreType(String trustStoreType) {
+    public SslConfigurationBuilder trustStoreType(@Nullable String trustStoreType) {
+        if (trustStoreType == null) {
+            this.trustStoreType = DEFAULT_KEYSTORE_TYPE;
+            return this;
+        }
+
         this.trustStoreType = trustStoreType;
         return this;
     }

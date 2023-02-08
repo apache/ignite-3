@@ -29,7 +29,7 @@ public class KeystoreConfigurationImpl implements KeystoreConfiguration {
     private final String type;
 
     /** Main constructor. */
-    KeystoreConfigurationImpl(String path, String password, String type) {
+    KeystoreConfigurationImpl(@Nullable String path, @Nullable String password, String type) {
         this.path = path;
         this.password = password;
         this.type = type;
@@ -49,7 +49,7 @@ public class KeystoreConfigurationImpl implements KeystoreConfiguration {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable String type() {
+    public String type() {
         return type;
     }
 }
