@@ -20,10 +20,10 @@ package org.apache.ignite.client;
 import org.apache.ignite.internal.client.SslConfigurationBuilder;
 import org.jetbrains.annotations.Nullable;
 
-/** Client ssl configuration. */
+/** Client SSL configuration. */
 public interface SslConfiguration {
 
-    /** If set to {@code true} then the ssl connection will be used to interact with Ignite 3 node. */
+    /** If set to {@code true} then the SSL connection will be used to interact with Ignite 3 node. */
     boolean enabled();
 
     /** Client authentication configuration. */

@@ -22,12 +22,12 @@ import org.jetbrains.annotations.Nullable;
 /** Keystore configuration. */
 public interface KeystoreConfiguration {
 
-    /** Keystore path that will be used to setup the ssl connection. */
+    /** Keystore path that will be used to setup the SSL connection. */
     @Nullable String path();
 
-    /** Keystore password that will be used to setup the ssl connection. */
+    /** Keystore password that will be used to setup the SSL connection. */
     @Nullable String password();
 
-    /** Keystore type that will be used to setup the ssl connection. */
+    /** Keystore type that will be used to setup the SSL connection. */
     String type();
 }

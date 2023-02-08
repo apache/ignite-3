@@ -73,28 +73,40 @@ public class JdbcConnection implements Connection {
 
     /** Handler. */
     private final JdbcQueryEventHandler handler;
+
     /** Connection properties. */
     private final ConnectionProperties connProps;
+
     /** Tracked statements to close on disconnect. */
     private final Set<JdbcStatement> stmts = Collections.newSetFromMap(new IdentityHashMap<>());
+
     /** Query timeout. */
     private final @Nullable Integer qryTimeout;
+
     /** Ignite remote client. */
     private final TcpIgniteClient client;
+
     /** Schema name. */
     private String schema;
+
     /** Closed flag. */
     private volatile boolean closed;
+
     /** Current transaction isolation. */
     private int txIsolation;
+
     /** Auto-commit flag. */
     private boolean autoCommit;
+
     /** Read-only flag. */
     private boolean readOnly;
+
     /** Current transaction holdability. */
     private int holdability;
+
     /** Network timeout. */
     private int netTimeout;
+
     /** Jdbc metadata. Cache the JDBC object on the first access */
     private JdbcDatabaseMetadata metadata;
 

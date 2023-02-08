@@ -264,7 +264,7 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
-         * Sets the ssl configuration.
+         * Sets the SSL configuration.
          *
          * @param sslConfiguration SSL configuration.
          * @return This instance.

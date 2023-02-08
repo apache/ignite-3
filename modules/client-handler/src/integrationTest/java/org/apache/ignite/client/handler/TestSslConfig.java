@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
-/** Test ssl configuration. It is needed for grouping parameters. */
+/** Test SSL configuration. It is needed for grouping parameters. */
 public class TestSslConfig {
     private final String algorithm;
 

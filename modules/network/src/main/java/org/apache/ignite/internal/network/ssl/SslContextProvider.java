@@ -23,16 +23,16 @@ import org.apache.ignite.internal.network.configuration.SslView;
 /** SSL context provider. */
 public interface SslContextProvider {
 
-    /** Create an instance of client ssl context provider. */
+    /** Create an instance of client SSL context provider. */
     static SslContextProvider forClient(SslView ssl) {
         return new ClientSslContextProvider(ssl);
     }
 
-    /** Create an instance of server ssl context provider. */
+    /** Create an instance of server SSL context provider. */
     static SslContextProvider forServer(SslView ssl) {
         return new ServerSslContextProvider(ssl);
     }
 
-    /** Create ssl context. */
+    /** Create SSL context. */
     SslContext createSslContext();
 }

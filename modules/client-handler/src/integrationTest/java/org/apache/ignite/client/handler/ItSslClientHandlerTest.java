@@ -61,7 +61,7 @@ public class ItSslClientHandlerTest {
     }
 
     @Test
-    @DisplayName("When ssl not configured (by default) the client can connect")
+    @DisplayName("When SSL not configured (by default) the client can connect")
     void sslNotConfigured(TestInfo testInfo) throws IOException {
         // Given server started
         testServer = new TestServer();
@@ -72,7 +72,7 @@ public class ItSslClientHandlerTest {
     }
 
     @Test
-    @DisplayName("When ssl configured on the server but not configured on the client then exception is thrown")
+    @DisplayName("When SSL configured on the server but not configured on the client then exception is thrown")
     void sslConfiguredOnlyForServer(TestInfo testInfo) {
         // Given server started
         testServer = new TestServer(

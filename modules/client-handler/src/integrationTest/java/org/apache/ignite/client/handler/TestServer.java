@@ -39,10 +39,12 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
-/** Test server that can be started with ssl configuration. */
+/** Test server that can be started with SSL configuration. */
 public class TestServer {
     private final ConfigurationManager configurationManager;
+
     private NettyBootstrapFactory bootstrapFactory;
+
     private final TestSslConfig testSslConfig;
 
     TestServer(TestSslConfig testSslConfig) {

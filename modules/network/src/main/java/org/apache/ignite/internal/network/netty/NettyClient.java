@@ -75,7 +75,7 @@ public class NettyClient {
     private boolean stopped = false;
 
     /**
-     * Constructor with ssl configuration.
+     * Constructor with SSL configuration.
      *
      * @param address               Destination address.
      * @param serializationService  Serialization service.

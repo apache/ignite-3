@@ -38,7 +38,7 @@ public class PipelineUtils {
      * @param serializationService Serialization service.
      * @param handshakeManager Handshake manager.
      * @param messageListener Message listener.
-     * @param sslContext Netty ssl context.
+     * @param sslContext Netty SSL context.
      */
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
             HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener, SslContext sslContext) {

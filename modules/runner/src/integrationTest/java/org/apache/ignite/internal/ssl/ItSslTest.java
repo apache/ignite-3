@@ -109,7 +109,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Jdbc driver could establish the connection when ssl disabled")
+        @DisplayName("Jdbc driver could establish the connection when SSL disabled")
         void jdbcCouldConnectWithoutSsl() throws SQLException {
             var url = "jdbc:ignite:thin://127.0.0.1:10800";
             try (Connection conn = DriverManager.getConnection(url)) {
@@ -174,7 +174,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Client cannot connect without ssl configured")
+        @DisplayName("Client cannot connect without SSL configured")
         void clientCannotConnectWithoutSsl() {
             assertThrows(IgniteClientConnectionException.class, () -> {
                 try (IgniteClient ignored = IgniteClient.builder().addresses("localhost:10800").build()) {
@@ -190,7 +190,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Client can connect with ssl configured")
+        @DisplayName("Client can connect with SSL configured")
         void clientCanConnectWithSsl() throws Exception {
             var sslConfiguration =
                     SslConfiguration.builder()
@@ -210,7 +210,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Jdbc client can connect with ssl configured")
+        @DisplayName("Jdbc client can connect with SSL configured")
         void jdbcCanConnectWithSsl() throws SQLException {
             var url =
                     "jdbc:ignite:thin://127.0.0.1:10800"
@@ -287,7 +287,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Client cannot connect without ssl configured")
+        @DisplayName("Client cannot connect without SSL configured")
         void clientCannotConnectWithoutSsl() {
             assertThrows(IgniteClientConnectionException.class, () -> {
                 try (IgniteClient ignored = IgniteClient.builder().addresses("localhost:10800").build()) {
@@ -322,7 +322,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Client can connect with ssl and client authentication configured")
+        @DisplayName("Client can connect with SSL and client authentication configured")
         void clientCanConnectWithSslAndClientAuth() throws Exception {
             var sslConfiguration =
                     SslConfiguration.builder()
@@ -345,7 +345,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Jdbc client can connect with ssl configured")
+        @DisplayName("Jdbc client can connect with SSL configured")
         void jdbcCanConnectWithSslAndClientAuth() throws SQLException {
             var url =
                     "jdbc:ignite:thin://127.0.0.1:10800"

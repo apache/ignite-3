@@ -32,7 +32,7 @@ import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 
-/** Client ssl context provider. */
+/** Client SSL context provider. */
 public class ClientSslContextProvider implements SslContextProvider {
 
     private final SslView ssl;

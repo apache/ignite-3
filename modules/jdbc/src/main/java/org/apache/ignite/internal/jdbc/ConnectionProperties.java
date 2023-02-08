@@ -131,14 +131,14 @@ public interface ConnectionProperties {
     /**
      * SSL enabled.
      *
-     * @return true if ssl is enabled.
+     * @return true if SSL is enabled.
      */
     boolean isSslEnabled();
 
     /**
      * Enable/disable ssl.
      *
-     * @param enabled true if ssl is enabled.
+     * @param enabled true if SSL is enabled.
      */
     void setSslEnabled(boolean enabled);
 
@@ -157,7 +157,7 @@ public interface ConnectionProperties {
     ClientAuthConfiguration getClientAuth();
 
     /**
-     * Set trust store path that will be used to setup ssl connection.
+     * Set trust store path that will be used to setup SSL connection.
      *
      * @param trustStorePath Trust store path.
      */
@@ -206,7 +206,7 @@ public interface ConnectionProperties {
     void setKeyStoreType(String type);
 
     /**
-     * Set key store path that will be used to setup ssl connection.
+     * Set key store path that will be used to setup SSL connection.
      *
      * @param keyStorePath Key store path.
      */

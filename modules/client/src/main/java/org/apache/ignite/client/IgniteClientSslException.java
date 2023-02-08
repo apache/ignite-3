@@ -23,7 +23,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Indicates invalid ssl configuration.
+ * Indicates invalid SSL configuration.
  */
 public class IgniteClientSslException extends IgniteException {
     /** Serial version uid. */
