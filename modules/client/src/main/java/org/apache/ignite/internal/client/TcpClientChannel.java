@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import static org.apache.ignite.internal.client.io.netty.NettyFutureUtils.toCompletableFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
