@@ -117,7 +117,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param cfg     Config.
      * @param connMgr Connection multiplexer.
      */
-    TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
+    private TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
         validateConfiguration(cfg);
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
@@ -136,6 +136,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
         // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
         heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
+    }
+
+    public static CompletableFuture<ClientChannel> create(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
+        // TODO: Async startup IGNITE-15357.
+        return CompletableFuture.supplyAsync(() -> new TcpClientChannel(cfg, connMgr), ForkJoinPool.commonPool());
     }
 
     /** {@inheritDoc} */

@@ -63,7 +63,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class ReliableChannel implements AutoCloseable {
     /** Channel factory. */
-    private final BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory;
+    private final BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory;
 
     /** Client channel holders for each configured address. */
     private volatile List<ClientChannelHolder> channels;
@@ -113,7 +113,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
      */
-    ReliableChannel(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
+    ReliableChannel(BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory,
             IgniteClientConfiguration clientCfg) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
@@ -751,7 +751,8 @@ public final class ReliableChannel implements AutoCloseable {
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling");
                     }
 
-                    ClientChannel ch0 = chFactory.apply(chCfg, connMgr);
+                    // TODO IGNITE-15357 Async startup
+                    ClientChannel ch0 = chFactory.apply(chCfg, connMgr).join();
 
                     var oldClusterId = clusterId.compareAndExchange(null, ch0.protocolContext().clusterId());
 
