@@ -68,7 +68,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param cfg Config.
      */
     private TcpIgniteClient(IgniteClientConfiguration cfg) {
-        this(TcpClientChannel::create, cfg);
+        this(TcpClientChannel::createAsync, cfg);
     }
 
     /**
