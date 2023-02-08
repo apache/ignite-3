@@ -15,47 +15,22 @@
  * limitations under the License.
  */
 
-#pragma once
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-#include <chrono>
-
-#include "cmd_process.h"
-
-namespace ignite {
+import org.apache.ignite.internal.storage.ReadResult;
 
 /**
- * Represents IgniteRunner process.
- *
- * IgniteRunner is started from command line. It is recommended to re-use
- * the same IgniteRunner as much as possible to make tests as quick as possible.
+ * Implementation of the cursor that iterates over the page memory storage with the respect to the transaction id. Scans the partition
+ * and returns a cursor of values. All filtered values must either be uncommitted in the current transaction or already committed in a
+ * different transaction.
  */
-class IgniteRunner {
-public:
-    /**
-     * Destructor.
-     */
-    ~IgniteRunner() { stop(); }
+class LatestVersionsCursor extends AbstractPartitionTimestampCursor {
+    LatestVersionsCursor(AbstractPageMemoryMvPartitionStorage storage) {
+        super(storage);
+    }
 
-    /**
-     * Start node.
-     */
-    void start();
-
-    /**
-     * Stop node.
-     */
-    void stop();
-
-    /**
-     * Join node process.
-     *
-     * @param timeout Timeout.
-     */
-    void join(std::chrono::milliseconds timeout);
-
-private:
-    /** Underlying process. */
-    std::unique_ptr<CmdProcess> m_process;
-};
-
-} // namespace ignite
+    @Override
+    ReadResult findRowVersion(VersionChain versionChain) {
+        return storage.findLatestRowVersion(versionChain);
+    }
+}
