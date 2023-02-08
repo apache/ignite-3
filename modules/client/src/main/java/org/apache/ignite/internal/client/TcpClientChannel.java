@@ -415,12 +415,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
         });
 
-        // TODO: Handle handshake timeout
-//        if (connectTimeout > 0) {
-//            resFut.get(connectTimeout, TimeUnit.MILLISECONDS);
-//        } else {
-//            resFut.get();
-//        }
+        if (connectTimeout > 0) {
+            fut.orTimeout(connectTimeout, TimeUnit.MILLISECONDS);
+        }
+
         return fut.thenCompose(res -> handshakeRes(res, ver));
     }
 
