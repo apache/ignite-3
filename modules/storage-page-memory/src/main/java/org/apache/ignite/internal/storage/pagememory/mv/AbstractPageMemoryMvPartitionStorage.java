@@ -644,8 +644,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     rowVersionFreeList.updateTimestamp(chainLink, timestamp);
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(
-                            e,
-                            "Cannot update timestamp: [rowId={}, timestamp={}, {}]", rowId, timestamp, createStorageInfo()
+                            "Cannot update timestamp: [rowId={}, timestamp={}, {}]", e, rowId, timestamp, createStorageInfo()
                     );
                 }
 
@@ -659,8 +658,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     versionChainTree.putx(updatedVersionChain);
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(
-                            e,
-                            "Cannot update transaction ID: [rowId={}, timestamp={}, {}]", rowId, timestamp, createStorageInfo()
+                            "Cannot update transaction ID: [rowId={}, timestamp={}, {}]", e, rowId, timestamp, createStorageInfo()
                     );
                 }
 

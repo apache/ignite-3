@@ -81,22 +81,22 @@ public class StorageException extends IgniteInternalException {
      * Constructor.
      *
      * @param messagePattern Error message pattern.
+     * @param cause Non-null throwable cause.
      * @param params Error message params.
      * @see IgniteStringFormatter#format(String, Object...)
      */
-    public StorageException(String messagePattern, Object... params) {
-        this(IgniteStringFormatter.format(messagePattern, params));
+    public StorageException(String messagePattern, Throwable cause, Object... params) {
+        this(IgniteStringFormatter.format(messagePattern, params), cause);
     }
 
     /**
      * Constructor.
      *
-     * @param cause Non-null throwable cause.
      * @param messagePattern Error message pattern.
      * @param params Error message params.
      * @see IgniteStringFormatter#format(String, Object...)
      */
-    public StorageException(Throwable cause, String messagePattern, Object... params) {
-        this(IgniteStringFormatter.format(messagePattern, params), cause);
+    public StorageException(String messagePattern, Object... params) {
+        this(IgniteStringFormatter.format(messagePattern, params));
     }
 }
