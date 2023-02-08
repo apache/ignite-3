@@ -115,9 +115,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Constructor.
      *
      * @param cfg     Config.
-     * @param connMgr Connection multiplexer.
+     * @param conn    Connection.
      */
-    private TcpClientChannel(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
+    private TcpClientChannel(ClientChannelConfiguration cfg, ClientConnection conn) {
         validateConfiguration(cfg);
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
@@ -129,7 +129,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         connectTimeout = cfg.clientConfiguration().connectTimeout();
         heartbeatTimeout = cfg.clientConfiguration().heartbeatTimeout();
 
-        sock = connMgr.openAsync(cfg.getAddress(), this, this);
+        sock = conn;
 
         handshake(DEFAULT_VERSION);
 
@@ -140,7 +140,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     public static CompletableFuture<ClientChannel> create(ClientChannelConfiguration cfg, ClientConnectionMultiplexer connMgr) {
         // TODO: Async startup IGNITE-15357.
-        return CompletableFuture.supplyAsync(() -> new TcpClientChannel(cfg, connMgr), ForkJoinPool.commonPool());
+        return connMgr.openAsync(cfg.getAddress(), this, this).thenApply(s -> new TcpClientChannel(cfg, s));
     }
 
     /** {@inheritDoc} */
