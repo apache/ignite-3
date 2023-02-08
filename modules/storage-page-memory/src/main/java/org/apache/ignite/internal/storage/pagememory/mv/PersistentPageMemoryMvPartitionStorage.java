@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableState;
 
 import java.util.List;
 import java.util.UUID;
@@ -195,7 +194,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException {
         busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             lastAppliedBusy(lastAppliedIndex, lastAppliedTerm);
 
@@ -253,7 +252,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
         busy(() -> {
-            throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+            throwExceptionIfStorageNotInRunnableState();
 
             committedGroupConfigurationBusy(config);
 
