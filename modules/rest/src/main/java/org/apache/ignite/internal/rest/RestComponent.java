@@ -21,9 +21,11 @@ import static io.micronaut.context.env.Environment.BARE_METAL;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.server.exceptions.ServerStartupException;
+import io.micronaut.http.ssl.ClientAuthentication;
 import io.micronaut.openapi.annotation.OpenAPIInclude;
 import io.micronaut.runtime.Micronaut;
 import io.micronaut.runtime.exceptions.ApplicationStartupException;
+import io.netty.handler.ssl.ClientAuth;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -31,6 +33,7 @@ import io.swagger.v3.oas.annotations.info.License;
 import java.net.BindException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -172,6 +175,8 @@ public class RestComponent implements IgniteComponent {
                 return false;
             }
             throw new RuntimeException(e);
+        } catch (Throwable th) {
+            throw new RuntimeException(th);
         }
     }
 
@@ -214,12 +219,18 @@ public class RestComponent implements IgniteComponent {
     private Map<String, Object> properties(int port, int sslPort) {
         boolean dualProtocol = restConfiguration.dualProtocol().value();
         boolean sslEnabled = restConfiguration.ssl().enabled().value();
+        ClientAuth clientAuth = ClientAuth.valueOf(restConfiguration.ssl().clientAuth().value().toUpperCase());
+
         String keyStoreType = restConfiguration.ssl().keyStore().type().value();
         String keyStorePath = restConfiguration.ssl().keyStore().path().value();
         String keyStorePassword = restConfiguration.ssl().keyStore().password().value();
 
+        String trustStoreType = restConfiguration.ssl().trustStore().type().value();
+        String trustStorePath = restConfiguration.ssl().trustStore().path().value();
+        String trustStorePassword = restConfiguration.ssl().trustStore().password().value();
+
         if (sslEnabled) {
-            return Map.of(
+            Map<String, Object> micronautSslConfig = Map.of(
                     "micronaut.server.port", port, // Micronaut is not going to handle requests on that port, but it's required
                     "micronaut.server.dual-protocol", dualProtocol,
                     "micronaut.server.ssl.port", sslPort,
@@ -228,8 +239,33 @@ public class RestComponent implements IgniteComponent {
                     "micronaut.server.ssl.key-store.password", keyStorePassword,
                     "micronaut.server.ssl.key-store.type", keyStoreType
             );
+
+            if (ClientAuth.NONE == clientAuth) {
+                return micronautSslConfig;
+            }
+
+            Map<String, Object> micronautClientAuthConfig = Map.of(
+                    "micronaut.server.ssl.client-authentication", toMicronautClientAuth(clientAuth),
+                    "micronaut.server.ssl.trust-store.path", "file:" + trustStorePath,
+                    "micronaut.server.ssl.trust-store.password", trustStorePassword,
+                    "micronaut.server.ssl.trust-store.type", trustStoreType
+            );
+
+            HashMap<String, Object> result = new HashMap<>();
+            result.putAll(micronautSslConfig);
+            result.putAll(micronautClientAuthConfig);
+
+            return result;
         } else {
             return Map.of("micronaut.server.port", port);
+        }
+    }
+
+    private String toMicronautClientAuth(ClientAuth clientAuth) {
+        switch (clientAuth) {
+            case OPTIONAL: return ClientAuthentication.WANT.name().toLowerCase();
+            case REQUIRE:  return ClientAuthentication.NEED.name().toLowerCase();
+            default: throw new IllegalArgumentException("Can not convert " + clientAuth.name() + " to micronaut type");
         }
     }
 

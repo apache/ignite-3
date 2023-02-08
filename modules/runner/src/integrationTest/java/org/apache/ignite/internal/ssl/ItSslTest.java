@@ -260,7 +260,12 @@ public class ItSslTest {
                 + "    keyStore: {\n"
                 + "      path: \"" + keyStorePath + "\",\n"
                 + "      password: \"" + password + "\"\n"
-                + "    }\n"
+                + "    }, \n"
+                + "    trustStore: {\n"
+                + "      type: JKS,"
+                + "      password: \"" + password + "\","
+                + "      path: \"" + trustStorePath + "\""
+                + "      },\n"
                 + "  }\n"
                 + "}";
 

@@ -17,9 +17,30 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
 /** SSL configuration schema. */
-@Config
-public class SslConfigurationSchema extends AbstractSslConfigurationSchema {
+@AbstractConfiguration
+public class AbstractSslConfigurationSchema {
+    /** Enable/disable SSL. */
+    @Value(hasDefault = true)
+    public final boolean enabled = false;
+
+    /** Client authentication. */
+    @OneOf({"none", "optional", "require"})
+    @Value(hasDefault = true)
+    public final String clientAuth = "none";
+
+    /** SSL keystore configuration. */
+    @ConfigValue
+    @KeyStoreConfigurationValidator
+    public KeyStoreConfigurationSchema keyStore;
+
+    /** SSL truststore configuration. */
+    @ConfigValue
+    @KeyStoreConfigurationValidator
+    public KeyStoreConfigurationSchema trustStore;
 }
