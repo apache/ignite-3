@@ -24,14 +24,18 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,7 +76,7 @@ public class StorageUpdateHandler {
             UUID txId,
             UUID rowUuid,
             TablePartitionId commitPartitionId,
-            ByteBuffer rowBuffer,
+            @Nullable ByteBuffer rowBuffer,
             @Nullable Consumer<RowId> onReplication
     ) {
         storage.runConsistently(() -> {
@@ -81,7 +85,12 @@ public class StorageUpdateHandler {
             UUID commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
 
-            storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+
+            if (oldRow != null) {
+                // Previous uncommitted row should be removed from indexes.
+                tryRemovePreviousWritesIndex(rowId, oldRow);
+            }
 
             if (onReplication != null) {
                 onReplication.accept(rowId);
@@ -118,7 +127,12 @@ public class StorageUpdateHandler {
                     RowId rowId = new RowId(partitionId, entry.getKey());
                     BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue()) : null;
 
-                    storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+                    BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+
+                    if (oldRow != null) {
+                        // Previous uncommitted row should be removed from indexes.
+                        tryRemovePreviousWritesIndex(rowId, oldRow);
+                    }
 
                     rowIds.add(rowId);
                     addToIndexes(row, rowId);
@@ -131,6 +145,113 @@ public class StorageUpdateHandler {
 
             return null;
         });
+    }
+
+    /**
+     * Tries removing previous write's index.
+     *
+     * @param rowId Row id.
+     * @param previousRow Previous write value.
+     */
+    private void tryRemovePreviousWritesIndex(RowId rowId, BinaryRow previousRow) {
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            if (!cursor.hasNext()) {
+                return;
+            }
+
+            tryRemoveFromIndexes(previousRow, rowId, cursor);
+        }
+    }
+
+    /**
+     * Handles the abortion of a transaction.
+     *
+     * @param pendingRowIds Row ids of write-intents to be rolled back.
+     * @param onReplication On replication callback.
+     */
+    public void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onReplication) {
+        storage.runConsistently(() -> {
+            for (RowId rowId : pendingRowIds) {
+                try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                    if (!cursor.hasNext()) {
+                        continue;
+                    }
+
+                    ReadResult item = cursor.next();
+
+                    assert item.isWriteIntent();
+
+                    BinaryRow rowToRemove = item.binaryRow();
+
+                    if (rowToRemove == null) {
+                        continue;
+                    }
+
+                    tryRemoveFromIndexes(rowToRemove, rowId, cursor);
+                }
+            }
+
+            pendingRowIds.forEach(storage::abortWrite);
+
+            onReplication.run();
+
+            return null;
+        });
+    }
+
+    /**
+     * Tries removing indexed row from evey index.
+     * Removes the row only if no previous value's index matches index of the row to remove, because if it matches, then the index
+     * might still be in use.
+     *
+     * @param rowToRemove Row to remove from indexes.
+     * @param rowId Row id.
+     * @param previousValues Cursor with previous version of the row.
+     */
+    private void tryRemoveFromIndexes(BinaryRow rowToRemove, RowId rowId, Cursor<ReadResult> previousValues) {
+        TableSchemaAwareIndexStorage[] indexes = this.indexes.get().values().toArray(new TableSchemaAwareIndexStorage[0]);
+
+        ByteBuffer[] indexValues = new ByteBuffer[indexes.length];
+
+        // Precalculate value for every index.
+        for (int i = 0, indexesLength = indexes.length; i < indexesLength; i++) {
+            TableSchemaAwareIndexStorage index = indexes[i];
+
+            indexValues[i] = index.calculateIndex(rowToRemove).byteBuffer();
+        }
+
+        while (previousValues.hasNext()) {
+            ReadResult previousVersion = previousValues.next();
+
+            BinaryRow previousRow = previousVersion.binaryRow();
+
+            // No point in cleaning up indexes for tombstone, they should not exist.
+            if (previousRow != null) {
+                for (int i = 0, indexesLength = indexes.length; i < indexesLength; i++) {
+                    TableSchemaAwareIndexStorage index = indexes[i];
+
+                    // If any of the previous versions' index value matches the index value of
+                    // the row to remove, then we can't remove that index as it can still be used.
+                    BinaryTuple previousRowIndex = index.calculateIndex(previousRow);
+
+                    if (indexValues[i].equals(previousRowIndex.byteBuffer())) {
+                        indexes[i] = null;
+                    }
+                }
+            }
+        }
+
+        for (TableSchemaAwareIndexStorage index : indexes) {
+            if (index != null) {
+                index.remove(rowToRemove, rowId);
+            }
+        }
+    }
+
+    private void removeFromIndex(BinaryRow row, RowId rowId) {
+        for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
+            index.remove(row, rowId);
+        }
     }
 
     private void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {

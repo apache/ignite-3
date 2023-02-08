@@ -24,11 +24,13 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -127,6 +129,13 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         handleSnapshotInterference(rowId);
 
         partitionStorage.commitWrite(rowId, timestamp);
+    }
+
+    @Override
+    public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
+        handleSnapshotInterference(rowId);
+
+        return partitionStorage.scanVersions(rowId);
     }
 
     private void handleSnapshotInterference(RowId rowId) {

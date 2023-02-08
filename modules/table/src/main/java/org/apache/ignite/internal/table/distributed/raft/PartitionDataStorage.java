@@ -25,9 +25,11 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -161,6 +163,17 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @see MvPartitionStorage#commitWrite(RowId, HybridTimestamp)
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+
+    /**
+     * Scans all versions of a single row.
+     *
+     * <p>{@link ReadResult#newestCommitTimestamp()} is NOT filled by this method for intents having preceding committed
+     * versions.
+     *
+     * @param rowId Row id.
+     * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
+     */
+    Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
 
     /**
      * Returns the underlying {@link MvPartitionStorage}. Only for tests!

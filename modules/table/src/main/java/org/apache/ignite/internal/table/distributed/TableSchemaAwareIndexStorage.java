@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.nio.file.Path;
 import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -81,6 +82,16 @@ public class TableSchemaAwareIndexStorage {
         BinaryTuple tuple = indexRowResolver.apply(binaryRow);
 
         storage.remove(new IndexRowImpl(tuple, rowId));
+    }
+
+    /**
+     * Calculates index value.
+     *
+     * @param row Full row.
+     * @return Index value.
+     */
+    public BinaryTuple calculateIndex(BinaryRow row) {
+        return indexRowResolver.apply(row);
     }
 
     /** Returns underlying index storage. */

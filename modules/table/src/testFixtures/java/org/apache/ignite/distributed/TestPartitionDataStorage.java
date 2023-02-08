@@ -26,10 +26,12 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -104,6 +106,11 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     @Override
     public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
         partitionStorage.commitWrite(rowId, timestamp);
+    }
+
+    @Override
+    public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
+        return partitionStorage.scanVersions(rowId);
     }
 
     @Override

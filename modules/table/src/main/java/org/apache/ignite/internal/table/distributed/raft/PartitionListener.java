@@ -313,23 +313,28 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storage.runConsistently(() -> {
-            UUID txId = cmd.txId();
+        UUID txId = cmd.txId();
 
-            Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
+        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
-            if (cmd.commit()) {
+        if (cmd.commit()) {
+            storage.runConsistently(() -> {
                 pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp().asHybridTimestamp()));
-            } else {
-                pendingRowIds.forEach(storage::abortWrite);
-            }
 
-            txsPendingRowIds.remove(txId);
+                txsPendingRowIds.remove(txId);
 
-            storage.lastApplied(commandIndex, commandTerm);
+                storage.lastApplied(commandIndex, commandTerm);
 
-            return null;
-        });
+                return null;
+            });
+        } else {
+            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
+                // on replication callback
+                txsPendingRowIds.remove(txId);
+
+                storage.lastApplied(commandIndex, commandTerm);
+            });
+        }
     }
 
     /**
