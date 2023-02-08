@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.client.io.netty.NettyFutureUtils.toCompletableFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
@@ -407,8 +408,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture fut = new ClientRequestFuture();
         pendingReqs.put(-1L, fut);
 
-        // TODO: Wait for reqFut - create a conversion from ChannelFuture to CompletableFuture to do chaining.
-        ChannelFuture reqFut = handshakeReqAsync(ver);
+        handshakeReqAsync(ver).addListener(f -> {
+            if (!f.isSuccess()) {
+                fut.completeExceptionally(
+                        new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send handshake request", f.cause()));
+            }
+        });
 
         // TODO: Handle handshake timeout
 //        if (connectTimeout > 0) {
