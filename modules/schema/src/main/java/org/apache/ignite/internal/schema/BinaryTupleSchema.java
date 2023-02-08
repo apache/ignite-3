@@ -107,7 +107,7 @@ public class BinaryTupleSchema {
         /** {@inheritDoc} */
         @Override
         public int columnIndex(int index) {
-            return index - columnBase;
+            return index + columnBase;
         }
 
         /** {@inheritDoc} */

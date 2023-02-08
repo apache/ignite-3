@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.lang.ErrorGroups.Storage;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,5 +75,17 @@ public class StorageException extends IgniteInternalException {
      */
     protected StorageException(int code, String message, @Nullable Throwable cause) {
         super(code, message, cause);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param messagePattern Error message pattern.
+     * @param cause Non-null throwable cause.
+     * @param params Error message params.
+     * @see IgniteStringFormatter#format(String, Object...)
+     */
+    public StorageException(String messagePattern, Throwable cause, Object... params) {
+        this(IgniteStringFormatter.format(messagePattern, params), cause);
     }
 }

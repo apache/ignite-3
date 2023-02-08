@@ -25,18 +25,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
@@ -72,20 +70,10 @@ public abstract class BaseMvStoragesTest {
     protected static final KvMarshaller<TestKey, TestValue> kvMarshaller
             = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
 
-    /** Key-value {@link BinaryTuple} converter for tests. */
-    protected static final BinaryConverter kvBinaryConverter = BinaryConverter.forRow(schemaDescriptor);
-
-    /** Key {@link BinaryTuple} converter for tests. */
-    protected static final BinaryConverter kBinaryConverter = BinaryConverter.forKey(schemaDescriptor);
-
     /** Hybrid clock to generate timestamps. */
     protected final HybridClock clock = new HybridClockImpl();
 
-    protected static TableRow tableRow(TestKey key, TestValue value) {
-        return TableRowConverter.fromBinaryRow(binaryRow(key, value), kvBinaryConverter);
-    }
-
-    private static BinaryRow binaryRow(TestKey key, TestValue value) {
+    protected static BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
             return kvMarshaller.marshal(key, value);
         } catch (MarshallerException e) {
@@ -94,7 +82,7 @@ public abstract class BaseMvStoragesTest {
     }
 
 
-    protected static IndexRow indexRow(IndexDescriptor indexDescriptor, TableRow tableRow, RowId rowId) {
+    protected static IndexRow indexRow(IndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
         int[] columnIndexes = indexDescriptor.columns().stream()
                 .mapToInt(indexColumnDescriptor -> {
                     Column column = schemaDescriptor.column(indexColumnDescriptor.name());
@@ -105,15 +93,12 @@ public abstract class BaseMvStoragesTest {
                 })
                 .toArray();
 
-        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-        BinaryTupleSchema indexSchema = BinaryTupleSchema.createSchema(schemaDescriptor, columnIndexes);
-        TableRowConverter converter = new TableRowConverter(tupleSchema, indexSchema);
-        return new IndexRowImpl(converter.toTuple(tableRow), rowId);
+        Function<BinaryRow, BinaryTuple> converter = BinaryRowConverter.columnsExtractor(schemaDescriptor, columnIndexes);
+        return new IndexRowImpl(converter.apply(binaryRow), rowId);
     }
 
-    protected static TestKey key(TableRow tableRow) {
+    protected static TestKey key(BinaryRow binaryRow) {
         try {
-            BinaryRow binaryRow = kvBinaryConverter.fromTuple(tableRow.tupleSlice());
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
@@ -121,21 +106,20 @@ public abstract class BaseMvStoragesTest {
     }
 
     @Nullable
-    protected static TestValue value(TableRow tableRow) {
+    protected static TestValue value(BinaryRow binaryRow) {
         try {
-            BinaryRow binaryRow = kvBinaryConverter.fromTuple(tableRow.tupleSlice());
             return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
     }
 
-    protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable TableRow tableRow) {
-        if (tableRow == null) {
+    protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {
+        if (binaryRow == null) {
             return null;
         }
 
-        return new IgniteBiTuple<>(key(tableRow), value(tableRow));
+        return new IgniteBiTuple<>(key(binaryRow), value(binaryRow));
     }
 
     protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable ReadResult readResult) {
@@ -143,13 +127,13 @@ public abstract class BaseMvStoragesTest {
             return null;
         }
 
-        TableRow tableRow = readResult.tableRow();
+        BinaryRow binaryRow = readResult.binaryRow();
 
-        if (tableRow == null) {
+        if (binaryRow == null) {
             return null;
         }
 
-        return new IgniteBiTuple<>(key(tableRow), value(tableRow));
+        return new IgniteBiTuple<>(key(binaryRow), value(binaryRow));
     }
 
     protected static List<IgniteBiTuple<TestKey, TestValue>> drainToList(Cursor<ReadResult> cursor) {
@@ -158,7 +142,7 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected final void assertRowMatches(@Nullable TableRow rowUnderQuestion, TableRow expectedRow) {
+    protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
         assertThat(rowUnderQuestion, is(notNullValue()));
         assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }

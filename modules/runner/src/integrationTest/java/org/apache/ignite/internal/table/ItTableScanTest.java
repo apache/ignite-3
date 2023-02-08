@@ -48,7 +48,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -747,13 +746,13 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Entire row.
      */
     private static Row createKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
         rowBuilder.appendString("StrNew_" + id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -763,13 +762,13 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Entire row.
      */
     private static Row createOldKeyValueRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendInt(id);
         rowBuilder.appendString("Str_" + id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -779,11 +778,11 @@ public class ItTableScanTest extends AbstractBasicIntegrationTest {
      * @return Key row.
      */
     private static Row createKeyRow(int id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
 
         rowBuilder.appendInt(id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**

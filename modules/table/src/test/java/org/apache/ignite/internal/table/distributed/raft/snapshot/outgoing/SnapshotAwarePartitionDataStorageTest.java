@@ -35,7 +35,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
@@ -144,11 +144,11 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesAddWrite() {
-        TableRow resultRow = mock(TableRow.class);
+        BinaryRow resultRow = mock(BinaryRow.class);
 
         when(partitionStorage.addWrite(any(), any(), any(), any(), anyInt())).thenReturn(resultRow);
 
-        TableRow argumentRow = mock(TableRow.class);
+        BinaryRow argumentRow = mock(BinaryRow.class);
         UUID txId = UUID.randomUUID();
         UUID commitTableId = UUID.randomUUID();
 
@@ -158,7 +158,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesAbortWrite() {
-        TableRow resultRow = mock(TableRow.class);
+        BinaryRow resultRow = mock(BinaryRow.class);
 
         when(partitionStorage.abortWrite(any())).thenReturn(resultRow);
 
@@ -289,7 +289,7 @@ class SnapshotAwarePartitionDataStorageTest {
         ADD_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.addWrite(rowId, mock(TableRow.class), UUID.randomUUID(), UUID.randomUUID(), 42);
+                storage.addWrite(rowId, mock(BinaryRow.class), UUID.randomUUID(), UUID.randomUUID(), 42);
             }
         },
         ABORT_WRITE {

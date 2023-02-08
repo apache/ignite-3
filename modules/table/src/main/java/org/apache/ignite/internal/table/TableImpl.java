@@ -33,7 +33,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -274,14 +273,12 @@ public class TableImpl implements Table {
      *
      * @param indexId An index id os the index to register.
      * @param unique A flag indicating whether the given index unique or not.
-     * @param binaryRowResolver Function which converts given binary row to an index key.
-     * @param tableRowResolver Function which converts given table row to an index key.
+     * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerHashIndex(
             UUID indexId,
             boolean unique,
-            Function<BinaryRow, BinaryTuple> binaryRowResolver,
-            Function<TableRow, BinaryTuple> tableRowResolver
+            Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
         indexLockerFactories.put(
                 indexId,
@@ -289,7 +286,7 @@ public class TableImpl implements Table {
                         indexId,
                         unique,
                         lockManager,
-                        binaryRowResolver
+                        searchRowResolver
                 )
         );
         indexStorageAdapterFactories.put(
@@ -297,8 +294,7 @@ public class TableImpl implements Table {
                 partitionId -> new TableSchemaAwareIndexStorage(
                         indexId,
                         tbl.storage().getOrCreateHashIndex(partitionId, indexId),
-                        binaryRowResolver,
-                        tableRowResolver
+                        searchRowResolver
                 )
         );
 
@@ -313,13 +309,11 @@ public class TableImpl implements Table {
      * Register the index with given id in a table.
      *
      * @param indexId An index id os the index to register.
-     * @param binaryRowResolver Function which converts given binary row to an index key.
-     * @param tableRowResolver Function which converts given table row to an index key.
+     * @param searchRowResolver Function which converts given table row to an index key.
      */
     public void registerSortedIndex(
             UUID indexId,
-            Function<BinaryRow, BinaryTuple> binaryRowResolver,
-            Function<TableRow, BinaryTuple> tableRowResolver
+            Function<BinaryRow, BinaryTuple> searchRowResolver
     ) {
         indexLockerFactories.put(
                 indexId,
@@ -327,7 +321,7 @@ public class TableImpl implements Table {
                         indexId,
                         lockManager,
                         tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
-                        binaryRowResolver
+                        searchRowResolver
                 )
         );
         indexStorageAdapterFactories.put(
@@ -335,8 +329,7 @@ public class TableImpl implements Table {
                 partitionId -> new TableSchemaAwareIndexStorage(
                         indexId,
                         tbl.storage().getOrCreateSortedIndex(partitionId, indexId),
-                        binaryRowResolver,
-                        tableRowResolver
+                        searchRowResolver
                 )
         );
 

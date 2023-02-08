@@ -22,140 +22,45 @@
 
 namespace ignite {
 
-big_decimal::big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool bigEndian)
-    : scale(scale & 0x7FFFFFFF)
-    , magnitude(mag, len, sign, bigEndian) {
-}
-
-big_decimal::big_decimal(int64_t val)
-    : scale(0)
-    , magnitude(val) {
-}
-
-big_decimal::big_decimal(int64_t val, int32_t scale)
-    : scale(scale)
-    , magnitude(val) {
-}
-
-big_decimal::big_decimal(big_integer val, int32_t scale)
-    : scale(scale)
-    , magnitude(std::move(val)) {
-    // No-op.
-}
-
-big_decimal::big_decimal(const char *val, int32_t len)
-    : scale(0)
-    , magnitude(0) {
-    assign_string(val, len);
-}
-
-big_decimal::operator double() const {
-    return ToDouble();
-}
-
-big_decimal::operator int64_t() const {
-    return to_int64();
-}
-
-double big_decimal::ToDouble() const {
-    std::stringstream stream;
-    stream << *this;
-
-    double result;
-    stream >> result;
-    return result;
-}
-
-int64_t big_decimal::to_int64() const {
-    if (scale == 0)
-        return magnitude.to_int64();
-
-    big_decimal zeroScaled;
-
-    set_scale(0, zeroScaled);
-
-    return zeroScaled.magnitude.to_int64();
-}
-
 void big_decimal::set_scale(int32_t newScale, big_decimal &res) const {
-    if (scale == newScale)
+    if (m_scale == newScale)
         return;
 
-    int32_t diff = scale - newScale;
+    int32_t diff = m_scale - newScale;
 
     big_integer adjustment;
 
     if (diff > 0) {
         big_integer::get_power_of_ten(diff, adjustment);
 
-        magnitude.divide(adjustment, res.magnitude);
+        m_magnitude.divide(adjustment, res.m_magnitude);
     } else {
         big_integer::get_power_of_ten(-diff, adjustment);
 
-        magnitude.multiply(adjustment, res.magnitude);
+        m_magnitude.multiply(adjustment, res.m_magnitude);
     }
 
-    res.scale = newScale;
-}
-
-void big_decimal::swap(big_decimal &second) {
-    using std::swap;
-
-    swap(scale, second.scale);
-    magnitude.swap(second.magnitude);
-}
-
-int32_t big_decimal::get_magnitude_length() const {
-    return int32_t(magnitude.mag.size());
-}
-
-void big_decimal::assign_string(const char *val, int32_t len) {
-    std::stringstream converter;
-
-    converter.write(val, len);
-
-    converter >> *this;
-}
-
-void big_decimal::assign_int64(int64_t val) {
-    magnitude.assign_int64(val);
-
-    scale = 0;
-}
-
-void big_decimal::assign_double(double val) {
-    std::stringstream converter;
-
-    converter.precision(16);
-
-    converter << val;
-    converter >> *this;
-}
-
-void big_decimal::assign_uint64(uint64_t val) {
-    magnitude.assign_uint64(val);
-
-    scale = 0;
+    res.m_scale = newScale;
 }
 
 int big_decimal::compare(const big_decimal &other) const {
     if (is_zero() && other.is_zero())
         return 0;
 
-    if (scale == other.scale)
-        return magnitude.compare(other.magnitude);
-    else if (scale > other.scale) {
+    if (m_scale == other.m_scale)
+        return m_magnitude.compare(other.m_magnitude);
+    else if (m_scale > other.m_scale) {
         big_decimal scaled;
 
-        other.set_scale(scale, scaled);
+        other.set_scale(m_scale, scaled);
 
-        return magnitude.compare(scaled.magnitude);
+        return m_magnitude.compare(scaled.m_magnitude);
     } else {
         big_decimal scaled;
 
-        set_scale(other.scale, scaled);
+        set_scale(other.m_scale, scaled);
 
-        return scaled.magnitude.compare(other.magnitude);
+        return scaled.m_magnitude.compare(other.m_magnitude);
     }
 }
 
@@ -167,11 +72,11 @@ std::ostream &operator<<(std::ostream &os, const big_decimal &val) {
         return os << '0';
 
     // Scale is zero or negative. No decimal point here.
-    if (val.scale <= 0) {
+    if (val.m_scale <= 0) {
         os << unscaled;
 
         // Adding zeroes if needed.
-        for (int32_t i = 0; i < -val.scale; ++i)
+        for (int32_t i = 0; i < -val.m_scale; ++i)
             os << '0';
 
         return os;
@@ -206,7 +111,7 @@ std::ostream &operator<<(std::ostream &os, const big_decimal &val) {
     // This is expected as we already covered zero number case.
     assert(lastNonZero >= magBegin);
 
-    int32_t dotPos = magLen - val.scale;
+    int32_t dotPos = magLen - val.m_scale;
 
     if (dotPos <= 0) {
         // Means we need to add leading zeroes.
@@ -254,7 +159,7 @@ std::istream &operator>>(std::istream &is, big_decimal &val) {
     int32_t scale = -1;
     int32_t sign = 1;
 
-    big_integer &mag = val.magnitude;
+    big_integer &mag = val.m_magnitude;
     big_integer pow;
     big_integer bigPart;
 
@@ -324,12 +229,11 @@ std::istream &operator>>(std::istream &is, big_decimal &val) {
         scale -= exp;
     }
 
-    val.scale = scale;
+    val.m_scale = scale;
 
     if (sign < 0)
         mag.negate();
 
     return is;
 }
-
 } // namespace ignite
