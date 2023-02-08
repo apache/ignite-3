@@ -26,7 +26,7 @@ import java.nio.ByteOrder;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
@@ -70,7 +70,7 @@ class PartitionDataHelper implements ManuallyCloseable {
     /** Value offset (if transaction state is present). */
     static final int VALUE_OFFSET = VALUE_HEADER_SIZE;
 
-    static final ByteOrder TABLE_ROW_BYTE_ORDER = TableRow.ORDER;
+    static final ByteOrder TABLE_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
 
     static final ByteOrder KEY_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 

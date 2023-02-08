@@ -24,7 +24,7 @@
 
 namespace ignite {
 
-std::optional<std::string> get_env(const std::string& name) {
+std::optional<std::string> get_env(const std::string &name) {
     const char *env = std::getenv(name.c_str());
     if (!env)
         return {};

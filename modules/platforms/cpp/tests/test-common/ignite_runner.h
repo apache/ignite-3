@@ -32,6 +32,11 @@ namespace ignite {
 class IgniteRunner {
 public:
     /**
+     * Destructor.
+     */
+    ~IgniteRunner() { stop(); }
+
+    /**
      * Start node.
      */
     void start();
