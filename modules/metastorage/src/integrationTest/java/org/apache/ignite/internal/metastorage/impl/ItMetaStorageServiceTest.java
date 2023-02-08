@@ -100,6 +100,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -203,7 +204,7 @@ public class ItMetaStorageServiceTest {
 
             ClusterNode node = clusterService.topologyService().localMember();
 
-            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, node);
+            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, new IgniteSpinBusyLock(), node);
         }
 
         String name() {

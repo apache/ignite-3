@@ -48,6 +48,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -88,7 +89,7 @@ public class MetaStorageRangeCursorTest {
 
         var localNode = new ClusterNode("test", "test", new NetworkAddress("localhost", 10000));
 
-        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, localNode);
+        MetaStorageService metaStorageService = new MetaStorageServiceImpl(raftGroupService, new IgniteSpinBusyLock(), localNode);
 
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo)), expectedEntries);
         checkCursor(metaStorageService.range(intToBytes(0), intToBytes(keyTo), 0), expectedEntries);

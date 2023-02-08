@@ -18,18 +18,16 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.cursor.CloseCursorCommand;
 import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,11 +43,7 @@ class CursorSubscription implements Subscription {
     /** Default batch size that is requested from the remote server. */
     private static final int BATCH_SIZE = 1000;
 
-    private final RaftGroupService raftService;
-
-    private final MetaStorageCommandsFactory commandsFactory;
-
-    private final ExecutorService executorService;
+    private final MetaStorageServiceContext context;
 
     private final IgniteUuid cursorId;
 
@@ -68,16 +62,8 @@ class CursorSubscription implements Subscription {
     /** Amount of entries requested by the subscriber. */
     private long demand;
 
-    CursorSubscription(
-            RaftGroupService raftService,
-            MetaStorageCommandsFactory commandsFactory,
-            ExecutorService executorService,
-            IgniteUuid cursorId,
-            Subscriber<? super Entry> subscriber
-    ) {
-        this.raftService = raftService;
-        this.commandsFactory = commandsFactory;
-        this.executorService = executorService;
+    CursorSubscription(MetaStorageServiceContext context, IgniteUuid cursorId, Subscriber<? super Entry> subscriber) {
+        this.context = context;
         this.cursorId = cursorId;
         this.subscriber = subscriber;
     }
@@ -94,27 +80,41 @@ class CursorSubscription implements Subscription {
             return;
         }
 
-        // Increase the number of requested items.
-        demand += n;
-
-        if (demand <= 0) {
-            onError(new IllegalArgumentException("Long overflow"));
+        if (!context.busyLock().enterBusy()) {
+            onError(new NodeStoppingException());
 
             return;
         }
 
-        // Start the processing if it has not been started yet (async operation).
-        if (cachedResponse == null) {
-            requestNextBatch();
+        try {
+            // Increase the number of requested items.
+            demand += n;
+
+            if (demand <= 0) {
+                onError(new IllegalArgumentException("Long overflow"));
+
+                return;
+            }
+
+            // Start the processing if it has not been started yet (async operation).
+            if (cachedResponse == null) {
+                requestNextBatch();
+            }
+        } finally {
+            context.busyLock().leaveBusy();
         }
     }
 
     /**
-     * Does the actual request processing. Must always be called on {@link CursorSubscription#executorService}.
+     * Does the actual request processing. Must always be called on {@link #context} executor.
      */
     private void processRequest() {
         if (isDone) {
             return;
+        }
+
+        if (!context.busyLock().enterBusy()) {
+            onError(new NodeStoppingException());
         }
 
         try {
@@ -142,35 +142,45 @@ class CursorSubscription implements Subscription {
             }
         } catch (Exception e) {
             onError(e);
+        } finally {
+            context.busyLock().leaveBusy();
         }
     }
 
     private void requestNextBatch() {
-        NextBatchCommand command = commandsFactory.nextBatchCommand()
+        NextBatchCommand command = context.commandsFactory().nextBatchCommand()
                 .cursorId(cursorId)
                 .batchSize(BATCH_SIZE)
                 .build();
 
-        raftService.<BatchResponse>run(command)
+        context.raftService().<BatchResponse>run(command)
                 .whenCompleteAsync((resp, e) -> {
-                    if (e == null) {
-                        cachedResponse = resp;
-                        responseIndex = 0;
-
-                        processRequest();
-                    } else {
-                        onError(e);
+                    if (!context.busyLock().enterBusy()) {
+                        onError(new NodeStoppingException());
                     }
-                }, executorService);
+
+                    try {
+                        if (e == null) {
+                            cachedResponse = resp;
+                            responseIndex = 0;
+
+                            processRequest();
+                        } else {
+                            onError(e);
+                        }
+                    } finally {
+                        context.busyLock().leaveBusy();
+                    }
+                }, context.executorService());
     }
 
     @Override
     public void cancel() {
         isDone = true;
 
-        CloseCursorCommand command = commandsFactory.closeCursorCommand().cursorId(cursorId).build();
+        CloseCursorCommand command = context.commandsFactory().closeCursorCommand().cursorId(cursorId).build();
 
-        raftService.run(command).whenComplete((v, e) -> {
+        context.raftService().run(command).whenComplete((v, e) -> {
             if (e != null) {
                 LOG.error("Unable to close cursor " + cursorId, e);
             }

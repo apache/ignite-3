@@ -18,16 +18,15 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Publisher that streams data from a remote Meta Storage cursor.
@@ -37,49 +36,62 @@ import org.apache.ignite.lang.IgniteUuidGenerator;
 class CursorPublisher implements Publisher<Entry> {
     private static final IgniteUuidGenerator UUID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
-    private final RaftGroupService raftService;
-
-    private final MetaStorageCommandsFactory commandsFactory;
-
-    private final ExecutorService executorService;
+    private final MetaStorageServiceContext context;
 
     private final Function<IgniteUuid, WriteCommand> createCursorSupplier;
+
+    private final AtomicBoolean subscriptionGuard = new AtomicBoolean();
 
     /**
      * Creates a new publisher instance.
      *
-     * @param raftService Meta Storage Raft service.
-     * @param commandsFactory Meta Storage commands factory.
-     * @param executorService Executor that will be used to call the subscriber's methods.
+     * @param context Context.
      * @param createCursorSupplier Factory that creates a remote Meta Storage cursor (provided with a cursor ID).
      */
-    CursorPublisher(
-            RaftGroupService raftService,
-            MetaStorageCommandsFactory commandsFactory,
-            ExecutorService executorService,
-            Function<IgniteUuid, WriteCommand> createCursorSupplier
-    ) {
-        this.raftService = raftService;
-        this.commandsFactory = commandsFactory;
-        this.executorService = executorService;
+    CursorPublisher(MetaStorageServiceContext context, Function<IgniteUuid, WriteCommand> createCursorSupplier) {
+        this.context = context;
         this.createCursorSupplier = createCursorSupplier;
     }
 
     @Override
     public void subscribe(Subscriber<? super Entry> subscriber) {
-        IgniteUuid cursorId = UUID_GENERATOR.randomUuid();
+        if (!subscriptionGuard.compareAndSet(false, true)) {
+            throw new IllegalArgumentException("This publisher supports only one subscriber");
+        }
 
-        WriteCommand createCursorCommand = createCursorSupplier.apply(cursorId);
+        if (!context.busyLock().enterBusy()) {
+            subscriber.onError(new NodeStoppingException());
 
-        raftService.run(createCursorCommand)
-                .whenCompleteAsync((v, e) -> {
-                    if (e == null) {
-                        var subscription = new CursorSubscription(raftService, commandsFactory, executorService, cursorId, subscriber);
+            return;
+        }
 
-                        subscriber.onSubscribe(subscription);
-                    } else {
-                        subscriber.onError(e);
-                    }
-                }, executorService);
+        try {
+            IgniteUuid cursorId = UUID_GENERATOR.randomUuid();
+
+            WriteCommand createCursorCommand = createCursorSupplier.apply(cursorId);
+
+            context.raftService().run(createCursorCommand)
+                    .whenCompleteAsync((v, e) -> {
+                        if (!context.busyLock().enterBusy()) {
+                            subscriber.onError(new NodeStoppingException());
+
+                            return;
+                        }
+
+                        try {
+                            if (e == null) {
+                                var subscription = new CursorSubscription(context, cursorId, subscriber);
+
+                                subscriber.onSubscribe(subscription);
+                            } else {
+                                subscriber.onError(e);
+                            }
+                        } finally {
+                            context.busyLock().leaveBusy();
+                        }
+                    }, context.executorService());
+        } finally {
+            context.busyLock().leaveBusy();
+        }
     }
 }
