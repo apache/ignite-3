@@ -488,7 +488,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
     ) {
         if (!busyLock.enterBusy()) {
-            fut.cancel(true);
+            fut.cancel(false);
 
             return;
         }
