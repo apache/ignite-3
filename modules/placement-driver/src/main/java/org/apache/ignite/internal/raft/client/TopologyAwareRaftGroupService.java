@@ -191,8 +191,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      *
      * @param node Node.
      * @param msg Subscribe message to send.
-     * @param msgSendFut Future that completes with true when the message sent and with false when the node left topology and  cannot get a
-     * cluster.
+     * @param msgSendFut Future that completes with true when the message sent and with false when the node left topology and cannot get a
+     *     cluster.
      */
     private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
         clusterService.messagingService().invoke(node, msg, raftConfiguration.responseTimeout().value()).whenCompleteAsync((unused, th) -> {
