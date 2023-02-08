@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,7 +33,7 @@ public class ReadResult {
     private final RowId rowId;
 
     /** Data. {@code null} iff the result is empty (i.e. no row exists or it is a tombstone). */
-    private final @Nullable TableRow tableRow;
+    private final @Nullable BinaryRow binaryRow;
 
     /** Transaction id. Not {@code null} iff this is a write-intent. */
     private final @Nullable UUID transactionId;
@@ -59,7 +59,7 @@ public class ReadResult {
 
     private ReadResult(
             RowId rowId,
-            @Nullable TableRow tableRow,
+            @Nullable BinaryRow binaryRow,
             @Nullable UUID transactionId,
             @Nullable UUID commitTableId,
             @Nullable HybridTimestamp commitTs,
@@ -67,7 +67,7 @@ public class ReadResult {
             int commitPartitionId
     ) {
         this.rowId = rowId;
-        this.tableRow = tableRow;
+        this.binaryRow = binaryRow;
 
         // If transaction is not null, then commitTableId and commitPartitionId should be defined.
         assert (transactionId == null) || (commitTableId != null && commitPartitionId != -1);
@@ -92,13 +92,13 @@ public class ReadResult {
         return new ReadResult(rowId, null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
-    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable TableRow tableRow, UUID transactionId, UUID commitTableId,
+    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable BinaryRow binaryRow, UUID transactionId, UUID commitTableId,
             int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
-        return new ReadResult(rowId, tableRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
+        return new ReadResult(rowId, binaryRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
     }
 
-    public static ReadResult createFromCommitted(RowId rowId, @Nullable TableRow tableRow, HybridTimestamp commitTs) {
-        return new ReadResult(rowId, tableRow, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
+    public static ReadResult createFromCommitted(RowId rowId, @Nullable BinaryRow binaryRow, HybridTimestamp commitTs) {
+        return new ReadResult(rowId, binaryRow, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
     /**
@@ -115,8 +115,8 @@ public class ReadResult {
      *
      * @return Table row representation of the data, {@code null} if {@link #isEmpty()}.
      */
-    public @Nullable TableRow tableRow() {
-        return tableRow;
+    public @Nullable BinaryRow binaryRow() {
+        return binaryRow;
     }
 
     /**
@@ -177,6 +177,6 @@ public class ReadResult {
     }
 
     public boolean isEmpty() {
-        return tableRow == null;
+        return binaryRow == null;
     }
 }

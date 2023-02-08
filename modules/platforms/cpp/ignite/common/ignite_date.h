@@ -22,38 +22,45 @@
 namespace ignite {
 
 /**
- * @brief A moment of time.
+ * @brief A date.
  *
- * This is modeled after java.time.Instant.
+ * This is modeled after java.time.LocalDate.
  */
-class ignite_timestamp {
+class ignite_date {
 public:
     /**
      * Default constructor.
      */
-    constexpr ignite_timestamp() noexcept = default;
+    constexpr ignite_date() noexcept = default;
 
     /**
      * Constructor.
      *
-     * @param seconds Number of seconds since 00:00 hours, Jan 1, 1970 UTC.
-     * @param nanos Fractional second component in nanoseconds, from 0 to 999,999,999.
+     * @param year Year to represent, from -999,999,999 to 999,999,999.
+     * @param month Month-of-year, from 1 (January) to 12 (December).
+     * @param day_of_month Day-of-month, from 1 to 31.
      */
-    constexpr ignite_timestamp(std::int64_t seconds, std::int32_t nanos)
-        : seconds(seconds)
-        , nanos(nanos) {
+    constexpr ignite_date(int year, int month, int day_of_month)
+        : m_year(year)
+        , m_month(std::int8_t(month))
+        , m_day(std::int8_t(day_of_month)) {
         // TODO: check that arguments are in valid ranges.
     }
 
     /**
-     * Gets the number of seconds since 00:00 hours, Jan 1, 1970 UTC.
+     * Gets the year field.
      */
-    constexpr std::int64_t get_epoch_second() const noexcept { return seconds; }
+    [[nodiscard]] constexpr int get_year() const noexcept { return m_year; }
 
     /**
-     * Gets the number of nanoseconds from the start of the second.
+     * Gets the month-of-year field.
      */
-    constexpr std::int32_t get_nano() const noexcept { return nanos; }
+    [[nodiscard]] constexpr int get_month() const noexcept { return m_month; }
+
+    /**
+     * Gets the day-of-month field.
+     */
+    [[nodiscard]] constexpr int get_day_of_month() const noexcept { return m_day; }
 
     /**
      * Compare to another value.
@@ -61,19 +68,20 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less, and positive if greater.
      */
-    constexpr int compare(const ignite_timestamp &other) const noexcept {
-        if (seconds != other.seconds) {
-            return seconds < other.seconds ? -1 : 1;
+    [[nodiscard]] constexpr int compare(const ignite_date &other) const noexcept {
+        if (m_year != other.m_year) {
+            return m_year - other.m_year;
         }
-        return nanos - other.nanos;
+        if (m_month != other.m_month) {
+            return m_month - other.m_month;
+        }
+        return m_day - other.m_day;
     }
 
 private:
-    /** Number of seconds since 00:00 hours, Jan 1, 1970 UTC. */
-    std::int64_t seconds = 0;
-
-    /** Fractional second component in nanoseconds. */
-    std::int32_t nanos = 0;
+    std::int32_t m_year = 0;
+    std::int8_t m_month = 1;
+    std::int8_t m_day = 1;
 };
 
 /**
@@ -83,7 +91,7 @@ private:
  * @param rhs Second value.
  * @return true If the first value is equal to the second.
  */
-constexpr bool operator==(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
+constexpr bool operator==(const ignite_date &lhs, const ignite_date &rhs) noexcept {
     return lhs.compare(rhs) == 0;
 }
 
@@ -94,7 +102,7 @@ constexpr bool operator==(const ignite_timestamp &lhs, const ignite_timestamp &r
  * @param rhs Second value.
  * @return true If the first value is not equal to the second.
  */
-constexpr bool operator!=(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
+constexpr bool operator!=(const ignite_date &lhs, const ignite_date &rhs) noexcept {
     return lhs.compare(rhs) != 0;
 }
 
@@ -105,7 +113,7 @@ constexpr bool operator!=(const ignite_timestamp &lhs, const ignite_timestamp &r
  * @param rhs Second value.
  * @return true If the first value is less than the second.
  */
-constexpr bool operator<(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
+constexpr bool operator<(const ignite_date &lhs, const ignite_date &rhs) noexcept {
     return lhs.compare(rhs) < 0;
 }
 
@@ -116,7 +124,7 @@ constexpr bool operator<(const ignite_timestamp &lhs, const ignite_timestamp &rh
  * @param rhs Second value.
  * @return true If the first value is less than or equal to the second.
  */
-constexpr bool operator<=(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
+constexpr bool operator<=(const ignite_date &lhs, const ignite_date &rhs) noexcept {
     return lhs.compare(rhs) <= 0;
 }
 
@@ -127,7 +135,7 @@ constexpr bool operator<=(const ignite_timestamp &lhs, const ignite_timestamp &r
  * @param rhs Second value.
  * @return true If the first value is greater than the second.
  */
-constexpr bool operator>(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
+constexpr bool operator>(const ignite_date &lhs, const ignite_date &rhs) noexcept {
     return lhs.compare(rhs) > 0;
 }
 
@@ -138,7 +146,7 @@ constexpr bool operator>(const ignite_timestamp &lhs, const ignite_timestamp &rh
  * @param rhs Second value.
  * @return true If the first value is greater than or equal to the second.
  */
-constexpr bool operator>=(const ignite_timestamp &lhs, const ignite_timestamp &rhs) noexcept {
+constexpr bool operator>=(const ignite_date &lhs, const ignite_date &rhs) noexcept {
     return lhs.compare(rhs) >= 0;
 }
 

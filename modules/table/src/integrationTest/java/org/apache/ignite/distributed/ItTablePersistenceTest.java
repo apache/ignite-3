@@ -50,14 +50,10 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
@@ -117,13 +113,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    private static final BinaryConverter rowConverter = BinaryConverter.forRow(SCHEMA);
-
-    private static final Row FIRST_KEY = createKeyRow(1);
-
     private static final Row FIRST_VALUE = createKeyValueRow(1, 1);
-
-    private static final Row SECOND_KEY = createKeyRow(2);
 
     private static final Row SECOND_VALUE = createKeyValueRow(2, 2);
 
@@ -222,21 +212,20 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
                     Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(partitionStorage);
-                    RowId rowId = primaryIndex.get(req0.binaryRow().keySlice());
-                    BinaryRow row = rowConverter.fromTuple(partitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow().tupleSlice());
+                    RowId rowId = primaryIndex.get(req0.binaryRow().byteBuffer());
+                    BinaryRow row = partitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
                     return completedFuture(row);
                 }
 
                 // Non-null binary row if UPSERT, otherwise it's implied that request type is DELETE.
                 BinaryRow binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRow() : null;
-                TableRow tableRow = binaryRow == null ? null : TableRowConverter.fromBinaryRow(binaryRow, rowConverter);
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowBuffer(tableRow == null ? null : tableRow.byteBuffer())
+                        .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
                         .safeTime(hybridTimestamp(hybridClock.now()))
                         .build();
 
@@ -275,7 +264,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     @Override
     public void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception {
         // Remove the first key
-        table.delete(FIRST_KEY, null).get();
+        table.delete(FIRST_VALUE, null).get();
 
         // Put deleted data again
         table.upsert(FIRST_VALUE, null).get();
@@ -292,7 +281,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public void afterSnapshot(RaftGroupService service) throws Exception {
         table.upsert(SECOND_VALUE, null).get();
 
-        assertNotNull(table.get(SECOND_KEY, null).join());
+        assertNotNull(table.get(SECOND_VALUE, null).join());
     }
 
     /** {@inheritDoc} */
@@ -303,10 +292,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         return () -> {
             Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(storage);
 
-            Row key = interactedAfterSnapshot ? SECOND_KEY : FIRST_KEY;
             Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
-            RowId rowId = primaryIndex.get(key.keySlice());
+            RowId rowId = primaryIndex.get(value.byteBuffer());
 
             if (rowId == null) {
                 return false;
@@ -318,7 +306,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 return false;
             }
 
-            return Arrays.equals(value.bytes(), rowConverter.fromTuple(read.tableRow().tupleSlice()).bytes());
+            return Arrays.equals(value.bytes(), read.binaryRow().tupleSlice().array());
         };
     }
 
@@ -328,13 +316,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
 
         while (rowId != null) {
-            TableRow tableRow = storage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow();
+            BinaryRow binaryRow = storage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
-            if (tableRow != null) {
-                BinaryRow binaryRow = rowConverter.fromTuple(tableRow.tupleSlice());
-                if (binaryRow != null) {
-                    result.put(binaryRow.keySlice(), rowId);
-                }
+            if (binaryRow != null) {
+                result.put(binaryRow.byteBuffer(), rowId);
             }
 
             RowId incremented = rowId.increment();
@@ -407,20 +392,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     }
 
     /**
-     * Creates a {@link Row} with the supplied key.
-     *
-     * @param id Key.
-     * @return Row.
-     */
-    private static Row createKeyRow(long id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
-
-        rowBuilder.appendLong(id);
-
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
-    }
-
-    /**
      * Creates a {@link Row} with the supplied key and value.
      *
      * @param id    Key.
@@ -428,11 +399,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      * @return Row.
      */
     private static Row createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 }

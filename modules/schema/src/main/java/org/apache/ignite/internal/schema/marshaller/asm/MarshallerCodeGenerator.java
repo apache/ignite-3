@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.marshaller.asm;
 
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
-import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 
@@ -59,12 +58,11 @@ public interface MarshallerCodeGenerator {
     BytecodeNode unmarshallObject(ParameterizedType marshallerClass, Variable row, Variable obj, Variable objFactory);
 
     /**
-     * Initialize static VarHandle instances for accessing a target class, which the {@code targetClassField} holds.
+     * Initialize static VarHandle instances for accessing a target class.
      *
-     * @param classDef         Class definition.
-     * @param targetClassField Target class field definition.
+     * @param classDef Class definition.
      */
-    default void initStaticHandlers(ClassDefinition classDef, FieldDefinition targetClassField) {
+    default void initStaticHandlers(ClassDefinition classDef) {
 
     }
 }

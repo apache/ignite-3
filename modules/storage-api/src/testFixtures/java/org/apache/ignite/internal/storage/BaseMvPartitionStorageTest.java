@@ -21,7 +21,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -47,9 +47,9 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final TestKey KEY = new TestKey(10, "foo");
 
-    protected static final TableRow TABLE_ROW = tableRow(KEY, new TestValue(20, "bar"));
+    protected static final BinaryRow TABLE_ROW = binaryRow(KEY, new TestValue(20, "bar"));
 
-    protected static final TableRow TABLE_ROW2 = tableRow(KEY, new TestValue(30, "bar"));
+    protected static final BinaryRow TABLE_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
     protected @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesCfg;
 
@@ -98,10 +98,10 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
      * Reads a row.
      */
     @Nullable
-    protected TableRow read(RowId rowId, HybridTimestamp timestamp) {
+    protected BinaryRow read(RowId rowId, HybridTimestamp timestamp) {
         ReadResult readResult = storage.read(rowId, timestamp);
 
-        return readResult.tableRow();
+        return readResult.binaryRow();
     }
 
     /**
@@ -114,17 +114,17 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Inserts a row inside of consistency closure.
      */
-    protected RowId insert(@Nullable TableRow tableRow, UUID txId) {
-        return insert(tableRow, txId, null);
+    protected RowId insert(@Nullable BinaryRow binaryRow, UUID txId) {
+        return insert(binaryRow, txId, null);
     }
 
     /**
      * Inserts a row inside of consistency closure.
      */
-    protected RowId insert(@Nullable TableRow tableRow, UUID txId, @Nullable UUID explicitRowId) {
+    protected RowId insert(@Nullable BinaryRow binaryRow, UUID txId, @Nullable UUID explicitRowId) {
         RowId rowId = explicitRowId == null ? new RowId(PARTITION_ID) : new RowId(PARTITION_ID, explicitRowId);
 
-        storage.runConsistently(() -> storage.addWrite(rowId, tableRow, txId, UUID.randomUUID(), 0));
+        storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, UUID.randomUUID(), 0));
 
         return rowId;
     }
@@ -132,8 +132,8 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Adds/updates a write-intent inside of consistency closure.
      */
-    protected TableRow addWrite(RowId rowId, @Nullable TableRow tableRow, UUID txId) {
-        return storage.runConsistently(() -> storage.addWrite(rowId, tableRow, txId, COMMIT_TABLE_ID, PARTITION_ID));
+    protected BinaryRow addWrite(RowId rowId, @Nullable BinaryRow binaryRow, UUID txId) {
+        return storage.runConsistently(() -> storage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, PARTITION_ID));
     }
 
     /**
@@ -148,10 +148,10 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     }
 
     /**
-     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, TableRow, UUID, UUID, int)}
+     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}
      * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
      */
-    protected void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) {
+    protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
         storage.runConsistently(() -> {
             storage.addWriteCommitted(rowId, row, commitTimestamp);
 
@@ -159,10 +159,10 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         });
     }
 
-    protected HybridTimestamp addAndCommit(@Nullable TableRow tableRow) {
+    protected HybridTimestamp addAndCommit(@Nullable BinaryRow binaryRow) {
         HybridTimestamp commitTs = clock.now();
 
-        addWrite(ROW_ID, tableRow, TX_ID);
+        addWrite(ROW_ID, binaryRow, TX_ID);
         commitWrite(ROW_ID, commitTs);
 
         return commitTs;
@@ -171,11 +171,11 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Aborts write-intent inside of consistency closure.
      */
-    protected TableRow abortWrite(RowId rowId) {
+    protected BinaryRow abortWrite(RowId rowId) {
         return storage.runConsistently(() -> storage.abortWrite(rowId));
     }
 
-    protected TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    protected BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         return storage.runConsistently(() -> storage.pollForVacuum(lowWatermark));
     }
 }

@@ -66,3 +66,5 @@ install(TARGETS ${TARGET}
 )
 
 ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
+
+ignite_test(primitive_test primitive_test.cpp LIBS ${TARGET})

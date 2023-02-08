@@ -37,8 +37,9 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        auto res =
-            client.get_sql().execute(nullptr, {"CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
+        client.get_sql().execute(nullptr, {"DROP TABLE IF EXISTS TEST"}, {});
+
+        auto res = client.get_sql().execute(nullptr, {"CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)"}, {});
 
         if (!res.was_applied()) {
             client.get_sql().execute(nullptr, {"DELETE FROM TEST"}, {});
@@ -320,4 +321,21 @@ TEST_F(sql_test, sql_statement_defaults) {
     EXPECT_EQ(statement.page_size(), sql_statement::DEFAULT_PAGE_SIZE);
     EXPECT_EQ(statement.schema(), sql_statement::DEFAULT_SCHEMA);
     EXPECT_EQ(statement.timeout(), sql_statement::DEFAULT_TIMEOUT);
+}
+
+TEST_F(sql_test, decimal_literal) {
+    auto result_set = m_client.get_sql().execute(nullptr, {"SELECT CAST('12345.6789' AS DECIMAL(9, 4))"}, {});
+
+    EXPECT_TRUE(result_set.has_rowset());
+
+    auto value = result_set.current_page().front().get(0).get<big_decimal>();
+
+    EXPECT_EQ(4, value.get_scale());
+    EXPECT_EQ(9, value.get_precision());
+
+    std::stringstream ss;
+    ss << value;
+    auto value_str = ss.str();
+
+    EXPECT_EQ("12345.6789", value_str);
 }

@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
@@ -186,9 +186,9 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
      *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
      *     {@link StorageRebalanceException} except:<ul>
-     *         <li>{@link MvPartitionStorage#addWrite(RowId, TableRow, UUID, UUID, int)};</li>
+     *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)};</li>
      *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
-     *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, TableRow, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
      *         <li>{@link MvPartitionStorage#persistedIndex()};</li>

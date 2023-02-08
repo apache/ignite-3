@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -35,20 +34,17 @@ import org.apache.ignite.internal.util.Cursor;
 public class TableSchemaAwareIndexStorage {
     private final UUID indexId;
     private final IndexStorage storage;
-    private final Function<BinaryRow, BinaryTuple> indexBinaryRowResolver;
-    private final Function<TableRow, BinaryTuple> indexTableRowResolver;
+    private final Function<BinaryRow, BinaryTuple> indexRowResolver;
 
     /** Constructs the object. */
     public TableSchemaAwareIndexStorage(
             UUID indexId,
             IndexStorage storage,
-            Function<BinaryRow, BinaryTuple> indexBinaryRowResolver,
-            Function<TableRow, BinaryTuple> indexTableRowResolver
+            Function<BinaryRow, BinaryTuple> indexRowResolver
     ) {
         this.indexId = indexId;
         this.storage = storage;
-        this.indexBinaryRowResolver = indexBinaryRowResolver;
-        this.indexTableRowResolver = indexTableRowResolver;
+        this.indexRowResolver = indexRowResolver;
     }
 
     /** Returns an identifier of the index. */
@@ -57,8 +53,8 @@ public class TableSchemaAwareIndexStorage {
     }
 
     /** Returns a cursor over {@code RowId}s associated with the given key. */
-    public Cursor<RowId> get(BinaryRow tableRow) throws StorageException {
-        BinaryTuple tuple = indexBinaryRowResolver.apply(tableRow);
+    public Cursor<RowId> get(BinaryRow binaryRow) throws StorageException {
+        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
 
         return storage.get(tuple);
     }
@@ -66,11 +62,11 @@ public class TableSchemaAwareIndexStorage {
     /**
      * Inserts the given table row to an index storage.
      *
-     * @param tableRow A table row to insert.
+     * @param binaryRow A table row to insert.
      * @param rowId An identifier of a row in a main storage.
      */
-    public void put(TableRow tableRow, RowId rowId) {
-        BinaryTuple tuple = indexTableRowResolver.apply(tableRow);
+    public void put(BinaryRow binaryRow, RowId rowId) {
+        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
 
         storage.put(new IndexRowImpl(tuple, rowId));
     }
@@ -78,11 +74,11 @@ public class TableSchemaAwareIndexStorage {
     /**
      * Removes the given table row from an index storage.
      *
-     * @param tableRow A table row to remove.
+     * @param binaryRow A table row to remove.
      * @param rowId An identifier of a row in a main storage.
      */
-    public void remove(BinaryRow tableRow, RowId rowId) {
-        BinaryTuple tuple = indexBinaryRowResolver.apply(tableRow);
+    public void remove(BinaryRow binaryRow, RowId rowId) {
+        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
 
         storage.remove(new IndexRowImpl(tuple, rowId));
     }

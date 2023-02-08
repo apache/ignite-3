@@ -182,7 +182,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
     }
 }
 
-primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
+primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale) {
     auto val_opt = parser.get_next();
     if (!val_opt)
         return {};
@@ -208,13 +208,26 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ) {
             return std::string(reinterpret_cast<const char *>(val.data()), val.size());
         case ignite_type::BINARY:
             return std::vector<std::byte>(val);
+        case ignite_type::DECIMAL:
+            return binary_tuple_parser::get_decimal(val, scale);
+        case ignite_type::NUMBER:
+            return binary_tuple_parser::get_number(val);
+        case ignite_type::DATE:
+            return binary_tuple_parser::get_date(val);
+        case ignite_type::TIME:
+            return binary_tuple_parser::get_time(val);
+        case ignite_type::DATETIME:
+            return binary_tuple_parser::get_date_time(val);
+        case ignite_type::TIMESTAMP:
+            return binary_tuple_parser::get_timestamp(val);
+        case ignite_type::BITMASK:
+            return bit_array(val);
         default:
-            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }
 
-primitive read_next_column(binary_tuple_parser &parser, column_type typ) {
+primitive read_next_column(binary_tuple_parser &parser, column_type typ, std::int32_t scale) {
     auto val_opt = parser.get_next();
     if (!val_opt)
         return {};
@@ -242,8 +255,24 @@ primitive read_next_column(binary_tuple_parser &parser, column_type typ) {
             return std::string(reinterpret_cast<const char *>(val.data()), val.size());
         case column_type::BYTE_ARRAY:
             return std::vector<std::byte>(val);
+        case column_type::DECIMAL:
+            return binary_tuple_parser::get_decimal(val, scale);
+        case column_type::NUMBER:
+            return binary_tuple_parser::get_number(val);
+        case column_type::DATE:
+            return binary_tuple_parser::get_date(val);
+        case column_type::TIME:
+            return binary_tuple_parser::get_time(val);
+        case column_type::DATETIME:
+            return binary_tuple_parser::get_date_time(val);
+        case column_type::TIMESTAMP:
+            return binary_tuple_parser::get_timestamp(val);
+        case column_type::BITMASK:
+            return bit_array(val);
+        case column_type::PERIOD:
+        case column_type::DURATION:
+            // TODO: IGNITE-18745 Support period and duration types
         default:
-            // TODO: IGNITE-18035 Support other types
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
 }

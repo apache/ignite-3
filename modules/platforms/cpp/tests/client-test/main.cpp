@@ -59,7 +59,20 @@ void set_process_abort_handler(std::function<void(int)> handler) {
     signal(SIGSEGV, signal_handler);
 }
 
-void wait_node_startup(std::chrono::seconds timeout) {
+bool check_test_node_connectable(std::chrono::seconds timeout) {
+    using namespace ignite;
+    try {
+        for (auto addr : ignite_runner_suite::get_node_addrs()) {
+            ignite_client_configuration cfg{addr};
+            auto client = ignite_client::start(cfg, timeout);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+void ensure_node_connectable(std::chrono::seconds timeout) {
     using namespace ignite;
     for (auto addr : ignite_runner_suite::NODE_ADDRS) {
         ignite_client_configuration cfg{addr};
@@ -74,18 +87,17 @@ int main(int argc, char **argv) {
         std::cout << "Tests run in a multi-node mode." << std::endl;
 
     ignite::IgniteRunner runner;
+    if (!check_test_node_connectable(std::chrono::seconds(5))) {
+        set_process_abort_handler([&](int signal) {
+            std::cout << "Caught signal " << signal << " during tests" << std::endl;
 
-    set_process_abort_handler([&](int signal) {
-        std::cout << "Caught signal " << signal << " during tests" << std::endl;
-
-        runner.stop();
-    });
+            runner.stop();
+        });
+        runner.start();
+        ensure_node_connectable(std::chrono::seconds(60));
+    }
 
     try {
-        runner.start();
-
-        wait_node_startup(std::chrono::seconds(60));
-
         ::testing::InitGoogleTest(&argc, argv);
         [[maybe_unused]] int run_res = RUN_ALL_TESTS();
     } catch (const std::exception &err) {
@@ -95,7 +107,6 @@ int main(int argc, char **argv) {
         std::cout << "Unknown uncaught error" << std::endl;
         return 2;
     }
-    runner.stop();
 
     return 0;
 }
