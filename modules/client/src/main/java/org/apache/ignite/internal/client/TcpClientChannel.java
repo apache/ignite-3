@@ -129,7 +129,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         connectTimeout = cfg.clientConfiguration().connectTimeout();
         heartbeatTimeout = cfg.clientConfiguration().heartbeatTimeout();
 
-        sock = connMgr.open(cfg.getAddress(), this, this);
+        sock = connMgr.openAsync(cfg.getAddress(), this, this);
 
         handshake(DEFAULT_VERSION);
 

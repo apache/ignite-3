@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -27,6 +25,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.lang.ErrorGroups.Client;
 
 /**
  * Netty-based multiplexer.
@@ -83,17 +83,32 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
     /** {@inheritDoc} */
     @Override
-    public ClientConnection open(InetSocketAddress addr,
+    public CompletableFuture<ClientConnection> openAsync(InetSocketAddress addr,
             ClientMessageHandler msgHnd,
             ClientConnectionStateHandler stateHnd)
             throws IgniteClientConnectionException {
-        try {
-            // TODO: Async startup IGNITE-15357.
-            ChannelFuture f = bootstrap.connect(addr).syncUninterruptibly();
+        CompletableFuture<ClientConnection> fut = new CompletableFuture<>();
 
-            return new NettyClientConnection(f.channel(), msgHnd, stateHnd);
-        } catch (Throwable t) {
-            throw new IgniteClientConnectionException(UNKNOWN_ERR, t.getMessage(), t);
-        }
+        ChannelFuture connectFut = bootstrap.connect(addr);
+
+        connectFut.addListener(f -> {
+            if (f.isSuccess()) {
+                NettyClientConnection conn = new NettyClientConnection(((ChannelFuture)f).channel(), msgHnd, stateHnd);
+
+                fut.complete(conn);
+            }
+            else {
+                Throwable cause = f.cause();
+
+                var err = new IgniteClientConnectionException(
+                        Client.CONNECTION_ERR,
+                        "Client failed to connect: " + cause.getMessage(),
+                        cause);
+
+                fut.completeExceptionally(err);
+            }
+        });
+
+        return fut;
     }
 }
