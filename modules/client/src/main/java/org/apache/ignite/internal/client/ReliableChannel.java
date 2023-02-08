@@ -729,14 +729,14 @@ public final class ReliableChannel implements AutoCloseable {
         /**
          * Get or create channel.
          */
-        private ClientChannel getOrCreateChannel() {
+        private @Nullable ClientChannel getOrCreateChannel() {
             return getOrCreateChannel(false);
         }
 
         /**
          * Get or create channel.
          */
-        private ClientChannel getOrCreateChannel(boolean ignoreThrottling) {
+        private @Nullable ClientChannel getOrCreateChannel(boolean ignoreThrottling) {
             if (ch == null && !close) {
                 synchronized (this) {
                     if (close) {
@@ -748,7 +748,6 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     if (!ignoreThrottling && applyReconnectionThrottling()) {
-                        //noinspection NonPrivateFieldAccessedInSynchronizedContext
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling");
                     }
 
