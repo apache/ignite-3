@@ -529,13 +529,9 @@ public class DistributionZoneManager implements IgniteComponent {
         return ctx -> {
             int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
 
-            int oldScaleUp;
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
-            } else {
-                oldScaleUp = ctx.oldValue().intValue();
             }
 
             int newScaleUp = ctx.newValue().intValue();
@@ -544,20 +540,18 @@ public class DistributionZoneManager implements IgniteComponent {
             // and this map will be initialized on a manager start or with onCreate configuration notification
             ZoneState zoneState = zonesState.get(zoneId);
 
-            if (oldScaleUp != newScaleUp) {
-                if (newScaleUp != INFINITE_TIMER_VALUE) {
-                    Optional<Long> highestRevision = zoneState.highestRevision(true);
+            if (newScaleUp != INFINITE_TIMER_VALUE) {
+                Optional<Long> highestRevision = zoneState.highestRevision(true);
 
-                    assert highestRevision.isEmpty() || ctx.storageRevision() >= highestRevision.get() : "Expected revision that "
-                            + "is greater or equal to already seen meta storage events.";
+                assert highestRevision.isEmpty() || ctx.storageRevision() >= highestRevision.get() : "Expected revision that "
+                        + "is greater or equal to already seen meta storage events.";
 
-                    zoneState.rescheduleScaleUp(
-                            newScaleUp,
-                            () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, ctx.storageRevision())
-                    );
-                } else {
-                    zoneState.stopScaleUp();
-                }
+                zoneState.rescheduleScaleUp(
+                        newScaleUp,
+                        () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, ctx.storageRevision())
+                );
+            } else {
+                zoneState.stopScaleUp();
             }
 
             return completedFuture(null);
@@ -573,13 +567,9 @@ public class DistributionZoneManager implements IgniteComponent {
         return ctx -> {
             int zoneId = ctx.config(DistributionZoneConfiguration.class).zoneId().value();
 
-            int oldScaleDown;
-
             if (ctx.oldValue() == null) {
                 // zone creation, already handled in a separate listener.
                 return completedFuture(null);
-            } else {
-                oldScaleDown = ctx.oldValue().intValue();
             }
 
             int newScaleDown = ctx.newValue().intValue();
@@ -588,20 +578,18 @@ public class DistributionZoneManager implements IgniteComponent {
             // and this map will be initialized on a manager start or with onCreate configuration notification
             ZoneState zoneState = zonesState.get(zoneId);
 
-            if (oldScaleDown != newScaleDown) {
-                if (newScaleDown != INFINITE_TIMER_VALUE) {
-                    Optional<Long> highestRevision = zoneState.highestRevision(false);
+            if (newScaleDown != INFINITE_TIMER_VALUE) {
+                Optional<Long> highestRevision = zoneState.highestRevision(false);
 
-                    assert highestRevision.isEmpty() || ctx.storageRevision() >= highestRevision.get() : "Expected revision that "
-                            + "is greater or equal to already seen meta storage events.";
+                assert highestRevision.isEmpty() || ctx.storageRevision() >= highestRevision.get() : "Expected revision that "
+                        + "is greater or equal to already seen meta storage events.";
 
-                    zoneState.rescheduleScaleDown(
-                            newScaleDown,
-                            () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, ctx.storageRevision())
-                    );
-                } else {
-                    zoneState.stopScaleDown();
-                }
+                zoneState.rescheduleScaleDown(
+                        newScaleDown,
+                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, ctx.storageRevision())
+                );
+            } else {
+                zoneState.stopScaleDown();
             }
 
             return completedFuture(null);
@@ -1338,39 +1326,27 @@ public class DistributionZoneManager implements IgniteComponent {
         /**
          * Returns a set of nodes that should be added to zone's data nodes.
          *
-         * @param scaleUpRevision Last revision of the scale up event.
+         * @param scaleUpRevision Last revision of the scale up event. Nodes that were associated with this event
+         *                        or with the lower revisions, won't be included in the accumulation.
          * @param revision Revision of the event for which this data nodes is needed.
+         *                 Nodes that were associated with this event will be included.
          * @return List of nodes that should be added to zone's data nodes.
          */
         List<String> nodesToBeAddedToDataNodes(long scaleUpRevision, long revision) {
-            Long toKey = topologyAugmentationMap.floorKey(revision);
-
-            Long fromKey = topologyAugmentationMap.ceilingKey(scaleUpRevision);
-
-            if (toKey == null) {
-                return List.of();
-            }
-
-            return accumulateNodes(fromKey, toKey, true);
+            return accumulateNodes(scaleUpRevision, revision, true);
         }
 
         /**
          * Returns a set of nodes that should be removed from zone's data nodes.
          *
-         * @param scaleDownRevision Last revision of the scale down event.
+         * @param scaleDownRevision Last revision of the scale down event. Nodes that were associated with this event
+         *                          or with the lower revisions, won't be included in the accumulation.
          * @param revision Revision of the event for which this data nodes is needed.
+         *                 Nodes that were associated with this event will be included.
          * @return List of nodes that should be removed from zone's data nodes.
          */
         List<String> nodesToBeRemovedFromDataNodes(long scaleDownRevision, long revision) {
-            Long toKey = topologyAugmentationMap.floorKey(revision);
-
-            Long fromKey = topologyAugmentationMap.ceilingKey(scaleDownRevision);
-
-            if (toKey == null) {
-                return List.of();
-            }
-
-            return accumulateNodes(fromKey, toKey, false);
+            return accumulateNodes(scaleDownRevision, revision, false);
         }
 
         /**
@@ -1394,17 +1370,17 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
-         * Accumulate nodes from the {@link ZoneState#topologyAugmentationMap} starting from the {@code fromKey} (including)
+         * Accumulate nodes from the {@link ZoneState#topologyAugmentationMap} starting from the {@code fromKey} (excluding)
          * to the {@code toKey} (including), where flag {@code addition} indicates whether we should accumulate nodes that should be
          * added to data nodes, or removed.
          *
-         * @param fromKey Starting key (including).
+         * @param fromKey Starting key (excluding).
          * @param toKey Ending key (including).
          * @param addition Indicates whether we should accumulate nodes that should be added to data nodes, or removed.
          * @return Accumulated nodes.
          */
         private List<String> accumulateNodes(long fromKey, long toKey, boolean addition) {
-            return topologyAugmentationMap.subMap(fromKey, true, toKey, true).values()
+            return topologyAugmentationMap.subMap(fromKey, false, toKey, true).values()
                     .stream()
                     .filter(a -> a.addition == addition)
                     .flatMap(a -> a.nodeNames.stream())

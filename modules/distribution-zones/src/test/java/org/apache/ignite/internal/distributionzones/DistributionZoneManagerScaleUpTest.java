@@ -1497,7 +1497,7 @@ public class DistributionZoneManagerScaleUpTest {
         zoneState.nodesToAddToDataNodes(Set.of("A", "B"), 1);
         zoneState.nodesToAddToDataNodes(Set.of("A", "B"), 2);
 
-        List<String> nodes = zoneState.nodesToBeAddedToDataNodes(1, 2);
+        List<String> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
 
         Collections.sort(nodes);
         assertEquals(List.of("A", "A", "B", "B"), nodes);
@@ -1505,7 +1505,7 @@ public class DistributionZoneManagerScaleUpTest {
         zoneState.nodesToRemoveFromDataNodes(Set.of("C", "D"), 3);
         zoneState.nodesToRemoveFromDataNodes(Set.of("C", "D"), 4);
 
-        nodes = zoneState.nodesToBeRemovedFromDataNodes(3, 4);
+        nodes = zoneState.nodesToBeRemovedFromDataNodes(2, 4);
 
         Collections.sort(nodes);
 
