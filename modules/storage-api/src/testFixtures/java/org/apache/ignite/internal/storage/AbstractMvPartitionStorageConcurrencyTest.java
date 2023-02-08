@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.TableRow;
 import org.jetbrains.annotations.Nullable;
@@ -38,8 +39,10 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
     @Test
     void testMassiveAddWrite() {
+        RowId rowId = ROW_ID;
+
         for (int i = 0; i < 100_000; i++) {
-            RowId rowId = ROW_ID.increment();
+            rowId = rowId.increment();
 
             assertNotNull(rowId);
 
@@ -55,23 +58,61 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     }
 
     @Test
-    void testMassiveCommitAndRead() {
+    void testMassiveWriteAndRead0() {
+        RowId rowId = ROW_ID;
+
         for (int i = 0; i < 1_000; i++) {
-            RowId rowId = ROW_ID.increment();
+            rowId = rowId.increment();
 
             assertNotNull(rowId);
+
+            RowId finalRowId = rowId;
 
             for (int j = 0; j < 3; j++) {
                 addWrite(rowId, TABLE_ROW, TX_ID);
 
                 runRace(
-                        () -> commitWrite(rowId, clock.now()),
-                        () -> read(rowId, clock.now()),
-                        () -> scanAllVersions(rowId),
+                        () -> commitWrite(finalRowId, clock.now()),
+                        () -> read(finalRowId, clock.now()),
+                        () -> scanAllVersions(finalRowId),
                         () -> scanAllRows(clock.now())
                 );
             }
         }
+    }
+
+    @Test
+    void testMassiveWriteAndRead1() {
+        AtomicBoolean stop = new AtomicBoolean();
+
+        runRace(
+                () -> {
+                    RowId rowId = ROW_ID;
+
+                    for (int i = 0; i < 100_000; i++) {
+                        rowId = rowId.increment();
+
+                        assertNotNull(rowId);
+
+                        for (int j = 0; j < 3; j++) {
+                            addWrite(rowId, TABLE_ROW, TX_ID);
+                            commitWrite(rowId, clock.now());
+                        }
+                    }
+
+                    stop.set(true);
+                },
+                () -> {
+                    while (!stop.get()) {
+                        scanAllRows(clock.now());
+                    }
+                },
+                () -> {
+                    while (!stop.get()) {
+                        scanAllRows(HybridTimestamp.MAX_VALUE);
+                    }
+                }
+        );
     }
 
     @Test
