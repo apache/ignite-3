@@ -49,14 +49,18 @@ public:
      * @param bigEndian If true then magnitude is in big-endian. Otherwise
      *     the byte order of the magnitude considered to be little-endian.
      */
-    big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool bigEndian = true);
+    big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool bigEndian = true)
+        : m_scale(scale & 0x7FFFFFFF)
+        , m_magnitude(mag, len, sign, bigEndian) {}
 
     /**
      * Integer constructor.
      *
      * @param val Integer value.
      */
-    explicit big_decimal(int64_t val);
+    explicit big_decimal(int64_t val)
+        : m_scale(0)
+        , m_magnitude(val) {}
 
     /**
      * Integer constructor with scale.
@@ -64,7 +68,9 @@ public:
      * @param val Integer value.
      * @param scale Scale.
      */
-    big_decimal(int64_t val, int32_t scale);
+    big_decimal(int64_t val, int32_t scale)
+        : m_scale(scale)
+        , m_magnitude(val) {}
 
     /**
      * big_integer constructor with scale.
@@ -72,7 +78,9 @@ public:
      * @param val big_integer value.
      * @param scale Scale.
      */
-    big_decimal(big_integer val, int32_t scale);
+    big_decimal(big_integer val, int32_t scale)
+        : m_scale(scale)
+        , m_magnitude(std::move(val)) {}
 
     /**
      * String constructor.
@@ -80,7 +88,11 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    big_decimal(const char *val, int32_t len);
+    big_decimal(const char *val, int32_t len)
+        : m_scale(0)
+        , m_magnitude(0) {
+        assign_string(val, len);
+    }
 
     /**
      * String constructor.
@@ -88,41 +100,57 @@ public:
      * @param val String to assign.
      */
     explicit big_decimal(const std::string &val)
-        : scale(0)
-        , magnitude(0) {
+        : m_scale(0)
+        , m_magnitude(0) {
         assign_string(val);
     }
 
     /**
      * Convert to double.
      */
-    explicit operator double() const;
+    explicit operator double() const { return ToDouble(); }
 
     /**
      * Convert to int64_t.
      */
-    explicit operator int64_t() const;
+    explicit operator int64_t() const { return to_int64(); }
 
     /**
      * Convert to double.
      *
      * @return Double value.
      */
-    [[nodiscard]] double ToDouble() const;
+    [[nodiscard]] double ToDouble() const {
+        std::stringstream stream;
+        stream << *this;
+
+        double result;
+        stream >> result;
+        return result;
+    }
 
     /**
      * Convert to int64_t.
      *
      * @return int64_t value.
      */
-    [[nodiscard]] int64_t to_int64() const;
+    [[nodiscard]] int64_t to_int64() const {
+        if (m_scale == 0)
+            return m_magnitude.to_int64();
+
+        big_decimal zeroScaled;
+
+        set_scale(0, zeroScaled);
+
+        return zeroScaled.m_magnitude.to_int64();
+    }
 
     /**
      * Get scale.
      *
      * @return Scale.
      */
-    [[nodiscard]] std::int32_t get_scale() const noexcept { return scale; }
+    [[nodiscard]] std::int32_t get_scale() const noexcept { return m_scale; }
 
     /**
      * Set scale.
@@ -130,7 +158,7 @@ public:
      * @param scale Scale to set.
      * @param res Result is placed here. Can be *this.
      */
-    void set_scale(int32_t scale, big_decimal &res) const;
+    void set_scale(int32_t newScale, big_decimal &res) const;
 
     /**
      * Get precision of the Decimal.
@@ -138,28 +166,33 @@ public:
      * @return Number of the decimal digits in the decimal representation
      *     of the value.
      */
-    [[nodiscard]] std::int32_t get_precision() const noexcept { return magnitude.get_precision(); }
+    [[nodiscard]] std::int32_t get_precision() const noexcept { return m_magnitude.get_precision(); }
 
     /**
      * Get unscaled value.
      *
      * @return Unscaled value.
      */
-    [[nodiscard]] const big_integer &get_unscaled_value() const noexcept { return magnitude; }
+    [[nodiscard]] const big_integer &get_unscaled_value() const noexcept { return m_magnitude; }
 
     /**
      * Swap function for the Decimal type.
      *
      * @param other Other instance.
      */
-    void swap(big_decimal &second);
+    void swap(big_decimal &second) {
+        using std::swap;
+
+        swap(m_scale, second.m_scale);
+        m_magnitude.swap(second.m_magnitude);
+    }
 
     /**
      * Get length of the magnitude.
      *
      * @return Length of the magnitude.
      */
-    [[nodiscard]] int32_t get_magnitude_length() const;
+    [[nodiscard]] int32_t get_magnitude_length() const { return int32_t(m_magnitude.mag.size()); }
 
     /**
      * Assign specified value to this Decimal.
@@ -174,28 +207,49 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    void assign_string(const char *val, int32_t len);
+    void assign_string(const char *val, int32_t len) {
+        std::stringstream converter;
+
+        converter.write(val, len);
+
+        converter >> *this;
+    }
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val Value to assign.
      */
-    void assign_int64(int64_t val);
+    void assign_int64(int64_t val) {
+        m_magnitude.assign_int64(val);
+
+        m_scale = 0;
+    }
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val Value to assign.
      */
-    void assign_double(double val);
+    void assign_double(double val) {
+        std::stringstream converter;
+
+        converter.precision(16);
+
+        converter << val;
+        converter >> *this;
+    }
 
     /**
      * Assign specified value to this Decimal.
      *
      * @param val Value to assign.
      */
-    void assign_uint64(uint64_t val);
+    void assign_uint64(uint64_t val) {
+        m_magnitude.assign_uint64(val);
+
+        m_scale = 0;
+    }
 
     /**
      * Compare this instance to another.
@@ -211,21 +265,21 @@ public:
      *
      * @return True if this value is negative and false otherwise.
      */
-    [[nodiscard]] bool is_negative() const noexcept { return magnitude.is_negative(); }
+    [[nodiscard]] bool is_negative() const noexcept { return m_magnitude.is_negative(); }
 
     /**
      * Check whether this value is zero.
      *
      * @return True if this value is negative and false otherwise.
      */
-    [[nodiscard]] bool is_zero() const noexcept { return magnitude.is_zero(); }
+    [[nodiscard]] bool is_zero() const noexcept { return m_magnitude.is_zero(); }
 
     /**
      * Check whether this value is positive.
      *
      * @return True if this value is positive and false otherwise.
      */
-    [[nodiscard]] bool is_positive() const noexcept { return magnitude.is_positive(); }
+    [[nodiscard]] bool is_positive() const noexcept { return m_magnitude.is_positive(); }
 
     /**
      * Output operator.
@@ -247,10 +301,10 @@ public:
 
 private:
     /** Scale. */
-    int32_t scale = 0;
+    int32_t m_scale = 0;
 
     /** Magnitude. */
-    big_integer magnitude;
+    big_integer m_magnitude;
 };
 
 /**

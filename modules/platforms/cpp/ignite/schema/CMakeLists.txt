@@ -20,25 +20,17 @@ project(ignite-schema)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
-    big_decimal.cpp
-    big_integer.cpp
     binary_tuple_builder.cpp
     binary_tuple_parser.cpp
     ignite_type.cpp
 )
 
 set(PUBLIC_HEADERS
-    big_decimal.h
-    big_integer.h
     binary_tuple_builder.h
     binary_tuple_header.h
     binary_tuple_parser.h
     binary_tuple_schema.h
     column_info.h
-    ignite_date.h
-    ignite_date_time.h
-    ignite_time.h
-    ignite_timestamp.h
     ignite_type.h
     types.h
 )
@@ -47,7 +39,6 @@ add_library(${TARGET} STATIC ${SOURCES})
 
 target_link_libraries(${TARGET} ignite-common)
 
-ignite_test(bignum_test bignum_test.cpp LIBS ${TARGET})
 ignite_test(tuple_test tuple_test.cpp LIBS ${TARGET})
 
 install(TARGETS ${TARGET}
