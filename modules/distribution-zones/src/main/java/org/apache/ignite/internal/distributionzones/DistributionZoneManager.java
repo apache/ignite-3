@@ -597,10 +597,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                     zoneState.rescheduleScaleDown(
                             newScaleDown,
-                            () -> CompletableFuture.supplyAsync(
-                                    () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, ctx.storageRevision()),
-                                    Runnable::run
-                            )
+                            () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, ctx.storageRevision())
                     );
                 } else {
                     zoneState.stopScaleDown();
@@ -1035,10 +1032,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 zonesState.get(zoneId).rescheduleScaleDown(
                         autoAdjustScaleDown,
-                        () -> CompletableFuture.supplyAsync(
-                                () -> saveDataNodesOnScaleDown.apply(zoneId, revision),
-                                Runnable::run
-                        )
+                        () -> saveDataNodesOnScaleDown.apply(zoneId, revision)
                 );
             }
         }
