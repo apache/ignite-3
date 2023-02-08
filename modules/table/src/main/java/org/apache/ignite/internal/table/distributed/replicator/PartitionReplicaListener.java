@@ -419,7 +419,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             int count
     ) {
         @SuppressWarnings("resource") PartitionTimestampCursor cursor = (PartitionTimestampCursor) cursors.computeIfAbsent(cursorId,
-                id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
+                id -> mvDataStorage.scan(readTimestamp));
 
         ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(count);
 

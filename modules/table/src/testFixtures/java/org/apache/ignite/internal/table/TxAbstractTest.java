@@ -38,10 +38,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
@@ -92,9 +90,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             new Column[]{new Column("accountNumber".toUpperCase(), NativeTypes.INT64, false)},
             new Column[]{new Column("balance".toUpperCase(), NativeTypes.DOUBLE, false)}
     );
-
-    /** Table ID test value. */
-    public static final UUID tableId2 = UUID.randomUUID();
 
     protected static SchemaDescriptor CUSTOMERS_SCHEMA = new SchemaDescriptor(
             1,
@@ -1232,14 +1227,38 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testScan() throws InterruptedException {
+    public void testScan() throws Exception {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
-        Flow.Publisher<BinaryRow> pub = ((TableImpl) accounts).internalTable().scan(0, null);
+        CompletableFuture<List<Tuple>> scanFut = scan(accounts.internalTable(), null);
+
+        var rows = scanFut.get(10, TimeUnit.SECONDS);
+
+        Map<Long, Tuple> map = new HashMap<>();
+
+        for (Tuple row : rows) {
+            map.put(row.longValue("accountNumber"), row);
+        }
+
+        assertEquals(100., map.get(1L).doubleValue("balance"));
+        assertEquals(200., map.get(2L).doubleValue("balance"));
+    }
+
+    /**
+     * Scans {@code 0} partition of a table in a specific transaction or implicit one.
+     *
+     * @param internalTable Internal table to scanning.
+     * @param internalTx Internal transaction of {@code null}.
+     * @return Future to scanning result.
+     */
+    private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, InternalTransaction internalTx) {
+        Flow.Publisher<BinaryRow> pub = internalTx.isReadOnly()
+                ? internalTable.scan(0, internalTx.readTimestamp(), internalTable.leaderAssignment(0))
+                : internalTable.scan(0, internalTx);
 
         List<Tuple> rows = new ArrayList<>();
 
-        CountDownLatch l = new CountDownLatch(1);
+        var fut = new CompletableFuture<List<Tuple>>();
 
         pub.subscribe(new Flow.Subscriber<>() {
             @Override
@@ -1249,7 +1268,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             @Override
             public void onNext(BinaryRow item) {
-                Row row = ((TableImpl) accounts).schemaView().resolve(item);
+                Row row = accounts.schemaView().resolve(item);
 
                 rows.add(TableRow.tuple(row));
             }
@@ -1261,20 +1280,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             @Override
             public void onComplete() {
-                l.countDown();
+                fut.complete(rows);
             }
         });
 
-        assertTrue(l.await(5_000, TimeUnit.MILLISECONDS));
-
-        Map<Long, Tuple> map = new HashMap<>();
-
-        for (Tuple row : rows) {
-            map.put(row.longValue("accountNumber"), row);
-        }
-
-        assertEquals(100., map.get(1L).doubleValue("balance"));
-        assertEquals(200., map.get(2L).doubleValue("balance"));
+        return fut;
     }
 
     @Test
@@ -1743,6 +1753,67 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testReadOnlyScan() throws Exception {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        accounts.recordView().upsert(null, makeValue(2, 500.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().upsert(tx, makeValue(1, 300.));
+        accounts.recordView().delete(tx, makeKey(2));
+
+        InternalTransaction readOnlyTx = (InternalTransaction) igniteTransactions.begin(new TransactionOptions().readOnly(true));
+
+        CompletableFuture<List<Tuple>> roBeforeCommitTxFut = scan(accounts.internalTable(), readOnlyTx);
+
+        var roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, TimeUnit.SECONDS);
+
+        assertEquals(2, roBeforeCommitTxRows.size());
+
+        for (Tuple row : roBeforeCommitTxRows) {
+            if (row.longValue("accountNumber") == 1) {
+                assertEquals(100., row.doubleValue("balance"));
+            } else {
+                assertEquals(2, row.longValue("accountNumber"));
+                assertEquals(500., row.doubleValue("balance"));
+            }
+        }
+
+        // Commit pending tx.
+        tx.commit();
+
+        // Same read-only transaction.
+        roBeforeCommitTxFut = scan(accounts.internalTable(), readOnlyTx);
+
+        roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, TimeUnit.SECONDS);
+
+        assertEquals(2, roBeforeCommitTxRows.size());
+
+        for (Tuple row : roBeforeCommitTxRows) {
+            if (row.longValue("accountNumber") == 1) {
+                assertEquals(100., row.doubleValue("balance"));
+            } else {
+                assertEquals(2, row.longValue("accountNumber"));
+                assertEquals(500., row.doubleValue("balance"));
+            }
+        }
+
+        // New read-only transaction.
+        InternalTransaction readOnlyTx2 = (InternalTransaction) igniteTransactions.begin(new TransactionOptions().readOnly(true));
+
+        CompletableFuture<List<Tuple>> roAfterCommitTxFut = scan(accounts.internalTable(), readOnlyTx2);
+
+        var roAfterCommitTxRows = roAfterCommitTxFut.get(10, TimeUnit.SECONDS);
+
+        assertEquals(1, roAfterCommitTxRows.size());
+
+        for (Tuple row : roAfterCommitTxRows) {
+            assertEquals(1, row.longValue("accountNumber"));
+            assertEquals(300., row.doubleValue("balance"));
+        }
     }
 
     @Test
