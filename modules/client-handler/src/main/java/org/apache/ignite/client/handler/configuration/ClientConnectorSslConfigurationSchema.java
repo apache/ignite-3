@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.internal.network.configuration.KeyStoreConfigurationSchema;
 
 /** Client connector ssl configuration schema. */
@@ -28,6 +29,11 @@ public class ClientConnectorSslConfigurationSchema {
     /** If set to true then ssl will be used for client operations. */
     @Value(hasDefault = true)
     public final boolean enabled = false;
+
+    /** Client authentication. */
+    @OneOf({"none", "optional", "required"})
+    @Value(hasDefault = true)
+    public final String clientAuth = "none";
 
     /** Keystore configuration. */
     @ConfigValue

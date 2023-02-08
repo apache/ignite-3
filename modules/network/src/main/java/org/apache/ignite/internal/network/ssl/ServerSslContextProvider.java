@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.ssl;
 
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.IOException;
@@ -36,9 +37,15 @@ import org.apache.ignite.lang.IgniteException;
 /** Server ssl context provider. */
 public class ServerSslContextProvider implements SslContextProvider {
     private final KeyStoreView keyStoreView;
+    private final ClientAuth clientAuth;
 
     public ServerSslContextProvider(KeyStoreView keyStoreView) {
+        this(keyStoreView, ClientAuth.NONE);
+    }
+
+    public ServerSslContextProvider(KeyStoreView keyStoreView, ClientAuth clientAuth) {
         this.keyStoreView = keyStoreView;
+        this.clientAuth = clientAuth;
     }
 
     @Override
@@ -49,7 +56,8 @@ public class ServerSslContextProvider implements SslContextProvider {
 
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keystore, keyStoreView.password().toCharArray());
-            return SslContextBuilder.forServer(keyManagerFactory).build();
+
+            return SslContextBuilder.forServer(keyManagerFactory).clientAuth(clientAuth).build();
         } catch (NoSuchFileException e) {
             throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", keyStoreView.path()), e);
         } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | IOException e) {

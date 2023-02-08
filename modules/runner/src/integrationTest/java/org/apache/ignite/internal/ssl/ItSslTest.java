@@ -148,6 +148,7 @@ public class ItSslTest {
                 + "  },\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
+                + "    clientAuth: \"optional\", "
                 + "    keyStore: {\n"
                 + "      path: \"" + keyStorePath + "\",\n"
                 + "      password: \"" + password + "\"\n"

@@ -24,6 +24,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
@@ -201,7 +202,10 @@ public class ClientHandlerModule implements IgniteComponent {
                         }
 
                         if (configuration.ssl().enabled()) {
-                            SslContext sslContext =  SslContextProvider.forServer(configuration.ssl().keyStore()).createSslContext();
+                            SslContext sslContext =  SslContextProvider.forServer(
+                                    configuration.ssl().keyStore(), ClientAuth.valueOf(configuration.ssl().clientAuth().toUpperCase())
+                            ).createSslContext();
+
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
 
