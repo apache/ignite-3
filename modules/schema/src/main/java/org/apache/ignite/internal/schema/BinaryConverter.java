@@ -48,8 +48,6 @@ public class BinaryConverter {
     /** Tuple schema. */
     private final BinaryTupleSchema tupleSchema;
 
-    private final boolean skipKey;
-
     /** Row wrapper that allows direct access to variable-length values. */
     private class RowHelper extends Row {
         RowHelper(SchemaDescriptor descriptor, BinaryRow row) {
@@ -77,16 +75,13 @@ public class BinaryConverter {
      *
      * @param descriptor Row schema.
      * @param tupleSchema Tuple schema.
-     * @param skipKey Whether to build tuple from value part only.
      */
     public BinaryConverter(
             SchemaDescriptor descriptor,
-            BinaryTupleSchema tupleSchema,
-            boolean skipKey
+            BinaryTupleSchema tupleSchema
     ) {
         this.descriptor = descriptor;
         this.tupleSchema = tupleSchema;
-        this.skipKey = skipKey;
     }
 
     /**
@@ -96,7 +91,7 @@ public class BinaryConverter {
      * @return Row converter.
      */
     public static BinaryConverter forRow(SchemaDescriptor descriptor) {
-        return new BinaryConverter(descriptor, BinaryTupleSchema.createRowSchema(descriptor), false);
+        return new BinaryConverter(descriptor, BinaryTupleSchema.createRowSchema(descriptor));
     }
 
     /**
@@ -106,7 +101,7 @@ public class BinaryConverter {
      * @return Key converter.
      */
     public static BinaryConverter forKey(SchemaDescriptor descriptor) {
-        return new BinaryConverter(descriptor, BinaryTupleSchema.createKeySchema(descriptor), false);
+        return new BinaryConverter(descriptor, BinaryTupleSchema.createKeySchema(descriptor));
     }
 
     /**
@@ -116,7 +111,7 @@ public class BinaryConverter {
      * @return Key converter.
      */
     public static BinaryConverter forValue(SchemaDescriptor descriptor) {
-        return new BinaryConverter(descriptor, BinaryTupleSchema.createValueSchema(descriptor), true);
+        return new BinaryConverter(descriptor, BinaryTupleSchema.createValueSchema(descriptor));
     }
 
     /**
@@ -138,9 +133,6 @@ public class BinaryConverter {
             NativeTypeSpec typeSpec = elt.typeSpec;
 
             int columnIndex = tupleSchema.columnIndex(elementIndex);
-            if (skipKey) {
-                columnIndex += descriptor.keyColumns().length();
-            }
             if (row.hasNullValue(columnIndex, typeSpec)) {
                 hasNulls = true;
             } else if (typeSpec.fixedLength()) {
@@ -158,9 +150,6 @@ public class BinaryConverter {
             NativeTypeSpec typeSpec = elt.typeSpec;
 
             int columnIndex = tupleSchema.columnIndex(elementIndex);
-            if (skipKey) {
-                columnIndex += descriptor.keyColumns().length();
-            }
             if (row.hasNullValue(columnIndex, typeSpec)) {
                 builder.appendNull();
                 continue;
