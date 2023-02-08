@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -34,6 +35,44 @@ import org.junit.jupiter.params.provider.EnumSource;
 public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPartitionStorageTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 100;
+
+    @Test
+    void testMassiveAddWrite() {
+        for (int i = 0; i < 100_000; i++) {
+            RowId rowId = ROW_ID.increment();
+
+            assertNotNull(rowId);
+
+            for (int j = 0; j < 3; j++) {
+                if ((i % 2) == 0) {
+                    addWrite(rowId, TABLE_ROW, TX_ID);
+                    commitWrite(rowId, clock.now());
+                } else {
+                    addWriteCommitted(rowId, TABLE_ROW, clock.now());
+                }
+            }
+        }
+    }
+
+    @Test
+    void testMassiveCommitAndRead() {
+        for (int i = 0; i < 1_000; i++) {
+            RowId rowId = ROW_ID.increment();
+
+            assertNotNull(rowId);
+
+            for (int j = 0; j < 3; j++) {
+                addWrite(rowId, TABLE_ROW, TX_ID);
+
+                runRace(
+                        () -> commitWrite(rowId, clock.now()),
+                        () -> read(rowId, clock.now()),
+                        () -> scanAllVersions(rowId),
+                        () -> scanAllRows(clock.now())
+                );
+            }
+        }
+    }
 
     @Test
     void testAbortAndRead() {
@@ -214,6 +253,22 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     private void scanFirstVersion(RowId rowId) {
         try (var cursor = scan(rowId)) {
             cursor.hasNext();
+        }
+    }
+
+    private void scanAllVersions(RowId rowId) {
+        try (var cursor = scan(rowId)) {
+            cursor.forEachRemaining(readResult -> {
+                // No-op.
+            });
+        }
+    }
+
+    private void scanAllRows(HybridTimestamp timestamp) {
+        try (var cursor = scan(timestamp)) {
+            cursor.forEachRemaining(readResult -> {
+                // No-op.
+            });
         }
     }
 

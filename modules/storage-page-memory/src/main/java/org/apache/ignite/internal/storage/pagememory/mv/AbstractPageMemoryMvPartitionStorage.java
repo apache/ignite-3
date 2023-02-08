@@ -725,8 +725,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            // TODO: IGNITE-18717 Add lock by rowId
-            return new ScanVersionsCursor(rowId, this);
+            return inReadLock(rowId, () -> new ScanVersionsCursor(rowId, this));
         });
     }
 

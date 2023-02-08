@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -1166,7 +1167,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId = insert(tableRow, txId);
 
         StorageException ex = assertThrows(StorageException.class, () -> addWriteCommitted(rowId, tableRow2, clock.now()));
-        assertThat(ex.getMessage(), containsString("Write intent exists for " + rowId));
+        assertThat(ex.getMessage(), allOf(containsString("Write intent exists"), containsString(rowId.toString())));
     }
 
     @Test
