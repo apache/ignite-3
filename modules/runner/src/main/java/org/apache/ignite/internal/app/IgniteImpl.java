@@ -568,9 +568,9 @@ public class IgniteImpl implements Ignite {
                     cmgMgr
             );
 
-            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.port()));
+            clusterSvc.updateMetadata(new NodeMetadata(restComponent.host(), restComponent.httpPort(), restComponent.httpsPort()));
 
-            restAddressReporter.writeReport(restAddress());
+            restAddressReporter.writeReport(restHttpAddress(), restHttpsAddress());
 
             LOG.info("Components started, joining the cluster");
 
@@ -755,13 +755,38 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Returns the local address of REST endpoints.
+     * Returns the local HTTP address of REST endpoints.
      *
+     * @return address or null if HTTP is not enabled.
      * @throws IgniteInternalException if the REST module is not started.
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
-    public NetworkAddress restAddress() {
-        return new NetworkAddress(restComponent.host(), restComponent.port());
+    @Nullable
+    public NetworkAddress restHttpAddress() {
+        String host = restComponent.host();
+        int port = restComponent.httpPort();
+        if (port != -1) {
+            return new NetworkAddress(host, port);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the local HTTPS address of REST endpoints.
+     *
+     * @return address or null if HTTPS is not enabled.
+     * @throws IgniteInternalException if the REST module is not started.
+     */
+    // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
+    public NetworkAddress restHttpsAddress() {
+        String host = restComponent.host();
+        int port = restComponent.httpsPort();
+        if (port != -1) {
+            return new NetworkAddress(host, port);
+        } else {
+            return null;
+        }
     }
 
     /**
