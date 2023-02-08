@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.schema.BinaryConverter;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -140,7 +140,7 @@ public final class RowConverter {
 
             val = TypeUtils.fromInternal(ectx, val, NativeTypeSpec.toClass(element.typeSpec(), element.nullable()));
 
-            BinaryConverter.appendValue(tupleBuilder, element, val);
+            BinaryRowConverter.appendValue(tupleBuilder, element, val);
         }
 
         return tupleBuilder.build();

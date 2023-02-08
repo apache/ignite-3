@@ -60,11 +60,11 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
     @Test
     void testReadAfterRestart() throws Exception {
-        RowId rowId = insert(tableRow, txId);
+        RowId rowId = insert(binaryRow, txId);
 
         restartStorage();
 
-        assertRowMatches(tableRow, read(rowId, HybridTimestamp.MAX_VALUE));
+        assertRowMatches(binaryRow, read(rowId, HybridTimestamp.MAX_VALUE));
     }
 
     private void restartStorage() throws Exception {

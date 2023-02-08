@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper that holds both {@link TableRow} and {@link RowId}. {@link TableRow} is null for tombstones.
+ * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
  */
-public class TableRowAndRowId {
-    /** Table row. {@code null} if tombstone. */
-    private final @Nullable TableRow tableRow;
+public class BinaryRowAndRowId {
+    /** Binary row. {@code null} if tombstone. */
+    private final @Nullable BinaryRow binaryRow;
 
     /** Row id. */
     private final RowId rowId;
@@ -33,16 +33,16 @@ public class TableRowAndRowId {
     /**
      * Constructor.
      *
-     * @param tableRow Table row.
+     * @param binaryRow Binary row.
      * @param rowId Row id.
      */
-    public TableRowAndRowId(@Nullable TableRow tableRow, RowId rowId) {
-        this.tableRow = tableRow;
+    public BinaryRowAndRowId(@Nullable BinaryRow binaryRow, RowId rowId) {
+        this.binaryRow = binaryRow;
         this.rowId = rowId;
     }
 
-    public @Nullable TableRow tableRow() {
-        return tableRow;
+    public @Nullable BinaryRow binaryRow() {
+        return binaryRow;
     }
 
     public RowId rowId() {

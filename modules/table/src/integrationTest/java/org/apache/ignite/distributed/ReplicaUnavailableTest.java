@@ -34,7 +34,6 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -170,11 +169,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     private static Row createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 }

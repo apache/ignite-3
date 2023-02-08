@@ -38,16 +38,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -389,22 +386,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                     );
 
                     if (index instanceof HashIndex) {
-                        table.registerHashIndex(
-                                tableIndexView.id(),
-                                tableIndexView.uniq(),
-                                tableRowConverter::convertBinaryRow,
-                                tableRowConverter::convertTableRow
-                        );
+                        table.registerHashIndex(tableIndexView.id(), tableIndexView.uniq(), tableRowConverter::convert);
 
                         if (tableIndexView.uniq()) {
                             table.pkId(index.id());
                         }
                     } else if (index instanceof SortedIndex) {
-                        table.registerSortedIndex(
-                                tableIndexView.id(),
-                                tableRowConverter::convertBinaryRow,
-                                tableRowConverter::convertTableRow
-                        );
+                        table.registerSortedIndex(tableIndexView.id(), tableRowConverter::convert);
                     } else {
                         throw new AssertionError("Unknown index type [type=" + index.getClass() + ']');
                     }
@@ -469,14 +457,14 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         private final String[] indexedColumns;
         private final Object mutex = new Object();
 
-        private volatile VersionedConverter converter = new VersionedConverter(-1, t -> null, t -> null);
+        private volatile VersionedConverter converter = new VersionedConverter(-1, null);
 
         TableRowToIndexKeyConverter(SchemaRegistry registry, String[] indexedColumns) {
             this.registry = registry;
             this.indexedColumns = indexedColumns;
         }
 
-        public BinaryTuple convertBinaryRow(BinaryRow binaryRow) {
+        public BinaryTuple convert(BinaryRow binaryRow) {
             VersionedConverter converter = this.converter;
 
             if (converter.version != binaryRow.schemaVersion()) {
@@ -489,23 +477,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 }
             }
 
-            return converter.convertBinaryRow(binaryRow);
-        }
-
-        public BinaryTuple convertTableRow(TableRow tableRow) {
-            VersionedConverter converter = this.converter;
-
-            if (converter.version != tableRow.schemaVersion()) {
-                synchronized (mutex) {
-                    if (converter.version != tableRow.schemaVersion()) {
-                        converter = createConverter(tableRow.schemaVersion());
-
-                        this.converter = converter;
-                    }
-                }
-            }
-
-            return converter.convertTableRow(tableRow);
+            return converter.convert(binaryRow);
         }
 
         /** Creates converter for given version of the schema. */
@@ -522,13 +494,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             int[] indexedColumns = resolveColumnIndexes(descriptor);
 
-            BinaryTupleSchema tupleSchema = BinaryTupleSchema.createSchema(descriptor, indexedColumns);
-            BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(descriptor);
+            var rowConverter = BinaryRowConverter.columnsExtractor(descriptor, indexedColumns);
 
-            var binaryRowConverter = new BinaryConverter(descriptor, tupleSchema);
-            var tableRowConverter = new TableRowConverter(rowSchema, tupleSchema);
-
-            return new VersionedConverter(descriptor.version(), binaryRowConverter::toTuple, tableRowConverter::toTuple);
+            return new VersionedConverter(descriptor.version(), rowConverter);
         }
 
         private int[] resolveColumnIndexes(SchemaDescriptor descriptor) {
@@ -551,27 +519,16 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
          */
         private static class VersionedConverter {
             private final int version;
-            private final Function<BinaryRow, BinaryTuple> fromBinaryRowDelegate;
-            private final Function<TableRow, BinaryTuple> fromTableRowDelegate;
+            private final Function<BinaryRow, BinaryTuple> delegate;
 
-            private VersionedConverter(
-                    int version,
-                    Function<BinaryRow, BinaryTuple> fromBinaryRowDelegate,
-                    Function<TableRow, BinaryTuple> fromTableRowDelegate
-            ) {
+            private VersionedConverter(int version, Function<BinaryRow, BinaryTuple> delegate) {
                 this.version = version;
-                this.fromBinaryRowDelegate = fromBinaryRowDelegate;
-                this.fromTableRowDelegate = fromTableRowDelegate;
+                this.delegate = delegate;
             }
 
-            /** Converts the given binary row to tuple. */
-            public BinaryTuple convertBinaryRow(BinaryRow binaryRow) {
-                return fromBinaryRowDelegate.apply(binaryRow);
-            }
-
-            /** Converts the given table row to tuple. */
-            public BinaryTuple convertTableRow(TableRow binaryRow) {
-                return fromTableRowDelegate.apply(binaryRow);
+            /** Converts the given row to tuple. */
+            public BinaryTuple convert(BinaryRow binaryRow) {
+                return delegate.apply(binaryRow);
             }
         }
     }

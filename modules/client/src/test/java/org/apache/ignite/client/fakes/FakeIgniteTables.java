@@ -26,6 +26,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -36,13 +39,12 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Fake tables.
  */
-public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
+public class FakeIgniteTables implements IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
 
     public static final String TABLE_ALL_COLUMNS = "all-columns";
@@ -228,9 +230,14 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 break;
         }
 
+        FakeSchemaRegistry schemaReg = new FakeSchemaRegistry(history);
+        Function<BinaryRow, BinaryTuple> keyExtractor = binaryRow -> {
+            SchemaDescriptor schema = schemaReg.schema(binaryRow.schemaVersion());
+            return BinaryRowConverter.keyExtractor(schema).apply(binaryRow);
+        };
         return new TableImpl(
-                new FakeInternalTable(name, id),
-                new FakeSchemaRegistry(history),
+                new FakeInternalTable(name, id, keyExtractor),
+                schemaReg,
                 new HeapLockManager()
         );
     }
