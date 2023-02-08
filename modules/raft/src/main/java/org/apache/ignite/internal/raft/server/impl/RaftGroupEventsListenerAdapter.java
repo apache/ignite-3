@@ -34,7 +34,6 @@ import org.apache.ignite.raft.jraft.error.RaftError;
  * RAFT node event listener adapter.
  */
 class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
-
     /**
      * RAFT service event listener.
      * The listener the only for all RAFT nodes that start with this service.

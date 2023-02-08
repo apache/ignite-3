@@ -34,7 +34,7 @@ public class RaftServiceEventListener {
     private ConcurrentHashMap<ReplicationGroupId, Set<Consumer<Long>>> subscriptions = new ConcurrentHashMap<>();
 
     /** Callbacks by cluster nodes. */
-    private HashMap<ClusterNode, Set<Consumer<Long>>> nosesSubscriptions = new HashMap<>();
+    private HashMap<ClusterNode, Set<Consumer<Long>>> nodesSubscriptions = new HashMap<>();
 
     /**
      * Subscribes a node to notification.
@@ -50,7 +50,7 @@ public class RaftServiceEventListener {
             }
 
             actions.add(notifyAction);
-            nosesSubscriptions.computeIfAbsent(subscriber, node -> new HashSet<>())
+            nodesSubscriptions.computeIfAbsent(subscriber, node -> new HashSet<>())
                     .add(notifyAction);
 
             return actions;
@@ -69,7 +69,7 @@ public class RaftServiceEventListener {
                 return null;
             }
 
-            Set<Consumer<Long>> nodeActions = nosesSubscriptions.get(clusterNode);
+            Set<Consumer<Long>> nodeActions = nodesSubscriptions.get(clusterNode);
 
             assert !CollectionUtils.nullOrEmpty(nodeActions);
 
@@ -83,7 +83,7 @@ public class RaftServiceEventListener {
             actions.remove(grpNodeActions.iterator().next());
 
             if (CollectionUtils.nullOrEmpty(nodeActions)) {
-                nosesSubscriptions.remove(clusterNode);
+                nodesSubscriptions.remove(clusterNode);
             }
 
             if (CollectionUtils.nullOrEmpty(actions)) {

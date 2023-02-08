@@ -48,7 +48,7 @@ public class NotifyElectProcessor implements RpcProcessor<SubscriptionLeaderChan
     public void handleRequest(RpcContext rpcCtx, SubscriptionLeaderChangeRequest request) {
         if (request.subscribe()) {
             serviceEventListener.subscribe(request.groupId(), rpcCtx.getSender(), term ->
-                    rpcCtx.sendResponseAsync(msgFactory.subscriptionLeaderChangeResponse()
+                    rpcCtx.sendResponseAsync(msgFactory.leaderChangeNotification()
                             .term(term)
                             .build()
                     ));
