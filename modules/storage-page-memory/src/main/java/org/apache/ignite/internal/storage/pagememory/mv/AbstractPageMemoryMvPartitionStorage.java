@@ -368,7 +368,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             rowVersionDataPageReader.traverse(rowVersionLink, read, loadValue);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(e, "Row version lookup failed: [link={}, {}]", rowVersionLink, createStorageInfo());
+            throw new StorageException("Row version lookup failed: [link={}, {}]", e, rowVersionLink, createStorageInfo());
         }
 
         return read.result();
@@ -947,7 +947,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         try {
             return versionChainTree.findOne(new VersionChainKey(rowId));
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(e, "Error getting version chain: [rowId={}, {}]", rowId, createStorageInfo());
+            throw new StorageException("Error getting version chain: [rowId={}, {}]", e, rowId, createStorageInfo());
         }
     }
 

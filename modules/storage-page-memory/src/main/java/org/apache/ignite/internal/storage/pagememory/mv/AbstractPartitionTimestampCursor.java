@@ -154,6 +154,13 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
         });
     }
 
+    /**
+     * Finds a {@link RowVersion} in the {@link VersionChain}, depending on the implementation.
+     *
+     * <p>For example, for a specific timestamp or the very last in the chain.
+     *
+     * @param versionChain Version chain.
+     */
     abstract ReadResult findRowVersion(VersionChain versionChain);
 
     private void createVersionChainCursorIfMissing() {
@@ -179,7 +186,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
                 return true;
             }, null);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(e, "Find failed: " + storage.createStorageInfo());
+            throw new StorageException("Find failed: " + storage.createStorageInfo(), e);
         }
     }
 }
