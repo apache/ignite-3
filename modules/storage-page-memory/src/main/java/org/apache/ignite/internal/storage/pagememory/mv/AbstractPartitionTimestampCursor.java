@@ -23,7 +23,7 @@ import java.util.NoSuchElementException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -128,7 +128,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
     }
 
     @Override
-    public @Nullable TableRow committed(HybridTimestamp timestamp) {
+    public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
         return storage.busy(() -> {
             storage.throwExceptionIfStorageNotInRunnableState();
 
@@ -150,7 +150,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
             }
 
             // We don't check if row conforms the key filter here, because we've already checked it.
-            return result.tableRow();
+            return result.binaryRow();
         });
     }
 
