@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
@@ -33,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.util.DistributionZone
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,10 +47,12 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -874,9 +878,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.addNodesToDataNodes(Set.of("E"), 4);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("E"), 4);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
 
@@ -936,7 +940,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.alterZone(
                 ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).build()
         ).get();
 
         assertTrue(waitForCondition(() -> zoneState.scaleUpTask().isCancelled(), 1000L));
@@ -976,7 +980,7 @@ public class DistributionZoneManagerScaleUpTest {
 
         distributionZoneManager.alterZone(
                 ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build()
+                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build()
         ).get();
 
         assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isCancelled(), 1000L));
@@ -1080,8 +1084,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
@@ -1095,8 +1099,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
@@ -1110,8 +1114,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
@@ -1125,8 +1129,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
@@ -1140,8 +1144,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
         assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
@@ -1156,8 +1160,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 3);
@@ -1171,8 +1175,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
@@ -1186,8 +1190,8 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 3);
@@ -1201,9 +1205,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
-        zoneState.addNodesToDataNodes(Set.of("D"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
@@ -1217,9 +1221,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
-        zoneState.addNodesToDataNodes(Set.of("D"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
@@ -1233,12 +1237,12 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
@@ -1251,9 +1255,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
@@ -1267,9 +1271,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
@@ -1283,11 +1287,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
         assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
@@ -1299,9 +1303,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
-        zoneState.addNodesToDataNodes(Set.of("E"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("E"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
@@ -1316,9 +1320,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
-        zoneState.addNodesToDataNodes(Set.of("E"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("E"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
@@ -1332,11 +1336,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        zoneState.addNodesToDataNodes(Set.of("E"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("E"), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
         assertDataNodesForZone(1, Set.of("A", "B", "C", "E"), keyValueStorage);
@@ -1348,9 +1352,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
-        zoneState.removeNodesFromDataNodes(Set.of("B"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("B"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
@@ -1364,9 +1368,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
-        zoneState.removeNodesFromDataNodes(Set.of("B"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("B"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
@@ -1380,11 +1384,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("C"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        zoneState.removeNodesFromDataNodes(Set.of("B"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("B"), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
         assertDataNodesForZone(1, Set.of("A", "C"), keyValueStorage);
@@ -1396,9 +1400,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 7);
-        zoneState.addNodesToDataNodes(Set.of("C"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
@@ -1412,9 +1416,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 7);
-        zoneState.addNodesToDataNodes(Set.of("C"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
@@ -1428,11 +1432,11 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.addNodesToDataNodes(Set.of("D"), 3);
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 7);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 7);
 
-        zoneState.addNodesToDataNodes(Set.of("C"), 9);
+        zoneState.nodesToAddToDataNodes(Set.of("C"), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 9);
 
         assertDataNodesForZone(1, Set.of("A", "B", "C", "D"), keyValueStorage);
@@ -1444,9 +1448,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("D"), 7);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
@@ -1460,9 +1464,9 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("D"), 7);
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 9);
 
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
@@ -1476,14 +1480,36 @@ public class DistributionZoneManagerScaleUpTest {
 
         ZoneState zoneState = distributionZoneManager.zonesTimers().get(1);
 
-        zoneState.removeNodesFromDataNodes(Set.of("C"), 3);
-        zoneState.addNodesToDataNodes(Set.of("D"), 7);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C"), 3);
+        zoneState.nodesToAddToDataNodes(Set.of("D"), 7);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleUp(1, 7);
 
-        zoneState.removeNodesFromDataNodes(Set.of("D"), 9);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("D"), 9);
         distributionZoneManager.saveDataNodesToMetaStorageOnScaleDown(1, 9);
 
         assertDataNodesForZone(1, Set.of("A", "B"), keyValueStorage);
+    }
+
+    @Test
+    void testZoneStateAddRemoveNodesPreservesDuplicationsOfNodes() {
+        ZoneState zoneState = new ZoneState(new ScheduledThreadPoolExecutor(1));
+
+        zoneState.nodesToAddToDataNodes(Set.of("A", "B"), 1);
+        zoneState.nodesToAddToDataNodes(Set.of("A", "B"), 2);
+
+        List<String> nodes = zoneState.nodesToBeAddedToDataNodes(1, 2);
+
+        Collections.sort(nodes);
+        assertEquals(List.of("A", "A", "B", "B"), nodes);
+
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C", "D"), 3);
+        zoneState.nodesToRemoveFromDataNodes(Set.of("C", "D"), 4);
+
+        nodes = zoneState.nodesToBeRemovedFromDataNodes(3, 4);
+
+        Collections.sort(nodes);
+
+        assertEquals(List.of("C", "C", "D", "D"), nodes);
     }
 
     /**
