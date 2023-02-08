@@ -15,37 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.metastorage.command.cursor;
 
-import org.apache.ignite.internal.schema.TableRow;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Wrapper that holds both {@link TableRow} and {@link RowId}. {@link TableRow} is null for tombstones.
+ * Command that closes all cursors for the specified node id. Common use case for a given command is to close cursors for the node that left
+ * topology.
  */
-public class TableRowAndRowId {
-    /** Table row. {@code null} if tombstone. */
-    private final @Nullable TableRow tableRow;
-
-    /** Row id. */
-    private final RowId rowId;
-
+@Transferable(MetastorageCommandsMessageGroup.CLOSE_ALL_CURSORS)
+public interface CloseAllCursorsCommand extends WriteCommand {
     /**
-     * Constructor.
-     *
-     * @param tableRow Table row.
-     * @param rowId Row id.
+     * Returns cursor id.
      */
-    public TableRowAndRowId(@Nullable TableRow tableRow, RowId rowId) {
-        this.tableRow = tableRow;
-        this.rowId = rowId;
-    }
-
-    public @Nullable TableRow tableRow() {
-        return tableRow;
-    }
-
-    public RowId rowId() {
-        return rowId;
-    }
+    String nodeId();
 }

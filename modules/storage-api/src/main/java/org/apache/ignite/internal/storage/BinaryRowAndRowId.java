@@ -15,20 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.storage;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Cursor close command for MetaStorageCommandListener that closes cursor with given id.
+ * Wrapper that holds both {@link BinaryRow} and {@link RowId}. {@link BinaryRow} is null for tombstones.
  */
-@Transferable(MetastorageCommandsMessageGroup.CURSOR_CLOSE)
-public interface CursorCloseCommand extends WriteCommand {
+public class BinaryRowAndRowId {
+    /** Binary row. {@code null} if tombstone. */
+    private final @Nullable BinaryRow binaryRow;
+
+    /** Row id. */
+    private final RowId rowId;
+
     /**
-     * Returns cursor id.
+     * Constructor.
+     *
+     * @param binaryRow Binary row.
+     * @param rowId Row id.
      */
-    IgniteUuid cursorId();
+    public BinaryRowAndRowId(@Nullable BinaryRow binaryRow, RowId rowId) {
+        this.binaryRow = binaryRow;
+        this.rowId = rowId;
+    }
+
+    public @Nullable BinaryRow binaryRow() {
+        return binaryRow;
+    }
+
+    public RowId rowId() {
+        return rowId;
+    }
 }

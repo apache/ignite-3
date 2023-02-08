@@ -54,11 +54,11 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Once a low watermark value becomes equal to second commit timestamp, previous value
         // becomes completely inaccessible and should be purged.
-        TableRowAndRowId gcedRow = pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId gcedRow = pollForVacuum(secondCommitTs);
 
         assertNotNull(gcedRow);
 
-        assertRowMatches(gcedRow.tableRow(), TABLE_ROW);
+        assertRowMatches(gcedRow.binaryRow(), TABLE_ROW);
 
         // Read from the old timestamp should return null.
         assertNull(read(ROW_ID, firstCommitTs));
@@ -72,10 +72,10 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(TABLE_ROW);
         HybridTimestamp secondCommitTs = addAndCommit(null);
 
-        TableRowAndRowId row = pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(secondCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, secondCommitTs));
 
@@ -89,10 +89,10 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(null);
         HybridTimestamp lastCommitTs = addAndCommit(null);
 
-        TableRowAndRowId row = pollForVacuum(lastCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(lastCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, lastCommitTs));
 
@@ -109,16 +109,16 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         HybridTimestamp lowWatermark = addAndCommit(null);
 
         // Poll the oldest row.
-        TableRowAndRowId row = pollForVacuum(lowWatermark);
+        BinaryRowAndRowId row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         // Poll the next oldest row.
         row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW2);
+        assertRowMatches(row.binaryRow(), TABLE_ROW2);
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));

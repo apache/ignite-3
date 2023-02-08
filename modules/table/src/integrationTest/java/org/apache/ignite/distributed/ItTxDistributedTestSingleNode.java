@@ -63,12 +63,10 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -407,22 +405,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 UUID indexId = UUID.randomUUID();
 
-                BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-                BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
-
-                BinaryConverter binaryRowConverter = BinaryConverter.forKey(schemaDescriptor);
-                Function<BinaryRow, BinaryTuple> binaryRow2Tuple = binaryRowConverter::toTuple;
-
-                var rowConverter = new TableRowConverter(tupleSchema, indexSchema);
+                Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
                         new TestHashIndexStorage(null),
-                        binaryRow2Tuple,
-                        rowConverter::toTuple
+                        row2Tuple
                 ));
 
-                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), binaryRow2Tuple);
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 

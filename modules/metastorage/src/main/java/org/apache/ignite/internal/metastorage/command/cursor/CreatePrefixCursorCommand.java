@@ -23,12 +23,32 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Cursor {@code next} command for MetaStorageCommandListener that returns next element and moves cursor.
+ * Raft command for getting all Meta Storage keys that start with a given prefix.
  */
-@Transferable(MetastorageCommandsMessageGroup.CURSOR_NEXT)
-public interface CursorNextCommand extends WriteCommand {
+@Transferable(MetastorageCommandsMessageGroup.CREATE_PREFIX_CURSOR)
+public interface CreatePrefixCursorCommand extends WriteCommand {
     /**
-     * Returns cursor id.
+     * Returns key prefix.
+     */
+    byte[] prefix();
+
+    /**
+     * Returns the upper bound for entry revision.
+     */
+    long revUpperBound();
+
+    /**
+     * Returns the originating node ID.
+     */
+    String requesterNodeId();
+
+    /**
+     * Returns id of cursor that is associated with the current command.
      */
     IgniteUuid cursorId();
+
+    /**
+     * Returns the boolean value indicating whether this command is supposed to include tombstone entries into the cursor.
+     */
+    boolean includeTombstones();
 }

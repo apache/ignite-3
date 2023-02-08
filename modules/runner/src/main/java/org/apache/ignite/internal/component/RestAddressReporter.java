@@ -20,9 +20,13 @@ package org.apache.ignite.internal.component;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Can write network address to file that could be used by other systems to know on what port Ignite 3 REST server is started.
@@ -39,12 +43,27 @@ public class RestAddressReporter {
     }
 
     /** Write network address to file. */
-    public void writeReport(NetworkAddress networkAddress) {
+    public void writeReport(@Nullable NetworkAddress httpAddress, @Nullable NetworkAddress httpsAddress) {
         try {
-            Files.writeString(workDir.resolve(REPORT_FILE_NAME), "http://" + networkAddress.host() + ":" + networkAddress.port());
+            Files.writeString(workDir.resolve(REPORT_FILE_NAME), report(httpAddress, httpsAddress));
         } catch (IOException e) {
             String message = "Unexpected error when trying to write REST server network address to file";
             throw new IgniteException(Common.UNEXPECTED_ERR, message, e);
+        }
+    }
+
+    private String report(@Nullable NetworkAddress httpAddress, @Nullable NetworkAddress httpsAddress) {
+        return Stream.of(report("http", httpAddress), report("https", httpsAddress))
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(", "));
+    }
+
+    @Nullable
+    private String report(String protocol, @Nullable NetworkAddress httpAddress) {
+        if (httpAddress == null) {
+            return null;
+        } else {
+            return protocol + "://" + httpAddress.host() + ":" + httpAddress.port();
         }
     }
 

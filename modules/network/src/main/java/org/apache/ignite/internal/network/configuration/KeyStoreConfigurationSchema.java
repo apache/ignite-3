@@ -15,20 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command.cursor;
+package org.apache.ignite.internal.network.configuration;
 
-import org.apache.ignite.internal.metastorage.command.MetastorageCommandsMessageGroup;
-import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
 
-/**
- * Cursor {@code hasNext} command for MetaStorageCommandListener that checks whether next element is available.
- */
-@Transferable(MetastorageCommandsMessageGroup.CURSOR_HAS_NEXT)
-public interface CursorHasNextCommand extends ReadCommand {
-    /**
-     * Returns cursor id.
-     */
-    IgniteUuid cursorId();
+/** Key store configuration. */
+@Config
+public class KeyStoreConfigurationSchema {
+
+    @Value(hasDefault = true)
+    public String type = "PKCS12";
+
+    @Value(hasDefault = true)
+    public String path = "";
+
+    @Value(hasDefault = true)
+    public String password = "";
 }

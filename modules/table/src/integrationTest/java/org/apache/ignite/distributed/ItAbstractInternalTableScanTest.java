@@ -46,14 +46,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRow;
-import org.apache.ignite.internal.schema.TableRowBuilder;
-import org.apache.ignite.internal.schema.TableRowConverter;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -82,8 +79,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             new Column[]{new Column("key", NativeTypes.stringOf(100), false)},
             new Column[]{new Column("val", NativeTypes.stringOf(100), false)}
     );
-
-    private static final BinaryConverter converter = BinaryConverter.forRow(ROW_SCHEMA);
 
     /** Mock partition storage. */
     @Mock
@@ -379,17 +374,17 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     }
 
     /**
-     * Helper method to convert key and value to {@link TableRow}.
+     * Helper method to convert key and value to {@link BinaryRow}.
      *
      * @param entryKey Key.
      * @param entryVal Value
-     * @return {@link TableRow} based on given key and value.
+     * @return {@link BinaryRow} based on given key and value.
      */
-    private static TableRow prepareRow(String entryKey, String entryVal) {
-        TableRowBuilder builder = new TableRowBuilder(ROW_SCHEMA);
-        builder.appendString(Objects.requireNonNull(entryKey, "entryKey"))
-                .appendString(Objects.requireNonNull(entryVal, "entryVal"));
-        return builder.buildTableRow();
+    private static BinaryRow prepareRow(String entryKey, String entryVal) {
+        return new RowAssembler(ROW_SCHEMA)
+                .appendString(Objects.requireNonNull(entryKey, "entryKey"))
+                .appendString(Objects.requireNonNull(entryVal, "entryVal"))
+                .build();
     }
 
     /**
@@ -399,10 +394,10 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      * @param reqAmount      Amount of rows to request at a time.
      * @throws Exception If Any.
      */
-    private void requestNtest(List<TableRow> submittedItems, long reqAmount) throws Exception {
+    private void requestNtest(List<BinaryRow> submittedItems, long reqAmount) throws Exception {
         AtomicInteger cursorTouchCnt = new AtomicInteger(0);
 
-        List<TableRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
+        List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
         when(mockStorage.scan(any(HybridTimestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(PartitionTimestampCursor.class);
@@ -432,7 +427,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
             @Override
             public void onNext(BinaryRow item) {
-                retrievedItems.add(TableRowConverter.fromBinaryRow(item, converter));
+                retrievedItems.add(item);
 
                 if (retrievedItems.size() % reqAmount == 0) {
                     subscription.request(reqAmount);
@@ -454,8 +449,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         assertEquals(submittedItems.size(), retrievedItems.size());
 
-        List<byte[]> expItems = submittedItems.stream().map(TableRow::bytes).collect(Collectors.toList());
-        List<byte[]> gotItems = retrievedItems.stream().map(TableRow::bytes).collect(Collectors.toList());
+        List<byte[]> expItems = submittedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
+        List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
 
         for (int i = 0; i < expItems.size(); i++) {
             assertArrayEquals(expItems.get(i), gotItems.get(i));
