@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.emptySet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -402,7 +403,7 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         byte[] newLogicalTopology;
 
         if (nodes != null) {
-            newLogicalTopology = toBytes(nodes);
+            newLogicalTopology = toBytes(toDataNodesMap(nodes));
         } else {
             newLogicalTopology = null;
         }
