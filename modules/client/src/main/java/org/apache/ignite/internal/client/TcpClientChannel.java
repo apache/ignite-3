@@ -298,6 +298,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ByteBuf buf) throws IgniteException {
         var unpacker = new ClientMessageUnpacker(buf);
 
+        // TODO: Remove this special case and process handshake outside of the channel? But how to deal with callbacks?
         if (protocolCtx == null) {
             // Process handshake.
             pendingReqs.remove(-1L).complete(unpacker);
