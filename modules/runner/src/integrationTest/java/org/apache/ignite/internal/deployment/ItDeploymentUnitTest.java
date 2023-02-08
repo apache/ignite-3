@@ -1,0 +1,197 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.deployment;
+
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.UnitStatus;
+import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
+import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Integration tests for {@link org.apache.ignite.deployment.IgniteDeployment}.
+ */
+public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
+
+    private static final long REPLICA_TIMEOUT = 10;
+    private static final long SIZE_IN_BYTES = 1024L;
+
+    private static Path dummyFile;
+
+    @BeforeAll
+    public static void generateDummy() throws IOException {
+        OpenOption[] options = {
+                StandardOpenOption.WRITE,
+                StandardOpenOption.CREATE
+        };
+
+        dummyFile = workDir.resolve("dummy.txt");
+
+        try (SeekableByteChannel channel = Files.newByteChannel(dummyFile, options)) {
+            channel.position(SIZE_IN_BYTES);
+
+            ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
+            buf.rewind();
+            channel.write(buf);
+        }
+    }
+
+    @Test
+    public void testDeploy() throws Exception {
+        Unit unit = deployAndVerify("test", Version.parseVersion("1.1.0"), 1);
+
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, unit);
+
+        CompletableFuture<Set<UnitStatus>> list = node(2).deployment().list();
+        UnitStatusBuilder builder = UnitStatus.builder(unit.id).append(unit.version, List.of(unit.deployedNode.name(), cmg.name()));
+        assertThat(list, willBe(Set.of(builder.build())));
+    }
+
+    @Test
+    public void testDeployUndeploy() throws Exception {
+        Unit unit = deployAndVerify("test", Version.parseVersion("1.1.0"), 1);
+        unit.undeploy();
+
+        CompletableFuture<Set<UnitStatus>> list = node(2).deployment().list();
+        assertThat(list, willBe(Collections.emptySet()));
+    }
+
+    @Test
+    public void testDeployTwoUnits() throws Exception {
+        String id = "test";
+        Unit unit1 = deployAndVerify(id, Version.parseVersion("1.1.0"), 1);
+        Unit unit2 = deployAndVerify(id, Version.parseVersion("1.1.1"), 2);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, unit1);
+        waitUnitReplica(cmg, unit2);
+
+        CompletableFuture<UnitStatus> list = node(2).deployment().status(id);
+        UnitStatusBuilder status = UnitStatus.builder(id)
+                .append(unit1.version, List.of(unit1.deployedNode.name(), cmg.name()))
+                .append(unit2.version, List.of(unit2.deployedNode.name(), cmg.name()));
+        assertThat(list, willBe(status.build()));
+
+        CompletableFuture<Set<Version>> versions = node(2).deployment().versions(unit1.id);
+        assertThat(versions, willBe(Set.of(unit1.version, unit2.version)));
+    }
+
+
+    @Test
+    public void testDeployTwoUnitsAndUndeployOne() throws Exception {
+        Unit unit1 = deployAndVerify("test", Version.parseVersion("1.1.0"), 1);
+        Unit unit2 = deployAndVerify("test", Version.parseVersion("1.1.1"), 2);
+
+        IgniteImpl cmg = cluster.node(0);
+        waitUnitReplica(cmg, unit1);
+        waitUnitReplica(cmg, unit2);
+
+        CompletableFuture<UnitStatus> list = node(2).deployment().status(unit2.id);
+        UnitStatusBuilder builder = UnitStatus.builder(unit1.id)
+                .append(unit1.version, List.of(unit1.deployedNode.name(), cmg.name()))
+                .append(unit2.version, List.of(unit2.deployedNode.name(), cmg.name()));
+        assertThat(list, willBe(builder.build()));
+
+        unit2.undeploy();
+        CompletableFuture<Set<Version>> newVersions = node(2).deployment().versions(unit1.id);
+        assertThat(newVersions, willBe(Set.of(unit1.version)));
+    }
+
+
+    private Unit deployAndVerify(String id, Version version, int nodeIndex) throws Exception {
+        IgniteImpl entryNode = node(nodeIndex);
+
+        CompletableFuture<Boolean> deploy = entryNode.deployment()
+                .deploy(id, version, DeploymentUnit.fromPath(dummyFile));
+
+        assertThat(deploy.get(), is(true));
+
+        Unit unit = new Unit(entryNode, id, version);
+
+        assertThat(getNodeUnitFile(unit).toFile().exists(), is(true));
+
+        return unit;
+    }
+
+
+    private static Path getNodeUnitFile(Unit unit) {
+        return getNodeUnitFile(unit.deployedNode, unit.id, unit.version);
+    }
+
+    private static Path getNodeUnitFile(IgniteImpl node, String unitId, Version unitVersion) {
+        String deploymentFolder = node.nodeConfiguration()
+                .getConfiguration(DeploymentConfiguration.KEY)
+                .deploymentLocation().value();
+        Path resolve = workDir.resolve(node.name()).resolve(deploymentFolder);
+        return resolve.resolve(unitId)
+                .resolve(unitVersion.render())
+                .resolve(dummyFile.getFileName());
+    }
+
+
+    private static void waitUnitReplica(IgniteImpl ignite, Unit unit) throws InterruptedException {
+        Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version);
+        IgniteTestUtils.waitForCondition(() -> unitPath.toFile().getTotalSpace() == SIZE_IN_BYTES, REPLICA_TIMEOUT);
+    }
+
+    private static void waitUnitClean(IgniteImpl ignite, Unit unit) throws InterruptedException {
+        Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version);
+        IgniteTestUtils.waitForCondition(() -> !unitPath.toFile().exists(), REPLICA_TIMEOUT);
+    }
+
+    static class Unit {
+        private final IgniteImpl deployedNode;
+        private final String id;
+        private final Version version;
+
+
+        Unit(IgniteImpl deployedNode, String id, Version version) {
+            this.deployedNode = deployedNode;
+            this.id = id;
+            this.version = version;
+        }
+
+
+        void undeploy() throws InterruptedException {
+            deployedNode.deployment().undeploy(id, version);
+            waitUnitClean(deployedNode, this);
+        }
+    }
+}

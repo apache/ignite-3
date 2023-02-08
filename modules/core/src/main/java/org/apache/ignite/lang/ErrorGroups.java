@@ -390,4 +390,40 @@ public class ErrorGroups {
          */
         public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
     }
+
+    /**
+     * Code deployment error group.
+     */
+    public static class CodeDeployment {
+        /**
+         * Code deployment error group.
+         */
+        public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = ErrorGroup.newGroup("CODEDEPLOY", 13);
+
+        /**
+         * Config read error.
+         */
+        public static final int UNDEPLOY_NOT_EXISTED_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(1);
+
+        /**
+         * Unit duplicate error.
+         */
+        public static final int DUPLICATE_DEPLOY_UNIT_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(2);
+
+        /**
+         * Access to not existed deployment unit.
+         */
+        public static final int NOT_EXISTED_UNIT_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
+
+        /**
+         * Deployment unit content read error.
+         */
+        public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(4);
+
+        /**
+         * Deployment unit meta data write error.
+         */
+        public static final int UNIT_META_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(5);
+
+    }
 }
