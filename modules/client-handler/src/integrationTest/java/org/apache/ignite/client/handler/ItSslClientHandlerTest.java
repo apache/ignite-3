@@ -24,13 +24,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.msgpack.core.MessagePack;
 
-/** Ssl client integration test. */
+/** SSL client integration test. */
 public class ItSslClientHandlerTest {
 
     /** Magic bytes. */
@@ -50,6 +51,13 @@ public class ItSslClientHandlerTest {
     void setUp() {
         password = "changeit";
         keyStorePkcs12Path = ItSslClientHandlerTest.class.getClassLoader().getResource("ssl/keystore.pfx").getPath();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (testServer != null) {
+            testServer.tearDown();
+        }
     }
 
     @Test

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
+import org.apache.ignite.client.ClientAuthConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 
 /**
@@ -128,6 +129,34 @@ public interface ConnectionProperties {
     void setConnectionTimeout(Integer connTimeout) throws SQLException;
 
     /**
+     * SSL enabled.
+     *
+     * @return true if ssl is enabled.
+     */
+    boolean isSslEnabled();
+
+    /**
+     * Enable/disable ssl.
+     *
+     * @param enabled true if ssl is enabled.
+     */
+    void setSslEnabled(boolean enabled);
+
+    /**
+     * SSL client authentication. Can be NONE, REQUIRE, and OPTIONAL.
+     *
+     * @param clientAuth SSL client authentication.
+     */
+    void setClientAuth(ClientAuthConfiguration clientAuth);
+
+    /**
+     * SSL client authentication.
+     *
+     * @return SSL client authentication.
+     */
+    ClientAuthConfiguration getClientAuth();
+
+    /**
      * Set trust store path that will be used to setup ssl connection.
      *
      * @param trustStorePath Trust store path.
@@ -140,6 +169,13 @@ public interface ConnectionProperties {
      * @param password Trust store password.
      */
     void setTrustStorePassword(String password);
+
+    /**
+     * Set keystore type. For example, PKSC12 or JKS.
+     *
+     * @param type Truststore type.
+     */
+    void setTrustStoreType(String type);
 
     /**
      * Trust store path.
@@ -163,23 +199,44 @@ public interface ConnectionProperties {
     String getTrustStoreType();
 
     /**
-     * Set truststore type. For example, PKSC12 or JKS.
+     * Set keystore type. For example, PKSC12 or JKS.
      *
-     * @param type Truststore type.
+     * @param type Keystore type.
      */
-    void setTrustStoreType(String type);
+    void setKeyStoreType(String type);
 
     /**
-     * Ssl enabled.
+     * Set key store path that will be used to setup ssl connection.
      *
-     * @return true if ssl is enabled.
+     * @param keyStorePath Key store path.
      */
-    boolean isSslEnabled();
+    void setKeyStorePath(String keyStorePath);
 
     /**
-     * Enable/disable ssl.
+     * Set key store password.
      *
-     * @param enabled true if ssl is enabled.
+     * @param password Key store password.
      */
-    void setSslEnabled(boolean enabled);
+    void setKeyStorePassword(String password);
+
+    /**
+     * Key store path.
+     *
+     * @return Keystore path.
+     */
+    String getKeyStorePath();
+
+    /**
+     * Keystore password.
+     *
+     * @return Keystore password.
+     */
+    String getKeyStorePassword();
+
+    /**
+     * Keystore type.
+     *
+     * @return Keytore type.
+     */
+    String getKeyStoreType();
 }

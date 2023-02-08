@@ -17,29 +17,22 @@
 
 package org.apache.ignite.internal.network.ssl;
 
-import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
-import org.apache.ignite.internal.network.configuration.KeyStoreView;
-import org.apache.ignite.internal.network.configuration.TrustStoreView;
+import org.apache.ignite.internal.network.configuration.SslView;
 
-/** Ssl context provider. */
+/** SSL context provider. */
 public interface SslContextProvider {
 
-    /** Create ssl context. */
-    SslContext createSslContext();
-
     /** Create an instance of client ssl context provider. */
-    static SslContextProvider forClient(TrustStoreView trustStoreView) {
-        return new ClientSslContextProvider(trustStoreView);
+    static SslContextProvider forClient(SslView ssl) {
+        return new ClientSslContextProvider(ssl);
     }
 
     /** Create an instance of server ssl context provider. */
-    static SslContextProvider forServer(KeyStoreView keyStoreView) {
-        return new ServerSslContextProvider(keyStoreView);
+    static SslContextProvider forServer(SslView ssl) {
+        return new ServerSslContextProvider(ssl);
     }
 
-    /** Create an instance of server ssl context provider with client auth. */
-    static SslContextProvider forServer(KeyStoreView keyStoreView, ClientAuth clientAuth) {
-        return new ServerSslContextProvider(keyStoreView, clientAuth);
-    }
+    /** Create ssl context. */
+    SslContext createSslContext();
 }

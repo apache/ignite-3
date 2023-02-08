@@ -41,7 +41,7 @@ import org.msgpack.core.MessagePack;
  */
 public class ItClientHandlerTest {
     /** Magic bytes. */
-    private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
+    private static final byte[] MAGIC = {0x49, 0x47, 0x4E, 0x49};
 
     private ClientHandlerModule serverModule;
 

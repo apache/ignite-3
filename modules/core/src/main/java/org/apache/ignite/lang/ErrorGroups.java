@@ -39,7 +39,7 @@ public class ErrorGroups {
         /** Illegal argument or argument in a wrong format has been passed. */
         public static final int ILLEGAL_ARGUMENT_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
 
-        /** Ssl can not be configured error. */
+        /** SSL can not be configured error. */
         public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(5);
 
         /** Unknown error. */

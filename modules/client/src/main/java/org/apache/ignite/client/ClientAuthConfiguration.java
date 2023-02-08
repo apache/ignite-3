@@ -15,23 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.client;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-
-/** Truststore configuration schema. */
-@Config
-public class TrustStoreConfigurationSchema {
-    /** Truststore type. */
-    @Value(hasDefault = true)
-    public String type = "PKCS12";
-
-    /** Truststore path. */
-    @Value(hasDefault = true)
-    public String path = "";
-
-    /** Truststore password. */
-    @Value(hasDefault = true)
-    public String password = "";
+/** Ignite SSL client authentication enum. */
+public enum ClientAuthConfiguration {
+    NONE, OPTIONAL, REQUIRE
 }

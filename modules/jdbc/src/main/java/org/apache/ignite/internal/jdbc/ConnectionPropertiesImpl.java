@@ -23,11 +23,14 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
+import org.apache.ignite.client.ClientAuthConfiguration;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,7 +91,32 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** Type of the truststore. */
     private final StringProperty trustStoreType = new StringProperty("trustStoreType",
-            "Type of the truststore", "PKCS12", null, false, null);
+            "Type of the trust store", "PKCS12", null, false, null);
+
+    /** Path to the keystore. */
+    private final StringProperty keyStorePath = new StringProperty("keyStorePath",
+            "Path to key store", null, null, false, null);
+
+    /** Keystore password. */
+    private final StringProperty keyStorePassword = new StringProperty("keyStorePassword",
+            "Key store password", null, null, false, null);
+
+    /** Type of the keystore. */
+    private final StringProperty keyStoreType = new StringProperty("keyStoreType",
+            "Type of the key store", "PKCS12", null, false, null);
+
+    /** SSL client authentication. */
+    private final StringProperty clientAuth = new StringProperty("clientAuth",
+            "SSL client authentication", "none", clientAuthValues(), false, null);
+
+    @NotNull
+    private static String[] clientAuthValues() {
+        return Arrays.stream(ClientAuthConfiguration.values())
+                .map(Enum::name)
+                .map(String::toLowerCase)
+                .collect(Collectors.toList())
+                .toArray(String[]::new);
+    }
 
     /** Enable ssl. */
     private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
@@ -96,7 +124,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
-            qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType, sslEnabled
+            qryTimeout, connTimeout, trustStorePath, trustStorePassword, trustStoreType,
+            sslEnabled, clientAuth, keyStorePath, keyStorePassword, keyStoreType
     };
 
     /** {@inheritDoc} */
@@ -239,6 +268,36 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     @Override
+    public void setKeyStoreType(String type) {
+        keyStoreType.setValue(type);
+    }
+
+    @Override
+    public void setKeyStorePath(String keyStorePath) {
+        this.keyStorePath.setValue(keyStorePath);
+    }
+
+    @Override
+    public void setKeyStorePassword(String password) {
+        this.keyStorePassword.setValue(password);
+    }
+
+    @Override
+    public String getKeyStorePath() {
+        return keyStorePath.value();
+    }
+
+    @Override
+    public String getKeyStorePassword() {
+        return keyStorePassword.value();
+    }
+
+    @Override
+    public String getKeyStoreType() {
+        return keyStoreType.value();
+    }
+
+    @Override
     public void setTrustStoreType(String type) {
         trustStoreType.setValue(type);
     }
@@ -251,6 +310,16 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setSslEnabled(boolean enabled) {
         sslEnabled.setValue(enabled);
+    }
+
+    @Override
+    public void setClientAuth(ClientAuthConfiguration clientAuth) {
+        this.clientAuth.setValue(clientAuth.name().toLowerCase());
+    }
+
+    @Override
+    public ClientAuthConfiguration getClientAuth() {
+        return ClientAuthConfiguration.valueOf(this.clientAuth.value().toUpperCase());
     }
 
     /**

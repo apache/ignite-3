@@ -17,26 +17,17 @@
 
 package org.apache.ignite.client;
 
-import org.apache.ignite.internal.client.SslConfigurationBuilder;
 import org.jetbrains.annotations.Nullable;
 
-/** Client ssl configuration. */
-public interface SslConfiguration {
+/** Keystore configuration. */
+public interface KeystoreConfiguration {
 
-    /** If set to {@code true} then the ssl connection will be used to interact with Ignite 3 node. */
-    boolean enabled();
+    /** Keystore path that will be used to setup the ssl connection. */
+    @Nullable String path();
 
-    /** Client authentication configuration. */
-    ClientAuthConfiguration clientAuth();
+    /** Keystore password that will be used to setup the ssl connection. */
+    @Nullable String password();
 
-    /** Keystore configuration. */
-    @Nullable KeystoreConfiguration keyStore();
-
-    /** Truststore configuration. */
-    @Nullable KeystoreConfiguration trustStore();
-
-    /** SSL configuration builder. */
-    static SslConfigurationBuilder builder() {
-        return new SslConfigurationBuilder();
-    }
+    /** Keystore type that will be used to setup the ssl connection. */
+    String type();
 }

@@ -60,7 +60,7 @@ public class NettyClient {
     /** Handshake manager. */
     private final HandshakeManager handshakeManager;
 
-    /** Ssl configuration. */
+    /** SSL configuration. */
     private final SslView configuration;
 
     /** Future that resolves when the client finished the handshake. */
@@ -81,7 +81,7 @@ public class NettyClient {
      * @param serializationService  Serialization service.
      * @param manager               Client handshake manager.
      * @param messageListener       Message listener.
-     * @param configuration         Ssl configuration.
+     * @param configuration         SSL configuration.
      */
     public NettyClient(
             InetSocketAddress address,
@@ -122,7 +122,7 @@ public class NettyClient {
                     var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
                     if (configuration.enabled()) {
-                        SslContext sslContext = SslContextProvider.forClient(configuration.trustStore()).createSslContext();
+                        SslContext sslContext = SslContextProvider.forClient(configuration).createSslContext();
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener, sslContext);
                     } else {
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);

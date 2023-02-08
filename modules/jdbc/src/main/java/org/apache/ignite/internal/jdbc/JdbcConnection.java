@@ -73,40 +73,28 @@ public class JdbcConnection implements Connection {
 
     /** Handler. */
     private final JdbcQueryEventHandler handler;
-
-    /** Schema name. */
-    private String schema;
-
-    /** Closed flag. */
-    private volatile boolean closed;
-
-    /** Current transaction isolation. */
-    private int txIsolation;
-
-    /** Auto-commit flag. */
-    private boolean autoCommit;
-
-    /** Read-only flag. */
-    private boolean readOnly;
-
-    /** Current transaction holdability. */
-    private int holdability;
-
     /** Connection properties. */
     private final ConnectionProperties connProps;
-
     /** Tracked statements to close on disconnect. */
     private final Set<JdbcStatement> stmts = Collections.newSetFromMap(new IdentityHashMap<>());
-
-    /** Network timeout. */
-    private int netTimeout;
-
     /** Query timeout. */
     private final @Nullable Integer qryTimeout;
-
     /** Ignite remote client. */
     private final TcpIgniteClient client;
-
+    /** Schema name. */
+    private String schema;
+    /** Closed flag. */
+    private volatile boolean closed;
+    /** Current transaction isolation. */
+    private int txIsolation;
+    /** Auto-commit flag. */
+    private boolean autoCommit;
+    /** Read-only flag. */
+    private boolean readOnly;
+    /** Current transaction holdability. */
+    private int holdability;
+    /** Network timeout. */
+    private int netTimeout;
     /** Jdbc metadata. Cache the JDBC object on the first access */
     private JdbcDatabaseMetadata metadata;
 
@@ -114,7 +102,7 @@ public class JdbcConnection implements Connection {
      * Constructor.
      *
      * @param handler Handler.
-     * @param props   Properties.
+     * @param props Properties.
      */
     public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) {
         this.connProps = props;
@@ -173,17 +161,42 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
+    /**
+     * Normalize schema name. If it is quoted - unquote and leave as is, otherwise - convert to upper case.
+     *
+     * @param schemaName Schema name.
+     * @return Normalized schema name.
+     */
+    public static String normalizeSchema(String schemaName) {
+        if (schemaName == null || schemaName.isEmpty()) {
+            return DEFAULT_SCHEMA_NAME;
+        }
+
+        String res;
+
+        if (schemaName.startsWith("\"") && schemaName.endsWith("\"")) {
+            res = schemaName.substring(1, schemaName.length() - 1);
+        } else {
+            res = schemaName.toUpperCase();
+        }
+
+        return res;
+    }
+
     private void setupSsl(Builder builder) {
         if (connProps.isSslEnabled()) {
-            SslConfiguration configuration;
-            if (connProps.getTrustStoreType() != null) {
-                configuration = SslConfiguration.trustStore(
-                        connProps.getTrustStoreType(), connProps.getTrustStorePath(), connProps.getTrustStorePassword()
-                );
-            } else {
-                configuration = SslConfiguration.trustStore(connProps.getTrustStorePath(), connProps.getTrustStorePassword());
-            }
-            builder.sslConfiguration(configuration);
+            builder.sslConfiguration(
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStoreType(connProps.getTrustStoreType())
+                            .trustStorePath(connProps.getTrustStorePath())
+                            .trustStorePassword(connProps.getTrustStorePassword())
+                            .clientAuth(connProps.getClientAuth())
+                            .keyStoreType(connProps.getKeyStoreType())
+                            .keyStorePath(connProps.getKeyStorePath())
+                            .keyStorePassword(connProps.getKeyStorePassword())
+                            .build()
+            );
         }
     }
 
@@ -290,6 +303,14 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
+    public boolean getAutoCommit() throws SQLException {
+        ensureNotClosed();
+
+        return autoCommit;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         ensureNotClosed();
 
@@ -297,14 +318,6 @@ public class JdbcConnection implements Connection {
             this.autoCommit = autoCommit;
         }
         //TODO: to be implemented https://issues.apache.org/jira/browse/IGNITE-16432
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean getAutoCommit() throws SQLException {
-        ensureNotClosed();
-
-        return autoCommit;
     }
 
     /** {@inheritDoc} */
@@ -400,6 +413,14 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
+    public boolean isReadOnly() throws SQLException {
+        ensureNotClosed();
+
+        return readOnly;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void setReadOnly(boolean readOnly) throws SQLException {
         ensureNotClosed();
 
@@ -408,10 +429,10 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
-    public boolean isReadOnly() throws SQLException {
+    public String getCatalog() throws SQLException {
         ensureNotClosed();
 
-        return readOnly;
+        return null;
     }
 
     /** {@inheritDoc} */
@@ -422,10 +443,10 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
-    public String getCatalog() throws SQLException {
+    public int getTransactionIsolation() throws SQLException {
         ensureNotClosed();
 
-        return null;
+        return txIsolation;
     }
 
     /** {@inheritDoc} */
@@ -446,14 +467,6 @@ public class JdbcConnection implements Connection {
         }
 
         txIsolation = level;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int getTransactionIsolation() throws SQLException {
-        ensureNotClosed();
-
-        return txIsolation;
     }
 
     /** {@inheritDoc} */
@@ -488,6 +501,14 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
+    public int getHoldability() throws SQLException {
+        ensureNotClosed();
+
+        return holdability;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void setHoldability(int holdability) throws SQLException {
         ensureNotClosed();
 
@@ -496,14 +517,6 @@ public class JdbcConnection implements Connection {
         }
 
         this.holdability = holdability;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int getHoldability() throws SQLException {
-        ensureNotClosed();
-
-        return holdability;
     }
 
     /** {@inheritDoc} */
@@ -632,19 +645,20 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
+    public Properties getClientInfo() throws SQLException {
+        ensureNotClosed();
+
+        return new Properties();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String getClientInfo(String name) throws SQLException {
         ensureNotClosed();
 
         return null;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Properties getClientInfo() throws SQLException {
-        ensureNotClosed();
-
-        return new Properties();
-    }
 
     /** {@inheritDoc} */
     @Override
@@ -672,18 +686,18 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
-    public void setSchema(String schema) throws SQLException {
-        ensureNotClosed();
-
-        this.schema = normalizeSchema(schema);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public String getSchema() throws SQLException {
         ensureNotClosed();
 
         return schema;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setSchema(String schema) throws SQLException {
+        ensureNotClosed();
+
+        this.schema = normalizeSchema(schema);
     }
 
     /** {@inheritDoc} */
@@ -810,7 +824,7 @@ public class JdbcConnection implements Connection {
     /**
      * Check cursor options.
      *
-     * @param resSetType        Cursor option.
+     * @param resSetType Cursor option.
      * @param resSetConcurrency Cursor option.
      * @throws SQLFeatureNotSupportedException If options unsupported.
      */
@@ -842,28 +856,6 @@ public class JdbcConnection implements Connection {
         }
 
         return host + ":" + (portFrom == portTo ? portFrom : portFrom + ".." + portTo);
-    }
-
-    /**
-     * Normalize schema name. If it is quoted - unquote and leave as is, otherwise - convert to upper case.
-     *
-     * @param schemaName Schema name.
-     * @return Normalized schema name.
-     */
-    public static String normalizeSchema(String schemaName) {
-        if (schemaName == null || schemaName.isEmpty()) {
-            return DEFAULT_SCHEMA_NAME;
-        }
-
-        String res;
-
-        if (schemaName.startsWith("\"") && schemaName.endsWith("\"")) {
-            res = schemaName.substring(1, schemaName.length() - 1);
-        } else {
-            res = schemaName.toUpperCase();
-        }
-
-        return res;
     }
 
     /**

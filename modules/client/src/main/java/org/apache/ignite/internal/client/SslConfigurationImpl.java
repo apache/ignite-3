@@ -17,43 +17,51 @@
 
 package org.apache.ignite.internal.client;
 
+import org.apache.ignite.client.ClientAuthConfiguration;
+import org.apache.ignite.client.KeystoreConfiguration;
 import org.apache.ignite.client.SslConfiguration;
+import org.jetbrains.annotations.Nullable;
 
-/** Ssl configuration. */
+/** SSL configuration. */
 public class SslConfigurationImpl implements SslConfiguration {
     private final boolean enabled;
 
-    private final String trustStoreType;
+    private final ClientAuthConfiguration clientAuth;
 
-    private final String trustStorePath;
+    private final KeystoreConfiguration keyStore;
 
-    private final String trustStorePassword;
+    private final KeystoreConfiguration trustStore;
 
     /** Main constructor. */
-    public SslConfigurationImpl(boolean enabled, String trustStoreType, String trustStorePath, String trustStorePassword) {
+    SslConfigurationImpl(boolean enabled, ClientAuthConfiguration clientAuth,
+            KeystoreConfiguration keyStore, KeystoreConfiguration trustStore) {
         this.enabled = enabled;
-        this.trustStoreType = trustStoreType;
-        this.trustStorePath = trustStorePath;
-        this.trustStorePassword = trustStorePassword;
+        this.clientAuth = clientAuth;
+        this.keyStore = keyStore;
+        this.trustStore = trustStore;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean enabled() {
         return enabled;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public String trustStorePath() {
-        return trustStorePath;
+    public ClientAuthConfiguration clientAuth() {
+        return clientAuth;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public String trustStorePassword() {
-        return trustStorePassword;
+    public @Nullable KeystoreConfiguration keyStore() {
+        return keyStore;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public String trustStoreType() {
-        return trustStoreType;
+    public @Nullable KeystoreConfiguration trustStore() {
+        return trustStore;
     }
 }

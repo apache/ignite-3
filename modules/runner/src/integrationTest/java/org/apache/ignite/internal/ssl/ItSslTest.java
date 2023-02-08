@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.ssl;
 
+import static org.apache.ignite.client.ClientAuthConfiguration.REQUIRE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** Ssl support integration test. */
+/** SSL support integration test. */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItSslTest {
 
@@ -94,7 +95,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Ssl disabled and cluster starts")
+        @DisplayName("SSL disabled and cluster starts")
         void clusterStartsWithDisabledSsl(TestInfo testInfo) {
             assertThat(cluster.runningNodes().count(), is(2L));
         }
@@ -148,7 +149,6 @@ public class ItSslTest {
                 + "  },\n"
                 + "  clientConnector.ssl: {\n"
                 + "    enabled: true, "
-                + "    clientAuth: \"optional\", "
                 + "    keyStore: {\n"
                 + "      path: \"" + keyStorePath + "\",\n"
                 + "      password: \"" + password + "\"\n"
@@ -168,7 +168,7 @@ public class ItSslTest {
         }
 
         @Test
-        @DisplayName("Ssl enabled and setup correctly then cluster starts")
+        @DisplayName("SSL enabled and setup correctly then cluster starts")
         void clusterStartsWithEnabledSsl(TestInfo testInfo) {
             assertThat(cluster.runningNodes().count(), is(2L));
         }
@@ -192,9 +192,17 @@ public class ItSslTest {
         @Test
         @DisplayName("Client can connect with ssl configured")
         void clientCanConnectWithSsl() throws Exception {
+            var sslConfiguration =
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStoreType("JKS")
+                            .trustStorePath(trustStorePath)
+                            .trustStorePassword(password)
+                            .build();
+
             try (IgniteClient client = IgniteClient.builder()
                     .addresses("localhost:10800")
-                    .sslConfiguration(SslConfiguration.trustStore("JKS", trustStorePath, password))
+                    .sslConfiguration(sslConfiguration)
                     .build()
             ) {
                 assertThat(client.clusterNodes(), hasSize(2));
@@ -210,6 +218,140 @@ public class ItSslTest {
                             + "&trustStorePath=" + trustStorePath
                             + "&trustStoreType=JKS"
                             + "&trustStorePassword=" + password;
+            try (Connection conn = DriverManager.getConnection(url)) {
+                // No-op.
+            }
+        }
+    }
+
+    @Nested
+    @TestInstance(Lifecycle.PER_CLASS)
+    class ClusterWithSslAndClientAuth {
+
+        @WorkDirectory
+        Path workDir;
+
+        Cluster cluster;
+
+        @Language("JSON")
+        String sslEnabledBoostrapConfig = "{\n"
+                + "  network: {\n"
+                + "    ssl : {"
+                + "      enabled: true,\n"
+                + "      clientAuth: \"require\",\n"
+                + "      trustStore: {\n"
+                + "        password: \"" + password + "\","
+                + "        path: \"" + trustStorePath + "\""
+                + "      },\n"
+                + "      keyStore: {\n"
+                + "        password: \"" + password + "\","
+                + "        path: \"" + keyStorePath + "\""
+                + "      }\n"
+                + "    },\n"
+                + "    port: 3365,\n"
+                + "    portRange: 2,\n"
+                + "    nodeFinder:{\n"
+                + "      netClusterNodes: [ \"localhost:3365\", \"localhost:3366\" ]\n"
+                + "    }\n"
+                + "  },\n"
+                + "  clientConnector.ssl: {\n"
+                + "    enabled: true, "
+                + "    clientAuth: \"require\", "
+                + "    keyStore: {\n"
+                + "      path: \"" + keyStorePath + "\",\n"
+                + "      password: \"" + password + "\"\n"
+                + "    }\n"
+                + "  }\n"
+                + "}";
+
+        @BeforeEach
+        void setUp(TestInfo testInfo) {
+            cluster = new Cluster(testInfo, workDir, sslEnabledBoostrapConfig);
+            cluster.startAndInit(2);
+        }
+
+        @AfterEach
+        void tearDown() {
+            cluster.shutdown();
+        }
+
+        @Test
+        @DisplayName("SSL enabled and setup correctly then cluster starts")
+        void clusterStartsWithEnabledSsl(TestInfo testInfo) {
+            assertThat(cluster.runningNodes().count(), is(2L));
+        }
+
+        @Test
+        @DisplayName("Client cannot connect without ssl configured")
+        void clientCannotConnectWithoutSsl() {
+            assertThrows(IgniteClientConnectionException.class, () -> {
+                try (IgniteClient ignored = IgniteClient.builder().addresses("localhost:10800").build()) {
+                    // no-op
+                }
+            });
+        }
+
+        @Test
+        void jdbcCannotConnectWithoutSsl() {
+            var url = "jdbc:ignite:thin://127.0.0.1:10800";
+            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+        }
+
+        @Test
+        @DisplayName("Client can not connect without client authentication configured")
+        void clientCanNotConnectWithoutClientAuth() {
+            var sslConfiguration =
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStoreType("JKS")
+                            .trustStorePath(trustStorePath)
+                            .trustStorePassword(password)
+                            .build();
+
+            assertThrows(IgniteClientConnectionException.class,
+                    () -> IgniteClient.builder()
+                            .addresses("localhost:10800")
+                            .sslConfiguration(sslConfiguration)
+                            .build()
+            );
+        }
+
+        @Test
+        @DisplayName("Client can connect with ssl and client authentication configured")
+        void clientCanConnectWithSslAndClientAuth() throws Exception {
+            var sslConfiguration =
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStoreType("JKS")
+                            .trustStorePath(trustStorePath)
+                            .trustStorePassword(password)
+                            .clientAuth(REQUIRE)
+                            .keyStorePath(keyStorePath)
+                            .keyStorePassword(password)
+                            .build();
+
+            try (IgniteClient client = IgniteClient.builder()
+                    .addresses("localhost:10800")
+                    .sslConfiguration(sslConfiguration)
+                    .build()
+            ) {
+                assertThat(client.clusterNodes(), hasSize(2));
+            }
+        }
+
+        @Test
+        @DisplayName("Jdbc client can connect with ssl configured")
+        void jdbcCanConnectWithSslAndClientAuth() throws SQLException {
+            var url =
+                    "jdbc:ignite:thin://127.0.0.1:10800"
+                            + "?sslEnabled=true"
+                            + "&trustStorePath=" + trustStorePath
+                            + "&trustStoreType=JKS"
+                            + "&trustStorePassword=" + password
+                            + "&clientAuth=require"
+                            + "&keyStorePath=" + keyStorePath
+                            + "&keyStoreType=PKCS12"
+                            + "&keyStorePassword=" + password;
             try (Connection conn = DriverManager.getConnection(url)) {
                 // No-op.
             }

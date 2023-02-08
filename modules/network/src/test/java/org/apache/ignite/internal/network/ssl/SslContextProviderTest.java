@@ -59,7 +59,7 @@ class SslContextProviderTest {
         configuration.trustStore().path().update(keyStorePkcs12Path).get();
         configuration.trustStore().password().update(password).get();
 
-        SslContext clientSslContext = SslContextProvider.forClient(configuration.trustStore().value()).createSslContext();
+        SslContext clientSslContext = SslContextProvider.forClient(configuration.value()).createSslContext();
 
         assertThat(clientSslContext, notNullValue());
     }
@@ -71,7 +71,7 @@ class SslContextProviderTest {
         configuration.keyStore().path().update(keyStorePkcs12Path).get();
 
         // When
-        SslContext sslContext = SslContextProvider.forServer(configuration.value().keyStore()).createSslContext();
+        SslContext sslContext = SslContextProvider.forServer(configuration.value()).createSslContext();
 
         // Then
         assertThat(sslContext, notNullValue());
@@ -85,7 +85,7 @@ class SslContextProviderTest {
         configuration.keyStore().path().update(trustStoreJks12Path).get();
 
         // When
-        SslContext sslContext = SslContextProvider.forServer(configuration.value().keyStore()).createSslContext();
+        SslContext sslContext = SslContextProvider.forServer(configuration.value()).createSslContext();
 
         // Then
         assertThat(sslContext, notNullValue());
@@ -99,7 +99,7 @@ class SslContextProviderTest {
         // When
         var thrown = assertThrows(
                 IgniteException.class,
-                () -> SslContextProvider.forServer(configuration.value().keyStore()).createSslContext()
+                () -> SslContextProvider.forServer(configuration.value()).createSslContext()
         );
 
         // Then
@@ -116,7 +116,7 @@ class SslContextProviderTest {
         // When
         var thrown = assertThrows(
                 IgniteException.class,
-                () -> SslContextProvider.forClient(configuration.value().trustStore()).createSslContext()
+                () -> SslContextProvider.forClient(configuration.value()).createSslContext()
         );
 
         // Then
@@ -134,7 +134,7 @@ class SslContextProviderTest {
         // When
         var thrown = assertThrows(
                 IgniteException.class,
-                () -> SslContextProvider.forServer(configuration.keyStore().value()).createSslContext()
+                () -> SslContextProvider.forServer(configuration.value()).createSslContext()
         );
 
         // Then
@@ -152,7 +152,7 @@ class SslContextProviderTest {
         // When
         var thrown = assertThrows(
                 IgniteException.class,
-                () -> SslContextProvider.forClient(configuration.trustStore().value()).createSslContext()
+                () -> SslContextProvider.forClient(configuration.value()).createSslContext()
         );
 
         // Then

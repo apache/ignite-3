@@ -15,28 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.internal.client;
 
-import org.apache.ignite.internal.client.SslConfigurationBuilder;
+import org.apache.ignite.client.KeystoreConfiguration;
 import org.jetbrains.annotations.Nullable;
 
-/** Client ssl configuration. */
-public interface SslConfiguration {
+/** Implementation of client keystore configuration. */
+public class KeystoreConfigurationImpl implements KeystoreConfiguration {
+    private final String path;
 
-    /** If set to {@code true} then the ssl connection will be used to interact with Ignite 3 node. */
-    boolean enabled();
+    private final String password;
 
-    /** Client authentication configuration. */
-    ClientAuthConfiguration clientAuth();
+    private final String type;
 
-    /** Keystore configuration. */
-    @Nullable KeystoreConfiguration keyStore();
+    /** Main constructor. */
+    KeystoreConfigurationImpl(String path, String password, String type) {
+        this.path = path;
+        this.password = password;
+        this.type = type;
+    }
 
-    /** Truststore configuration. */
-    @Nullable KeystoreConfiguration trustStore();
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable String path() {
+        return path;
+    }
 
-    /** SSL configuration builder. */
-    static SslConfigurationBuilder builder() {
-        return new SslConfigurationBuilder();
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable String password() {
+        return password;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable String type() {
+        return type;
     }
 }

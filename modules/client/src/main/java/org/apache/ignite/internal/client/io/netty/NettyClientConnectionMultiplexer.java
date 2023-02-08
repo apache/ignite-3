@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.CLIENT_SSL_CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import io.netty.bootstrap.Bootstrap;
@@ -27,6 +26,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -35,10 +35,14 @@ import java.nio.file.Path;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.ignite.client.ClientAuthConfiguration;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.IgniteClientSslException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
@@ -86,33 +90,71 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
     }
 
-    private static void setupSsl(SocketChannel ch, IgniteClientConfiguration clientCfg) {
-        if (clientCfg.sslConfiguration().enabled()) {
-            try {
-                String type = clientCfg.sslConfiguration().trustStoreType() == null
-                        ? "PKCS12"
-                        : clientCfg.sslConfiguration().trustStoreType();
+    private void setupSsl(SocketChannel ch, IgniteClientConfiguration clientCfg) {
+        if (clientCfg.sslConfiguration() == null || !clientCfg.sslConfiguration().enabled()) {
+            return;
+        }
 
-                KeyStore store = KeyStore.getInstance(type);
-                store.load(
-                        Files.newInputStream(Path.of(clientCfg.sslConfiguration().trustStorePath())),
-                        clientCfg.sslConfiguration().trustStorePassword() == null
-                                ? null
-                                : clientCfg.sslConfiguration().trustStorePassword().toCharArray()
-                );
-
-                TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
-                        TrustManagerFactory.getDefaultAlgorithm()
-                );
-                trustManagerFactory.init(store);
-
-                var context = SslContextBuilder.forClient()
-                        .trustManager(trustManagerFactory)
-                        .build();
-                ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
-            } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException e) {
-                throw new IgniteClientConnectionException(CLIENT_SSL_CONFIGURATION_ERR, "Client ssl configuration error", e);
+        try {
+            var trustStore = clientCfg.sslConfiguration().trustStore();
+            if (trustStore == null) {
+                throw new IgniteClientSslException("SSL is enabled but no trust store is provided");
             }
+            if (trustStore.path() == null) {
+                throw new IgniteClientSslException("SSL is enabled but no path to trust store is provided");
+            }
+
+            KeyStore ts = KeyStore.getInstance(trustStore.type());
+            ts.load(
+                    Files.newInputStream(Path.of(trustStore.path())),
+                    trustStore.password() == null
+                            ? null
+                            : trustStore.password().toCharArray()
+            );
+
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm()
+            );
+            trustManagerFactory.init(ts);
+
+            var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
+
+            ClientAuth clientAuth = toNettyClientAuth(clientCfg.sslConfiguration().clientAuth());
+            if (ClientAuth.NONE != clientAuth) {
+                var keystore = clientCfg.sslConfiguration().keyStore();
+                if (keystore == null) {
+                    throw new IgniteClientSslException("SSL client authentication is enabled but no key store is provided");
+                }
+                if (keystore.path() == null) {
+                    throw new IgniteClientSslException("SSL client authentication is enabled but no key store path is provided");
+                }
+
+                char[] ksPassword = keystore.password() == null ? null : keystore.password().toCharArray();
+
+                KeyStore ks = KeyStore.getInstance(keystore.type());
+                ks.load(Files.newInputStream(Path.of(keystore.path())), ksPassword);
+
+                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                keyManagerFactory.init(ks, ksPassword);
+
+                builder.clientAuth(clientAuth).keyManager(keyManagerFactory);
+            }
+
+            var context = builder.build();
+
+            ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
+        } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
+            throw new IgniteClientSslException("Client SSL configuration error: " + e.getMessage(), e);
+        }
+
+    }
+
+    private ClientAuth toNettyClientAuth(ClientAuthConfiguration igniteClientAuth) {
+        switch (igniteClientAuth) {
+            case NONE: return ClientAuth.NONE;
+            case REQUIRE: return ClientAuth.REQUIRE;
+            case OPTIONAL: return ClientAuth.OPTIONAL;
+            default: throw new IllegalArgumentException("Client authentication type is not supported");
         }
     }
 

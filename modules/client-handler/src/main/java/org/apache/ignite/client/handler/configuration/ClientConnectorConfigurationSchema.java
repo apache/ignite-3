@@ -22,6 +22,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 
 /**
  * Configuration schema for thin client connector.
@@ -53,7 +54,7 @@ public class ClientConnectorConfigurationSchema {
     @Value(hasDefault = true)
     public final boolean sendServerExceptionStackTraceToClient = false;
 
-    /** Ssl configuration schema. */
+    /** SSL configuration schema. */
     @ConfigValue
-    public ClientConnectorSslConfigurationSchema ssl;
+    public SslConfigurationSchema ssl;
 }

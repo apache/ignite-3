@@ -85,7 +85,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long heartbeatTimeout,
             @Nullable RetryPolicy retryPolicy,
             @Nullable LoggerFactory loggerFactory,
-            SslConfiguration sslConfiguration
+            @Nullable SslConfiguration sslConfiguration
     ) {
         this.addressFinder = addressFinder;
 
@@ -163,8 +163,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         return retryPolicy;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public SslConfiguration sslConfiguration() {
+    public @Nullable SslConfiguration sslConfiguration() {
         return sslConfiguration;
     }
 }
