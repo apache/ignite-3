@@ -44,7 +44,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> abortWrite(ROW_ID),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now()),
-                    () -> scanVersions(ROW_ID)
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertNull(read(ROW_ID, clock.now()));
@@ -60,7 +60,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> commitWrite(ROW_ID, clock.now()),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now()),
-                    () -> scanVersions(ROW_ID)
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW);
@@ -76,7 +76,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
                     () -> addWrite(ROW_ID, TABLE_ROW2, TX_ID),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now()),
-                    () -> scanVersions(ROW_ID)
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW2);
@@ -211,7 +211,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    private void scanVersions(RowId rowId) {
+    private void scanFirstVersion(RowId rowId) {
         try (var cursor = scan(rowId)) {
             cursor.hasNext();
         }

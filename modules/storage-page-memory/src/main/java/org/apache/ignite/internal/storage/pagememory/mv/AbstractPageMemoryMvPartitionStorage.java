@@ -111,7 +111,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Current state of the storage. */
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
-    protected final ConcurrentMap<RowId, ReentrantReadWriteLock> readWriteLockByRowId = new ConcurrentHashMap<>();
+    /**  */
+    private final ConcurrentMap<RowId, ReentrantReadWriteLock> readWriteLockByRowId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -1197,7 +1198,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private <T> T inReadLock(RowId rowId, Supplier<T> supplier) {
+    protected <T> T inReadLock(RowId rowId, Supplier<T> supplier) {
         ReadLock readLock = readWriteLockByRowId.computeIfAbsent(rowId, rowId1 -> new ReentrantReadWriteLock()).readLock();
 
         readLock.lock();
@@ -1209,7 +1210,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private <T> T inWriteLock(RowId rowId, Supplier<T> supplier) {
+    protected <T> T inWriteLock(RowId rowId, Supplier<T> supplier) {
         WriteLock writeLock = readWriteLockByRowId.computeIfAbsent(rowId, rowId1 -> new ReentrantReadWriteLock()).writeLock();
 
         writeLock.lock();
