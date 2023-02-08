@@ -298,7 +298,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void processNextMessage(ByteBuf buf) throws IgniteException {
         var unpacker = new ClientMessageUnpacker(buf);
 
-        // TODO: Remove this special case and process handshake outside of the channel? But how to deal with callbacks?
         if (protocolCtx == null) {
             // Process handshake.
             pendingReqs.remove(-1L).complete(unpacker);
@@ -408,7 +407,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         ClientRequestFuture fut = new ClientRequestFuture();
         pendingReqs.put(-1L, fut);
 
-        handshakeReq(ver);
+        // TODO: Wait for reqFut - create a conversion from ChannelFuture to CompletableFuture to do chaining.
+        ChannelFuture reqFut = handshakeReqAsync(ver);
 
         // TODO: Handle handshake timeout
 //        if (connectTimeout > 0) {
@@ -417,11 +417,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 //            resFut.get();
 //        }
         return fut.thenCompose(res -> handshakeRes(res, ver));
-
     }
 
-    /** Send handshake request. */
-    private void handshakeReq(ProtocolVersion proposedVer) {
+    /**
+     * Send handshake request.
+     *
+     * @return Channel future.
+     */
+    private ChannelFuture handshakeReqAsync(ProtocolVersion proposedVer) {
         sock.send(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
 
         var req = new ClientMessagePacker(sock.getBuffer());
@@ -434,7 +437,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         req.packBinaryHeader(0); // Features.
         req.packMapHeader(0); // Extensions.
 
-        write(req).syncUninterruptibly();
+        return write(req);
     }
 
     /** Receive and handle handshake response. */
