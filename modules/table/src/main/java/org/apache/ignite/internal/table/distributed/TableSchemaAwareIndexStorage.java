@@ -84,12 +84,12 @@ public class TableSchemaAwareIndexStorage {
     }
 
     /**
-     * Calculates index value.
+     * Resolves index row value.
      *
      * @param row Full row.
      * @return Index value.
      */
-    public BinaryTuple calculateIndex(BinaryRow row) {
+    public BinaryTuple resolveIndexRow(BinaryRow row) {
         return indexRowResolver.apply(row);
     }
 

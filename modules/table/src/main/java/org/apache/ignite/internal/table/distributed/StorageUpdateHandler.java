@@ -148,7 +148,7 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Tries removing previous write's index.
+     * Tries to remove a previous write from index.
      *
      * @param rowId Row id.
      * @param previousRow Previous write value.
@@ -200,7 +200,7 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Tries removing indexed row from evey index.
+     * Tries removing indexed row from every index.
      * Removes the row only if no previous value's index matches index of the row to remove, because if it matches, then the index
      * might still be in use.
      *
@@ -214,10 +214,10 @@ public class StorageUpdateHandler {
         ByteBuffer[] indexValues = new ByteBuffer[indexes.length];
 
         // Precalculate value for every index.
-        for (int i = 0, indexesLength = indexes.length; i < indexesLength; i++) {
+        for (int i = 0; i < indexes.length; i++) {
             TableSchemaAwareIndexStorage index = indexes[i];
 
-            indexValues[i] = index.calculateIndex(rowToRemove).byteBuffer();
+            indexValues[i] = index.resolveIndexRow(rowToRemove).byteBuffer();
         }
 
         while (previousValues.hasNext()) {
@@ -227,7 +227,7 @@ public class StorageUpdateHandler {
 
             // No point in cleaning up indexes for tombstone, they should not exist.
             if (previousRow != null) {
-                for (int i = 0, indexesLength = indexes.length; i < indexesLength; i++) {
+                for (int i = 0; i < indexes.length; i++) {
                     TableSchemaAwareIndexStorage index = indexes[i];
 
                     if (index == null) {
@@ -236,7 +236,7 @@ public class StorageUpdateHandler {
 
                     // If any of the previous versions' index value matches the index value of
                     // the row to remove, then we can't remove that index as it can still be used.
-                    BinaryTuple previousRowIndex = index.calculateIndex(previousRow);
+                    BinaryTuple previousRowIndex = index.resolveIndexRow(previousRow);
 
                     if (indexValues[i].equals(previousRowIndex.byteBuffer())) {
                         indexes[i] = null;

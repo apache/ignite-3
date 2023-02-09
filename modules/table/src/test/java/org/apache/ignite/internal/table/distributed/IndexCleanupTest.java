@@ -50,7 +50,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedInde
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -96,7 +95,6 @@ public class IndexCleanupTest {
     private TestSortedIndexStorage sortedInnerStorage;
     private TestHashIndexStorage hashInnerStorage;
     private TestMvPartitionStorage storage;
-    private TestPartitionDataStorage dataStorage;
     private StorageUpdateHandler storageUpdateHandler;
 
     @BeforeEach
@@ -137,9 +135,7 @@ public class IndexCleanupTest {
 
         storage = new TestMvPartitionStorage(1);
 
-        dataStorage = new TestPartitionDataStorage(storage);
-
-        storageUpdateHandler = new StorageUpdateHandler(1, dataStorage,
+        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage),
                 () -> Map.of(
                         pkIndexId, pkStorage,
                         sortedIndexId, sortedIndexStorage,
@@ -177,12 +173,22 @@ public class IndexCleanupTest {
     @EnumSource(AddWrite.class)
     void testTombstoneCleansUpIndexes(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
+        RowId rowId = new RowId(1, rowUuid);
 
         var key = new TestKey(1, "foo");
         var value = new TestValue(2, "bar");
         BinaryRow tableRow = binaryRow(key, value);
 
         writer.addWrite(storageUpdateHandler, rowUuid, tableRow);
+
+        // Write intent is in the storage.
+        assertEquals(1, storage.rowsCount());
+
+        // Indexes are already in the storage.
+        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
+
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
         // Write intent is in the storage.
@@ -383,7 +389,7 @@ public class IndexCleanupTest {
         try {
             return KV_MARSHALLER.marshal(key, value);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new RuntimeException(e);
         }
     }
 

@@ -946,9 +946,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void checkNoRowInIndex(BinaryRow binaryRow) {
-        Cursor<RowId> cursor = pkStorage.get().get(binaryRow);
-
-        assertFalse(cursor.hasNext());
+        try (Cursor<RowId> cursor = pkStorage.get().get(binaryRow)) {
+            assertFalse(cursor.hasNext());
+        }
     }
 
     private void testWriteIntentOnPrimaryReplica(
