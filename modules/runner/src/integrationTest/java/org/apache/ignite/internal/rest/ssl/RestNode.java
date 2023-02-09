@@ -84,7 +84,8 @@ public class RestNode {
 
     private String bootstrapCfg() {
         String keyStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(keyStorePath).getPath();
-        String trustStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(keyStorePath).getPath();
+        String trustStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(trustStorePath).getPath();
+
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
