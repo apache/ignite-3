@@ -17,21 +17,30 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
-/** Keystore configuration schema. */
-@Config
-public class KeyStoreConfigurationSchema {
-    /** Keystore type. */
+/** SSL configuration schema. */
+@AbstractConfiguration
+public class AbstractSslConfigurationSchema {
+    /** Enable/disable SSL. */
     @Value(hasDefault = true)
-    public String type = "PKCS12";
+    public final boolean enabled = false;
 
-    /** Keystore path. */
+    /** Client authentication. */
+    @OneOf({"none", "optional", "require"})
     @Value(hasDefault = true)
-    public String path = "";
+    public final String clientAuth = "none";
 
-    /** Keystore password. */
-    @Value(hasDefault = true)
-    public String password = "";
+    /** SSL keystore configuration. */
+    @ConfigValue
+    @KeyStoreConfigurationValidator
+    public KeyStoreConfigurationSchema keyStore;
+
+    /** SSL truststore configuration. */
+    @ConfigValue
+    @KeyStoreConfigurationValidator
+    public KeyStoreConfigurationSchema trustStore;
 }
