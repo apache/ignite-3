@@ -134,17 +134,20 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     }
 
     private CompletableFuture<ClientChannel> initAsync(ClientConnectionMultiplexer connMgr) {
-        return connMgr.openAsync(cfg.getAddress(), this, this).thenCompose(s -> {
-            sock = s;
+        return connMgr
+                .openAsync(cfg.getAddress(), this, this)
+                .thenCompose(s -> {
+                    sock = s;
 
-            return handshakeAsync(DEFAULT_VERSION);
-        }).thenApply(unused -> {
-            // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
-            // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
-            heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
+                    return handshakeAsync(DEFAULT_VERSION);
+                })
+                .thenApplyAsync(unused -> {
+                    // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
+                    // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
+                    heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
 
-            return this;
-        });
+                    return this;
+                }, asyncContinuationExecutor);
     }
 
     /**
