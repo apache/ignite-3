@@ -29,7 +29,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
 @ExtendWith(WorkDirectoryExtension.class)
 class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
     @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
@@ -45,5 +44,41 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
         ioRegistry.loadFromServiceLoader();
 
         return new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
+    @Override
+    public void testRegularGcAndRead(AddAndCommit addAndCommit) {
+        super.testRegularGcAndRead(addAndCommit);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
+    @Override
+    public void testTombstoneGcAndRead(AddAndCommit addAndCommit) {
+        super.testTombstoneGcAndRead(addAndCommit);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
+    @Override
+    public void testTombstoneGcAndAddWrite(AddAndCommit addAndCommit) {
+        super.testTombstoneGcAndAddWrite(addAndCommit);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
+    @Override
+    public void testTombstoneGcAndCommitWrite(AddAndCommit addAndCommit) {
+        super.testTombstoneGcAndCommitWrite(addAndCommit);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
+    @Override
+    public void testTombstoneGcAndAbortWrite(AddAndCommit addAndCommit) {
+        super.testTombstoneGcAndAbortWrite(addAndCommit);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
+    @Override
+    public void testConcurrentGc(AddAndCommit addAndCommit) {
+        super.testConcurrentGc(addAndCommit);
     }
 }
