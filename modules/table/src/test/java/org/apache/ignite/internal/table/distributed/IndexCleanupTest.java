@@ -274,7 +274,7 @@ public class IndexCleanupTest {
 
     @ParameterizedTest
     @EnumSource(AddWrite.class)
-    void testIndexNotRemovedWhileAbortingIfPreviousVersionStillExists(AddWrite writer) {
+    void testIndexNotRemovedWhileAbortingIfPreviousVersionExists(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
         RowId rowId = new RowId(1, rowUuid);
 
@@ -297,13 +297,38 @@ public class IndexCleanupTest {
 
     @ParameterizedTest
     @EnumSource(AddWrite.class)
-    void testIndexNotRemovedWhileWritingIfPreviousVersionStillExists(AddWrite writer) {
+    void testIndexNotRemovedWhileWritingIfPreviousVersionExists(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
         RowId rowId = new RowId(1, rowUuid);
 
         var key = new TestKey(1, "foo");
         var value = new TestValue(2, "bar");
         BinaryRow tableRow = binaryRow(key, value);
+
+        writer.addWrite(storageUpdateHandler, rowUuid, tableRow);
+        commitWrite(rowId);
+
+        writer.addWrite(storageUpdateHandler, rowUuid, tableRow);
+        writer.addWrite(storageUpdateHandler, rowUuid, null);
+
+        assertEquals(1, storage.rowsCount());
+        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
+    }
+
+    @ParameterizedTest
+    @EnumSource(AddWrite.class)
+    void testIndexNotRemovedWhileWritingIfMultiplePreviousVersionsExists(AddWrite writer) {
+        UUID rowUuid = UUID.randomUUID();
+        RowId rowId = new RowId(1, rowUuid);
+
+        var key = new TestKey(1, "foo");
+        var value = new TestValue(2, "bar");
+        BinaryRow tableRow = binaryRow(key, value);
+
+        writer.addWrite(storageUpdateHandler, rowUuid, tableRow);
+        commitWrite(rowId);
 
         writer.addWrite(storageUpdateHandler, rowUuid, tableRow);
         commitWrite(rowId);
