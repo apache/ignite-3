@@ -677,7 +677,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             var ch0 = ch;
 
-            if (ch0 != null) {
+            if (ch0 != null && !ch0.isCompletedExceptionally()) {
                 return ch0;
             }
 
@@ -688,7 +688,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                 ch0 = ch;
 
-                if (ch0 != null) {
+                if (ch0 != null && ch0.isCompletedExceptionally()) {
                     return ch0;
                 }
 
@@ -731,6 +731,12 @@ public final class ReliableChannel implements AutoCloseable {
                     serverNode = newNode;
 
                     return ch1;
+                });
+
+                ch0.exceptionally(unused -> {
+                    closeChannel();
+
+                    return null;
                 });
 
                 ch = ch0;
