@@ -38,6 +38,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -227,7 +228,7 @@ public final class ReliableChannel implements AutoCloseable {
             @Nullable String preferredNodeId,
             @Nullable IgniteClientConnectionException failure,
             int attempt) {
-        ClientChannel ch = null;
+        CompletableFuture<ClientChannel> ch = null;
         ClientChannelHolder holder = null;
 
         if (preferredNodeName != null) {
@@ -389,7 +390,7 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * On channel of the specified holder failure.
      */
-    private void onChannelFailure(ClientChannelHolder hld, ClientChannel ch) {
+    private void onChannelFailure(ClientChannelHolder hld, @Nullable ClientChannel ch) {
         if (ch != null && ch == hld.ch) {
             hld.closeChannel();
         }
@@ -552,59 +553,83 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * Gets the default channel, reconnecting if necessary.
      */
-    private ClientChannel getDefaultChannel() {
-        IgniteClientConnectionException failure = null;
+    private CompletableFuture<ClientChannel> getDefaultChannel() {
+        CompletableFuture<ClientChannel> fut = new CompletableFuture<>();
 
-        for (int attempt = 0; ; attempt++) {
-            ClientChannelHolder hld = null;
-            ClientChannel c = null;
+        curChannelsGuard.readLock().lock();
 
-            try {
-                if (closed) {
-                    throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed");
-                }
+        ClientChannelHolder hld;
 
-                curChannelsGuard.readLock().lock();
-
-                try {
-                    hld = channels.get(curChIdx);
-                } finally {
-                    curChannelsGuard.readLock().unlock();
-                }
-
-                // TODO: Async startup IGNITE-15357.
-                c = hld.getOrCreateChannelAsync();
-
-                if (c != null) {
-                    return c;
-                }
-            } catch (CompletionException | IgniteClientConnectionException ce) {
-                IgniteClientConnectionException e;
-
-                //noinspection InstanceofCatchParameter
-                if (ce instanceof IgniteClientConnectionException) {
-                    e = (IgniteClientConnectionException) ce;
-                } else if (ce.getCause() instanceof IgniteClientConnectionException) {
-                    e = (IgniteClientConnectionException) ce.getCause();
-                } else {
-                    throw ce;
-                }
-
-                if (failure == null) {
-                    failure = e;
-                } else {
-                    failure.addSuppressed(e);
-                }
-
-                onChannelFailure(hld, c);
-
-                if (!shouldRetry(ClientOperationType.CHANNEL_CONNECT, attempt, e, failure)) {
-                    break;
-                }
-            }
+        try {
+            hld = channels.get(curChIdx);
+        } finally {
+            curChannelsGuard.readLock().unlock();
         }
 
-        throw new IgniteClientConnectionException(CONNECTION_ERR, "Failed to connect", failure);
+        getChannelWithRetry(hld, null, null, null, fut, 0);
+
+        return fut;
+    }
+
+    private void getChannelWithRetry(
+            ClientChannelHolder hld,
+            @Nullable ClientChannel res,
+            @Nullable IgniteClientConnectionException failure,
+            Throwable err,
+            CompletableFuture<ClientChannel> fut,
+            int attempt) {
+        if (res != null) {
+            fut.complete(res);
+            return;
+        }
+
+        while (err instanceof CompletionException) {
+            err = err.getCause();
+        }
+
+        if (!(err instanceof IgniteClientConnectionException)) {
+            fut.completeExceptionally(err);
+            return;
+        }
+
+        if (failure == null) {
+            failure = (IgniteClientConnectionException) err;
+        } else {
+            failure.addSuppressed(err);
+        }
+
+        onChannelFailure(hld, res);
+
+        if (shouldRetry(ClientOperationType.CHANNEL_CONNECT, attempt, (IgniteClientConnectionException) err, failure)) {
+            var failure0 = failure;
+
+            getCurChannelAsync().whenComplete((ch, e) -> getChannelWithRetry(hld, ch, failure0, e, fut, attempt + 1));
+
+            return;
+        }
+
+        fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to connect", failure));
+    }
+
+    private CompletableFuture<ClientChannel> getCurChannelAsync() {
+        if (closed) {
+            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed"));
+        }
+
+        curChannelsGuard.readLock().lock();
+
+        try {
+            var hld = channels.get(curChIdx);
+
+            if (hld == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            CompletableFuture<ClientChannel> fut = hld.getOrCreateChannelAsync();
+            return fut == null ? CompletableFuture.completedFuture(null) : fut;
+        } finally {
+            curChannelsGuard.readLock().unlock();
+        }
     }
 
     /** Determines whether specified operation should be retried. */
