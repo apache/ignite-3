@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
@@ -42,6 +45,8 @@ import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
+import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
@@ -315,15 +320,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            return inReadLock(rowId, () -> {
-                if (rowId.partitionId() != partitionId) {
-                    throw new IllegalArgumentException(
-                            String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId)
-                    );
-                }
+            if (rowId.partitionId() != partitionId) {
+                throw new IllegalArgumentException(
+                        String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId)
+                );
+            }
 
-                VersionChain versionChain = findVersionChain(rowId);
-
+            ReadResult result = findVersionChain(rowId, versionChain -> {
                 if (versionChain == null) {
                     return ReadResult.empty(rowId);
                 }
@@ -334,6 +337,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     return findRowVersionByTimestamp(versionChain, timestamp);
                 }
             });
+
+            return result == null ? ReadResult.empty(rowId) : result;
         });
     }
 
@@ -535,6 +540,57 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
+            AtomicReference<TableRow> tableRowRef = new AtomicReference<>();
+
+            try {
+                versionChainTree.invoke(new VersionChainKey(rowId), null, new InvokeClosure<>() {
+                    VersionChain newRow;
+
+                    @Override
+                    public void call(@Nullable VersionChain oldRow) {
+                        if (oldRow == null) {
+                            RowVersion newVersion = insertRowVersion(row, NULL_LINK);
+
+                            newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
+                                    NULL_LINK);
+                        } else {
+                            if (oldRow.isUncommitted()) {
+                                throwIfChainBelongsToAnotherTx(oldRow, txId);
+                            }
+
+                            RowVersion newVersion = insertRowVersion(row, oldRow.newestCommittedLink());
+
+                            if (oldRow.isUncommitted()) {
+                                RowVersion currentVersion = readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
+
+                                tableRowRef.set(rowVersionToTableRow(currentVersion));
+
+                                // as we replace an uncommitted version with new one, we need to remove old uncommitted version
+                                removeRowVersion(currentVersion);
+                            }
+
+                            newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
+                                    newVersion.nextLink());
+                        }
+                    }
+
+                    @Override
+                    public @Nullable VersionChain newRow() {
+                        return newRow;
+                    }
+
+                    @Override
+                    public OperationType operationType() {
+                        return OperationType.PUT;
+                    }
+                });
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("rowId=" + rowId, e);
+            }
+
+            return tableRowRef.get();
+
+            /*
             return inWriteLock(rowId, () -> {
                 VersionChain currentChain = findVersionChain(rowId);
 
@@ -573,6 +629,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 return res;
             });
+             */
         });
     }
 
@@ -583,6 +640,59 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
+            AtomicReference<TableRow> tableRowRef = new AtomicReference<>();
+
+            try {
+                versionChainTree.invoke(new VersionChainKey(rowId), null, new InvokeClosure<>() {
+                    OperationType operationType = OperationType.PUT;
+
+                    VersionChain newRow;
+
+                    @Override
+                    public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
+                        if (oldRow == null || oldRow.transactionId() == null) {
+                            // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
+                            operationType = OperationType.NOOP;
+
+                            return;
+                        }
+
+                        RowVersion latestVersion = readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
+
+                        assert latestVersion.isUncommitted();
+
+                        removeRowVersion(latestVersion);
+
+                        if (latestVersion.hasNextLink()) {
+                            // Next can be safely replaced with any value (like 0), because this field is only used when there
+                            // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
+                            // (like 0) by replacing it with a valid value.
+                            newRow = VersionChain.createCommitted(rowId, latestVersion.nextLink(), NULL_LINK);
+                        } else {
+                            // it was the only version, let's remove the chain as well
+                            operationType = OperationType.REMOVE;
+                        }
+
+                        tableRowRef.set(rowVersionToTableRow(latestVersion));
+                    }
+
+                    @Override
+                    public @Nullable VersionChain newRow() {
+                        return newRow;
+                    }
+
+                    @Override
+                    public OperationType operationType() {
+                        return operationType;
+                    }
+                });
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("rowId=" + rowId, e);
+            }
+
+            return tableRowRef.get();
+
+            /*
             return inWriteLock(rowId, () -> {
                 VersionChain currentVersionChain = findVersionChain(rowId);
 
@@ -611,6 +721,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 return rowVersionToTableRow(latestVersion);
             });
+             */
         });
     }
 
@@ -629,6 +740,45 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
+            try {
+                versionChainTree.invoke(new VersionChainKey(rowId), null, new InvokeClosure<>() {
+                    OperationType operationType = OperationType.PUT;
+
+                    VersionChain newRow;
+
+                    @Override
+                    public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
+                        if (oldRow == null || oldRow.transactionId() == null) {
+                            // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
+                            operationType = OperationType.NOOP;
+
+                            return;
+                        }
+
+                        long chainLink = oldRow.headLink();
+
+                        rowVersionFreeList.updateTimestamp(chainLink, timestamp);
+
+                        newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
+                    }
+
+                    @Override
+                    public @Nullable VersionChain newRow() {
+                        return newRow;
+                    }
+
+                    @Override
+                    public OperationType operationType() {
+                        return operationType;
+                    }
+                });
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("rowId=" + rowId, e);
+            }
+
+            return null;
+
+            /*
             return inWriteLock(rowId, () -> {
                 VersionChain currentVersionChain = findVersionChain(rowId);
 
@@ -663,6 +813,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 return null;
             });
+             */
         });
     }
 
@@ -689,6 +840,41 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
+            try {
+                versionChainTree.invoke(new VersionChainKey(rowId), null, new InvokeClosure<>() {
+                    VersionChain newRow;
+
+                    @Override
+                    public void call(@Nullable VersionChain oldRow) {
+                        if (oldRow != null && oldRow.isUncommitted()) {
+                            // This means that there is a bug in our code as the caller must make sure that no write intent exists
+                            // below this write.
+                            throw new StorageException("Write intent exists: [rowId={}, {}]", rowId, createStorageInfo());
+                        }
+
+                        long nextLink = oldRow == null ? NULL_LINK : oldRow.newestCommittedLink();
+                        RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, nextLink);
+
+                        newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
+                    }
+
+                    @Override
+                    public @Nullable VersionChain newRow() {
+                        return newRow;
+                    }
+
+                    @Override
+                    public OperationType operationType() {
+                        return OperationType.PUT;
+                    }
+                });
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("rowId=" + rowId, e);
+            }
+
+            return null;
+
+            /*
             return inWriteLock(rowId, () -> {
                 VersionChain currentChain = findVersionChain(rowId);
 
@@ -707,6 +893,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 return null;
             });
+             */
         });
     }
 
@@ -725,7 +912,42 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            return inReadLock(rowId, () -> new ScanVersionsCursor(rowId, this));
+            AtomicReference<VersionChain> versionChainRef = new AtomicReference<>();
+
+            Iterator<RowVersion> rowVersionIterator = findVersionChain(rowId, versionChain -> {
+                if (versionChain == null) {
+                    return Collections.emptyIterator();
+                }
+
+                versionChainRef.set(versionChain);
+
+                return ScanVersionsCursor.collectRowVersions(versionChain, this);
+            });
+
+            return new Cursor<ReadResult>() {
+                @Override
+                public void close() {
+                    // No-op
+                }
+
+                @Override
+                public boolean hasNext() {
+                    return busy(() -> {
+                        throwExceptionIfStorageNotInRunnableState();
+
+                        return rowVersionIterator.hasNext();
+                    });
+                }
+
+                @Override
+                public ReadResult next() {
+                    return busy(() -> {
+                        throwExceptionIfStorageNotInRunnableState();
+
+                        return rowVersionToResultNotFillingLastCommittedTs(versionChainRef.get(), rowVersionIterator.next());
+                    });
+                }
+            };
         });
     }
 
@@ -995,6 +1217,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             return supplier.get();
         } finally {
             writeLock.unlock();
+        }
+    }
+
+    <T> @Nullable T findVersionChain(RowId rowId, Function<VersionChain, T> function) {
+        try {
+            return versionChainTree.findOne(new VersionChainKey(rowId), null, null, function::apply);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("rowId=" + rowId, e);
         }
     }
 }

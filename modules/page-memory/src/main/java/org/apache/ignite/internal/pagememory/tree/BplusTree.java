@@ -1184,7 +1184,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private <R> Cursor<R> findLowerUnbounded(
+    private <R> MagicCursor<T, R> findLowerUnbounded(
             L upper,
             boolean upIncl,
             TreeRowClosure<L, T> c,
@@ -1274,7 +1274,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public <R> Cursor<R> find(@Nullable L lower, @Nullable L upper, Function<T, R> mapper) throws IgniteInternalCheckedException {
+    public <R> MagicCursor<T, R> find(@Nullable L lower, @Nullable L upper, Function<T, R> mapper) throws IgniteInternalCheckedException {
         return find(lower, upper, true, true, null, null, mapper);
     }
 
@@ -1291,7 +1291,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public <R> Cursor<R> find(
+    public <R> MagicCursor<T, R> find(
             @Nullable L lower,
             @Nullable L upper,
             boolean lowIncl,
@@ -1524,7 +1524,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         try {
             if (c == null) {
-                g = new GetOne(null, null, null, true);
+                g = new GetOne<>(null, null, null, true, null);
 
                 doFind(g);
 
@@ -1559,7 +1559,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteInternalCheckedException If failed.
      */
     public final <R> @Nullable R findOne(L row, Object x) throws IgniteInternalCheckedException {
-        return findOne(row, null, x);
+        return findOne(row, null, x, null);
     }
 
     /**
@@ -1567,12 +1567,18 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      *
      * @param row Lookup row for exact match.
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+     * @param mapper Row mapper.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final <R> @Nullable R findOne(L row, @Nullable TreeRowClosure<L, T> c, Object x) throws IgniteInternalCheckedException {
+    public final <R> @Nullable R findOne(
+            L row,
+            @Nullable TreeRowClosure<L, T> c,
+            Object x,
+            @Nullable Function<T, R> mapper
+    ) throws IgniteInternalCheckedException {
         checkDestroyed();
 
-        GetOne g = new GetOne(row, c, x, false);
+        GetOne<R> g = new GetOne<>(row, c, x, false, mapper);
 
         try {
             doFind(g);
@@ -1592,7 +1598,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /** {@inheritDoc} */
     @Override
     public final T findOne(L row) throws IgniteInternalCheckedException {
-        return findOne(row, null, null);
+        return findOne(row, null, null, null);
     }
 
     /**
@@ -3370,10 +3376,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Get a single entry.
      */
-    private final class GetOne extends Get {
+    private final class GetOne<R> extends Get {
         Object arg;
 
-        @Nullable TreeRowClosure<L, T> filter;
+        final @Nullable TreeRowClosure<L, T> filter;
+
+        final @Nullable Function<T, R> mapper;
 
         /**
          * Constructor.
@@ -3382,12 +3390,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param filter Closure filter.
          * @param arg Implementation specific argument.
          * @param findLast Ignore row passed, find last row
+         * @param mapper Row mapper.
          */
-        private GetOne(L row, @Nullable TreeRowClosure<L, T> filter, Object arg, boolean findLast) {
+        private GetOne(L row, @Nullable TreeRowClosure<L, T> filter, Object arg, boolean findLast, @Nullable Function<T, R> mapper) {
             super(row, findLast);
 
             this.arg = arg;
             this.filter = filter;
+            this.mapper = mapper;
         }
 
         /** {@inheritDoc} */
@@ -3399,6 +3409,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
 
             row = filter == null || filter.apply(BplusTree.this, io, pageAddr, idx) ? getRow(io, pageAddr, idx, arg) : null;
+
+            if (mapper != null) {
+                row = (L) mapper.apply((T) row);
+            }
 
             return true;
         }
@@ -6134,7 +6148,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Forward cursor.
      */
-    private final class ForwardCursor<R> extends AbstractForwardCursor implements Cursor<R> {
+    private final class ForwardCursor<R> extends AbstractForwardCursor implements MagicCursor<T, R> {
         /** Implementation specific argument. */
         @Nullable
         final Object arg;
@@ -6352,6 +6366,19 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             hasNext = null;
 
             return r;
+        }
+
+        @Override
+        public T peekRow() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+
+            T t = rows[row];
+
+            assert t != null;
+
+            return t;
         }
 
         private boolean advance() {
@@ -6867,5 +6894,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         public boolean isCompleted() {
             return finished;
         }
+    }
+
+    /** Magic tmp cursor. */
+    public interface MagicCursor<T, R> extends Cursor<R> {
+        /** */
+        T peekRow();
     }
 }

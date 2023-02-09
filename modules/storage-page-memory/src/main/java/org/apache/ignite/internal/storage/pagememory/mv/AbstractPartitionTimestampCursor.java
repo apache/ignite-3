@@ -19,19 +19,19 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCursor {
     protected final AbstractPageMemoryMvPartitionStorage storage;
 
-    private @Nullable Cursor<VersionChain> versionChainCursor;
+    private @Nullable BplusTree.MagicCursor<VersionChain, ReadResult> versionChainCursor;
 
     private boolean iterationExhausted;
 
@@ -67,20 +67,23 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
                     return false;
                 }
 
-                RowId rowId = versionChainCursor.next().rowId();
+                VersionChain versionChain = versionChainCursor.peekRow();
 
-                ReadResult result = storage.inReadLock(rowId, () -> {
-                    VersionChain chain = storage.readVersionChain(rowId);
+                ReadResult result = versionChainCursor.next();
 
-                    return chain == null ? ReadResult.empty(rowId) : findRowVersion(chain);
-                });
+                if (result.isEmpty()) {
+                    result = storage.findVersionChain(
+                            versionChain.rowId(),
+                            chain -> chain == null ? ReadResult.empty(versionChain.rowId()) : findRowVersion(versionChain)
+                    );
+                }
 
                 if (result.isEmpty() && !result.isWriteIntent()) {
                     continue;
                 }
 
                 nextRead = result;
-                currentRowId = rowId;
+                currentRowId = versionChain.rowId();
 
                 return true;
             }
@@ -124,11 +127,10 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
                 throw new IllegalStateException("RowId missing: " + storage.createStorageInfo());
             }
 
-            ReadResult result = storage.inReadLock(rowId, () -> {
-                VersionChain chain = storage.readVersionChain(rowId);
-
-                return chain == null ? ReadResult.empty(rowId) : storage.findRowVersionByTimestamp(chain, timestamp);
-            });
+            ReadResult result = storage.findVersionChain(
+                    rowId,
+                    chain -> chain == null ? ReadResult.empty(rowId) : storage.findRowVersionByTimestamp(chain, timestamp)
+            );
 
             if (result.isEmpty()) {
                 return null;
@@ -154,7 +156,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
         }
 
         try {
-            versionChainCursor = storage.versionChainTree.find(null, null);
+            versionChainCursor = storage.versionChainTree.find(null, null, this::findRowVersion);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Find failed: " + storage.createStorageInfo(), e);
         }
