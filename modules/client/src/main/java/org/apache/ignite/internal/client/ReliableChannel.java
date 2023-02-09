@@ -183,7 +183,7 @@ public final class ReliableChannel implements AutoCloseable {
     ) {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName, preferredNodeId)
-                        .thenCompose(ch -> ch.serviceAsync(opCode, payloadWriter, payloadReader)),
+                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx));
     }
@@ -215,6 +215,18 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
         return serviceAsync(opCode, null, payloadReader, null, null);
+    }
+
+    private <T> CompletableFuture<T> serviceAsyncInternal(
+            int opCode,
+            PayloadWriter payloadWriter,
+            PayloadReader<T> payloadReader,
+            ClientChannel ch) {
+        return ch.serviceAsync(opCode, payloadWriter, payloadReader).whenComplete((res, err) -> {
+            if (err != null && unwrapConnectionException(err) != null) {
+                onChannelFailure(ch);
+            }
+        });
     }
 
     private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String preferredNodeId) {
@@ -520,15 +532,11 @@ public final class ReliableChannel implements AutoCloseable {
     private boolean shouldRetry(@Nullable ClientOperationType opType, ClientFutureUtils.RetryContext ctx) {
         var err = ctx.lastError();
 
-        while (err instanceof CompletionException) {
-            err = err.getCause();
-        }
+        IgniteClientConnectionException exception = unwrapConnectionException(err);
 
-        if (!(err instanceof IgniteClientConnectionException)) {
+        if (exception == null) {
             return false;
         }
-
-        var exception = (IgniteClientConnectionException) err;
 
         if (exception.code() == CLUSTER_ID_MISMATCH_ERR) {
             return false;
@@ -600,6 +608,19 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public long partitionAssignmentVersion() {
         return assignmentVersion.get();
+    }
+
+    @Nullable
+    private static IgniteClientConnectionException unwrapConnectionException(Throwable err) {
+        while (err instanceof CompletionException) {
+            err = err.getCause();
+        }
+
+        if (!(err instanceof IgniteClientConnectionException)) {
+            return null;
+        }
+
+        return (IgniteClientConnectionException) err;
     }
 
     /**
@@ -800,7 +821,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             var ch = f.getNow(null);
 
-            return ch != null && ch.closed();
+            return ch != null && !ch.closed();
         }
     }
 }
