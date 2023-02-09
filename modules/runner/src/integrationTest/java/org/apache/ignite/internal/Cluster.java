@@ -144,7 +144,7 @@ public class Cluster {
     /**
      * Starts a cluster node with the default bootstrap config template and returns its startup future.
      *
-     * @param nodeIndex Index of the nodex to start.
+     * @param nodeIndex Index of the node to start.
      * @return Future that will be completed when the node starts.
      */
     public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {

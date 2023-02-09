@@ -40,14 +40,11 @@ import java.util.Set;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -55,16 +52,11 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the {@link CmgRaftGroupListener}.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class CmgRaftGroupListenerTest {
-    @InjectConfiguration
-    private ClusterManagementConfiguration clusterManagementConfiguration;
-
     private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
 
     private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);
@@ -91,7 +83,7 @@ public class CmgRaftGroupListenerTest {
     void setUp() {
         storage.start();
 
-        listener = new CmgRaftGroupListener(storage, logicalTopology, clusterManagementConfiguration, onLogicalTopologyChanged);
+        listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
     }
 
     @AfterEach
@@ -100,19 +92,19 @@ public class CmgRaftGroupListenerTest {
     }
 
     /**
-     * Test that validated node IDs get added and removed from the storage.
+     * Test that validated nodes get added and removed from the storage.
      */
     @Test
-    void testValidatedNodeIds() {
+    void testValidatedNodes() {
         listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(state).build()));
 
         listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
-        assertThat(listener.storage().getValidatedNodeIds(), contains(node.id()));
+        assertThat(listener.storage().getValidatedNodes(), contains(node.asClusterNode()));
 
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
-        assertThat(listener.storage().getValidatedNodeIds(), is(empty()));
+        assertThat(listener.storage().getValidatedNodes(), is(empty()));
     }
 
     @Test
