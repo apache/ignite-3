@@ -18,48 +18,75 @@
 package org.apache.ignite.internal.client;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Future utils.
  */
 public class ClientFutureUtils {
     public static <T> CompletableFuture<T> doWithRetryAsync(
-            Function<RetryContext, CompletableFuture<T>> func,
-            Predicate<T> resultValidator) {
+            Supplier<CompletableFuture<T>> func,
+            Predicate<T> resultValidator,
+            Predicate<RetryContext> retryPredicate) {
         CompletableFuture<T> resFut = new CompletableFuture<>();
         var ctx = new RetryContext();
 
-        apply(func, resultValidator, resFut, ctx);
+        apply(func, resultValidator, retryPredicate, resFut, ctx);
 
         return resFut;
     }
 
     private static <T> void apply(
-            Function<RetryContext, CompletableFuture<T>> func,
+            Supplier<CompletableFuture<T>> func,
             Predicate<T> validator,
+            Predicate<RetryContext> retryPredicate,
             CompletableFuture<T> resFut,
             RetryContext ctx) {
-        func.apply(ctx).whenComplete((res, err) -> {
-            if (err == null && validator.test(res)) {
-                resFut.complete(res);
-                return;
+        func.get().whenComplete((res, err) -> {
+            try {
+                if (err == null && validator.test(res)) {
+                    resFut.complete(res);
+                    return;
+                }
+
+                ctx.attempt++;
+
+                if (err != null) {
+                    ctx.errors.add(err);
+                }
+
+                if (retryPredicate.test(ctx)) {
+                    apply(func, validator, retryPredicate, resFut, ctx);
+                } else {
+                    resFut.completeExceptionally(new RetryError(ctx.errors));
+                }
+            } catch (Throwable t) {
+                resFut.completeExceptionally(t);
             }
-
-            ctx.attempt++;
-
-            if (err != null) {
-                ctx.errors.add(err);
-            }
-
-            apply(func, validator, resFut, ctx);
         });
     }
 
     public static class RetryContext {
         public int attempt;
         public ArrayList<Throwable> errors = new ArrayList<>();
+
+        public Throwable lastError() {
+            return errors.get(errors.size() - 1);
+        }
+    }
+
+    public static class RetryError extends RuntimeException {
+        private static final long serialVersionUID = 0L;
+
+        public final List<Throwable> errors;
+
+        public RetryError(List<Throwable> errors) {
+            super("Failed to execute the operation");
+
+            this.errors = errors;
+        }
     }
 }

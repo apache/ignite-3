@@ -288,6 +288,7 @@ public interface IgniteClient extends Ignite {
                     loggerFactory
             );
 
+            // TODO: Ensure continuation of the returned future is executed on the asyncContinuationExecutor.
             return TcpIgniteClient.startAsync(cfg);
         }
     }

@@ -298,7 +298,7 @@ public final class ReliableChannel implements AutoCloseable {
                             failure0.addSuppressed(err);
                         }
 
-                        if (shouldRetry(opCode, attempt, connectionErr, failure0)) {
+                        if (shouldRetry(opCode, attempt, connectionErr)) {
                             log.debug("Going to retry request because of error [opCode={}, currentAttempt={}, errMsg={}]",
                                     failure0, opCode, attempt, failure0.getMessage());
 
@@ -554,34 +554,30 @@ public final class ReliableChannel implements AutoCloseable {
      * Gets the default channel, reconnecting if necessary.
      */
     private CompletableFuture<ClientChannel> getDefaultChannel() {
-//        CompletableFuture<ClientChannel> fut = new CompletableFuture<>();
-//
-//        curChannelsGuard.readLock().lock();
-//
-//        ClientChannelHolder hld;
-//
-//        try {
-//            hld = channels.get(curChIdx);
-//        } finally {
-//            curChannelsGuard.readLock().unlock();
-//        }
-//
-//        getChannelWithRetry(hld, null, null, null, fut, 0);
-//
-//        return fut;
-        return ClientFutureUtils.doWithRetryAsync(ctx -> {
-            curChannelsGuard.readLock().lock();
+        return ClientFutureUtils.doWithRetryAsync(() -> {
+                    curChannelsGuard.readLock().lock();
 
-            ClientChannelHolder hld;
+                    ClientChannelHolder hld;
 
-            try {
-                hld = channels.get(curChIdx);
-            } finally {
-                curChannelsGuard.readLock().unlock();
-            }
+                    try {
+                        hld = channels.get(curChIdx);
+                    } finally {
+                        curChannelsGuard.readLock().unlock();
+                    }
 
-            return hld.getOrCreateChannelAsync();
-        }, Objects::nonNull);
+                    return hld.getOrCreateChannelAsync();
+                },
+                Objects::nonNull,
+                ctx -> {
+                    var err = ctx.lastError();
+
+                    while (err instanceof CompletionException) {
+                        err = err.getCause();
+                    }
+
+                    return err instanceof IgniteClientConnectionException &&
+                            shouldRetry(ClientOperationType.CHANNEL_CONNECT, ctx.attempt, (IgniteClientConnectionException) err);
+                });
     }
 
     private void getChannelWithRetry(
@@ -646,16 +642,14 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception,
-                                IgniteClientConnectionException aggregateException) {
+    private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        return shouldRetry(opType, iteration, exception, aggregateException);
+        return shouldRetry(opType, iteration, exception);
     }
 
     /** Determines whether specified operation should be retried. */
-    private boolean shouldRetry(ClientOperationType opType, int iteration, IgniteClientConnectionException exception,
-                                IgniteClientConnectionException aggregateException) {
+    private boolean shouldRetry(@Nullable ClientOperationType opType, int iteration, IgniteClientConnectionException exception) {
         if (exception.code() == CLUSTER_ID_MISMATCH_ERR) {
             return false;
         }
@@ -673,12 +667,8 @@ public final class ReliableChannel implements AutoCloseable {
 
         RetryPolicyContext ctx = new RetryPolicyContextImpl(clientCfg, opType, iteration, exception);
 
-        try {
-            return plc.shouldRetry(ctx);
-        } catch (Throwable t) {
-            aggregateException.addSuppressed(t);
-            return false;
-        }
+        // Exception in shouldRetry will be handled by ClientFutureUtils.doWithRetryAsync
+        return plc.shouldRetry(ctx);
     }
 
     /**
@@ -802,7 +792,8 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     if (!ignoreThrottling && applyReconnectionThrottling()) {
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling");
+                        return CompletableFuture.failedFuture(
+                                new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                     }
 
                     ch = chFactory.apply(chCfg, connMgr).thenApply(ch0 -> {
@@ -815,8 +806,9 @@ public final class ReliableChannel implements AutoCloseable {
                                 // Ignore
                             }
 
-                            throw new IgniteClientConnectionException(CLUSTER_ID_MISMATCH_ERR, "Cluster ID mismatch: expected=" + oldClusterId
-                                    + ", actual=" + ch0.protocolContext().clusterId());
+                            throw new IgniteClientConnectionException(
+                                    CLUSTER_ID_MISMATCH_ERR,
+                                    "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch0.protocolContext().clusterId());
                         }
 
                         ch0.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
