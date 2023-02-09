@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -65,6 +66,7 @@ public class HeartbeatTest {
         }
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testInvalidHeartbeatIntervalThrows() throws Exception {
         try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
@@ -73,9 +75,7 @@ public class HeartbeatTest {
                     .addresses("127.0.0.1:" + srv.port())
                     .heartbeatInterval(-50);
 
-            Throwable ex = assertThrows(IllegalArgumentException.class, builder::build);
-
-            assertEquals("Negative delay.", ex.getMessage());
+            assertThrowsWithCause(builder::build, IllegalArgumentException.class, "Negative delay.");
         }
     }
 
