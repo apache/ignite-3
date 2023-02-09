@@ -60,13 +60,13 @@ class ClientFutureUtils {
                     return;
                 }
 
-                ctx.attempt++;
-
                 if (err != null) {
                     ctx.errors.add(err);
                 }
 
                 if (retryPredicate.test(ctx)) {
+                    ctx.attempt++;
+
                     doWithRetryAsync(func, validator, retryPredicate, resFut, ctx);
                 } else {
                     var resErr = ctx.errors.get(0);
