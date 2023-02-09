@@ -321,10 +321,6 @@ public final class ReliableChannel implements AutoCloseable {
      * On channel of the specified holder failure.
      */
     private void onChannelFailure(ClientChannelHolder hld, @Nullable ClientChannel ch) {
-        if (ch != null && ch == hld.chFut) {
-            hld.closeChannel();
-        }
-
         chFailLsnrs.forEach(Runnable::run);
 
         // Roll current channel even if a topology changes. To help find working channel faster.
