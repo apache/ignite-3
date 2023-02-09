@@ -20,31 +20,41 @@ package org.apache.ignite.internal.client;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Future utils.
  */
 public class ClientFutureUtils {
-    public static <T> CompletableFuture<T> doWithRetryAsync(Function<RetryContext, CompletableFuture<T>> func) {
+    public static <T> CompletableFuture<T> doWithRetryAsync(
+            Function<RetryContext, CompletableFuture<T>> func,
+            Predicate<T> resultValidator) {
         CompletableFuture<T> resFut = new CompletableFuture<>();
         var ctx = new RetryContext();
 
-        apply(func, resFut, ctx);
+        apply(func, resultValidator, resFut, ctx);
 
         return resFut;
     }
 
-    private static <T> void apply(Function<RetryContext, CompletableFuture<T>> func, CompletableFuture<T> resFut, RetryContext ctx) {
+    private static <T> void apply(
+            Function<RetryContext, CompletableFuture<T>> func,
+            Predicate<T> validator,
+            CompletableFuture<T> resFut,
+            RetryContext ctx) {
         func.apply(ctx).whenComplete((res, err) -> {
-            if (err == null) {
+            if (err == null && validator.test(res)) {
                 resFut.complete(res);
                 return;
             }
 
             ctx.attempt++;
-            ctx.errors.add(err);
 
-            apply(func, resFut, ctx);
+            if (err != null) {
+                ctx.errors.add(err);
+            }
+
+            apply(func, validator, resFut, ctx);
         });
     }
 

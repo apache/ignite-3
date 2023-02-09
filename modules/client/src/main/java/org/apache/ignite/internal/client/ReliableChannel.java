@@ -554,21 +554,34 @@ public final class ReliableChannel implements AutoCloseable {
      * Gets the default channel, reconnecting if necessary.
      */
     private CompletableFuture<ClientChannel> getDefaultChannel() {
-        CompletableFuture<ClientChannel> fut = new CompletableFuture<>();
+//        CompletableFuture<ClientChannel> fut = new CompletableFuture<>();
+//
+//        curChannelsGuard.readLock().lock();
+//
+//        ClientChannelHolder hld;
+//
+//        try {
+//            hld = channels.get(curChIdx);
+//        } finally {
+//            curChannelsGuard.readLock().unlock();
+//        }
+//
+//        getChannelWithRetry(hld, null, null, null, fut, 0);
+//
+//        return fut;
+        return ClientFutureUtils.doWithRetryAsync(ctx -> {
+            curChannelsGuard.readLock().lock();
 
-        curChannelsGuard.readLock().lock();
+            ClientChannelHolder hld;
 
-        ClientChannelHolder hld;
+            try {
+                hld = channels.get(curChIdx);
+            } finally {
+                curChannelsGuard.readLock().unlock();
+            }
 
-        try {
-            hld = channels.get(curChIdx);
-        } finally {
-            curChannelsGuard.readLock().unlock();
-        }
-
-        getChannelWithRetry(hld, null, null, null, fut, 0);
-
-        return fut;
+            return hld.getOrCreateChannelAsync();
+        }, Objects::nonNull);
     }
 
     private void getChannelWithRetry(
