@@ -161,7 +161,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
-        this.partitionMap = new Int2ObjectOpenHashMap<>();
+        this.partitionMap = new Int2ObjectOpenHashMap<>(partitions);
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
@@ -1217,7 +1217,9 @@ public class InternalTableImpl implements InternalTable {
         RaftGroupService oldSrvc;
 
         synchronized (updatePartMapMux) {
-            Int2ObjectMap<RaftGroupService> newPartitionMap = new Int2ObjectOpenHashMap<>(partitionMap);
+            Int2ObjectMap<RaftGroupService> newPartitionMap = new Int2ObjectOpenHashMap<>(partitions);
+
+            newPartitionMap.putAll(partitionMap);
 
             oldSrvc = newPartitionMap.put(p, raftGrpSvc);
 
