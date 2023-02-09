@@ -549,7 +549,14 @@ public final class ReliableChannel implements AutoCloseable {
         RetryPolicyContext retryPolicyContext = new RetryPolicyContextImpl(clientCfg, opType, ctx.attempt, exception);
 
         // Exception in shouldRetry will be handled by ClientFutureUtils.doWithRetryAsync
-        return plc.shouldRetry(retryPolicyContext);
+        boolean shouldRetry = plc.shouldRetry(retryPolicyContext);
+
+        if (shouldRetry) {
+            log.debug("Going to retry operation because of error [op={}, currentAttempt={}, errMsg={}]",
+                    exception, opType, ctx.attempt, exception.getMessage());
+        }
+
+        return shouldRetry;
     }
 
     /**
