@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.nio.file.Path;
 import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
