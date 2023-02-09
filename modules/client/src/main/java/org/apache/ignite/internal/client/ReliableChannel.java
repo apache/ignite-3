@@ -664,7 +664,11 @@ public final class ReliableChannel implements AutoCloseable {
          * Get or create channel.
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
-            return getOrCreateChannelAsync(false);
+            return getOrCreateChannelAsync(false).whenComplete((ch, err) -> {
+                if (err != null) {
+                    onChannelFailure(this, ch);
+                }
+            });
         }
 
         /**
