@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +33,7 @@ public class RaftServiceEventListener {
     private ConcurrentHashMap<ReplicationGroupId, Set<Consumer<Long>>> subscriptions = new ConcurrentHashMap<>();
 
     /** Callbacks by cluster nodes. */
-    private HashMap<ClusterNode, Set<Consumer<Long>>> nodesSubscriptions = new HashMap<>();
+    private ConcurrentHashMap<ClusterNode, Set<Consumer<Long>>> nodesSubscriptions = new ConcurrentHashMap<>();
 
     /**
      * Subscribes a node to notification.
@@ -50,8 +49,16 @@ public class RaftServiceEventListener {
             }
 
             actions.add(notifyAction);
-            nodesSubscriptions.computeIfAbsent(subscriber, node -> new HashSet<>())
-                    .add(notifyAction);
+
+            nodesSubscriptions.compute(subscriber, (node, nodeActions) -> {
+                if (nodeActions == null) {
+                    nodeActions = new HashSet<>();
+                }
+
+                nodeActions.add(notifyAction);
+
+                return nodeActions;
+            });
 
             return actions;
         });
@@ -61,30 +68,32 @@ public class RaftServiceEventListener {
      * Unsubscribes a node.
      *
      * @param groupId Group id.
-     * @param clusterNode Subscriber node.
+     * @param subscriber Subscriber node.
      */
-    public void unsubscribe(ReplicationGroupId groupId, ClusterNode clusterNode) {
-        subscriptions.compute(groupId, (id, actions) -> {
-            if (CollectionUtils.nullOrEmpty(actions)) {
-                return null;
-            }
+    public void unsubscribe(ReplicationGroupId groupId, ClusterNode subscriber) {
+        subscriptions.computeIfPresent(groupId, (id, actions) -> {
+            nodesSubscriptions.computeIfPresent(subscriber, (node, nodeActions) -> {
+                Set<Consumer<Long>> grpNodeActions = new HashSet<>(actions);
 
-            Set<Consumer<Long>> nodeActions = nodesSubscriptions.get(clusterNode);
+                grpNodeActions.retainAll(nodeActions);
 
-            assert !CollectionUtils.nullOrEmpty(nodeActions);
+                if (CollectionUtils.nullOrEmpty(grpNodeActions)) {
+                    return nodeActions;
+                }
 
-            Set<Consumer<Long>> grpNodeActions = new HashSet<>(actions);
+                assert grpNodeActions.size() == 1 : "Node is not subscribed [node=" + subscriber + "groupId=" + groupId + ']';
 
-            grpNodeActions.retainAll(nodeActions);
+                Consumer<Long> actionToRemove = grpNodeActions.iterator().next();
 
-            assert grpNodeActions.size() == 1 : "Node is not subscribed [node=" + clusterNode + "groupId=" + groupId + ']';
+                nodeActions.remove(actionToRemove);
+                actions.remove(actionToRemove);
 
-            nodeActions.remove(grpNodeActions.iterator().next());
-            actions.remove(grpNodeActions.iterator().next());
+                if (CollectionUtils.nullOrEmpty(nodeActions)) {
+                    return null;
+                }
 
-            if (CollectionUtils.nullOrEmpty(nodeActions)) {
-                nodesSubscriptions.remove(clusterNode);
-            }
+                return nodeActions;
+            });
 
             if (CollectionUtils.nullOrEmpty(actions)) {
                 return null;
@@ -112,15 +121,16 @@ public class RaftServiceEventListener {
      * @param term Term.
      */
     public void onLeaderElected(ReplicationGroupId groupId, long term) {
-        Set<Consumer<Long>> actions = subscriptions.get(groupId);
+        HashSet<Consumer<Long>> actionsToInvoke = new HashSet();
 
-        if (CollectionUtils.nullOrEmpty(actions)) {
-            return;
-        }
+        subscriptions.computeIfPresent(groupId, (id, actions) -> {
+            actionsToInvoke.addAll(actions);
 
-        for (Consumer<Long> action : actions) {
+            return actions;
+        });
+
+        for (Consumer<Long> action : actionsToInvoke) {
             action.accept(term);
         }
     }
-
 }
