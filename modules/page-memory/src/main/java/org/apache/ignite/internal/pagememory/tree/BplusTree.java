@@ -48,7 +48,6 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.pagememory.CorruptedDataStructureException;
@@ -1184,14 +1183,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private <R> MagicCursor<T, R> findLowerUnbounded(
+    private Cursor<T> findLowerUnbounded(
             L upper,
             boolean upIncl,
             TreeRowClosure<L, T> c,
-            @Nullable Object x,
-            @Nullable Function<T, R> mapper
+            @Nullable Object x
     ) throws IgniteInternalCheckedException {
-        ForwardCursor<R> cursor = new ForwardCursor<>(upper, upIncl, c, x, mapper);
+        ForwardCursor cursor = new ForwardCursor(upper, upIncl, c, x);
 
         long firstPageId;
 
@@ -1262,20 +1260,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             TreeRowClosure<L, T> c,
             @Nullable Object x
     ) throws IgniteInternalCheckedException {
-        return find(lower, upper, true, true, c, x, null);
-    }
-
-    /**
-     * Getting the cursor through the rows of the tree.
-     *
-     * @param lower Lower bound inclusive or {@code null} if unbounded.
-     * @param upper Upper bound inclusive or {@code null} if unbounded.
-     * @param mapper Row mapper.
-     * @return Cursor.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    public <R> MagicCursor<T, R> find(@Nullable L lower, @Nullable L upper, Function<T, R> mapper) throws IgniteInternalCheckedException {
-        return find(lower, upper, true, true, null, null, mapper);
+        return find(lower, upper, true, true, c, x);
     }
 
     /**
@@ -1287,26 +1272,24 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param upIncl {@code true} if upper bound is inclusive.
      * @param c Filter closure.
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
-     * @param mapper Row mapper.
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public <R> MagicCursor<T, R> find(
+    public Cursor<T> find(
             @Nullable L lower,
             @Nullable L upper,
             boolean lowIncl,
             boolean upIncl,
             @Nullable TreeRowClosure<L, T> c,
-            @Nullable Object x,
-            @Nullable Function<T, R> mapper
+            @Nullable Object x
     ) throws IgniteInternalCheckedException {
         checkDestroyed();
 
-        ForwardCursor<R> cursor = new ForwardCursor<>(lower, upper, lowIncl, upIncl, c, x, mapper);
+        ForwardCursor cursor = new ForwardCursor(lower, upper, lowIncl, upIncl, c, x);
 
         try {
             if (lower == null) {
-                return findLowerUnbounded(upper, upIncl, c, x, mapper);
+                return findLowerUnbounded(upper, upIncl, c, x);
             }
 
             cursor.find();
@@ -1318,7 +1301,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             throw new IgniteInternalCheckedException("Runtime failure on bounds: [lower=" + lower + ", upper=" + upper + "]", e);
         } catch (RuntimeException | AssertionError e) {
             long[] pageIds = pages(
-                    lower == null || cursor.getCursor == null,
+                    lower == null || cursor == null || cursor.getCursor == null,
                     () -> new long[]{cursor.getCursor.pageId}
             );
 
@@ -1524,7 +1507,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         try {
             if (c == null) {
-                g = new GetOne<>(null, null, null, true, null);
+                g = new GetOne(null, null, null, true);
 
                 doFind(g);
 
@@ -1559,7 +1542,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteInternalCheckedException If failed.
      */
     public final <R> @Nullable R findOne(L row, Object x) throws IgniteInternalCheckedException {
-        return findOne(row, null, x, null);
+        return findOne(row, null, x);
     }
 
     /**
@@ -1567,18 +1550,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      *
      * @param row Lookup row for exact match.
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
-     * @param mapper Row mapper.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final <R> @Nullable R findOne(
-            L row,
-            @Nullable TreeRowClosure<L, T> c,
-            Object x,
-            @Nullable Function<T, R> mapper
-    ) throws IgniteInternalCheckedException {
+    public final <R> @Nullable R findOne(L row, @Nullable TreeRowClosure<L, T> c, Object x) throws IgniteInternalCheckedException {
         checkDestroyed();
 
-        GetOne<R> g = new GetOne<>(row, c, x, false, mapper);
+        GetOne g = new GetOne(row, c, x, false);
 
         try {
             doFind(g);
@@ -1598,7 +1575,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /** {@inheritDoc} */
     @Override
     public final T findOne(L row) throws IgniteInternalCheckedException {
-        return findOne(row, null, null, null);
+        return findOne(row, null, null);
     }
 
     /**
@@ -3376,12 +3353,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Get a single entry.
      */
-    private final class GetOne<R> extends Get {
+    private final class GetOne extends Get {
         Object arg;
 
-        final @Nullable TreeRowClosure<L, T> filter;
-
-        final @Nullable Function<T, R> mapper;
+        @Nullable TreeRowClosure<L, T> filter;
 
         /**
          * Constructor.
@@ -3390,14 +3365,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param filter Closure filter.
          * @param arg Implementation specific argument.
          * @param findLast Ignore row passed, find last row
-         * @param mapper Row mapper.
          */
-        private GetOne(L row, @Nullable TreeRowClosure<L, T> filter, Object arg, boolean findLast, @Nullable Function<T, R> mapper) {
+        private GetOne(L row, @Nullable TreeRowClosure<L, T> filter, Object arg, boolean findLast) {
             super(row, findLast);
 
             this.arg = arg;
             this.filter = filter;
-            this.mapper = mapper;
         }
 
         /** {@inheritDoc} */
@@ -3409,10 +3382,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
 
             row = filter == null || filter.apply(BplusTree.this, io, pageAddr, idx) ? getRow(io, pageAddr, idx, arg) : null;
-
-            if (mapper != null) {
-                row = (L) mapper.apply((T) row);
-            }
 
             return true;
         }
@@ -6148,16 +6117,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Forward cursor.
      */
-    private final class ForwardCursor<R> extends AbstractForwardCursor implements MagicCursor<T, R> {
+    private final class ForwardCursor extends AbstractForwardCursor implements Cursor<T> {
         /** Implementation specific argument. */
         @Nullable
         final Object arg;
 
         /** Rows. */
-        private @Nullable T @Nullable [] rows = (T[]) OBJECT_EMPTY_ARRAY;
-
-        /** Mapped rows. */
-        private @Nullable R @Nullable [] mappedRows = (R[]) OBJECT_EMPTY_ARRAY;
+        @Nullable
+        private T[] rows = (T[]) OBJECT_EMPTY_ARRAY;
 
         /** Row index. */
         private int row = -1;
@@ -6169,8 +6136,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         @Nullable
         private Boolean hasNext = null;
 
-        @Nullable private final Function<T, R> mapper;
-
         /**
          * Lower unbound cursor.
          *
@@ -6178,16 +6143,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param upIncl {@code true} if upper bound is inclusive.
          * @param filter Filter closure.
          * @param arg Implementation specific argument, {@code null} always means that we need to return full detached data row.
-         * @param mapper Row mapper.
          */
-        ForwardCursor(
-                @Nullable L upperBound,
-                boolean upIncl,
-                @Nullable TreeRowClosure<L, T> filter,
-                @Nullable Object arg,
-                @Nullable Function<T, R> mapper
-        ) {
-            this(null, upperBound, true, upIncl, filter, arg, mapper);
+        ForwardCursor(@Nullable L upperBound, boolean upIncl, @Nullable TreeRowClosure<L, T> filter, @Nullable Object arg) {
+            this(null, upperBound, true, upIncl, filter, arg);
         }
 
         /**
@@ -6199,7 +6157,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param upIncl {@code true} if upper bound is inclusive.
          * @param filter Filter closure.
          * @param arg Implementation specific argument, {@code null} always means that we need to return full detached data row.
-         * @param mapper Row mapper.
          */
         ForwardCursor(
                 @Nullable L lowerBound,
@@ -6207,14 +6164,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 boolean lowIncl,
                 boolean upIncl,
                 @Nullable TreeRowClosure<L, T> filter,
-                @Nullable Object arg,
-                @Nullable Function<T, R> mapper
+                @Nullable Object arg
         ) {
             super(lowerBound, upperBound, lowIncl, upIncl);
 
             this.filter = filter;
             this.arg = arg;
-            this.mapper = mapper;
         }
 
         /** {@inheritDoc} */
@@ -6242,41 +6197,21 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 rows = (T[]) new Object[cnt0];
             }
 
-            if (mapper != null && mappedRows == OBJECT_EMPTY_ARRAY) {
-                mappedRows = (R[]) new Object[cnt0];
-            }
-
             int resCnt = 0;
 
             for (int idx = startIdx; idx < cnt; idx++) {
                 if (filter == null || filter.apply(BplusTree.this, io, pageAddr, idx)) {
-                    T r = getRow(io, pageAddr, idx, arg);
-
-                    rows = set(rows, resCnt, r);
-
-                    if (mapper != null) {
-                        mappedRows = set(mappedRows, resCnt, mapper.apply(r));
-                    }
-
-                    resCnt++;
+                    rows = set(rows, resCnt++, getRow(io, pageAddr, idx, arg));
                 }
             }
 
             if (resCnt == 0) {
                 rows = (T[]) OBJECT_EMPTY_ARRAY;
 
-                if (mapper != null) {
-                    mappedRows = (R[]) OBJECT_EMPTY_ARRAY;
-                }
-
                 return false;
             }
 
             clearTail(rows, resCnt);
-
-            if (mapper != null) {
-                clearTail(mappedRows, resCnt);
-            }
 
             return true;
         }
@@ -6294,17 +6229,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         void onNotFound(boolean readDone) {
             if (readDone) {
                 rows = null;
-                mappedRows = null;
             } else {
                 if (rows != OBJECT_EMPTY_ARRAY) {
                     assert rows.length > 0; // Otherwise it makes no sense to create an array.
 
                     // Fake clear.
                     rows[0] = null;
-
-                    if (mapper != null) {
-                        mappedRows[0] = null;
-                    }
                 }
             }
         }
@@ -6345,40 +6275,23 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             rows[last] = null;
 
-            if (mapper != null) {
-                mappedRows[last] = null;
-            }
-
             return r;
         }
 
         /** {@inheritDoc} */
         @Override
-        public R next() {
+        public T next() {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
 
-            R r = mapper == null ? (R) rows[row] : mappedRows[row];
+            T r = rows[row];
 
             assert r != null;
 
             hasNext = null;
 
             return r;
-        }
-
-        @Override
-        public T peekRow() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-
-            T t = rows[row];
-
-            assert t != null;
-
-            return t;
         }
 
         private boolean advance() {
@@ -6894,11 +6807,5 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         public boolean isCompleted() {
             return finished;
         }
-    }
-
-    /** Magic tmp cursor. */
-    public interface MagicCursor<T, R> extends Cursor<R> {
-        /** */
-        T peekRow();
     }
 }

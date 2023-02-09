@@ -26,7 +26,6 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -110,13 +109,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
      */
     protected PartitionTimestampCursor scan(HybridTimestamp timestamp) {
         return storage.scan(timestamp);
-    }
-
-    /**
-     * Scans row versions.
-     */
-    protected Cursor<ReadResult> scan(RowId rowId) {
-        return storage.scanVersions(rowId);
     }
 
     /**
