@@ -68,6 +68,7 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTre
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -316,16 +317,25 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                         String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
             }
 
-            VersionChain versionChain = findVersionChain(rowId);
+            try {
+                return versionChainTree.findOne(new VersionChainKey(rowId), versionChain -> {
+                    if (versionChain == null) {
+                        return ReadResult.empty(rowId);
+                    }
 
-            if (versionChain == null) {
-                return ReadResult.empty(rowId);
-            }
+                    if (lookingForLatestVersion(timestamp)) {
+                        return findLatestRowVersion(versionChain);
+                    } else {
+                        return findRowVersionByTimestamp(versionChain, timestamp);
+                    }
+                });
+            } catch (IgniteInternalCheckedException e) {
+                Throwable cause = e.getCause() instanceof StorageException ? e.getCause() : e;
 
-            if (lookingForLatestVersion(timestamp)) {
-                return findLatestRowVersion(versionChain);
-            } else {
-                return findRowVersionByTimestamp(versionChain, timestamp);
+                throw new StorageException(
+                        "Row version lookup failed: [rowId={}, timestamp={}, {}]",
+                        cause,
+                        rowId, timestamp, createStorageInfo());
             }
         });
     }
@@ -706,8 +716,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            // TODO: IGNITE-18717 Add lock by rowId
-            return new ScanVersionsCursor(rowId, this);
+            try {
+                return versionChainTree.findOne(new VersionChainKey(rowId), versionChain -> {
+                    if (versionChain == null) {
+                        return CursorUtils.emptyCursor();
+                    }
+
+                    return new ScanVersionsCursor(versionChain, this);
+                });
+            } catch (IgniteInternalCheckedException e) {
+                Throwable cause = e.getCause() instanceof StorageException ? e.getCause() : e;
+
+                throw new StorageException("Error collecting row versions: [rowId={}, {}]", cause, rowId, createStorageInfo());
+            }
         });
     }
 

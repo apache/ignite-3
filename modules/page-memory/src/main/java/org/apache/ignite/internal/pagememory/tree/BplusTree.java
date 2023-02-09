@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.tree.BplusTree.Bool.DONE;
 import static org.apache.ignite.internal.pagememory.tree.BplusTree.Bool.FALSE;
@@ -48,6 +49,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.pagememory.CorruptedDataStructureException;
@@ -1507,11 +1509,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         try {
             if (c == null) {
-                g = new GetOne(null, null, null, true);
+                GetOne<T> getOne = new GetOne<>(null, null, null, null, true);
+
+                g = getOne;
 
                 doFind(g);
 
-                return (T) g.row;
+                return getOne.res;
             } else {
                 GetLast getLast = new GetLast(c);
 
@@ -1542,25 +1546,52 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @throws IgniteInternalCheckedException If failed.
      */
     public final <R> @Nullable R findOne(L row, Object x) throws IgniteInternalCheckedException {
-        return findOne(row, null, x);
+        return findOne(row, null, null, x);
     }
 
     /**
      * Returns found result or {@code null}.
      *
      * @param row Lookup row for exact match.
-     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
-     * @throws IgniteInternalCheckedException If failed.
+     * @param mapper Function of mapping a tree row to an object, function is executed under the read lock of the page on which the tree row
+     *      is located. If the tree row is not found, then {@code null} will be passed to the function.
+     * @throws CorruptedDataStructureException If the data structure is broken.
+     * @throws CorruptedTreeException If there were {@link RuntimeException} or {@link AssertionError}.
+     * @throws IgniteInternalCheckedException If other errors occurred.
      */
-    public final <R> @Nullable R findOne(L row, @Nullable TreeRowClosure<L, T> c, Object x) throws IgniteInternalCheckedException {
+    public final <R> @Nullable R findOne(L row, Function<T, R> mapper) throws IgniteInternalCheckedException {
+        requireNonNull(row);
+        requireNonNull(mapper);
+
+        return findOne(row, null, mapper, null);
+    }
+
+    /**
+     * Returns found result or {@code null}.
+     *
+     * @param row Lookup row for exact match.
+     * @param c Closure filter.
+     * @param mapper Function of mapping a tree row to an object, function is executed under the read lock of the page on which the tree row
+     *      is located. If the tree row is not found, then {@code null} will be passed to the function.
+     * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
+     * @throws CorruptedDataStructureException If the data structure is broken.
+     * @throws CorruptedTreeException If there were {@link RuntimeException} or {@link AssertionError}.
+     * @throws IgniteInternalCheckedException If other errors occurred.
+     */
+    public final <R> @Nullable R findOne(
+            L row,
+            @Nullable TreeRowClosure<L, T> c,
+            @Nullable Function<T, R> mapper,
+            @Nullable Object x
+    ) throws IgniteInternalCheckedException {
         checkDestroyed();
 
-        GetOne g = new GetOne(row, c, x, false);
+        GetOne<R> g = new GetOne<>(row, c, mapper, x, false);
 
         try {
             doFind(g);
 
-            return (R) g.row;
+            return g.res;
         } catch (CorruptedDataStructureException e) {
             throw e;
         } catch (IgniteInternalCheckedException e) {
@@ -1575,7 +1606,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /** {@inheritDoc} */
     @Override
     public final T findOne(L row) throws IgniteInternalCheckedException {
-        return findOne(row, null, null);
+        return findOne(row, null, null, null);
     }
 
     /**
@@ -3353,27 +3384,39 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Get a single entry.
      */
-    private final class GetOne extends Get {
-        Object arg;
+    private final class GetOne<R> extends Get {
+        private final @Nullable Object arg;
 
-        @Nullable TreeRowClosure<L, T> filter;
+        private final @Nullable TreeRowClosure<L, T> filter;
+
+        private final @Nullable Function<T, R> mapper;
+
+        private @Nullable R res;
 
         /**
          * Constructor.
          *
          * @param row Row.
          * @param filter Closure filter.
+         * @param mapper Function of mapping a tree row to an object, function is executed under the read lock of the page on which the tree
+         *      row is located. If the tree row is not found, then {@code null} will be passed to the function.
          * @param arg Implementation specific argument.
          * @param findLast Ignore row passed, find last row
          */
-        private GetOne(L row, @Nullable TreeRowClosure<L, T> filter, Object arg, boolean findLast) {
+        private GetOne(
+                @Nullable L row,
+                @Nullable TreeRowClosure<L, T> filter,
+                @Nullable Function<T, R> mapper,
+                @Nullable Object arg,
+                boolean findLast
+        ) {
             super(row, findLast);
 
             this.arg = arg;
             this.filter = filter;
+            this.mapper = mapper;
         }
 
-        /** {@inheritDoc} */
         @Override
         boolean found(BplusIo<L> io, long pageAddr, int idx, int lvl) throws IgniteInternalCheckedException {
             // Check if we are on an inner page and can't get row from it.
@@ -3381,9 +3424,26 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 return false;
             }
 
-            row = filter == null || filter.apply(BplusTree.this, io, pageAddr, idx) ? getRow(io, pageAddr, idx, arg) : null;
+            if (filter == null || filter.apply(BplusTree.this, io, pageAddr, idx)) {
+                T treeRow = getRow(io, pageAddr, idx, arg);
+
+                res = mapper == null ? (R) treeRow : mapper.apply(treeRow);
+            }
 
             return true;
+        }
+
+        @Override
+        boolean notFound(BplusIo<L> io, long pageAddr, int idx, int lvl) {
+            assert lvl >= 0 : lvl;
+
+            if (lvl == 0) {
+                res = mapper == null ? null : mapper.apply(null);
+
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -5745,7 +5805,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public abstract T getRow(BplusIo<L> io, long pageAddr, int idx, Object x) throws IgniteInternalCheckedException;
+    public abstract T getRow(BplusIo<L> io, long pageAddr, int idx, @Nullable Object x) throws IgniteInternalCheckedException;
 
     /**
      * Abstract forward cursor.
