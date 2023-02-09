@@ -53,6 +53,7 @@ import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -452,20 +453,19 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * Init channel holders, establish connection to default channel.
      */
-    CompletableFuture<Void> channelsInitAsync() {
+    CompletableFuture<ClientChannel> channelsInitAsync() {
         // Do not establish connections if interrupted.
         if (!initChannelHolders()) {
             return CompletableFuture.completedFuture(null);
         }
 
         // Establish default channel connection.
-        getDefaultChannelAsync();
+        var fut = getDefaultChannelAsync();
 
         // Establish secondary connections in the background.
         initAllChannelsAsync();
 
-        // TODO: Async startup IGNITE-15357.
-        return CompletableFuture.completedFuture(null);
+        return fut;
     }
 
     /**

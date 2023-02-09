@@ -98,7 +98,7 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<Void> initAsync() {
+    private CompletableFuture<ClientChannel> initAsync() {
         return ch.channelsInitAsync();
     }
 
