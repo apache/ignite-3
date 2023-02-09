@@ -148,10 +148,14 @@ public final class ReliableChannel implements AutoCloseable {
         List<ClusterNode> res = new ArrayList<>(channels.size());
 
         for (var holder : nodeChannelsByName.values()) {
-            var ch = holder.ch;
+            var chFut = holder.ch;
 
-            if (ch != null) {
-                res.add(ch.protocolContext().clusterNode());
+            if (chFut != null) {
+                var ch = chFut.getNow(null);
+
+                if (ch != null) {
+                    res.add(ch.protocolContext().clusterNode());
+                }
             }
         }
 
