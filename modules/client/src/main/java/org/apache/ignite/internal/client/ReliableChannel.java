@@ -344,7 +344,7 @@ public final class ReliableChannel implements AutoCloseable {
      *
      * @return boolean wheter channels was reinited.
      */
-    synchronized boolean initChannelHolders() {
+    private synchronized boolean initChannelHolders() {
         List<ClientChannelHolder> holders = channels;
 
         // Enable parallel threads to schedule new init of channel holders.

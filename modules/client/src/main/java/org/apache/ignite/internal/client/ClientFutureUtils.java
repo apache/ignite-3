@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -62,7 +61,13 @@ public class ClientFutureUtils {
                 if (retryPredicate.test(ctx)) {
                     apply(func, validator, retryPredicate, resFut, ctx);
                 } else {
-                    resFut.completeExceptionally(new RetryError(ctx.errors));
+                    var resErr = ctx.errors.get(0);
+
+                    for (int i = 1; i < ctx.errors.size(); i++) {
+                        resErr.addSuppressed(ctx.errors.get(i));
+                    }
+
+                    resFut.completeExceptionally(resErr);
                 }
             } catch (Throwable t) {
                 resFut.completeExceptionally(t);
@@ -76,18 +81,6 @@ public class ClientFutureUtils {
 
         public Throwable lastError() {
             return errors.get(errors.size() - 1);
-        }
-    }
-
-    public static class RetryError extends RuntimeException {
-        private static final long serialVersionUID = 0L;
-
-        public final List<Throwable> errors;
-
-        public RetryError(List<Throwable> errors) {
-            super("Failed to execute the operation");
-
-            this.errors = errors;
         }
     }
 }
