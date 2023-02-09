@@ -24,7 +24,7 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
 import java.util.stream.Collectors;
-import org.apache.ignite.client.ClientAuthConfiguration;
+import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -111,7 +111,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     @NotNull
     private static String[] clientAuthValues() {
-        return Arrays.stream(ClientAuthConfiguration.values())
+        return Arrays.stream(ClientAuthenticationMode.values())
                 .map(Enum::name)
                 .map(String::toLowerCase)
                 .collect(Collectors.toList())
@@ -313,13 +313,13 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     @Override
-    public void setClientAuth(ClientAuthConfiguration clientAuth) {
+    public void setClientAuth(ClientAuthenticationMode clientAuth) {
         this.clientAuth.setValue(clientAuth.name().toLowerCase());
     }
 
     @Override
-    public ClientAuthConfiguration getClientAuth() {
-        return ClientAuthConfiguration.valueOf(this.clientAuth.value().toUpperCase());
+    public ClientAuthenticationMode getClientAuth() {
+        return ClientAuthenticationMode.valueOf(this.clientAuth.value().toUpperCase());
     }
 
     /**

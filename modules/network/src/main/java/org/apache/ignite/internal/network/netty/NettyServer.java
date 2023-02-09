@@ -132,7 +132,7 @@ public class NettyServer {
                             HandshakeManager manager = handshakeManager.get();
 
                             if (configuration.ssl().enabled()) {
-                                SslContext sslContext = SslContextProvider.forServer(configuration.ssl()).createSslContext();
+                                SslContext sslContext = SslContextProvider.createServerSslContext(configuration.ssl());
                                 PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener, sslContext);
                             } else {
                                 PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);

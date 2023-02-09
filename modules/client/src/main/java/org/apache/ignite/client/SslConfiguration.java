@@ -22,18 +22,29 @@ import org.jetbrains.annotations.Nullable;
 
 /** Client SSL configuration. */
 public interface SslConfiguration {
-
     /** If set to {@code true} then the SSL connection will be used to interact with Ignite 3 node. */
     boolean enabled();
 
     /** Client authentication configuration. */
-    ClientAuthConfiguration clientAuth();
+    ClientAuthenticationMode clientAuthenticationMode();
 
-    /** Keystore configuration. */
-    @Nullable KeystoreConfiguration keyStore();
+    /** Keystore path that will be used to setup the SSL connection. */
+    @Nullable String keyStorePath();
 
-    /** Truststore configuration. */
-    @Nullable KeystoreConfiguration trustStore();
+    /** Keystore password that will be used to setup the SSL connection. */
+    @Nullable String keyStorePassword();
+
+    /** Keystore type that will be used to setup the SSL connection. */
+    String keyStoreType();
+
+    /** Truststore path that will be used to setup the SSL connection. */
+    @Nullable String trustStorePath();
+
+    /** Truststore password that will be used to setup the SSL connection. */
+    @Nullable String trustStorePassword();
+
+    /** Truststore type that will be used to setup the SSL connection. */
+    String trustStoreType();
 
     /** SSL configuration builder. */
     static SslConfigurationBuilder builder() {

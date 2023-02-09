@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.client.ClientAuthConfiguration;
-import org.apache.ignite.client.KeystoreConfiguration;
+import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.SslConfiguration;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,19 +25,39 @@ import org.jetbrains.annotations.Nullable;
 public class SslConfigurationImpl implements SslConfiguration {
     private final boolean enabled;
 
-    private final ClientAuthConfiguration clientAuth;
+    private final ClientAuthenticationMode clientAuth;
 
-    private final KeystoreConfiguration keyStore;
+    private final @Nullable String keyStorePath;
 
-    private final KeystoreConfiguration trustStore;
+    private final @Nullable String keyStorePassword;
+
+    private final String keyStoreType;
+
+    private final @Nullable String trustStorePath;
+
+    private final @Nullable String trustStorePassword;
+
+    private final String trustStoreType;
 
     /** Main constructor. */
-    SslConfigurationImpl(boolean enabled, ClientAuthConfiguration clientAuth,
-            @Nullable KeystoreConfiguration keyStore, @Nullable KeystoreConfiguration trustStore) {
+    SslConfigurationImpl(
+            boolean enabled,
+            ClientAuthenticationMode clientAuth,
+            @Nullable String keyStorePath,
+            @Nullable String keyStorePassword,
+            String keyStoreType,
+            @Nullable String trustStorePath,
+            @Nullable String trustStorePassword,
+            String trustStoreType
+    ) {
         this.enabled = enabled;
         this.clientAuth = clientAuth;
-        this.keyStore = keyStore;
-        this.trustStore = trustStore;
+        this.keyStorePath = keyStorePath;
+        this.keyStorePassword = keyStorePassword;
+        this.keyStoreType = keyStoreType;
+        this.trustStorePath = trustStorePath;
+        this.trustStorePassword = trustStorePassword;
+        this.trustStoreType = trustStoreType;
     }
 
     /** {@inheritDoc} */
@@ -49,19 +68,43 @@ public class SslConfigurationImpl implements SslConfiguration {
 
     /** {@inheritDoc} */
     @Override
-    public ClientAuthConfiguration clientAuth() {
+    public ClientAuthenticationMode clientAuthenticationMode() {
         return clientAuth;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable KeystoreConfiguration keyStore() {
-        return keyStore;
+    public @Nullable String keyStorePath() {
+        return keyStorePath;
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable KeystoreConfiguration trustStore() {
-        return trustStore;
+    public @Nullable String keyStorePassword() {
+        return keyStorePassword;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String keyStoreType() {
+        return keyStoreType;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable String trustStorePath() {
+        return trustStorePath;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable String trustStorePassword() {
+        return trustStorePassword;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String trustStoreType() {
+        return trustStoreType;
     }
 }

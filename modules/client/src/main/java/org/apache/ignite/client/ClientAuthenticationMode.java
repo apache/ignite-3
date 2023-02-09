@@ -17,17 +17,15 @@
 
 package org.apache.ignite.client;
 
-import org.jetbrains.annotations.Nullable;
+/** Ignite SSL client authentication enum. */
+public enum ClientAuthenticationMode {
+    /** Indicates that the client authentication will not be requested. */
+    NONE,
 
-/** Keystore configuration. */
-public interface KeystoreConfiguration {
+    /** Indicates that the client authentication will be requested. */
+    OPTIONAL,
 
-    /** Keystore path that will be used to setup the SSL connection. */
-    @Nullable String path();
-
-    /** Keystore password that will be used to setup the SSL connection. */
-    @Nullable String password();
-
-    /** Keystore type that will be used to setup the SSL connection. */
-    String type();
+    /** Indicates that the client authentication will be requested and the connection will be closed if the client
+     * certificate is not trusted. */
+    REQUIRE
 }

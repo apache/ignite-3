@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
-import org.apache.ignite.client.ClientAuthConfiguration;
+import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.internal.client.HostAndPortRange;
 
 /**
@@ -147,14 +147,14 @@ public interface ConnectionProperties {
      *
      * @param clientAuth SSL client authentication.
      */
-    void setClientAuth(ClientAuthConfiguration clientAuth);
+    void setClientAuth(ClientAuthenticationMode clientAuth);
 
     /**
      * SSL client authentication.
      *
      * @return SSL client authentication.
      */
-    ClientAuthConfiguration getClientAuth();
+    ClientAuthenticationMode getClientAuth();
 
     /**
      * Set trust store path that will be used to setup SSL connection.

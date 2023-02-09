@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.CLIENT_SSL_CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 
 import io.netty.bootstrap.Bootstrap;
@@ -29,6 +30,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,15 +41,15 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
-import org.apache.ignite.client.ClientAuthConfiguration;
+import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
-import org.apache.ignite.client.IgniteClientSslException;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Netty-based multiplexer.
@@ -96,21 +98,13 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
 
         try {
-            var trustStore = clientCfg.sslConfiguration().trustStore();
-            if (trustStore == null) {
-                throw new IgniteClientSslException("SSL is enabled but no trust store is provided");
-            }
-            if (trustStore.path() == null) {
-                throw new IgniteClientSslException("SSL is enabled but no path to trust store is provided");
-            }
+            var ssl = clientCfg.sslConfiguration();
 
-            KeyStore ts = KeyStore.getInstance(trustStore.type());
-            ts.load(
-                    Files.newInputStream(Path.of(trustStore.path())),
-                    trustStore.password() == null
-                            ? null
-                            : trustStore.password().toCharArray()
-            );
+            KeyStore ts = KeyStore.getInstance(ssl.trustStoreType());
+            char[] tsPassword = ssl.trustStorePassword() == null ? null : ssl.trustStorePassword().toCharArray();
+            InputStream tsStream = ssl.trustStorePath() == null ? null : Files.newInputStream(Path.of(ssl.trustStorePath()));
+
+            ts.load(tsStream, tsPassword);
 
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
                     TrustManagerFactory.getDefaultAlgorithm()
@@ -119,20 +113,14 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
             var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
 
-            ClientAuth clientAuth = toNettyClientAuth(clientCfg.sslConfiguration().clientAuth());
+            ClientAuth clientAuth = toNettyClientAuth(clientCfg.sslConfiguration().clientAuthenticationMode());
             if (ClientAuth.NONE != clientAuth) {
-                var keystore = clientCfg.sslConfiguration().keyStore();
-                if (keystore == null) {
-                    throw new IgniteClientSslException("SSL client authentication is enabled but no key store is provided");
-                }
-                if (keystore.path() == null) {
-                    throw new IgniteClientSslException("SSL client authentication is enabled but no key store path is provided");
-                }
+                KeyStore ks = KeyStore.getInstance(ssl.keyStoreType());
 
-                char[] ksPassword = keystore.password() == null ? null : keystore.password().toCharArray();
+                char[] ksPassword = ssl.keyStorePassword() == null ? null : ssl.keyStorePassword().toCharArray();
+                InputStream ksStream = ssl.keyStorePath() == null ? null : Files.newInputStream(Path.of(ssl.keyStorePath()));
 
-                KeyStore ks = KeyStore.getInstance(keystore.type());
-                ks.load(Files.newInputStream(Path.of(keystore.path())), ksPassword);
+                ks.load(ksStream, ksPassword);
 
                 KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
                 keyManagerFactory.init(ks, ksPassword);
@@ -144,12 +132,12 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
             ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
-            throw new IgniteClientSslException("Client SSL configuration error: " + e.getMessage(), e);
+            throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
         }
 
     }
 
-    private ClientAuth toNettyClientAuth(ClientAuthConfiguration igniteClientAuth) {
+    private ClientAuth toNettyClientAuth(ClientAuthenticationMode igniteClientAuth) {
         switch (igniteClientAuth) {
             case NONE: return ClientAuth.NONE;
             case REQUIRE: return ClientAuth.REQUIRE;

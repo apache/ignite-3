@@ -42,7 +42,6 @@ public class PipelineUtils {
      */
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
             HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener, SslContext sslContext) {
-
         pipeline.addFirst("ssl", sslContext.newHandler(pipeline.channel().alloc()));
 
         setup(pipeline, serializationService, handshakeManager, messageListener);
@@ -58,7 +57,6 @@ public class PipelineUtils {
      */
     public static void setup(ChannelPipeline pipeline, PerSessionSerializationService serializationService,
             HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) {
-
         pipeline.addLast(InboundDecoder.NAME, new InboundDecoder(serializationService));
         pipeline.addLast(HandshakeHandler.NAME, new HandshakeHandler(handshakeManager, messageListener, serializationService));
         pipeline.addLast(CHUNKED_WRITE_HANDLER_NAME, new ChunkedWriteHandler());

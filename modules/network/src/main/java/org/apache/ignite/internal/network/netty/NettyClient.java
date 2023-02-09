@@ -122,7 +122,7 @@ public class NettyClient {
                     var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
                     if (configuration.enabled()) {
-                        SslContext sslContext = SslContextProvider.forClient(configuration).createSslContext();
+                        SslContext sslContext = SslContextProvider.createClientSslContext(configuration);
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener, sslContext);
                     } else {
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);

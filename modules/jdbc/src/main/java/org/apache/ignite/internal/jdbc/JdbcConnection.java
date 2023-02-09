@@ -197,7 +197,7 @@ public class JdbcConnection implements Connection {
 
     private void setupSsl(Builder builder) {
         if (connProps.isSslEnabled()) {
-            builder.sslConfiguration(
+            builder.ssl(
                     SslConfiguration.builder()
                             .enabled(true)
                             .trustStoreType(connProps.getTrustStoreType())

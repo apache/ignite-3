@@ -37,19 +37,16 @@ public class ItSslClientHandlerTest {
     /** Magic bytes. */
     private static final byte[] MAGIC = {0x49, 0x47, 0x4E, 0x49};
 
-    ClientHandlerModule serverModule;
+    private ClientHandlerModule serverModule;
 
-    TestServer testServer;
+    private TestServer testServer;
 
-    int serverPort;
+    private int serverPort;
 
-    String password;
-
-    String keyStorePkcs12Path;
+    private String keyStorePkcs12Path;
 
     @BeforeEach
     void setUp() {
-        password = "changeit";
         keyStorePkcs12Path = ItSslClientHandlerTest.class.getClassLoader().getResource("ssl/keystore.pfx").getPath();
     }
 
@@ -78,7 +75,7 @@ public class ItSslClientHandlerTest {
         testServer = new TestServer(
                 TestSslConfig.builder()
                         .keyStorePath(keyStorePkcs12Path)
-                        .keyStorePassword(password)
+                        .keyStorePassword("changeit")
                         .build()
         );
         serverModule = testServer.start(testInfo);

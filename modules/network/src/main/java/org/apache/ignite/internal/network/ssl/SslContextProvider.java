@@ -17,22 +17,77 @@
 
 package org.apache.ignite.internal.network.ssl;
 
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import java.io.IOException;
+import java.nio.file.NoSuchFileException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.internal.network.configuration.SslView;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 
 /** SSL context provider. */
-public interface SslContextProvider {
+public final class SslContextProvider {
 
-    /** Create an instance of client SSL context provider. */
-    static SslContextProvider forClient(SslView ssl) {
-        return new ClientSslContextProvider(ssl);
+    private SslContextProvider() {
+        throw new AssertionError("SllContextProvider should not be instantiated");
     }
 
-    /** Create an instance of server SSL context provider. */
-    static SslContextProvider forServer(SslView ssl) {
-        return new ServerSslContextProvider(ssl);
+    /** Create client SSL context. */
+    public static SslContext createClientSslContext(SslView ssl) {
+        try {
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(KeystoreLoader.load(ssl.trustStore()));
+
+            var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
+
+            ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
+            if (ClientAuth.NONE == clientAuth) {
+                return builder.build();
+            }
+
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            keyManagerFactory.init(KeystoreLoader.load(ssl.keyStore()), ssl.keyStore().password().toCharArray());
+
+            builder.keyManager(keyManagerFactory);
+
+            return builder.build();
+        } catch (NoSuchFileException e) {
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", e.getMessage()), e);
+        } catch (IOException | CertificateException | KeyStoreException | NoSuchAlgorithmException | UnrecoverableKeyException e) {
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, e);
+        }
     }
 
-    /** Create SSL context. */
-    SslContext createSslContext();
+    /** Create server SSL context. */
+    public static SslContext createServerSslContext(SslView ssl) {
+        try {
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            keyManagerFactory.init(KeystoreLoader.load(ssl.keyStore()), ssl.keyStore().password().toCharArray());
+
+            var builder = SslContextBuilder.forServer(keyManagerFactory);
+
+            ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
+            if (ClientAuth.NONE == clientAuth) {
+                return builder.build();
+            }
+
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(KeystoreLoader.load(ssl.trustStore()));
+
+            builder.clientAuth(clientAuth).trustManager(trustManagerFactory);
+
+            return builder.build();
+        } catch (NoSuchFileException e) {
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, String.format("File %s not found", e.getMessage()), e);
+        } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | IOException e) {
+            throw new IgniteException(Common.SSL_CONFIGURATION_ERR, e);
+        }
+    }
 }

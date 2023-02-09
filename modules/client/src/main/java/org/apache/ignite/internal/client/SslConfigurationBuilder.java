@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.client.ClientAuthConfiguration;
+import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.SslConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /** SSL configuration builder. */
 public class SslConfigurationBuilder {
-    private static String DEFAULT_KEYSTORE_TYPE = "PKCS12";
+    private static final String DEFAULT_KEYSTORE_TYPE = "PKCS12";
 
     private boolean enabled = false;
 
-    private ClientAuthConfiguration clientAuth = ClientAuthConfiguration.NONE;
+    private ClientAuthenticationMode clientAuth = ClientAuthenticationMode.NONE;
 
     private @Nullable String keyStorePath;
 
@@ -48,9 +48,9 @@ public class SslConfigurationBuilder {
     }
 
     /** SSL client authentication setter. */
-    public SslConfigurationBuilder clientAuth(@Nullable ClientAuthConfiguration clientAuth) {
+    public SslConfigurationBuilder clientAuth(@Nullable ClientAuthenticationMode clientAuth) {
         if (clientAuth == null) {
-            this.clientAuth = ClientAuthConfiguration.NONE;
+            this.clientAuth = ClientAuthenticationMode.NONE;
             return this;
         }
 
@@ -106,9 +106,8 @@ public class SslConfigurationBuilder {
 
     /** Build SslConfiguration instance. */
     public SslConfiguration build() {
-        KeystoreConfigurationImpl keyStore = new KeystoreConfigurationImpl(keyStorePath, keyStorePassword, keyStoreType);
-        KeystoreConfigurationImpl trustStore = new KeystoreConfigurationImpl(trustStorePath, trustStorePassword, trustStoreType);
-
-        return new SslConfigurationImpl(enabled, clientAuth, keyStore, trustStore);
+        return new SslConfigurationImpl(
+                enabled, clientAuth, keyStorePath, keyStorePassword, keyStoreType, trustStorePath, trustStorePassword, trustStoreType
+        );
     }
 }

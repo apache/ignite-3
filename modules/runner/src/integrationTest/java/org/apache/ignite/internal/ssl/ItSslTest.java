@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.ssl;
 
-import static org.apache.ignite.client.ClientAuthConfiguration.REQUIRE;
+import static org.apache.ignite.client.ClientAuthenticationMode.REQUIRE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -202,7 +202,7 @@ public class ItSslTest {
 
             try (IgniteClient client = IgniteClient.builder()
                     .addresses("localhost:10800")
-                    .sslConfiguration(sslConfiguration)
+                    .ssl(sslConfiguration)
                     .build()
             ) {
                 assertThat(client.clusterNodes(), hasSize(2));
@@ -316,7 +316,7 @@ public class ItSslTest {
             assertThrows(IgniteClientConnectionException.class,
                     () -> IgniteClient.builder()
                             .addresses("localhost:10800")
-                            .sslConfiguration(sslConfiguration)
+                            .ssl(sslConfiguration)
                             .build()
             );
         }
@@ -337,7 +337,7 @@ public class ItSslTest {
 
             try (IgniteClient client = IgniteClient.builder()
                     .addresses("localhost:10800")
-                    .sslConfiguration(sslConfiguration)
+                    .ssl(sslConfiguration)
                     .build()
             ) {
                 assertThat(client.clusterNodes(), hasSize(2));

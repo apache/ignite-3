@@ -201,7 +201,7 @@ public class ClientHandlerModule implements IgniteComponent {
                         }
 
                         if (configuration.ssl().enabled()) {
-                            SslContext sslContext =  SslContextProvider.forServer(configuration.ssl()).createSslContext();
+                            SslContext sslContext =  SslContextProvider.createServerSslContext(configuration.ssl());
 
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
