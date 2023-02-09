@@ -463,7 +463,7 @@ public final class ReliableChannel implements AutoCloseable {
         var fut = getDefaultChannelAsync();
 
         // Establish secondary connections in the background.
-        initAllChannelsAsync();
+        fut.thenAccept(unused -> initAllChannelsAsync());
 
         return fut;
     }
