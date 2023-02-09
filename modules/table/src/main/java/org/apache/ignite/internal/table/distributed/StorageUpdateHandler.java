@@ -230,6 +230,10 @@ public class StorageUpdateHandler {
                 for (int i = 0, indexesLength = indexes.length; i < indexesLength; i++) {
                     TableSchemaAwareIndexStorage index = indexes[i];
 
+                    if (index == null) {
+                        continue;
+                    }
+
                     // If any of the previous versions' index value matches the index value of
                     // the row to remove, then we can't remove that index as it can still be used.
                     BinaryTuple previousRowIndex = index.calculateIndex(previousRow);
