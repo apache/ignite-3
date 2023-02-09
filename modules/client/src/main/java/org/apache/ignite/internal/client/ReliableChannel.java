@@ -183,8 +183,8 @@ public final class ReliableChannel implements AutoCloseable {
     ) {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName, preferredNodeId)
-                .thenCompose(ch -> ch.serviceAsync(opCode, payloadWriter, payloadReader)),
-                r -> true,
+                        .thenCompose(ch -> ch.serviceAsync(opCode, payloadWriter, payloadReader)),
+                null,
                 ctx -> shouldRetry(opCode, ctx));
     }
 

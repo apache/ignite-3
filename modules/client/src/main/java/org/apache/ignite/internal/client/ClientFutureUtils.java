@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Future utils.
@@ -29,7 +30,7 @@ import java.util.function.Supplier;
 public class ClientFutureUtils {
     public static <T> CompletableFuture<T> doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
-            Predicate<T> resultValidator,
+            @Nullable Predicate<T> resultValidator,
             Predicate<RetryContext> retryPredicate) {
         CompletableFuture<T> resFut = new CompletableFuture<>();
         var ctx = new RetryContext();
@@ -41,13 +42,13 @@ public class ClientFutureUtils {
 
     private static <T> void apply(
             Supplier<CompletableFuture<T>> func,
-            Predicate<T> validator,
+            @Nullable Predicate<T> validator,
             Predicate<RetryContext> retryPredicate,
             CompletableFuture<T> resFut,
             RetryContext ctx) {
         func.get().whenComplete((res, err) -> {
             try {
-                if (err == null && validator.test(res)) {
+                if (err == null && (validator == null || validator.test(res))) {
                     resFut.complete(res);
                     return;
                 }
