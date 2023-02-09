@@ -96,13 +96,7 @@ public class MultiClusterTest {
             IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(
                     () -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");
 
-            IgniteClientConnectionException cause = (IgniteClientConnectionException) ExceptionUtils.getSuppressedList(ex).stream()
-                    .filter(e -> e.getCause().getMessage().contains("Cluster ID mismatch"))
-                    .findFirst()
-                    .orElseThrow()
-                    .getCause();
-
-            assertEquals(CLUSTER_ID_MISMATCH_ERR, cause.code());
+            assertEquals(CLUSTER_ID_MISMATCH_ERR, ex.code());
         }
     }
 
