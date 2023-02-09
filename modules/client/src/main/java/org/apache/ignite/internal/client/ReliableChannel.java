@@ -664,13 +664,7 @@ public final class ReliableChannel implements AutoCloseable {
          * Get or create channel.
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
-            return getOrCreateChannelAsync(false).whenComplete((ch, err) -> {
-                if (err != null) {
-                    onChannelFailure(this, ch);
-
-                    log.warn("Failed to establish connection to " + chCfg.getAddress() + ": " + err.getMessage(), err);
-                }
-            });
+            return getOrCreateChannelAsync(false);
         }
 
         /**
@@ -739,8 +733,11 @@ public final class ReliableChannel implements AutoCloseable {
                     return ch1;
                 });
 
-                ch0.exceptionally(unused -> {
+                ch0.exceptionally(err -> {
                     closeChannel();
+                    onChannelFailure(this, null);
+
+                    log.warn("Failed to establish connection to " + chCfg.getAddress() + ": " + err.getMessage(), err);
 
                     return null;
                 });
