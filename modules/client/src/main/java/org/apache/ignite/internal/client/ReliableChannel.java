@@ -667,6 +667,8 @@ public final class ReliableChannel implements AutoCloseable {
             return getOrCreateChannelAsync(false).whenComplete((ch, err) -> {
                 if (err != null) {
                     onChannelFailure(this, ch);
+
+                    log.warn("Failed to establish connection to " + chCfg.getAddress() + ": " + err.getMessage(), err);
                 }
             });
         }
