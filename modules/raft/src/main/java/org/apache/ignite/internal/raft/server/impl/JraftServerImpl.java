@@ -117,6 +117,9 @@ public class JraftServerImpl implements RaftServer {
     /** Marshaller for RAFT commands. */
     private final Marshaller commandsMarshaller;
 
+    /** Raft service event listener. */
+    private RaftServiceEventListener serviceEventListener;
+
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
@@ -174,6 +177,7 @@ public class JraftServerImpl implements RaftServer {
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
         commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
+        serviceEventListener = new RaftServiceEventListener();
     }
 
     /** {@inheritDoc} */
@@ -220,7 +224,8 @@ public class JraftServerImpl implements RaftServer {
                 service,
                 nodeManager,
                 opts.getRaftMessagesFactory(),
-                requestExecutor
+                requestExecutor,
+                serviceEventListener
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
@@ -397,7 +402,7 @@ public class JraftServerImpl implements RaftServer {
 
             nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 
-            nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(evLsnr));
+            nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventListener, evLsnr));
 
             LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory() == null
                     ? this.logStorageFactory : groupOptions.getLogStorageFactory();
