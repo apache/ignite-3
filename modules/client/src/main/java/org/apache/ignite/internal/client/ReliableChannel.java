@@ -568,12 +568,19 @@ public final class ReliableChannel implements AutoCloseable {
                     curChannelsGuard.readLock().unlock();
                 }
 
+                // TODO: Async startup IGNITE-15357.
                 c = hld.getOrCreateChannel();
 
                 if (c != null) {
                     return c;
                 }
-            } catch (IgniteClientConnectionException e) {
+            } catch (CompletionException ce) {
+                if (!(ce.getCause() instanceof IgniteClientConnectionException)) {
+                    throw ce;
+                }
+
+                var e = (IgniteClientConnectionException)ce.getCause();
+
                 if (failure == null) {
                     failure = e;
                 } else {
