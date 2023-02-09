@@ -973,12 +973,27 @@ public class IgniteUtils {
      * @return Optional containing element (if present).
      */
     public static <T> Optional<T> findAny(Collection<T> collection) {
-        if (collection.isEmpty()) {
-            return Optional.empty();
-        } else {
-            Iterator<T> it = collection.iterator();
-            T t = it.next();
-            return Optional.ofNullable(t);
+        return findAny(collection, null);
+    }
+
+    /**
+     * Find any element in given collection for which the predicate returns {@code true}.
+     *
+     * @param collection Collection.
+     * @param predicate Predicate.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(Collection<T> collection, @Nullable Predicate<T> predicate) {
+        if (!collection.isEmpty()) {
+            for (Iterator<T> it = collection.iterator(); it.hasNext(); ) {
+                T t = it.next();
+
+                if (predicate == null || predicate.test(t)) {
+                    return Optional.ofNullable(t);
+                }
+            }
         }
+
+        return Optional.empty();
     }
 }

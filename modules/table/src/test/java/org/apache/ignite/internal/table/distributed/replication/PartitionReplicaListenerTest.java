@@ -360,7 +360,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
-                .commitTimestamp(clock.now())
+                .readTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 
@@ -380,7 +380,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
-                .commitTimestamp(readTimestamp)
+                .readTimestamp(readTimestamp)
                 .txId(txId)
                 .build());
 
@@ -397,7 +397,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> fut = partitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateReplicaRequest()
                 .groupId(grpId)
-                .commitTimestamp(clock.now())
+                .readTimestamp(clock.now())
                 .txId(Timestamp.nextVersion().toUuid())
                 .build());
 

@@ -353,7 +353,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 if (txMeta == null) {
                     // All future transactions will be committed after the resolution processed.
-                    hybridClock.update(txStateReq.commitTimestamp());
+                    hybridClock.update(txStateReq.readTimestamp());
                 }
 
                 txStateFut.complete(txMeta);
@@ -1154,6 +1154,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return completedFuture(null);
             }
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-18767 scan of multiple write intents should not be needed
             List<ReadResult> writeIntents = filter(candidates, ReadResult::isWriteIntent);
 
             if (!writeIntents.isEmpty()) {
@@ -1184,15 +1185,16 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                                     return committedReadResult.binaryRow();
                                 }
+
+                                return findAny(candidates, c -> !c.isWriteIntent() && !c.isEmpty()).map(ReadResult::binaryRow)
+                                        .orElse(null);
                             } else {
-                                return findAny(filter(writeIntents, wi -> !wi.isEmpty())).map(ReadResult::binaryRow)
+                                return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow)
                                         .orElse(null);
                             }
-
-                            return null;
                         });
             } else {
-                BinaryRow result = findAny(filter(candidates, r -> !r.isEmpty())).map(ReadResult::binaryRow)
+                BinaryRow result = findAny(candidates, r -> !r.isEmpty()).map(ReadResult::binaryRow)
                         .orElse(null);
 
                 return completedFuture(result);
@@ -2066,7 +2068,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
-                        .commitTimestamp(timestamp)
+                        .readTimestamp(timestamp)
                         .txId(txId)
                         .build())
                 .thenApply(txMeta -> {
