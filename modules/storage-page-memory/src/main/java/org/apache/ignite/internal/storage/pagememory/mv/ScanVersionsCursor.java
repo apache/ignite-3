@@ -58,7 +58,7 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
 
         versionChain = storage.readVersionChain(rowId);
 
-        rowVersionIterator = versionChain == null ? emptyIterator() : collectRowVersions(versionChain, storage);
+        rowVersionIterator = versionChain == null ? emptyIterator() : collectRowVersions();
     }
 
     @Override
@@ -84,7 +84,7 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
         });
     }
 
-    static Iterator<RowVersion> collectRowVersions(VersionChain versionChain, AbstractPageMemoryMvPartitionStorage storage) {
+    private Iterator<RowVersion> collectRowVersions() {
         long link = versionChain.headLink();
 
         List<RowVersion> rowVersions = new ArrayList<>();
