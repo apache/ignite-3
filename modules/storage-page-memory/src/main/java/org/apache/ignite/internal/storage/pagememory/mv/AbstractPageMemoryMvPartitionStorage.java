@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
@@ -317,26 +318,17 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                         String.format("RowId partition [%d] is not equal to storage partition [%d].", rowId.partitionId(), partitionId));
             }
 
-            try {
-                return versionChainTree.findOne(new VersionChainKey(rowId), versionChain -> {
-                    if (versionChain == null) {
-                        return ReadResult.empty(rowId);
-                    }
+            return findVersionChain(rowId, versionChain -> {
+                if (versionChain == null) {
+                    return ReadResult.empty(rowId);
+                }
 
-                    if (lookingForLatestVersion(timestamp)) {
-                        return findLatestRowVersion(versionChain);
-                    } else {
-                        return findRowVersionByTimestamp(versionChain, timestamp);
-                    }
-                });
-            } catch (IgniteInternalCheckedException e) {
-                Throwable cause = e.getCause() instanceof StorageException ? e.getCause() : e;
-
-                throw new StorageException(
-                        "Row version lookup failed: [rowId={}, timestamp={}, {}]",
-                        cause,
-                        rowId, timestamp, createStorageInfo());
-            }
+                if (lookingForLatestVersion(timestamp)) {
+                    return findLatestRowVersion(versionChain);
+                } else {
+                    return findRowVersionByTimestamp(versionChain, timestamp);
+                }
+            });
         });
     }
 
@@ -349,6 +341,25 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             return versionChainTree.findOne(new VersionChainKey(rowId));
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Version chain lookup failed", e);
+        }
+    }
+
+    /**
+     * Searches version chain by row ID and converts the found version chain to the result if found.
+     *
+     * @param rowId Row ID.
+     * @param function Function for converting the version chain to a result, function is executed under the read lock of the page on which
+     *      the version chain is located. If the version chain is not found, then {@code null} will be passed to the function.
+     */
+    <T> T findVersionChain(RowId rowId, Function<VersionChain, T> function) {
+        try {
+            return versionChainTree.findOne(new VersionChainKey(rowId), function::apply);
+        } catch (IgniteInternalCheckedException e) {
+            if (e.getCause() instanceof StorageException) {
+                throw (StorageException) e.getCause();
+            }
+
+            throw new StorageException("Row version lookup failed: [rowId={}, {}]", e, rowId, createStorageInfo());
         }
     }
 
@@ -716,19 +727,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            try {
-                return versionChainTree.findOne(new VersionChainKey(rowId), versionChain -> {
-                    if (versionChain == null) {
-                        return CursorUtils.emptyCursor();
-                    }
+            return findVersionChain(rowId, versionChain -> {
+                if (versionChain == null) {
+                    return CursorUtils.emptyCursor();
+                }
 
-                    return new ScanVersionsCursor(versionChain, this);
-                });
-            } catch (IgniteInternalCheckedException e) {
-                Throwable cause = e.getCause() instanceof StorageException ? e.getCause() : e;
-
-                throw new StorageException("Error collecting row versions: [rowId={}, {}]", cause, rowId, createStorageInfo());
-            }
+                return new ScanVersionsCursor(versionChain, this);
+            });
         });
     }
 

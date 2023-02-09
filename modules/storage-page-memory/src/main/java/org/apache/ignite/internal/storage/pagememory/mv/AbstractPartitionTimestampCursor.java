@@ -17,34 +17,27 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
+import org.apache.ignite.internal.pagememory.tree.BplusTree.PeekTreeRowCursor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCursor {
     protected final AbstractPageMemoryMvPartitionStorage storage;
 
-    private @Nullable Cursor<VersionChain> versionChainCursor;
-
-    /** {@link ReadResult} obtained by caching {@link VersionChain} with {@link BplusTree#find(Object, Object, TreeRowClosure, Object)}. */
-    private final Map<RowId, ReadResult> readResultByRowId = new HashMap<>();
+    private @Nullable PeekTreeRowCursor<VersionChain, ReadResult> rowVersionCursor;
 
     private boolean iterationExhausted;
 
     private @Nullable ReadResult nextRead;
 
-    private @Nullable VersionChain currentChain;
+    private @Nullable RowId currentRowId;
 
     AbstractPartitionTimestampCursor(AbstractPageMemoryMvPartitionStorage storage) {
         this.storage = storage;
@@ -65,28 +58,24 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
             createVersionChainCursorIfMissing();
 
-            currentChain = null;
+            currentRowId = null;
 
             while (true) {
-                if (!versionChainCursor.hasNext()) {
+                if (!rowVersionCursor.hasNext()) {
                     iterationExhausted = true;
 
                     return false;
                 }
 
-                VersionChain chain = versionChainCursor.next();
+                RowId rowId = rowVersionCursor.peek().rowId();
 
-                ReadResult result = readResultByRowId.remove(chain.rowId());
+                ReadResult result = rowVersionCursor.next();
 
-                if (result == null) {
-                    // TODO: IGNITE-18717 Add lock by rowId
-                    chain = storage.readVersionChain(chain.rowId());
-
-                    if (chain == null) {
-                        continue;
-                    }
-
-                    result = findRowVersion(chain);
+                if (result.isEmpty()) {
+                    result = storage.findVersionChain(
+                            rowId,
+                            versionChain -> versionChain == null ? ReadResult.empty(rowId) : findRowVersion(versionChain)
+                    );
                 }
 
                 if (result.isEmpty() && !result.isWriteIntent()) {
@@ -94,7 +83,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
                 }
 
                 nextRead = result;
-                currentChain = chain;
+                currentRowId = rowId;
 
                 return true;
             }
@@ -122,8 +111,8 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
     @Override
     public void close() {
-        if (versionChainCursor != null) {
-            versionChainCursor.close();
+        if (rowVersionCursor != null) {
+            rowVersionCursor.close();
         }
     }
 
@@ -132,18 +121,14 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
         return storage.busy(() -> {
             storage.throwExceptionIfStorageNotInRunnableState();
 
-            if (currentChain == null) {
-                throw new IllegalStateException("Version chain missing: " + storage.createStorageInfo());
+            if (currentRowId == null) {
+                throw new IllegalStateException("RowId missing: " + storage.createStorageInfo());
             }
 
-            // TODO: IGNITE-18717 Add lock by rowId
-            VersionChain chain = storage.readVersionChain(currentChain.rowId());
-
-            if (chain == null) {
-                return null;
-            }
-
-            ReadResult result = storage.findRowVersionByTimestamp(chain, timestamp);
+            ReadResult result = storage.findVersionChain(currentRowId, versionChain -> versionChain == null
+                    ? ReadResult.empty(currentRowId)
+                    : storage.findRowVersionByTimestamp(versionChain, timestamp)
+            );
 
             if (result.isEmpty()) {
                 return null;
@@ -164,28 +149,17 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
     abstract ReadResult findRowVersion(VersionChain versionChain);
 
     private void createVersionChainCursorIfMissing() {
-        if (versionChainCursor != null) {
+        if (rowVersionCursor != null) {
             return;
         }
 
         try {
-            versionChainCursor = storage.versionChainTree.find(null, null, (tree, io, pageAddr, idx) -> {
-                // Since the BplusTree cursor caches rows that are on the same page, we should try to get actual ReadResult for them in this
-                // filter so as not to get into a situation when we read the chain and the links in it are no longer valid.
-
-                VersionChain versionChain = tree.getRow(io, pageAddr, idx);
-
-                // TODO: IGNITE-18717 Perhaps add lock by rowId
-
-                ReadResult readResult = findRowVersion(versionChain);
-
-                if (!readResult.isEmpty()) {
-                    readResultByRowId.put(versionChain.rowId(), readResult);
-                }
-
-                return true;
-            }, null);
+            rowVersionCursor = storage.versionChainTree.find(null, null, this::findRowVersion);
         } catch (IgniteInternalCheckedException e) {
+            if (e.getCause() instanceof StorageException) {
+                throw (StorageException) e.getCause();
+            }
+
             throw new StorageException("Find failed: " + storage.createStorageInfo(), e);
         }
     }
