@@ -234,7 +234,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         if (holder != null) {
             try {
-                ch = holder.getOrCreateChannel();
+                ch = holder.getOrCreateChannelAsync();
             } catch (Throwable ignored) {
                 // Ignore.
             }
@@ -569,7 +569,7 @@ public final class ReliableChannel implements AutoCloseable {
                 }
 
                 // TODO: Async startup IGNITE-15357.
-                c = hld.getOrCreateChannel();
+                c = hld.getOrCreateChannelAsync();
 
                 if (c != null) {
                     return c;
@@ -653,7 +653,7 @@ public final class ReliableChannel implements AutoCloseable {
                         }
 
                         try {
-                            hld.getOrCreateChannel(true);
+                            hld.getOrCreateChannelAsync(true);
                         } catch (Exception e) {
                             log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
                         }
@@ -690,7 +690,7 @@ public final class ReliableChannel implements AutoCloseable {
         private final ClientChannelConfiguration chCfg;
 
         /** Channel. */
-        private volatile ClientChannel ch;
+        private volatile CompletableFuture<ClientChannel> ch;
 
         /** The last server node that channel is or was connected to. */
         private volatile ClusterNode serverNode;
@@ -741,14 +741,14 @@ public final class ReliableChannel implements AutoCloseable {
         /**
          * Get or create channel.
          */
-        private @Nullable ClientChannel getOrCreateChannel() {
-            return getOrCreateChannel(false);
+        private @Nullable CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
+            return getOrCreateChannelAsync(false);
         }
 
         /**
          * Get or create channel.
          */
-        private @Nullable ClientChannel getOrCreateChannel(boolean ignoreThrottling) {
+        private @Nullable CompletableFuture<ClientChannel> getOrCreateChannelAsync(boolean ignoreThrottling) {
             if (ch == null && !close) {
                 synchronized (this) {
                     if (close) {
@@ -763,41 +763,40 @@ public final class ReliableChannel implements AutoCloseable {
                         throw new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling");
                     }
 
-                    // TODO IGNITE-15357 Async startup
-                    ClientChannel ch0 = chFactory.apply(chCfg, connMgr).join();
+                    ch = chFactory.apply(chCfg, connMgr).thenApply(ch0 -> {
+                        var oldClusterId = clusterId.compareAndExchange(null, ch0.protocolContext().clusterId());
 
-                    var oldClusterId = clusterId.compareAndExchange(null, ch0.protocolContext().clusterId());
+                        if (oldClusterId != null && !oldClusterId.equals(ch0.protocolContext().clusterId())) {
+                            try {
+                                ch0.close();
+                            } catch (Exception ignored) {
+                                // Ignore
+                            }
 
-                    if (oldClusterId != null && !oldClusterId.equals(ch0.protocolContext().clusterId())) {
-                        try {
-                            ch0.close();
-                        } catch (Exception ignored) {
-                            // Ignore
+                            throw new IgniteClientConnectionException(CLUSTER_ID_MISMATCH_ERR, "Cluster ID mismatch: expected=" + oldClusterId
+                                    + ", actual=" + ch0.protocolContext().clusterId());
                         }
 
-                        throw new IgniteClientConnectionException(CLUSTER_ID_MISMATCH_ERR, "Cluster ID mismatch: expected=" + oldClusterId
-                                + ", actual=" + ch0.protocolContext().clusterId());
-                    }
+                        ch0.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
 
-                    ch = ch0;
+                        ClusterNode newNode = ch0.protocolContext().clusterNode();
 
-                    ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+                        // There could be multiple holders map to the same serverNodeId if user provide the same
+                        // address multiple times in configuration.
+                        nodeChannelsByName.put(newNode.name(), this);
+                        nodeChannelsById.put(newNode.id(), this);
 
-                    ClusterNode newNode = ch.protocolContext().clusterNode();
+                        var oldServerNode = serverNode;
+                        if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
+                            // New node on the old address.
+                            nodeChannelsByName.remove(oldServerNode.name(), this);
+                            nodeChannelsById.remove(oldServerNode.id(), this);
+                        }
 
-                    // There could be multiple holders map to the same serverNodeId if user provide the same
-                    // address multiple times in configuration.
-                    nodeChannelsByName.put(newNode.name(), this);
-                    nodeChannelsById.put(newNode.id(), this);
+                        serverNode = newNode;
 
-                    var oldServerNode = serverNode;
-                    if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
-                        // New node on the old address.
-                        nodeChannelsByName.remove(oldServerNode.name(), this);
-                        nodeChannelsById.remove(oldServerNode.id(), this);
-                    }
-
-                    serverNode = newNode;
+                        return ch0;
+                    });
                 }
             }
 
