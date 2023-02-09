@@ -574,12 +574,17 @@ public final class ReliableChannel implements AutoCloseable {
                 if (c != null) {
                     return c;
                 }
-            } catch (CompletionException ce) {
-                if (!(ce.getCause() instanceof IgniteClientConnectionException)) {
+            } catch (CompletionException | IgniteClientConnectionException ce) {
+                IgniteClientConnectionException e;
+
+                //noinspection InstanceofCatchParameter
+                if (ce instanceof IgniteClientConnectionException) {
+                    e = (IgniteClientConnectionException) ce;
+                } else if (ce.getCause() instanceof IgniteClientConnectionException) {
+                    e = (IgniteClientConnectionException) ce.getCause();
+                } else {
                     throw ce;
                 }
-
-                var e = (IgniteClientConnectionException)ce.getCause();
 
                 if (failure == null) {
                     failure = e;
