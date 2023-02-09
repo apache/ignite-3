@@ -26,20 +26,20 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Future utils.
  */
-public class ClientFutureUtils {
-    public static <T> CompletableFuture<T> doWithRetryAsync(
+class ClientFutureUtils {
+    static <T> CompletableFuture<T> doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
             @Nullable Predicate<T> resultValidator,
             Predicate<RetryContext> retryPredicate) {
         CompletableFuture<T> resFut = new CompletableFuture<>();
-        var ctx = new RetryContext();
+        RetryContext ctx = new RetryContext();
 
-        apply(func, resultValidator, retryPredicate, resFut, ctx);
+        doWithRetryAsync(func, resultValidator, retryPredicate, resFut, ctx);
 
         return resFut;
     }
 
-    private static <T> void apply(
+    private static <T> void doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
             @Nullable Predicate<T> validator,
             Predicate<RetryContext> retryPredicate,
@@ -59,7 +59,7 @@ public class ClientFutureUtils {
                 }
 
                 if (retryPredicate.test(ctx)) {
-                    apply(func, validator, retryPredicate, resFut, ctx);
+                    doWithRetryAsync(func, validator, retryPredicate, resFut, ctx);
                 } else {
                     var resErr = ctx.errors.get(0);
 
@@ -75,11 +75,12 @@ public class ClientFutureUtils {
         });
     }
 
-    public static class RetryContext {
-        public int attempt;
-        public ArrayList<Throwable> errors = new ArrayList<>();
+    static class RetryContext {
+        int attempt;
 
-        public Throwable lastError() {
+        ArrayList<Throwable> errors = new ArrayList<>();
+
+        Throwable lastError() {
             return errors.get(errors.size() - 1);
         }
     }
