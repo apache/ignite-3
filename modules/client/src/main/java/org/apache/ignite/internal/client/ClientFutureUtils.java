@@ -27,6 +27,14 @@ import org.jetbrains.annotations.Nullable;
  * Future utils.
  */
 class ClientFutureUtils {
+    static <T> @Nullable T getNowSafe(CompletableFuture<T> fut) {
+        try {
+            return fut.getNow(null);
+        } catch (Throwable e) {
+            return null;
+        }
+    }
+
     static <T> CompletableFuture<T> doWithRetryAsync(
             Supplier<CompletableFuture<T>> func,
             @Nullable Predicate<T> resultValidator,

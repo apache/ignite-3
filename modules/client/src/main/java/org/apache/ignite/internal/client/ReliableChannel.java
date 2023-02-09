@@ -53,7 +53,6 @@ import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -148,10 +147,10 @@ public final class ReliableChannel implements AutoCloseable {
         List<ClusterNode> res = new ArrayList<>(channels.size());
 
         for (var holder : nodeChannelsByName.values()) {
-            var chFut = holder.ch;
+            var chFut = holder.chFut;
 
             if (chFut != null) {
-                var ch = chFut.getNow(null);
+                var ch = ClientFutureUtils.getNowSafe(chFut);
 
                 if (ch != null) {
                     res.add(ch.protocolContext().clusterNode());
@@ -310,7 +309,7 @@ public final class ReliableChannel implements AutoCloseable {
      * On channel of the specified holder failure.
      */
     private void onChannelFailure(ClientChannelHolder hld, @Nullable ClientChannel ch) {
-        if (ch != null && ch == hld.ch) {
+        if (ch != null && ch == hld.chFut) {
             hld.closeChannel();
         }
 
@@ -587,9 +586,9 @@ public final class ReliableChannel implements AutoCloseable {
         // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
         // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
         // channel, heartbeat messages will trigger updates.
-        CompletableFuture<ClientChannel> ch = channels.get(curChIdx).ch;
+        CompletableFuture<ClientChannel> ch = channels.get(curChIdx).chFut;
 
-        if (ch != null && clientChannel == ch.getNow(null)) {
+        if (ch != null && clientChannel == ClientFutureUtils.getNowSafe(ch)) {
             assignmentVersion.incrementAndGet();
         }
     }
@@ -612,7 +611,7 @@ public final class ReliableChannel implements AutoCloseable {
         private final ClientChannelConfiguration chCfg;
 
         /** Channel. */
-        private volatile @Nullable CompletableFuture<ClientChannel> ch;
+        private volatile @Nullable CompletableFuture<ClientChannel> chFut;
 
         /** The last server node that channel is or was connected to. */
         private volatile ClusterNode serverNode;
@@ -675,10 +674,10 @@ public final class ReliableChannel implements AutoCloseable {
                 return CompletableFuture.completedFuture(null);
             }
 
-            var ch0 = ch;
+            var chFut0 = chFut;
 
-            if (ch0 != null && !ch0.isCompletedExceptionally()) {
-                return ch0;
+            if (isDoneAndOpenOrInProgress(chFut0)) {
+                return chFut0;
             }
 
             synchronized (this) {
@@ -686,10 +685,10 @@ public final class ReliableChannel implements AutoCloseable {
                     return CompletableFuture.completedFuture(null);
                 }
 
-                ch0 = ch;
+                chFut0 = chFut;
 
-                if (ch0 != null && ch0.isCompletedExceptionally()) {
-                    return ch0;
+                if (isDoneAndOpenOrInProgress(chFut0)) {
+                    return chFut0;
                 }
 
                 if (!ignoreThrottling && applyReconnectionThrottling()) {
@@ -697,24 +696,24 @@ public final class ReliableChannel implements AutoCloseable {
                             new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                 }
 
-                ch0 = chFactory.apply(chCfg, connMgr).thenApply(ch1 -> {
-                    var oldClusterId = clusterId.compareAndExchange(null, ch1.protocolContext().clusterId());
+                chFut0 = chFactory.apply(chCfg, connMgr).thenApply(ch -> {
+                    var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
 
-                    if (oldClusterId != null && !oldClusterId.equals(ch1.protocolContext().clusterId())) {
+                    if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {
                         try {
-                            ch1.close();
+                            ch.close();
                         } catch (Exception ignored) {
                             // Ignore
                         }
 
                         throw new IgniteClientConnectionException(
                                 CLUSTER_ID_MISMATCH_ERR,
-                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch1.protocolContext().clusterId());
+                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch.protocolContext().clusterId());
                     }
 
-                    ch1.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+                    ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
 
-                    ClusterNode newNode = ch1.protocolContext().clusterNode();
+                    ClusterNode newNode = ch.protocolContext().clusterNode();
 
                     // There could be multiple holders map to the same serverNodeId if user provide the same
                     // address multiple times in configuration.
@@ -730,10 +729,10 @@ public final class ReliableChannel implements AutoCloseable {
 
                     serverNode = newNode;
 
-                    return ch1;
+                    return ch;
                 });
 
-                ch0.exceptionally(err -> {
+                chFut0.exceptionally(err -> {
                     closeChannel();
                     onChannelFailure(this, null);
 
@@ -742,9 +741,9 @@ public final class ReliableChannel implements AutoCloseable {
                     return null;
                 });
 
-                ch = ch0;
+                chFut = chFut0;
 
-                return ch0;
+                return chFut0;
             }
         }
 
@@ -752,7 +751,7 @@ public final class ReliableChannel implements AutoCloseable {
          * Close channel.
          */
         private synchronized void closeChannel() {
-            CompletableFuture<ClientChannel> ch0 = ch;
+            CompletableFuture<ClientChannel> ch0 = chFut;
 
             if (ch0 != null) {
                 ch0.thenAccept(c -> {
@@ -770,7 +769,7 @@ public final class ReliableChannel implements AutoCloseable {
                     nodeChannelsById.remove(oldServerNode.id(), this);
                 }
 
-                ch = null;
+                chFut = null;
             }
         }
 
@@ -788,6 +787,20 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             closeChannel();
+        }
+
+        private boolean isDoneAndOpenOrInProgress(@Nullable CompletableFuture<ClientChannel> f) {
+            if (f == null || f.isCompletedExceptionally()) {
+                return false;
+            }
+
+            if (!f.isDone()) {
+                return true;
+            }
+
+            var ch = f.getNow(null);
+
+            return ch != null && ch.closed();
         }
     }
 }
