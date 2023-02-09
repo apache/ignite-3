@@ -488,48 +488,38 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private <R extends NetworkMessage> void sendWithRetry(
             Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
     ) {
-        if (!busyLock.enterBusy()) {
-            fut.completeExceptionally(new NodeStoppingException());
+        if (currentTimeMillis() >= stopTime) {
+            fut.completeExceptionally(new TimeoutException());
 
             return;
         }
 
-        try {
-            if (currentTimeMillis() >= stopTime) {
-                fut.completeExceptionally(new TimeoutException());
+        NetworkMessage request = requestFactory.apply(peer);
 
-                return;
-            }
+        //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
+        resolvePeer(peer)
+                .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
+                .whenCompleteAsync((resp, err) -> {
+                    if (LOG.isTraceEnabled()) {
+                        LOG.trace("sendWithRetry resp={} from={} to={} err={}",
+                                S.toString(resp),
+                                cluster.topologyService().localMember().address(),
+                                peer.consistentId(),
+                                err == null ? null : err.getMessage());
+                    }
 
-            NetworkMessage request = requestFactory.apply(peer);
+                    if (err != null) {
+                        handleThrowable(err, peer, request, requestFactory, stopTime, fut);
+                    } else if (resp instanceof ErrorResponse) {
+                        handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut);
+                    } else if (resp instanceof SMErrorResponse) {
+                        handleSmErrorResponse((SMErrorResponse) resp, fut);
+                    } else {
+                        leader = peer; // The OK response was received from a leader.
 
-            //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
-            resolvePeer(peer)
-                    .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
-                    .whenCompleteAsync((resp, err) -> {
-                        if (LOG.isTraceEnabled()) {
-                            LOG.trace("sendWithRetry resp={} from={} to={} err={}",
-                                    S.toString(resp),
-                                    cluster.topologyService().localMember().address(),
-                                    peer.consistentId(),
-                                    err == null ? null : err.getMessage());
-                        }
-
-                        if (err != null) {
-                            handleThrowable(err, peer, request, requestFactory, stopTime, fut);
-                        } else if (resp instanceof ErrorResponse) {
-                            handleErrorResponse((ErrorResponse) resp, peer, request, requestFactory, stopTime, fut);
-                        } else if (resp instanceof SMErrorResponse) {
-                            handleSmErrorResponse((SMErrorResponse) resp, fut);
-                        } else {
-                            leader = peer; // The OK response was received from a leader.
-
-                            fut.complete((R) resp);
-                        }
-                    });
-        } finally {
-            busyLock.leaveBusy();
-        }
+                        fut.complete((R) resp);
+                    }
+                });
     }
 
     private void handleThrowable(
