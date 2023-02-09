@@ -114,7 +114,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
         logicalTopologyService.addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
+            public void onNodeJoined(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
                 for (Peer peer : peers()) {
                     if (serverEventHandler.isSubscribed() && appearedNode.name().equals(peer.consistentId())) {
                         LOG.info("New peer will be sending a leader elected notification [grpId={}, consistentId={}]", groupId(),

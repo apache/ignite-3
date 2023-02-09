@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -379,6 +380,11 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         @Override
         public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
             return CompletableFuture.completedFuture(new LogicalTopologySnapshot(1, clusterService.topologyService().allMembers()));
+        }
+
+        @Override
+        public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+            return CompletableFuture.completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
         }
     }
 }
