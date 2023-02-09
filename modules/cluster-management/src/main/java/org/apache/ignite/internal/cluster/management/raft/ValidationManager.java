@@ -19,6 +19,8 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import java.util.Collection;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -33,8 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * Class responsible for validating cluster nodes.
  *
  * <p>If a node passes the validation successfully, a unique validation token is issued which exists for a specific period of time.
- * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation
- * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
+ * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation token. If the local
+ * token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
 class ValidationManager {
     private final RaftStorageManager storage;
@@ -130,10 +132,13 @@ class ValidationManager {
     }
 
     void removeValidatedNodes(Collection<ClusterNode> nodes) {
-        Set<ClusterNode> validatedNodes = storage.getValidatedNodes();
+        Set<String> validatedNodeIds = storage.getValidatedNodes().stream()
+                .map(ClusterNode::id)
+                // Using a sorted collection to have a stable notification order.
+                .collect(Collectors.toCollection(TreeSet::new));
 
         nodes.forEach(node -> {
-            if (validatedNodes.contains(node)) {
+            if (validatedNodeIds.contains(node.id())) {
                 storage.removeValidatedNode(node);
 
                 logicalTopology.onNodeInvalidated(node);
@@ -142,7 +147,7 @@ class ValidationManager {
     }
 
     /**
-     * Checks and removes the node from the list of validated nodes thus completing the validation procedure.
+     * Removes the node from the list of validated nodes thus completing the validation procedure.
      *
      * @param node Node that wishes to join the logical topology.
      */

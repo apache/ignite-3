@@ -97,7 +97,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
             snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapByName.values());
 
             LogicalTopologySnapshot snapshotAfterRemoval = snapshot;
-            fireRemovalTask = () -> fireDisappeared(oldNode, snapshotAfterRemoval);
+            fireRemovalTask = () -> fireNodeLeft(oldNode, snapshotAfterRemoval);
         }
 
         mapByName.put(nodeToPut.name(), nodeToPut);
@@ -111,7 +111,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
         if (fireRemovalTask != null) {
             fireRemovalTask.run();
         }
-        fireAppeared(nodeToPut, snapshot);
+        fireNodeJoined(nodeToPut, snapshot);
     }
 
     private void saveSnapshotToStorage(LogicalTopologySnapshot newTopology) {
@@ -139,7 +139,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
                 snapshot = new LogicalTopologySnapshot(snapshot.version() + 1, mapById.values());
 
                 LogicalTopologySnapshot finalSnapshot = snapshot;
-                fireTasks.add(() -> fireDisappeared(nodeToRemove, finalSnapshot));
+                fireTasks.add(() -> fireNodeLeft(nodeToRemove, finalSnapshot));
             }
         }
 
@@ -156,11 +156,11 @@ public class LogicalTopologyImpl implements LogicalTopology {
                 .anyMatch(node -> node.id().equals(needle.id()));
     }
 
-    private void fireAppeared(ClusterNode appearedNode, LogicalTopologySnapshot snapshot) {
+    private void fireNodeJoined(ClusterNode appearedNode, LogicalTopologySnapshot snapshot) {
         notifyListeners(listener -> listener.onNodeJoined(appearedNode, snapshot), "onNodeJoined");
     }
 
-    private void fireDisappeared(ClusterNode oldNode, LogicalTopologySnapshot snapshot) {
+    private void fireNodeLeft(ClusterNode oldNode, LogicalTopologySnapshot snapshot) {
         notifyListeners(listener -> listener.onNodeLeft(oldNode, snapshot), "onNodeLeft");
     }
 

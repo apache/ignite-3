@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
@@ -166,12 +167,17 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private ValidationResult validateNode(JoinRequestCommand command) {
-        return validationManager.validateNode(
-                storage.getClusterState(),
-                command.node().asClusterNode(),
-                command.igniteVersion(),
-                command.clusterTag()
-        );
+        ClusterNode node = command.node().asClusterNode();
+
+        Optional<ClusterNode> previousVersion = logicalTopology.getLogicalTopology().nodes()
+                .stream()
+                .filter(n -> n.name().equals(node.name()))
+                .findAny();
+
+        // Remove the previous node from the Logical Topology in case we haven't received the disappeared event yet.
+        previousVersion.ifPresent(n -> logicalTopology.removeNodes(Set.of(n)));
+
+        return validationManager.validateNode(storage.getClusterState(), node, command.igniteVersion(), command.clusterTag());
     }
 
     @Nullable

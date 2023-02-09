@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.BlockingQueue;
@@ -131,36 +130,25 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
         restartNode(1);
 
-        // There's a race between a new version of the node being validated, while the old version has not yet been removed from the logical
-        // topology. So LEFT (for old node version) and VALIDATED (for new node version) events can come in arbitrary order.
-        Event firstEvent = events.poll(10, TimeUnit.SECONDS);
-        Event secondEvent = events.poll(10, TimeUnit.SECONDS);
+        Event event = events.poll(10, TimeUnit.SECONDS);
 
-        assertThat(firstEvent, is(notNullValue()));
-        assertThat(firstEvent.eventType, is(oneOf(EventType.LEFT, EventType.VALIDATED)));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.LEFT));
+        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.topologyVersion, is(3L));
 
-        assertThat(secondEvent, is(notNullValue()));
-        assertThat(secondEvent.eventType, is(oneOf(EventType.LEFT, EventType.VALIDATED)));
+        event = events.poll(10, TimeUnit.SECONDS);
 
-        Event leftEvent = firstEvent.eventType == EventType.LEFT ? firstEvent : secondEvent;
-        Event validatedEvent = firstEvent.eventType == EventType.VALIDATED ? firstEvent : secondEvent;
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.VALIDATED));
+        assertThat(event.node.name(), is(secondIgnite.name()));
 
-        assertThat(leftEvent, is(notNullValue()));
-        assertThat(validatedEvent, is(notNullValue()));
+        event = events.poll(10, TimeUnit.SECONDS);
 
-        assertThat(leftEvent.eventType, is(EventType.LEFT));
-        assertThat(leftEvent.node.name(), is(secondIgnite.name()));
-        assertThat(leftEvent.topologyVersion, is(3L));
-
-        assertThat(validatedEvent.eventType, is(EventType.VALIDATED));
-        assertThat(validatedEvent.node.name(), is(secondIgnite.name()));
-
-        Event thirdEvent = events.poll(10, TimeUnit.SECONDS);
-
-        assertThat(thirdEvent, is(notNullValue()));
-        assertThat(thirdEvent.eventType, is(EventType.JOINED));
-        assertThat(thirdEvent.node.name(), is(secondIgnite.name()));
-        assertThat(thirdEvent.topologyVersion, is(4L));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.JOINED));
+        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.topologyVersion, is(4L));
 
         assertThat(events, is(empty()));
     }
