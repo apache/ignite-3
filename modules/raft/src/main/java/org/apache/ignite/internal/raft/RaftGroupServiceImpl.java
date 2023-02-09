@@ -502,10 +502,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             NetworkMessage request = requestFactory.apply(peer);
 
-            //TODO: IGNITE-15389 org.apache.ignite.internal.metastorage.client.CursorImpl has potential deadlock inside
             resolvePeer(peer)
                     .thenCompose(node -> cluster.messagingService().invoke(node, request, configuration.responseTimeout().value()))
-                    .whenCompleteAsync((resp, err) -> {
+                    .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry resp={} from={} to={} err={}",
                                     S.toString(resp),

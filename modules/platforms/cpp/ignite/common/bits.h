@@ -104,12 +104,11 @@ int countl_zero(T value) noexcept {
     }
 #elif defined(_MSC_VER)
     unsigned long index;
+    constexpr auto bit_size = std::numeric_limits<T>::digits;
     if constexpr (sizeof(T) <= sizeof(unsigned long)) {
-        constexpr auto extraBits = std::numeric_limits<unsigned long>::digits - std::numeric_limits<T>::digits;
-        return _BitScanReverse(&index, value) ? index - extraBits : std::numeric_limits<T>::digits;
+        return _BitScanReverse(&index, value) ? bit_size - index - 1 : bit_size;
     } else {
-        constexpr auto extraBits = std::numeric_limits<__int64>::digits - std::numeric_limits<T>::digits;
-        return _BitScanReverse64(&index, value) ? index - extraBits : std::numeric_limits<T>::digits;
+        return _BitScanReverse64(&index, value) ? bit_size - index - 1 : bit_size;
     }
 #else
 # error "TODO: implement countl_zero() for other compilers"

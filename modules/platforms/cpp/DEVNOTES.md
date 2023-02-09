@@ -73,16 +73,20 @@ cmake --build . -j8
 
 ### Starting Java Test Node
 
-Tests require a running Java node. Prior to running it you will obviously need
-to build a Java part of the product. To do that the following command can be
-used from the root of the repo:
+Tests require a running Java node. You don't need to start it separately, if there is no running test nodes, tests will
+start one internally. So prior to running tests you will obviously need to build a Java part of the product. To do that
+the following command can be used from the root of the repo:
 `./gradlew assemble compileIntegrationTestJava`
 
 Or a faster variant:
 `./gradlew assemble compileIntegrationTestJava -x check -x assembleDist -x distTar -x distZip --parallel`
 
-After that, start a Test Node in the root repo:
+You can start a Test Node separately in the root repo. Tests will detect that there is a running node and will not start
+another one. This can be useful for debugging. To start node from the console you can use the following command prompt:
 `./gradlew :ignite-runner:runnerPlatformTest --no-daemon`
+
+You can also run `org.apache.ignite.internal.runner.app.PlatformTestNodeRunner` class in IDEA with a debugger or
+profiler, then run Client tests as usual.
 
 ### Starting tests in Windows
 In modules/platforms/cpp dir:

@@ -32,9 +32,9 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbMvPartitionStora
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.TableRowAndRowId;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
@@ -158,7 +158,7 @@ class GarbageCollector {
      * @return Garbage collected element.
      * @throws RocksDBException If failed to collect the garbage.
      */
-    @Nullable TableRowAndRowId pollForVacuum(WriteBatchWithIndex batch, HybridTimestamp lowWatermark) throws RocksDBException {
+    @Nullable BinaryRowAndRowId pollForVacuum(WriteBatchWithIndex batch, HybridTimestamp lowWatermark) throws RocksDBException {
         ColumnFamilyHandle partCf = helper.partCf;
 
         // We retrieve the first element of the GC queue and seek for it in the data CF.
@@ -210,8 +210,8 @@ class GarbageCollector {
                 // At this point there's definitely a value that needs to be garbage collected in the iterator.
                 byte[] valueBytes = it.value();
 
-                var row = new TableRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
-                TableRowAndRowId retVal = new TableRowAndRowId(row, gcElementRowId);
+                var row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
+                BinaryRowAndRowId retVal = new BinaryRowAndRowId(row, gcElementRowId);
 
                 // Delete the row from the data cf.
                 batch.delete(partCf, dataKey);

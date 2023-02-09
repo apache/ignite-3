@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -319,7 +319,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     private void cleanup() {
         addAndCommit(null);
 
-        TableRowAndRowId row;
+        BinaryRowAndRowId row;
 
         do {
             row = pollForVacuum(HybridTimestamp.MAX_VALUE);
@@ -332,21 +332,21 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     protected enum AddAndCommit {
         ATOMIC {
             @Override
-            HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable TableRow tableRow) {
+            HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable BinaryRow binaryRow) {
                 HybridTimestamp ts = test.clock.now();
 
-                test.addWriteCommitted(ROW_ID, tableRow, ts);
+                test.addWriteCommitted(ROW_ID, binaryRow, ts);
 
                 return ts;
             }
         },
         NON_ATOMIC {
             @Override
-            HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable TableRow tableRow) {
-                return test.addAndCommit(tableRow);
+            HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable BinaryRow binaryRow) {
+                return test.addAndCommit(binaryRow);
             }
         };
 
-        abstract HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable TableRow tableRow);
+        abstract HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable BinaryRow binaryRow);
     }
 }

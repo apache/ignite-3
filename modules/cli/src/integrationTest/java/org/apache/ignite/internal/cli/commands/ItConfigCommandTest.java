@@ -73,7 +73,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "update",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network.shutdownQuietPeriod=1"
         );
 
@@ -91,7 +91,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "show",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port()
+                "http://localhost:" + node.restHttpAddress().port()
         );
 
         assertEquals(0, exitCode);
@@ -109,7 +109,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "update",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network.foo=\"bar\""
         );
 
@@ -126,7 +126,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "update",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network.shutdownQuietPeriod=asd"
         );
 
@@ -144,7 +144,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "show",
                 "--node-url",
-                "http://localhost:" + node.restAddress().port(),
+                "http://localhost:" + node.restHttpAddress().port(),
                 "network"
         );
 

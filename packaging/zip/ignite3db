@@ -41,7 +41,7 @@ start() {
   while [ ! -f "$rest_address_file" ]; do sleep 0.5; done
     rest_address=$(cat "$rest_address_file")
 
-  echo "Node named ${NODE_NAME} started successfully. REST address is $rest_address"
+  echo "Node named ${NODE_NAME} started successfully. REST addresses are [$rest_address]"
 }
 
 stop() {

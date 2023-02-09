@@ -33,11 +33,11 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.TableRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -100,10 +100,10 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     }
 
     private void insertOneRow(MvPartitionStorage partitionStorage) {
-        TableRow tableRow = tableRow(new TestKey(0, "0"), new TestValue(1, "1"));
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
         partitionStorage.runConsistently(() -> {
-            partitionStorage.addWriteCommitted(new RowId(PARTITION_ID), tableRow, clock.now());
+            partitionStorage.addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
 
             return null;
         });

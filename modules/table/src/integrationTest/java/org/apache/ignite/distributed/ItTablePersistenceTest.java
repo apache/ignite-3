@@ -44,9 +44,9 @@ import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -85,7 +85,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    private static final BinaryConverter keyConverter = BinaryConverter.forKey(SCHEMA);
+    private static final Function<BinaryRow, BinaryTuple> KEY_EXTRACTOR = BinaryRowConverter.keyExtractor(SCHEMA);
 
     private static final Row FIRST_KEY = createKeyRow(0);
 
@@ -220,7 +220,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
         return () -> {
-            RowId rowId = primaryIndex.get(key.keySlice());
+            RowId rowId = primaryIndex.get(key.tupleSlice());
 
             assertNotNull(rowId, "No rowId in storage");
 
@@ -230,7 +230,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 return false;
             }
 
-            return Arrays.equals(value.bytes(), read.tableRow().bytes());
+            return Arrays.equals(value.bytes(), read.binaryRow().bytes());
         };
     }
 
@@ -240,9 +240,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
 
         while (rowId != null) {
-            BinaryRow binaryRow = keyConverter.fromTuple(storage.read(rowId, HybridTimestamp.MAX_VALUE).tableRow().tupleSlice());
-            if (binaryRow != null) {
-                result.put(binaryRow.keySlice(), rowId);
+            BinaryTuple binaryTuple = KEY_EXTRACTOR.apply(storage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow());
+            if (binaryTuple != null) {
+                result.put(binaryTuple.byteBuffer(), rowId);
             }
 
             RowId incremented = rowId.increment();
@@ -307,11 +307,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      * @return Row.
      */
     private static Row createKeyRow(long id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -322,11 +322,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
      * @return Row.
      */
     private static Row createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 }
