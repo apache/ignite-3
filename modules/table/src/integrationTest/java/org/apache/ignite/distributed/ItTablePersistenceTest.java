@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -134,6 +135,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
                 txManager,
@@ -142,8 +144,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 replicaService,
                 mock(HybridClock.class)
         );
-
-        table.updateInternalTableRaftGroupService(0, service);
 
         table.upsert(FIRST_VALUE, null).get();
     }
@@ -161,6 +161,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
                 txManager,
@@ -169,8 +170,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 replicaService,
                 mock(HybridClock.class)
         );
-
-        table.updateInternalTableRaftGroupService(0, service);
 
         // Remove the first key
         table.delete(FIRST_KEY, null).get();
@@ -194,6 +193,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         var table = new InternalTableImpl(
                 "table",
                 UUID.randomUUID(),
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 consistentIdToNode,
                 txManager,
@@ -202,8 +202,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 replicaService,
                 mock(HybridClock.class)
         );
-
-        table.updateInternalTableRaftGroupService(0, service);
 
         table.upsert(SECOND_VALUE, null).get();
 

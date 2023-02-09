@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignme
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1128,8 +1129,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         MvTableStorage tableStorage = createTableStorage(tableCfg, tablesCfg);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableCfg);
 
-        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitions, clusterNodeResolver, txManager,
-                tableStorage, txStateStorage, replicaSvc, clock);
+        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
+                partitions, clusterNodeResolver, txManager, tableStorage, txStateStorage, replicaSvc, clock);
 
         // TODO: IGNITE-16288 directIndexIds should use async configuration API
         var table = new TableImpl(internalTable, lockMgr, () -> CompletableFuture.supplyAsync(() -> directIndexIds()));
