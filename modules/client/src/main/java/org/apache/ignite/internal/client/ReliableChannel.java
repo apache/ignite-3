@@ -690,7 +690,7 @@ public final class ReliableChannel implements AutoCloseable {
         private final ClientChannelConfiguration chCfg;
 
         /** Channel. */
-        private volatile CompletableFuture<ClientChannel> ch;
+        private volatile @Nullable CompletableFuture<ClientChannel> ch;
 
         /** The last server node that channel is or was connected to. */
         private volatile ClusterNode serverNode;
@@ -807,12 +807,16 @@ public final class ReliableChannel implements AutoCloseable {
          * Close channel.
          */
         private synchronized void closeChannel() {
-            if (ch != null) {
-                try {
-                    ch.close();
-                } catch (Exception ignored) {
-                    // No op.
-                }
+            CompletableFuture<ClientChannel> ch0 = ch;
+
+            if (ch0 != null) {
+                ch0.thenAccept(c -> {
+                    try {
+                        c.close();
+                    } catch (Exception ignored) {
+                        // No-op.
+                    }
+                });
 
                 var oldServerNode = serverNode;
 
