@@ -43,15 +43,13 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -247,22 +245,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         UUID tableId = tableId();
         UUID indexId = UUID.randomUUID();
 
-        BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schema);
-        BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schema);
-
-        BinaryConverter binaryRowConverter = BinaryConverter.forKey(schema);
-        Function<BinaryRow, BinaryTuple> binaryRow2Tuple = binaryRowConverter::toTuple;
-
-        var rowConverter = new TableRowConverter(tupleSchema, indexSchema);
+        Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 indexId,
                 new TestHashIndexStorage(null),
-                binaryRow2Tuple,
-                rowConverter::toTuple
+                row2Tuple
         ));
 
-        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), binaryRow2Tuple);
+        IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
         HybridClock clock = new HybridClockImpl();
         PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());

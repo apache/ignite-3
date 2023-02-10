@@ -17,13 +17,13 @@
 
 #pragma once
 
-#include "big_decimal.h"
-#include "big_integer.h"
 #include "binary_tuple_schema.h"
-#include "ignite_date.h"
-#include "ignite_date_time.h"
-#include "ignite_time.h"
-#include "ignite_timestamp.h"
+#include "ignite/common/big_decimal.h"
+#include "ignite/common/big_integer.h"
+#include "ignite/common/ignite_date.h"
+#include "ignite/common/ignite_date_time.h"
+#include "ignite/common/ignite_time.h"
+#include "ignite/common/ignite_timestamp.h"
 
 #include <ignite/common/bytes.h>
 #include <ignite/common/bytes_view.h>

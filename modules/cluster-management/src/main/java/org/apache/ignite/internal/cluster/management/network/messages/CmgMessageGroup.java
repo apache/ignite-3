@@ -26,6 +26,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.ReadValidatedNodesCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -96,6 +97,11 @@ public class CmgMessageGroup {
          * Message type for {@link NodesLeaveCommand}.
          */
         int NODES_LEAVE = 45;
+
+        /**
+         * Message type for {@link ReadValidatedNodesCommand}.
+         */
+        int READ_VALIDATED_NODES = 46;
 
         /**
          * Message type for {@link ClusterNodeMessage}.

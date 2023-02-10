@@ -516,13 +516,17 @@ components:
           format: int32
     NodeMetadata:
       required:
+      - httpPort
+      - httpsPort
       - restHost
-      - restPort
       type: object
       properties:
         restHost:
           type: string
-        restPort:
+        httpPort:
+          type: integer
+          format: int32
+        httpsPort:
           type: integer
           format: int32
     NodeState:
