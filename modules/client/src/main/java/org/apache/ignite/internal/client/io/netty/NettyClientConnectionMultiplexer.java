@@ -93,11 +93,10 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
         connectFut.addListener(f -> {
             if (f.isSuccess()) {
-                NettyClientConnection conn = new NettyClientConnection(((ChannelFuture)f).channel(), msgHnd, stateHnd);
+                NettyClientConnection conn = new NettyClientConnection(((ChannelFuture) f).channel(), msgHnd, stateHnd);
 
                 fut.complete(conn);
-            }
-            else {
+            } else {
                 Throwable cause = f.cause();
 
                 var err = new IgniteClientConnectionException(

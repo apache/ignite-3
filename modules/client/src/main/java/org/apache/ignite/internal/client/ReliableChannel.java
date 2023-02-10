@@ -240,10 +240,11 @@ public final class ReliableChannel implements AutoCloseable {
 
         if (holder != null) {
             return holder.getOrCreateChannelAsync().thenCompose(ch -> {
-                if (ch != null)
+                if (ch != null) {
                     return CompletableFuture.completedFuture(ch);
-                else
+                } else {
                     return getDefaultChannelAsync();
+                }
             });
         }
 
@@ -479,7 +480,8 @@ public final class ReliableChannel implements AutoCloseable {
      * Gets the default channel, reconnecting if necessary.
      */
     private CompletableFuture<ClientChannel> getDefaultChannelAsync() {
-        return ClientFutureUtils.doWithRetryAsync(() -> {
+        return ClientFutureUtils.doWithRetryAsync(
+                () -> {
                     curChannelsGuard.readLock().lock();
 
                     ClientChannelHolder hld;
