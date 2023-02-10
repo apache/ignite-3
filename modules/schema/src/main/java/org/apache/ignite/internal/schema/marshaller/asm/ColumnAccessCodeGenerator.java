@@ -54,17 +54,17 @@ public class ColumnAccessCodeGenerator {
             case P_DOUBLE:
                 return new ColumnAccessCodeGenerator("doubleValue", "appendDouble", double.class, fieldName, colIdx);
             case BYTE:
-                return new ColumnAccessCodeGenerator("byteValueBoxed", "appendByte", Byte.class, byte.class, fieldName, colIdx);
+                return new ColumnAccessCodeGenerator("byteValueBoxed", "appendByte", Byte.class, fieldName, colIdx);
             case SHORT:
-                return new ColumnAccessCodeGenerator("shortValueBoxed", "appendShort", Short.class, short.class, fieldName, colIdx);
+                return new ColumnAccessCodeGenerator("shortValueBoxed", "appendShort", Short.class, fieldName, colIdx);
             case INT:
-                return new ColumnAccessCodeGenerator("intValueBoxed", "appendInt", Integer.class, int.class, fieldName, colIdx);
+                return new ColumnAccessCodeGenerator("intValueBoxed", "appendInt", Integer.class, fieldName, colIdx);
             case LONG:
-                return new ColumnAccessCodeGenerator("longValueBoxed", "appendLong", Long.class, long.class, fieldName, colIdx);
+                return new ColumnAccessCodeGenerator("longValueBoxed", "appendLong", Long.class, fieldName, colIdx);
             case FLOAT:
-                return new ColumnAccessCodeGenerator("floatValueBoxed", "appendFloat", Float.class, float.class, fieldName, colIdx);
+                return new ColumnAccessCodeGenerator("floatValueBoxed", "appendFloat", Float.class, fieldName, colIdx);
             case DOUBLE:
-                return new ColumnAccessCodeGenerator("doubleValueBoxed", "appendDouble", Double.class, double.class,  fieldName, colIdx);
+                return new ColumnAccessCodeGenerator("doubleValueBoxed", "appendDouble", Double.class, fieldName, colIdx);
             case STRING:
                 return new ColumnAccessCodeGenerator("stringValue", "appendString", String.class, fieldName, colIdx);
             case UUID:
@@ -99,9 +99,6 @@ public class ColumnAccessCodeGenerator {
     /** Mapped value type. */
     private final Class<?> mappedType;
 
-    /** Write method argument type. */
-    private final Class<?> writeArgType;
-
     /** Column index in the schema. */
     private final int colIdx;
 
@@ -117,25 +114,10 @@ public class ColumnAccessCodeGenerator {
      * @param colIdx          Column index in the schema.
      */
     ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType, String fieldName, int colIdx) {
-        this(readMethodName, writeMethodName, mappedType, mappedType, fieldName, colIdx);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param readMethodName  Reader handle name.
-     * @param writeMethodName Writer handle name.
-     * @param mappedType      Mapped value type.
-     * @param writeArgType    Write method argument type.
-     * @param colIdx          Column index in the schema.
-     */
-    ColumnAccessCodeGenerator(String readMethodName, String writeMethodName, Class<?> mappedType,
-            Class<?> writeArgType, String fieldName, int colIdx) {
         this.readMethodName = readMethodName;
         this.writeMethodName = writeMethodName;
         this.colIdx = colIdx;
         this.mappedType = mappedType;
-        this.writeArgType = writeArgType;
         this.filedName = fieldName;
     }
 
@@ -158,13 +140,6 @@ public class ColumnAccessCodeGenerator {
      */
     public String writeMethodName() {
         return writeMethodName;
-    }
-
-    /**
-     * Gets arg type of column write method.
-     */
-    public Class<?> writeArgType() {
-        return writeArgType;
     }
 
     /**

@@ -20,15 +20,28 @@ project(ignite-common)
 set(TARGET ${PROJECT_NAME})
 
 set(PUBLIC_HEADERS
+    big_decimal.h
+    big_integer.h
+    bit_array.h
     bits.h
     bytes.h
     bytes_view.h
     config.h
+    ignite_date.h
+    ignite_date_time.h
     ignite_error.h
     ignite_result.h
-    uuid.h)
+    ignite_time.h
+    ignite_timestamp.h
+    uuid.h
+)
 
-add_library(${TARGET} INTERFACE)
+set(SOURCES
+    big_decimal.cpp
+    big_integer.cpp
+)
+
+add_library(${TARGET} STATIC ${SOURCES})
 
 target_include_directories(${TARGET} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
@@ -39,3 +52,5 @@ ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/
 ignite_test(bits_test bits_test.cpp LIBS ${TARGET})
 ignite_test(bytes_test bytes_test.cpp LIBS ${TARGET})
 ignite_test(uuid_test uuid_test.cpp LIBS ${TARGET})
+ignite_test(bignum_test bignum_test.cpp LIBS ${TARGET})
+ignite_test(bit_array_test bit_array_test.cpp LIBS ${TARGET})

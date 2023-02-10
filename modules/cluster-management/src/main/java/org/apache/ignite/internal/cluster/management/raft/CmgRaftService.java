@@ -194,6 +194,14 @@ public class CmgRaftService implements ManuallyCloseable {
     }
 
     /**
+     * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
+     * Logical Topology as well as nodes that only have passed the validation step.
+     */
+    public CompletableFuture<Set<ClusterNode>> validatedNodes() {
+        return raftService.run(msgFactory.readValidatedNodesCommand().build());
+    }
+
+    /**
      * Returns a set of consistent IDs of the voting nodes of the CMG.
      *
      * @return Set of consistent IDs of the voting nodes of the CMG.

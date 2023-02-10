@@ -80,9 +80,7 @@ public:
      * Check whether debug is enabled.
      * @return
      */
-    [[nodiscard]] bool is_debug_enabled() const override {
-        return m_logger && m_logger->is_debug_enabled();
-    }
+    [[nodiscard]] bool is_debug_enabled() const override { return m_logger && m_logger->is_debug_enabled(); }
 
 private:
     /** Logger. */

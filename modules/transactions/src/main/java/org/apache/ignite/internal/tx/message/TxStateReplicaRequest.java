@@ -32,5 +32,5 @@ public interface TxStateReplicaRequest extends ReplicaRequest {
     UUID txId();
 
     @Marshallable
-    HybridTimestamp commitTimestamp();
+    HybridTimestamp readTimestamp();
 }

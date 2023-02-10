@@ -28,7 +28,8 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.TableRowAndRowId;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -72,14 +72,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private static class VersionChain {
         final RowId rowId;
-        final @Nullable TableRow row;
+        final @Nullable BinaryRow row;
         final @Nullable HybridTimestamp ts;
         final @Nullable UUID txId;
         final @Nullable UUID commitTableId;
         final int commitPartitionId;
         volatile @Nullable VersionChain next;
 
-        VersionChain(RowId rowId, @Nullable TableRow row, @Nullable HybridTimestamp ts, @Nullable UUID txId, @Nullable UUID commitTableId,
+        VersionChain(RowId rowId, @Nullable BinaryRow row, @Nullable HybridTimestamp ts, @Nullable UUID txId, @Nullable UUID commitTableId,
                 int commitPartitionId, @Nullable VersionChain next) {
             this.rowId = rowId;
             this.row = row;
@@ -90,7 +90,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             this.next = next;
         }
 
-        static VersionChain forWriteIntent(RowId rowId, @Nullable TableRow row, @Nullable UUID txId, @Nullable UUID commitTableId,
+        static VersionChain forWriteIntent(RowId rowId, @Nullable BinaryRow row, @Nullable UUID txId, @Nullable UUID commitTableId,
                 int commitPartitionId, @Nullable VersionChain next) {
             return new VersionChain(rowId, row, null, txId, commitTableId, commitPartitionId, next);
         }
@@ -164,16 +164,16 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable TableRow addWrite(
+    public synchronized @Nullable BinaryRow addWrite(
             RowId rowId,
-            @Nullable TableRow row,
+            @Nullable BinaryRow row,
             UUID txId,
             UUID commitTableId,
             int commitPartitionId
     ) throws TxIdMismatchException {
         checkStorageClosed();
 
-        TableRow[] res = {null};
+        BinaryRow[] res = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.ts == null) {
@@ -193,10 +193,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable TableRow abortWrite(RowId rowId) {
+    public synchronized @Nullable BinaryRow abortWrite(RowId rowId) {
         checkStorageClosedOrInProcessOfRebalance();
 
-        TableRow[] res = {null};
+        BinaryRow[] res = {null};
 
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
             if (!versionChain.isWriteIntent()) {
@@ -231,7 +231,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public synchronized void addWriteCommitted(
             RowId rowId,
-            @Nullable TableRow row,
+            @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
         checkStorageClosed();
@@ -319,9 +319,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             // We have a write-intent.
             if (cur.next == null) {
                 // We *only* have a write-intent, return it.
-                TableRow tableRow = cur.row;
+                BinaryRow binaryRow = cur.row;
 
-                return ReadResult.createFromWriteIntent(cur.rowId, tableRow, cur.txId, cur.commitTableId, cur.commitPartitionId, null);
+                return ReadResult.createFromWriteIntent(cur.rowId, binaryRow, cur.txId, cur.commitTableId, cur.commitPartitionId, null);
             }
 
             // Move to first commit.
@@ -361,11 +361,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         if (hasWriteIntent && timestamp.compareTo(firstCommit.ts) > 0) {
             // It's the latest commit in chain, query ts is greater than commit ts and there is a write-intent.
             // So we just return write-intent.
-            TableRow tableRow = chainHead.row;
+            BinaryRow binaryRow = chainHead.row;
 
             return ReadResult.createFromWriteIntent(
                     chainHead.rowId,
-                    tableRow,
+                    binaryRow,
                     chainHead.txId,
                     chainHead.commitTableId,
                     chainHead.commitPartitionId,
@@ -379,9 +379,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             if (timestamp.compareTo(cur.ts) >= 0) {
                 // This commit has timestamp matching the query ts, meaning that commit is the one we are looking for.
-                TableRow tableRow = cur.row;
+                BinaryRow binaryRow = cur.row;
 
-                return ReadResult.createFromCommitted(cur.rowId, tableRow, cur.ts);
+                return ReadResult.createFromCommitted(cur.rowId, binaryRow, cur.ts);
             }
 
             cur = cur.next;
@@ -411,7 +411,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             private ReadResult currentReadResult;
 
             @Override
-            public @Nullable TableRow committed(HybridTimestamp timestamp) {
+            public @Nullable BinaryRow committed(HybridTimestamp timestamp) {
                 if (currentChain == null) {
                     throw new IllegalStateException();
                 }
@@ -420,7 +420,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 ReadResult read = read(currentChain, timestamp, null);
 
                 if (read.transactionId() == null) {
-                    return read.tableRow();
+                    return read.binaryRow();
                 }
 
                 return null;
@@ -481,7 +481,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    public synchronized @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<VersionChain> it = gcQueue.iterator();
@@ -524,7 +524,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             });
         }
 
-        return new TableRowAndRowId(versionChainToRemove.row, rowId);
+        return new BinaryRowAndRowId(versionChainToRemove.row, rowId);
     }
 
     @Override

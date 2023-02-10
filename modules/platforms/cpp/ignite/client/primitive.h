@@ -18,7 +18,14 @@
 #pragma once
 
 #include "ignite/client/sql/sql_column_type.h"
+#include "ignite/common/big_decimal.h"
+#include "ignite/common/big_integer.h"
+#include "ignite/common/bit_array.h"
+#include "ignite/common/ignite_date.h"
+#include "ignite/common/ignite_date_time.h"
 #include "ignite/common/ignite_error.h"
+#include "ignite/common/ignite_time.h"
+#include "ignite/common/ignite_timestamp.h"
 #include "ignite/common/uuid.h"
 
 #include <cstdint>
@@ -41,80 +48,96 @@ public:
      *
      * @param value Value.
      */
-    primitive(bool value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(bool value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int8_t value.
      *
      * @param value Value.
      */
-    primitive(std::int8_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int8_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int16_t value.
      *
      * @param value Value.
      */
-    primitive(std::int16_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int16_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int32_t value.
      *
      * @param value Value.
      */
-    primitive(std::int32_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int32_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for std::int64_t value.
      *
      * @param value Value.
      */
-    primitive(std::int64_t value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(std::int64_t value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for float value.
      *
      * @param value Value.
      */
-    primitive(float value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(float value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for double value.
      *
      * @param value Value.
      */
-    primitive(double value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(double value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for UUID value.
      *
      * @param value Value.
      */
-    primitive(uuid value)
-        : m_value(value) {} // NOLINT(google-explicit-constructor)
+    primitive(uuid value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
 
     /**
      * Constructor for string value.
      *
      * @param value Value.
      */
-    primitive(std::string value)
-        : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
+    primitive(std::string value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
+
+    /**
+     * Constructor for string value.
+     *
+     * @param value Value.
+     */
+    primitive(std::string_view value) // NOLINT(google-explicit-constructor)
+        : m_value(std::string(value)) {}
+
+    /**
+     * Constructor for string value.
+     *
+     * @param value Value.
+     */
+    primitive(const char *value) // NOLINT(google-explicit-constructor)
+        : m_value(std::string(value)) {}
 
     /**
      * Constructor for byte array value.
      *
      * @param value Value.
      */
-    primitive(std::vector<std::byte> value)
-        : m_value(std::move(value)) {} // NOLINT(google-explicit-constructor)
+    primitive(std::vector<std::byte> value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
 
     /**
      * Constructor for byte array value.
@@ -126,6 +149,62 @@ public:
         : m_value(std::vector<std::byte>(buf, buf + len)) {}
 
     /**
+     * Constructor for big decimal value.
+     *
+     * @param value Value.
+     */
+    primitive(big_decimal value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
+
+    /**
+     * Constructor for big integer value.
+     *
+     * @param value Value.
+     */
+    primitive(big_integer value) // NOLINT(google-explicit-constructor)
+        : m_value(std::move(value)) {}
+
+    /**
+     * Constructor for date value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_date value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for date-time value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_date_time value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for time value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_time value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for timestamp value.
+     *
+     * @param value Value.
+     */
+    primitive(ignite_timestamp value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
+     * Constructor for bitmask value.
+     *
+     * @param value Value.
+     */
+    primitive(bit_array value) // NOLINT(google-explicit-constructor)
+        : m_value(value) {}
+
+    /**
      * Get underlying value.
      *
      * @tparam T Type of value to try and get.
@@ -134,9 +213,24 @@ public:
      */
     template<typename T>
     [[nodiscard]] const T &get() const {
-        if constexpr (
-            std::is_same_v<
-                T, bool> || std::is_same_v<T, std::int8_t> || std::is_same_v<T, std::int16_t> || std::is_same_v<T, std::int32_t> || std::is_same_v<T, std::int64_t> || std::is_same_v<T, float> || std::is_same_v<T, double> || std::is_same_v<T, uuid> || std::is_same_v<T, std::string> || std::is_same_v<T, std::vector<std::byte>>) {
+        if constexpr (std::is_same_v<T, bool> // Bool
+            || std::is_same_v<T, std::int8_t> // Int8
+            || std::is_same_v<T, std::int16_t> // Int16
+            || std::is_same_v<T, std::int32_t> // Int32
+            || std::is_same_v<T, std::int64_t> // Int64
+            || std::is_same_v<T, float> // Float
+            || std::is_same_v<T, double> // Double
+            || std::is_same_v<T, uuid> // Uuid
+            || std::is_same_v<T, std::string> // String
+            || std::is_same_v<T, std::vector<std::byte>> // Bytes
+            || std::is_same_v<T, big_decimal> // Decimal
+            || std::is_same_v<T, big_integer> // Number
+            || std::is_same_v<T, ignite_date> // Date
+            || std::is_same_v<T, ignite_date_time> // DateTime
+            || std::is_same_v<T, ignite_time> // Time
+            || std::is_same_v<T, ignite_timestamp> // Timestamp
+            || std::is_same_v<T, bit_array> // Bit Array
+        ) {
             return std::get<T>(m_value);
         } else {
             static_assert(sizeof(T) == 0, "Type is not an Ignite primitive type or is not yet supported");
@@ -148,9 +242,28 @@ public:
      *
      * @return Primitive type.
      */
-    [[nodiscard]] column_type get_type() const {
-        // TODO: Ensure by tests
-        return static_cast<column_type>(m_value.index());
+    [[nodiscard]] column_type get_type() const { return static_cast<column_type>(m_value.index()); }
+
+    /**
+     * @brief Comparison operator.
+     *
+     * @param lhs First value.
+     * @param rhs Second value.
+     * @return true If values are equal.
+     */
+    friend constexpr bool operator==(const primitive &lhs, const primitive &rhs) noexcept {
+        return lhs.m_value == rhs.m_value;
+    }
+
+    /**
+     * @brief Comparison operator.
+     *
+     * @param lhs First value.
+     * @param rhs Second value.
+     * @return true If values are not equal.
+     */
+    friend constexpr bool operator!=(const primitive &lhs, const primitive &rhs) noexcept {
+        return lhs.m_value != rhs.m_value;
     }
 
 private:
@@ -158,18 +271,25 @@ private:
     typedef void *unsupported_type;
 
     /** Value type. */
-    typedef std::variant<bool, std::int8_t, std::int16_t, std::int32_t, std::int64_t, float, double,
-        unsupported_type, // Decimal
-        unsupported_type, // Date
-        unsupported_type, // Time
-        unsupported_type, // Datetime
-        unsupported_type, // Timestamp
-        uuid,
-        unsupported_type, // Bitmask
-        std::string, std::vector<std::byte>,
-        unsupported_type, // Period
-        unsupported_type, // Duration
-        unsupported_type // Number
+    typedef std::variant<bool, // Bool = 0
+        std::int8_t, // Int8 = 1
+        std::int16_t, // Int16 = 2
+        std::int32_t, // Int32 = 3
+        std::int64_t, // Int64 = 4
+        float, // Float = 5
+        double, // Double = 6
+        big_decimal, // Decimal = 7
+        ignite_date, // Date = 8
+        ignite_time, // Time = 9
+        ignite_date_time, // Datetime = 10
+        ignite_timestamp, // Timestamp = 11
+        uuid, // UUID = 12
+        bit_array, // Bitmask = 13
+        std::string, // String = 14
+        std::vector<std::byte>, // Bytes = 15
+        unsupported_type, // Period = 16
+        unsupported_type, // Duration = 17
+        big_integer // Big Integer = 18
         >
         value_type;
 

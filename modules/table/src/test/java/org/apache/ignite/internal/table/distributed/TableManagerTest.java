@@ -43,12 +43,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -97,7 +97,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -596,12 +595,12 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /** Dummy metastore activity mock. */
-    private void mockMetastore() throws Exception {
-        Cursor cursorMocked = mock(Cursor.class);
-        Iterator itMock = mock(Iterator.class);
-        when(itMock.hasNext()).thenReturn(false);
-        when(msm.prefix(any())).thenReturn(cursorMocked);
-        when(cursorMocked.iterator()).thenReturn(itMock);
+    private void mockMetastore() {
+        when(msm.prefix(any())).thenReturn(subscriber -> {
+            subscriber.onSubscribe(mock(Subscription.class));
+
+            subscriber.onComplete();
+        });
     }
 
     /**

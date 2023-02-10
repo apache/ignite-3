@@ -29,8 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -247,6 +247,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(node.startFuture(), willCompleteSuccessfully());
 
         assertThat(node.logicalTopologyNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(node.validatedNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
 
     /**
@@ -269,6 +270,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         waitForLogicalTopology();
 
         assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).validatedNodes(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
 
     /**
@@ -424,7 +426,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     private void waitForLogicalTopology() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Collection<ClusterNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
+            CompletableFuture<Set<ClusterNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
 
             assertThat(logicalTopology, willCompleteSuccessfully());
 
