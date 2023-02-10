@@ -43,9 +43,9 @@ public class ClientFutureUtilsTest {
     @Test
     public void testDoWithRetryAsyncWithCompletedFutureReturnsResult() {
         var res = ClientFutureUtils.doWithRetryAsync(
-            () -> CompletableFuture.completedFuture("test"),
-            null,
-            ctx -> false
+                () -> CompletableFuture.completedFuture("test"),
+                null,
+                ctx -> false
         ).join();
 
         assertEquals("test", res);
@@ -54,9 +54,9 @@ public class ClientFutureUtilsTest {
     @Test
     public void testDoWithRetryAsyncWithResultValidatorRejectsAllThrowsIllegalState() {
         var fut = ClientFutureUtils.doWithRetryAsync(
-            () -> CompletableFuture.completedFuture("test"),
-            x -> false,
-            ctx -> false
+                () -> CompletableFuture.completedFuture("test"),
+                x -> false,
+                ctx -> false
         );
 
         var ex = assertThrows(CompletionException.class, fut::join);
@@ -68,9 +68,9 @@ public class ClientFutureUtilsTest {
         var counter = new AtomicInteger();
 
         var fut = ClientFutureUtils.doWithRetryAsync(
-            () -> CompletableFuture.failedFuture(new Exception("fail_" + counter.get())),
-            null,
-            ctx -> counter.incrementAndGet() < 3
+                () -> CompletableFuture.failedFuture(new Exception("fail_" + counter.get())),
+                null,
+                ctx -> counter.incrementAndGet() < 3
         );
 
         var completionEx = assertThrows(CompletionException.class, fut::join);
@@ -88,15 +88,15 @@ public class ClientFutureUtilsTest {
         var counter = new AtomicInteger();
 
         var fut = ClientFutureUtils.doWithRetryAsync(
-            () -> counter.getAndIncrement() < 3
-                    ? CompletableFuture.failedFuture(new Exception("fail"))
-                    : CompletableFuture.completedFuture("test"),
-            null,
-            ctx -> {
-                assertNotNull(ctx.lastError());
-                assertEquals("fail", ctx.lastError().getMessage());
-                return counter.get() < 5;
-            }
+                () -> counter.getAndIncrement() < 3
+                        ? CompletableFuture.failedFuture(new Exception("fail"))
+                        : CompletableFuture.completedFuture("test"),
+                null,
+                ctx -> {
+                    assertNotNull(ctx.lastError());
+                    assertEquals("fail", ctx.lastError().getMessage());
+                    return counter.get() < 5;
+                }
         );
 
         assertEquals("test", fut.join());
@@ -107,15 +107,15 @@ public class ClientFutureUtilsTest {
         var counter = new AtomicInteger();
 
         var fut = ClientFutureUtils.doWithRetryAsync(
-            () -> {
-                if (counter.incrementAndGet() > 1) {
-                    throw new RuntimeException("fail1");
-                } else {
-                    return CompletableFuture.failedFuture(new Exception("fail2"));
-                }
-            },
-            null,
-            ctx -> true
+                () -> {
+                    if (counter.incrementAndGet() > 1) {
+                        throw new RuntimeException("fail1");
+                    } else {
+                        return CompletableFuture.failedFuture(new Exception("fail2"));
+                    }
+                },
+                null,
+                ctx -> true
         );
 
         var ex = assertThrows(CompletionException.class, fut::join);
