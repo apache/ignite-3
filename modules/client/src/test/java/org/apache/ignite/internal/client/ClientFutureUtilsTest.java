@@ -15,8 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.internal.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -25,8 +29,10 @@ import org.junit.jupiter.api.Test;
 public class ClientFutureUtilsTest {
     @Test
     public void testGetNowSafe() {
-        // TODO
-        assert false;
+        assertNull(ClientFutureUtils.getNowSafe(CompletableFuture.completedFuture(null)));
+        assertNull(ClientFutureUtils.getNowSafe(CompletableFuture.failedFuture(new Exception("fail"))));
+        assertNull(ClientFutureUtils.getNowSafe(new CompletableFuture<>()));
+        assertEquals("test", ClientFutureUtils.getNowSafe(CompletableFuture.completedFuture("test")));
     }
 
     @Test
