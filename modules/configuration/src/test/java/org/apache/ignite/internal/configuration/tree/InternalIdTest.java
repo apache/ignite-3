@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.tree;
 
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -38,6 +39,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.direct.DirectPropertiesTest;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,7 +62,7 @@ public class InternalIdTest {
         public UUID id;
     }
 
-    /** Schema for the polumorphic configuration. */
+    /** Schema for the polymorphic configuration. */
     @PolymorphicConfig
     public static class InternalIdPolymorphicConfigurationSchema {
         @PolymorphicId
@@ -70,7 +72,7 @@ public class InternalIdTest {
         public UUID id;
     }
 
-    /** Single polymorhic extension. */
+    /** Single polymorphic extension. */
     @PolymorphicConfigInstance("foo")
     public static class InternalIdFooConfigurationSchema extends InternalIdPolymorphicConfigurationSchema {
     }
@@ -104,8 +106,10 @@ public class InternalIdTest {
 
         UUID internalId = UUID.randomUUID();
 
+        assertThat(cfg.change(change -> ((InnerNode) change).internalId(internalId)), willCompleteSuccessfully());
+
         // Put it there manually, this simplifies the test.
-        ((InnerNode) cfg.value()).internalId(internalId);
+        IgniteTestUtils.setFieldValue(cfg.value(), InnerNode.class, "internalId", internalId);
 
         // Getting it from the explicit configuration cast should work.
         assertThat(((InternalIdInternalConfiguration) cfg).id().value(), is(equalTo(internalId)));
@@ -115,7 +119,7 @@ public class InternalIdTest {
     }
 
     /**
-     * Tests that internal id, decared in polymorphic configuration, works properly.
+     * Tests that internal id, declared in polymorphic configuration, works properly.
      */
     @Test
     public void testPolymorphicExtension() throws Exception {
