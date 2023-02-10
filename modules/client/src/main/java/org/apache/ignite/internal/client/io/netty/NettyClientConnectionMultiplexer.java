@@ -29,7 +29,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +43,7 @@ import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
@@ -51,6 +51,7 @@ import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Netty-based multiplexer.
@@ -100,33 +101,11 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
         try {
             var ssl = clientCfg.sslConfiguration();
+            var builder = SslContextBuilder.forClient().trustManager(loadTrustManagerFactory(ssl));
 
-            KeyStore ts = KeyStore.getInstance(ssl.trustStoreType());
-            char[] tsPassword = ssl.trustStorePassword() == null ? null : ssl.trustStorePassword().toCharArray();
-            InputStream tsStream = ssl.trustStorePath() == null ? null : Files.newInputStream(Path.of(ssl.trustStorePath()));
-
-            ts.load(tsStream, tsPassword);
-
-            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
-                    TrustManagerFactory.getDefaultAlgorithm()
-            );
-            trustManagerFactory.init(ts);
-
-            var builder = SslContextBuilder.forClient().trustManager(trustManagerFactory);
-
-            ClientAuth clientAuth = toNettyClientAuth(clientCfg.sslConfiguration().clientAuthenticationMode());
+            ClientAuth clientAuth = toNettyClientAuth(ssl.clientAuthenticationMode());
             if (ClientAuth.NONE != clientAuth) {
-                KeyStore ks = KeyStore.getInstance(ssl.keyStoreType());
-
-                char[] ksPassword = ssl.keyStorePassword() == null ? null : ssl.keyStorePassword().toCharArray();
-                InputStream ksStream = ssl.keyStorePath() == null ? null : Files.newInputStream(Path.of(ssl.keyStorePath()));
-
-                ks.load(ksStream, ksPassword);
-
-                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-                keyManagerFactory.init(ks, ksPassword);
-
-                builder.clientAuth(clientAuth).keyManager(keyManagerFactory);
+                builder.clientAuth(clientAuth).keyManager(loadKeyManagerFactory(ssl));
             }
 
             var context = builder.build();
@@ -136,6 +115,45 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
         }
 
+    }
+
+    @NotNull
+    private static KeyManagerFactory loadKeyManagerFactory(SslConfiguration ssl)
+            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException {
+        KeyStore ks = KeyStore.getInstance(ssl.keyStoreType());
+
+        char[] ksPassword = ssl.keyStorePassword() == null ? null : ssl.keyStorePassword().toCharArray();
+        if (ssl.keyStorePath() != null) {
+            try (var is = Files.newInputStream(Path.of(ssl.keyStorePath()))) {
+                ks.load(is, ksPassword);
+            }
+        } else {
+            ks.load(null, ksPassword);
+        }
+
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(ks, ksPassword);
+        return keyManagerFactory;
+    }
+
+    @NotNull
+    private static TrustManagerFactory loadTrustManagerFactory(SslConfiguration ssl)
+            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
+        KeyStore ts = KeyStore.getInstance(ssl.trustStoreType());
+        char[] tsPassword = ssl.trustStorePassword() == null ? null : ssl.trustStorePassword().toCharArray();
+        if (ssl.trustStorePath() != null) {
+            try (var is = Files.newInputStream(Path.of(ssl.trustStorePath()))) {
+                ts.load(is, tsPassword);
+            }
+        } else {
+            ts.load(null, tsPassword);
+        }
+
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(
+                TrustManagerFactory.getDefaultAlgorithm()
+        );
+        trustManagerFactory.init(ts);
+        return trustManagerFactory;
     }
 
     private ClientAuth toNettyClientAuth(ClientAuthenticationMode igniteClientAuth) {
