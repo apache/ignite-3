@@ -582,32 +582,21 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            VersionChain currentVersionChain = findVersionChain(rowId);
+            return inUpdateVersionChainLock(rowId, () -> {
+                try {
+                    AbortWriteInvokeClosure abortWriteInvokeClosure = new AbortWriteInvokeClosure(rowId, this);
 
-            if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
-                // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
-                return null;
-            }
+                    versionChainTree.invoke(new VersionChainKey(rowId), null, abortWriteInvokeClosure);
 
-            RowVersion latestVersion = readRowVersion(currentVersionChain.headLink(), ALWAYS_LOAD_VALUE);
+                    return abortWriteInvokeClosure.getPreviousUncommittedRowVersion();
+                } catch (IgniteInternalCheckedException e) {
+                    if (e.getCause() instanceof StorageException) {
+                        throw (StorageException) e.getCause();
+                    }
 
-            assert latestVersion.isUncommitted();
-
-            removeRowVersion(latestVersion);
-
-            if (latestVersion.hasNextLink()) {
-                // Next can be safely replaced with any value (like 0), because this field is only used when there
-                // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
-                // (like 0) by replacing it with a valid value.
-                VersionChain versionChainReplacement = VersionChain.createCommitted(rowId, latestVersion.nextLink(), NULL_LINK);
-
-                updateVersionChain(versionChainReplacement);
-            } else {
-                // it was the only version, let's remove the chain as well
-                removeVersionChain(currentVersionChain);
-            }
-
-            return rowVersionToBinaryRow(latestVersion);
+                    throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                }
+            });
         });
     }
 

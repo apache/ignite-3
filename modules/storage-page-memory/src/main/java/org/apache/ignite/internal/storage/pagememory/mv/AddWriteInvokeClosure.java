@@ -58,8 +58,6 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
-    private OperationType operationType;
-
     private @Nullable VersionChain newRow;
 
     private @Nullable BinaryRow previousUncommittedRowVersion;
@@ -87,8 +85,6 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (oldRow == null) {
             RowVersion newVersion = insertRowVersion(row, NULL_LINK);
 
-            operationType = OperationType.PUT;
-
             newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(), NULL_LINK);
 
             return;
@@ -109,19 +105,19 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             toRemove = currentVersion;
         }
 
-        operationType = OperationType.PUT;
-
         newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(), newVersion.nextLink());
     }
 
     @Override
     public @Nullable VersionChain newRow() {
+        assert newRow != null;
+
         return newRow;
     }
 
     @Override
     public OperationType operationType() {
-        return operationType;
+        return OperationType.PUT;
     }
 
     @Override
