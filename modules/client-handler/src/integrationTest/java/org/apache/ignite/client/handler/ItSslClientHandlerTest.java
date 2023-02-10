@@ -20,15 +20,24 @@ package org.apache.ignite.client.handler;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.netty.handler.ssl.util.SelfSignedCertificate;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.file.Path;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.io.TempDir;
 import org.msgpack.core.MessagePack;
 
 /** SSL client integration test. */
@@ -46,8 +55,19 @@ public class ItSslClientHandlerTest {
     private String keyStorePkcs12Path;
 
     @BeforeEach
-    void setUp() {
-        keyStorePkcs12Path = ItSslClientHandlerTest.class.getClassLoader().getResource("ssl/keystore.pfx").getPath();
+    void setUp(@TempDir Path tmpDir) throws Exception {
+        keyStorePkcs12Path = tmpDir.resolve("keystore.p12").toAbsolutePath().toString();
+        generateKeystore(new SelfSignedCertificate("localhost"));
+    }
+
+    private void generateKeystore(SelfSignedCertificate cert)
+            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        ks.setKeyEntry("key", cert.key(), null, new Certificate[]{cert.cert()});
+        try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
+            ks.store(fos, "changeit".toCharArray());
+        }
     }
 
     @AfterEach
