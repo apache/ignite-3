@@ -33,6 +33,20 @@ public interface LogicalTopology {
     LogicalTopologySnapshot getLogicalTopology();
 
     /**
+     * Callback that gets called after a node has been validated, but not yet joined the Logical Topology.
+     *
+     * @param node The validated node.
+     */
+    void onNodeValidated(ClusterNode node);
+
+    /**
+     * Callback that gets called if a node has passed validation but left before joining the cluster.
+     *
+     * @param node Node that left the cluster.
+     */
+    void onNodeInvalidated(ClusterNode node);
+
+    /**
      * Puts a given node as a part of the logical topology.
      *
      * @param node Node to put.

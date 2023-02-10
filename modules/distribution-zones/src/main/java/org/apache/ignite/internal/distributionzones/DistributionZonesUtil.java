@@ -26,7 +26,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -96,7 +100,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's creation and deletion.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zonesChangeTriggerKey(int zoneId) {
+    public static ByteArray zonesChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX + zoneId);
     }
 
@@ -104,7 +108,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's data node propagation on scale up.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
+    public static ByteArray zoneScaleUpChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
@@ -112,7 +116,7 @@ public class DistributionZonesUtil {
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
-    static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
+    public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
@@ -120,7 +124,7 @@ public class DistributionZonesUtil {
      * The key that represents logical topology nodes, needed for distribution zones. It is needed to store them in the metastore
      * to serialize data nodes changes triggered by topology changes and changes of distribution zones configurations.
      */
-    static ByteArray zonesLogicalTopologyKey() {
+    public static ByteArray zonesLogicalTopologyKey() {
         return DISTRIBUTION_ZONE_LOGICAL_TOPOLOGY_KEY;
     }
 
@@ -177,6 +181,14 @@ public class DistributionZonesUtil {
         ).yield(true);
     }
 
+    static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
+        return ops(
+                put(zoneDataNodesKey(zoneId), nodes),
+                put(zoneScaleDownChangeTriggerKey(zoneId), ByteUtils.longToBytes(revision))
+        ).yield(true);
+    }
+
+
     /**
      * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)},
      * {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} and {@link DistributionZonesUtil#zonesChangeTriggerKey(int)}.
@@ -225,5 +237,33 @@ public class DistributionZonesUtil {
                 put(zonesLogicalTopologyVersionKey(), ByteUtils.longToBytes(topologyVersion)),
                 put(zonesLogicalTopologyKey(), ByteUtils.toBytes(logicalTopology))
         ).yield(true);
+    }
+
+    /**
+     * Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
+     *
+     * @param dataNodesMap This map has the following structure: node name is mapped to an integer,
+     *                     an integer represents counter for node joining or leaving the topology.
+     *                     Joining increases the counter, leaving decreases.
+     * @return Returns a set of data nodes retrieved from data nodes map, which value is more than 0.
+     */
+    public static Set<String> dataNodes(Map<String, Integer> dataNodesMap) {
+        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Entry::getKey).collect(Collectors.toSet());
+    }
+
+    /**
+     * Returns a map from a set of data nodes. This map has the following structure: node name is mapped to integer,
+     * integer represents how often node joined or leaved topology. In this case, set of nodes is interpreted as nodes
+     * that joined topology, so all mappings will be node -> 1.
+     *
+     * @param dataNodes Set of data nodes.
+     * @return Returns a map from a set of data nodes.
+     */
+    public static Map<String, Integer> toDataNodesMap(Set<String> dataNodes) {
+        Map<String, Integer> dataNodesMap = new HashMap<>();
+
+        dataNodes.forEach(n -> dataNodesMap.merge(n, 1, Integer::sum));
+
+        return dataNodesMap;
     }
 }

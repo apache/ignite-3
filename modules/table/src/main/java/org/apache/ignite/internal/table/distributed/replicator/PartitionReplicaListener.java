@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.IgniteUtils.filter;
+import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -351,7 +353,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 if (txMeta == null) {
                     // All future transactions will be committed after the resolution processed.
-                    hybridClock.update(txStateReq.commitTimestamp());
+                    hybridClock.update(txStateReq.readTimestamp());
                 }
 
                 txStateFut.complete(txMeta);
@@ -474,7 +476,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
 
-        return safeReadFuture.thenCompose(unused -> resolveRowByPk(searchRow, readTimestamp));
+        return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(searchRow, readTimestamp));
     }
 
     /**
@@ -502,7 +504,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(searchRows.size());
 
             for (BinaryRow searchRow : searchRows) {
-                CompletableFuture<BinaryRow> fut = resolveRowByPk(searchRow, readTimestamp);
+                CompletableFuture<BinaryRow> fut = resolveRowByPkForReadOnly(searchRow, readTimestamp);
 
                 resolutionFuts.add(fut);
             }
@@ -1136,32 +1138,91 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param ts A timestamp regarding which we need to resolve the given row.
      * @return Result of the given action.
      */
-    private CompletableFuture<BinaryRow> resolveRowByPk(BinaryRow searchKey, HybridTimestamp ts) {
+    private CompletableFuture<BinaryRow> resolveRowByPkForReadOnly(BinaryRow searchKey, HybridTimestamp ts) {
         try (Cursor<RowId> cursor = pkIndexStorage.get().get(searchKey)) {
+            List<ReadResult> candidates = new ArrayList<>();
+
             for (RowId rowId : cursor) {
                 ReadResult readResult = mvDataStorage.read(rowId, ts);
 
-                return resolveReadResult(readResult, ts, () -> {
-                    HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
-
-                    if (newestCommitTimestamp == null) {
-                        return null;
-                    }
-
-                    ReadResult committedReadResult = mvDataStorage.read(rowId, newestCommitTimestamp);
-
-                    assert !committedReadResult.isWriteIntent() :
-                            "The result is not committed [rowId=" + rowId + ", timestamp="
-                                    + newestCommitTimestamp + ']';
-
-                    return committedReadResult.binaryRow();
-                });
+                if (!readResult.isEmpty() || readResult.isWriteIntent()) {
+                    candidates.add(readResult);
+                }
             }
 
-            return completedFuture(null);
+            if (candidates.isEmpty()) {
+                return completedFuture(null);
+            }
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-18767 scan of multiple write intents should not be needed
+            List<ReadResult> writeIntents = filter(candidates, ReadResult::isWriteIntent);
+
+            if (!writeIntents.isEmpty()) {
+                ReadResult writeIntent = writeIntents.get(0);
+
+                // Assume that all write intents for the same key belong to the same transaction, as the key should be exclusively locked.
+                // This means that we can just resolve the state of this transaction.
+                checkWriteIntentsBelongSameTx(writeIntents);
+
+                return resolveTxState(
+                                new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
+                                writeIntent.transactionId(),
+                                ts)
+                        .thenApply(readLastCommitted -> {
+                            if (readLastCommitted) {
+                                for (ReadResult wi : writeIntents) {
+                                    HybridTimestamp newestCommitTimestamp = wi.newestCommitTimestamp();
+
+                                    if (newestCommitTimestamp == null) {
+                                        continue;
+                                    }
+
+                                    ReadResult committedReadResult = mvDataStorage.read(wi.rowId(), newestCommitTimestamp);
+
+                                    assert !committedReadResult.isWriteIntent() :
+                                            "The result is not committed [rowId=" + wi.rowId() + ", timestamp="
+                                                    + newestCommitTimestamp + ']';
+
+                                    return committedReadResult.binaryRow();
+                                }
+
+                                return findAny(candidates, c -> !c.isWriteIntent() && !c.isEmpty()).map(ReadResult::binaryRow)
+                                        .orElse(null);
+                            } else {
+                                return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow)
+                                        .orElse(null);
+                            }
+                        });
+            } else {
+                BinaryRow result = findAny(candidates, r -> !r.isEmpty()).map(ReadResult::binaryRow)
+                        .orElse(null);
+
+                return completedFuture(result);
+            }
         } catch (Exception e) {
             throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
                     format("Unable to close cursor [tableId={}]", tableId), e);
+        }
+    }
+
+    /**
+     * Check that all given write intents belong to the same transaction.
+     *
+     * @param writeIntents Write intents.
+     */
+    private static void checkWriteIntentsBelongSameTx(Collection<ReadResult> writeIntents) {
+        ReadResult writeIntent = findAny(writeIntents).orElseThrow();
+
+        for (ReadResult wi : writeIntents) {
+            assert wi.transactionId().equals(writeIntent.transactionId())
+                    : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
+
+            assert wi.commitTableId().equals(writeIntent.commitTableId())
+                    : "Unexpected write intent, commitTableId1=" + writeIntent.commitTableId() + ", commitTableId2=" + wi.commitTableId();
+
+            assert wi.commitPartitionId() == writeIntent.commitPartitionId()
+                    : "Unexpected write intent, commitPartitionId1=" + writeIntent.commitPartitionId()
+                    + ", commitPartitionId2=" + wi.commitPartitionId();
         }
     }
 
@@ -1940,7 +2001,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable Supplier<BinaryRow> lastCommitted
     ) {
         if (readResult == null) {
-            return null;
+            return completedFuture(null);
         } else {
             if (txId != null) {
                 // RW request.
@@ -1979,22 +2040,50 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp timestamp,
             Supplier<BinaryRow> lastCommitted
     ) {
-        ReplicationGroupId commitGrpId = new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId());
+        return resolveTxState(
+                        new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
+                        readResult.transactionId(),
+                        timestamp)
+                .thenApply(readLastCommitted -> {
+                    if (readLastCommitted) {
+                        return lastCommitted.get();
+                    } else {
+                        return readResult.binaryRow();
+                    }
+                });
+    }
 
+    /**
+     * Resolve the actual tx state.
+     *
+     * @param commitGrpId Commit partition id.
+     * @param txId Transaction id.
+     * @param timestamp Timestamp.
+     * @return Future with boolean value, indicating whether the transaction was committed before timestamp.
+     */
+    private CompletableFuture<Boolean> resolveTxState(
+            ReplicationGroupId commitGrpId,
+            UUID txId,
+            HybridTimestamp timestamp
+    ) {
         return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
-                        .commitTimestamp(timestamp)
-                        .txId(readResult.transactionId())
+                        .readTimestamp(timestamp)
+                        .txId(txId)
                         .build())
                 .thenApply(txMeta -> {
                     if (txMeta == null) {
-                        return lastCommitted.get();
-                    } else if (txMeta.txState() == TxState.COMMITED && txMeta.commitTimestamp().compareTo(timestamp) <= 0) {
-                        return readResult.binaryRow();
+                        return true;
+                    } else if (txMeta.txState() == TxState.COMMITED) {
+                        if (txMeta.commitTimestamp().compareTo(timestamp) <= 0) {
+                            return false;
+                        } else {
+                            return true;
+                        }
                     } else {
                         assert txMeta.txState() == TxState.ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
-                        return lastCommitted.get();
+                        return true;
                     }
                 });
     }

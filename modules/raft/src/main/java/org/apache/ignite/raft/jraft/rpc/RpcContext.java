@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.NodeManager;
 
@@ -29,21 +30,35 @@ public interface RpcContext {
     NodeManager getNodeManager();
 
     /**
-     * Send a response back.
+     * Sends a response back.
      *
      * @param responseObj The response object.
      */
     void sendResponse(final Object responseObj);
 
     /**
-     * Get the remote address.
+     * Sends a response back asynchronously.
+     *
+     * @param responseObj The response object.
+     */
+    void sendResponseAsync(final Object responseObj);
+
+    /**
+     * Gets the remote address.
      *
      * @return Remote address.
      */
     NetworkAddress getRemoteAddress();
 
     /**
-     * Get the local consistent ID of the server.
+     * Gets a sender node for the request.
+     *
+     * @return Cluster node.
+     */
+    ClusterNode getSender();
+
+    /**
+     * Gets the local consistent ID of the server.
      *
      * @return Local consistent ID.
      */

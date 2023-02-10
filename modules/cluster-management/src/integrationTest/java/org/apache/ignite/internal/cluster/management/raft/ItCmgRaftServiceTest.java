@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -43,7 +42,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
-import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
@@ -86,9 +84,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItCmgRaftServiceTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -137,7 +132,6 @@ public class ItCmgRaftServiceTest {
                             new CmgRaftGroupListener(
                                     raftStorage,
                                     new LogicalTopologyImpl(raftStorage),
-                                    clusterManagementConfiguration,
                                     term -> {}
                             ),
                             RaftGroupEventsListener.noopLsnr
@@ -175,8 +169,12 @@ public class ItCmgRaftServiceTest {
             return clusterService.topologyService().localMember();
         }
 
-        private CompletableFuture<Collection<ClusterNode>> logicalTopologyNodes() {
+        private CompletableFuture<Set<ClusterNode>> logicalTopologyNodes() {
             return raftService.logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
+        }
+
+        private CompletableFuture<Set<ClusterNode>> validatedNodes() {
+            return raftService.validatedNodes();
         }
     }
 
@@ -225,22 +223,37 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.raftService.initClusterState(clusterState), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), willBe(empty()));
+        assertThat(node1.validatedNodes(), willBe(empty()));
 
-        assertThat(joinCluster(node1, clusterState.clusterTag()), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(clusterState.clusterTag()), willCompleteSuccessfully());
+
+        assertThat(node1.logicalTopologyNodes(), willBe(empty()));
+        assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
+
+        assertThat(node1.raftService.completeJoinCluster(), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), will(contains(clusterNode1)));
+        assertThat(node1.validatedNodes(), will(contains(clusterNode1)));
 
-        assertThat(joinCluster(node2, clusterState.clusterTag()), willCompleteSuccessfully());
+        assertThat(node2.raftService.startJoinCluster(clusterState.clusterTag()), willCompleteSuccessfully());
+
+        assertThat(node1.logicalTopologyNodes(), willBe(contains(clusterNode1)));
+        assertThat(node1.validatedNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
+
+        assertThat(node2.raftService.completeJoinCluster(), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
+        assertThat(node1.validatedNodes(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
         assertThat(node1.raftService.removeFromCluster(Set.of(clusterNode1)), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), will(contains(clusterNode2)));
+        assertThat(node1.validatedNodes(), will(contains(clusterNode2)));
 
         assertThat(node1.raftService.removeFromCluster(Set.of(clusterNode2)), willCompleteSuccessfully());
 
         assertThat(node1.logicalTopologyNodes(), willBe(empty()));
+        assertThat(node1.validatedNodes(), will(empty()));
     }
 
     private static CompletableFuture<Void> joinCluster(Node node, ClusterTag clusterTag) {

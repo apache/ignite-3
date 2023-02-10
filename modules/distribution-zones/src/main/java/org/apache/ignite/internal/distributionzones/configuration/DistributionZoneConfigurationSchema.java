@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones.configuration;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
@@ -43,15 +44,15 @@ public class DistributionZoneConfigurationSchema {
     /** Timeout in seconds between node added or node left topology event itself and data nodes switch. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int dataNodesAutoAdjust = Integer.MAX_VALUE;
+    public int dataNodesAutoAdjust = INFINITE_TIMER_VALUE;
 
     /** Timeout in seconds between node added topology event itself and data nodes switch. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int dataNodesAutoAdjustScaleUp = Integer.MAX_VALUE;
+    public int dataNodesAutoAdjustScaleUp = INFINITE_TIMER_VALUE;
 
     /** Timeout in seconds between node left topology event itself and data nodes switch. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int dataNodesAutoAdjustScaleDown = Integer.MAX_VALUE;
+    public int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
 }
