@@ -44,15 +44,70 @@ LINQ has the following advantages over SQL:
 * Results are mapped to types naturally.
 
 
-TODO:
-* Why do we need this?
-* Getting started
-* Supported features
-  * Joins
-  * Groupings
-  * Aggregate operators
-  * Strings, math, regex
-  * Async extensions
-  * DML / bulk ops
-  * Composable queries
-* Column name mapping explained
+## Getting Started
+
+1. Create a table.
+```csharp
+await Client.Sql.ExecuteAsync(null, @"CREATE TABLE PUBLIC.PERSON (NAME VARCHAR PRIMARY KEY, AGE INT)");
+```
+
+2. Define classes (or records) that represent tables.
+   * Member names should match column names (case-insensitive).
+   * If a column name is not a valid C# identifier, use `[Column("name")]` attribute to specify the name.
+```csharp
+public record Person(string Name, int Age);
+```
+
+3. Obtain a table reference
+```csharp
+ITable table = await Client.Tables.GetTableAsync("PERSON");
+```
+ 
+5. Use `GetRecordView<T>()` to get a typed view of the table.
+```csharp
+IRecordView<Person> view = table.GetRecordView<Person>();
+```
+
+6. Use `AsQueryable()` to perform LINQ queries on `IRecordView<T>`.
+```csharp
+List<string> names = await view.AsQueryable()
+    .Where(x => x.Age > 30)
+    .Select(x => x.Name)
+    .ToListAsync();
+```
+
+## Supported Features
+
+### Result Materialization
+TODO
+
+### Projections
+TODO
+
+### Joins
+TODO
+
+### Groupings
+TODO
+
+### Aggregates
+TODO
+
+### Math Functions
+TODO
+
+### String Functions
+TODO
+
+### Regular Expressions
+TODO
+
+### DML (Bulk Update and Delete)
+TODO
+
+### Composing Queries
+TODO
+
+
+### Column Name Mapping
+TODO
