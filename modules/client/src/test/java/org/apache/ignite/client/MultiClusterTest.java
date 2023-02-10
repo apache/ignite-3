@@ -27,7 +27,6 @@ import java.util.UUID;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.hamcrest.CoreMatchers;
 import org.jetbrains.annotations.Nullable;
@@ -96,13 +95,7 @@ public class MultiClusterTest {
             IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(
                     () -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");
 
-            IgniteClientConnectionException cause = (IgniteClientConnectionException) ExceptionUtils.getSuppressedList(ex).stream()
-                    .filter(e -> e.getCause().getMessage().contains("Cluster ID mismatch"))
-                    .findFirst()
-                    .orElseThrow()
-                    .getCause();
-
-            assertEquals(CLUSTER_ID_MISMATCH_ERR, cause.code());
+            assertEquals(CLUSTER_ID_MISMATCH_ERR, ex.code());
         }
     }
 
