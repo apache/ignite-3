@@ -25,20 +25,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
-import org.apache.ignite.internal.network.configuration.NetworkView;
-import org.apache.ignite.internal.network.configuration.OutboundView;
-import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -61,6 +59,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ConfigurationExtension.class)
 class DefaultMessagingServiceTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
@@ -68,23 +67,11 @@ class DefaultMessagingServiceTest {
     @Mock
     private TopologyService topologyService;
 
-    @Mock
+    @InjectConfiguration
     private NetworkConfiguration senderNetworkConfig;
-    @Mock
-    private NetworkView senderNetworkConfigView;
-    @Mock
-    private OutboundView senderOutboundConfig;
-    @Mock
-    private InboundView senderInboundConfig;
 
-    @Mock
+    @InjectConfiguration
     private NetworkConfiguration receiverNetworkConfig;
-    @Mock
-    private NetworkView receiverNetworkConfigView;
-    @Mock
-    private OutboundView receiverOutboundConfig;
-    @Mock
-    private InboundView receiverInboundConfig;
 
     private final NetworkMessagesFactory networkMessagesFactory = new NetworkMessagesFactory();
     private final TestMessagesFactory testMessagesFactory = new TestMessagesFactory();
@@ -103,10 +90,9 @@ class DefaultMessagingServiceTest {
     );
 
     @BeforeEach
-    void setUp() {
-        configureSender();
-        configureReceiver();
-
+    void setUp() throws InterruptedException, ExecutionException {
+        senderNetworkConfig.port().update(SENDER_PORT).get();
+        receiverNetworkConfig.port().update(RECEIVER_PORT).get();
         lenient().when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
     }
 
@@ -147,31 +133,6 @@ class DefaultMessagingServiceTest {
 
             assertThat(resultFuture, willThrow(UnresolvableConsistentIdException.class));
         }
-    }
-
-    private void configureSender() {
-        when(senderNetworkConfigView.port()).thenReturn(SENDER_PORT);
-        configureNetworkDefaults(senderNetworkConfig, senderNetworkConfigView, senderOutboundConfig, senderInboundConfig);
-    }
-
-    private void configureReceiver() {
-        lenient().when(receiverNetworkConfigView.port()).thenReturn(RECEIVER_PORT);
-        configureNetworkDefaults(receiverNetworkConfig, receiverNetworkConfigView, receiverOutboundConfig, receiverInboundConfig);
-    }
-
-    private static void configureNetworkDefaults(
-            NetworkConfiguration networkConfig,
-            NetworkView networkConfigView,
-            OutboundView outboundConfig,
-            InboundView inboundConfig
-    ) {
-        lenient().when(networkConfig.value()).thenReturn(networkConfigView);
-        lenient().when(networkConfigView.portRange()).thenReturn(0);
-        lenient().when(networkConfigView.outbound()).thenReturn(outboundConfig);
-        lenient().when(networkConfigView.inbound()).thenReturn(inboundConfig);
-        SslView ssl = mock(SslView.class);
-        lenient().when(ssl.enabled()).thenReturn(false);
-        lenient().when(networkConfigView.ssl()).thenReturn(ssl);
     }
 
     private static void awaitQuietly(CountDownLatch latch) {

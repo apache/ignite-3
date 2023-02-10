@@ -37,13 +37,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class SslContextProviderTest {
 
     @InjectConfiguration
-    SslConfiguration configuration;
+    private SslConfiguration configuration;
 
-    String password;
+    private String password;
 
-    String keyStorePkcs12Path;
+    private String keyStorePkcs12Path;
 
-    String trustStoreJks12Path;
+    private String trustStoreJks12Path;
 
     @BeforeEach
     void setUp() {
