@@ -141,6 +141,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     return handshakeAsync(DEFAULT_VERSION);
                 })
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        close();
+                    }
+                })
                 .thenApplyAsync(unused -> {
                     // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
                     // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
