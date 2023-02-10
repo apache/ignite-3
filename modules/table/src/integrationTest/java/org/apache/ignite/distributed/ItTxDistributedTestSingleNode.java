@@ -332,9 +332,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         igniteTransactions = new IgniteTransactionsImpl(clientTxManager);
 
-        InternalTableImpl internalTableAccounts = new InternalTableImpl(
+        this.accounts = new TableImpl(new InternalTableImpl(
                 accountsName,
                 accTblId,
+                accRaftClients,
                 1,
                 consistentIdToNode,
                 clientTxManager,
@@ -342,16 +343,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
-        );
+        ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
 
-        accRaftClients.int2ObjectEntrySet()
-                .forEach(entry -> internalTableAccounts.updateInternalTableRaftGroupService(entry.getIntKey(), entry.getValue()));
-
-        this.accounts = new TableImpl(internalTableAccounts, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
-
-        InternalTableImpl internalTableCustomers = new InternalTableImpl(
+        this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
                 custTblId,
+                custRaftClients,
                 1,
                 consistentIdToNode,
                 clientTxManager,
@@ -359,12 +356,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 Mockito.mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName)
-        );
-
-        custRaftClients.int2ObjectEntrySet()
-                .forEach(entry -> internalTableCustomers.updateInternalTableRaftGroupService(entry.getIntKey(), entry.getValue()));
-
-        this.customers = new TableImpl(internalTableCustomers, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
+        ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
 
         log.info("Tables have been started");
     }

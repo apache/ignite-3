@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
@@ -149,6 +150,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
             super(
                     "test",
                     UUID.randomUUID(),
+                    Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                     PART_CNT,
                     addr -> mock(ClusterNode.class),
                     new TxManagerImpl(replicaSvc, new HeapLockManager(), new HybridClockImpl()),
@@ -157,8 +159,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     replicaSvc,
                     mock(HybridClock.class)
             );
-
-            updateInternalTableRaftGroupService(0, mock(RaftGroupService.class));
 
             processedPerPart = new int[PART_CNT];
         }
