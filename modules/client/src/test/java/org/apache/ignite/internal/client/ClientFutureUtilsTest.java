@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -81,5 +81,24 @@ public class ClientFutureUtilsTest {
         assertEquals("fail_0", ex.getMessage());
         assertEquals("fail_1", ex.getSuppressed()[0].getMessage());
         assertEquals("fail_2", ex.getSuppressed()[1].getMessage());
+    }
+
+    @Test
+    public void testDoWithRetryAsyncSucceedsAfterRetries() {
+        var counter = new AtomicInteger();
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+            () -> counter.getAndIncrement() < 3
+                    ? CompletableFuture.failedFuture(new Exception("fail"))
+                    : CompletableFuture.completedFuture("test"),
+            null,
+            ctx -> {
+                assertNotNull(ctx.lastError());
+                assertEquals("fail", ctx.lastError().getMessage());
+                return counter.get() < 5;
+            }
+        );
+
+        assertEquals("test", fut.join());
     }
 }
