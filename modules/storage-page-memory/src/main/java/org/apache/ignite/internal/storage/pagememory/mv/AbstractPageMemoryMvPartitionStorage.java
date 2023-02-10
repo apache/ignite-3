@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -654,22 +653,23 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            VersionChain currentChain = findVersionChain(rowId);
+            return inUpdateVersionChainLock(rowId, () -> {
+                try {
+                    versionChainTree.invoke(
+                            new VersionChainKey(rowId),
+                            null,
+                            new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp, this)
+                    );
 
-            if (currentChain != null && currentChain.isUncommitted()) {
-                // This means that there is a bug in our code as the caller must make sure that no write intent exists
-                // below this write.
-                throw new StorageException("Write intent exists for " + rowId);
-            }
+                    return null;
+                } catch (IgniteInternalCheckedException e) {
+                    if (e.getCause() instanceof StorageException) {
+                        throw (StorageException) e.getCause();
+                    }
 
-            long nextLink = currentChain == null ? NULL_LINK : currentChain.newestCommittedLink();
-            RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, nextLink);
-
-            VersionChain chainReplacement = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
-
-            updateVersionChain(chainReplacement);
-
-            return null;
+                    throw new StorageException("Error while executing addWriteCommitted: [rowId={}, {}]", e, rowId, createStorageInfo());
+                }
+            });
         });
     }
 
