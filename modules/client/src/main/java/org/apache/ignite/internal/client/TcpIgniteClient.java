@@ -68,7 +68,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param cfg Config.
      */
     private TcpIgniteClient(IgniteClientConfiguration cfg) {
-        this(TcpClientChannel::new, cfg);
+        this(TcpClientChannel::createAsync, cfg);
     }
 
     /**
@@ -78,7 +78,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @param cfg Config.
      */
     private TcpIgniteClient(
-            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
+            BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, CompletableFuture<ClientChannel>> chFactory,
             IgniteClientConfiguration cfg
     ) {
         assert chFactory != null;
@@ -98,7 +98,7 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<Void> initAsync() {
+    private CompletableFuture<ClientChannel> initAsync() {
         return ch.channelsInitAsync();
     }
 
@@ -109,6 +109,7 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
+        //noinspection resource: returned from method
         var client = new TcpIgniteClient(cfg);
 
         return client.initAsync().thenApply(x -> client);

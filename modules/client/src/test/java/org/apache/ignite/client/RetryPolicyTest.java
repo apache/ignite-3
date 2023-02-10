@@ -244,12 +244,9 @@ public class RetryPolicyTest {
 
         try (var client = getClient(plc)) {
             IgniteException ex = assertThrows(IgniteException.class, () -> client.tables().tables());
+            var cause = (RuntimeException) ex.getCause();
 
-            var cause = (IgniteClientConnectionException) ex.getCause();
-            Throwable[] suppressed = cause.getSuppressed();
-
-            assertEquals("TestRetryPolicy exception.", suppressed[0].getMessage());
-            assertEquals(1, suppressed.length);
+            assertEquals("TestRetryPolicy exception.", cause.getMessage());
         }
     }
 
