@@ -521,7 +521,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     .startRaftGroupNode(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
-                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, configuration, this::onLogicalTopologyChanged),
+                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
                             createCmgRaftGroupEventsListener()
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
@@ -734,6 +734,22 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         try {
             return raftServiceAfterJoin().thenCompose(CmgRaftService::logicalTopology);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
+     * Logical Topology as well as nodes that only have passed the validation step.
+     */
+    public CompletableFuture<Set<ClusterNode>> validatedNodes() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin().thenCompose(CmgRaftService::validatedNodes);
         } finally {
             busyLock.leaveBusy();
         }

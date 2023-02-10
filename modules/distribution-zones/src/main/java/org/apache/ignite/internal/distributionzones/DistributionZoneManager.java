@@ -162,12 +162,12 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
-        public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 
         @Override
-        public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
+        public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
             updateLogicalTopologyInMetaStorage(newTopology, false);
         }
 

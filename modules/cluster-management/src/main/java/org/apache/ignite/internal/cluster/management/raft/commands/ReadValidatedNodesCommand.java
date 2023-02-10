@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup.Commands;
+import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Transaction state request.
+ * Command for retrieving a set of validated nodes.
  */
-@Transferable(TxMessageGroup.TX_STATE_REQUEST)
-public interface TxStateReplicaRequest extends ReplicaRequest {
-    @Marshallable
-    UUID txId();
-
-    @Marshallable
-    HybridTimestamp readTimestamp();
+@Transferable(Commands.READ_VALIDATED_NODES)
+public interface ReadValidatedNodesCommand extends ReadCommand {
 }

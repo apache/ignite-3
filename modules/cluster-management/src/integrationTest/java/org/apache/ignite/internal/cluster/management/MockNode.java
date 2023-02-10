@@ -22,8 +22,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -194,7 +194,11 @@ public class MockNode {
         return clusterService;
     }
 
-    CompletableFuture<Collection<ClusterNode>> logicalTopologyNodes() {
+    CompletableFuture<Set<ClusterNode>> logicalTopologyNodes() {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
+    }
+
+    CompletableFuture<Set<ClusterNode>> validatedNodes() {
+        return clusterManager().validatedNodes();
     }
 }

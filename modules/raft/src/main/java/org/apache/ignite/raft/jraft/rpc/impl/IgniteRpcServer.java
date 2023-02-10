@@ -24,14 +24,16 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.server.impl.RaftServiceEventListener;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.UnresolvableConsistentIdException;import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.UnresolvableConsistentIdException;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -81,10 +83,11 @@ public class IgniteRpcServer implements RpcServer<Void> {
      * @param rpcExecutor The executor for RPC requests.
      */
     public IgniteRpcServer(
-        ClusterService service,
-        NodeManager nodeManager,
-        RaftMessagesFactory raftMessagesFactory,
-        Executor rpcExecutor
+            ClusterService service,
+            NodeManager nodeManager,
+            RaftMessagesFactory raftMessagesFactory,
+            Executor rpcExecutor,
+            RaftServiceEventListener serviceEventListener
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
@@ -117,6 +120,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         // common client integration
         var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.localConfiguration().getSerializationRegistry());
         registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
+        registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventListener));
 
         var messageHandler = new RpcMessageHandler();
 
@@ -131,6 +135,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
             }
 
             @Override public void onDisappeared(ClusterNode member) {
+                serviceEventListener.unsubscribeNode(member);
+
                 for (ConnectionClosedEventListener listener : listeners)
                     listener.onClosed(service.topologyService().localMember().name(), member.name());
             }
@@ -167,45 +173,81 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
             RpcProcessor.ExecutorSelector selector = prc.executorSelector();
 
-            Executor executor = null;
+            Executor executor;
 
             if (selector != null)
                 executor = selector.select(prc.getClass().getName(), message, nodeManager);
-
-            if (executor == null)
+            else if (prc.executor() != null) {
                 executor = prc.executor();
-
-            if (executor == null)
+            } else {
                 executor = rpcExecutor;
+            }
 
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
             try {
-                executor.execute(() -> {
-                    var context = new RpcContext() {
-                        @Override public NodeManager getNodeManager() {
-                            return nodeManager;
-                        }
-
-                        @Override public void sendResponse(Object responseObj) {
-                            service.messagingService().respond(sender, (NetworkMessage) responseObj, correlationId);
-                        }
-
-                        @Override public NetworkAddress getRemoteAddress() {
-                            return sender.address();
-                        }
-
-                        @Override public String getLocalConsistentId() {
-                            return service.topologyService().localMember().name();
-                        }
-                    };
-
-                    finalPrc.handleRequest(context, message);
-                });
+                executor.execute(() -> finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
             } catch (RejectedExecutionException e) {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
                 LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Network processor context.
+     */
+    private class NetworkRpcContext implements RpcContext {
+        /** Sender node. */
+        private final ClusterNode sender;
+
+        /** Correlation request id. */
+        private final Long correlationId;
+
+        /** Executor. */
+        private final Executor executor;
+
+        /**
+         * The constructor.
+         *
+         * @param executor Executor.
+         * @param sender Sender node.
+         * @param correlationId Correlation id.
+         */
+        public NetworkRpcContext(Executor executor, ClusterNode sender, Long correlationId) {
+            this.executor = executor;
+            this.sender = sender;
+            this.correlationId = correlationId;
+        }
+
+        @Override
+        public NodeManager getNodeManager() {
+            return nodeManager;
+        }
+
+        @Override
+        public void sendResponse(Object responseObj) {
+            service.messagingService().respond(sender, (NetworkMessage) responseObj, correlationId);
+        }
+
+        @Override
+        public void sendResponseAsync(Object responseObj) {
+            executor.execute(() -> service.messagingService().send(sender, (NetworkMessage) responseObj));
+        }
+
+        @Override
+        public NetworkAddress getRemoteAddress() {
+            return sender.address();
+        }
+
+        @Override
+        public ClusterNode getSender() {
+            return sender;
+        }
+
+        @Override
+        public String getLocalConsistentId() {
+            return service.topologyService().localMember().name();
         }
     }
 

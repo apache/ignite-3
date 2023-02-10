@@ -40,6 +40,9 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     @Nullable
     private UUID internalId;
 
+    /** Immutability flag. */
+    private boolean immutable = false;
+
     /**
      * Returns internal id of the node.
      */
@@ -53,6 +56,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * @param internalId New internal id value.
      */
     public final void internalId(UUID internalId) {
+        assertMutability();
+
         this.internalId = internalId;
     }
 
@@ -202,10 +207,35 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     @Override
     public InnerNode copy() {
         try {
-            return (InnerNode) clone();
+            InnerNode clone = (InnerNode) clone();
+
+            clone.immutable = false;
+
+            return clone;
         } catch (CloneNotSupportedException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Checks that current instance is mutable.
+     *
+     * @throws AssertionError If the object is immutable.
+     * @see ConstructableTreeNode#makeImmutable()
+     */
+    public final void assertMutability() {
+        if (immutable) {
+            throw new AssertionError("Mutating immutable configuration");
+        }
+    }
+
+    @Override
+    public boolean makeImmutable() {
+        boolean updated = !immutable;
+
+        immutable = true;
+
+        return updated;
     }
 
     /**
@@ -229,7 +259,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * Sets the value of a field with {@link InjectedName}.
      */
     public void setInjectedNameFieldValue(String value) {
-        // No-op.
+        assertMutability();
     }
 
     /**

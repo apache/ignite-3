@@ -101,7 +101,7 @@ public class InternalTableImpl implements InternalTable {
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
     /** Partition map. */
-    protected final Int2ObjectMap<RaftGroupService> partitionMap;
+    protected volatile Int2ObjectMap<RaftGroupService> partitionMap;
 
     /** Partitions. */
     private final int partitions;
@@ -1219,7 +1219,13 @@ public class InternalTableImpl implements InternalTable {
         RaftGroupService oldSrvc;
 
         synchronized (updatePartMapMux) {
-            oldSrvc = partitionMap.put(p, raftGrpSvc);
+            Int2ObjectMap<RaftGroupService> newPartitionMap = new Int2ObjectOpenHashMap<>(partitions);
+
+            newPartitionMap.putAll(partitionMap);
+
+            oldSrvc = newPartitionMap.put(p, raftGrpSvc);
+
+            partitionMap = newPartitionMap;
         }
 
         if (oldSrvc != null) {

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -274,10 +275,9 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
 
                 BinaryRow readOnlyRow = table.internalTable().get(testKey, new HybridClockImpl().now(), ignite.node()).get();
 
-                //TODO: IGNITE-18497 Readonly check is possible only when the readonly read will be fixed.
-                //assertNotNull(readOnlyRow);
-                //assertEquals(row[1], new Row(table.schemaView().schema(), readOnlyRow).stringValue(2));
-                //assertEquals(row[2], new Row(table.schemaView().schema(), readOnlyRow).doubleValue(1));
+                assertNotNull(readOnlyRow);
+                assertEquals(row[1], new Row(table.schemaView().schema(), readOnlyRow).stringValue(2));
+                assertEquals(row[2], new Row(table.schemaView().schema(), readOnlyRow).doubleValue(1));
             } catch (Exception e) {
                 new RuntimeException(IgniteStringFormatter.format("Cannot check a row {}", row), e);
             }

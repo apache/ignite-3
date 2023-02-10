@@ -140,21 +140,25 @@ public abstract class AbstractClusterStateStorageManagerTest {
      */
     @Test
     void testValidatedNodes() {
-        storageManager.putValidatedNode("node1");
+        var node1 = new ClusterNode("node1", "node1", new NetworkAddress("localhost", 10_000));
+        var node2 = new ClusterNode("node2", "node2", new NetworkAddress("localhost", 10_001));
+        var node3 = new ClusterNode("node3", "node3", new NetworkAddress("localhost", 10_002));
 
-        storageManager.putValidatedNode("node2");
+        storageManager.putValidatedNode(node1);
 
-        assertThat(storageManager.isNodeValidated("node1"), is(true));
-        assertThat(storageManager.isNodeValidated("node2"), is(true));
-        assertThat(storageManager.isNodeValidated("node3"), is(false));
+        storageManager.putValidatedNode(node2);
 
-        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node1", "node2"));
+        assertThat(storageManager.isNodeValidated(node1), is(true));
+        assertThat(storageManager.isNodeValidated(node2), is(true));
+        assertThat(storageManager.isNodeValidated(node3), is(false));
 
-        storageManager.removeValidatedNode("node1");
+        assertThat(storageManager.getValidatedNodes(), containsInAnyOrder(node1, node2));
 
-        assertThat(storageManager.isNodeValidated("node1"), is(false));
-        assertThat(storageManager.isNodeValidated("node2"), is(true));
+        storageManager.removeValidatedNode(node1);
 
-        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node2"));
+        assertThat(storageManager.isNodeValidated(node1), is(false));
+        assertThat(storageManager.isNodeValidated(node2), is(true));
+
+        assertThat(storageManager.getValidatedNodes(), containsInAnyOrder(node2));
     }
 }
