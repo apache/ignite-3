@@ -101,4 +101,24 @@ public class ClientFutureUtilsTest {
 
         assertEquals("test", fut.join());
     }
+
+    @Test
+    public void testDoWithRetryAsyncWithExceptionInDelegateReturnsFailedFuture() {
+        var counter = new AtomicInteger();
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+            () -> {
+                if (counter.incrementAndGet() > 1) {
+                    throw new RuntimeException("fail1");
+                } else {
+                    return CompletableFuture.failedFuture(new Exception("fail2"));
+                }
+            },
+            null,
+            ctx -> true
+        );
+
+        var ex = assertThrows(CompletionException.class, fut::join);
+        assertEquals("fail1", ex.getCause().getMessage());
+    }
 }
