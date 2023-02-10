@@ -693,7 +693,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             var chFut0 = chFut;
 
-            if (isDoneAndOpenOrInProgress(chFut0)) {
+            if (isFutureInProgressOrDoneAndChannelOpen(chFut0)) {
                 return chFut0;
             }
 
@@ -704,7 +704,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                 chFut0 = chFut;
 
-                if (isDoneAndOpenOrInProgress(chFut0)) {
+                if (isFutureInProgressOrDoneAndChannelOpen(chFut0)) {
                     return chFut0;
                 }
 
@@ -806,7 +806,7 @@ public final class ReliableChannel implements AutoCloseable {
             closeChannel();
         }
 
-        private boolean isDoneAndOpenOrInProgress(@Nullable CompletableFuture<ClientChannel> f) {
+        private boolean isFutureInProgressOrDoneAndChannelOpen(@Nullable CompletableFuture<ClientChannel> f) {
             if (f == null || f.isCompletedExceptionally()) {
                 return false;
             }
