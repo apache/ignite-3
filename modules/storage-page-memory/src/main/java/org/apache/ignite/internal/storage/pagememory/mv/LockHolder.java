@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 
 /**
- * Class to keep track of the number of lock holders({@link Thread}).
+ * Class to keep track of the number of lock holders.
  *
  * <p>Honest holder tracking requires an external sync, such as a {@link ConcurrentMap}.
  *
@@ -38,8 +38,6 @@ class LockHolder<T extends Lock> {
 
     private final AtomicInteger lockHolder = new AtomicInteger();
 
-    private static final ThreadLocal<Thread> HOLDER = new ThreadLocal<>();
-
     LockHolder(T lock) {
         this.lock = lock;
     }
@@ -48,29 +46,15 @@ class LockHolder<T extends Lock> {
      * Increment the count of lock holders ({@link Thread}).
      */
     void incrementHolders() {
-        if (HOLDER.get() == null) {
-            HOLDER.set(Thread.currentThread());
+        int holders = lockHolder.incrementAndGet();
 
-            int holders = lockHolder.incrementAndGet();
-
-            assert holders > 0 : holders;
-        } else {
-            assert HOLDER.get() == Thread.currentThread() : "holderThread=" + HOLDER.get() + ", currentThread=" + Thread.currentThread();
-
-            int holders = lockHolder.get();
-
-            assert holders > 0 : holders;
-        }
+        assert holders > 0 : holders;
     }
 
     /**
      * Decrements the count of lock holders ({@link Thread}), returns {@code true} if there are no more lock holders.
      */
     boolean decrementHolders() {
-        assert HOLDER.get() == Thread.currentThread() : "holderThread=" + HOLDER.get() + ", currentThread=" + Thread.currentThread();
-
-        HOLDER.set(null);
-
         int holders = lockHolder.decrementAndGet();
 
         assert holders >= 0 : holders;
@@ -82,8 +66,6 @@ class LockHolder<T extends Lock> {
      * Returns lock.
      */
     T getLock() {
-        assert HOLDER.get() == Thread.currentThread() : "holderThread=" + HOLDER.get() + ", currentThread=" + Thread.currentThread();
-
         return lock;
     }
 }

@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -53,6 +52,7 @@ public class LockHolderTest {
 
         assertNotNull(lockHolder.getLock());
 
+        assertFalse(lockHolder.decrementHolders());
         assertTrue(lockHolder.decrementHolders());
     }
 
@@ -75,23 +75,6 @@ public class LockHolderTest {
         assertNotNull(lockHolder.getLock());
 
         assertTrue(lockHolder.decrementHolders());
-    }
-
-    @Test
-    void testTwoThreadError() {
-        LockHolder<Lock> lockHolder = createLockHolder();
-
-        assertThrows(AssertionError.class, lockHolder::getLock);
-
-        assertThat(runAsync(() -> {
-            assertThrows(AssertionError.class, lockHolder::getLock);
-
-            assertThrows(AssertionError.class, lockHolder::decrementHolders);
-        }), willCompleteSuccessfully());
-
-        assertThrows(AssertionError.class, lockHolder::getLock);
-
-        assertThrows(AssertionError.class, lockHolder::decrementHolders);
     }
 
     private static LockHolder<Lock> createLockHolder() {
