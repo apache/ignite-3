@@ -110,7 +110,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Version chain update lock by row ID. */
-    private final ConcurrentMap<RowId, ReentrantLock> updateVersionChainLockByRowId = new ConcurrentHashMap<>();
+    private final ConcurrentMap<RowId, LockHolder<ReentrantLock>> updateVersionChainLockByRowId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -888,15 +888,28 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * <p>NOTE: When you try to execute in the closures on the pages of the tree, it leads to a deadlock.
      */
     protected <T> T inUpdateVersionChainLock(RowId rowId, Supplier<T> supplier) {
-        // TODO: IGNITE-18717 надо не забыть про очистку ресурсов
-        ReentrantLock lock = updateVersionChainLockByRowId.computeIfAbsent(rowId, rowId1 -> new ReentrantLock());
+        LockHolder<ReentrantLock> lockHolder = updateVersionChainLockByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
+            if (reentrantLockLockHolder == null) {
+                reentrantLockLockHolder = new LockHolder<>(new ReentrantLock());
+            }
 
-        lock.lock();
+            reentrantLockLockHolder.incrementHolders();
+
+            return reentrantLockLockHolder;
+        });
+
+        lockHolder.getLock().lock();
 
         try {
             return supplier.get();
         } finally {
-            lock.unlock();
+            lockHolder.getLock().unlock();
+
+            updateVersionChainLockByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
+                assert reentrantLockLockHolder != null;
+
+                return reentrantLockLockHolder.decrementHolders() ? null : reentrantLockLockHolder;
+            });
         }
     }
 }
