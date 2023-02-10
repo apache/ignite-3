@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,5 +61,25 @@ public class ClientFutureUtilsTest {
 
         var ex = assertThrows(CompletionException.class, fut::join);
         assertSame(IllegalStateException.class, ex.getCause().getClass());
+    }
+
+    @Test
+    public void testDoWithRetryAsyncWithFailedFutureReturnsExceptionWithSuppressedList() {
+        var counter = new AtomicInteger();
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+            () -> CompletableFuture.failedFuture(new Exception("fail_" + counter.get())),
+            null,
+            ctx -> counter.incrementAndGet() < 3
+        );
+
+        var completionEx = assertThrows(CompletionException.class, fut::join);
+        var ex = (Exception) completionEx.getCause();
+
+        assertEquals(2, ex.getSuppressed().length);
+
+        assertEquals("fail_0", ex.getMessage());
+        assertEquals("fail_1", ex.getSuppressed()[0].getMessage());
+        assertEquals("fail_2", ex.getSuppressed()[1].getMessage());
     }
 }
