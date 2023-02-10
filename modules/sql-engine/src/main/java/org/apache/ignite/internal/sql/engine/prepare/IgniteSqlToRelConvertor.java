@@ -164,6 +164,4 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
                 relBuilder.build(), LogicalTableModify.Operation.MERGE,
                 targetColumnNameList, null, false);
     }
-
-
 }
