@@ -76,6 +76,10 @@ List<string> names = await view.AsQueryable()
     .ToListAsync();
 ```
 
+## Inspecting Generated SQL
+
+TODO
+
 ## Supported Features
 
 ### Result Materialization
@@ -84,7 +88,10 @@ TODO
 ### Projections
 TODO
 
-### Joins
+### Inner Joins
+TODO
+
+### Outer Joins
 TODO
 
 ### Groupings
@@ -92,6 +99,8 @@ TODO
 
 ### Aggregates
 TODO
+
+### Union, Intersect, Except
 
 ### Math Functions
 TODO
