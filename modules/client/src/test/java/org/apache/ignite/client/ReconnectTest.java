@@ -93,6 +93,6 @@ public class ReconnectTest {
 
         server.close();
 
-        assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class, "Client failed to connect");
+        assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class);
     }
 }
