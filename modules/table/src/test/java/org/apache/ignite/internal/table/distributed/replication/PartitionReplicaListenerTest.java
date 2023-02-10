@@ -821,7 +821,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkRowInMvStorage(br, true);
 
         doSingleRowRequest(txId, binaryRow(0), RequestType.RW_DELETE);
-        checkRowInMvStorage(binaryRow(0), false);
+        checkNoRowInIndex(binaryRow(0));
 
         doSingleRowRequest(txId, binaryRow(0), RequestType.RW_INSERT);
         checkRowInMvStorage(binaryRow(0), true);
@@ -835,12 +835,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkRowInMvStorage(br, true);
 
         doSingleRowRequest(txId, br, RequestType.RW_GET_AND_DELETE);
-        checkRowInMvStorage(br, false);
+        checkNoRowInIndex(br);
 
         doSingleRowRequest(txId, binaryRow(0), RequestType.RW_INSERT);
         checkRowInMvStorage(binaryRow(0), true);
         doSingleRowRequest(txId, binaryRow(0), RequestType.RW_DELETE_EXACT);
-        checkRowInMvStorage(binaryRow(0), false);
+        checkNoRowInIndex(binaryRow(0));
 
         cleanup(txId);
     }
@@ -866,17 +866,17 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkRowInMvStorage(newRow1, true);
 
         doMultiRowRequest(txId, newRows, RequestType.RW_DELETE_ALL);
-        checkRowInMvStorage(row0, false);
-        checkRowInMvStorage(row1, false);
-        checkRowInMvStorage(newRow0, false);
-        checkRowInMvStorage(newRow1, false);
+        checkNoRowInIndex(row0);
+        checkNoRowInIndex(row1);
+        checkNoRowInIndex(newRow0);
+        checkNoRowInIndex(newRow1);
 
         doMultiRowRequest(txId, rows, RequestType.RW_INSERT_ALL);
         checkRowInMvStorage(row0, true);
         checkRowInMvStorage(row1, true);
         doMultiRowRequest(txId, rows, RequestType.RW_DELETE_EXACT_ALL);
-        checkRowInMvStorage(row0, false);
-        checkRowInMvStorage(row1, false);
+        checkNoRowInIndex(row0);
+        checkNoRowInIndex(row1);
 
         cleanup(txId);
     }
@@ -977,6 +977,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
             assertTrue(row == null || !Arrays.equals(row.bytes(), binaryRow.bytes()));
+        }
+    }
+
+    private void checkNoRowInIndex(BinaryRow binaryRow) {
+        try (Cursor<RowId> cursor = pkStorage.get().get(binaryRow)) {
+            assertFalse(cursor.hasNext());
         }
     }
 
