@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.type;
 
 import java.lang.reflect.Method;
 import java.util.UUID;
+import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.calcite.linq4j.tree.Expressions;
 
 /**
  * A set functions required by expression execution runtime to support of {@code UUID} type.
@@ -30,7 +32,7 @@ public final class UuidFunctions {
      *
      * @see #cast(Object)
      **/
-    public static final Method CAST;
+    private static final Method CAST;
 
     static {
         try {
@@ -42,6 +44,15 @@ public final class UuidFunctions {
 
     private UuidFunctions() {
 
+    }
+
+    /**
+     * Creates a cast expression that convert the given operation into {@link UuidType}.
+     * @param operand an operand
+     * @return a cast to UUID expression.
+     */
+    public static Expression cast(Expression operand) {
+        return Expressions.call(CAST, operand);
     }
 
     /**

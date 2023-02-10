@@ -224,7 +224,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     // We need to convert an argument to an object so a call will throw a CastCastException
                     // instead of a NoSuchMethodError in runtime.
                     // It would be even better if this cast were not necessary.
-                    return Expressions.call(UuidFunctions.CAST, Expressions.convert_(operand, Object.class));
+                    return UuidFunctions.cast(Expressions.convert_(operand, Object.class));
                 } else if (targetType instanceof IgniteCustomType) {
                     throw new AssertionError("IgniteCustomType: cast is not implemented for " + targetType);
                 } else {

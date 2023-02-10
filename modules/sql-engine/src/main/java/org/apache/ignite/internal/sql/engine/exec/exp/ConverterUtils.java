@@ -401,7 +401,7 @@ public class ConverterUtils {
             // UUID can be created from a string/object type by a CAST expression.
             // We get an object type here because type info is erased for dynamic parameters.
             // See DataContextInputGetter in RexExecutorImpl.
-            return Expressions.call(UuidFunctions.CAST, operand);
+            return UuidFunctions.cast(operand);
         }
         return Expressions.convert_(operand, toType);
     }
