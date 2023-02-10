@@ -61,7 +61,7 @@ public class NettyClient {
     private final HandshakeManager handshakeManager;
 
     /** SSL configuration. */
-    private final SslView configuration;
+    private final SslView sslConfiguration;
 
     /** Future that resolves when the client finished the handshake. */
     @Nullable
@@ -81,20 +81,20 @@ public class NettyClient {
      * @param serializationService  Serialization service.
      * @param manager               Client handshake manager.
      * @param messageListener       Message listener.
-     * @param configuration         SSL configuration.
+     * @param sslConfiguration         SSL configuration.
      */
     public NettyClient(
             InetSocketAddress address,
             SerializationService serializationService,
             HandshakeManager manager,
             Consumer<InNetworkObject> messageListener,
-            SslView configuration
+            SslView sslConfiguration
     ) {
         this.address = address;
         this.serializationService = serializationService;
         this.handshakeManager = manager;
         this.messageListener = messageListener;
-        this.configuration = configuration;
+        this.sslConfiguration = sslConfiguration;
     }
 
     /**
@@ -121,8 +121,8 @@ public class NettyClient {
                 public void initChannel(SocketChannel ch) {
                     var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
-                    if (configuration.enabled()) {
-                        SslContext sslContext = SslContextProvider.createClientSslContext(configuration);
+                    if (sslConfiguration.enabled()) {
+                        SslContext sslContext = SslContextProvider.createClientSslContext(sslConfiguration);
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener, sslContext);
                     } else {
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);

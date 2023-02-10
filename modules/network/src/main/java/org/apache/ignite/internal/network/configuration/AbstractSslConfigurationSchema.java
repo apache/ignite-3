@@ -29,7 +29,15 @@ public class AbstractSslConfigurationSchema {
     @Value(hasDefault = true)
     public final boolean enabled = false;
 
-    /** Client authentication. */
+    /**
+     * Client authentication. Set to "none" by default.
+     *
+     * <p>If set to "optional", the server will request a certificate from the client,
+     * but will not fail if the client does not provide one.
+     *
+     * <p>If set to "require", the server will request a certificate from the client,
+     * and will fail if the client does not provide one.
+     */
     @OneOf({"none", "optional", "require"})
     @Value(hasDefault = true)
     public final String clientAuth = "none";

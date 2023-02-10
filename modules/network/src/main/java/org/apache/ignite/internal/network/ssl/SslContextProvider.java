@@ -36,7 +36,6 @@ import org.apache.ignite.lang.IgniteException;
 public final class SslContextProvider {
 
     private SslContextProvider() {
-        throw new IllegalStateException("SslContextProvider is an utility class and should not be instantiated");
     }
 
     /** Create client SSL context. */

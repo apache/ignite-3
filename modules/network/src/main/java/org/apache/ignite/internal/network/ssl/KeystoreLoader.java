@@ -30,18 +30,17 @@ import org.apache.ignite.internal.network.configuration.KeyStoreView;
 public final class KeystoreLoader {
 
     private KeystoreLoader() {
-        throw new IllegalStateException("KeystoreLoader is an utility class and should not be instantiated");
     }
 
     /** Initialize and load keystore with provided configuration. */
     public static KeyStore load(KeyStoreView keyStoreConfiguration)
             throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
+        char[] password = keyStoreConfiguration.password() == null ? null : keyStoreConfiguration.password().toCharArray();
 
         KeyStore ks = KeyStore.getInstance(keyStoreConfiguration.type());
-        ks.load(
-                Files.newInputStream(Path.of(keyStoreConfiguration.path())),
-                keyStoreConfiguration.password() == null ? null : keyStoreConfiguration.password().toCharArray()
-        );
+        try (var is = Files.newInputStream(Path.of(keyStoreConfiguration.path()))) {
+            ks.load(is, password);
+        }
 
         return ks;
     }

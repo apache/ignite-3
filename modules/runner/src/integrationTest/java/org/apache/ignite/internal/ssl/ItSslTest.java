@@ -40,11 +40,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItSslTest {
 
-    static String password;
+    private static String password;
 
-    static String trustStorePath;
+    private static String trustStorePath;
 
-    static String keyStorePath;
+    private static String keyStorePath;
 
     @BeforeAll
     static void beforeAll() {
@@ -58,9 +58,9 @@ public class ItSslTest {
     class ClusterWithoutSsl {
 
         @WorkDirectory
-        Path workDir;
+        private Path workDir;
 
-        Cluster cluster;
+        private Cluster cluster;
 
         @Language("JSON")
         String sslDisabledBoostrapConfig = "{\n"
@@ -97,9 +97,9 @@ public class ItSslTest {
     class ClusterWithSsl {
 
         @WorkDirectory
-        Path workDir;
+        private Path workDir;
 
-        Cluster cluster;
+        private Cluster cluster;
 
         @Language("JSON")
         String sslEnabledBoostrapConfig = "{\n"
@@ -146,9 +146,9 @@ public class ItSslTest {
     class ClusterWithSslAndClientAuth {
 
         @WorkDirectory
-        Path workDir;
+        private Path workDir;
 
-        Cluster cluster;
+        private Cluster cluster;
 
         @Language("JSON")
         String sslEnabledBoostrapConfig = "{\n"
