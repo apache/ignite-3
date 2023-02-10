@@ -384,7 +384,7 @@ class RelJson {
             }
             if (node instanceof IgniteCustomType) {
                 // In case of a custom data type we must store its name to correctly
-                // deserialize it because we to distinguish ourselves from ANY.
+                // deserialize it because we want to distinguish a custom type from ANY.
                 IgniteCustomType customType = (IgniteCustomType) node;
                 map.put("customType", customType.getCustomTypeName());
             }
