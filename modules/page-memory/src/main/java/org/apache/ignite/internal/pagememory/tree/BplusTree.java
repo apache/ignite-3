@@ -3902,12 +3902,22 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param needOld {@code True} If need return old value.
          */
         private Put(T row, boolean needOld) {
-            super(row);
+            this(row, needOld, null);
+        }
+
+        /**
+         * Constructor.
+         *
+         * @param row Row.
+         * @param needOld {@code True} If need return old value.
+         * @param onUpdateCallback Callback after performing an update of tree row while on a page with that tree row under its write lock.
+         */
+        private Put(T row, boolean needOld, @Nullable Runnable onUpdateCallback) {
+            super(row, onUpdateCallback);
 
             this.needOld = needOld;
         }
 
-        /** {@inheritDoc} */
         @Override
         boolean notFound(BplusIo<L> io, long pageAddr, int idx, int lvl) {
             assert btmLvl >= 0 : btmLvl;
@@ -3916,7 +3926,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return lvl == btmLvl;
         }
 
-        /** {@inheritDoc} */
         @Override
         protected Result finishOrLockTail(long pageId, long page, long backId, long fwdId, int lvl)
                 throws IgniteInternalCheckedException {
@@ -3944,7 +3953,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return res;
         }
 
-        /** {@inheritDoc} */
         @Override
         protected Result finishTail() throws IgniteInternalCheckedException {
             // An inner node is required for replacement.
@@ -4022,7 +4030,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             releaseTail();
         }
 
-        /** {@inheritDoc} */
         @Override
         boolean isFinished() {
             return row == null;
@@ -4055,6 +4062,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         private void insertSimple(long pageAddr, BplusIo<L> io, int idx) throws IgniteInternalCheckedException {
             io.insert(pageAddr, idx, row, null, rightId, false);
+
+            if (onUpdateCallback != null) {
+                onUpdateCallback.run();
+            }
         }
 
         /**
@@ -4190,7 +4201,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @return Result.
          * @throws IgniteInternalCheckedException If failed.
          */
-        public Result tryReplace(long pageId, long page, long fwdId, int lvl) throws IgniteInternalCheckedException {
+        private Result tryReplace(long pageId, long page, long fwdId, int lvl) throws IgniteInternalCheckedException {
             // Init args.
             this.pageId = pageId;
             this.fwdId = fwdId;
@@ -4205,11 +4216,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param pageAddr Page address.
          * @param idx Replacement index.
          */
-        public void replaceRowInPage(BplusIo<L> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
+        private void replaceRowInPage(BplusIo<L> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
             io.store(pageAddr, idx, row, null, false);
         }
 
-        /** {@inheritDoc} */
         @Override
         void checkLockRetry() throws IgniteInternalCheckedException {
             // Non-null tail means that lock on the tail page is still being held, and we can't fail with exception.
@@ -4344,14 +4354,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                     assert newRow != null;
 
-                    op = new Put(newRow, false);
+                    op = new Put(newRow, false, clo::onUpdate);
 
                     break;
 
                 case REMOVE:
                     assert foundRow != null;
 
-                    op = new Remove(row, false);
+                    op = new Remove(row, false, clo::onUpdate);
 
                     break;
 
@@ -4514,12 +4524,31 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         Tail<L> tail;
 
         /**
+         * Callback after performing an {@link Put put} or {@link Remove remove} of a tree row while on a page with that tree row under its
+         * write lock.
+         */
+        final @Nullable Runnable onUpdateCallback;
+
+        /**
          * Constructor.
          *
          * @param row Row.
          */
         private Update(L row) {
+            this(row, null);
+        }
+
+        /**
+         * Constructor.
+         *
+         * @param row Row.
+         * @param onUpdateCallback Callback after performing an {@link Put put} or {@link Remove remove} of a tree row while on a page with
+         *      that tree row under its write lock.
+         */
+        private Update(L row, @Nullable Runnable onUpdateCallback) {
             super(row, false);
+
+            this.onUpdateCallback = onUpdateCallback;
         }
 
         /**
@@ -4594,7 +4623,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
         }
 
-        /** {@inheritDoc} */
         @Override
         public final boolean canRelease(long pageId, int lvl) {
             return pageId != 0L && !isTail(pageId, lvl);
@@ -4771,12 +4799,22 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param needOld {@code True} If need return old value.
          */
         private Remove(L row, boolean needOld) {
-            super(row);
+            this(row, needOld, null);
+        }
+
+        /**
+         * Constructor.
+         *
+         * @param row Row.
+         * @param needOld {@code True} If need return old value.
+         * @param onRemoveCallback Callback after performing an remove of tree row while on a page with that tree row under its write lock.
+         */
+        private Remove(L row, boolean needOld, @Nullable Runnable onRemoveCallback) {
+            super(row, onRemoveCallback);
 
             this.needOld = needOld;
         }
 
-        /** {@inheritDoc} */
         @Override
         public long pollFreePage() {
             if (freePages == null) {
@@ -4794,7 +4832,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return res;
         }
 
-        /** {@inheritDoc} */
         @Override
         public void addFreePage(long pageId) {
             assert pageId != 0L;
@@ -4818,7 +4855,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
         }
 
-        /** {@inheritDoc} */
         @Override
         public boolean isEmpty() {
             if (freePages == null) {
@@ -4830,7 +4866,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return false;
         }
 
-        /** {@inheritDoc} */
         @Override
         boolean notFound(BplusIo<L> io, long pageAddr, int idx, int lvl) {
             if (lvl == 0) {
@@ -4983,7 +5018,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return false;
         }
 
-        /** {@inheritDoc} */
         @Override
         protected Result finishTail() throws IgniteInternalCheckedException {
             assert !isFinished();
@@ -5238,6 +5272,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             doRemove(pageAddr, io, cnt, idx);
 
             assert isRemoved();
+
+            if (onUpdateCallback != null) {
+                onUpdateCallback.run();
+            }
         }
 
         /**

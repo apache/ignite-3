@@ -126,6 +126,14 @@ public interface IgniteTree<L, T> {
          * Returns operation type for this closure.
          */
         OperationType operationType();
+
+        /**
+         * Callback after performing an {@link OperationType#PUT update/insert} or {@link OperationType#REMOVE deletion} of a tree row while
+         * while on a page with that tree row under its write lock.
+         */
+        default void onUpdate() {
+            // No-op.
+        }
     }
 
     /**

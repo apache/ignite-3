@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -109,6 +110,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     /** Current state of the storage. */
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
+
+    /** Version chain update lock by row ID. */
+    private final ConcurrentMap<RowId, ReentrantLock> updateVersionChainLockByRowId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -396,7 +400,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return read.result();
     }
 
-    private void throwIfChainBelongsToAnotherTx(VersionChain versionChain, UUID txId) {
+    void throwIfChainBelongsToAnotherTx(VersionChain versionChain, UUID txId) {
         assert versionChain.isUncommitted();
 
         if (!txId.equals(versionChain.transactionId())) {
@@ -404,7 +408,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    private @Nullable BinaryRow rowVersionToBinaryRow(RowVersion rowVersion) {
+    @Nullable BinaryRow rowVersionToBinaryRow(RowVersion rowVersion) {
         if (rowVersion.isTombstone()) {
             return null;
         }
@@ -528,15 +532,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return rowVersion;
     }
 
-    private void insertRowVersion(RowVersion rowVersion) {
+    void insertRowVersion(RowVersion rowVersion) {
         try {
             rowVersionFreeList.insertDataRow(rowVersion);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot store a row version", e);
+            throw new StorageException("Cannot store a row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
     }
 
-    private static byte[] rowBytes(@Nullable BinaryRow row) {
+    static byte[] rowBytes(@Nullable BinaryRow row) {
         // TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
         return row == null ? TOMBSTONE_PAYLOAD : row.bytes();
     }
@@ -549,42 +553,25 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            VersionChain currentChain = findVersionChain(rowId);
+            return inUpdateVersionChainLock(rowId, () -> {
+                try {
+                    AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableId, commitPartitionId, this);
 
-            if (currentChain == null) {
-                RowVersion newVersion = insertRowVersion(row, NULL_LINK);
+                    versionChainTree.invoke(new VersionChainKey(rowId), null, addWrite);
 
-                VersionChain versionChain = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
-                        NULL_LINK);
+                    return addWrite.getPreviousUncommittedRowVersion();
+                } catch (IgniteInternalCheckedException e) {
+                    if (e.getCause() instanceof StorageException) {
+                        throw (StorageException) e.getCause();
+                    }
 
-                updateVersionChain(versionChain);
+                    if (e.getCause() instanceof TxIdMismatchException) {
+                        throw (TxIdMismatchException) e.getCause();
+                    }
 
-                return null;
-            }
-
-            if (currentChain.isUncommitted()) {
-                throwIfChainBelongsToAnotherTx(currentChain, txId);
-            }
-
-            RowVersion newVersion = insertRowVersion(row, currentChain.newestCommittedLink());
-
-            BinaryRow res = null;
-
-            if (currentChain.isUncommitted()) {
-                RowVersion currentVersion = readRowVersion(currentChain.headLink(), ALWAYS_LOAD_VALUE);
-
-                res = rowVersionToBinaryRow(currentVersion);
-
-                // as we replace an uncommitted version with new one, we need to remove old uncommitted version
-                removeRowVersion(currentVersion);
-            }
-
-            VersionChain chainReplacement = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(),
-                    newVersion.nextLink());
-
-            updateVersionChain(chainReplacement);
-
-            return res;
+                    throw new StorageException("Error while executing addWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                }
+            });
         });
     }
 
@@ -670,11 +657,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
-    private void removeRowVersion(RowVersion currentVersion) {
+    void removeRowVersion(RowVersion rowVersion) {
         try {
-            rowVersionFreeList.removeDataRowByLink(currentVersion.link());
+            rowVersionFreeList.removeDataRowByLink(rowVersion.link());
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot update row version", e);
+            throw new StorageException("Cannot remove row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
     }
 
@@ -980,5 +967,23 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     void throwExceptionIfStorageNotInRunnableState() {
         StorageUtils.throwExceptionIfStorageNotInRunnableState(state.get(), this::createStorageInfo);
+    }
+
+    /**
+     * Organizes external synchronization of update operations for the same version chain.
+     *
+     * <p>NOTE: When you try to execute in the closures on the pages of the tree, it leads to a deadlock.
+     */
+    protected <T> T inUpdateVersionChainLock(RowId rowId, Supplier<T> supplier) {
+        // TODO: IGNITE-18717 надо не забыть про очистку ресурсов
+        ReentrantLock lock = updateVersionChainLockByRowId.computeIfAbsent(rowId, rowId1 -> new ReentrantLock());
+
+        lock.lock();
+
+        try {
+            return supplier.get();
+        } finally {
+            lock.unlock();
+        }
     }
 }
