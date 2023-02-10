@@ -160,6 +160,9 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link InnerNode#internalSchemaTypes}. */
     private static final Method INTERNAL_SCHEMA_TYPES_MTD;
 
+    /** {@link InnerNode#assertMutability()}. */
+    private static final Method ASSERT_MUTABILITY_MTD;
+
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
 
@@ -205,6 +208,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
             INTERNAL_SCHEMA_TYPES_MTD = InnerNode.class.getDeclaredMethod("internalSchemaTypes");
 
+            ASSERT_MUTABILITY_MTD = InnerNode.class.getDeclaredMethod("assertMutability");
         } catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
         }
@@ -696,6 +700,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         BytecodeBlock bytecodeBlock = new BytecodeBlock();
 
+        addAssertMutabilityMethodCall(classDef, changeMtd, bytecodeBlock);
+
         if (!schemaFieldType.isPrimitive()) {
             // Objects.requireNonNull(newValue, "change");
             bytecodeBlock.append(invokeStatic(REQUIRE_NON_NULL, changeVar, constantString("change")));
@@ -759,6 +765,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         BytecodeBlock shortBytecodeBlock = new BytecodeBlock();
 
+        addAssertMutabilityMethodCall(classDef, shortChangeMtd, shortBytecodeBlock);
+
         BytecodeExpression newValue;
 
         if (isConfigValue(schemaField)) {
@@ -789,6 +797,24 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         shortChangeMtd.getBody().append(shortBytecodeBlock);
 
         return shortChangeMtd;
+    }
+
+    /**
+     * Adds a call of {@link InnerNode#assertMutability()} to a body.
+     * Should be done for every method that mutates the node instance.
+     */
+    private void addAssertMutabilityMethodCall(ClassDefinition classDef, MethodDefinition changeMtd, BytecodeBlock body) {
+        if (classDef == innerNodeClassDef) {
+            // this.assertMutability();
+            body.append(changeMtd.getThis().invoke(ASSERT_MUTABILITY_MTD));
+        } else {
+            // this.this$0.assertMutability();
+            body.append(
+                    changeMtd.getThis()
+                            .getField(classDef.getType(), "this$0", innerNodeClassDef.getType())
+                            .invoke(ASSERT_MUTABILITY_MTD)
+            );
+        }
     }
 
     /**
@@ -1086,6 +1112,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         Variable keyVar = constructMtd.getScope().getVariable("key");
         Variable srcVar = constructMtd.getScope().getVariable("src");
 
+        addAssertMutabilityMethodCall(innerNodeClassDef, constructMtd, constructMtd.getBody());
+
         // Create switch for public (common in case polymorphic config) fields only.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructMtd.getScope()).expression(keyVar);
 
@@ -1339,6 +1367,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 arg("key", String.class)
         ).addException(NoSuchElementException.class);
 
+        addAssertMutabilityMethodCall(innerNodeClassDef, constructDfltMtd, constructDfltMtd.getBody());
+
         Variable keyVar = constructDfltMtd.getScope().getVariable("key");
 
         // Create switch for public (common in case polymorphic config) + internal fields.
@@ -1488,6 +1518,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 type(void.class),
                 arg("value", String.class)
         );
+
+        addAssertMutabilityMethodCall(innerNodeClassDef, setInjectedNameFieldValueMtd, setInjectedNameFieldValueMtd.getBody());
 
         Variable valueVar = setInjectedNameFieldValueMtd.getScope().getVariable("value");
 

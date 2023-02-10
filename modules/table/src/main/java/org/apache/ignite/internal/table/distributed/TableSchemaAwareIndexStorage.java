@@ -83,6 +83,16 @@ public class TableSchemaAwareIndexStorage {
         storage.remove(new IndexRowImpl(tuple, rowId));
     }
 
+    /**
+     * Resolves index row value.
+     *
+     * @param row Full row.
+     * @return Index value.
+     */
+    public BinaryTuple resolveIndexRow(BinaryRow row) {
+        return indexRowResolver.apply(row);
+    }
+
     /** Returns underlying index storage. */
     public IndexStorage storage() {
         return storage;

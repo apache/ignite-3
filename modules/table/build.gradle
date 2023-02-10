@@ -90,6 +90,7 @@ dependencies {
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
