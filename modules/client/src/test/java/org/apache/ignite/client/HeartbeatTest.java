@@ -36,15 +36,17 @@ public class HeartbeatTest {
     public void testHeartbeatLongerThanIdleTimeoutCausesDisconnect() throws Exception {
         try (var srv = new TestServer(10800, 10, 50, new FakeIgnite())) {
             int srvPort = srv.port();
+            var loggerFactory = new TestLoggerFactory("client");
 
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srvPort)
-                    .retryPolicy(null);
+                    .retryPolicy(null)
+                    .loggerFactory(loggerFactory);
 
-            try (var client = builder.build()) {
-                Thread.sleep(300);
-
-                assertThrows(IgniteClientConnectionException.class, () -> client.tables().tables());
+            try (var ignored = builder.build()) {
+                IgniteTestUtils.waitForCondition(
+                        () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Disconnected from server")),
+                        1000);
             }
         }
     }

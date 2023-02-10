@@ -207,6 +207,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onDisconnected(@Nullable Exception e) {
+        log.debug("Disconnected from server: " + cfg.getAddress());
         close(e);
     }
 
