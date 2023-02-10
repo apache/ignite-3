@@ -91,7 +91,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         if (oldRow.isUncommitted()) {
-            storage.throwIfChainBelongsToAnotherTx(oldRow, txId);
+            throwIfChainBelongsToAnotherTx(oldRow, txId);
         }
 
         RowVersion newVersion = insertRowVersion(row, oldRow.newestCommittedLink());
