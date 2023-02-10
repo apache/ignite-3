@@ -75,7 +75,7 @@ import org.apache.ignite.sql.ColumnType;
  *     <li>Update JdbcDatabaseMetadata getTypeInfo.</li>
  *     <li>Update {@link org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators Accumulators}
  *     if your type supports some aggregation functions.
- *     By default all custom data type support {@code COUNT}, {@code ANY_VALUE} and {@code ANY_VALUE}.</li>
+ *     By default all custom data type support {@code COUNT} and {@code ANY_VALUE}.</li>
  *     <li>Update serialisation/deserialisation code to store extra attributes.</li>
  *     <li>There probably some methods in {@link IgniteTypeSystem} that maybe subject to change
  *     when a custom data type is implemented.</li>
