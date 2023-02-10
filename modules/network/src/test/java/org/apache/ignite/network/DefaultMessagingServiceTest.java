@@ -67,10 +67,10 @@ class DefaultMessagingServiceTest {
     @Mock
     private TopologyService topologyService;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.port=" + SENDER_PORT)
     private NetworkConfiguration senderNetworkConfig;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.port=" + RECEIVER_PORT)
     private NetworkConfiguration receiverNetworkConfig;
 
     private final NetworkMessagesFactory networkMessagesFactory = new NetworkMessagesFactory();
@@ -91,8 +91,6 @@ class DefaultMessagingServiceTest {
 
     @BeforeEach
     void setUp() throws InterruptedException, ExecutionException {
-        senderNetworkConfig.port().update(SENDER_PORT).get();
-        receiverNetworkConfig.port().update(RECEIVER_PORT).get();
         lenient().when(topologyService.getByConsistentId(eq(senderNode.name()))).thenReturn(senderNode);
     }
 
