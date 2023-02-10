@@ -54,3 +54,5 @@ TODO:
   * Strings, math, regex
   * Async extensions
   * DML / bulk ops
+  * Composable queries
+* Column name mapping explained
