@@ -19,8 +19,11 @@ package org.apache.ignite.internal.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,8 +39,25 @@ public class ClientFutureUtilsTest {
     }
 
     @Test
-    public void testDoWithRetryAsync() {
-        // TODO
-        assert false;
+    public void testDoWithRetryAsyncWithCompletedFutureReturnsResult() {
+        var res = ClientFutureUtils.doWithRetryAsync(
+            () -> CompletableFuture.completedFuture("test"),
+            null,
+            ctx -> false
+        ).join();
+
+        assertEquals("test", res);
+    }
+
+    @Test
+    public void testDoWithRetryAsyncWithResultValidatorRejectsAllThrowsIllegalState() {
+        var fut = ClientFutureUtils.doWithRetryAsync(
+            () -> CompletableFuture.completedFuture("test"),
+            x -> false,
+            ctx -> false
+        );
+
+        var ex = assertThrows(CompletionException.class, fut::join);
+        assertSame(IllegalStateException.class, ex.getCause().getClass());
     }
 }
