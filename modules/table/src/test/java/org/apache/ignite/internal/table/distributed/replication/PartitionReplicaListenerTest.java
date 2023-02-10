@@ -1094,12 +1094,24 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             Cursor<RowId> cursor = pkStorage.get().get(br1);
 
-            RowId rowId = cursor.next();
+            if (!insertFirst) {
+                if (!upsertAfterDelete) {
+                    assertFalse(cursor.hasNext());
+                }
 
-            BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
-
-            if (row == null) {
+                // If there were no other entries in index, break after first iteration.
                 break;
+            } else {
+                // This check is only for cases when new rows generation mess the index contents and some rows there have no value.
+                // We try to reach the point when the first row in cursor have no value, to test that this row will be skipped by RO tx.
+                // TODO https://issues.apache.org/jira/browse/IGNITE-18767 after this, the following check may be not needed.
+                RowId rowId = cursor.next();
+
+                BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
+
+                if (row == null) {
+                    break;
+                }
             }
         }
 
