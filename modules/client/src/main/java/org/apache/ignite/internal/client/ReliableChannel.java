@@ -530,6 +530,11 @@ public final class ReliableChannel implements AutoCloseable {
     private boolean shouldRetry(@Nullable ClientOperationType opType, ClientFutureUtils.RetryContext ctx) {
         var err = ctx.lastError();
 
+        if (err == null) {
+            // Closed channel situation - no error, but connection should be retried.
+            return opType == ClientOperationType.CHANNEL_CONNECT;
+        }
+
         IgniteClientConnectionException exception = unwrapConnectionException(err);
 
         if (exception == null) {

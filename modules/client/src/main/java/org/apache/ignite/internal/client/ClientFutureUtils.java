@@ -73,16 +73,19 @@ class ClientFutureUtils {
 
                     doWithRetryAsync(func, validator, retryPredicate, resFut, ctx);
                 } else {
-                    assert ctx.errors != null;
-                    assert !ctx.errors.isEmpty();
+                    if (ctx.errors == null || ctx.errors.isEmpty()) {
+                        // Should not happen.
+                        resFut.completeExceptionally(new IllegalStateException("doWithRetry failed without exception"));
+                    } else {
 
-                    var resErr = ctx.errors.get(0);
+                        var resErr = ctx.errors.get(0);
 
-                    for (int i = 1; i < ctx.errors.size(); i++) {
-                        resErr.addSuppressed(ctx.errors.get(i));
+                        for (int i = 1; i < ctx.errors.size(); i++) {
+                            resErr.addSuppressed(ctx.errors.get(i));
+                        }
+
+                        resFut.completeExceptionally(resErr);
                     }
-
-                    resFut.completeExceptionally(resErr);
                 }
             } catch (Throwable t) {
                 resFut.completeExceptionally(t);
