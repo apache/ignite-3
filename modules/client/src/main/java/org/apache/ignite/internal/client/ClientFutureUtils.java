@@ -61,6 +61,10 @@ class ClientFutureUtils {
                 }
 
                 if (err != null) {
+                    if (ctx.errors == null) {
+                        ctx.errors = new ArrayList<>();
+                    }
+
                     ctx.errors.add(err);
                 }
 
@@ -69,6 +73,9 @@ class ClientFutureUtils {
 
                     doWithRetryAsync(func, validator, retryPredicate, resFut, ctx);
                 } else {
+                    assert ctx.errors != null;
+                    assert !ctx.errors.isEmpty();
+
                     var resErr = ctx.errors.get(0);
 
                     for (int i = 1; i < ctx.errors.size(); i++) {
@@ -86,10 +93,12 @@ class ClientFutureUtils {
     static class RetryContext {
         int attempt;
 
-        ArrayList<Throwable> errors = new ArrayList<>();
+        @Nullable ArrayList<Throwable> errors;
 
-        Throwable lastError() {
-            return errors.get(errors.size() - 1);
+        @Nullable Throwable lastError() {
+            return errors == null || errors.isEmpty()
+                    ? null
+                    : errors.get(errors.size() - 1);
         }
     }
 }
