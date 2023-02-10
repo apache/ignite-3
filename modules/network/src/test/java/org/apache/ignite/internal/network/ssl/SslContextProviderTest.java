@@ -19,11 +19,21 @@ package org.apache.ignite.internal.network.ssl;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThrows;
 
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.util.SelfSignedCertificate;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.configuration.SslConfiguration;
@@ -32,6 +42,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 
 @ExtendWith(ConfigurationExtension.class)
 class SslContextProviderTest {
@@ -46,10 +57,34 @@ class SslContextProviderTest {
     private String trustStoreJks12Path;
 
     @BeforeEach
-    void setUp() {
+    void setUp(@TempDir Path tmpDir) throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
         password = "changeit";
-        keyStorePkcs12Path = SslContextProviderTest.class.getClassLoader().getResource("ssl/keystore.p12").getPath();
-        trustStoreJks12Path = SslContextProviderTest.class.getClassLoader().getResource("ssl/truststore.jks").getPath();
+        keyStorePkcs12Path = tmpDir.resolve("keystore.p12").toAbsolutePath().toString();
+        trustStoreJks12Path = tmpDir.resolve("truststore.jks").toAbsolutePath().toString();
+
+        SelfSignedCertificate cert = new SelfSignedCertificate("localhost");
+        generateKeystore(cert);
+        generateTruststore(cert);
+    }
+
+    private void generateTruststore(SelfSignedCertificate cert)
+            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
+        KeyStore ts = KeyStore.getInstance("JKS");
+        ts.load(null, null);
+        ts.setCertificateEntry("cert", cert.cert());
+        try (FileOutputStream fos = new FileOutputStream(trustStoreJks12Path)) {
+            ts.store(fos, password.toCharArray());
+        }
+    }
+
+    private void generateKeystore(SelfSignedCertificate cert)
+            throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        ks.setKeyEntry("key", cert.key(), password.toCharArray(), new Certificate[]{cert.cert()});
+        try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
+            ks.store(fos, password.toCharArray());
+        }
     }
 
     @Test
@@ -160,6 +195,8 @@ class SslContextProviderTest {
         // Then
         assertThat(thrown.groupName(), equalTo(Common.COMMON_ERR_GROUP.name()));
         assertThat(thrown.code(), equalTo(Common.SSL_CONFIGURATION_ERR));
-        assertThat(thrown.getMessage(), containsString("keystore password was incorrect"));
+        assertThat(thrown.getMessage(),
+                either(containsString("keystore password was incorrect"))
+                        .or(containsString("password was incorrect")));
     }
 }
