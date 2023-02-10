@@ -60,7 +60,7 @@ public class ItRestSslTest {
     private static final String trustStorePath = "ssl/truststore.jks";
 
     /** Trust store password. */
-    private static final String trustStorePassword = "changeIt";
+    private static final String trustStorePassword = "changeit";
 
     /** Path to the working directory. */
     @WorkDirectory
