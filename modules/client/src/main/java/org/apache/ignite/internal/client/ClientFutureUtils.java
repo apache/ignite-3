@@ -77,7 +77,6 @@ class ClientFutureUtils {
                         // Should not happen.
                         resFut.completeExceptionally(new IllegalStateException("doWithRetry failed without exception"));
                     } else {
-
                         var resErr = ctx.errors.get(0);
 
                         for (int i = 1; i < ctx.errors.size(); i++) {
