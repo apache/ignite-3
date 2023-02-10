@@ -27,7 +27,6 @@ import java.util.UUID;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.hamcrest.CoreMatchers;
 import org.jetbrains.annotations.Nullable;
