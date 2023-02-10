@@ -48,6 +48,7 @@ public final class UuidFunctions {
 
     /**
      * Creates a cast expression that convert the given operation into {@link UuidType}.
+     *
      * @param operand an operand
      * @return a cast to UUID expression.
      */
