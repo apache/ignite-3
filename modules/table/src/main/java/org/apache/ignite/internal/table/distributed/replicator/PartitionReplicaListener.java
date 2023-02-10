@@ -129,10 +129,10 @@ import org.jetbrains.annotations.Nullable;
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
     /** Factory to create RAFT command messages. */
-    private final TableMessagesFactory msgFactory = new TableMessagesFactory();
+    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
     /** Factory for creating replica command messages. */
-    private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
@@ -532,7 +532,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future.
      */
     private CompletionStage<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request) {
-        return raftClient.run(replicaMessagesFactory.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
+        return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
     }
 
     /**
@@ -1013,7 +1013,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp currentTimestamp = hybridClock.now();
         HybridTimestamp commitTimestamp = commit ? currentTimestamp : null;
 
-        FinishTxCommandBuilder finishTxCmdBldr = msgFactory.finishTxCommand()
+        FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                 .txId(txId)
                 .commit(commit)
                 .safeTime(hybridTimestamp(currentTimestamp))
@@ -1077,7 +1077,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()])).thenCompose(v -> {
             HybridTimestampMessage timestampMsg = hybridTimestamp(request.commitTimestamp());
 
-            TxCleanupCommand txCleanupCmd = msgFactory.txCleanupCommand()
+            TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
                     .txId(request.txId())
                     .commit(request.commit())
                     .commitTimestamp(timestampMsg)
@@ -2105,8 +2105,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param tmstmp {@link HybridTimestamp} object to convert to {@link HybridTimestampMessage}.
      * @return {@link HybridTimestampMessage} object obtained from {@link HybridTimestamp}.
      */
-    private HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
-        return tmstmp != null ? replicaMessagesFactory.hybridTimestampMessage()
+    public static HybridTimestampMessage hybridTimestamp(HybridTimestamp tmstmp) {
+        return tmstmp != null ? REPLICA_MESSAGES_FACTORY.hybridTimestampMessage()
                 .physical(tmstmp.getPhysical())
                 .logical(tmstmp.getLogical())
                 .build()
@@ -2123,7 +2123,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Constructed {@link UpdateCommand} object.
      */
     private UpdateCommand updateCommand(TablePartitionId tablePartId, UUID rowUuid, ByteBuffer rowBuf, UUID txId) {
-        UpdateCommandBuilder bldr = msgFactory.updateCommand()
+        UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
                 .txId(txId)
@@ -2145,7 +2145,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Constructed {@link UpdateAllCommand} object.
      */
     private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, ByteBuffer> rowsToUpdate, UUID txId) {
-        return msgFactory.updateAllCommand()
+        return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowsToUpdate(rowsToUpdate)
                 .txId(txId)
@@ -2159,8 +2159,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param tablePartId {@link TablePartitionId} object to convert to {@link TablePartitionIdMessage}.
      * @return {@link TablePartitionIdMessage} object converted from argument.
      */
-    private TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
-        return msgFactory.tablePartitionIdMessage()
+    public static TablePartitionIdMessage tablePartitionId(TablePartitionId tablePartId) {
+        return MSG_FACTORY.tablePartitionIdMessage()
                 .tableId(tablePartId.tableId())
                 .partitionId(tablePartId.partitionId())
                 .build();

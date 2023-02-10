@@ -79,7 +79,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
+    public void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception {
         ClusterNode followerNode = getNode(server);
 
         KeyValueStorage storage = storageByName.remove(followerNode.name());
@@ -133,7 +133,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     /** {@inheritDoc} */
     @Override
-    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
+    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index) {
         String nodeName = service.localConfiguration().getName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
