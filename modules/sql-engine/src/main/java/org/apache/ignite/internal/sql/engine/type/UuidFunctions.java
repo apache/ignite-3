@@ -17,19 +17,35 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import java.lang.reflect.Method;
 import java.util.UUID;
 
 /**
- * A set functions required by execution runtime to support of {@code UUID} type.
+ * A set functions required by expression execution runtime to support of {@code UUID} type.
  */
 public final class UuidFunctions {
+
+    /**
+     * Implementation of a CAST operator for {@link UuidType} used by expression execution runtime.
+     *
+     * @see #cast(Object)
+     **/
+    public static final Method CAST;
+
+    static {
+        try {
+            CAST = UuidFunctions.class.getMethod("cast", Object.class);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException("cast method is not defined", e);
+        }
+    }
 
     private UuidFunctions() {
 
     }
 
     /**
-     * Performs casts from object to {@code UUID}. Accepts values are Strings, UUIDs.
+     * Performs casts from object to {@code UUID}. Accepts values that are Strings, UUIDs.
      *
      * @param value a value.
      * @return  an UUID.

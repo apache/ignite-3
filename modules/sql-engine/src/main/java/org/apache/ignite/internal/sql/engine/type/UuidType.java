@@ -44,7 +44,7 @@ public final class UuidType extends IgniteCustomType {
 
     /** {@inheritDoc} */
     @Override
-    public String getTypeName() {
+    public String getCustomTypeName() {
         return NAME;
     }
 

@@ -65,8 +65,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         if (qry.getKind() == SqlKind.MERGE) {
             return RelRoot.of(convertMerge((SqlMerge) qry), qry.getKind());
         } else {
-            RelRoot relRoot = super.convertQueryRecursive(qry, top, targetRowType);
-            return relRoot;
+            return super.convertQueryRecursive(qry, top, targetRowType);
         }
     }
 

@@ -641,7 +641,6 @@ data: {
     # Example: SqlParseTimeStampZ().
     dataTypeParserMethods: [
       "SqlParseUuidType(s)",
-      "SqlParseIntervalType(s)",
     ]
 
     # Binary operators tokens.

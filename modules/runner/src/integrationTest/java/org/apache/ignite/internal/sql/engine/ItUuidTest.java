@@ -21,20 +21,18 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.google.common.base.CharMatcher;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
-import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for {@link org.apache.ignite.internal.sql.engine.type.UuidType} data type.
@@ -105,8 +103,10 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
         assertQuery("UPDATE t SET uuid_key = ? WHERE id=1").withParams(UUID_2).returns(1L).check();
         assertQuery("SELECT uuid_key FROM t WHERE id=1").columnTypes(UUID.class).returns(UUID_2).check();
 
-        // Update column UUID with a string value it should be possible
-        // since we are adding implicit casts.
+        // Insert column UUID with a string value are possible to allow CASTs from STRING to UUID.
+        sql("INSERT INTO t VALUES (3, ?)", UUID_1.toString());
+
+        // Update column UUID with a string value are possible to allow CASTs from STRING to UUID.
         assertQuery("UPDATE t SET uuid_key = ? WHERE id=1").withParams(UUID_1.toString()).returns(1L).check();
         assertQuery("SELECT uuid_key FROM t WHERE id=1").columnTypes(UUID.class).returns(UUID_1).check();
     }
@@ -169,42 +169,36 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
         // CASE <boolean> WHEN ... END
 
-        checkOperatorIsNotSupported(assertQuery(
-                "SELECT id, CASE uuid_key WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t ORDER BY id ASC")
-                .withParams(UUID_1, other), SqlTypeName.BOOLEAN);
-
-        // CASE WHEN <condition> THEN .. WHEN <condition2> THEN ... END
-
-        checkOperatorIsNotSupported(assertQuery("SELECT id, CASE ? WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t ORDER BY id ASC ")
-                .withParams(UUID_1, UUID_2, other), SqlTypeName.BOOLEAN);
-
-        // triggers
-        // class org.apache.calcite.sql.SqlDynamicParam: ?
-        // java.lang.UnsupportedOperationException: class org.apache.calcite.sql.SqlDynamicParam: ?
-        //   at org.apache.calcite.util.Util.needToImplement(Util.java:1101)
-
-        checkOperatorIsNotSupported(assertQuery("SELECT CASE ? "
-                + "WHEN CAST('c67d4baf-564e-4abe-aad5-fcf078d178bf' as UUID) = ? "
-                + "THEN CAST('c67d4baf-564e-4abe-aad5-fcf078d178bf' as UUID) "
-                + "ELSE ? END")
-                .withParams(UUID_1, UUID_2, other), SqlTypeName.BOOLEAN);
+        var query = "SELECT id, CASE uuid_key WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t;";
+        var t = assertThrows(CalciteContextException.class, () -> sql(query, UUID_1));
+        assertThat(t.getMessage(), containsString("There is no operator UUID = BOOLEAN"));
     }
 
-    @Test
-    public void testUuidSupportedOperations() {
-        for (var op : IgniteSqlOperatorTable.INSTANCE.getOperatorList()) {
-            if (CharMatcher.inRange('A', 'Z').or(CharMatcher.inRange('a', 'z')).matchesAnyOf(op.getName())) {
-                continue;
-            }
+    @ParameterizedTest
+    @MethodSource("binaryComparisonOperators")
+    public void testUuidInvalidOperationsAreRejected(String op) {
+        var query = String.format("SELECT ? %s 1", op);
+        var t = assertThrows(IgniteException.class, () -> sql(query, UUID_1));
+        assertThat(t.getMessage(), containsString("class java.util.UUID cannot be cast to class java.lang.Integer"));
+    }
 
-            SqlKind kind = op.getKind();
-            if (!SqlKind.BINARY_COMPARISON.contains(kind) || !SqlKind.BINARY_ARITHMETIC.contains(kind)) {
-                continue;
-            }
+    private static Stream<String> binaryComparisonOperators() {
+        return SqlKind.BINARY_COMPARISON.stream()
+                // to support IS DISTINCT FROM/IS NOT DISTINCT FROM
+                .map(o -> o.sql.replace("_", " "));
+    }
 
-            var query = String.format("SELECT ? %s 1", op.getName());
-            checkOperatorIsNotSupported(assertQuery(query).withParams(UUID_1), SqlTypeName.BOOLEAN);
-        }
+    @ParameterizedTest
+    @MethodSource("binaryArithmeticOperators")
+    public void testUuidUnsupportedOperators(String op) {
+        var query = String.format("SELECT CAST('%s' as UUID) %s CAST('%s' as UUID)", UUID_1, op, UUID_1);
+        var t = assertThrows(IgniteException.class, () -> sql(query));
+        var errorMessage = String.format("Invalid types for arithmetic: class java.util.UUID %s class java.util.UUID", op);
+        assertThat(t.getMessage(), containsString(errorMessage));
+    }
+
+    private static Stream<String> binaryArithmeticOperators() {
+        return Stream.of("+", "-", "/", "*");
     }
 
     @Test
@@ -226,10 +220,9 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18762")
     public void testUuidTypeCoercion() {
-        assertQuery(String.format("SELECT CAST('%s' as UUID) = '%s'", UUID_1, UUID_2)).returns(true).check();
-        assertQuery(String.format("SELECT '%s' = CAST('%s' as UUID)", UUID_1, UUID_2)).returns(true).check();
+        assertQuery(String.format("SELECT CAST('%s' as UUID) = '%s'", UUID_1, UUID_1)).returns(true).check();
+        assertQuery(String.format("SELECT '%s' = CAST('%s' as UUID)", UUID_1, UUID_1)).returns(true).check();
 
         assertQuery(String.format("SELECT '%s'::UUID = '%s'", UUID_1, UUID_1)).returns(true).check();
         assertQuery(String.format("SELECT '%s'= '%s'::UUID", UUID_1, UUID_1)).returns(true).check();
@@ -242,15 +235,12 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18762")
     public void testTypeCoercionInDml() {
-        sql("CREATE TABLE t(id INTEGER PRIMARY KEY, uuid_key UUID)");
         sql("INSERT INTO t VALUES (1, ?)",  UUID_1.toString());
 
-        sql("CREATE TABLE t(id INTEGER PRIMARY KEY, uuid_key UUID)");
-        sql("UPDATE t SET uuid_key=? WHERE id=1",  UUID_2.toString(), 1);
+        sql("UPDATE t SET uuid_key=? WHERE id=1", UUID_2.toString());
 
-        assertQuery("SELECT id, uuid_key FROM t WHERE id = 1").withParams(UUID_2.toString())
+        assertQuery("SELECT id, uuid_key FROM t WHERE id = 1")
                 .returns(1,  UUID_2)
                 .check();
     }
@@ -267,10 +257,5 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
         assertQuery("SELECT ? > ?").withParams(uuid1, uuid2).returns(true).check();
         assertQuery("SELECT ? >= ?").withParams(uuid1, uuid2).returns(true).check();
-    }
-
-    private void checkOperatorIsNotSupported(QueryChecker checker, SqlTypeName other) {
-        var t = assertThrows(CalciteContextException.class, checker::check);
-        assertThat(t.getMessage(), containsString("There is no operator UUID = " + other));
     }
 }

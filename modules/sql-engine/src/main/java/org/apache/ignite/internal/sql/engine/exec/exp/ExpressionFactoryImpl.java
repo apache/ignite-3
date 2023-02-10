@@ -526,7 +526,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         Class<? extends Scalar> clazz = biInParams ? BiScalar.class : SingleScalar.class;
 
-        return Commons.compile(clazz, Expressions.toString(List.of(decl), "\n", false));
+        String body = Expressions.toString(List.of(decl), "\n", false);
+        return Commons.compile(clazz, body);
     }
 
     private String digest(List<RexNode> nodes, RelDataType type, boolean biParam) {

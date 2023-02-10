@@ -30,7 +30,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -41,7 +40,6 @@ import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
-import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -379,8 +377,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
                     if (firstCustomType == null) {
                         firstCustomType = (IgniteCustomType) type;
-                    } else if (!Objects.equals(firstCustomType.getTypeName(), customType.getTypeName())) {
-                        //IgniteCustomType: Do not conversion between custom data types is not supported.
+                    } else if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
+                        // IgniteCustomType: Conversion between custom data types is not supported.
                         return null;
                     }
                 } else if (SqlTypeUtil.isCharacter(type)) {
@@ -389,7 +387,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             }
 
             if (firstCustomType != null && sqlTypeFamily != null) {
-                //IgniteCustomType: we allow implicit casts from VARCHAR to custom data types.
+                // IgniteCustomType: we allow implicit casts from VARCHAR to custom data types.
                 return firstCustomType;
             } else {
                 return resultType;
@@ -500,13 +498,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         return true;
     }
 
-    /** {@inheritDoc} */
-    @Override public RelDataType createUnknownType() {
-        // TODO workaround for https://issues.apache.org/jira/browse/CALCITE-5297
-        // Remove this after update to Calcite 1.33.
-        return createTypeWithNullability(super.createUnknownType(), true);
-    }
-
     private static final class CustomDataTypes {
 
         /**
@@ -548,5 +539,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     @FunctionalInterface
     interface MakeCustomType {
         IgniteCustomType newType(boolean nullable, int precision);
+    }
+
+    /** {@inheritDoc} */
+    @Override public RelDataType createUnknownType() {
+        // TODO workaround for https://issues.apache.org/jira/browse/CALCITE-5297
+        // Remove this after update to Calcite 1.33.
+        return createTypeWithNullability(super.createUnknownType(), true);
     }
 }

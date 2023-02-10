@@ -39,41 +39,49 @@ import org.apache.ignite.sql.ColumnType;
  *     Add a subclass that extends {@link IgniteCustomType}.
  * </p>
  * <ul>
- *     <li>Implement {@link IgniteCustomType#storageType()}.</li>
+ *     <li>Implement {@link IgniteCustomType#storageType()} - storage type must implement {@link Comparable}.
+ *     This is a requirement imposed by calcite's row-expressions implementation.
+ *     (see {@link org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder IgniteRexBuilder}).</li>
  *     <li>Implement {@link IgniteCustomType#nativeType()}.</li>
  *     <li>Implement {@link IgniteCustomType#columnType()}.</li>
  *     <li>Implement {@link IgniteCustomType#createWithNullability(boolean)}.</li>
  * </ul>
  * <p>
+ *    Code base contains comments that start with {@code IgniteCustomType:} to provide extra information.
+ * </p>
+ * <p>
  * Update {@link IgniteTypeFactory}'s constructor to register your type.
  * </p>
  * <p>
- * Update type inference for dynamic parameters in {@link org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator}.
+ * Update type inference for dynamic parameters in
+ * {@link org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator IgniteSqlValidator}.
  * </p>
  * <p>
- * Update {@link org.apache.ignite.internal.sql.engine.util.TypeUtils}:
+ * Update {@link org.apache.ignite.internal.sql.engine.util.TypeUtils TypeUtils}:
  * </p>
  * <ul>
- *     <li>Update {@link org.apache.ignite.internal.sql.engine.util.TypeUtils#toInternal(ExecutionContext, Object, Type)}
- *     and {@link org.apache.ignite.internal.sql.engine.util.TypeUtils#fromInternal(ExecutionContext, Object, Type)}
- *     to adds assertions that check that a value has the same type as a {@link #storageType()}.</li>
+ *     <li>Update {@link org.apache.ignite.internal.sql.engine.util.TypeUtils#toInternal(ExecutionContext, Object, Type)
+ *     TypeUtils::toInternal} and {@link org.apache.ignite.internal.sql.engine.util.TypeUtils#fromInternal(ExecutionContext, Object, Type)
+ *     TypeUtils::fromInternal} to add assertions that check that a value has the same type as a {@link #storageType()}.</li>
  * </ul>
  * <p>
- * Update both {@link org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator} and
- * {@link org.apache.ignite.internal.sql.engine.exec.exp.ConverterUtils} to implement runtime routines for conversion
+ * Update both {@link org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator RexToLitTranslator} and
+ * {@link org.apache.ignite.internal.sql.engine.exec.exp.ConverterUtils ConveterUtils} to implement runtime routines for conversion
  * of your type from other data types if necessary.
  * </p>
  * Further steps:
  * <ul>
  *     <li>Update an SQL parser generator code to support your type - see DataTypeEx().</li>
- *     <li>Update JdbcDatabaseMetadata getTypeInfo</li>
- *     <li>Update {@link org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators} if your type supports some aggregation functions.
+ *     <li>Update JdbcDatabaseMetadata getTypeInfo.</li>
+ *     <li>Update {@link org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators Accumulators}
+ *     if your type supports some aggregation functions.
  *     By default all custom data type support {@code COUNT}, {@code ANY_VALUE} and {@code ANY_VALUE}.</li>
  *     <li>Update serialisation/deserialisation code to store extra attributes.</li>
+ *     <li>There probably some methods in {@link IgniteTypeSystem} that maybe subject to change
+ *     when a custom data type is implemented.</li>
  * </ul>
  * <b>Update this documentation when you are going to change this procedure.</b>
  *
- * @see org.apache.ignite.internal.sql.engine.util.BaseQueryContext BaseQueryContext registers all custom types in the root schema.
 */
 public abstract class IgniteCustomType extends RelDataTypeImpl {
     /** Nullable flag. */
@@ -91,7 +99,7 @@ public abstract class IgniteCustomType extends RelDataTypeImpl {
     }
 
     /** Return the name of this type. **/
-    public abstract String getTypeName();
+    public abstract String getCustomTypeName();
 
     /**
      * Returns the storage type of this data type.
@@ -157,11 +165,11 @@ public abstract class IgniteCustomType extends RelDataTypeImpl {
      */
     public final SqlTypeNameSpec createTypeNameSpec() {
         if (getPrecision() == PRECISION_NOT_SPECIFIED) {
-            SqlIdentifier typeNameId = new SqlIdentifier(getTypeName(), SqlParserPos.ZERO);
+            SqlIdentifier typeNameId = new SqlIdentifier(getCustomTypeName(), SqlParserPos.ZERO);
 
             return new IgniteSqlTypeNameSpec(typeNameId, SqlParserPos.ZERO);
         } else {
-            var typeNameId = new SqlIdentifier(getTypeName(), SqlParserPos.ZERO);
+            var typeNameId = new SqlIdentifier(getCustomTypeName(), SqlParserPos.ZERO);
             var precision = SqlLiteral.createExactNumeric(Integer.toString(getPrecision()), SqlParserPos.ZERO);
 
             return new IgniteSqlTypeNameSpec(typeNameId, precision, SqlParserPos.ZERO);

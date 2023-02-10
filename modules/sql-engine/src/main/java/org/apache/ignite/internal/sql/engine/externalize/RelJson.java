@@ -386,7 +386,7 @@ class RelJson {
                 // In case of a custom data type we must store its name to correctly
                 // deserialize it because we to distinguish ourselves from ANY.
                 IgniteCustomType customType = (IgniteCustomType) node;
-                map.put("customType", customType.getTypeName());
+                map.put("customType", customType.getCustomTypeName());
             }
             return map;
         }
@@ -708,7 +708,7 @@ class RelJson {
             }
 
             Object fields = map.get("fields");
-            //IgniteCustomType: In case of a custom data type JSON must contain a name of that type.
+            // IgniteCustomType: In case of a custom data type JSON must contain a name of that type.
             String customType = (String) map.get("customType");
 
             if (fields != null) {

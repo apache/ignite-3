@@ -262,8 +262,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
     @ParameterizedTest
     @MethodSource("varcharToUuid")
-    // VARCHAR can be implicitly casted to UUID
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18762")
     public void testTypeCoercionBetweenUuidAndVarchar(TypeCoercionRule rule) {
         var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();

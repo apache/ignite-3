@@ -30,6 +30,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Type name specification that allows to derive custom data types.
+ *
+ * @see org.apache.ignite.internal.sql.engine.type.IgniteCustomType
  */
 public final class IgniteSqlTypeNameSpec extends SqlTypeNameSpec {
 

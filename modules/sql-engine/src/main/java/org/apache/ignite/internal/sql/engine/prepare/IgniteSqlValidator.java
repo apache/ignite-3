@@ -57,6 +57,7 @@ import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeInference;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -316,25 +317,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
-        RelDataType dataType;
-
-        if (expr instanceof SqlDynamicParam) {
-            // We need to set the type of a dynamic parameter
-            // otherwise the following error is triggered by calcite for some queries (e.g. CASE ? WHEN .. END):
-            //
-            //   java.lang.UnsupportedOperationException: class org.apache.calcite.sql.SqlDynamicParam: ?
-            //   at org.apache.calcite.util.Util.needToImplement(Util.java:1101)
-            //   at org.apache.calcite.sql.validate.SqlValidatorImpl.getValidatedNodeType(SqlValidatorImpl.java:1767)
-            //   at org.apache.calcite.sql.SqlBinaryOperator.convertType(SqlBinaryOperator.java:139)
-            //   at org.apache.calcite.sql.SqlBinaryOperator.adjustType(SqlBinaryOperator.java:132)
-            //   at org.apache.calcite.sql.SqlOperator.deriveType(SqlOperator.java:609)
-            //   at org.apache.calcite.sql.SqlBinaryOperator.deriveType(SqlBinaryOperator.java:178)
-            //
-            SqlDynamicParam dynamicParam = (SqlDynamicParam) expr;
-            dataType = inferDynamicParamType(dynamicParam);
-        } else {
-            dataType = super.deriveType(scope, expr);
-        }
+        RelDataType dataType = super.deriveType(scope, expr);
 
         if (!(expr instanceof SqlCall)) {
             return dataType;
@@ -342,7 +325,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         SqlKind sqlKind = expr.getKind();
         // See the comments below.
-        if (!(SqlKind.BINARY_ARITHMETIC.contains(sqlKind) || SqlKind.BINARY_COMPARISON.contains(sqlKind))) {
+        if (!SqlKind.BINARY_COMPARISON.contains(sqlKind)) {
             return dataType;
         }
         // Comparison and arithmetic operators are SqlCalls.
@@ -351,26 +334,33 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         for (var operand : sqlCall.getOperandList()) {
             var operandType = getValidatedNodeType(operand);
             if (operandType.getSqlTypeName() == SqlTypeName.ANY) {
+                // IgniteCustomType:
                 //
                 // The correct way to implement the validation error bellow would be
                 // 1) Implement the SqlOperandTypeChecker that prohibit arithmetic operations
                 // between types that neither support binary/unary operators nor support type coercion.
-                // 2) Specify that SqlOperandTypeChecker for every operator defined in
+                // 2) Specify that SqlOperandTypeChecker for every binary/unary operator defined in
                 // IgniteSqlOperatorTable
                 //
                 // This would allow to reject plans that contain type errors
                 // at the validation stage.
                 //
-                // Similar approach can also be use to handle casts between types that can not
+                // Similar approach can also be used to handle casts between types that can not
                 // be converted into one another.
                 //
-                // And if applied to dynamic parameters this would allow to reject plans with
-                // invalid values w/o at validation stage.
+                // And if applied to dynamic parameters with combination of a modified SqlOperandTypeChecker for
+                // a cast function this would allow to reject plans with invalid values w/o at validation stage.
                 //
                 var lhs = getValidatedNodeType(sqlCall.operand(0));
                 var rhs = getValidatedNodeType(sqlCall.operand(1));
 
                 if (lhs.getSqlTypeName() != rhs.getSqlTypeName()) {
+                    // IgniteCustomType: To enable implicit casts from varchar types to a custom data type (for some expressions).
+                    // This check must also be moved to SqlOperandTypeChecker.
+                    // Also see IgniteTypeCoercion::needToCast. (It would be better if code were located in one place).
+                    if (SqlTypeUtil.isCharacter(lhs) || SqlTypeUtil.isCharacter(rhs)) {
+                        return dataType;
+                    }
                     throw newValidationError(expr, IgniteResource.INSTANCE.noSqlOperator(lhs, sqlCall.getOperator(), rhs));
                 }
             }

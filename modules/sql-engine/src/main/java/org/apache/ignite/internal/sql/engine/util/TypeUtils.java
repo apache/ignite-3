@@ -461,6 +461,6 @@ public class TypeUtils {
     }
 
     private static String storageTypeMismatch(Object value, Class<?> type) {
-        return String.format("storageType is %s value must also be UUID but it was not: %s", type, value);
+        return String.format("storageType is %s value must also be %s but it was not: %s", type, type, value);
     }
 }

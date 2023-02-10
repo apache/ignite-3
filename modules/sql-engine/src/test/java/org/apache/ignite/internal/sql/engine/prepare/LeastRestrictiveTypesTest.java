@@ -233,9 +233,6 @@ public class LeastRestrictiveTypesTest {
         tests.add(Arguments.arguments(UUID, DOUBLE, new LeastRestrictiveType(ANY)));
         tests.add(Arguments.arguments(UUID, DECIMAL, new LeastRestrictiveType(ANY)));
         tests.add(Arguments.arguments(UUID, BIGINT, new LeastRestrictiveType(ANY)));
-
-        // IgniteCustomType: by default VARCHAR can be implicitly casted to ANY type.
-        tests.add(Arguments.arguments(VARCHAR, UUID, new LeastRestrictiveType(UUID)));
         tests.add(Arguments.arguments(UUID, VARCHAR, new LeastRestrictiveType(UUID)));
 
         return tests.stream();

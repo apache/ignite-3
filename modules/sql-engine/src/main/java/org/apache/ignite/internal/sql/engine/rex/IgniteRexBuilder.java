@@ -25,7 +25,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * {@link RexBuilder} that provides support for  {@link IgniteCustomType custom data types}.
+ * {@link RexBuilder} that provides support for {@link IgniteCustomType custom data types}.
  */
 public class IgniteRexBuilder extends RexBuilder {
 
@@ -41,6 +41,12 @@ public class IgniteRexBuilder extends RexBuilder {
     /** {@inheritDoc} **/
     @Override
     public RexNode makeLiteral(@Nullable Object value, RelDataType type, boolean allowCast, boolean trim) {
+        // We need to override this method because otherwise
+        // default implementation will call RexBuilder::guessType(@Nullable Object value)
+        // for a custom data type which will then raise the following assertion:
+        //
+        //  throw new AssertionError("unknown type " + value.getClass());
+        //
         if (type instanceof IgniteCustomType) {
             // IgniteCustomType: Not comparable types are not supported.
             assert value instanceof Comparable : "Not comparable IgniteCustomType:" + type + ". value: " + value;

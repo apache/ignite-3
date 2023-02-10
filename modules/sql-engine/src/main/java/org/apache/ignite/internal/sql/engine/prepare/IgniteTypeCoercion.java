@@ -40,12 +40,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Implicit type cast implementation. */
@@ -151,6 +153,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             }
 
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
+                return true;
+            }
+        } else if (toType.getSqlTypeName() == SqlTypeName.ANY) {
+            RelDataType fromType = validator.deriveType(scope, node);
+            // IgniteCustomType: whether we need implicit cast from one type to another.
+            if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
+                IgniteCustomType from = (IgniteCustomType) fromType;
+                IgniteCustomType to = (IgniteCustomType) toType;
+                return !Objects.equals(from.getCustomTypeName(), to.getCustomTypeName());
+            } else if (SqlTypeUtil.isCharacter(fromType) && toType instanceof UuidType) {
+                // IgniteCustomType: implicit casts from character types to UUID
                 return true;
             }
         }
