@@ -4218,6 +4218,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          */
         private void replaceRowInPage(BplusIo<L> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
             io.store(pageAddr, idx, row, null, false);
+
+            if (onUpdateCallback != null) {
+                onUpdateCallback.run();
+            }
         }
 
         @Override

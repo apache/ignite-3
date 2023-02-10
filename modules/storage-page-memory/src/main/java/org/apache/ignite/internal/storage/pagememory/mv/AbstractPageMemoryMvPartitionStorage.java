@@ -615,34 +615,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            VersionChain currentVersionChain = findVersionChain(rowId);
+            return inUpdateVersionChainLock(rowId, () -> {
+                try {
+                    versionChainTree.invoke(new VersionChainKey(rowId), null, new CommitWriteInvokeClosure(timestamp, this));
 
-            if (currentVersionChain == null || currentVersionChain.transactionId() == null) {
-                // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
-                return null;
-            }
+                    return null;
+                } catch (IgniteInternalCheckedException e) {
+                    if (e.getCause() instanceof StorageException) {
+                        throw (StorageException) e.getCause();
+                    }
 
-            long chainLink = currentVersionChain.headLink();
-
-            try {
-                rowVersionFreeList.updateTimestamp(chainLink, timestamp);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Cannot update timestamp", e);
-            }
-
-            try {
-                VersionChain updatedVersionChain = VersionChain.createCommitted(
-                        currentVersionChain.rowId(),
-                        currentVersionChain.headLink(),
-                        currentVersionChain.nextLink()
-                );
-
-                versionChainTree.putx(updatedVersionChain);
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Cannot update transaction ID", e);
-            }
-
-            return null;
+                    throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                }
+            });
         });
     }
 
