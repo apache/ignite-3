@@ -277,14 +277,26 @@ public class PartitionReplicaListener implements ReplicaListener {
         return ensureReplicaIsPrimary(request)
                 .thenCompose((isPrimary) -> {
                     if (request instanceof ReadWriteSingleRowReplicaRequest) {
-                        return processSingleEntryAction((ReadWriteSingleRowReplicaRequest) request);
+                        var req = (ReadWriteSingleRowReplicaRequest) request;
+
+                        return appendTxCommand(req.transactionId(), req.requestType(), () ->
+                                processSingleEntryAction(req));
                     } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                        return processMultiEntryAction((ReadWriteMultiRowReplicaRequest) request);
+                        var req = (ReadWriteMultiRowReplicaRequest) request;
+
+                        return appendTxCommand(req.transactionId(), req.requestType(), () ->
+                                processMultiEntryAction(req));
                     } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-                        return processTwoEntriesAction((ReadWriteSwapRowReplicaRequest) request)
+                        var req = (ReadWriteSwapRowReplicaRequest) request;
+
+                        return appendTxCommand(req.transactionId(), req.requestType(), () ->
+                                processTwoEntriesAction(req))
                                 .thenApply(Function.identity());
                     } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-                        return processScanRetrieveBatchAction((ReadWriteScanRetrieveBatchReplicaRequest) request)
+                        var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
+
+                        return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, () ->
+                                processScanRetrieveBatchAction(req))
                                 .thenApply(Function.identity());
                     } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
                         processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
@@ -1055,26 +1067,39 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
+        List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-18617
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18632
-        TxCleanupReadyFutureList futs = txCleanupReadyFutures.computeIfAbsent(request.txId(), k -> new TxCleanupReadyFutureList());
+        txCleanupReadyFutures.compute(request.txId(), (id, txOps) -> {
+            if (txOps == null) {
+                txOps = new TxCleanupReadyFutureList();
+            }
 
-        synchronized (futs) {
-            txUpdateFutures.addAll(futs.futures);
+            for (RequestType opType : txOps.futures.keySet()) {
+                if (opType == RequestType.RW_GET || opType == RequestType.RW_GET_ALL || opType == RequestType.RW_SCAN) {
+                    txReadFutures.addAll(txOps.futures.get(opType));
+                } else {
+                    txUpdateFutures.addAll(txOps.futures.get(opType));
+                }
+            }
 
-            futs.futures.clear();
+            txOps.futures.clear();
 
-            futs.finished = true;
-        }
+            txOps.state = request.commit() ? TxState.COMMITED : TxState.ABORTED;
+
+            return txOps;
+        });
 
         if (txUpdateFutures.isEmpty()) {
-            releaseTxLocks(request.txId());
+            if (!txReadFutures.isEmpty()) {
+                allOffFuturesExceptionIgnored(txReadFutures, request)
+                        .thenRun(() -> releaseTxLocks(request.txId()));
+            }
 
             return completedFuture(null);
         }
 
-        return allOf(txUpdateFutures.toArray(new CompletableFuture<?>[txUpdateFutures.size()])).thenCompose(v -> {
+        return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
             HybridTimestampMessage timestampMsg = hybridTimestamp(request.commitTimestamp());
 
             TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
@@ -1086,8 +1111,28 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             return raftClient
                     .run(txCleanupCmd)
-                    .thenRun(() -> releaseTxLocks(request.txId()));
+                    .thenCompose(ignored -> allOffFuturesExceptionIgnored(txReadFutures, request)
+                            .thenRun(() -> releaseTxLocks(request.txId())));
         });
+    }
+
+    /**
+     * Creates a future that waits all transaction operations are completed.
+     *
+     * @param txFutures Transaction operation futures.
+     * @param request Cleanup request.
+     * @return The future completes when all futures in passed list are completed.
+     */
+    private static CompletableFuture<Void> allOffFuturesExceptionIgnored(List<CompletableFuture<?>> txFutures,
+            TxCleanupReplicaRequest request) {
+        return allOf(txFutures.toArray(new CompletableFuture<?>[0]))
+                .exceptionally(e -> {
+                    assert !request.commit() :
+                            "Transaction is committing, but an operation was completed with exception [txId=" + request.txId() +
+                                    ", err=" + e.getMessage() + ']';
+
+                    return null;
+                });
     }
 
     private void releaseTxLocks(UUID txId) {
@@ -1129,6 +1174,45 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 format("Unable to close cursor [tableId={}]", tableId), e);
                     }
                 });
+    }
+
+    /**
+     * Appends an operation to prevent race between commit/rollback and
+     *
+     * @param txId Transaction id.
+     * @param cmdType Command type.
+     * @param op Operation closure.
+     * @param <T> Type of execution result.
+     * @return A future object representing the result of the given operation.
+     */
+    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, Supplier<CompletableFuture<T>> op) {
+        var fut = new CompletableFuture<T>();
+
+        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+            if (txOps == null) {
+                txOps = new TxCleanupReadyFutureList();
+            }
+
+            if (txOps.state == TxState.ABORTED || txOps.state == TxState.COMMITED) {
+                fut.completeExceptionally(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
+            } else {
+                txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(fut);
+            }
+
+            return txOps;
+        });
+
+        if (!fut.isDone()) {
+            op.get().whenComplete((v, th) -> {
+                if (th != null) {
+                    fut.completeExceptionally(th);
+                } else {
+                    fut.complete(v);
+                }
+            });
+        }
+
+        return fut;
     }
 
     /**
@@ -1504,17 +1588,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateCommand(UpdateCommand cmd) {
-        return applyUpdatingCommand(cmd.txId(), () -> {
-            storageUpdateHandler.handleUpdate(
-                    cmd.txId(),
-                    cmd.rowUuid(),
-                    cmd.tablePartitionId().asTablePartitionId(),
-                    cmd.rowBuffer(),
-                    null
-            );
+        storageUpdateHandler.handleUpdate(
+                cmd.txId(),
+                cmd.rowUuid(),
+                cmd.tablePartitionId().asTablePartitionId(),
+                cmd.rowBuffer(),
+                null
+        );
 
-            return applyCmdWithExceptionHandling(cmd);
-        });
+        return applyCmdWithExceptionHandling(cmd);
     }
 
     /**
@@ -1524,30 +1606,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateAllCommand(UpdateAllCommand cmd) {
-        return applyUpdatingCommand(cmd.txId(), () -> {
-            storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null);
+        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null);
 
-            return applyCmdWithExceptionHandling(cmd);
-        });
-    }
-
-    private CompletableFuture<Object> applyUpdatingCommand(UUID txId, Supplier<CompletableFuture<Object>> closure) {
-        CompletableFuture<Object> applyCmdFuture;
-
-        TxCleanupReadyFutureList futs = txCleanupReadyFutures.computeIfAbsent(txId, k -> new TxCleanupReadyFutureList());
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18632
-        synchronized (futs) {
-            if (futs.finished) {
-                throw new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished.");
-            }
-
-            applyCmdFuture = closure.get();
-
-            futs.futures.add(applyCmdFuture);
-        }
-
-        return applyCmdFuture;
+        return applyCmdWithExceptionHandling(cmd);
     }
 
     /**
@@ -2177,14 +2238,19 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Class that stores list of futures for updates that can block tx cleanup, and finished flag.
+     * Class that stores a list of futures for operations that has happened in a specific transaction, and a state of the transaction relate
+     * of the replica.
      */
     private static class TxCleanupReadyFutureList {
-        final List<CompletableFuture<?>> futures = new ArrayList<>();
+        /**
+         * Operation type is mapped operation futures.
+         */
+        final Map<RequestType, List<CompletableFuture<?>>> futures = new HashMap<>();
 
         /**
-         * Whether the transaction is finished and therefore locked for further updates by started cleanup process.
+         * Transaction state. {@code TxState#ABORTED} and {@code TxState#COMMITED} match the final transaction states.
+         * If the property is {@code null} the transaction is in pending state.
          */
-        boolean finished;
+        TxState state;
     }
 }
