@@ -51,7 +51,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -102,9 +104,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
         }
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
-        TYPE_FACTORY = new IgniteTypeFactory(typeSys);
+        TYPE_FACTORY = createTypeFactory(typeSys);
 
-        DFLT_REX_BUILDER = new RexBuilder(TYPE_FACTORY);
+        DFLT_REX_BUILDER = createRexBuilder(TYPE_FACTORY);
 
         RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
 
@@ -186,9 +188,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
-        typeFactory = new IgniteTypeFactory(typeSys);
+        typeFactory = createTypeFactory(typeSys);
 
-        rexBuilder = new RexBuilder(typeFactory);
+        rexBuilder = createRexBuilder(typeFactory);
     }
 
     public static Builder builder() {
@@ -342,5 +344,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
         public BaseQueryContext build() {
             return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, plannerTimeout);
         }
+    }
+
+    private static IgniteTypeFactory createTypeFactory(RelDataTypeSystem typeSystem) {
+        return new IgniteTypeFactory(typeSystem);
+    }
+
+    private static IgniteRexBuilder createRexBuilder(IgniteTypeFactory typeFactory) {
+        return new IgniteRexBuilder(typeFactory);
     }
 }

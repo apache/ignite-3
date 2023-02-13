@@ -75,6 +75,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
@@ -114,7 +115,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         this.typeFactory = typeFactory;
         this.conformance = conformance;
 
-        rexBuilder = new RexBuilder(this.typeFactory);
+        rexBuilder = new IgniteRexBuilder(this.typeFactory);
         emptyType = new RelDataTypeFactory.Builder(this.typeFactory).build();
         nullType = typeFactory.createSqlType(SqlTypeName.NULL);
     }

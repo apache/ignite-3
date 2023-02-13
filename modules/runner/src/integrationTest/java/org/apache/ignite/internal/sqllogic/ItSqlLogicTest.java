@@ -136,11 +136,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
  *
  * @see <a href="https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki">Extended format documentation.</a>
  */
-@Tag(value = "sqllogic")
+//@Tag(value = "sqllogic")
 @ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
+//@Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
 public class ItSqlLogicTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
