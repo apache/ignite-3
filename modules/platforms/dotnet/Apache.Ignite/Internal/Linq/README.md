@@ -55,7 +55,7 @@ await Client.Sql.ExecuteAsync(null, @"CREATE TABLE PUBLIC.PERSON (NAME VARCHAR P
    * Member names should match column names (case-insensitive).
    * If a column name is not a valid C# identifier, use `[Column("name")]` attribute to specify the name.
 ```csharp
-public record Person(string Name, int Age);
+public record Person(string Name, int Age, string Address, string Status);
 ```
 
 3. Obtain a table reference
@@ -148,7 +148,7 @@ Query execution and materialization can be triggered in multiple ways:
 ```csharp
 foreach (var person in query) { ... }
 
-await foreach (var row in query.AsAsyncEnumerable()) { ... }
+await foreach (var person in query.AsAsyncEnumerable()) { ... }
 ```
 
 ### ToList, ToDictionary
@@ -214,9 +214,33 @@ Obtaining `IResultSet` can be useful for access to metadata and `CollectAsync` m
 
 ## Supported LINQ Features
 
-
 ### Projections
-TODO
+
+Projection is the process of converting query results into a different type. 
+Among other things, projections are used to select a subset of columns.
+
+For example, `Person` table may have many columns, but we only need `Name` and `Age`. First, create a projection class:
+
+```csharp
+public record PersonInfo(string Name, int Age);
+```
+
+Then, use `Select` to project query results:
+
+```csharp
+List<PersonInfo> result = query
+    .Select(x => new PersonInfo(x.Name, x.Age))
+    .ToList();
+```
+
+Resulting SQL will select only those two columns, avoiding overfetching 
+(overfetching is a common issue when ORM-generated query includes all table columns, but only a few of them are needed by the business logic).
+
+Ignite also supports anonymous type projections:
+
+```csharp
+var result = query.Select(x => new { x.Name, x.Age }).ToList();
+```
 
 ### Inner Joins
 TODO
