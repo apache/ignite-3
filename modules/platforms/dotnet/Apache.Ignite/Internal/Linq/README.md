@@ -289,6 +289,8 @@ var bookCountByAuthorAndYear = bookTable.GetRecordView<Book>().AsQueryable()
     .ToList();
 ```
 
+Aggregate functions `Count`, `Sum`, `Min`, `Max`, `Average` can be used with groupings.
+
 ### Ordering
 
 `OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending` are supported. Combine them to order by multiple columns:
@@ -307,6 +309,22 @@ All aggregate functions are supported: `Count`, `Sum`, `Min`, `Max`, `Average`. 
 See examples in "Single Result Functions" above.
 
 ### Union, Intersect, Except
+
+Multiple result sets can be combined using `Union`, `Intersect`, `Except` methods.
+
+```csharp
+IQueryable<string> employeeEmails = employeeTable.GetRecordView<Employee>().AsQueryable()
+    .Select(x => x.Email);
+    
+IQueryable<string> customerEmails = customerTable.GetRecordView<Customer>().AsQueryable()
+    .Select(x => x.Email);
+    
+List<string> allEmails = employeeEmails.Union(customerEmails)
+    .OrderBy(x => x)
+    .ToList();
+    
+List<string> employeesThatAreCustomers = employeeEmails.Intersect(customerEmails).ToList();
+```
 
 ### Math Functions
 TODO
