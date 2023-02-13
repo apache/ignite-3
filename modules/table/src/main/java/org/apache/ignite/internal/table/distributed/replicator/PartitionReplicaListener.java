@@ -1128,8 +1128,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return allOf(txFutures.toArray(new CompletableFuture<?>[0]))
                 .exceptionally(e -> {
                     assert !request.commit() :
-                            "Transaction is committing, but an operation was completed with exception [txId=" + request.txId() +
-                                    ", err=" + e.getMessage() + ']';
+                            "Transaction is committing, but an operation was completed with exception [txId=" + request.txId()
+                                    + ", err=" + e.getMessage() + ']';
 
                     return null;
                 });
@@ -1177,7 +1177,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Appends an operation to prevent race between commit/rollback and
+     * Appends an operation to prevent the race between commit/rollback and the operation execution.
      *
      * @param txId Transaction id.
      * @param cmdType Command type.
