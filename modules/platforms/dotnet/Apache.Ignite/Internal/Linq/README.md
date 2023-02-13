@@ -243,7 +243,17 @@ var result = query.Select(x => new { x.Name, x.Age }).ToList();
 ```
 
 ### Inner Joins
-TODO
+
+Use standard `Join` method to perform joins on other tables:
+
+```csharp
+var customerQuery = customerTable.GetRecordView<Customer>().AsQueryable();
+var orderQuery = orderTable.GetRecordView<Order>().AsQueryable();
+
+var ordersByCustomer = customerQuery
+    .Join(orderQuery, cust => cust.Id, order => order.CustId, (cust, order) => new { cust.Name, order.Amount })
+    .ToList();
+```
 
 ### Outer Joins
 TODO
