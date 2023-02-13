@@ -122,6 +122,8 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1).returns("INTEGER").check();
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1d).returns("DOUBLE").check();
+
+        assertQuery("SELECT ?::INTEGER = '8'").withParams(8).returns(true).check();
     }
 
     /**

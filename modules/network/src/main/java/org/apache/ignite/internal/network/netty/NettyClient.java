@@ -21,6 +21,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.ssl.SslContext;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
@@ -29,9 +30,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,16 +51,8 @@ public class NettyClient {
     /** Destination address. */
     private final SocketAddress address;
 
-    /** Future that resolves when the client finished the handshake. */
-    @Nullable
-    private volatile OrderingFuture<NettySender> senderFuture = null;
-
     /** Future that resolves when the client channel is opened. */
     private final CompletableFuture<Void> channelFuture = new CompletableFuture<>();
-
-    /** Client channel. */
-    @Nullable
-    private volatile Channel channel = null;
 
     /** Message listener. */
     private final Consumer<InNetworkObject> messageListener;
@@ -65,27 +60,41 @@ public class NettyClient {
     /** Handshake manager. */
     private final HandshakeManager handshakeManager;
 
+    /** SSL configuration. */
+    private final SslView sslConfiguration;
+
+    /** Future that resolves when the client finished the handshake. */
+    @Nullable
+    private volatile OrderingFuture<NettySender> senderFuture = null;
+
+    /** Client channel. */
+    @Nullable
+    private volatile Channel channel = null;
+
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped = false;
 
     /**
-     * Constructor.
+     * Constructor with SSL configuration.
      *
      * @param address               Destination address.
      * @param serializationService  Serialization service.
      * @param manager               Client handshake manager.
      * @param messageListener       Message listener.
+     * @param sslConfiguration         SSL configuration.
      */
     public NettyClient(
             InetSocketAddress address,
             SerializationService serializationService,
             HandshakeManager manager,
-            Consumer<InNetworkObject> messageListener
+            Consumer<InNetworkObject> messageListener,
+            SslView sslConfiguration
     ) {
         this.address = address;
         this.serializationService = serializationService;
         this.handshakeManager = manager;
         this.messageListener = messageListener;
+        this.sslConfiguration = sslConfiguration;
     }
 
     /**
@@ -112,7 +121,12 @@ public class NettyClient {
                 public void initChannel(SocketChannel ch) {
                     var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
-                    PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);
+                    if (sslConfiguration.enabled()) {
+                        SslContext sslContext = SslContextProvider.createClientSslContext(sslConfiguration);
+                        PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener, sslContext);
+                    } else {
+                        PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);
+                    }
                 }
             });
 
