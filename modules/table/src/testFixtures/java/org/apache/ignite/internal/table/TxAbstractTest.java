@@ -61,6 +61,8 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -1897,5 +1899,73 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         Collection<Tuple> retrievedKeys3 = accounts.recordView().getAll(readOnlyTx2, List.of(makeKey(1), makeKey(2)));
         validateBalance(retrievedKeys3, 300.);
+    }
+
+    @Test
+    public void testTransactionAlreadyCommitted() {
+        testTransactionAlreadyFixed(true);
+    }
+
+    @Test
+    public void testTransactionAlreadyRolledback() {
+        testTransactionAlreadyFixed(false);
+    }
+
+    /**
+     * Checks operations that act after a transaction is committed, are finished with exception.
+     *
+     * @param commit True when transaction is committed, false the transaction is rolled back.
+     */
+    private void testTransactionAlreadyFixed(boolean commit) {
+        Transaction tx = igniteTransactions.begin();
+
+        var txId = ((ReadWriteTransactionImpl) tx).id();
+
+        Transaction sameTxWithoutFinishGuard = new ReadWriteTransactionImpl(txManager(accounts), txId);
+
+        log.info("Started transaction {}", txId);
+
+        var accountsRv = accounts.recordView();
+
+        accountsRv.upsert(tx, makeValue(1, 100.));
+        accountsRv.upsert(tx, makeValue(2, 200.));
+
+        Collection<Tuple> res = accountsRv.getAll(sameTxWithoutFinishGuard, List.of(makeKey(1), makeKey(2)));
+
+        validateBalance(res, 100., 200.);
+
+        if (commit) {
+            tx.commit();
+
+            log.info("Committed transaction {}", txId);
+        } else {
+            tx.rollback();
+
+            log.info("Rolled back transaction {}", txId);
+        }
+
+        TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(sameTxWithoutFinishGuard, makeKey(1)));
+        assertTrue(ex.getMessage().contains("Transaction is already finished."));
+
+        ex = assertThrows(TransactionException.class, () -> accountsRv.delete(sameTxWithoutFinishGuard, makeKey(1)));
+        assertTrue(ex.getMessage().contains("Transaction is already finished."));
+
+        ex = assertThrows(TransactionException.class, () -> accountsRv.get(sameTxWithoutFinishGuard, makeKey(2)));
+        assertTrue(ex.getMessage().contains("Transaction is already finished."));
+
+        ex = assertThrows(TransactionException.class, () -> accountsRv.upsert(sameTxWithoutFinishGuard, makeValue(2, 300.)));
+        assertTrue(ex.getMessage().contains("Transaction is already finished."));
+
+        assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
+
+        if (commit) {
+            res = accountsRv.getAll(null, List.of(makeKey(1), makeKey(2)));
+
+            validateBalance(res, 100., 200.);
+        } else {
+            res = accountsRv.getAll(null, List.of(makeKey(1), makeKey(2)));
+
+            assertTrue(CollectionUtils.nullOrEmpty(res));
+        }
     }
 }
