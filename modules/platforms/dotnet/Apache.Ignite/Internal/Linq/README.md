@@ -397,10 +397,12 @@ await orders
                       .SetProperty(x => x.Note, x => x.Note + " Happy birthday, " + x.CustomerName));
 ```
 
-This will produce the following SQL:
+Resulting SQL:
 
 ```sql
-TODO
+update PUBLIC.tbl1 as _T0 
+set NOTE = concat(concat(_T0.NOTE, ?), _T0.CUSTOMERNAME), DISCOUNT = ? 
+where (_T0.CUSTOMERID IS NOT DISTINCT FROM ?)
 ```
 
 ### Composing Queries
