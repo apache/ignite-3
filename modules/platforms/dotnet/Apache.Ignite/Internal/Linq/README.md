@@ -269,8 +269,29 @@ var booksWithStudents = bookQuery
     .ToList();
 ```
 
-### Groupings
-TODO
+### Grouping
+
+Single column:
+
+```csharp
+var bookCountByAuthor = bookTable.GetRecordView<Book>().AsQueryable()
+    .GroupBy(book => book.Author)
+    .Select(grp => new { Author = grp.Key, Count = x.Count() })
+    .ToList();
+```
+
+Multiple columns - use anonymous type:
+
+```csharp
+var bookCountByAuthorAndYear = bookTable.GetRecordView<Book>().AsQueryable()
+    .GroupBy(book => new { book.Author, book.Year })
+    .Select(grp => new { Author = grp.Key.Author, Year = grp.Key.Year, Count = x.Count() })
+    .ToList();
+```
+
+### Ordering
+
+
 
 ### Aggregates
 TODO
