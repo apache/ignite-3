@@ -70,6 +70,7 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -603,12 +604,14 @@ public class ItRebalanceDistributedTest {
 
             vaultManager = createVault(dir);
 
+            NodeBootstrapConfiguration configuration =
+                    NodeBootstrapConfiguration.directFile(workDir.resolve(testInfo.getDisplayName()));
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     Set.of(),
-                    new LocalConfigurationStorage(vaultManager),
+                    new LocalFileConfigurationStorage(configuration),
                     List.of(),
                     List.of()
             );

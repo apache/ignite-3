@@ -62,16 +62,4 @@ public class IgniteRunnerTest {
 
         assertThat(ign, willCompleteSuccessfully());
     }
-
-    @Test
-    public void smokeTestArgsNullConfig() {
-        CompletableFuture<Ignite> ign = IgniteRunner.start(
-                "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
-                "--node-name", NODE_NAME
-        );
-
-        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
-
-        assertThat(ign, willCompleteSuccessfully());
-    }
 }
