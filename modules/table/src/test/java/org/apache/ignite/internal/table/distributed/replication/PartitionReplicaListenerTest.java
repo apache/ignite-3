@@ -1159,7 +1159,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .term(1L)
                 .commitPartitionId(new TablePartitionId(tblId, partId))
                 .build()
-        );
+        ).join();
     }
 
     private void delete(UUID txId, BinaryRow row) {
@@ -1170,7 +1170,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .term(1L)
                 .commitPartitionId(new TablePartitionId(tblId, partId))
                 .build()
-        );
+        ).join();
     }
 
     private BinaryRow roGet(BinaryRow row, HybridTimestamp readTimestamp) {
@@ -1202,7 +1202,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .commitTimestamp(clock.now())
                 .term(1L)
                 .build()
-        );
+        ).join();
 
         txState = TxState.COMMITED;
     }
