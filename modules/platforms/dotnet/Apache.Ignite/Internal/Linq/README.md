@@ -291,10 +291,20 @@ var bookCountByAuthorAndYear = bookTable.GetRecordView<Book>().AsQueryable()
 
 ### Ordering
 
+`OrderBy`, `OrderByDescending`, `ThenBy`, `ThenByDescending` are supported. Combine them to order by multiple columns:
 
+```csharp
+var booksOrderedByAuthorAndYear = bookTable.GetRecordView<Book>().AsQueryable()
+    .OrderBy(book => book.Author)
+    .ThenByDescending(book => book.Year)
+    .ToList();
+```
 
 ### Aggregates
-TODO
+
+All aggregate functions are supported: `Count`, `Sum`, `Min`, `Max`, `Average`. Async variants are available in `IgniteQueryableExtensions`.
+
+See examples in "Single Result Functions" above.
 
 ### Union, Intersect, Except
 
