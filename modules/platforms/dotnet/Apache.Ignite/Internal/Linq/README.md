@@ -105,7 +105,15 @@ All generated SQL will be logged with `Debug` level to the specified logger.
 
 ## Using Transactions
 
-TODO
+Transaction can be passed to the LINQ provider via the first `AsQueryeable` parameter:
+
+```csharp
+await using var tx = await client.Transactions.BeginAsync();
+var view = (await client.Tables.GetTableAsync("person"))!.GetRecordView<Person>();
+
+pocoView.AsQueryable(tx)...;
+```
+
 
 ## Custom Query Options
 
@@ -150,4 +158,8 @@ TODO
 
 
 ### Column Name Mapping
+TODO
+
+### KeyValueView
+
 TODO
