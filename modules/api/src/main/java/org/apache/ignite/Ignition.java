@@ -105,6 +105,7 @@ public interface Ignition {
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
+    //TODO: Move IGNITE-18778
     CompletableFuture<Ignite> start(String nodeName, @Nullable InputStream config, Path workDir);
 
     /**
@@ -118,6 +119,7 @@ public interface Ignition {
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
+    //TODO: Move IGNITE-18778
     CompletableFuture<Ignite> start(String nodeName, Path workDir);
 
     /**

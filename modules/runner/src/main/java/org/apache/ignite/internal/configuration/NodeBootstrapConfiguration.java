@@ -35,6 +35,11 @@ import org.jetbrains.annotations.Nullable;
 @FunctionalInterface
 public interface NodeBootstrapConfiguration {
     /**
+     * Default name of configuration file.
+     */
+    String DEFAULT_CONFIG_NAME = "ignite-config.conf";
+
+    /**
      * Path to node configuration file.
      *
      * @return Path to node configuration file in HOCON format.
@@ -58,6 +63,7 @@ public interface NodeBootstrapConfiguration {
      * @param workDir Dir for configuration file location.
      * @return Node bootstrap configuration with lazy config file creation.
      */
+    //TODO: Move IGNITE-18778
     static NodeBootstrapConfiguration inputStream(@Nullable InputStream is, Path workDir) {
         return new NodeBootstrapConfiguration() {
 
@@ -67,13 +73,20 @@ public interface NodeBootstrapConfiguration {
             public Path configPath() {
                 if (config.compareAndSet(null, createEmptyConfig(workDir))) {
                     if (is != null) {
+                        byte[] bytes;
                         try {
-                            Files.write(config.get(), is.readAllBytes(), StandardOpenOption.DSYNC);
+                            bytes = is.readAllBytes();
                         } catch (IOException e) {
                             throw new NodeConfigReadException("Failed to read config input stream.", e);
                         }
+                        try {
+                            Files.write(config.get(), bytes, StandardOpenOption.SYNC);
+                        } catch (IOException e) {
+                            throw new NodeConfigWriteException("Failed to write config content to file.", e);
+                        }
                     }
                 }
+
                 return config.get();
             }
         };
@@ -86,11 +99,12 @@ public interface NodeBootstrapConfiguration {
      * @param workDir Dir for configuration file location.
      * @return Node bootstrap configuration with lazy config file creation.
      */
+    //TODO: Move IGNITE-18778
     static NodeBootstrapConfiguration string(@Nullable @Language("HOCON") String plainConf, Path workDir) {
-        return inputStream(plainConf != null
+        InputStream is = plainConf != null
                 ? new ByteArrayInputStream(plainConf.getBytes(StandardCharsets.UTF_8))
-                : null,
-                workDir);
+                : null;
+        return inputStream(is, workDir);
     }
 
     /**
@@ -105,14 +119,16 @@ public interface NodeBootstrapConfiguration {
 
     private static Path createEmptyConfig(Path workDir) {
         try {
-            Path config = workDir.resolve("ignite-config.conf");
+            Path config = workDir.resolve(DEFAULT_CONFIG_NAME);
             File file = config.toFile();
+
             if (!file.exists()) {
                 file.createNewFile();
             }
+
             return config;
         } catch (IOException e) {
-            throw new NodeConfigCreateException("Failed to create temp conf file.", e);
+            throw new NodeConfigCreateException("Failed to create conf file.", e);
         }
     }
 }

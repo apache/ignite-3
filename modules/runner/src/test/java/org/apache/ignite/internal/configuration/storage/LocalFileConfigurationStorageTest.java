@@ -18,21 +18,23 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import java.nio.file.Path;
-import java.util.Random;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
-import org.junit.jupiter.api.io.TempDir;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for the {@link LocalFileConfigurationStorage}.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest {
 
-    @TempDir
+    @WorkDirectory
     private Path tmpDir;
 
     @Override
     public ConfigurationStorage getStorage() {
-        Path resolve = tmpDir.resolve("file" + new Random().nextInt());
+        Path resolve = tmpDir.resolve(NodeBootstrapConfiguration.DEFAULT_CONFIG_NAME);
         return new LocalFileConfigurationStorage(NodeBootstrapConfiguration.directFile(resolve));
     }
 }

@@ -21,7 +21,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigRenderOptions;
-import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -80,7 +79,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      *  */
     private final AtomicReference<ConfigurationStorageListener> lsnrRef = new AtomicReference<>();
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg-file", LOG));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(2, new NamedThreadFactory("loc-cfg-file", LOG));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 
@@ -93,7 +92,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      */
     public LocalFileConfigurationStorage(NodeBootstrapConfiguration configuration) {
         this.configPath = configuration.configPath();
-        tempConfigPath = new File(configPath.toFile().getAbsolutePath() + ".storage").toPath();
+        tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
         checkAndRestoreConfigFile();
     }
 
@@ -184,7 +183,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     private void saveValues(Map<String, ? extends Serializable> values) {
         try {
             String s = renderHoconString(values);
-            Files.write(tempConfigPath, s.getBytes(StandardCharsets.UTF_8), StandardOpenOption.DSYNC);
+            Files.write(tempConfigPath, s.getBytes(StandardCharsets.UTF_8), StandardOpenOption.SYNC, StandardOpenOption.CREATE);
             Files.move(tempConfigPath, configPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new NodeConfigWriteException(
