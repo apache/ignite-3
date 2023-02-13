@@ -32,15 +32,18 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.msgpack.core.MessagePack;
 
 /** SSL client integration test. */
+@ExtendWith(WorkDirectoryExtension.class)
 public class ItSslClientHandlerTest {
 
     /** Magic bytes. */
@@ -52,9 +55,12 @@ public class ItSslClientHandlerTest {
 
     private String keyStorePkcs12Path;
 
+    @WorkDirectory
+    private Path workDir;
+
     @BeforeEach
-    void setUp(@TempDir Path tmpDir) throws Exception {
-        keyStorePkcs12Path = tmpDir.resolve("keystore.p12").toAbsolutePath().toString();
+    void setUp() throws Exception {
+        keyStorePkcs12Path = workDir.resolve("keystore.p12").toAbsolutePath().toString();
         generateKeystore(new SelfSignedCertificate("localhost"));
     }
 
