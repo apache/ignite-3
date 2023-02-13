@@ -50,8 +50,6 @@ public class ItSslClientHandlerTest {
 
     private TestServer testServer;
 
-    private int serverPort;
-
     private String keyStorePkcs12Path;
 
     @BeforeEach
@@ -105,7 +103,7 @@ public class ItSslClientHandlerTest {
     }
 
     private void performAndCheckMagic() throws IOException {
-        serverPort = serverModule.localAddress().getPort();
+        int serverPort = serverModule.localAddress().getPort();
 
         try (var sock = new Socket("127.0.0.1", serverPort)) {
             OutputStream out = sock.getOutputStream();

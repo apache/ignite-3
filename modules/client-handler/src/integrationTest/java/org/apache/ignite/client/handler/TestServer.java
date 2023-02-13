@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -47,7 +48,7 @@ public class TestServer {
 
     private final TestSslConfig testSslConfig;
 
-    TestServer(TestSslConfig testSslConfig) {
+    TestServer(@Nullable TestSslConfig testSslConfig) {
         this.testSslConfig = testSslConfig;
         this.configurationManager = new ConfigurationManager(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),

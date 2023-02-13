@@ -27,6 +27,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.ClientAuth;
+import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -95,20 +96,20 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
     }
 
     private void setupSsl(SocketChannel ch, IgniteClientConfiguration clientCfg) {
-        if (clientCfg.sslConfiguration() == null || !clientCfg.sslConfiguration().enabled()) {
+        if (clientCfg.ssl() == null || !clientCfg.ssl().enabled()) {
             return;
         }
 
         try {
-            var ssl = clientCfg.sslConfiguration();
-            var builder = SslContextBuilder.forClient().trustManager(loadTrustManagerFactory(ssl));
+            SslConfiguration ssl = clientCfg.ssl();
+            SslContextBuilder builder = SslContextBuilder.forClient().trustManager(loadTrustManagerFactory(ssl));
 
             ClientAuth clientAuth = toNettyClientAuth(ssl.clientAuthenticationMode());
             if (ClientAuth.NONE != clientAuth) {
                 builder.clientAuth(clientAuth).keyManager(loadKeyManagerFactory(ssl));
             }
 
-            var context = builder.build();
+            SslContext context = builder.build();
 
             ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
@@ -156,7 +157,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         return trustManagerFactory;
     }
 
-    private ClientAuth toNettyClientAuth(ClientAuthenticationMode igniteClientAuth) {
+    private static ClientAuth toNettyClientAuth(ClientAuthenticationMode igniteClientAuth) {
         switch (igniteClientAuth) {
             case NONE: return ClientAuth.NONE;
             case REQUIRE: return ClientAuth.REQUIRE;

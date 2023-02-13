@@ -270,11 +270,6 @@ public interface IgniteClient extends Ignite {
          * @return This instance.
          */
         public Builder ssl(@Nullable SslConfiguration sslConfiguration) {
-            if (sslConfiguration == null) {
-                this.sslConfiguration = SslConfiguration.builder().build();
-                return this;
-            }
-
             this.sslConfiguration = sslConfiguration;
 
             return this;

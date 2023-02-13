@@ -206,18 +206,17 @@ public class ClientHandlerModule implements IgniteComponent {
                             ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
                         }
 
-                        ch.pipeline()
-                                .addLast(
-                                        new ClientMessageDecoder(),
-                                        new ClientInboundMessageHandler(
-                                                igniteTables,
-                                                igniteTransactions,
-                                                queryProcessor,
-                                                configuration,
-                                                igniteCompute,
-                                                clusterService,
-                                                sql,
-                                                clusterId));
+                        ch.pipeline().addLast(
+                                new ClientMessageDecoder(),
+                                new ClientInboundMessageHandler(
+                                        igniteTables,
+                                        igniteTransactions,
+                                        queryProcessor,
+                                        configuration,
+                                        igniteCompute,
+                                        clusterService,
+                                        sql,
+                                        clusterId));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

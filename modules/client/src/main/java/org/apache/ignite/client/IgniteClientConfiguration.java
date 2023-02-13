@@ -150,5 +150,5 @@ public interface IgniteClientConfiguration {
      *
      * @return Client SSL configuration.
      */
-    SslConfiguration sslConfiguration();
+    @Nullable SslConfiguration ssl();
 }

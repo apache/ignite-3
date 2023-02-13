@@ -165,7 +165,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable SslConfiguration sslConfiguration() {
+    public @Nullable SslConfiguration ssl() {
         return sslConfiguration;
     }
 }
