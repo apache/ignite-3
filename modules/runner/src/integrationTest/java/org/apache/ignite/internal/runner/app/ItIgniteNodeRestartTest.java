@@ -63,10 +63,11 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -228,10 +229,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
+        NodeBootstrapConfiguration configuration =
+                NodeBootstrapConfiguration.string(cfgString == null ? configurationString(idx) : cfgString,
+                        workDir);
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalConfigurationStorage(vault),
+                new LocalFileConfigurationStorage(configuration),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
@@ -352,11 +356,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         nodeCfgMgr.start();
 
-        // Node configuration manager bootstrap.
-        cfgString = cfgString == null ? configurationString(idx) : cfgString;
-
         try {
-            nodeCfgMgr.bootstrap(cfgString);
+            nodeCfgMgr.bootstrap(configuration.configPath());
         } catch (Exception e) {
             throw new IgniteException("Unable to parse user-specific configuration.", e);
         }

@@ -362,4 +362,29 @@ public class ErrorGroups {
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
     }
+
+    /**
+     * Node configuration error group.
+     */
+    public static class NodeConfiguration {
+        /**
+         * Node configuration error group.
+         */
+        public static final ErrorGroup NODE_CONFIGURATION_ERR_GROUP = ErrorGroup.newGroup("NODECFG", 12);
+
+        /**
+         * Config read error.
+         */
+        public static final int CONFIG_READ_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(1);
+
+        /**
+         * Config file creation error.
+         */
+        public static final int CONFIG_FILE_CREATE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(2);
+
+        /**
+         * Config write error.
+         */
+        public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
+    }
 }
