@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -27,6 +29,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -34,6 +37,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -56,7 +60,7 @@ public class PartitionAccessImplTest {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
-        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
@@ -96,7 +100,7 @@ public class PartitionAccessImplTest {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
-        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = new PartitionAccessImpl(
@@ -135,7 +139,7 @@ public class PartitionAccessImplTest {
     void testAddWrite() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
 
-        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
         TableSchemaAwareIndexStorage indexStorage = mock(TableSchemaAwareIndexStorage.class);
 
@@ -173,7 +177,7 @@ public class PartitionAccessImplTest {
     void testAddWriteCommitted() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig);
 
-        MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(TEST_PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
         TableSchemaAwareIndexStorage indexStorage = mock(TableSchemaAwareIndexStorage.class);
 
@@ -203,5 +207,13 @@ public class PartitionAccessImplTest {
         verify(mvPartitionStorage, times(1)).addWriteCommitted(eq(rowId), eq(binaryRow), eq(HybridTimestamp.MAX_VALUE));
 
         verify(indexStorage, never()).put(eq(binaryRow), eq(rowId));
+    }
+
+    private static MvPartitionStorage createMvPartition(MvTableStorage tableStorage, int partitionId) {
+        CompletableFuture<MvPartitionStorage> createMvPartitionFuture = tableStorage.getOrCreateMvPartition(partitionId);
+
+        assertThat(createMvPartitionFuture, willCompleteSuccessfully());
+
+        return createMvPartitionFuture.join();
     }
 }

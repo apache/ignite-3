@@ -54,7 +54,8 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @throws IllegalArgumentException If Partition ID is out of configured bounds.
      * @throws StorageException If an error has occurred during the partition creation.
      */
-    MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException;
+    // TODO: IGNITE-18565 исправить на create, поправить докмументацию и тесты на это
+    CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(int partitionId) throws StorageException;
 
     /**
      * Returns the partition storage or {@code null} if the requested storage doesn't exist.

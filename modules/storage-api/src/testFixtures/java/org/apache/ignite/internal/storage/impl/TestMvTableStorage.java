@@ -103,8 +103,9 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
-        return partitions.computeIfAbsent(partitionId, partId -> spy(new TestMvPartitionStorage(partId)));
+    public CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(int partitionId) throws StorageException {
+        // TODO: IGNITE-18565 исправить это
+        return completedFuture(partitions.computeIfAbsent(partitionId, partId -> spy(new TestMvPartitionStorage(partId))));
     }
 
     @Override

@@ -76,7 +76,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void partitionDestructionFreesPartitionPages() throws Exception {
-        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(0);
+        MvPartitionStorage partitionStorage = createMvPartition(0);
 
         insertOneRow(partitionStorage);
 
@@ -111,7 +111,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void tableStorageDestructionFreesPartitionsPages() throws Exception {
-        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(0);
+        MvPartitionStorage partitionStorage = createMvPartition(0);
 
         insertOneRow(partitionStorage);
 

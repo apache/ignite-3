@@ -51,6 +51,7 @@ import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -405,12 +406,13 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public RocksDbMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
+    // TODO: IGNITE-18565 исправить это
+    public CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(int partitionId) throws StorageException {
         return inBusyLock(busyLock, () -> {
             RocksDbMvPartitionStorage partition = getMvPartitionBusy(partitionId);
 
             if (partition != null) {
-                return partition;
+                return completedFuture(partition);
             }
 
             partition = new RocksDbMvPartitionStorage(this, partitionId);
@@ -419,7 +421,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             meta.putPartitionId(partitionId);
 
-            return partition;
+            return completedFuture(partition);
         });
     }
 

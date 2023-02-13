@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationCon
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
+import static org.apache.ignite.internal.storage.BaseMvStoragesTest.createMvPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
@@ -149,7 +150,7 @@ public abstract class AbstractSortedIndexStorageTest {
     protected final void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
         this.tablesCfg = tablesCfg;
         this.tableStorage = tableStorage;
-        this.partitionStorage = tableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        this.partitionStorage = createMvPartition(tableStorage, TEST_PARTITION);
 
         createTestTable(tableStorage.configuration());
     }

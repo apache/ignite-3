@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -193,12 +194,13 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     abstract CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     @Override
-    public AbstractPageMemoryMvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException {
+    // TODO: IGNITE-18565 исправить это
+    public CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(int partitionId) throws StorageException {
         return busy(() -> {
             AbstractPageMemoryMvPartitionStorage partition = getMvPartitionBusy(partitionId);
 
             if (partition != null) {
-                return partition;
+                return completedFuture(partition);
             }
 
             partition = createMvPartitionStorage(partitionId);
@@ -207,7 +209,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             mvPartitions.set(partitionId, partition);
 
-            return partition;
+            return completedFuture(partition);
         });
     }
 

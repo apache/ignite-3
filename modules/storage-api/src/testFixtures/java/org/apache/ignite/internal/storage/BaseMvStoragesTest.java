@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -234,5 +237,16 @@ public abstract class BaseMvStoragesTest {
         public String toString() {
             return S.toString(TestValue.class, this);
         }
+    }
+
+    /**
+     * Creates a multi-versioned partition storage.
+     */
+    public static MvPartitionStorage createMvPartition(MvTableStorage tableStorage, int partitionId) {
+        CompletableFuture<MvPartitionStorage> createMvPartitionStorageFuture = tableStorage.getOrCreateMvPartition(partitionId);
+
+        assertThat(createMvPartitionStorageFuture, willCompleteSuccessfully());
+
+        return createMvPartitionStorageFuture.join();
     }
 }

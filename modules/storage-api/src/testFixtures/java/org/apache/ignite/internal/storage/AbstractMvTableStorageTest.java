@@ -148,7 +148,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(absentStorage, is(nullValue()));
 
-        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(0);
+        MvPartitionStorage partitionStorage = createMvPartition(0);
 
         assertThat(partitionStorage, is(notNullValue()));
 
@@ -160,9 +160,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     void testPartitionIndependence() {
-        MvPartitionStorage partitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID_0);
+        MvPartitionStorage partitionStorage0 = createMvPartition(PARTITION_ID_0);
         // Using a shifted ID value to test a multibyte scenario.
-        MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID_1);
+        MvPartitionStorage partitionStorage1 = createMvPartition(PARTITION_ID_1);
 
         var testData0 = binaryRow(new TestKey(1, "0"), new TestValue(10, "10"));
 
@@ -238,7 +238,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
     @Test
     public void testDestroyIndex() {
-        MvPartitionStorage partitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage partitionStorage = createMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()), is(notNullValue()));
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
@@ -253,12 +253,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testHashIndexIndependence() {
-        MvPartitionStorage partitionStorage1 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage partitionStorage1 = createMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
         assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID + 1, hashIdx.id()));
 
-        MvPartitionStorage partitionStorage2 = tableStorage.getOrCreateMvPartition(PARTITION_ID + 1);
+        MvPartitionStorage partitionStorage2 = createMvPartition(PARTITION_ID + 1);
 
         HashIndexStorage storage1 = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         HashIndexStorage storage2 = tableStorage.getOrCreateHashIndex(PARTITION_ID + 1, hashIdx.id());
@@ -352,7 +352,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     public void testDestroyPartition() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> tableStorage.destroyPartition(getPartitionIdOutOfRange()));
 
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -406,7 +406,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testReCreatePartition() throws Exception {
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
 
         RowId rowId = new RowId(PARTITION_ID);
 
@@ -420,14 +420,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         tableStorage.destroyPartition(PARTITION_ID).get(1, SECONDS);
 
-        MvPartitionStorage newMvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage newMvPartitionStorage = createMvPartition(PARTITION_ID);
 
         assertThat(getAll(newMvPartitionStorage.scanVersions(rowId)), empty());
     }
 
     @Test
     public void testSuccessRebalance() {
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -489,7 +489,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testFailRebalance() throws Exception {
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -536,7 +536,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testStartRebalanceForClosedPartition() {
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
 
         mvPartitionStorage.close();
 
@@ -545,7 +545,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testDestroyTableStorage() {
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -589,7 +589,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         tableStorage.start();
 
-        mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        mvPartitionStorage = createMvPartition(PARTITION_ID);
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -598,7 +598,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     public void testRestartStoragesInTheMiddleOfRebalance() {
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -627,7 +627,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         tableStorage.start();
 
-        mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        mvPartitionStorage = createMvPartition(PARTITION_ID);
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -650,7 +650,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's check that there will be an error for a non-existent partition.
         assertThrows(StorageException.class, () -> tableStorage.clearPartition(PARTITION_ID));
 
-        MvPartitionStorage mvPartitionStorage = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage = createMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id());
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id());
 
@@ -689,7 +689,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     @Test
     void testClearForCanceledOrRebalancedPartition() {
-        MvPartitionStorage mvPartitionStorage0 = tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        MvPartitionStorage mvPartitionStorage0 = createMvPartition(PARTITION_ID);
         tableStorage.getOrCreateMvPartition(PARTITION_ID + 1);
 
         mvPartitionStorage0.close();
@@ -1021,5 +1021,12 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(act.oldPeers(), equalTo(exp.oldPeers()));
         assertThat(act.oldLearners(), equalTo(exp.oldLearners()));
+    }
+
+    /**
+     * Creates a multi-versioned partition storage.
+     */
+    protected MvPartitionStorage createMvPartition(int partitionId) {
+        return createMvPartition(tableStorage, partitionId);
     }
 }

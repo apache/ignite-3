@@ -2169,9 +2169,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
-        return CompletableFuture
-                .supplyAsync(() -> {
-                    MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getOrCreateMvPartition(partitionId);
+        return table.internalTable().storage().getOrCreateMvPartition(partitionId)
+                .thenComposeAsync(mvPartitionStorage -> {
                     TxStateStorage txStateStorage = table.internalTable().txStateStorage().getOrCreateTxStateStorage(partitionId);
 
                     if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
@@ -2183,8 +2182,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     } else {
                         return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
                     }
-                }, ioExecutor)
-                .thenCompose(Function.identity());
+                }, ioExecutor);
     }
 
     /**
