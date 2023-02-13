@@ -357,14 +357,23 @@ var triangles = table.GetRecordView<Triangle>().AsQueryable()
 Example:
 
 ```csharp
-var people = table.GetRecordView<Person>().AsQueryable()
+List<string> fullNames = table.GetRecordView<Person>().AsQueryable()
     .Where(p => p.FirstName.StartsWith("Jo"))
     .Select(p => new { FullName = p.FirstName.ToUpper() + " " + p.LastName.ToLower() })
     .ToList();
 ```
 
 ### Regular Expressions
-TODO
+
+`Regex.Replace` is translated to `regexp_replace` function.
+
+```csharp
+List<string> addresses = table.GetRecordView<Person>().AsQueryable()
+    .Select(p => new { Address = Regex.Replace(p.Address, @"(\d+)", "[$1]")
+    .ToList();
+```
+
+Keep in mind that regex engine within SQL may behave differently from .NET regex engine.
 
 ### DML (Bulk Update and Delete)
 TODO
