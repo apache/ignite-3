@@ -24,7 +24,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Table;
-using Log;
 using NUnit.Framework;
 using Table;
 
@@ -365,14 +364,6 @@ public partial class LinqSqlGenerationTests
 
         Assert.AreEqual(expectedQueryText, query.ToQueryString());
         Assert.AreEqual(expectedToString, query.ToString());
-
-var cfg = new IgniteClientConfiguration
-{
-    Endpoints = { "127.0.0.1:10800" },
-    Logger = new ConsoleLogger { MinLevel = LogLevel.Debug }
-};
-
-using var client = IgniteClient.StartAsync(cfg);
     }
 
     [Test]
