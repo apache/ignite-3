@@ -376,7 +376,32 @@ List<string> addresses = table.GetRecordView<Person>().AsQueryable()
 Keep in mind that regex engine within SQL may behave differently from .NET regex engine.
 
 ### DML (Bulk Update and Delete)
+
+Bulk update and delete with optional conditions are supported via `ExecuteUpdateAsync` and `ExecuteDeleteAsync` extensions methods on `IQueryable<T>`:
+
+```csharp
+var orders = orderTable.GetRecordView<Order>().AsQueryable();
+
+await orders.Where(x => x.Amount == 0).ExecuteDeleteAsync();
+```
+
+Update statement can set properties to constant values or to an expression based on other properties of the same row:
+
+```csharp
+var orders = orderTable.GetRecordView<Order>().AsQueryable();
+
+await orders
+    .Where(x => x.CustomerId == customerId)
+    .ExecuteUpdateAsync(
+        order => order.SetProperty(x => x.Discount, 0.1m)
+                      .SetProperty(x => x.Note, x => x.Note + " Happy birthday, " + x.CustomerName));
+```
+
+This will produce the following SQL:
+
+```sql
 TODO
+```
 
 ### Composing Queries
 TODO
