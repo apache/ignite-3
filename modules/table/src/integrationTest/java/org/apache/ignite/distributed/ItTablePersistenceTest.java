@@ -366,7 +366,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     mvTableStorages.put(index, mvTableStorage);
                     closeables.add(mvTableStorage::close);
 
-                    CompletableFuture<MvPartitionStorage> createMvPartitionFuture = mvTableStorage.getOrCreateMvPartition(0);
+                    CompletableFuture<MvPartitionStorage> createMvPartitionFuture = mvTableStorage.createMvPartition(0);
 
                     assertThat(createMvPartitionFuture, willCompleteSuccessfully());
 

@@ -144,6 +144,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     @Test
     void testCreatePartition() {
+        assertThrows(IllegalArgumentException.class, () -> tableStorage.createMvPartition(getPartitionIdOutOfRange()));
+
         MvPartitionStorage absentStorage = tableStorage.getMvPartition(0);
 
         assertThat(absentStorage, is(nullValue()));
@@ -153,6 +155,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(partitionStorage, is(notNullValue()));
 
         assertThat(partitionStorage, is(sameInstance(tableStorage.getMvPartition(0))));
+
+        StorageException exception = assertThrows(StorageException.class, () -> tableStorage.createMvPartition(0));
+
+        assertThat(exception.getMessage(), containsString("Storage already exists or is being created"));
     }
 
     /**
@@ -198,7 +204,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageException.class, () -> tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()));
 
         // Index should only be available after the associated partition has been created.
-        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.createMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx.id()), is(instanceOf(SortedIndexStorage.class)));
         assertThat(tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx.id()), is(instanceOf(HashIndexStorage.class)));
@@ -214,7 +220,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageException.class, () -> tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()));
 
         // Index should only be available after the associated partition has been created.
-        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.createMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx.id()), is(notNullValue()));
     }
@@ -227,7 +233,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageException.class, () -> tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()));
 
         // Index should only be available after the associated partition has been created.
-        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.createMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx.id()), is(notNullValue()));
     }
@@ -316,7 +322,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(e.getMessage(), containsString("Partition ID " + PARTITION_ID + " does not exist"));
 
-        tableStorage.getOrCreateMvPartition(PARTITION_ID);
+        tableStorage.createMvPartition(PARTITION_ID);
 
         UUID invalidUuid = UUID.randomUUID();
 
@@ -690,7 +696,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     @Test
     void testClearForCanceledOrRebalancedPartition() {
         MvPartitionStorage mvPartitionStorage0 = createMvPartition(PARTITION_ID);
-        tableStorage.getOrCreateMvPartition(PARTITION_ID + 1);
+        tableStorage.createMvPartition(PARTITION_ID + 1);
 
         mvPartitionStorage0.close();
         assertThat(tableStorage.startRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());

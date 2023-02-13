@@ -76,7 +76,7 @@ public class RocksDbStorageEngineTest {
 
             assertThat(dataStorageConfig.dataRegion().value(), is(DEFAULT_DATA_REGION_NAME));
 
-            table.getOrCreateMvPartition(1);
+            table.createMvPartition(1);
         } finally {
             table.stop();
         }
@@ -105,7 +105,7 @@ public class RocksDbStorageEngineTest {
 
             assertThat(dataStorageConfig.dataRegion().value(), is(customRegionName));
 
-            table.getOrCreateMvPartition(1);
+            table.createMvPartition(1);
         } finally {
             table.stop();
         }

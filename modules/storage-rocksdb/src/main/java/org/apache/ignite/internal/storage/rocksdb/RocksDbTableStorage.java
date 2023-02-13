@@ -407,7 +407,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     // TODO: IGNITE-18565 исправить это
-    public CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(int partitionId) throws StorageException {
+    public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) throws StorageException {
         return inBusyLock(busyLock, () -> {
             RocksDbMvPartitionStorage partition = getMvPartitionBusy(partitionId);
 

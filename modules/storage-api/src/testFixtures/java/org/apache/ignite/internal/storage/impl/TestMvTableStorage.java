@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageExists;
 import static org.mockito.Mockito.spy;
 
 import java.util.Map;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -103,9 +105,18 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<MvPartitionStorage> getOrCreateMvPartition(int partitionId) throws StorageException {
-        // TODO: IGNITE-18565 исправить это
-        return completedFuture(partitions.computeIfAbsent(partitionId, partId -> spy(new TestMvPartitionStorage(partId))));
+    public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) throws StorageException {
+        checkPartitionId(partitionId);
+
+        TestMvPartitionStorage testMvPartitionStorage = partitions.compute(partitionId, (partId, mvPartitionStorage) -> {
+            if (mvPartitionStorage != null) {
+                throwExceptionIfStorageExists(createStorageInfo(partitionId));
+            }
+
+            return spy(new TestMvPartitionStorage(partId));
+        });
+
+        return completedFuture(testMvPartitionStorage);
     }
 
     @Override
@@ -381,5 +392,9 @@ public class TestMvTableStorage implements MvTableStorage {
         return sortedIndicesById.values().stream()
                 .map(hashIndices -> hashIndices.storageByPartitionId.get(partitionId))
                 .filter(Objects::nonNull);
+    }
+
+    private String createStorageInfo(int partitionId) {
+        return IgniteStringFormatter.format("table={}, partitionId={}", tableCfg.name().value(), partitionId);
     }
 }

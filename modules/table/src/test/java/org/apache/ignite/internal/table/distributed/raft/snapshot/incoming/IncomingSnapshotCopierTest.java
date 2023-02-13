@@ -156,7 +156,7 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingMvTableStorage.createMvPartition(TEST_PARTITION);
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
@@ -410,7 +410,7 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingMvTableStorage.createMvPartition(TEST_PARTITION);
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         CountDownLatch networkInvokeLatch = new CountDownLatch(1);
@@ -466,7 +466,7 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingMvTableStorage.createMvPartition(TEST_PARTITION);
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
@@ -534,7 +534,7 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        incomingMvTableStorage.createMvPartition(TEST_PARTITION);
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,

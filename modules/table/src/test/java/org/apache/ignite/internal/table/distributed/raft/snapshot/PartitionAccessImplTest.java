@@ -210,7 +210,7 @@ public class PartitionAccessImplTest {
     }
 
     private static MvPartitionStorage createMvPartition(MvTableStorage tableStorage, int partitionId) {
-        CompletableFuture<MvPartitionStorage> createMvPartitionFuture = tableStorage.getOrCreateMvPartition(partitionId);
+        CompletableFuture<MvPartitionStorage> createMvPartitionFuture = tableStorage.createMvPartition(partitionId);
 
         assertThat(createMvPartitionFuture, willCompleteSuccessfully());
 

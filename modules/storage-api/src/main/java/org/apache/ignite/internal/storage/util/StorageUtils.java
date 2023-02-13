@@ -145,6 +145,15 @@ public class StorageUtils {
         }
     }
 
+    /**
+     * Throws an {@link StorageException} if the storage already exists or is being created.
+     *
+     * @param storageInfo Storage information, for example in the format "table=user, partitionId=1".
+     */
+    public static void throwExceptionIfStorageExists(String storageInfo) {
+        throw new StorageException("Storage already exists or is being created: " + storageInfo);
+    }
+
     private static String createStorageInProcessOfRebalanceErrorMessage(String storageInfo) {
         return IgniteStringFormatter.format("Storage in the process of rebalancing: [{}]", storageInfo);
     }
