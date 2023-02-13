@@ -60,8 +60,8 @@ public final class TpchSchema {
         // Register default data provider factory that is going to generate random data data.
         clusterBuilder.dataProviderFactory(new RepeatedRandomRowDataProviderFactory(10));
 
-        clusterBuilder.addTable()
-                .name("PART").addColumn("P_PARTKEY", NativeTypes.INT64)
+        clusterBuilder.addTable().name("PART")
+                .addColumn("P_PARTKEY", NativeTypes.INT64)
                 .addColumn("P_NAME", NativeTypes.stringOf(55))
                 .addColumn("P_MFGR", NativeTypes.stringOf(25))
                 .addColumn("P_BRAND", NativeTypes.stringOf(10))
