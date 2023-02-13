@@ -426,7 +426,39 @@ public List<Book> GetBooks(string? author, int? year)
 ```
 
 ### Column Name Mapping
-TODO
+
+Unless custom mapping is provided with `[Column]`, LINQ provider will use property or field names as column names, 
+using unquoted identifiers, which are case-insensitive.
+
+**C#**
+```csharp
+bookTable.GetRecordView<Book>().AsQueryable().Select(x => x.Author).ToList();
+```
+
+**Resulting SQL**
+```sql
+select _T0.AUTHOR from PUBLIC.books as _T0
+```
+
+To use quoted identifiers, or to map column names to different property names, use `[Column]` attribute:
+
+```csharp
+public class Book 
+{
+    [Column("book_author")]
+    public string Author { get; set; }
+}
+
+// Or a record:
+public record Book([property: Column("book_author")] string Author);
+```
+
+**Resulting SQL**
+
+```sql
+select _T0."book_author" from PUBLIC.books as _T0
+```
+
 
 ### KeyValueView
 
