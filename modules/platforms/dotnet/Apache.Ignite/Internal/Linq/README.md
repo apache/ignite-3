@@ -256,7 +256,18 @@ var ordersByCustomer = customerQuery
 ```
 
 ### Outer Joins
-TODO
+
+Outer joins are supported via `DefaultIfEmpty` method. 
+For example, not every book in the library is borrowed by a student, so left outer join is used to retrieve all books with student names:
+
+```csharp
+var bookQuery = bookTable.GetRecordView<Book>().AsQueryable();
+var studentQuery = studentTable.GetRecordView<Student>().AsQueryable();
+
+var booksWithStudents = bookQuery
+    .Join(studentQuery.DefaultIfEmpty(), book => book.StudentId, student => student.Id, (book, student) => new { book.Title, student?.Name })
+    .ToList();
+```
 
 ### Groupings
 TODO
