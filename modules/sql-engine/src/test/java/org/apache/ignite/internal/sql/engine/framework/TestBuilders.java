@@ -94,6 +94,14 @@ public class TestBuilders {
         ClusterTableBuilder addTable();
 
         /**
+         * Specifies a data provider factory that is used to create instances of default {@link DataProvider  data providers}.
+         * When a table has no data provider is this the provided factory is used to create one.
+         *
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder dataProviderFactory(DataProviderFactory dataProviderFactory);
+
+        /**
          * Builds the cluster object.
          *
          * @return Created cluster object.
@@ -213,6 +221,7 @@ public class TestBuilders {
 
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
+        private DataProviderFactory dataProviderFactory;
         private List<String> nodeNames;
 
         /** {@inheritDoc} */
@@ -230,6 +239,13 @@ public class TestBuilders {
         @Override
         public ClusterTableBuilder addTable() {
             return new ClusterTableBuilderImpl(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder dataProviderFactory(DataProviderFactory dataProviderFactory) {
+            this.dataProviderFactory = dataProviderFactory;
+            return this;
         }
 
         /** {@inheritDoc} */
@@ -268,7 +284,11 @@ public class TestBuilders {
 
         private void injectDataProvidersIfNeeded(ClusterTableBuilderImpl tableBuilder) {
             if (tableBuilder.defaultDataProvider == null) {
-                return;
+                if (dataProviderFactory != null) {
+                    tableBuilder.defaultDataProvider = dataProviderFactory.createDataProvider(tableBuilder.name, tableBuilder.columns);
+                } else {
+                    return;
+                }
             }
 
             Set<String> nodesWithoutDataProvider = new HashSet<>(nodeNames);
@@ -333,6 +353,23 @@ public class TestBuilders {
                     new TableDescriptorImpl(columns, distribution), name, dataProviders, size
             );
         }
+    }
+
+    /**
+     * A factory that creates {@link DataProvider data providers}.
+     */
+    @FunctionalInterface
+    public interface DataProviderFactory {
+
+        /**
+         * Creates a {@link DataProvider} for the given table.
+         *
+         * @param tableName  a table name.
+         * @param columns  a list of columns.
+         *
+         * @return  an instance of {@link DataProvider}.
+         */
+        DataProvider<Object[]> createDataProvider(String tableName, List<ColumnDescriptor> columns);
     }
 
     private abstract static class AbstractTableBuilderImpl<ChildT> implements TableBuilderBase<ChildT> {
