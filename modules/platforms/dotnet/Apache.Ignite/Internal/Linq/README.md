@@ -406,8 +406,24 @@ where (_T0.CUSTOMERID IS NOT DISTINCT FROM ?)
 ```
 
 ### Composing Queries
-TODO
 
+`IQueryable<T>` expressions can be composed dynamically. A common use case is to compose a query based on user input. 
+For example, optional filters on different columns can be applied to a query:
+
+```csharp
+public List<Book> GetBooks(string? author, int? year)
+{
+    IQueryable<Book> query = bookTable.GetRecordView<Book>().AsQueryable();
+
+    if (!string.IsNullOrEmpty(author))
+        query = query.Where(x => x.Author == author);
+        
+    if (year != null)
+        query = query.Where(x => x.Year == year);
+
+    return query.ToList();
+}
+```
 
 ### Column Name Mapping
 TODO
