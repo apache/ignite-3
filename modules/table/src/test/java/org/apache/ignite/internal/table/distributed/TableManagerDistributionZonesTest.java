@@ -429,6 +429,18 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         when(valueId.value()).thenReturn(new UUID(0, tableNum));
         when(tableCfg.id()).thenReturn(valueId);
 
+        List<Set<Assignment>> tableAssignments = new ArrayList<>();
+
+        for (int i = 0; i < partNum; i++) {
+            tableAssignments.add(Set.of(Assignment.forPeer("fakeAssignment")));
+        }
+
+        ConfigurationValue assignmentValue = mock(ConfigurationValue.class);
+
+        when(assignmentValue.value()).thenReturn(toBytes(tableAssignments));
+
+        when(tableCfg.assignments()).thenReturn(assignmentValue);
+
         return new IgniteBiTuple<>(tableView, tableCfg);
 
     }

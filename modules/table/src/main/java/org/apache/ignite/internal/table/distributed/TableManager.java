@@ -46,7 +46,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1866,13 +1865,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
 
-                            List<Set<Assignment>> tableAssignments;
-
-                            if (assignmentsBytes != null) {
-                                tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
-                            } else {
-                                tableAssignments = Collections.emptyList();
-                            }
+                            List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
 
                             for (int part = 0; part < tableView.partitions(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
@@ -1883,6 +1876,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                 Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, part, replicas);
 
+                                // TODO IGNITE-18624 This check will not be needed when dataNodes from distribution zone will be used
+                                // instead of BaselineManager.nodes.
                                 if (!partAssignments.equals(tableAssignments.get(part))) {
                                     int partId = part;
 
