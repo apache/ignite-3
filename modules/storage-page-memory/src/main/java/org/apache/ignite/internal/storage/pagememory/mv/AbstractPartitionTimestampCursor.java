@@ -19,19 +19,19 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.pagememory.tree.BplusTree.PeekTreeRowCursor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCursor {
     protected final AbstractPageMemoryMvPartitionStorage storage;
 
-    private @Nullable PeekTreeRowCursor<VersionChain, ReadResult> rowVersionCursor;
+    private @Nullable Cursor<ReadResult> cursor;
 
     private boolean iterationExhausted;
 
@@ -61,15 +61,15 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
             currentRowId = null;
 
             while (true) {
-                if (!rowVersionCursor.hasNext()) {
+                if (!cursor.hasNext()) {
                     iterationExhausted = true;
 
                     return false;
                 }
 
-                RowId rowId = rowVersionCursor.peek().rowId();
+                ReadResult result = cursor.next();
 
-                ReadResult result = rowVersionCursor.next();
+                RowId rowId = result.rowId();
 
                 if (result.isEmpty()) {
                     result = storage.findVersionChain(
@@ -111,8 +111,8 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
     @Override
     public void close() {
-        if (rowVersionCursor != null) {
-            rowVersionCursor.close();
+        if (cursor != null) {
+            cursor.close();
         }
     }
 
@@ -149,12 +149,12 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
     abstract ReadResult findRowVersion(VersionChain versionChain);
 
     private void createVersionChainCursorIfMissing() {
-        if (rowVersionCursor != null) {
+        if (cursor != null) {
             return;
         }
 
         try {
-            rowVersionCursor = storage.versionChainTree.find(null, null, this::findRowVersion);
+            cursor = storage.versionChainTree.find(null, null, this::findRowVersion);
         } catch (IgniteInternalCheckedException e) {
             if (e.getCause() instanceof StorageException) {
                 throw (StorageException) e.getCause();

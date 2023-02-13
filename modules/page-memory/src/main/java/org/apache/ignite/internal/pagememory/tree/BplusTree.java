@@ -1187,7 +1187,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Cursor.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private <R> PeekTreeRowCursor<T, R> findLowerUnbounded(
+    private <R> Cursor<R> findLowerUnbounded(
             L upper,
             boolean upIncl,
             TreeRowClosure<L, T> c,
@@ -1280,7 +1280,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @throws CorruptedTreeException If there were {@link RuntimeException} or {@link AssertionError}.
      * @throws IgniteInternalCheckedException If other errors occurred.
      */
-    public final <R> PeekTreeRowCursor<T, R> find(
+    public final <R> Cursor<R> find(
             @Nullable L lower,
             @Nullable L upper,
             Function<T, R> mapper
@@ -1306,7 +1306,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @throws CorruptedTreeException If there were {@link RuntimeException} or {@link AssertionError}.
      * @throws IgniteInternalCheckedException If other errors occurred.
      */
-    public <R> PeekTreeRowCursor<T, R> find(
+    public <R> Cursor<R> find(
             @Nullable L lower,
             @Nullable L upper,
             boolean lowIncl,
@@ -6249,13 +6249,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Forward cursor.
      */
-    private final class ForwardCursor<R> extends AbstractForwardCursor implements PeekTreeRowCursor<T, R> {
+    private final class ForwardCursor<R> extends AbstractForwardCursor implements Cursor<R> {
         /** Implementation specific argument. */
         private final @Nullable Object arg;
 
-        private @Nullable T @Nullable [] tableRows = (T[]) OBJECT_EMPTY_ARRAY;
-
         private @Nullable R @Nullable [] results = (R[]) OBJECT_EMPTY_ARRAY;
+
+        private @Nullable T lastRow;
 
         /** Row index. */
         private int row = -1;
@@ -6335,12 +6335,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 return false;
             }
 
-            if (tableRows == OBJECT_EMPTY_ARRAY) {
-                tableRows = (T[]) new Object[cnt0];
-
-                if (mapper != null) {
-                    results = (R[]) new Object[cnt0];
-                }
+            if (results == OBJECT_EMPTY_ARRAY) {
+                results = (R[]) new Object[cnt0];
             }
 
             int resCnt = 0;
@@ -6349,31 +6345,21 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 if (filter == null || filter.apply(BplusTree.this, io, pageAddr, idx)) {
                     T tableRow = getRow(io, pageAddr, idx, arg);
 
-                    tableRows = set(tableRows, resCnt, tableRow);
+                    R result = mapper != null ? mapper.apply(tableRow) : (R) tableRow;
 
-                    if (mapper != null) {
-                        results = set(results, resCnt, mapper.apply(tableRow));
-                    }
+                    results = set(results, resCnt++, result);
 
-                    resCnt++;
+                    lastRow = tableRow;
                 }
             }
 
             if (resCnt == 0) {
-                tableRows = (T[]) OBJECT_EMPTY_ARRAY;
-
-                if (mapper != null) {
-                    results = (R[]) OBJECT_EMPTY_ARRAY;
-                }
+                results = (R[]) OBJECT_EMPTY_ARRAY;
 
                 return false;
             }
 
-            clearTail(tableRows, resCnt);
-
-            if (mapper != null) {
-                clearTail(results, resCnt);
-            }
+            clearTail(results, resCnt);
 
             return true;
         }
@@ -6388,17 +6374,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         @Override
         void onNotFound(boolean readDone) {
             if (readDone) {
-                tableRows = null;
+                results = null;
             } else {
-                if (tableRows != OBJECT_EMPTY_ARRAY) {
-                    assert tableRows.length > 0; // Otherwise it makes no sense to create an array.
+                if (results != OBJECT_EMPTY_ARRAY) {
+                    assert results.length > 0; // Otherwise it makes no sense to create an array.
 
                     // Fake clear.
-                    tableRows[0] = null;
-
-                    if (mapper != null) {
-                        results[0] = null;
-                    }
+                    results[0] = null;
                 }
             }
         }
@@ -6410,7 +6392,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         @Override
         public boolean hasNext() {
-            if (tableRows == null) {
+            if (results == null) {
                 return false;
             }
 
@@ -6424,24 +6406,16 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         /**
          * Returns cleared last row.
          */
-        private @Nullable T clearLastRow() {
+        private void clearLastResult() {
             if (row == 0) {
-                return null;
+                return;
             }
 
             int last = row - 1;
 
-            T tableRow = tableRows[last];
+            assert results[last] != null;
 
-            assert tableRow != null;
-
-            tableRows[last] = null;
-
-            if (mapper != null) {
-                results[last] = null;
-            }
-
-            return tableRow;
+            results[last] = null;
         }
 
         @Override
@@ -6450,7 +6424,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 throw new NoSuchElementException();
             }
 
-            R r = mapper == null ? (R) tableRows[row] : results[row];
+            R r = results[row];
 
             assert r != null;
 
@@ -6459,25 +6433,20 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return r;
         }
 
-        @Override
-        public @Nullable T peek() {
-            if (tableRows == null || row < 0 || row >= tableRows.length) {
-                return null;
-            }
-
-            return tableRows[row];
-        }
-
         private boolean advance() {
-            if (++row < tableRows.length && tableRows[row] != null) {
-                clearLastRow(); // Allow to GC the last returned row.
+            if (++row < results.length && results[row] != null) {
+                clearLastResult(); // Allow to GC the last returned row.
 
                 return true;
             }
 
-            T lastRow = clearLastRow();
+            clearLastResult();
 
             row = 0;
+
+            T lastRow = this.lastRow;
+
+            this.lastRow = null;
 
             try {
                 return nextPage(lastRow);
@@ -6981,16 +6950,5 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         public boolean isCompleted() {
             return finished;
         }
-    }
-
-    /**
-     * Cursor with the ability to peek at the current table row.
-     */
-    public interface PeekTreeRowCursor<T, R> extends Cursor<R> {
-        /**
-         * Returns the current table row without advancing the cursor, {@code null} if the cursor has not started or has finished
-         * advancing.
-         */
-        @Nullable T peek();
     }
 }

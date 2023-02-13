@@ -83,7 +83,6 @@ import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
-import org.apache.ignite.internal.pagememory.tree.BplusTree.PeekTreeRowCursor;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
@@ -2389,20 +2388,15 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         tree.put(0L);
         tree.put(1L);
 
-        PeekTreeRowCursor<Long, String> cursor = tree.find(null, null, row -> "row" + row);
-
-        assertNull(cursor.peek());
+        Cursor<String> cursor = tree.find(null, null, row -> "row" + row);
 
         assertTrue(cursor.hasNext());
-        assertEquals(0L, cursor.peek());
         assertEquals("row0", cursor.next());
 
         assertTrue(cursor.hasNext());
-        assertEquals(1L, cursor.peek());
         assertEquals("row1", cursor.next());
 
         assertFalse(cursor.hasNext());
-        assertNull(cursor.peek());
         assertThrows(NoSuchElementException.class, cursor::next);
     }
 
