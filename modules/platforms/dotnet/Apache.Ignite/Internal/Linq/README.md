@@ -359,3 +359,11 @@ TODO
 ### KeyValueView
 
 TODO
+
+
+## Performance Considerations
+
+Our benchmarks indicate that in real-world scenarios LINQ queries are on par with equivalent SQL queries. 
+
+However, a small overhead still exists (due to query translation), and your mileage may vary depending on the query complexity, 
+so it's recommended to measure the performance of your queries.
