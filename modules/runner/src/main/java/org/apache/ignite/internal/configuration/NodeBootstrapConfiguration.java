@@ -80,7 +80,8 @@ public interface NodeBootstrapConfiguration {
                             throw new NodeConfigReadException("Failed to read config input stream.", e);
                         }
                         try {
-                            Files.write(config.get(), bytes, StandardOpenOption.SYNC);
+                            Files.write(config.get(), bytes,
+                                    StandardOpenOption.SYNC, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                         } catch (IOException e) {
                             throw new NodeConfigWriteException("Failed to write config content to file.", e);
                         }
