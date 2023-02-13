@@ -128,11 +128,11 @@ public interface IgniteTree<L, T> {
         OperationType operationType();
 
         /**
-         * Callback after inserting/replacing/deleting a table row.
+         * Callback after inserting/replacing/deleting a tree row.
          *
-         * <p>It is performed under the same write lock on which the table row is located.
+         * <p>It is performed under the same write lock of page on which the tree row is located.
          *
-         * <p>What can allow us to ensure the atomicity of changes in the table row and the data associated with it.
+         * <p>What can allow us to ensure the atomicity of changes in the tree row and the data associated with it.
          */
         default void onUpdate() {
             // No-op.

@@ -39,6 +39,9 @@ import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
+import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -870,9 +873,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param function Function for converting the version chain to a result, function is executed under the read lock of the page on which
      *      the version chain is located. If the version chain is not found, then {@code null} will be passed to the function.
      */
-    <T> T findVersionChain(RowId rowId, Function<VersionChain, T> function) {
+    <T> @Nullable T findVersionChain(RowId rowId, Function<VersionChain, T> function) {
         try {
-            return versionChainTree.findOne(new VersionChainKey(rowId), function::apply);
+            return versionChainTree.findOne(new VersionChainKey(rowId), new TreeRowClosure<>() {
+                @Override
+                public boolean apply(BplusTree<VersionChainKey, VersionChain> tree, BplusIo<VersionChainKey> io, long pageAddr, int idx) {
+                    return true;
+                }
+
+                @Override
+                public T map(VersionChain treeRow) {
+                    return function.apply(treeRow);
+                }
+            }, null);
         } catch (IgniteInternalCheckedException e) {
             if (e.getCause() instanceof StorageException) {
                 throw (StorageException) e.getCause();

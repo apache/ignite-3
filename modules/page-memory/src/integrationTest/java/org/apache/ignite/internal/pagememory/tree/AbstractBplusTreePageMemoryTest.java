@@ -2377,8 +2377,20 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         tree.put(0L);
 
-        assertEquals("row0", tree.findOne(0L, row -> "row" + row));
-        assertEquals("rownull", tree.findOne(1L, row -> "row" + row));
+        TreeRowClosure<Long, Long> treeRowClosure = new TreeRowClosure<>() {
+            @Override
+            public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) {
+                return true;
+            }
+
+            @Override
+            public String map(Long treeRow) {
+                return "row" + treeRow;
+            }
+        };
+
+        assertEquals("row0", tree.findOne(0L, treeRowClosure, null));
+        assertEquals("rownull", tree.findOne(1L, treeRowClosure, null));
     }
 
     @Test
@@ -2388,7 +2400,19 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         tree.put(0L);
         tree.put(1L);
 
-        Cursor<String> cursor = tree.find(null, null, row -> "row" + row);
+        TreeRowClosure<Long, Long> treeRowClosure = new TreeRowClosure<>() {
+            @Override
+            public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) {
+                return true;
+            }
+
+            @Override
+            public String map(Long treeRow) {
+                return "row" + treeRow;
+            }
+        };
+
+        Cursor<String> cursor = tree.find(null, null, treeRowClosure, null);
 
         assertTrue(cursor.hasNext());
         assertEquals("row0", cursor.next());
