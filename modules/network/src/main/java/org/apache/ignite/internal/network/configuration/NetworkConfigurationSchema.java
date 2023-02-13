@@ -70,4 +70,8 @@ public class NetworkConfigurationSchema {
     /** NodeFinder configuration. */
     @ConfigValue
     public NodeFinderConfigurationSchema nodeFinder;
+
+    /** SSL configuration.*/
+    @ConfigValue
+    public SslConfigurationSchema ssl;
 }
