@@ -80,6 +80,14 @@ List<string> names = await view.AsQueryable()
 
 TODO
 
+## Using Transactions
+
+TODO
+
+## Custom Query Options
+
+TODO
+
 ## Supported Features
 
 ### Result Materialization
