@@ -462,7 +462,16 @@ select _T0."book_author" from PUBLIC.books as _T0
 
 ### KeyValueView
 
-TODO
+All examples above use `IRecordView<T>` to perform queries; LINQ provider supports `IKeyValueView<TK, TV>` equally well:
+
+```csharp
+IQueryable<KeyValuePair<int, Book>> query = bookTable.GetKeyValueView<int, Book>().AsQueryable();
+
+List<Book> books = query
+    .Where(x => x.Key > 10)
+    .Select(x => x.Value)
+    .ToList();
+```
 
 
 ## Performance Considerations
