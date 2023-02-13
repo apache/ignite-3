@@ -1,6 +1,6 @@
 # Apache Ignite LINQ provider
 
-## What is it?
+## What?
 
 LINQ provider translates C# LINQ expressions into Ignite-specific SQL.
 
@@ -348,7 +348,9 @@ var triangles = table.GetRecordView<Triangle>().AsQueryable()
 ```
 
 ### String Functions
-TODO
+TODO:
+`string.Compare` (with ignore case as well), concatenation `s1 + s2 + s3`, `ToUpper`, `ToLower`, `Substring(len)`, `Substring(start, len)`, 
+`Trim`, `Trim(char)`, `TrimStart`, `TrimStart(char)`, `TrimEnd`, `TrimEnd(char)`, `Contains`, `StartsWith`, `EndsWith`, `IndexOf`, `Length`, `Replace`.
 
 ### Regular Expressions
 TODO
