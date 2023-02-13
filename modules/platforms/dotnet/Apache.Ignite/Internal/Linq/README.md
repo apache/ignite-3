@@ -329,7 +329,8 @@ List<string> employeesThatAreCustomers = employeeEmails.Intersect(customerEmails
 ### Math Functions
 
 The following `Math` functions are supported (will be translated to SQL equivalents):
-`Abs`, `Cos`, `Cosh`, `Acos`, `Sin`, `Sinh`, `Asin`, `Tan`, `Tanh`, `Atan`, `Ceiling`, `Floor`, `Exp`, `Log`, `Log10`, `Pow`, `Round`, `Sign`, `Sqrt`, `Truncate`.
+`Abs`, `Cos`, `Cosh`, `Acos`, `Sin`, `Sinh`, `Asin`, `Tan`, `Tanh`, `Atan`, `Ceiling`, `Floor`, 
+`Exp`, `Log`, `Log10`, `Pow`, `Round`, `Sign`, `Sqrt`, `Truncate`.
 
 The following `Math` functions are NOT supported (no equivalent in Ignite SQL engine):
 `Acosh`, `Asinh`, `Atanh`, `Atan2`, `Log2`, `Log(x, y)`.
@@ -337,7 +338,13 @@ The following `Math` functions are NOT supported (no equivalent in Ignite SQL en
 Example:
 
 ```csharp
-TODO
+var triangles = table.GetRecordView<Triangle>().AsQueryable()
+    .Select(t => new { 
+            Hypotenuse, 
+            Opposite = t.Hypotenuse * Math.Sin(t.Angle), 
+            Adjacent = t.Hypotenuse * Math.Cos(t.Angle) 
+        })
+    .ToList();
 ```
 
 ### String Functions
