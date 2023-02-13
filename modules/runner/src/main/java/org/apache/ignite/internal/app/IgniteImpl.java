@@ -56,6 +56,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import org.apache.ignite.internal.configuration.NodeConfigReadException;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -555,7 +556,7 @@ public class IgniteImpl implements Ignite {
             try {
                 nodeCfgMgr.bootstrap(cfg.configPath());
             } catch (Exception e) {
-                throw new IgniteException("Unable to parse user-specific configuration", e);
+                throw new NodeConfigReadException("Unable to parse user-specific configuration", e);
             }
 
             // Start the components that are required to join the cluster.

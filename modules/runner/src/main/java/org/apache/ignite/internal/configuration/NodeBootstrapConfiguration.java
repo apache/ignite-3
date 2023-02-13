@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.atomic.AtomicReference;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
@@ -67,7 +68,7 @@ public interface NodeBootstrapConfiguration {
                 if (config.compareAndSet(null, createEmptyConfig(workDir))) {
                     if (is != null) {
                         try {
-                            Files.write(config.get(), is.readAllBytes());
+                            Files.write(config.get(), is.readAllBytes(), StandardOpenOption.DSYNC);
                         } catch (IOException e) {
                             throw new NodeConfigReadException("Failed to read config input stream.", e);
                         }

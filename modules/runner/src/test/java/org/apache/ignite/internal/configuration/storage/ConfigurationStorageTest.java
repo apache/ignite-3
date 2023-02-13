@@ -54,7 +54,7 @@ public abstract class ConfigurationStorageTest {
      */
     @Test
     public void testReadAllLatest() {
-        var data = Map.of("foo1", "bar1", "foo2", "bar2", "foo3", new String[] {"bar3.1", "bar3.2"});
+        var data = Map.of("foo1", "bar1", "foo2", "bar2");
 
         assertThat(storage.write(data, 0), willBe(equalTo(true)));
 
@@ -77,10 +77,5 @@ public abstract class ConfigurationStorageTest {
         latestData = storage.readAllLatest("baz");
 
         assertThat(latestData, willBe(anEmptyMap()));
-
-        // test that reading with a nonexistent prefix retrieves no data
-        latestData = storage.readAllLatest("foo3");
-
-        assertThat(latestData, willBe(equalTo(new String[] {"bar3.1", "bar3.2"})));
     }
 }

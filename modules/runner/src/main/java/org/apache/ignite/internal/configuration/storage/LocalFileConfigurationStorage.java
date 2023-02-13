@@ -28,7 +28,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -97,12 +99,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public CompletableFuture<Data> readDataOnRecovery() {
-        lock.readLock().lock();
-        try {
-            return readAllLatest("").thenApply(stringMap -> new Data(stringMap, 0));
-        } finally {
-            lock.readLock().unlock();
-        }
+        return CompletableFuture.completedFuture(new Data(Collections.emptyMap(), 0));
     }
 
     @Override
@@ -135,11 +132,14 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long ver) {
         lock.writeLock().lock();
         try {
+            if (ver != lastRevision) {
+                return CompletableFuture.completedFuture(false);
+            }
             checkAndRestoreConfigFile();
             saveValues(newValues);
             latest.putAll(newValues);
             lastRevision++;
-            runAsync(() -> lsnrRef.get().onEntriesChanged(new Data(newValues, 0)));
+            runAsync(() -> lsnrRef.get().onEntriesChanged(new Data(newValues, lastRevision)));
             return CompletableFuture.completedFuture(true);
         } finally {
             lock.writeLock().unlock();
@@ -183,7 +183,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     private void saveValues(Map<String, ? extends Serializable> values) {
         try {
-            Files.write(tempConfigPath, renderHoconString(values).getBytes(StandardCharsets.UTF_8));
+            String s = renderHoconString(values);
+            Files.write(tempConfigPath, s.getBytes(StandardCharsets.UTF_8), StandardOpenOption.DSYNC);
             Files.move(tempConfigPath, configPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new NodeConfigWriteException(
@@ -209,7 +210,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         Config newConfig = parseConfigOptions().withFallback(other).resolve();
         return newConfig.isEmpty()
                 ? ""
-                : newConfig.root().render(ConfigRenderOptions.defaults().setJson(false));
+                : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true));
     }
 
     private Config parseConfigOptions() {
@@ -218,6 +219,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 ConfigParseOptions.defaults().setAllowMissing(false));
     }
 
+    /**
+     * Checking that configuration file is still existed and restore
+     * it in case when it deleted with latest applied state.
+     */
     private void checkAndRestoreConfigFile() {
         if (!configPath.toFile().exists()) {
             try {
