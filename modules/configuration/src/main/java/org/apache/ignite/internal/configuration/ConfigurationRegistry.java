@@ -125,9 +125,9 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
         Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
 
-        final Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
+        Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
 
-        final Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
+        Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
 
         this.rootKeys = rootKeys;
 
@@ -164,9 +164,9 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      * @param polymorphicSchemaExtensions polymorphic schema extensions
      * @return set of all schema classes
      */
-    private Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
-                                            Collection<Class<?>> internalSchemaExtensions,
-                                            Collection<Class<?>> polymorphicSchemaExtensions) {
+    private static Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
+            Collection<Class<?>> internalSchemaExtensions,
+            Collection<Class<?>> polymorphicSchemaExtensions) {
         Set<Class<?>> allSchemas = new HashSet<>();
 
         allSchemas.addAll(collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass)));
