@@ -114,10 +114,19 @@ var view = (await client.Tables.GetTableAsync("person"))!.GetRecordView<Person>(
 pocoView.AsQueryable(tx)...;
 ```
 
-
 ## Custom Query Options
 
-TODO
+Custom query options (timeout, page size) can be specified via the second `AsQueryable` parameter with `QueryableOptions`:
+
+```csharp
+var options = new QueryableOptions
+{
+    PageSize = 512,
+    Timeout = TimeSpan.FromSeconds(30)
+};
+
+table.GetRecordView<Person>().AsQueryable(options: options)...;
+```
 
 ## Supported Features
 
