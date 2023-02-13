@@ -78,7 +78,30 @@ List<string> names = await view.AsQueryable()
 
 ## Inspecting Generated SQL
 
-TODO
+Viewing generated SQL is useful for debugging and performance tuning. There are two ways to do it:
+
+* `IgniteQueryableExtensions.ToQueryString()` extension method:
+
+```csharp
+IQueryable<Person> query = table.GetRecordView<Person>().AsQueryable().Where(x => x.Age > 30);
+
+string sql = query.ToQueryString();
+```
+
+* Debug logging:
+
+```csharp
+var cfg = new IgniteClientConfiguration
+{
+    Logger = new ConsoleLogger { MinLevel = LogLevel.Debug },
+    ...
+};
+
+using var client = IgniteClient.StartAsync(cfg);
+...
+```
+
+All generated SQL will be logged with `Debug` level to the specified logger.
 
 ## Using Transactions
 
