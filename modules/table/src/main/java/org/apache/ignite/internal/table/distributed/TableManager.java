@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1863,23 +1864,40 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
 
+                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
+
+                            List<Set<Assignment>> tableAssignments;
+
+                            if (assignmentsBytes != null) {
+                                tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+                            } else {
+                                tableAssignments = Collections.emptyList();
+                            }
+
                             for (int part = 0; part < tableView.partitions(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
                                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
-                                int partId = part;
+                                int replicas = tableView.replicas();
 
-                                updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, dataNodes, tableView.replicas(),
-                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part
-                                ).exceptionally(e -> {
-                                    LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(), partId
-                                    );
+                                Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, part, replicas);
 
-                                    return null;
-                                });
+                                if (!partAssignments.equals(tableAssignments.get(part))) {
+                                    int partId = part;
+
+                                    updatePendingAssignmentsKeys(
+                                            tableView.name(), replicaGrpId, dataNodes, replicas,
+                                            evt.entryEvent().newEntry().revision(), metaStorageMgr, part
+                                    ).exceptionally(e -> {
+                                        LOG.error(
+                                                "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                                partId
+                                        );
+
+                                        return null;
+                                    });
+                                }
                             }
                         }
                     }
