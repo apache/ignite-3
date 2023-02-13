@@ -348,9 +348,20 @@ var triangles = table.GetRecordView<Triangle>().AsQueryable()
 ```
 
 ### String Functions
-TODO:
-`string.Compare` (with ignore case as well), concatenation `s1 + s2 + s3`, `ToUpper`, `ToLower`, `Substring(len)`, `Substring(start, len)`, 
-`Trim`, `Trim(char)`, `TrimStart`, `TrimStart(char)`, `TrimEnd`, `TrimEnd(char)`, `Contains`, `StartsWith`, `EndsWith`, `IndexOf`, `Length`, `Replace`.
+
+`string.Compare(string)`, `string.Compare(string, bool ignoreCase)`, concatenation `s1 + s2 + s3`, `ToUpper`, `ToLower`, 
+`Substring(start)`, `Substring(start, len)`, 
+`Trim`, `Trim(char)`, `TrimStart`, `TrimStart(char)`, `TrimEnd`, `TrimEnd(char)`, 
+`Contains`, `StartsWith`, `EndsWith`, `IndexOf`, `Length`, `Replace`.
+
+Example:
+
+```csharp
+var people = table.GetRecordView<Person>().AsQueryable()
+    .Where(p => p.FirstName.StartsWith("Jo"))
+    .Select(p => new { FullName = p.FirstName.ToUpper() + " " + p.LastName.ToLower() })
+    .ToList();
+```
 
 ### Regular Expressions
 TODO
