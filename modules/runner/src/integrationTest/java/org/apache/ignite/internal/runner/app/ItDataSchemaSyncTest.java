@@ -44,6 +44,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -164,7 +165,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         IgnitionManager.stop(nodeToStop);
 
-        listenerInhibitor.stopWithoutResend();
+        listenerInhibitor.stopInhibit();
 
         CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
                 .filter(k -> k.getKey().equals(nodeToStop))
@@ -212,7 +213,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         Session ses = ignite1.sql().createSession();
 
-        ResultSet res = ses.execute(null, "SELECT valint2 FROM tbl1");
+        ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
 
         for (int i = 0; i < 10; ++i) {
             assertNotNull(res.next().iterator().next());

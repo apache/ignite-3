@@ -44,20 +44,20 @@ public class TablePartitionId implements ReplicationGroupId {
     }
 
     /**
-     * Gets a pration id.
+     * Get the partition id.
      *
      * @return Partition id.
      */
-    public int getPartId() {
+    public int partitionId() {
         return partId;
     }
 
     /**
-     * Gets a table id.
+     * Get the table id.
      *
      * @return Table id.
      */
-    public UUID getTableId() {
+    public UUID tableId() {
         return tableId;
     }
 

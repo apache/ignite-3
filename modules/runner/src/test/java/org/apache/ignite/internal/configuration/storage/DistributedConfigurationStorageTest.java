@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.fromCursor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
@@ -35,7 +36,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -45,7 +45,7 @@ import org.junit.jupiter.api.BeforeEach;
 public class DistributedConfigurationStorageTest extends ConfigurationStorageTest {
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
-    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage();
+    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage("test");
 
     private final MetaStorageManager metaStorageManager = mockMetaStorageManager();
 
@@ -91,16 +91,12 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             return CompletableFuture.completedFuture(invokeResult);
         });
 
-        try {
-            when(mock.range(any(), any())).thenAnswer(invocation -> {
-                ByteArray keyFrom = invocation.getArgument(0);
-                ByteArray keyTo = invocation.getArgument(1);
+        when(mock.range(any(), any())).thenAnswer(invocation -> {
+            ByteArray keyFrom = invocation.getArgument(0);
+            ByteArray keyTo = invocation.getArgument(1);
 
-                return metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), false);
-            });
-        } catch (NodeStoppingException e) {
-            throw new RuntimeException(e);
-        }
+            return fromCursor(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), false));
+        });
 
         return mock;
     }

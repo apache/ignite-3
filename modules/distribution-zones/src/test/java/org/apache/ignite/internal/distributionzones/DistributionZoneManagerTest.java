@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneBindTableException;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneRenameException;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -103,7 +103,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
                 tablesConfiguration,
                 null,
                 null,
-                null
+                null,
+                "node"
         );
     }
 
@@ -124,8 +125,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertNotNull(zone1, "Zone was not created.");
         assertEquals(ZONE_NAME, zone1.name().value(), "Zone name is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(100, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
     }
 
@@ -143,8 +144,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNotNull(zone1, "Zone was not created.");
         assertEquals(ZONE_NAME, zone1.name().value(), "Zone name is wrong.");
         assertEquals(100, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
         distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
 
@@ -167,9 +168,9 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertNotNull(zone1, "Zone was not created.");
         assertEquals(ZONE_NAME, zone1.name().value(), "Zone name is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
         assertEquals(200, zone1.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone1.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
         distributionZoneManager.dropZone(ZONE_NAME).get(5, TimeUnit.SECONDS);
 
@@ -253,14 +254,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertNotNull(zone, "Zone was not created.");
         assertEquals(zoneName, zone.name().value(), "Zone name is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
         assertNotNull(zone, "Zone was not created.");
         assertEquals(zoneName, zone.name().value(), "Zone name is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(100, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
 
@@ -273,7 +274,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNotNull(zone, "Zone was not created.");
         assertEquals(200, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
         assertEquals(300, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
 
         distributionZoneManager.alterZone(zoneName, new DistributionZoneConfigurationParameters.Builder(zoneName)
@@ -285,7 +286,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNotNull(zone, "Zone was not created.");
         assertEquals(400, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
         assertEquals(300, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
 
 
         distributionZoneManager.alterZone(zoneName, new DistributionZoneConfigurationParameters.Builder(zoneName)
@@ -295,8 +296,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         zone = getZoneFromRegistry(zoneName);
 
         assertNotNull(zone, "Zone was not created.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(500, zone.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
     }
 
@@ -330,8 +331,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNull(zone1, "Zone was not renamed.");
         assertNotNull(zone2, "Zone was not renamed.");
         assertEquals(NEW_ZONE_NAME, zone2.name().value(), "Zone was not renamed.");
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone2.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone2.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(100, zone2.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
     }
 
@@ -356,8 +357,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         assertNull(zone1, "Zone was not renamed.");
         assertNotNull(zone2, "Zone was not renamed.");
         assertEquals(NEW_ZONE_NAME, zone2.name().value(), "Zone was not renamed.");
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
-        assertEquals(Integer.MAX_VALUE, zone2.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone2.dataNodesAutoAdjustScaleUp().value(), "dataNodesAutoAdjustScaleUp is wrong.");
+        assertEquals(INFINITE_TIMER_VALUE, zone2.dataNodesAutoAdjustScaleDown().value(), "dataNodesAutoAdjustScaleDown is wrong.");
         assertEquals(400, zone2.dataNodesAutoAdjust().value(), "dataNodesAutoAdjust is wrong.");
     }
 
@@ -377,7 +378,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertTrue(e != null, "Expected exception was not thrown.");
         assertTrue(
-                e.getCause() instanceof DistributionZoneRenameException,
+                e.getCause() instanceof DistributionZoneNotFoundException,
                 "Unexpected type of exception (requires DistributionZoneRenameException): " + e
         );
     }
@@ -403,7 +404,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         assertTrue(e != null, "Expected exception was not thrown.");
         assertTrue(
-                e.getCause() instanceof DistributionZoneRenameException,
+                e.getCause() instanceof DistributionZoneAlreadyExistsException,
                 "Unexpected type of exception (requires DistributionZoneRenameException): " + e
         );
     }

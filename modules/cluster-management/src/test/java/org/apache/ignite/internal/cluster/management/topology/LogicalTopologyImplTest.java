@@ -213,7 +213,7 @@ class LogicalTopologyImplTest {
     void addingNewNodeProducesAppearedEvent() {
         topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
 
-        verify(listener).onAppeared(nodeCaptor.capture(), topologyCaptor.capture());
+        verify(listener).onNodeJoined(nodeCaptor.capture(), topologyCaptor.capture());
 
         assertThat(topologyCaptor.getValue().version(), is(1L));
 
@@ -229,7 +229,7 @@ class LogicalTopologyImplTest {
 
         topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
 
-        verify(listener, times(1)).onAppeared(any(), any());
+        verify(listener, times(1)).onNodeJoined(any(), any());
     }
 
     @Test
@@ -240,8 +240,8 @@ class LogicalTopologyImplTest {
 
         InOrder inOrder = inOrder(listener);
 
-        inOrder.verify(listener).onDisappeared(nodeCaptor.capture(), topologyCaptor.capture());
-        inOrder.verify(listener).onAppeared(nodeCaptor2.capture(), topologyCaptor2.capture());
+        inOrder.verify(listener).onNodeLeft(nodeCaptor.capture(), topologyCaptor.capture());
+        inOrder.verify(listener).onNodeJoined(nodeCaptor2.capture(), topologyCaptor2.capture());
 
         assertThat(topologyCaptor.getValue().version(), is(2L));
         assertThat(topologyCaptor2.getValue().version(), is(3L));
@@ -276,7 +276,7 @@ class LogicalTopologyImplTest {
 
         topology.removeNodes(Set.of(node));
 
-        verify(listener).onDisappeared(nodeCaptor.capture(), topologyCaptor.capture());
+        verify(listener).onNodeLeft(nodeCaptor.capture(), topologyCaptor.capture());
 
         assertThat(topologyCaptor.getValue().version(), is(2L));
 
@@ -292,7 +292,7 @@ class LogicalTopologyImplTest {
 
         topology.removeNodes(Set.of(node));
 
-        verify(listener, never()).onDisappeared(any(), any());
+        verify(listener, never()).onNodeLeft(any(), any());
     }
 
     @Test
@@ -305,7 +305,7 @@ class LogicalTopologyImplTest {
 
         topology.removeNodes(new LinkedHashSet<>(List.of(node2, node1)));
 
-        verify(listener, times(2)).onDisappeared(nodeCaptor.capture(), topologyCaptor.capture());
+        verify(listener, times(2)).onNodeLeft(nodeCaptor.capture(), topologyCaptor.capture());
 
         List<LogicalTopologySnapshot> capturedSnapshots = topologyCaptor.getAllValues();
 
@@ -353,19 +353,19 @@ class LogicalTopologyImplTest {
     void onAppearedListenersExceptionsDoNotBreakNotification() {
         LogicalTopologyEventListener secondListener = mock(LogicalTopologyEventListener.class);
 
-        doThrow(new RuntimeException("Oops")).when(listener).onAppeared(any(), any());
+        doThrow(new RuntimeException("Oops")).when(listener).onNodeJoined(any(), any());
 
         topology.addEventListener(secondListener);
 
         topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
 
-        verify(listener).onAppeared(any(), any());
-        verify(secondListener).onAppeared(any(), any());
+        verify(listener).onNodeJoined(any(), any());
+        verify(secondListener).onNodeJoined(any(), any());
     }
 
     @Test
     void onAppearedListenerErrorIsRethrown() {
-        doThrow(new TestError()).when(listener).onAppeared(any(), any());
+        doThrow(new TestError()).when(listener).onNodeJoined(any(), any());
 
         assertThrows(
                 TestError.class,
@@ -377,7 +377,7 @@ class LogicalTopologyImplTest {
     void onDisappearedListenersExceptionsDoNotBreakNotification() {
         LogicalTopologyEventListener secondListener = mock(LogicalTopologyEventListener.class);
 
-        doThrow(new RuntimeException("Oops")).when(listener).onDisappeared(any(), any());
+        doThrow(new RuntimeException("Oops")).when(listener).onNodeLeft(any(), any());
 
         topology.addEventListener(secondListener);
 
@@ -386,13 +386,13 @@ class LogicalTopologyImplTest {
         topology.putNode(node);
         topology.removeNodes(Set.of(node));
 
-        verify(listener).onDisappeared(any(), any());
-        verify(secondListener).onDisappeared(any(), any());
+        verify(listener).onNodeLeft(any(), any());
+        verify(secondListener).onNodeLeft(any(), any());
     }
 
     @Test
     void onDisappearedListenerErrorIsRethrown() {
-        doThrow(new TestError()).when(listener).onDisappeared(any(), any());
+        doThrow(new TestError()).when(listener).onNodeLeft(any(), any());
 
         ClusterNode node = new ClusterNode("id1", "node", new NetworkAddress("host", 1000));
 
@@ -428,7 +428,7 @@ class LogicalTopologyImplTest {
 
         topology.putNode(new ClusterNode("id1", "node", new NetworkAddress("host", 1000)));
 
-        verify(listener, never()).onAppeared(any(), any());
+        verify(listener, never()).onNodeJoined(any(), any());
     }
 
     @SuppressWarnings("serial")

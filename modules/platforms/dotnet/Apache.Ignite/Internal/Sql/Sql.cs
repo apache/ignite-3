@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Linq;
     using Proto;
     using Proto.BinaryTuple;
     using Transactions;
@@ -56,10 +57,21 @@ namespace Apache.Ignite.Internal.Sql
             await ExecuteAsyncInternal(transaction, statement, TupleReaderFactory, args).ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+        public async Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args) =>
+            await ExecuteAsyncInternal(transaction, statement, static cols => GetReaderFactory<T>(cols), args)
+                .ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
         {
-            // TODO: IGNITE-17333 SQL ResultSet object mapping
-            throw new NotSupportedException();
+            var resultSet = await ExecuteAsyncInternal<object>(transaction, statement, _ => null!, args).ConfigureAwait(false);
+
+            if (!resultSet.HasRowSet)
+            {
+                throw new InvalidOperationException($"{nameof(ExecuteReaderAsync)} does not support queries without row set (DDL, DML).");
+            }
+
+            return new IgniteDbDataReader(resultSet);
         }
 
         /// <summary>
@@ -110,7 +122,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
-        internal async Task<IResultSet<T>> ExecuteAsyncInternal<T>(
+        internal async Task<ResultSet<T>> ExecuteAsyncInternal<T>(
             ITransaction? transaction,
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,
@@ -191,5 +203,8 @@ namespace Apache.Ignite.Internal.Sql
 
             return row;
         }
+
+        private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
+            ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
     }
 }

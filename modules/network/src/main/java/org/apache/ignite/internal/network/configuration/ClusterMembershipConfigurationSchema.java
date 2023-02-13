@@ -28,11 +28,11 @@ import org.apache.ignite.configuration.annotation.Value;
 public class ClusterMembershipConfigurationSchema {
     /** Periodic membership data sync interval. */
     @Value(hasDefault = true)
-    public final int membershipSyncInterval = 1000;
+    public final int membershipSyncInterval = 30_000;
 
     /** Failure detector ping interval. */
     @Value(hasDefault = true)
-    public final int failurePingInterval = 500;
+    public final int failurePingInterval = 1_000;
 
     /** ScaleCube-specific configuration. */
     @ConfigValue

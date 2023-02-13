@@ -275,7 +275,11 @@ public class TableImpl implements Table {
      * @param unique A flag indicating whether the given index unique or not.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
-    public void registerHashIndex(UUID indexId, boolean unique, Function<BinaryRow, BinaryTuple> searchRowResolver) {
+    public void registerHashIndex(
+            UUID indexId,
+            boolean unique,
+            Function<BinaryRow, BinaryTuple> searchRowResolver
+    ) {
         indexLockerFactories.put(
                 indexId,
                 partitionId -> new HashIndexLocker(
@@ -307,7 +311,10 @@ public class TableImpl implements Table {
      * @param indexId An index id os the index to register.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
-    public void registerSortedIndex(UUID indexId, Function<BinaryRow, BinaryTuple> searchRowResolver) {
+    public void registerSortedIndex(
+            UUID indexId,
+            Function<BinaryRow, BinaryTuple> searchRowResolver
+    ) {
         indexLockerFactories.put(
                 indexId,
                 partitionId -> new SortedIndexLocker(

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
@@ -28,6 +28,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
@@ -52,6 +56,8 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of Sorted index storage using Page Memory.
  */
 public class PageMemorySortedIndexStorage implements SortedIndexStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
+
     /** Index descriptor. */
     private final SortedIndexDescriptor descriptor;
 
@@ -416,14 +422,14 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
     }
 
     /**
-     * Updates the internal data structures of the storage on rebalance.
+     * Updates the internal data structures of the storage on rebalance or cleanup.
      *
      * @param freeList Free list to store index columns.
      * @param sortedIndexTree Sorted index tree instance.
-     * @throws StorageRebalanceException If the storage is not in the process of rebalancing.
+     * @throws StorageException If failed.
      */
-    public void updateDataStructuresOnRebalance(IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
-        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+    public void updateDataStructures(IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
+        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
         this.freeList = freeList;
         this.sortedIndexTree = sortedIndexTree;
@@ -431,5 +437,64 @@ public class PageMemorySortedIndexStorage implements SortedIndexStorage {
 
     private String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
+    }
+
+    /**
+     * Starts destruction of the data stored by this index partition.
+     *
+     * @param executor {@link GradualTaskExecutor} on which to destroy.
+     * @throws StorageException If something goes wrong.
+     */
+    public void startDestructionOn(GradualTaskExecutor executor) throws StorageException {
+        try {
+            executor.execute(
+                    sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false)
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Sorted index " + descriptor.id() + " destruction has failed", ex);
+                }
+            });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy sorted index " + indexDescriptor().id(), e);
+        }
+    }
+
+    private void removeIndexColumns(SortedIndexRow indexRow) {
+        if (indexRow.indexColumns().link() != PageIdUtils.NULL_LINK) {
+            try {
+                freeList.removeDataRowByLink(indexRow.indexColumns().link());
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Cannot destroy sorted index " + indexDescriptor().id(), e);
+            }
+
+            indexRow.indexColumns().link(PageIdUtils.NULL_LINK);
+        }
+    }
+
+    /**
+     * Prepares the storage for cleanup.
+     *
+     * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.
+     */
+    public void startCleanup() {
+        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLEANUP)) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        // Changed storage states and expect all storage operations to stop soon.
+        busyLock.block();
+
+        try {
+            sortedIndexTree.close();
+        } finally {
+            busyLock.unblock();
+        }
+    }
+
+    /**
+     * Finishes cleanup up the storage.
+     */
+    public void finishCleanup() {
+        state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
     }
 }

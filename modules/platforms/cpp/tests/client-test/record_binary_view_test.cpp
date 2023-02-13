@@ -33,7 +33,7 @@ using namespace ignite;
 class record_binary_view_test : public ignite_runner_suite {
 protected:
     void SetUp() override {
-        ignite_client_configuration cfg{NODE_ADDRS};
+        ignite_client_configuration cfg{get_node_addrs()};
         cfg.set_logger(get_logger());
 
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
@@ -934,4 +934,51 @@ TEST_F(record_binary_view_test, remove_all_exact_overlapped_async) {
 TEST_F(record_binary_view_test, remove_all_exact_empty) {
     auto res = tuple_view.remove_all_exact(nullptr, {});
     EXPECT_TRUE(res.empty());
+}
+
+TEST_F(record_binary_view_test, types_test) {
+    auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
+    tuple_view = table->record_binary_view();
+
+    ignite_tuple inserted{
+        {"key", std::int64_t(42)},
+        {"str", "test"},
+        {"int8", std::int8_t(1)},
+        {"int16", std::int16_t(2)},
+        {"int32", std::int32_t(3)},
+        {"int64", std::int64_t(4)},
+        {"float", .5f},
+        {"double", .6},
+        {"uuid", uuid(0x123e4567e89b12d3, 0x7456426614174000)},
+        {"date", ignite_date(2023, 2, 7)},
+        {"bitmask", bit_array(16, true)},
+        {"time", ignite_time(17, 4, 12, 3543634)},
+        {"time2", ignite_time(17, 4, 12, 3543634)},
+        {"datetime", ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879})},
+        {"datetime2", ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879})},
+        {"timestamp", ignite_timestamp(3875238472, 248760634)},
+        {"timestamp2", ignite_timestamp(3875238472, 248760634)},
+        {"blob", std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)}},
+        {"decimal", big_decimal(123456789098765)},
+    };
+
+    tuple_view.upsert(nullptr, inserted);
+    auto res = tuple_view.get(nullptr, {{"key", std::int64_t(42)}});
+
+    ASSERT_TRUE(res.has_value());
+    ASSERT_EQ(res->column_count(), inserted.column_count());
+
+    for (int i = 0; i < res->column_count(); ++i) {
+        const auto &column = inserted.column_name(i);
+
+        if (column == "time2") {
+            EXPECT_EQ(res->get(column), primitive{ignite_time(17, 4, 12)});
+        } else if (column == "datetime2") {
+            EXPECT_EQ(res->get(column), primitive{ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000})});
+        } else if (column == "timestamp2") {
+            EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248700000)});
+        } else {
+            EXPECT_EQ(res->get(column), inserted.get(column));
+        }
+    }
 }

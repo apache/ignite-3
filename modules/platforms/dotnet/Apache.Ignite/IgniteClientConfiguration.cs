@@ -37,7 +37,7 @@ namespace Apache.Ignite
         /// <summary>
         /// Default socket timeout.
         /// </summary>
-        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(5);
+        public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(30);
 
         /// <summary>
         /// Default heartbeat interval.
@@ -96,7 +96,7 @@ namespace Apache.Ignite
         /// <para />
         /// -1 means infinite timeout.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:05")]
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>

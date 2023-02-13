@@ -367,7 +367,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 idx,
                 tbl,
-                group.partitions(ctx.localNode().name()),
+                group.partitionsWithTerms(ctx.localNode().name()),
                 comp,
                 ranges,
                 filters,
@@ -404,7 +404,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 ctx.rowHandler().factory(ctx.getTypeFactory(), rowType),
                 tbl,
-                group.partitions(ctx.localNode().name()),
+                group.partitionsWithTerms(ctx.localNode().name()),
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
@@ -587,12 +587,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteReceiver rel) {
-        Inbox<RowT> inbox = mailboxRegistry.register(
-                new Inbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.sourceFragmentId()));
+        Inbox<RowT> inbox = new Inbox<>(ctx, exchangeSvc, mailboxRegistry,
+                ctx.remotes(rel.exchangeId()), expressionFactory.comparator(rel.collation()),
+                rel.exchangeId(), rel.sourceFragmentId());
 
-        // here may be an already created (to consume rows from remote nodes) inbox
-        // without proper context, we need to init it with a right one.
-        inbox.init(ctx, ctx.remotes(rel.exchangeId()), expressionFactory.comparator(rel.collation()));
+        mailboxRegistry.register(inbox);
 
         return inbox;
     }
@@ -675,13 +674,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
+        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+
+        if (rel.getGroupSet().isEmpty() && comp == null) {
+            comp = (k1, k2) -> 0;
+        }
+
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                expressionFactory.comparator(rel.collation())
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());
@@ -707,13 +712,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
+        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+
+        if (rel.getGroupSet().isEmpty() && comp == null) {
+            comp = (k1, k2) -> 0;
+        }
+
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                expressionFactory.comparator(rel.collation())
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());
@@ -738,13 +749,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
+        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+
+        if (rel.getGroupSet().isEmpty() && comp == null) {
+            comp = (k1, k2) -> 0;
+        }
+
         SortAggregateNode<RowT> node = new SortAggregateNode<>(
                 ctx,
                 type,
                 rel.getGroupSet(),
                 accFactory,
                 rowFactory,
-                expressionFactory.comparator(rel.collation())
+                comp
         );
 
         Node<RowT> input = visit(rel.getInput());

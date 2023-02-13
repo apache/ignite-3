@@ -34,11 +34,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -78,6 +80,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
     private static final Row ROW_2 = createKeyValueRow(2, 1002);
 
+    private static final Function<BinaryRow, BinaryTuple> KEY_EXTRACTOR = BinaryRowConverter.keyExtractor(SCHEMA);
 
     /** Mock partition storage. */
     @Mock
@@ -98,7 +101,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage);
+        internalTbl = new DummyInternalTableImpl(replicaService, mockStorage, SCHEMA);
 
         lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
         lenient().when(readOnlyTx.readTimestamp()).thenReturn(CLOCK.now());
@@ -234,11 +237,11 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      * @return Row.
      */
     private static Row createKeyRow(long id) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = RowAssembler.keyAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -249,12 +252,12 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
      * @return Row.
      */
     private static Row createKeyValueRow(long id, long value) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, 0, 0);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, new ByteBufferRow(rowBuilder.toBytes()));
+        return new Row(SCHEMA, rowBuilder.build());
     }
 
     private void mockReadOnlyMultiRowRequest() {
@@ -265,7 +268,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
 
             for (BinaryRow row : rowStore) {
                 for (BinaryRow searchRow : args.getArgument(1, ReadOnlyMultiRowReplicaRequest.class).binaryRows()) {
-                    if (row.keySlice().equals(searchRow.keySlice())) {
+                    if (KEY_EXTRACTOR.apply(row).byteBuffer().equals(KEY_EXTRACTOR.apply(searchRow).byteBuffer())) {
                         result.add(row);
 
                         break;
@@ -284,7 +287,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
             for (BinaryRow row : rowStore) {
                 BinaryRow searchRow = args.getArgument(1, ReadOnlySingleRowReplicaRequest.class).binaryRow();
 
-                if (row.keySlice().equals(searchRow.keySlice())) {
+                if (KEY_EXTRACTOR.apply(row).byteBuffer().equals(KEY_EXTRACTOR.apply(searchRow).byteBuffer())) {
                     return CompletableFuture.completedFuture(row);
                 }
             }

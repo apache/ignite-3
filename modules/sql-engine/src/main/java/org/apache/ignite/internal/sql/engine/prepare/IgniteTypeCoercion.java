@@ -21,12 +21,17 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 
 import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
@@ -43,8 +48,87 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Implicit type cast implementation. */
 public class IgniteTypeCoercion extends TypeCoercionImpl {
+
+    // We are using thread local here b/c TypeCoercion is expected to be stateless.
+    private static final ThreadLocal<ContextStack> contextStack = ThreadLocal.withInitial(ContextStack::new);
+
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
         super(typeFactory, validator);
+    }
+
+    /** {@inheritDoc} **/
+    @Override
+    public boolean binaryComparisonCoercion(SqlCallBinding binding) {
+        // Although it is not reflected in the docs, this method is also invoked for MAX, MIN (and other similar operators)
+        // by ComparableOperandTypeChecker. When that is the case, fallback to default rules.
+        SqlCall call = binding.getCall();
+        if (binding.getOperandCount() != 2 || !SqlKind.BINARY_COMPARISON.contains(call.getKind())) {
+            return super.binaryComparisonCoercion(binding);
+        }
+
+        SqlValidatorScope scope = binding.getScope();
+        RelDataType leftType = validator.deriveType(scope, call.operand(0));
+        RelDataType rightType = validator.deriveType(scope, call.operand(1));
+
+        if (leftType.equals(rightType)) {
+            // If types are the same fallback to default rules.
+            return super.binaryComparisonCoercion(binding);
+        } else {
+            // Otherwise find the least restrictive type among the operand types
+            // and coerce the operands to that type if such type exists.
+            //
+            // An example of a least restrictive type from the javadoc for RelDataTypeFactory::leastRestrictive:
+            // leastRestrictive(INT, NUMERIC(3, 2)) could be NUMERIC(12, 2)
+            //
+            // A least restrictive type between types of different type families does not exist -
+            // the method returns null (See SqlTypeFactoryImpl::leastRestrictive).
+            //
+            RelDataType targetType = factory.leastRestrictive(Arrays.asList(leftType, rightType));
+
+            if (targetType == null) {
+                // If least restrictive type does not exist fallback to default rules.
+                return super.binaryComparisonCoercion(binding);
+            } else {
+                boolean coerced = false;
+
+                if (!leftType.equals(targetType)) {
+                    coerced = coerceOperandType(scope, call, 0, targetType);
+                }
+
+                if (!rightType.equals(targetType)) {
+                    boolean rightCoerced = coerceOperandType(scope, call, 1, targetType);
+                    coerced = coerced || rightCoerced;
+                }
+
+                return coerced;
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean caseWhenCoercion(SqlCallBinding callBinding) {
+        ContextStack ctxStack = contextStack.get();
+        Context ctx = ctxStack.push(ContextType.CASE_EXPR);
+        try {
+            return super.caseWhenCoercion(callBinding);
+        } finally {
+            ctxStack.pop(ctx);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable RelDataType getWiderTypeFor(List<RelDataType> typeList, boolean stringPromotion) {
+        ContextStack ctxStack = contextStack.get();
+        ContextType ctxType = ctxStack.currentContext();
+        // Disable string promotion for case expression operands
+        // to comply with 9.5 clause of the SQL standard (Result of data type combinations).
+        if (ctxType == ContextType.CASE_EXPR) {
+            return super.getWiderTypeFor(typeList, false);
+        } else {
+            return super.getWiderTypeFor(typeList, stringPromotion);
+        }
     }
 
     /** {@inheritDoc} */
@@ -193,5 +277,52 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     private static SqlNode castTo(SqlNode node, RelDataType type) {
         return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node,
                 SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable()));
+    }
+
+    /**
+     * A context in which {@link IgniteTypeCoercion#getWiderTypeFor(List, boolean)} is being called.
+     */
+    enum ContextType {
+        /**
+         * Corresponds to {@link IgniteTypeCoercion#caseWhenCoercion(SqlCallBinding)}.
+         */
+        CASE_EXPR,
+        /**
+         * Unspecified context.
+         */
+        UNSPECIFIED
+    }
+
+    private static class Context {
+        final ContextType type;
+
+        private Context(ContextType type) {
+            this.type = requireNonNull(type, "type");
+        }
+    }
+
+    /**
+     * We need a stack of type coercion "contexts" to distinguish between possibly
+     * nested calls for {@link #getWiderTypeFor(List, boolean)}.
+     */
+    private static final class ContextStack {
+        private final LinkedList<Context> stack = new LinkedList<>();
+
+        Context push(ContextType contextType) {
+            Context scope = new Context(contextType);
+            stack.push(scope);
+            return scope;
+        }
+
+        void pop(Context current) {
+            if (Objects.equals(stack.peek(), current)) {
+                stack.pop();
+            }
+        }
+
+        ContextType currentContext() {
+            Context current = stack.peek();
+            return current != null ? current.type : ContextType.UNSPECIFIED;
+        }
     }
 }

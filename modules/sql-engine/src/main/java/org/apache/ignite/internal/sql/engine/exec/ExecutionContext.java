@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.checkRange;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.List;
@@ -32,9 +31,9 @@ import java.util.function.Consumer;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
@@ -42,12 +41,10 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -83,16 +80,13 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
-    /** Transaction. */
-    private InternalTransaction tx;
-
     /**
      * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
      * query.
      */
     private final long startTs;
 
-    private Object[] correlations = new Object[16];
+    private SharedState sharedState = new SharedState();
 
     /**
      * Constructor.
@@ -103,7 +97,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param fragmentDesc Partitions information.
      * @param handler Row handler.
      * @param params Parameters.
-     * @param tx Transaction.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -114,8 +107,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             String originatingNodeName,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
-            Map<String, Object> params,
-            InternalTransaction tx
+            Map<String, Object> params
     ) {
         super(qctx);
 
@@ -127,7 +119,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
-        this.tx = tx;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -265,10 +256,8 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param id Correlation ID.
      * @return Correlated value.
      */
-    public @NotNull Object getCorrelated(int id) {
-        checkRange(correlations, id);
-
-        return correlations[id];
+    public Object correlatedVariable(int id) {
+        return sharedState.correlatedVariable(id);
     }
 
     /**
@@ -277,10 +266,26 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @param id Correlation ID.
      * @param value Correlated value.
      */
-    public void setCorrelated(@NotNull Object value, int id) {
-        correlations = Commons.ensureCapacity(correlations, id + 1);
+    public void correlatedVariable(Object value, int id) {
+        sharedState.correlatedVariable(id, value);
+    }
 
-        correlations[id] = value;
+    /**
+     * Updates the state in the context with the given one.
+     *
+     * @param state A state to update with.
+     */
+    public void sharedState(SharedState state) {
+        sharedState = state;
+    }
+
+    /**
+     * Returns the current state.
+     *
+     * @return Current state.
+     */
+    public SharedState sharedState() {
+        return sharedState;
     }
 
     /**
@@ -337,12 +342,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     /** Transaction for current context. */
     public InternalTransaction transaction() {
-        return tx;
-    }
-
-    /** Read only transaction time. */
-    public HybridTimestamp transactionTime() {
-        return qctx.transactionTime();
+        return qctx.transaction();
     }
 
     /**
@@ -377,6 +377,11 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         ExecutionContext<?> context = (ExecutionContext<?>) o;
 
         return qryId.equals(context.qryId) && fragmentDesc.fragmentId() == context.fragmentDesc.fragmentId();
+    }
+
+    /** Null bound. */
+    public Object nullBound() {
+        return BinaryRowConverter.NULL_BOUND;
     }
 
     /** {@inheritDoc} */

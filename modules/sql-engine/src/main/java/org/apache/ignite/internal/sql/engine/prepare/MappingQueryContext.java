@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
+import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  */
 public class MappingQueryContext {
     private final String locNodeName;
+    private final MappingService mappingService;
 
     private RelOptCluster cluster;
 
@@ -35,9 +37,14 @@ public class MappingQueryContext {
      * Constructor.
      *
      * @param locNodeName Local node consistent ID.
+     * @param mappingService Local node consistent ID.
      */
-    public MappingQueryContext(String locNodeName) {
+    public MappingQueryContext(
+            String locNodeName,
+            MappingService mappingService
+    ) {
         this.locNodeName = locNodeName;
+        this.mappingService = mappingService;
     }
 
     /** Creates a cluster. */
@@ -54,5 +61,9 @@ public class MappingQueryContext {
 
     public String locNodeName() {
         return locNodeName;
+    }
+
+    public MappingService mappingService() {
+        return mappingService;
     }
 }

@@ -111,9 +111,9 @@ public class ReadResult {
     }
 
     /**
-     * Returns binary row representation of the data, {@code null} if {@link #isEmpty()}.
+     * Returns table row representation of the data, {@code null} if {@link #isEmpty()}.
      *
-     * @return Binary row representation of the data, {@code null} if {@link #isEmpty()}.
+     * @return Table row representation of the data, {@code null} if {@link #isEmpty()}.
      */
     public @Nullable BinaryRow binaryRow() {
         return binaryRow;

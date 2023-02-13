@@ -60,6 +60,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEn
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -95,8 +96,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @SuppressWarnings("resource")
 @ExtendWith(WorkDirectoryExtension.class)
 @Timeout(90)
-// TODO: IGNITE-18465- extend AbstractClusterIntegrationTest
-class ItTableRaftSnapshotsTest {
+class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     /**
@@ -142,6 +142,16 @@ class ItTableRaftSnapshotsTest {
         cluster.shutdown();
     }
 
+    @BeforeEach
+    public void setup(TestInfo testInfo) throws Exception {
+        setupBase(testInfo, workDir);
+    }
+
+    @AfterEach
+    public void tearDown(TestInfo testInfo) throws Exception {
+        tearDownBase(testInfo);
+    }
+
     /**
      * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability).
      */
@@ -183,14 +193,14 @@ class ItTableRaftSnapshotsTest {
                 || hasCause(e, SqlValidatorException.class, "Object 'TEST' not found");
     }
 
-    private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
+    private <T> T queryWithRetry(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return withRetry(() -> cluster.query(nodeIndex, sql, extractor));
     }
 
     /**
      * Reads all rows from TEST table.
      */
-    private static List<IgniteBiTuple<Integer, String>> readRows(ResultSet rs) {
+    private static List<IgniteBiTuple<Integer, String>> readRows(ResultSet<SqlRow> rs) {
         List<IgniteBiTuple<Integer, String>> rows = new ArrayList<>();
 
         while (rs.hasNext()) {

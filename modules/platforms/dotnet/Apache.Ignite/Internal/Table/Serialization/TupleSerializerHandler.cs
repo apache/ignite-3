@@ -91,7 +91,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 if (colIdx >= 0)
                 {
-                    tupleBuilder.AppendObject(record[colIdx], col.Type, col.Scale);
+                    tupleBuilder.AppendObject(record[colIdx], col.Type, col.Scale, col.Precision);
                 }
                 else
                 {

@@ -21,18 +21,16 @@ import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.cluster.management.BaseItClusterManagementTest;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MockNode;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -43,10 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @MicronautTest
 @ExtendWith(WorkDirectoryExtension.class)
-public class RestTestBase {
-
-    static final int PORT_BASE = 10000;
-
+public class RestTestBase extends BaseItClusterManagementTest {
     static final List<MockNode> cluster = new ArrayList<>();
 
     static ClusterService clusterService;
@@ -60,35 +55,21 @@ public class RestTestBase {
     EmbeddedServer server;
 
     @BeforeAll
-    static void setUp(TestInfo testInfo) throws IOException {
-        var addr1 = new NetworkAddress("localhost", PORT_BASE);
-        var addr2 = new NetworkAddress("localhost", PORT_BASE + 1);
+    static void setUp(TestInfo testInfo) {
+        cluster.addAll(createNodes(2, testInfo, workDir));
 
-        var nodeFinder = new StaticNodeFinder(List.of(addr1, addr2));
-
-        cluster.add(new MockNode(testInfo, addr1, nodeFinder, workDir.resolve("node0")));
-        cluster.add(new MockNode(testInfo, addr2, nodeFinder, workDir.resolve("node1")));
-
-        for (MockNode node : cluster) {
-            node.start();
-        }
+        cluster.parallelStream().forEach(MockNode::start);
 
         clusterService = cluster.get(0).clusterService();
         clusterManager = cluster.get(0).clusterManager();
     }
 
     @AfterAll
-    static void tearDown() {
-        for (MockNode node : cluster) {
-            node.beforeNodeStop();
-        }
-
-        for (MockNode node : cluster) {
-            node.stop();
-        }
+    static void tearDown() throws Exception {
+        stopNodes(cluster);
     }
 
-    Problem getProblem(HttpClientResponseException exception) {
+    static Problem getProblem(HttpClientResponseException exception) {
         return exception.getResponse().getBody(Problem.class).orElseThrow();
     }
 }

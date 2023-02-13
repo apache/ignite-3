@@ -34,7 +34,7 @@ using namespace ignite;
 class tables_test : public ignite_runner_suite {};
 
 TEST_F(tables_test, tables_get_table) {
-    ignite_client_configuration cfg{NODE_ADDRS};
+    ignite_client_configuration cfg{get_node_addrs()};
     cfg.set_logger(get_logger());
 
     auto client = ignite_client::start(cfg, std::chrono::seconds(30));
@@ -49,7 +49,7 @@ TEST_F(tables_test, tables_get_table) {
 }
 
 TEST_F(tables_test, tables_get_table_async_promises) {
-    ignite_client_configuration cfg{NODE_ADDRS};
+    ignite_client_configuration cfg{get_node_addrs()};
     cfg.set_logger(get_logger());
 
     auto clientPromise = std::make_shared<std::promise<ignite_client>>();
@@ -78,7 +78,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
     auto operation1 = std::make_shared<std::promise<void>>();
     auto operation2 = std::make_shared<std::promise<void>>();
 
-    ignite_client_configuration cfg{NODE_ADDRS};
+    ignite_client_configuration cfg{get_node_addrs()};
     cfg.set_logger(get_logger());
 
     ignite_client client;
@@ -130,7 +130,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
 }
 
 TEST_F(tables_test, tables_get_tables) {
-    ignite_client_configuration cfg{NODE_ADDRS};
+    ignite_client_configuration cfg{get_node_addrs()};
     cfg.set_logger(get_logger());
 
     auto client = ignite_client::start(cfg, std::chrono::seconds(30));
@@ -146,7 +146,7 @@ TEST_F(tables_test, tables_get_tables) {
 }
 
 TEST_F(tables_test, tables_get_tables_async_promises) {
-    ignite_client_configuration cfg{NODE_ADDRS};
+    ignite_client_configuration cfg{get_node_addrs()};
     cfg.set_logger(get_logger());
 
     auto client = ignite_client::start(cfg, std::chrono::seconds(30));

@@ -42,8 +42,6 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly PooledBuffer? _buffer;
 
-        private readonly int _bufferOffset;
-
         private readonly bool _hasMorePages;
 
         private readonly RowReader<T>? _rowReader;
@@ -79,8 +77,8 @@ namespace Apache.Ignite.Internal.Sql
 
             if (HasRowSet)
             {
-                _buffer = buf;
-                _bufferOffset = reader.Consumed;
+                _buffer = buf.Slice(reader.Consumed);
+                HasRows = reader.ReadArrayHeader() > 0;
             }
             else
             {
@@ -109,6 +107,16 @@ namespace Apache.Ignite.Internal.Sql
 
         /// <inheritdoc/>
         public bool WasApplied { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether this instance is disposed.
+        /// </summary>
+        internal bool IsDisposed => (_resourceId == null || _resourceClosed) && _bufferReleased > 0;
+
+        /// <summary>
+        /// Gets a value indicating whether this result set has any rows in it.
+        /// </summary>
+        internal bool HasRows { get; }
 
         /// <inheritdoc/>
         public async ValueTask<List<T>> ToListAsync() =>
@@ -146,22 +154,22 @@ namespace Apache.Ignite.Internal.Sql
             var hasMore = _hasMorePages;
             TResult? res = default;
 
-            ReadPage(_buffer!.Value, _bufferOffset);
+            ReadPage(_buffer!.Value);
             ReleaseBuffer();
 
             while (hasMore)
             {
                 using var pageBuf = await FetchNextPage().ConfigureAwait(false);
-                ReadPage(pageBuf, 0);
+                ReadPage(pageBuf);
             }
 
             _resourceClosed = true;
 
             return res!;
 
-            void ReadPage(PooledBuffer buf, int offset)
+            void ReadPage(PooledBuffer buf)
             {
-                var reader = buf.GetReader(offset);
+                var reader = buf.GetReader();
                 var pageSize = reader.ReadArrayHeader();
 
                 var capacity = hasMore ? pageSize * 2 : pageSize;
@@ -222,6 +230,44 @@ namespace Apache.Ignite.Internal.Sql
             return EnumerateRows().GetAsyncEnumerator(cancellationToken);
         }
 
+        /// <summary>
+        /// Enumerates ResultSet pages.
+        /// </summary>
+        /// <returns>ResultSet pages.</returns>
+        internal async IAsyncEnumerable<PooledBuffer> EnumeratePagesInternal()
+        {
+            ValidateAndSetIteratorState();
+
+            yield return _buffer!.Value;
+
+            ReleaseBuffer();
+
+            if (!_hasMorePages)
+            {
+                yield break;
+            }
+
+            while (true)
+            {
+                using var buffer = await FetchNextPage().ConfigureAwait(false);
+
+                yield return buffer;
+
+                if (!HasMore(buffer))
+                {
+                    break;
+                }
+            }
+
+            static bool HasMore(PooledBuffer buf)
+            {
+                var reader = buf.GetReader();
+                reader.Skip();
+
+                return !reader.End && reader.ReadBoolean();
+            }
+        }
+
         private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
         {
             var size = reader.ReadArrayHeader();
@@ -265,7 +311,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             var hasMore = _hasMorePages;
             var cols = Metadata!.Columns;
-            var offset = _bufferOffset;
+            var offset = 0;
 
             // First page.
             foreach (var row in EnumeratePage(_buffer!.Value))

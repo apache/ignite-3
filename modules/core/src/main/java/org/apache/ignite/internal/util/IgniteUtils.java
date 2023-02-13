@@ -37,10 +37,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,6 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -909,6 +912,30 @@ public class IgniteUtils {
     }
 
     /**
+     * Cancels the future and runs a consumer on future's result if it was completed before the cancellation.
+     * Does nothing if future is cancelled or completed exceptionally.
+     *
+     * @param future Future.
+     * @param consumer Consumer that accepts future's result.
+     * @param <T> Future's result type.
+     */
+    public static <T> void cancelOrConsume(CompletableFuture<T> future, Consumer<T> consumer) {
+        future.cancel(true);
+
+        if (future.isCancelled() || future.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert future.isDone();
+
+        T res = future.join();
+
+        assert res != null;
+
+        consumer.accept(res);
+    }
+
+    /**
      * Produce new MBean name according to received group and name.
      *
      * @param group pkg:group=value part of MBean name.
@@ -918,5 +945,55 @@ public class IgniteUtils {
      */
     public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
         return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
+    }
+
+    /**
+     * Filter the collection using the given predicate.
+     *
+     * @param collection Collection.
+     * @param predicate Predicate.
+     * @return Filtered list.
+     */
+    public static <T> List<T> filter(Collection<T> collection, Predicate<T> predicate) {
+        List<T> result = new ArrayList<>();
+
+        for (T e : collection) {
+            if (predicate.test(e)) {
+                result.add(e);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Find any element in given collection.
+     *
+     * @param collection Collection.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(Collection<T> collection) {
+        return findAny(collection, null);
+    }
+
+    /**
+     * Find any element in given collection for which the predicate returns {@code true}.
+     *
+     * @param collection Collection.
+     * @param predicate Predicate.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(Collection<T> collection, @Nullable Predicate<T> predicate) {
+        if (!collection.isEmpty()) {
+            for (Iterator<T> it = collection.iterator(); it.hasNext(); ) {
+                T t = it.next();
+
+                if (predicate == null || predicate.test(t)) {
+                    return Optional.ofNullable(t);
+                }
+            }
+        }
+
+        return Optional.empty();
     }
 }

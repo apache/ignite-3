@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -156,28 +157,27 @@ public class CompositeSubscriptionTest {
 
         lsnr.reset(requested);
 
-        CompletableFuture.runAsync(() -> compPublisher.subscribe(new Subscriber<>() {
-                    @Override
-                    public void onSubscribe(Subscription subscription) {
-                        subscriptionRef.set(subscription);
-                    }
+        compPublisher.subscribe(new Subscriber<>() {
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                subscriptionRef.set(subscription);
+            }
 
-                    @Override
-                    public void onNext(Integer item) {
-                        lsnr.onNext(item);
-                    }
+            @Override
+            public void onNext(Integer item) {
+                lsnr.onNext(item);
+            }
 
-                    @Override
-                    public void onError(Throwable t) {
-                        assert false;
-                    }
+            @Override
+            public void onError(Throwable t) {
+                assert false;
+            }
 
-                    @Override
-                    public void onComplete() {
-                        lsnr.onComplete();
-                    }
-                })
-        ).join();
+            @Override
+            public void onComplete() {
+                lsnr.onComplete();
+            }
+        });
 
         if (!split) {
             checkSubscriptionRequest(subscriptionRef.get(), new InputParameters(expData, requested), lsnr);

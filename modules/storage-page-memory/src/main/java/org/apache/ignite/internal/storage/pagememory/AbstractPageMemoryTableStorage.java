@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -378,7 +379,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
+    public CompletableFuture<Void> finishRebalancePartition(
+            int partitionId,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig
+    ) {
         return inBusyLock(busyLock, () -> {
             AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
 
@@ -396,11 +402,42 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 mvPartitionStorage.runConsistently(() -> {
                     mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
 
+                    mvPartitionStorage.committedGroupConfigurationOnRebalance(raftGroupConfig);
+
                     return null;
                 });
 
                 mvPartitionStorage.completeRebalance();
             });
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> clearPartition(int partitionId) {
+        return inBusyLock(busyLock, () -> {
+            AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
+
+            if (mvPartitionStorage == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            try {
+                mvPartitionStorage.startCleanup();
+
+                return clearStorageAndUpdateDataStructures(mvPartitionStorage)
+                        .whenComplete((unused, throwable) -> mvPartitionStorage.finishCleanup());
+            } catch (StorageException e) {
+                mvPartitionStorage.finishCleanup();
+
+                throw e;
+            } catch (Throwable t) {
+                mvPartitionStorage.finishCleanup();
+
+                throw new StorageException(
+                        IgniteStringFormatter.format("Failed to cleanup storage: [{}]", mvPartitionStorage.createStorageInfo()),
+                        t
+                );
+            }
         });
     }
 

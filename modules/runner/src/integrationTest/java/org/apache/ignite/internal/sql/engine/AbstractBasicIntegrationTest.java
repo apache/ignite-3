@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -28,22 +29,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -143,7 +145,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
 
-            CLUSTER_NODES.add(future.join());
+            CLUSTER_NODES.add(await(future));
         }
     }
 
@@ -227,8 +229,25 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         tearDownBase(testInfo);
     }
 
+    /**
+     * Executes the query and validates any asserts passed to the builder.
+     *
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
     protected static QueryChecker assertQuery(String qry) {
-        return new QueryChecker(qry) {
+        return assertQuery(null, qry);
+    }
+
+    /**
+     * Executes the query with the given transaction and validates any asserts passed to the builder.
+     *
+     * @param tx Transaction.
+     * @param qry Query to execute.
+     * @return Instance of QueryChecker.
+     */
+    protected static QueryChecker assertQuery(Transaction tx, String qry) {
+        return new QueryChecker(tx, qry) {
             @Override
             protected QueryProcessor getEngine() {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
@@ -244,9 +263,22 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
      * @param rules Additional rules need to be disabled.
      */
     static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
-        return AbstractBasicIntegrationTest.assertQuery(qry.replaceAll("(?i)^select", "select "
-                + Stream.concat(Arrays.stream(joinType.disabledRules), Arrays.stream(rules))
-                .collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));
+        return assertQuery(qry)
+                .disableRules(joinType.disabledRules)
+                .disableRules(rules);
+    }
+
+    /**
+     * Used for query with aggregates checks, disables other aggregate rules for executing exact agregate algo.
+     *
+     * @param qry Query for check.
+     * @param aggregateType Type of aggregate algo.
+     * @param rules Additional rules need to be disabled.
+     */
+    static QueryChecker assertQuery(String qry, AggregateType aggregateType, String... rules) {
+        return assertQuery(qry)
+                .disableRules(aggregateType.disabledRules)
+                .disableRules(rules);
     }
 
     /**
@@ -285,6 +317,26 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         private final String[] disabledRules;
 
         JoinType(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+    }
+
+    enum AggregateType {
+        SORT(
+                "ColocatedHashAggregateConverterRule",
+                "ColocatedSortAggregateConverterRule",
+                "MapReduceHashAggregateConverterRule"
+        ),
+
+        HASH(
+                "ColocatedHashAggregateConverterRule",
+                "ColocatedSortAggregateConverterRule",
+                "MapReduceSortAggregateConverterRule"
+        );
+
+        private final String[] disabledRules;
+
+        AggregateType(String... disabledRules) {
             this.disabledRules = disabledRules;
         }
     }
@@ -334,7 +386,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
 
             assert id != null : "Primary key cannot be null";
 
-            Tuple row  = view.get(null, Tuple.create().set(columnNames[0], id));
+            Tuple row = view.get(null, Tuple.create().set(columnNames[0], id));
 
             assertNotNull(row);
 
@@ -387,5 +439,21 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
                     assertEquals(expectedMeta.origin().columnName(), actualMeta.origin().columnName(), " origin column");
                 }
         );
+    }
+
+    protected static void waitForIndex(String indexName) throws InterruptedException {
+        // FIXME: Wait for the index to be created on all nodes,
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the index.
+        assertTrue(waitForCondition(
+                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
+                10_000)
+        );
+    }
+
+    private static @Nullable TableIndexConfiguration getIndexConfiguration(Ignite node, String indexName) {
+        return ((IgniteImpl) node).clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .indexes()
+                .get(indexName.toUpperCase());
     }
 }

@@ -36,7 +36,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * IgniteTableModify.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class IgniteTableModify extends TableModify implements InternalIgniteRel {
+public class IgniteTableModify extends TableModify implements IgniteRel {
     /**
      * Creates a {@code TableModify}.
      *

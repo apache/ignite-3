@@ -37,7 +37,7 @@ class FakeColumnMetadata implements ColumnMetadata {
     private final ColumnOrigin origin;
 
     FakeColumnMetadata(String name, ColumnType type) {
-        this(name, type, -1, -1, false, null);
+        this(name, type, ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, false, null);
     }
 
     FakeColumnMetadata(

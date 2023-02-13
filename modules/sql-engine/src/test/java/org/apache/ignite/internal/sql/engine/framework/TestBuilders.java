@@ -19,23 +19,32 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * A collection of builders to create test objects.
@@ -49,6 +58,16 @@ public class TestBuilders {
     /** Returns a builder of the test table object. */
     public static TableBuilder table() {
         return new TableBuilderImpl();
+    }
+
+    /** Returns a builder of the execution context. */
+    public static ExecutionContextBuilder executionContext() {
+        return new ExecutionContextBuilderImpl();
+    }
+
+    /** Factory method to create a cluster service factory for cluster consisting of provided nodes. */
+    public static ClusterServiceFactory clusterServiceFactory(List<String> nodes) {
+        return new ClusterServiceFactory(nodes);
     }
 
     /**
@@ -111,6 +130,87 @@ public class TestBuilders {
         ClusterTableBuilder defaultDataProvider(DataProvider<?> dataProvider);
     }
 
+    /**
+     * A builder to create an execution context.
+     *
+     * @see ExecutionContext
+     */
+    public interface ExecutionContextBuilder {
+        /** Sets the identifier of the query. */
+        ExecutionContextBuilder queryId(UUID queryId);
+
+        /** Sets the description of the fragment this context will be created for. */
+        ExecutionContextBuilder fragment(FragmentDescription fragmentDescription);
+
+        /** Sets the query task executor. */
+        ExecutionContextBuilder executor(QueryTaskExecutor executor);
+
+        /** Sets the node this fragment will be executed on. */
+        ExecutionContextBuilder localNode(ClusterNode node);
+
+        /**
+         * Builds the context object.
+         *
+         * @return Created context object.
+         */
+        ExecutionContext<Object[]> build();
+    }
+
+    private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
+        private FragmentDescription description = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
+
+        private UUID queryId = null;
+        private QueryTaskExecutor executor = null;
+        private ClusterNode node = null;
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder queryId(UUID queryId) {
+            this.queryId = Objects.requireNonNull(queryId, "queryId");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder fragment(FragmentDescription fragmentDescription) {
+            this.description = Objects.requireNonNull(fragmentDescription, "fragmentDescription");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder executor(QueryTaskExecutor executor) {
+            this.executor = Objects.requireNonNull(executor, "executor");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder localNode(ClusterNode node) {
+            this.node = Objects.requireNonNull(node, "node");
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContext<Object[]> build() {
+            return new ExecutionContext<>(
+                    BaseQueryContext.builder().build(),
+                    Objects.requireNonNull(executor, "executor"),
+                    queryId,
+                    Objects.requireNonNull(node, "node"),
+                    node.name(),
+                    description,
+                    ArrayRowHandler.INSTANCE,
+                    Map.of()
+            );
+        }
+    }
+
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
@@ -135,7 +235,7 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestCluster build() {
-            var clusterService = new TestClusterService(nodeNames);
+            var clusterService = new ClusterServiceFactory(nodeNames);
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
                 validateTableBuilder(tableBuilder);
@@ -149,7 +249,7 @@ public class TestBuilders {
             var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, null));
 
             Map<String, TestNode> nodes = nodeNames.stream()
-                    .map(name -> new TestNode(name, clusterService.spawnForNode(name), schemaManager))
+                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(nodes);

@@ -32,11 +32,14 @@ namespace ignite {
 class IgniteRunner {
 public:
     /**
-     * Start node.
-     *
-     * @param dryRun Perform a dry run. Mostly used to ensure that code is compiled and all artifacts are downloaded.
+     * Destructor.
      */
-    void start(bool dryRun = false);
+    ~IgniteRunner() { stop(); }
+
+    /**
+     * Start node.
+     */
+    void start();
 
     /**
      * Stop node.

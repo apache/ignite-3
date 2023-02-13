@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -35,7 +34,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,19 +61,20 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     }
 
     @Test
-    void testRestartStorageInProgressOfRebalance() throws Exception {
+    void testRestartStorageInProgressOfRebalance() {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
-        storage.startRebalance().get(1, TimeUnit.SECONDS);
-
-        fillStorage(
-                storage,
-                List.of(randomTxMetaTuple(1, UUID.randomUUID()), randomTxMetaTuple(1, UUID.randomUUID()))
+        List<IgniteBiTuple<UUID, TxMeta>> rows = List.of(
+                randomTxMetaTuple(1, UUID.randomUUID()),
+                randomTxMetaTuple(1, UUID.randomUUID())
         );
 
-        storage.flush().get(10, TimeUnit.SECONDS);
+        fillStorage(storage, rows);
 
-        storage.finishRebalance(10, 15).get(1, TimeUnit.SECONDS);
+        // We emulate the situation that the rebalancing did not have time to end.
+        storage.lastApplied(REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
+
+        assertThat(storage.flush(), willCompleteSuccessfully());
 
         tableStorage.stop();
 
@@ -85,10 +84,8 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
         storage = tableStorage.getOrCreateTxStateStorage(0);
 
-        checkLastApplied(storage, 0, 0, 0);
+        checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 
-        try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
-            assertThat(scan.stream().collect(toList()), empty());
-        }
+        checkStorageContainsRows(storage, rows);
     }
 }

@@ -44,7 +44,7 @@ class RocksDbMetaStorage {
     /**
      * Name of the key that is out of range of the partition ID key prefix, used as an exclusive bound.
      */
-    private static final byte[] PARTITION_ID_PREFIX_END = RocksUtils.incrementArray(PARTITION_ID_PREFIX);
+    private static final byte[] PARTITION_ID_PREFIX_END = RocksUtils.incrementPrefix(PARTITION_ID_PREFIX);
 
     private final ColumnFamily metaColumnFamily;
 

@@ -97,6 +97,18 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         // Read with timestamp returns write-intent.
         assertRowMatches(read(rowId, clock.now()), binaryRow);
+
+        // Remove write.
+        addWrite(rowId, null, txId);
+
+        // Removed row can't be read.
+        assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
+
+        // Remove write once again.
+        addWrite(rowId, null, txId);
+
+        // Still can't be read.
+        assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
     }
 
     /**
@@ -539,6 +551,15 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         BinaryRow returnedRow = addWrite(rowId, binaryRow2, txId);
 
         assertThat(returnedRow, is(nullValue()));
+    }
+
+    @Test
+    void addWriteCommittedTombstone() {
+        addWriteCommitted(ROW_ID, binaryRow, clock.now());
+        assertRowMatches(read(ROW_ID, HybridTimestamp.MAX_VALUE), binaryRow);
+
+        addWriteCommitted(ROW_ID, null, clock.now());
+        assertNull(read(ROW_ID, HybridTimestamp.MAX_VALUE));
     }
 
     @Test

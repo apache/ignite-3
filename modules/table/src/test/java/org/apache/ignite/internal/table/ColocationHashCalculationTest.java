@@ -31,6 +31,7 @@ import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -72,7 +73,7 @@ public class ColocationHashCalculationTest {
                 },
                 new Column[]{new Column(3, "val", INT32, true).copy(3)});
 
-        RowAssembler rasm = new RowAssembler(schema, 1, 0);
+        RowAssembler rasm = new RowAssembler(schema);
 
         rasm.appendByte((byte) 1);
         rasm.appendInt(2);
@@ -135,7 +136,8 @@ public class ColocationHashCalculationTest {
         HashCalculator hashCalc = new HashCalculator();
         for (Column c : r.schema().colocationColumns()) {
             var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;
-            hashCalc.append(r.value(c.schemaIndex()), scale);
+            var precision = c.type() instanceof TemporalNativeType ? ((TemporalNativeType) c.type()).precision() : 0;
+            hashCalc.append(r.value(c.schemaIndex()), scale, precision);
         }
 
         return hashCalc.hash();

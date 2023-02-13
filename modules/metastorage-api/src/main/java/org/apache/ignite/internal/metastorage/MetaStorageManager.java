@@ -21,14 +21,15 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.If;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
@@ -37,6 +38,12 @@ import org.jetbrains.annotations.Nullable;
  * Manager that provides operations on the Meta Storage.
  */
 public interface MetaStorageManager extends IgniteComponent {
+    /**
+     * Returns the current <em>applied revision</em> of the Meta Storage, that is, the most recent revision of updates that have been
+     * applied on this node.
+     */
+    long appliedRevision();
+
     /**
      * Retrieves an entry for the given key.
      */
@@ -57,34 +64,46 @@ public interface MetaStorageManager extends IgniteComponent {
      * {@code revUpperBound == -1}.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
-     * @return Cursor built upon entries corresponding to the given range and revision.
-     * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     * @see ByteArray
-     * @see Entry
+     * @return Publisher that will provide entries corresponding to the given prefix. This Publisher may also fail (by calling
+     *     {@link Subscriber#onError}) with one of the following exceptions:
+     *     <ul>
+     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
+     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
+     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
+     *     </ul>
      */
-    Cursor<Entry> prefix(ByteArray keyPrefix) throws NodeStoppingException;
+    Publisher<Entry> prefix(ByteArray keyPrefix);
 
     /**
      * Retrieves entries for the given key prefix in lexicographic order. Entries will be filtered out by upper bound of given revision
      * number.
      *
-     * <p>Prefix query is a synonym of the range query {@code range(prefixKey, nextKey(prefixKey))}.
-     *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @param revUpperBound The upper bound for entry revision. {@code -1} means latest revision.
-     * @return Cursor built upon entries corresponding to the given range and revision.
-     * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     * @see ByteArray
-     * @see Entry
+     * @return Publisher that will provide entries corresponding to the given prefix and revision. This Publisher may also fail (by calling
+     *     {@link Subscriber#onError}) with one of the following exceptions:
+     *     <ul>
+     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
+     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
+     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
+     *     </ul>
      */
-    Cursor<Entry> prefix(ByteArray keyPrefix, long revUpperBound) throws NodeStoppingException;
+    Publisher<Entry> prefix(ByteArray keyPrefix, long revUpperBound);
 
     /**
      * Retrieves entries for the given key range in lexicographic order.
+     *
+     * @param keyFrom Range lower bound (inclusive).
+     * @param keyTo Range upper bound (exclusive), {@code null} represents an unbound range.
+     * @return Publisher that will provide entries corresponding to the given range. This Publisher may also fail (by calling
+     *     {@link Subscriber#onError}) with one of the following exceptions:
+     *     <ul>
+     *         <li>{@link OperationTimeoutException} - if the operation is timed out;</li>
+     *         <li>{@link CompactedException} - if the desired revisions are removed from the storage due to a compaction;</li>
+     *         <li>{@link NodeStoppingException} - if this node has been stopped.</li>
+     *     </ul>
      */
-    Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException;
+    Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo);
 
     /**
      * Invoke with single success/failure operation.
@@ -99,25 +118,23 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Invoke, which supports nested conditional statements.
      */
-    CompletableFuture<StatementResult> invoke(If iif);
+    CompletableFuture<StatementResult> invoke(Iif iif);
 
     /**
      * Registers a watch listener by a key prefix.
      *
      * @param key Prefix to listen to.
      * @param lsnr Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
      */
-    CompletableFuture<Long> registerPrefixWatch(ByteArray key, WatchListener lsnr);
+    void registerPrefixWatch(ByteArray key, WatchListener lsnr);
 
     /**
      * Registers a watch listener for the provided key.
      *
      * @param key Meta Storage key.
      * @param listener Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
      */
-    CompletableFuture<Long> registerExactWatch(ByteArray key, WatchListener listener);
+    void registerExactWatch(ByteArray key, WatchListener listener);
 
     /**
      * Registers a watch listener by a key range.
@@ -125,14 +142,13 @@ public interface MetaStorageManager extends IgniteComponent {
      * @param keyFrom Start of the range (inclusive).
      * @param keyTo End of the range (exclusive) or {@code null} if the range doesn't have an upper bound.
      * @param listener Listener which will be notified for each update.
-     * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription.
      */
-    CompletableFuture<Long> registerRangeWatch(ByteArray keyFrom, ByteArray keyTo, WatchListener listener);
+    void registerRangeWatch(ByteArray keyFrom, @Nullable ByteArray keyTo, WatchListener listener);
 
     /**
      * Unregisters a watch listener.
      */
-    CompletableFuture<Void> unregisterWatch(long id);
+    void unregisterWatch(WatchListener lsnr);
 
     /**
      * Starts all registered watches.

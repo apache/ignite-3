@@ -25,15 +25,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RaftGroupConfiguration;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -44,24 +39,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class PartitionSnapshotStorageFactoryTest {
-    private final MvPartitionStorage mvPartitionStorage = new TestMvPartitionStorage(0);
-    private final TxStateStorage txStateStorage = new TestTxStateStorage();
-
     @Mock
     private PartitionAccess partitionAccess;
 
-    @BeforeEach
-    void configureMocks() {
-        when(partitionAccess.mvPartitionStorage()).thenReturn(mvPartitionStorage);
-        when(partitionAccess.txStatePartitionStorage()).thenReturn(txStateStorage);
-    }
-
     @Test
     void testForChoosingMinimumAppliedIndexForMeta() {
-        mvPartitionStorage.lastApplied(10L, 2L);
-        txStateStorage.lastApplied(5L, 1L);
+        when(partitionAccess.minLastAppliedIndex()).thenReturn(5L);
 
-        mvPartitionStorage.committedGroupConfiguration(mock(RaftGroupConfiguration.class));
+        when(partitionAccess.minLastAppliedTerm()).thenReturn(1L);
+
+        when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),
@@ -73,21 +60,6 @@ public class PartitionSnapshotStorageFactoryTest {
         PartitionSnapshotStorage snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
 
         assertEquals(5L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
-        assertEquals(1L, snapshotStorage.startupSnapshotMeta().lastIncludedTerm());
-
-        mvPartitionStorage.lastApplied(1L, 1L);
-        txStateStorage.lastApplied(2L, 2L);
-
-        partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
-                mock(TopologyService.class),
-                mock(OutgoingSnapshotsManager.class),
-                partitionAccess,
-                mock(Executor.class)
-        );
-
-        snapshotStorage = partitionSnapshotStorageFactory.createSnapshotStorage("", mock(RaftOptions.class));
-
-        assertEquals(1L, snapshotStorage.startupSnapshotMeta().lastIncludedIndex());
         assertEquals(1L, snapshotStorage.startupSnapshotMeta().lastIncludedTerm());
     }
 

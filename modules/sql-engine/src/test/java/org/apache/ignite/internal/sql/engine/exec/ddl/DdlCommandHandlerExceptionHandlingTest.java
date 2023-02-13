@@ -108,7 +108,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                "node"
         );
 
         commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);

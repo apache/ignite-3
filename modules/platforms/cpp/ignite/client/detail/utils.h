@@ -46,17 +46,19 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
  *
  * @param parser Binary tuple parser.
  * @param typ Column type.
+ * @param scale Column scale.
  * @return Column value.
  */
-[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ);
+[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale);
 
 /**
  * Read column value from binary tuple.
  *
  * @param parser Binary tuple parser.
  * @param typ Column type.
+ * @param scale Column scale.
  * @return Column value.
  */
-[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, column_type typ);
+[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, column_type typ, std::int32_t scale);
 
 } // namespace ignite::detail

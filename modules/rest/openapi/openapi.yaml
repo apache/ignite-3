@@ -531,12 +531,21 @@ components:
           format: int32
       description: Node network address information.
     NodeMetadata:
+
+      required:
+      - httpPort
+      - httpsPort
+      - restHost
       type: object
       properties:
         restHost:
           type: string
-          description: The host exposed to REST API.
         restPort:
+        httpPort:
+          type: integer
+          description: The host exposed to REST API.
+          format: int32
+        httpsPort:
           type: integer
           description: The port exposed to REST API.
           format: int32

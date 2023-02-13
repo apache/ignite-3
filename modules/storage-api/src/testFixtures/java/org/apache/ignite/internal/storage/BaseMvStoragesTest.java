@@ -24,15 +24,14 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -50,65 +49,29 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Base test for MV storages, contains pojo classes, their descriptor and a marshaller instance.
  */
 public abstract class BaseMvStoragesTest {
     /** Default reflection marshaller factory. */
-    protected static MarshallerFactory marshallerFactory;
+    protected static final MarshallerFactory marshallerFactory = new ReflectionMarshallerFactory();
 
     /** Schema descriptor for tests. */
-    protected static SchemaDescriptor schemaDescriptor;
+    protected static final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1, new Column[]{
+            new Column("INTKEY", NativeTypes.INT32, false),
+            new Column("STRKEY", NativeTypes.STRING, false),
+    }, new Column[]{
+            new Column("INTVAL", NativeTypes.INT32, false),
+            new Column("STRVAL", NativeTypes.STRING, false),
+    });
 
     /** Key-value marshaller for tests. */
-    protected static KvMarshaller<TestKey, TestValue> kvMarshaller;
-
-    /** Key-value {@link BinaryTuple} converter for tests. */
-    protected static BinaryConverter kvBinaryConverter;
-
-    /** Key {@link BinaryTuple} converter for tests. */
-    protected static BinaryConverter kBinaryConverter;
+    protected static final KvMarshaller<TestKey, TestValue> kvMarshaller
+            = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
 
     /** Hybrid clock to generate timestamps. */
     protected final HybridClock clock = new HybridClockImpl();
-
-    @BeforeAll
-    static void beforeAll() {
-        marshallerFactory = new ReflectionMarshallerFactory();
-
-        schemaDescriptor = new SchemaDescriptor(1, new Column[]{
-                new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        }, new Column[]{
-                new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        });
-
-        kvMarshaller = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
-
-        kvBinaryConverter = BinaryConverter.forRow(schemaDescriptor);
-        kBinaryConverter = BinaryConverter.forKey(schemaDescriptor);
-    }
-
-    @AfterAll
-    static void afterAll() {
-        kvMarshaller = null;
-        schemaDescriptor = null;
-        marshallerFactory = null;
-        kvBinaryConverter = null;
-        kBinaryConverter = null;
-    }
-
-    protected static BinaryRow binaryKey(TestKey key) {
-        try {
-            return kvMarshaller.marshal(key);
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
-    }
 
     protected static BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
@@ -117,6 +80,7 @@ public abstract class BaseMvStoragesTest {
             throw new IgniteException(e);
         }
     }
+
 
     protected static IndexRow indexRow(IndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
         int[] columnIndexes = indexDescriptor.columns().stream()
@@ -129,11 +93,8 @@ public abstract class BaseMvStoragesTest {
                 })
                 .toArray();
 
-        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.createSchema(schemaDescriptor, columnIndexes);
-
-        BinaryConverter binaryTupleConverter = new BinaryConverter(schemaDescriptor, binaryTupleSchema, false);
-
-        return new IndexRowImpl(binaryTupleConverter.toTuple(binaryRow), rowId);
+        Function<BinaryRow, BinaryTuple> converter = BinaryRowConverter.columnsExtractor(schemaDescriptor, columnIndexes);
+        return new IndexRowImpl(converter.apply(binaryRow), rowId);
     }
 
     protected static TestKey key(BinaryRow binaryRow) {

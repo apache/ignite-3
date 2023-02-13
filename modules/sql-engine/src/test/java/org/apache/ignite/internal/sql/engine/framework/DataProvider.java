@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * Producer of the rows to use with {@link TestTable} in execution-related scenarios.
@@ -39,5 +41,45 @@ public interface DataProvider<T> extends Iterable<T> {
      */
     static <T> DataProvider<T> fromCollection(Collection<T> collection) {
         return collection::iterator;
+    }
+
+    /**
+     * Creates data provider from repeating the given row specified amount of times.
+     *
+     * @param row A row to repeat.
+     * @param repeatTimes An amount of times to repeat the row.
+     * @param <T> A type of the produced elements.
+     * @return A data provider instance.
+     */
+    static <T> DataProvider<T> fromRow(T row, int repeatTimes) {
+        return new DataProvider<>() {
+            private final int times = repeatTimes;
+
+            /** {@inheritDoc} */
+            @Override
+            public Iterator<T> iterator() {
+                return new Iterator<>() {
+                    private int counter;
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public boolean hasNext() {
+                        return counter < times;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public T next() {
+                        if (!hasNext()) {
+                            throw new NoSuchElementException();
+                        }
+
+                        counter++;
+
+                        return row;
+                    }
+                };
+            }
+        };
     }
 }

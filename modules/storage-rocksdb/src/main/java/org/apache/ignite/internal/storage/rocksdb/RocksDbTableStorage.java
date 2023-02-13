@@ -21,11 +21,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.GC_QUEUE_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.HASH_INDEX_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexId;
+import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.io.IOException;
@@ -34,6 +36,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,8 +51,9 @@ import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -57,9 +62,10 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -109,6 +115,9 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Column Family handle for partition data. */
     private volatile ColumnFamily partitionCf;
 
+    /** Column Family handle for GC queue. */
+    private volatile ColumnFamily gcQueueCf;
+
     /** Column Family handle for Hash Index data. */
     private volatile ColumnFamily hashIndexCf;
 
@@ -127,7 +136,9 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    private final ConcurrentMap<Integer, CompletableFuture<Void>> partitionIdDestroyFutureMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
+
+    private final Set<Integer> rebalancePartitions = ConcurrentHashMap.newKeySet();
 
     /**
      * Constructor.
@@ -177,6 +188,13 @@ public class RocksDbTableStorage implements MvTableStorage {
      */
     public ColumnFamilyHandle metaCfHandle() {
         return meta.columnFamily().handle();
+    }
+
+    /**
+     * Returns a column family handle for GC queue.
+     */
+    public ColumnFamilyHandle gcQueueHandle() {
+        return gcQueueCf.handle();
     }
 
     @Override
@@ -236,6 +254,11 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                             break;
 
+                        case GC_QUEUE:
+                            gcQueueCf = cf;
+
+                            break;
+
                         case HASH_INDEX:
                             hashIndexCf = cf;
 
@@ -252,7 +275,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                         default:
                             throw new StorageException("Unidentified column family [name=" + cf.name() + ", table="
-                                    + tableCfg.value().name() + ']');
+                                    + getTableName() + ']');
                     }
                 }
 
@@ -326,6 +349,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         resources.add(meta.columnFamily().handle());
         resources.add(partitionCf.handle());
+        resources.add(gcQueueCf.handle());
         resources.add(hashIndexCf.handle());
         resources.addAll(
                 sortedIndices.values().stream()
@@ -338,11 +362,19 @@ public class RocksDbTableStorage implements MvTableStorage {
         resources.add(writeOptions);
 
         for (int i = 0; i < partitions.length(); i++) {
-            MvPartitionStorage partition = partitions.get(i);
+            RocksDbMvPartitionStorage partition = partitions.get(i);
 
             if (partition != null) {
                 resources.add(partition::close);
             }
+        }
+
+        for (HashIndex index : hashIndices.values()) {
+            resources.add(index::close);
+        }
+
+        for (SortedIndex index : sortedIndices.values()) {
+            resources.add(index::close);
         }
 
         Collections.reverse(resources);
@@ -350,7 +382,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         try {
             IgniteUtils.closeAll(resources);
         } catch (Exception e) {
-            throw new StorageException("Failed to stop RocksDB table storage.", e);
+            throw new StorageException("Failed to stop RocksDB table storage: " + getTableName(), e);
         }
     }
 
@@ -367,8 +399,8 @@ public class RocksDbTableStorage implements MvTableStorage {
             IgniteUtils.deleteIfExists(tablePath);
 
             return completedFuture(null);
-        } catch (Throwable throwable) {
-            return failedFuture(throwable);
+        } catch (Throwable t) {
+            return failedFuture(new StorageException("Failed to destroy RocksDB table storage: " + getTableName(), t));
         }
     }
 
@@ -407,9 +439,12 @@ public class RocksDbTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> {
             checkPartitionId(partitionId);
 
+            assert !rebalancePartitions.contains(partitionId)
+                    : IgniteStringFormatter.format("table={}, partitionId={}", getTableName(), partitionId);
+
             CompletableFuture<Void> destroyPartitionFuture = new CompletableFuture<>();
 
-            CompletableFuture<Void> previousDestroyPartitionFuture = partitionIdDestroyFutureMap.putIfAbsent(
+            CompletableFuture<Void> previousDestroyPartitionFuture = destroyFutureByPartitionId.putIfAbsent(
                     partitionId,
                     destroyPartitionFuture
             );
@@ -442,16 +477,16 @@ public class RocksDbTableStorage implements MvTableStorage {
 
                     flushFuture.whenComplete((unused, throwable) -> {
                         if (throwable == null) {
-                            partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+                            destroyFutureByPartitionId.remove(partitionId).complete(null);
                         } else {
-                            partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
+                            destroyFutureByPartitionId.remove(partitionId).completeExceptionally(throwable);
                         }
                     });
                 } catch (Throwable throwable) {
-                    partitionIdDestroyFutureMap.remove(partitionId).completeExceptionally(throwable);
+                    destroyFutureByPartitionId.remove(partitionId).completeExceptionally(throwable);
                 }
             } else {
-                partitionIdDestroyFutureMap.remove(partitionId).complete(null);
+                destroyFutureByPartitionId.remove(partitionId).complete(null);
             }
 
             return destroyPartitionFuture;
@@ -466,7 +501,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             RocksDbMvPartitionStorage partitionStorage = getMvPartitionBusy(partitionId);
 
             if (partitionStorage == null) {
-                throw new StorageException(String.format("Partition ID %d does not exist", partitionId));
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
             }
 
             return storages.getOrCreateStorage(partitionStorage);
@@ -545,15 +580,15 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Checks that a passed partition id is within the proper bounds.
      *
-     * @param partId Partition id.
+     * @param partitionId Partition id.
      */
-    private void checkPartitionId(int partId) {
-        if (partId < 0 || partId >= partitions.length()) {
-            throw new IllegalArgumentException(S.toString(
-                    "Unable to access partition with id outside of configured range",
-                    "table", tableCfg.value().name(), false,
-                    "partitionId", partId, false,
-                    "partitions", partitions.length(), false
+    private void checkPartitionId(int partitionId) {
+        if (partitionId < 0 || partitionId >= partitions.length()) {
+            throw new IllegalArgumentException(IgniteStringFormatter.format(
+                    "Unable to access partition with id outside of configured range [table={}, partitionId={}, partitions={}]",
+                    getTableName(),
+                    partitionId,
+                    partitions.length()
             ));
         }
     }
@@ -561,7 +596,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Returns a list of Column Families' names that belong to a RocksDB instance in the given path.
      *
-     * @return Map with column families names.
+     * @return List with column families names.
      * @throws StorageException If something went wrong.
      */
     private List<String> getExistingCfNames() {
@@ -575,7 +610,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
             // even if the database is new (no existing Column Families), we return the names of mandatory column families, that
             // will be created automatically.
-            return existingNames.isEmpty() ? List.of(META_CF_NAME, PARTITION_CF_NAME, HASH_INDEX_CF_NAME) : existingNames;
+            return existingNames.isEmpty() ? List.of(META_CF_NAME, PARTITION_CF_NAME, GC_QUEUE_CF_NAME, HASH_INDEX_CF_NAME) : existingNames;
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to read list of column families names for the RocksDB instance located at path " + absolutePathStr, e
@@ -600,10 +635,16 @@ public class RocksDbTableStorage implements MvTableStorage {
     private ColumnFamilyDescriptor cfDescriptorFromName(String cfName) {
         switch (ColumnFamilyType.fromCfName(cfName)) {
             case META:
-            case PARTITION:
+            case GC_QUEUE:
                 return new ColumnFamilyDescriptor(
                         cfName.getBytes(UTF_8),
                         new ColumnFamilyOptions()
+                );
+
+            case PARTITION:
+                return new ColumnFamilyDescriptor(
+                        cfName.getBytes(UTF_8),
+                        new ColumnFamilyOptions().useFixedLengthPrefixExtractor(PartitionDataHelper.ROW_PREFIX_SIZE)
                 );
 
             case HASH_INDEX:
@@ -618,7 +659,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                 return sortedIndexCfDescriptor(cfName, indexDescriptor);
 
             default:
-                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.value().name() + ']');
+                throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + getTableName() + ']');
         }
     }
 
@@ -635,19 +676,172 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        // TODO: IGNITE-18027 Implement
-        throw new UnsupportedOperationException();
+        return inBusyLock(busyLock, () -> {
+            RocksDbMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
+
+            if (mvPartitionStorage == null) {
+                throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            assert !destroyFutureByPartitionId.containsKey(partitionId) : mvPartitionStorage.createStorageInfo();
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.startRebalance(writeBatch);
+
+                getHashIndexStorages(partitionId).forEach(index -> index.startRebalance(writeBatch));
+                getSortedIndexStorages(partitionId).forEach(index -> index.startRebalance(writeBatch));
+
+                db.write(writeOptions, writeBatch);
+
+                boolean added = rebalancePartitions.add(partitionId);
+
+                assert added : mvPartitionStorage.createStorageInfo();
+
+                return completedFuture(null);
+            } catch (RocksDBException e) {
+                throw new StorageRebalanceException(
+                        IgniteStringFormatter.format(
+                                "Error when trying to start rebalancing storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
+                        e
+                );
+            }
+        });
     }
 
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
-        // TODO: IGNITE-18027 Implement
-        throw new UnsupportedOperationException();
+        return inBusyLock(busyLock, () -> {
+            RocksDbMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
+
+            if (mvPartitionStorage == null) {
+                throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            boolean removed = rebalancePartitions.remove(partitionId);
+
+            if (!removed) {
+                return completedFuture(null);
+            }
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.abortRebalance(writeBatch);
+
+                getHashIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
+                getSortedIndexStorages(partitionId).forEach(index -> index.abortReblance(writeBatch));
+
+                db.write(writeOptions, writeBatch);
+
+                return completedFuture(null);
+            } catch (RocksDBException e) {
+                throw new StorageRebalanceException(
+                        IgniteStringFormatter.format(
+                                "Error when trying to abort rebalancing storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
+                        e
+                );
+            }
+        });
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(int partitionId, long lastAppliedIndex, long lastAppliedTerm) {
-        // TODO: IGNITE-18027 Implement
-        throw new UnsupportedOperationException();
+    public CompletableFuture<Void> finishRebalancePartition(
+            int partitionId,
+            long lastAppliedIndex,
+            long lastAppliedTerm,
+            RaftGroupConfiguration raftGroupConfig
+    ) {
+        return inBusyLock(busyLock, () -> {
+            RocksDbMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
+
+            if (mvPartitionStorage == null) {
+                throw new StorageRebalanceException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            boolean removed = rebalancePartitions.remove(partitionId);
+
+            if (!removed) {
+                throw new StorageRebalanceException("Rebalance for partition did not start: " + mvPartitionStorage.createStorageInfo());
+            }
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm, raftGroupConfig);
+
+                getHashIndexStorages(partitionId).forEach(RocksDbHashIndexStorage::finishRebalance);
+                getSortedIndexStorages(partitionId).forEach(RocksDbSortedIndexStorage::finishRebalance);
+
+                db.write(writeOptions, writeBatch);
+
+                return completedFuture(null);
+            } catch (RocksDBException e) {
+                throw new StorageRebalanceException(
+                        IgniteStringFormatter.format(
+                                "Error when trying to finish rebalancing storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
+                        e
+                );
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> clearPartition(int partitionId) {
+        return inBusyLock(busyLock, () -> {
+            RocksDbMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
+
+            if (mvPartitionStorage == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
+
+            List<RocksDbHashIndexStorage> hashIndexStorages = getHashIndexStorages(partitionId);
+            List<RocksDbSortedIndexStorage> sortedIndexStorages = getSortedIndexStorages(partitionId);
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                mvPartitionStorage.startCleanup(writeBatch);
+
+                for (RocksDbHashIndexStorage hashIndexStorage : hashIndexStorages) {
+                    hashIndexStorage.startCleanup(writeBatch);
+                }
+
+                for (RocksDbSortedIndexStorage sortedIndexStorage : sortedIndexStorages) {
+                    sortedIndexStorage.startCleanup(writeBatch);
+                }
+
+                db.write(writeOptions, writeBatch);
+            } catch (RocksDBException e) {
+                throw new StorageException(
+                        IgniteStringFormatter.format(
+                                "Error when trying to cleanup storage: [{}]",
+                                mvPartitionStorage.createStorageInfo()
+                        ),
+                        e
+                );
+            } finally {
+                mvPartitionStorage.finishCleanup();
+
+                hashIndexStorages.forEach(RocksDbHashIndexStorage::finishCleanup);
+                sortedIndexStorages.forEach(RocksDbSortedIndexStorage::finishCleanup);
+            }
+
+            return completedFuture(null);
+        });
+    }
+
+    /**
+     * Returns table name.
+     */
+    String getTableName() {
+        return tableCfg.name().value();
+    }
+
+    private List<RocksDbHashIndexStorage> getHashIndexStorages(int partitionId) {
+        return hashIndices.values().stream().map(indexes -> indexes.get(partitionId)).filter(Objects::nonNull).collect(toList());
+    }
+
+    private List<RocksDbSortedIndexStorage> getSortedIndexStorages(int partitionId) {
+        return sortedIndices.values().stream().map(indexes -> indexes.get(partitionId)).filter(Objects::nonNull).collect(toList());
     }
 }

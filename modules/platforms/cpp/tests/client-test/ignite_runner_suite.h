@@ -21,6 +21,7 @@
 #include "ignite/client/ignite_client_configuration.h"
 
 #include "gtest_logger.h"
+#include "test_utils.h"
 
 #include <gtest/gtest.h>
 
@@ -35,12 +36,27 @@ using namespace std::string_view_literals;
  * Test suite.
  */
 class ignite_runner_suite : public ::testing::Test {
-protected:
+public:
+    static constexpr std::initializer_list<std::string_view> SINGLE_NODE_ADDR = {"127.0.0.1:10942"sv};
     static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
+
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
 
     static constexpr const char *KEY_COLUMN = "key";
     static constexpr const char *VAL_COLUMN = "val";
+
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::initializer_list<std::string_view> get_node_addrs() {
+        if (single_node_mode())
+            return SINGLE_NODE_ADDR;
+
+        return NODE_ADDRS;
+    }
 
     /**
      * Get logger.
@@ -72,7 +88,7 @@ protected:
      * Clear table @c TABLE_1.
      */
     static void clear_table1() {
-        ignite_client_configuration cfg{NODE_ADDRS};
+        ignite_client_configuration cfg{get_node_addrs()};
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 

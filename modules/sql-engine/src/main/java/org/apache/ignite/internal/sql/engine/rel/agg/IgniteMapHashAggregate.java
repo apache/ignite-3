@@ -58,8 +58,9 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteMapHashAggregate(RelInput input) {
         super(input);

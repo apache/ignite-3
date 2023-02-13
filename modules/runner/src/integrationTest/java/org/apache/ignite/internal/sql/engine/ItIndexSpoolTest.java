@@ -71,7 +71,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
      */
     @ParameterizedTest(name = "tableSize={0}, partitions={1}")
     @MethodSource("rowsWithPartitionsArgs")
-    public void test(int rows, int partitions) {
+    public void test(int rows, int partitions) throws InterruptedException {
         prepareDataSet(rows, partitions);
 
         var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
@@ -84,7 +84,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         res.forEach(r -> assertThat(r.get(0), is(r.get(1))));
     }
 
-    private void prepareDataSet(int rowsCount, int parts) {
+    private void prepareDataSet(int rowsCount, int parts) throws InterruptedException {
         Object[][] dataRows = new Object[rowsCount][];
 
         for (int i = 0; i < rowsCount; i++) {
@@ -94,8 +94,11 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
         for (String name : List.of("TEST0", "TEST1")) {
             sql(String.format("CREATE TABLE " + name + "(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH replicas=2,partitions=%d", parts));
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17304 uncomment this
-            // sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
+            sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
+
+            // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
+            waitForIndex(name + "_PK");
+            waitForIndex(name + "_jid_idx");
 
             insertData(name, List.of("ID", "JID", "VAL"), dataRows);
         }

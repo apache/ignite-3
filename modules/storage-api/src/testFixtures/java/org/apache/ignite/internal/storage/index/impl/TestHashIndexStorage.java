@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -131,13 +132,19 @@ public class TestHashIndexStorage implements HashIndexStorage {
     public void destroy() {
         closed = true;
 
-        clear();
+        clear0();
     }
 
     /**
      * Removes all index data.
      */
     public void clear() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        clear0();
+    }
+
+    private void clear0() {
         index.clear();
     }
 
@@ -163,7 +170,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
         rebalance = true;
 
-        clear();
+        clear0();
     }
 
     /**
@@ -178,7 +185,7 @@ public class TestHashIndexStorage implements HashIndexStorage {
 
         rebalance = false;
 
-        clear();
+        clear0();
     }
 
     /**
@@ -190,5 +197,12 @@ public class TestHashIndexStorage implements HashIndexStorage {
         assert rebalance;
 
         rebalance = false;
+    }
+
+    /**
+     * Returns all indexed row ids.
+     */
+    public Set<RowId> allRowsIds() {
+        return index.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
     }
 }

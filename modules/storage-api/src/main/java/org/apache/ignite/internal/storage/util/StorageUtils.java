@@ -37,6 +37,49 @@ public class StorageUtils {
     }
 
     /**
+     * Throws an exception if the state of the storage is not {@link StorageState#RUNNABLE}.
+     *
+     * @param state Storage state.
+     * @param storageInfoSupplier Storage information supplier, for example in the format "table=user, partitionId=1".
+     * @throws StorageClosedException If the storage is closed.
+     * @throws StorageRebalanceException If storage is in the process of rebalancing.
+     * @throws StorageException For other {@link StorageState}.
+     */
+    public static void throwExceptionIfStorageNotInRunnableState(StorageState state, Supplier<String> storageInfoSupplier) {
+        if (state != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(state, storageInfoSupplier.get());
+        }
+    }
+
+    /**
+     * Throws an exception if the state of the storage is not {@link StorageState#RUNNABLE} OR {@link StorageState#REBALANCE}.
+     *
+     * @param state Storage state.
+     * @param storageInfoSupplier Storage information supplier, for example in the format "table=user, partitionId=1".
+     * @throws StorageClosedException If the storage is closed.
+     * @throws StorageException For other {@link StorageState}.
+     */
+    public static void throwExceptionIfStorageNotInRunnableOrRebalanceState(StorageState state, Supplier<String> storageInfoSupplier) {
+        if (state != StorageState.RUNNABLE && state != StorageState.REBALANCE) {
+            throwExceptionDependingOnStorageState(state, storageInfoSupplier.get());
+        }
+    }
+
+    /**
+     * Throws an exception if the state of the storage is not {@link StorageState#CLEANUP} OR {@link StorageState#REBALANCE}.
+     *
+     * @param state Storage state.
+     * @param storageInfoSupplier Storage information supplier, for example in the format "table=user, partitionId=1".
+     * @throws StorageClosedException If the storage is closed.
+     * @throws StorageException For other {@link StorageState}.
+     */
+    public static void throwExceptionIfStorageNotInCleanupOrRebalancedState(StorageState state, Supplier<String> storageInfoSupplier) {
+        if (state != StorageState.CLEANUP && state != StorageState.REBALANCE) {
+            throwExceptionDependingOnStorageState(state, storageInfoSupplier.get());
+        }
+    }
+
+    /**
      * Throws an {@link StorageRebalanceException} if the storage is in the process of rebalancing.
      *
      * @param state Storage state.
@@ -61,6 +104,8 @@ public class StorageUtils {
                 throw new StorageRebalanceException(createStorageClosedErrorMessage(storageInfo));
             case REBALANCE:
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
+            case CLEANUP:
+                throw new StorageRebalanceException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
             default:
                 throw new StorageRebalanceException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
         }
@@ -81,6 +126,8 @@ public class StorageUtils {
                 throw new StorageClosedException(createStorageClosedErrorMessage(storageInfo));
             case REBALANCE:
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
+            case CLEANUP:
+                throw new StorageException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
             default:
                 throw new StorageException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
         }
@@ -108,5 +155,9 @@ public class StorageUtils {
 
     private static String createStorageClosedErrorMessage(String storageInfo) {
         return IgniteStringFormatter.format("Storage is already closed: [{}]", storageInfo);
+    }
+
+    private static String createStorageInProcessOfCleanupErrorMessage(String storageInfo) {
+        return IgniteStringFormatter.format("Storage is in the process of cleanup: [{}]", storageInfo);
     }
 }

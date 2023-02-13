@@ -61,8 +61,6 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-//TODO: IGNITE-14487 Add bulk operations tests.
-//TODO: IGNITE-14487 Add async operations tests.
 public class RecordViewOperationsTest {
 
     private final Random rnd = new Random();
@@ -297,8 +295,6 @@ public class RecordViewOperationsTest {
         Mockito.when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS));
-
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
@@ -337,6 +333,8 @@ public class RecordViewOperationsTest {
                 new Column[]{new Column("primitiveLongCol".toUpperCase(), NativeTypes.INT64, false)},
                 valCols
         );
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())

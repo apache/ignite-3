@@ -55,9 +55,6 @@ import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
- *
- * <p>TODO: IGNITE-14487 Add bulk operations tests.
- * TODO: IGNITE-14487 Add async operations tests.
  */
 public class KeyValueViewOperationsSimpleSchemaTest {
     /**
@@ -709,7 +706,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Mockito.when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS));
+        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
 
         Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
 

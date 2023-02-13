@@ -63,7 +63,7 @@ public class CmgRaftGroupListenerTest {
 
     private final LogicalTopology logicalTopology = spy(new LogicalTopologyImpl(storage));
 
-    private final CmgRaftGroupListener listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
+    private CmgRaftGroupListener listener;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -82,6 +82,8 @@ public class CmgRaftGroupListenerTest {
     @BeforeEach
     void setUp() {
         storage.start();
+
+        listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
     }
 
     @AfterEach
@@ -90,19 +92,19 @@ public class CmgRaftGroupListenerTest {
     }
 
     /**
-     * Test that validated node IDs get added and removed from the storage.
+     * Test that validated nodes get added and removed from the storage.
      */
     @Test
-    void testValidatedNodeIds() {
+    void testValidatedNodes() {
         listener.onWrite(iterator(msgFactory.initCmgStateCommand().node(node).clusterState(state).build()));
 
         listener.onWrite(iterator(msgFactory.joinRequestCommand().node(node).version(state.version()).clusterTag(clusterTag).build()));
 
-        assertThat(listener.storage().getValidatedNodeIds(), contains(node.id()));
+        assertThat(listener.storage().getValidatedNodes(), contains(node.asClusterNode()));
 
         listener.onWrite(iterator(msgFactory.joinReadyCommand().node(node).build()));
 
-        assertThat(listener.storage().getValidatedNodeIds(), is(empty()));
+        assertThat(listener.storage().getValidatedNodes(), is(empty()));
     }
 
     @Test

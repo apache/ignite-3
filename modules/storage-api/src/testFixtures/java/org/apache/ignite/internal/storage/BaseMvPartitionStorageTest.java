@@ -47,9 +47,9 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
     protected static final TestKey KEY = new TestKey(10, "foo");
 
-    protected static final BinaryRow BINARY_ROW = binaryRow(KEY, new TestValue(20, "bar"));
+    protected static final BinaryRow TABLE_ROW = binaryRow(KEY, new TestValue(20, "bar"));
 
-    protected static final BinaryRow BINARY_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
+    protected static final BinaryRow TABLE_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
     protected @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesCfg;
 

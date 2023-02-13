@@ -24,6 +24,14 @@
 
 namespace ignite {
 
+std::optional<std::string> get_env(const std::string &name) {
+    const char *env = std::getenv(name.c_str());
+    if (!env)
+        return {};
+
+    return env;
+}
+
 /**
  * Checks if the path looks like binary release home directory.
  * Internally checks for presence of core library.
@@ -64,9 +72,9 @@ std::string resolveIgniteHome(const std::string &path) {
     if (!error && std::filesystem::is_directory(path))
         return home.string();
 
-    const char *env = std::getenv("IGNITE_HOME");
+    auto env = get_env("IGNITE_HOME");
     if (env) {
-        home = std::filesystem::canonical(env, error);
+        home = std::filesystem::canonical(env.value(), error);
         if (!error && std::filesystem::is_directory(home))
             return home.string();
     }

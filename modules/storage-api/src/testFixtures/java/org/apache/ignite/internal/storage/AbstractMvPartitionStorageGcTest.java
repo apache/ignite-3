@@ -29,53 +29,53 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionStorageTest {
     @Test
     void testEmptyStorage() {
-        assertNull(storage.pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(clock.now()));
     }
 
     @Test
     void testSingleValueStorage() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
 
-        assertNull(storage.pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(clock.now()));
     }
 
     @Test
     void testRegularPoll() {
-        HybridTimestamp firstCommitTs = addAndCommit(BINARY_ROW);
+        HybridTimestamp firstCommitTs = addAndCommit(TABLE_ROW);
 
         HybridTimestamp tsBetweenCommits = clock.now();
 
-        HybridTimestamp secondCommitTs = addAndCommit(BINARY_ROW2);
+        HybridTimestamp secondCommitTs = addAndCommit(TABLE_ROW2);
 
         // Data is still visible for older timestamps.
-        assertNull(storage.pollForVacuum(firstCommitTs));
+        assertNull(pollForVacuum(firstCommitTs));
 
-        assertNull(storage.pollForVacuum(tsBetweenCommits));
+        assertNull(pollForVacuum(tsBetweenCommits));
 
         // Once a low watermark value becomes equal to second commit timestamp, previous value
         // becomes completely inaccessible and should be purged.
-        BinaryRowAndRowId gcedRow = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId gcedRow = pollForVacuum(secondCommitTs);
 
         assertNotNull(gcedRow);
 
-        assertRowMatches(gcedRow.binaryRow(), BINARY_ROW);
+        assertRowMatches(gcedRow.binaryRow(), TABLE_ROW);
 
         // Read from the old timestamp should return null.
         assertNull(read(ROW_ID, firstCommitTs));
 
         // Read from the newer timestamp should return last value.
-        assertRowMatches(read(ROW_ID, secondCommitTs), BINARY_ROW2);
+        assertRowMatches(read(ROW_ID, secondCommitTs), TABLE_ROW2);
     }
 
     @Test
     void testPollFromUnderTombstone() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
         HybridTimestamp secondCommitTs = addAndCommit(null);
 
-        BinaryRowAndRowId row = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(secondCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, secondCommitTs));
 
@@ -85,14 +85,14 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
     @Test
     void testDoubleTombstone() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
         addAndCommit(null);
         HybridTimestamp lastCommitTs = addAndCommit(null);
 
-        BinaryRowAndRowId row = storage.pollForVacuum(lastCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(lastCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, lastCommitTs));
 
@@ -102,9 +102,9 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
     @Test
     void testManyOldVersions() {
-        addAndCommit(BINARY_ROW);
+        addAndCommit(TABLE_ROW);
 
-        addAndCommit(BINARY_ROW2);
+        addAndCommit(TABLE_ROW2);
 
         HybridTimestamp lowWatermark = addAndCommit(null);
 
@@ -112,13 +112,13 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         BinaryRowAndRowId row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         // Poll the next oldest row.
         row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), BINARY_ROW2);
+        assertRowMatches(row.binaryRow(), TABLE_ROW2);
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));

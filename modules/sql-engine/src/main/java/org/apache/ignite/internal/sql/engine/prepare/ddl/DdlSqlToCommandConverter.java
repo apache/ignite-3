@@ -20,13 +20,13 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.schema.configuration.storage.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.AFFINITY_FUNCTION;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.DATA_NODES_FILTER;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.PARTITIONS;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum.REPLICAS;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.AFFINITY_FUNCTION;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.DATA_NODES_FILTER;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEYS_MULTIPLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PRIMARY_KEY_MISSING_ERR;
@@ -79,15 +79,17 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOption;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZoneOptionEnum;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionEnum;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
@@ -114,7 +116,9 @@ public class DdlSqlToCommandConverter {
     private final Map<String, Map<String, DdlOptionInfo<CreateTableCommand, ?>>> dataStorageOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
-    private final Map<IgniteSqlCreateZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
+    private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
+
+    private final Map<IgniteSqlZoneOptionEnum, DdlOptionInfo<AlterZoneSetCommand, ?>> alterZoneOptionInfos;
 
     /**
      * Constructor.
@@ -155,11 +159,24 @@ public class DdlSqlToCommandConverter {
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::nodeFilter),
 
                 DATA_NODES_AUTO_ADJUST,
-                    new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjust),
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjust),
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
-                    new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
-                    new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown)
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown)
+        );
+
+        // ALTER ZONE options.
+        alterZoneOptionInfos = Map.of(
+                REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::replicas),
+                DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::nodeFilter),
+
+                DATA_NODES_AUTO_ADJUST,
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjust),
+                DATA_NODES_AUTO_ADJUST_SCALE_UP,
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjustScaleUp),
+                DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
+                new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjustScaleDown)
         );
     }
 
@@ -167,7 +184,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given ddl AST to a ddl command.
      *
      * @param ddlNode Root node of the given AST.
-     * @param ctx     Planning context.
+     * @param ctx Planning context.
      */
     public DdlCommand convert(SqlDdl ddlNode, PlanningContext ctx) {
         if (ddlNode instanceof IgniteSqlCreateTable) {
@@ -198,6 +215,14 @@ public class DdlSqlToCommandConverter {
             return convertCreateZone((IgniteSqlCreateZone) ddlNode, ctx);
         }
 
+        if (ddlNode instanceof IgniteSqlAlterZoneRenameTo) {
+            return convertAlterZoneRename((IgniteSqlAlterZoneRenameTo) ddlNode, ctx);
+        }
+
+        if (ddlNode instanceof IgniteSqlAlterZoneSet) {
+            return convertAlterZoneSet((IgniteSqlAlterZoneSet) ddlNode, ctx);
+        }
+
         if (ddlNode instanceof IgniteSqlDropZone) {
             return convertDropZone((IgniteSqlDropZone) ddlNode, ctx);
         }
@@ -211,7 +236,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given CreateTable AST to a CreateTable command.
      *
      * @param createTblNode Root node of the given AST.
-     * @param ctx           Planning context.
+     * @param ctx Planning context.
      */
     private CreateTableCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
         CreateTableCommand createTblCmd = new CreateTableCommand();
@@ -337,7 +362,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given IgniteSqlAlterTableAddColumn AST to a AlterTableAddCommand.
      *
      * @param alterTblNode Root node of the given AST.
-     * @param ctx          Planning context.
+     * @param ctx Planning context.
      */
     private AlterTableAddCommand convertAlterTableAdd(IgniteSqlAlterTableAddColumn alterTblNode, PlanningContext ctx) {
         AlterTableAddCommand alterTblCmd = new AlterTableAddCommand();
@@ -387,7 +412,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given IgniteSqlAlterTableDropColumn AST to a AlterTableDropCommand.
      *
      * @param alterTblNode Root node of the given AST.
-     * @param ctx          Planning context.
+     * @param ctx Planning context.
      */
     private AlterTableDropCommand convertAlterTableDrop(IgniteSqlAlterTableDropColumn alterTblNode, PlanningContext ctx) {
         AlterTableDropCommand alterTblCmd = new AlterTableDropCommand();
@@ -409,7 +434,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given DropTable AST to a DropTable command.
      *
      * @param dropTblNode Root node of the given AST.
-     * @param ctx         Planning context.
+     * @param ctx Planning context.
      */
     private DropTableCommand convertDropTable(SqlDropTable dropTblNode, PlanningContext ctx) {
         DropTableCommand dropTblCmd = new DropTableCommand();
@@ -479,7 +504,7 @@ public class DdlSqlToCommandConverter {
      * Converts a given CreateZone AST to a CreateZone command.
      *
      * @param createZoneNode Root node of the given AST.
-     * @param ctx            Planning context.
+     * @param ctx Planning context.
      */
     private CreateZoneCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
         CreateZoneCommand createZoneCmd = new CreateZoneCommand();
@@ -492,15 +517,15 @@ public class DdlSqlToCommandConverter {
             return createZoneCmd;
         }
 
-        Set<IgniteSqlCreateZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlCreateZoneOptionEnum.class);
+        Set<IgniteSqlZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class);
 
         for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
-            IgniteSqlCreateZoneOption option = (IgniteSqlCreateZoneOption) optionNode;
-            IgniteSqlCreateZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlCreateZoneOptionEnum.class);
+            IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
+            IgniteSqlZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlZoneOptionEnum.class);
 
             if (!knownOptionNames.remove(optionName)) {
                 throw new IgniteException(QUERY_VALIDATION_ERR,
-                        String.format("Duplicate DDL command option specified [option=%s, query=%s]", optionName, ctx.query()));
+                        String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
             }
 
             DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = zoneOptionInfos.get(optionName);
@@ -514,11 +539,64 @@ public class DdlSqlToCommandConverter {
         return createZoneCmd;
     }
 
+
+    /**
+     * Converts the given IgniteSqlAlterZoneSet AST node to a AlterZoneCommand.
+     *
+     * @param alterZoneSet Root node of the given AST.
+     * @param ctx Planning context.
+     */
+    private DdlCommand convertAlterZoneSet(IgniteSqlAlterZoneSet alterZoneSet, PlanningContext ctx) {
+        AlterZoneSetCommand alterZoneCmd = new AlterZoneSetCommand();
+
+        alterZoneCmd.schemaName(deriveSchemaName(alterZoneSet.name(), ctx));
+        alterZoneCmd.zoneName(deriveObjectName(alterZoneSet.name(), ctx, "zoneName"));
+        alterZoneCmd.ifExists(alterZoneSet.ifExists());
+
+        Set<IgniteSqlZoneOptionEnum> knownOptionNames = EnumSet.allOf(IgniteSqlZoneOptionEnum.class);
+
+        for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
+            IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
+            IgniteSqlZoneOptionEnum optionName = option.key().symbolValue(IgniteSqlZoneOptionEnum.class);
+
+            if (!knownOptionNames.remove(optionName)) {
+                throw new IgniteException(QUERY_VALIDATION_ERR,
+                        String.format("Duplicate DDL command option has been specified [option=%s, query=%s]", optionName, ctx.query()));
+            }
+
+            DdlOptionInfo<AlterZoneSetCommand, ?> zoneOptionInfo = alterZoneOptionInfos.get(optionName);
+
+            assert zoneOptionInfo != null : optionName;
+            assert option.value() instanceof SqlLiteral : option.value();
+
+            updateCommandOption("Zone", optionName, (SqlLiteral) option.value(), zoneOptionInfo, ctx.query(), alterZoneCmd);
+        }
+
+        return alterZoneCmd;
+    }
+
+    /**
+     * Converts the given IgniteSqlAlterZoneRenameTo AST node to a AlterZoneCommand.
+     *
+     * @param alterZoneRename Root node of the given AST.
+     * @param ctx Planning context.
+     */
+    private DdlCommand convertAlterZoneRename(IgniteSqlAlterZoneRenameTo alterZoneRename, PlanningContext ctx) {
+        AlterZoneRenameCommand cmd = new AlterZoneRenameCommand();
+
+        cmd.schemaName(deriveSchemaName(alterZoneRename.name(), ctx));
+        cmd.zoneName(deriveObjectName(alterZoneRename.name(), ctx, "zoneName"));
+        cmd.newZoneName(alterZoneRename.newName().getSimple());
+        cmd.ifExists(alterZoneRename.ifExists());
+
+        return cmd;
+    }
+
     /**
      * Converts a given DropZone AST to a DropZone command.
      *
      * @param dropZoneNode Root node of the given AST.
-     * @param ctx          Planning context.
+     * @param ctx Planning context.
      */
     private DropZoneCommand convertDropZone(IgniteSqlDropZone dropZoneNode, PlanningContext ctx) {
         DropZoneCommand dropZoneCmd = new DropZoneCommand();

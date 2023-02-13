@@ -55,6 +55,7 @@ import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -87,7 +88,7 @@ public class Cluster {
 
     private final Path workDir;
 
-    private final String nodeBootstrapConfig;
+    private final String defaultNodeBootstrapConfigTemplate;
 
     /** Cluster nodes. */
     private final List<IgniteImpl> nodes = new CopyOnWriteArrayList<>();
@@ -109,10 +110,10 @@ public class Cluster {
     /**
      * Creates a new cluster with the given bootstrap config.
      */
-    public Cluster(TestInfo testInfo, Path workDir, String nodeBootstrapConfig) {
+    public Cluster(TestInfo testInfo, Path workDir, String defaultNodeBootstrapConfigTemplate) {
         this.testInfo = testInfo;
         this.workDir = workDir;
-        this.nodeBootstrapConfig = nodeBootstrapConfig;
+        this.defaultNodeBootstrapConfigTemplate = defaultNodeBootstrapConfigTemplate;
     }
 
     /**
@@ -141,15 +142,26 @@ public class Cluster {
     }
 
     /**
-     * Start a cluster node and return its startup future.
+     * Starts a cluster node with the default bootstrap config template and returns its startup future.
      *
-     * @param nodeIndex Index of the nodex to start.
+     * @param nodeIndex Index of the node to start.
      * @return Future that will be completed when the node starts.
      */
     public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex) {
+        return startClusterNode(nodeIndex, defaultNodeBootstrapConfigTemplate);
+    }
+
+    /**
+     * Starts a cluster node and returns its startup future.
+     *
+     * @param nodeIndex Index of the nodex to start.
+     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @return Future that will be completed when the node starts.
+     */
+    public CompletableFuture<IgniteImpl> startClusterNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
         String nodeName = testNodeName(testInfo, nodeIndex);
 
-        String config = IgniteStringFormatter.format(nodeBootstrapConfig, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
+        String config = IgniteStringFormatter.format(nodeBootstrapConfigTemplate, BASE_PORT + nodeIndex, CONNECT_NODE_ADDR);
 
         return IgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)
@@ -203,12 +215,22 @@ public class Cluster {
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
     public IgniteImpl startNode(int index) {
-        checkNodeIndex(index);
+        return startNode(index, defaultNodeBootstrapConfigTemplate);
+    }
 
+    /**
+     * Starts a new node with the given index.
+     *
+     * @param index Node index.
+     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @return Started node (if the cluster is already initialized, the node is returned when it joins the cluster; if it
+     *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
+     */
+    public IgniteImpl startNode(int index, String nodeBootstrapConfigTemplate) {
         IgniteImpl newIgniteNode;
 
         try {
-            newIgniteNode = startClusterNode(index).get(10, TimeUnit.SECONDS);
+            newIgniteNode = startClusterNode(index, nodeBootstrapConfigTemplate).get(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -392,9 +414,9 @@ public class Cluster {
      * @param extractor Used to extract the result from a {@link ResultSet}.
      * @return Query result.
      */
-    public <T> T query(int nodeIndex, String sql, Function<ResultSet, T> extractor) {
+    public <T> T query(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return doInSession(nodeIndex, session -> {
-            try (ResultSet resultSet = session.execute(null, sql)) {
+            try (ResultSet<SqlRow> resultSet = session.execute(null, sql)) {
                 return extractor.apply(resultSet);
             }
         });

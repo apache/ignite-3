@@ -53,8 +53,8 @@ public class TableSchemaAwareIndexStorage {
     }
 
     /** Returns a cursor over {@code RowId}s associated with the given key. */
-    public Cursor<RowId> get(BinaryRow tableRow) throws StorageException {
-        BinaryTuple tuple = indexRowResolver.apply(tableRow);
+    public Cursor<RowId> get(BinaryRow binaryRow) throws StorageException {
+        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
 
         return storage.get(tuple);
     }
@@ -62,11 +62,11 @@ public class TableSchemaAwareIndexStorage {
     /**
      * Inserts the given table row to an index storage.
      *
-     * @param tableRow A table row to insert.
+     * @param binaryRow A table row to insert.
      * @param rowId An identifier of a row in a main storage.
      */
-    public void put(BinaryRow tableRow, RowId rowId) {
-        BinaryTuple tuple = indexRowResolver.apply(tableRow);
+    public void put(BinaryRow binaryRow, RowId rowId) {
+        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
 
         storage.put(new IndexRowImpl(tuple, rowId));
     }
@@ -74,13 +74,23 @@ public class TableSchemaAwareIndexStorage {
     /**
      * Removes the given table row from an index storage.
      *
-     * @param tableRow A table row to remove.
+     * @param binaryRow A table row to remove.
      * @param rowId An identifier of a row in a main storage.
      */
-    public void remove(BinaryRow tableRow, RowId rowId) {
-        BinaryTuple tuple = indexRowResolver.apply(tableRow);
+    public void remove(BinaryRow binaryRow, RowId rowId) {
+        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
 
         storage.remove(new IndexRowImpl(tuple, rowId));
+    }
+
+    /**
+     * Resolves index row value.
+     *
+     * @param row Full row.
+     * @return Index value.
+     */
+    public BinaryTuple resolveIndexRow(BinaryRow row) {
+        return indexRowResolver.apply(row);
     }
 
     /** Returns underlying index storage. */

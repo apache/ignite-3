@@ -18,47 +18,40 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.util.Util.unexpected;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.NODE_LEFT_ERR;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.stream.Collectors;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.SharedState;
+import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A part of exchange.
+ * A part of exchange which receives batches from remote sources.
  */
 public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT> {
     private final ExchangeService exchange;
-
     private final MailboxRegistry registry;
-
     private final long exchangeId;
-
     private final long srcFragmentId;
+    private final Collection<String> srcNodeNames;
+    private final @Nullable Comparator<RowT> comp;
+    private final Map<String, RemoteSource<RowT>> perNodeBuffers;
 
-    private final Map<String, Buffer> perNodeBuffers;
-
-    private volatile Collection<String> srcNodeNames;
-
-    private Comparator<RowT> comp;
-
-    private List<Buffer> buffers;
-
+    private @Nullable List<RemoteSource<RowT>> remoteSources;
     private int requested;
-
     private boolean inLoop;
 
     /**
@@ -74,17 +67,29 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             ExecutionContext<RowT> ctx,
             ExchangeService exchange,
             MailboxRegistry registry,
+            Collection<String> srcNodeNames,
+            @Nullable Comparator<RowT> comp,
             long exchangeId,
             long srcFragmentId
     ) {
         super(ctx);
+
+        assert !nullOrEmpty(srcNodeNames);
+
         this.exchange = exchange;
         this.registry = registry;
+        this.srcNodeNames = srcNodeNames;
+        this.comp = comp;
 
         this.srcFragmentId = srcFragmentId;
         this.exchangeId = exchangeId;
 
-        perNodeBuffers = new HashMap<>();
+        Map<String, RemoteSource<RowT>> sources = new HashMap<>();
+        for (String nodeName : srcNodeNames) {
+            sources.put(nodeName, new RemoteSource<>((cnt, state) -> requestBatches(nodeName, cnt, state)));
+        }
+
+        this.perNodeBuffers = Map.copyOf(sources);
     }
 
     /** {@inheritDoc} */
@@ -93,35 +98,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         return exchangeId;
     }
 
-    /**
-     * Inits this Inbox.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param ctx Execution context.
-     * @param srcNodeNames Source nodes' consistent IDs.
-     * @param comp Optional comparator for merge exchange.
-     */
-    public void init(
-            ExecutionContext<RowT> ctx, Collection<String> srcNodeNames, @Nullable Comparator<RowT> comp) {
-        assert srcNodeNames != null : "Collection srcNodeNames not found for exchangeId: " + exchangeId;
-        assert context().fragmentId() == ctx.fragmentId() : "different fragments unsupported: previous=" + context().fragmentId()
-                + " current=" + ctx.fragmentId();
-
-        // It's important to set proper context here because
-        // the one, that is created on a first message
-        // received doesn't have all context variables in place.
-        context(ctx);
-
-        this.comp = comp;
-
-        // memory barier
-        this.srcNodeNames = new HashSet<>(srcNodeNames);
-    }
-
     /** {@inheritDoc} */
     @Override
     public void request(int rowsCnt) throws Exception {
-        assert srcNodeNames != null;
         assert rowsCnt > 0 && requested == 0;
 
         checkState();
@@ -156,7 +135,15 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
-        throw new UnsupportedOperationException();
+        remoteSources = null;
+        requested = 0;
+        for (String nodeName : srcNodeNames) {
+            RemoteSource<?> source = perNodeBuffers.get(nodeName);
+
+            assert source != null;
+
+            source.reset(context().sharedState());
+        }
     }
 
     /**
@@ -168,13 +155,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param rows Rows.
      */
     public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<RowT> rows) throws Exception {
-        Buffer buf = getOrCreateBuffer(srcNodeName);
+        RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
-        boolean waitingBefore = buf.check() == State.WAITING;
+        boolean waitingBefore = source.check() == State.WAITING;
 
-        buf.offer(batchId, last, rows);
+        source.onBatchReceived(batchId, last, rows);
 
-        if (requested > 0 && waitingBefore && buf.check() != State.WAITING) {
+        if (requested > 0 && waitingBefore && source.check() != State.WAITING) {
             push();
         }
     }
@@ -186,16 +173,16 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     }
 
     private void push() throws Exception {
-        if (buffers == null) {
+        if (remoteSources == null) {
             for (String node : srcNodeNames) {
                 checkNode(node);
             }
 
-            buffers = srcNodeNames.stream()
-                    .map(this::getOrCreateBuffer)
-                    .collect(Collectors.toList());
+            remoteSources = new ArrayList<>(srcNodeNames.size());
 
-            assert buffers.size() == perNodeBuffers.size();
+            for (String nodeName : srcNodeNames) {
+                remoteSources.add(perNodeBuffers.get(nodeName));
+            }
         }
 
         if (comp != null) {
@@ -206,9 +193,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     }
 
     /** Checks that all corresponding buffers are in ready state. */
-    private boolean checkAllBuffsReady(Iterator<Buffer> it) {
+    private boolean checkAllBuffsReady(Iterator<RemoteSource<RowT>> it) {
         while (it.hasNext()) {
-            Buffer buf = it.next();
+            RemoteSource<?> buf = it.next();
 
             State state = buf.check();
 
@@ -227,15 +214,22 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         return true;
     }
 
+    @SuppressWarnings("LabeledStatement")
     private void pushOrdered() throws Exception {
-        if (!checkAllBuffsReady(buffers.iterator())) {
+        if (!checkAllBuffsReady(remoteSources.iterator())) {
+            for (RemoteSource<RowT> remote : remoteSources) {
+                remote.requestNextBatchIfNeeded();
+            }
+
             return;
         }
 
-        PriorityQueue<Pair<RowT, Buffer>> heap =
-                new PriorityQueue<>(Math.max(buffers.size(), 1), Map.Entry.comparingByKey(comp));
+        assert comp != null;
 
-        for (Buffer buf : buffers) {
+        PriorityQueue<Pair<RowT, RemoteSource<RowT>>> heap =
+                new PriorityQueue<>(Math.max(remoteSources.size(), 1), Map.Entry.comparingByKey(comp));
+
+        for (RemoteSource<RowT> buf : remoteSources) {
             State state = buf.check();
 
             if (state == State.READY) {
@@ -247,25 +241,28 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
         inLoop = true;
         try {
+            loop:
             while (requested > 0 && !heap.isEmpty()) {
                 checkState();
 
-                Buffer buf = heap.poll().right;
+                RemoteSource<RowT> source = heap.poll().right;
 
                 requested--;
-                downstream().push(buf.remove());
+                downstream().push(source.remove());
 
-                State state = buf.check();
+                State state = source.check();
 
                 switch (state) {
                     case END:
-                        buffers.remove(buf);
+                        remoteSources.remove(source);
                         break;
                     case READY:
-                        heap.offer(Pair.of(buf.peek(), buf));
+                        heap.offer(Pair.of(source.peek(), source));
                         break;
                     case WAITING:
-                        return;
+                        // at this point we've drained all received batches from particular source,
+                        // thus we need to wait next batch in order to be able to preserve the ordering
+                        break loop;
                     default:
                         throw unexpected(state);
                 }
@@ -274,9 +271,11 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             inLoop = false;
         }
 
-        if (requested > 0 && heap.isEmpty()) {
-            assert buffers.isEmpty();
+        for (RemoteSource<?> remote : remoteSources) {
+            remote.requestNextBatchIfNeeded();
+        }
 
+        if (requested > 0 && remoteSources.isEmpty() && heap.isEmpty()) {
             requested = 0;
             downstream().end();
         }
@@ -288,33 +287,36 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
         inLoop = true;
         try {
-            while (requested > 0 && !buffers.isEmpty()) {
+            while (requested > 0 && !remoteSources.isEmpty()) {
                 checkState();
 
-                Buffer buf = buffers.get(idx);
+                RemoteSource<RowT> source = remoteSources.get(idx);
 
-                switch (buf.check()) {
+                switch (source.check()) {
                     case END:
-                        buffers.remove(idx--);
+                        remoteSources.remove(idx);
 
                         break;
                     case READY:
                         noProgress = 0;
                         requested--;
-                        downstream().push(buf.remove());
+                        downstream().push(source.remove());
 
                         break;
                     case WAITING:
-                        if (++noProgress >= buffers.size()) {
-                            return;
-                        }
+                        noProgress++;
+                        idx++;
 
                         break;
                     default:
                         break;
                 }
 
-                if (++idx == buffers.size()) {
+                if (noProgress >= remoteSources.size()) {
+                    break;
+                }
+
+                if (idx == remoteSources.size()) {
                     idx = 0;
                 }
             }
@@ -322,22 +324,18 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             inLoop = false;
         }
 
-        if (requested > 0 && buffers.isEmpty()) {
+        for (RemoteSource<?> source : remoteSources) {
+            source.requestNextBatchIfNeeded();
+        }
+
+        if (requested > 0 && remoteSources.isEmpty()) {
             requested = 0;
             downstream().end();
         }
     }
 
-    private void acknowledge(String nodeName, int batchId) throws IgniteInternalCheckedException {
-        exchange.acknowledge(nodeName, queryId(), srcFragmentId, exchangeId, batchId);
-    }
-
-    private Buffer getOrCreateBuffer(String nodeName) {
-        return perNodeBuffers.computeIfAbsent(nodeName, this::createBuffer);
-    }
-
-    private Buffer createBuffer(String nodeName) {
-        return new Buffer(nodeName);
+    private void requestBatches(String nodeName, int cnt, @Nullable SharedState state) throws IgniteInternalCheckedException {
+        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state);
     }
 
     /**
@@ -355,7 +353,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     private void onNodeLeft0(String nodeName) throws Exception {
         checkState();
 
-        if (getOrCreateBuffer(nodeName).check() != State.END) {
+        if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new IgniteInternalCheckedException(NODE_LEFT_ERR, "Failed to execute query, node left [nodeName=" + nodeName + ']');
         }
     }
@@ -404,118 +402,216 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
         /** {@inheritDoc} */
         @Override
-        public int compareTo(@NotNull Inbox.Batch<RowT> o) {
+        public int compareTo(Inbox.Batch<RowT> o) {
             return Integer.compare(batchId, o.batchId);
         }
     }
 
-    private enum State {
-        END,
+    /**
+     * An object to keep track of batches and their order from particular remote source.
+     *
+     * @param <RowT> A type if the rows received in batches.
+     * @see State
+     */
+    static final class RemoteSource<RowT> {
+        @FunctionalInterface
+        private interface BatchRequester {
+            void request(int amountOfBatches, @Nullable SharedState state) throws IgniteInternalCheckedException;
+        }
 
-        READY,
+        /**
+         * A enumeration of all possible states of the {@link RemoteSource remote source}. Below is a state diagram showing possible
+         * transitions from one state to another.
+         *
+         * <p>Node: "out of order", "next received", "and batch drained" are ephemeral states, thus not presented in enumeration.
+         * <pre>
+         *                    +---+
+         *                    | * |
+         *                    +---+
+         *                      |
+         *                      v
+         *                 +---------+
+         *                 | WAITING |<-----\
+         *                 +---------+       \
+         *                  /       ^         \
+         *       batch received     |          \
+         *                /         |           \
+         *               v          |            \
+         *        /-------------\   |            |
+         *       | out of order? |  |            |
+         *        \-------------/   |            |
+         *           /       \      |            no
+         *          no       yes   /             |
+         *          |          \__/              |
+         *          v                            |
+         *      +-------+                 /--------------\
+         *      | READY |<-----yes-------| next received? |
+         *      +-------+                 \--------------/
+         *           \___                        ^
+         *               \                       |
+         *           batch drained               /
+         *                 \____                /
+         *                      v              no
+         *                /-----------\       /
+         *               | last batch? |-----/
+         *                \-----------/
+         *                      |
+         *                     yes
+         *                      |
+         *                      v
+         *                   +-----+
+         *                   | END |
+         *                   +-----+
+         *                      |
+         *                      v
+         *                    +---+
+         *                    | * |
+         *                    +---+
+         * </pre>
+         */
+        enum State {
+            /** Last batch was received and has already drained. No more data expected from this source. */
+            END,
 
-        WAITING
-    }
+            /** Batch with expected id is received and ready to be drained. */
+            READY,
 
-    private static final Batch<?> WAITING = new Batch<>(0, false, null);
-
-    private static final Batch<?> END = new Batch<>(0, false, null);
-
-    private final class Buffer {
-        private final String nodeName;
-
-        private int lastEnqueued = -1;
+            /** Batch with expected id is not received yet. */
+            WAITING
+        }
 
         private final PriorityQueue<Batch<RowT>> batches = new PriorityQueue<>(IO_BATCH_CNT);
 
-        private Batch<RowT> curr = waitingMark();
+        private final BatchRequester batchRequester;
 
-        private Buffer(String nodeName) {
-            this.nodeName = nodeName;
+        private State state = State.WAITING;
+        private int lastEnqueued = -1;
+        private int lastRequested = -1;
+        private @Nullable Batch<RowT> curr = null;
+
+        /**
+         * The state should be propagated only once per every rewind iteration.
+         *
+         * <p>Thus, the new state is set on each rewind, propagated with the next request message,
+         * and then immediately reset to null to prevent the same state from being sent once again.
+         */
+        private @Nullable SharedState sharedStateHolder = null;
+
+        private RemoteSource(BatchRequester batchRequester) {
+            this.batchRequester = batchRequester;
         }
 
-        private void offer(int id, boolean last, List<RowT> rows) {
+        /**
+         * Drops all received but not yet processed batches. Accepts the state that should be propagated
+         * to the source on the next {@link #request} invocation.
+         *
+         * @param state State to propagate to the source.
+         */
+        void reset(SharedState state) {
+            sharedStateHolder = state;
+            batches.clear();
+
+            this.lastEnqueued = lastRequested;
+            this.state = State.WAITING;
+            this.curr = null;
+        }
+
+        /** A handler for batches received from remote source. */
+        void onBatchReceived(int id, boolean last, List<RowT> rows) {
+            if (id <= lastEnqueued) {
+                // most probably it's a batch that was prefetched in advance,
+                // but the execution tree has been rewinded, so we just silently
+                // drop it
+                return;
+            }
+
             batches.offer(new Batch<>(id, last, rows));
+
+            if (state == State.WAITING && id == lastEnqueued + 1) {
+                advanceBatch();
+            }
         }
 
-        private Batch<RowT> pollBatch() {
-            if (batches.isEmpty() || batches.peek().batchId != lastEnqueued + 1) {
-                return waitingMark();
+        /**
+         * Requests another several batches from remote source if a count of in-flight batches
+         * is less or equal than half of {@link #IO_BATCH_CNT}.
+         */
+        void requestNextBatchIfNeeded() throws IgniteInternalCheckedException {
+            int inFlightCount = lastRequested - lastEnqueued;
+
+            // IO_BATCH_CNT should never be less than 1, but we don't have validation
+            if (IO_BATCH_CNT <= 1 && inFlightCount == 0) {
+                batchRequester.request(1, sharedStateHolder);
+                // shared state should be send only once until next rewind
+                sharedStateHolder = null;
+            } else if (IO_BATCH_CNT / 2 >= inFlightCount) {
+                int countOfBatches = IO_BATCH_CNT - inFlightCount;
+
+                lastRequested += countOfBatches;
+
+                batchRequester.request(countOfBatches, sharedStateHolder);
+                // shared state should be send only once until next rewind
+                sharedStateHolder = null;
             }
-
-            Batch<RowT> batch = batches.poll();
-
-            assert batch != null && batch.batchId == lastEnqueued + 1;
-
-            lastEnqueued = batch.batchId;
-
-            return batch;
         }
 
-        private State check() {
-            if (finished()) {
-                return State.END;
-            }
-
-            if (waiting()) {
-                return State.WAITING;
-            }
-
-            if (isEnd()) {
-                curr = finishedMark();
-
-                return State.END;
-            }
-
-            return State.READY;
+        /** Returns the state of the source. */
+        State check() {
+            return state;
         }
 
-        private RowT peek() {
+        /**
+         * Returns the first element of a buffer without removing.
+         *
+         * @return The first element of a buffer.
+         */
+        RowT peek() {
+            assert state == State.READY;
             assert curr != null;
-            assert curr != WAITING;
-            assert curr != END;
-            assert !isEnd();
 
             return curr.rows.get(curr.idx);
         }
 
-        private RowT remove() throws IgniteInternalCheckedException {
+        /**
+         * Removes the first element from a buffer.
+         *
+         * @return The removed element.
+         */
+        RowT remove() {
+            assert state == State.READY;
             assert curr != null;
-            assert curr != WAITING;
-            assert curr != END;
-            assert !isEnd();
 
             RowT row = curr.rows.set(curr.idx++, null);
 
             if (curr.idx == curr.rows.size()) {
-                acknowledge(nodeName, curr.batchId);
-
-                if (!isEnd()) {
-                    curr = pollBatch();
+                if (curr.last) {
+                    state = State.END;
+                } else {
+                    advanceBatch();
                 }
             }
 
             return row;
         }
 
-        private boolean finished() {
-            return curr == END;
+        private boolean hasNextBatch() {
+            return !batches.isEmpty() && batches.peek().batchId == lastEnqueued + 1;
         }
 
-        private boolean waiting() {
-            return curr == WAITING && (curr = pollBatch()) == WAITING;
-        }
+        private void advanceBatch() {
+            if (!hasNextBatch()) {
+                state = State.WAITING;
 
-        private boolean isEnd() {
-            return curr.last && curr.idx == curr.rows.size();
-        }
+                return;
+            }
 
-        private Batch<RowT> finishedMark() {
-            return (Batch<RowT>) END;
-        }
+            curr = batches.poll();
 
-        private Batch<RowT> waitingMark() {
-            return (Batch<RowT>) WAITING;
+            assert curr != null;
+
+            state = curr.rows.isEmpty() ? State.END : State.READY;
+
+            lastEnqueued = curr.batchId;
         }
     }
 }

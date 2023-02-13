@@ -17,43 +17,31 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.platform.commons.support.ReflectionSupport;
 
 /**
  * Abstract integration test that starts and stops a cluster.
  */
 @SuppressWarnings("ALL")
 @ExtendWith(WorkDirectoryExtension.class)
-// TODO: IGNITE-18465- use Cluster class
 public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractClusterIntegrationTest.class);
 
@@ -61,78 +49,84 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
     private static final int BASE_PORT = 3344;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  }\n"
             + "}";
 
-    /** Cluster nodes. */
-    private final List<Ignite> clusterNodes = new ArrayList<>();
+    /** Template for node bootstrap config with Scalecube and Logical Topology settings for fast failure detection. */
+    protected static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    },\n"
+            + "    membership: {\n"
+            + "      membershipSyncInterval: 1000,\n"
+            + "      failurePingInterval: 500,\n"
+            + "      scaleCube: {\n"
+            + "        membershipSuspicionMultiplier: 1,\n"
+            + "        failurePingRequestMembers: 1,\n"
+            + "        gossipInterval: 10\n"
+            + "      },\n"
+            + "    }\n"
+            + "  },"
+            + "  cluster.failoverTimeout: 100\n"
+            + "}";
+
+    protected Cluster cluster;
 
     /** Work directory. */
     @WorkDirectory
-    protected static Path WORK_DIR;
+    protected Path workDir;
 
     /**
-     * Starts nodes before each test.
+     * Invoked before each test starts.
      *
-     * @param testInfo Test information object.
+     * @param testInfo Test information oject.
+     * @throws Exception If failed.
      */
     @BeforeEach
-    void startNodes(TestInfo testInfo) {
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, initialNodes())
-                .mapToObj(i -> startNode0(i, testInfo))
-                .collect(toList());
-
-        String metaStorageNodeName = testNodeName(testInfo, initialNodes() - 1);
-
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
-
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willSucceedIn(10, TimeUnit.SECONDS));
-
-            clusterNodes.add(future.join());
-        }
-    }
-
-    private static CompletableFuture<Ignite> startNode0(int nodeIndex, TestInfo testInfo) {
-        String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
-
-        String nodeName = testNodeName(testInfo, nodeIndex);
-
-        String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + nodeIndex, connectNodeAddr);
-
-        return IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
+    public void setup(TestInfo testInfo) throws Exception {
+        setupBase(testInfo, workDir);
     }
 
     /**
-     * Starts an Ignite node with the given index.
+     * Invoked after each test has finished.
      *
-     * @param nodeIndex Zero-based index (used to build node name).
-     * @param testInfo Test info (used to build node name).
-     * @return Started Ignite node.
+     * @param testInfo Test information oject.
+     * @throws Exception If failed.
      */
-    protected IgniteImpl startNode(int nodeIndex, TestInfo testInfo) {
-        CompletableFuture<Ignite> future = startNode0(nodeIndex, testInfo);
+    @AfterEach
+    public void tearDown(TestInfo testInfo) throws Exception {
+        tearDownBase(testInfo);
+    }
 
-        assertThat(future, willSucceedIn(10, TimeUnit.SECONDS));
+    @BeforeEach
+    void startAndInitCluster(TestInfo testInfo) {
+        cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
-        Ignite ignite = future.join();
+        cluster.startAndInit(initialNodes());
+    }
 
-        if (nodeIndex < clusterNodes.size()) {
-            clusterNodes.set(nodeIndex, ignite);
-        } else if (nodeIndex == clusterNodes.size()) {
-            clusterNodes.add(ignite);
-        } else {
-            throw new IllegalArgumentException("Cannot start node with index " + nodeIndex + " because we only have "
-                    + clusterNodes.size() + " nodes");
+    private String invokeArglessMethod(Class<?> testClass, String methodName) {
+        Method method = ReflectionSupport.findMethod(testClass, methodName).orElseThrow();
+
+        if (!Modifier.isStatic(method.getModifiers())) {
+            throw new IllegalStateException(methodName + " is expected to be static");
         }
 
-        return (IgniteImpl) ignite;
+        return (String) ReflectionSupport.invokeMethod(method, null);
+    }
+
+    @AfterEach
+    @Timeout(60)
+    void shutdownCluster() {
+        cluster.shutdown();
     }
 
     /**
@@ -145,79 +139,65 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
     }
 
     /**
-     * Stops all nodes that are not stopped yet.
+     * Returns node bootstrap config template.
+     *
+     * @return Node bootstrap config template.
      */
-    @AfterEach
-    void stopNodes(TestInfo testInfo) throws Exception {
-        LOG.info("Start tearDown()");
+    protected String getNodeBootstrapConfigTemplate() {
+        return NODE_BOOTSTRAP_CFG_TEMPLATE;
+    }
 
-        List<AutoCloseable> closeables = clusterNodes.stream()
-                .filter(Objects::nonNull)
-                .map(node -> (AutoCloseable) () -> IgnitionManager.stop(node.name()))
-                .collect(toList());
+    /**
+     * Starts an Ignite node with the given index.
+     *
+     * @param nodeIndex Zero-based index (used to build node name).
+     * @return Started Ignite node.
+     */
+    protected final IgniteImpl startNode(int nodeIndex) {
+        return cluster.startNode(nodeIndex);
+    }
 
-        IgniteUtils.closeAll(closeables);
-
-        clusterNodes.clear();
-
-        LOG.info("End tearDown()");
+    /**
+     * Starts an Ignite node with the given index.
+     *
+     * @param nodeIndex Zero-based index (used to build node name).
+     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @return Started Ignite node.
+     */
+    protected final IgniteImpl startNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+        return cluster.startNode(nodeIndex, nodeBootstrapConfigTemplate);
     }
 
     /**
      * Stops a node by index.
      *
      * @param nodeIndex Node index.
-     * @param testInfo Test info (used to construct node name).
      */
-    protected final void stopNode(int nodeIndex, TestInfo testInfo) {
-        assertThat(clusterNodes.size(), is(greaterThan(nodeIndex)));
-        assertThat(clusterNodes.get(nodeIndex), is(notNullValue()));
-
-        IgnitionManager.stop(testNodeName(testInfo, nodeIndex));
-
-        clusterNodes.set(nodeIndex, null);
+    protected final void stopNode(int nodeIndex) {
+        cluster.stopNode(nodeIndex);
     }
 
     /**
      * Restarts a node by index.
      *
      * @param nodeIndex Node index.
-     * @param testInfo Test info (used to construct node name).
      * @return New node instance.
      */
-    protected final Ignite restartNode(int nodeIndex, TestInfo testInfo) {
-        stopNode(nodeIndex, testInfo);
-
-        return startNode(nodeIndex, testInfo);
+    protected final Ignite restartNode(int nodeIndex) {
+        return cluster.restartNode(nodeIndex);
     }
 
     /**
-     * Invokes before the test will start.
+     * Gets a node by index.
      *
-     * @param testInfo Test information oject.
-     * @throws Exception If failed.
+     * @param index Node index.
+     * @return Node by index.
      */
-    @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, WORK_DIR);
-    }
-
-    /**
-     * Invokes after the test has finished.
-     *
-     * @param testInfo Test information oject.
-     * @throws Exception If failed.
-     */
-    @AfterEach
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
-    }
-
     protected final IgniteImpl node(int index) {
-        return (IgniteImpl) clusterNodes.get(index);
+        return cluster.node(index);
     }
 
-    protected List<List<Object>> executeSql(String sql, Object... args) {
+    protected final List<List<Object>> executeSql(String sql, Object... args) {
         return getAllFromCursor(
                 node(0).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
         );

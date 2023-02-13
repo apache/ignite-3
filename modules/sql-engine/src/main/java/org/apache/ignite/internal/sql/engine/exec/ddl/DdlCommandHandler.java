@@ -65,6 +65,8 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
@@ -132,6 +134,10 @@ public class DdlCommandHandler {
             return handleDropIndex((DropIndexCommand) cmd);
         } else if (cmd instanceof CreateZoneCommand) {
             return handleCreateZone((CreateZoneCommand) cmd);
+        } else if (cmd instanceof AlterZoneRenameCommand) {
+            return handleRenameZone((AlterZoneRenameCommand) cmd);
+        } else if (cmd instanceof AlterZoneSetCommand) {
+            return handleAlterZone((AlterZoneSetCommand) cmd);
         } else if (cmd instanceof DropZoneCommand) {
             return handleDropZone((DropZoneCommand) cmd);
         } else {
@@ -171,6 +177,39 @@ public class DdlCommandHandler {
 
         return distributionZoneManager.createZone(zoneCfgBuilder.build())
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
+    }
+
+
+    /** Handles rename zone command. */
+    private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
+        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
+                new DistributionZoneConfigurationParameters.Builder(cmd.newZoneName());
+
+        boolean ifExists = cmd.ifExists();
+
+        return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
+                .handle(handleModificationResult(ifExists, DistributionZoneNotFoundException.class));
+    }
+
+    /** Handles alter zone command. */
+    private CompletableFuture<Boolean> handleAlterZone(AlterZoneSetCommand cmd) {
+        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
+                new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
+
+        if (cmd.dataNodesAutoAdjustScaleDown() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
+        }
+
+        if (cmd.dataNodesAutoAdjust() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjust(cmd.dataNodesAutoAdjust());
+        }
+
+        if (cmd.dataNodesAutoAdjustScaleUp() != null) {
+            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
+        }
+
+        return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles drop distribution zone command. */

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -48,20 +50,23 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -122,6 +127,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
 @ExtendWith(ConfigurationExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-18737")
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
     private static final int DEFAULT_NODE_PORT = 3344;
@@ -139,10 +145,22 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
+            + "  network.membership: {\n"
+            + "    membershipSyncInterval: 1000,\n"
+            + "    failurePingInterval: 500,\n"
+            + "    scaleCube: {\n"
+            + "      membershipSuspicionMultiplier: 1,\n"
+            + "      failurePingRequestMembers: 1,\n"
+            + "      gossipInterval: 10\n"
+            + "    },\n"
+            + "  }\n"
             + "}";
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     private final List<String> clusterNodesNames = new ArrayList<>();
 
@@ -210,10 +228,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
+        NodeBootstrapConfiguration configuration =
+                NodeBootstrapConfiguration.string(cfgString == null ? configurationString(idx) : cfgString,
+                        workDir);
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalConfigurationStorage(vault),
+                new LocalFileConfigurationStorage(configuration),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
@@ -255,7 +276,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,
-                logicalTopologyService
+                logicalTopologyService,
+                clusterManagementConfiguration
         );
 
         var metaStorageMgr = new MetaStorageManagerImpl(
@@ -263,7 +285,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc,
                 cmgManager,
                 raftMgr,
-                new RocksDbKeyValueStorage(dir.resolve("metastorage"))
+                new RocksDbKeyValueStorage(name, dir.resolve("metastorage"))
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -332,11 +354,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         nodeCfgMgr.start();
 
-        // Node configuration manager bootstrap.
-        cfgString = cfgString == null ? configurationString(idx) : cfgString;
-
         try {
-            nodeCfgMgr.bootstrap(cfgString);
+            nodeCfgMgr.bootstrap(configuration.configPath());
         } catch (Exception e) {
             throw new IgniteException("Unable to parse user-specific configuration.", e);
         }
@@ -575,7 +594,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
                     return (IgniteImpl) future.join();
                 })
-                .collect(Collectors.toUnmodifiableList());
+                .collect(Collectors.toList());
     }
 
     /**
@@ -688,10 +707,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts the node which stores some data.
      */
     @Test
-    public void nodeWithDataTest() {
-        Ignite ignite = startNode(0);
+    public void nodeWithDataTest() throws InterruptedException {
+        IgniteImpl ignite = startNode(0);
 
-        createTableWithData(ignite, TABLE_NAME, 1);
+        createTableWithData(List.of(ignite), TABLE_NAME, 1);
 
         stopNode(0);
 
@@ -704,7 +723,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
-    public void testTwoNodesRestartDirect() {
+    public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
     }
 
@@ -712,7 +731,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
-    public void testTwoNodesRestartReverse() {
+    public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
 
@@ -721,16 +740,16 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param directOrder When the parameter is true, nodes restart in direct order, otherwise they restart in reverse order.
      */
-    private void twoNodesRestart(boolean directOrder) {
-        Ignite ignite = startNode(0);
+    private void twoNodesRestart(boolean directOrder) throws InterruptedException {
+        List<IgniteImpl> nodes = startNodes(2);
 
-        startNode(1);
-
-        createTableWithData(ignite, TABLE_NAME, 2);
-        createTableWithData(ignite, TABLE_NAME_2, 2);
+        createTableWithData(nodes, TABLE_NAME, 2);
+        createTableWithData(nodes, TABLE_NAME_2, 2);
 
         stopNode(0);
         stopNode(1);
+
+        Ignite ignite;
 
         if (directOrder) {
             startNode(0);
@@ -797,12 +816,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
-    public void testOneNodeRestartWithGap() {
-        Ignite ignite = startNode(0);
+    public void testOneNodeRestartWithGap() throws InterruptedException {
+        IgniteImpl ignite = startNode(0);
 
         List<IgniteComponent> components = startPartialNode(1, null);
 
-        createTableWithData(ignite, TABLE_NAME, 2);
+        createTableWithData(List.of(ignite), TABLE_NAME, 2);
 
         stopPartialNode(components);
 
@@ -828,12 +847,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
     @Test
-    public void testRecoveryOnOneNode() {
-        Ignite ignite = startNode(0);
+    public void testRecoveryOnOneNode() throws InterruptedException {
+        IgniteImpl ignite = startNode(0);
 
         List<IgniteComponent> components = startPartialNode(1, null);
 
-        createTableWithData(ignite, TABLE_NAME, 2, 1);
+        createTableWithData(List.of(ignite), TABLE_NAME, 2, 1);
 
         stopPartialNode(components);
 
@@ -850,13 +869,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
     @Test
-    public void testRestartDiffConfig() {
+    public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);
 
-        Ignite ignite0 = ignites.get(0);
-
-        createTableWithData(ignite0, TABLE_NAME, 2);
-        createTableWithData(ignite0, TABLE_NAME_2, 2);
+        createTableWithData(ignites, TABLE_NAME, 2);
+        createTableWithData(ignites, TABLE_NAME_2, 2);
 
         stopNode(0);
         stopNode(1);
@@ -880,17 +897,19 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
-    public void testCfgGapWithoutData() {
+    public void testCfgGapWithoutData() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(3);
 
-        createTableWithData(nodes.get(0), TABLE_NAME, nodes.size());
+        createTableWithData(nodes, TABLE_NAME, nodes.size());
 
         log.info("Stopping the node.");
 
         stopNode(nodes.size() - 1);
 
-        createTableWithData(nodes.get(0), TABLE_NAME_2, nodes.size());
-        createTableWithData(nodes.get(0), TABLE_NAME_2 + "0", nodes.size());
+        nodes.set(nodes.size() - 1, null);
+
+        createTableWithData(nodes, TABLE_NAME_2, nodes.size());
+        createTableWithData(nodes, TABLE_NAME_2 + "0", nodes.size());
 
         log.info("Starting the node.");
 
@@ -909,7 +928,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
-    public void testMetastorageStop() {
+    public void testMetastorageStop() throws InterruptedException {
         int cfgGap = 4;
 
         List<IgniteImpl> nodes = startNodes(3);
@@ -918,8 +937,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         stopNode(nodes.size() - 1);
 
+        nodes.set(nodes.size() - 1, null);
+
         for (int i = 0; i < cfgGap; i++) {
-            createTableWithData(nodes.get(0), "t" + i, nodes.size(), 1);
+            createTableWithData(nodes, "t" + i, nodes.size(), 1);
         }
 
         log.info("Starting the node.");
@@ -956,18 +977,20 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17770")
-    public void testCfgGap() {
+    public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
-        createTableWithData(nodes.get(0), "t1", nodes.size());
+        createTableWithData(nodes, "t1", nodes.size());
 
         log.info("Stopping the node.");
 
         stopNode(nodes.size() - 1);
 
+        nodes.set(nodes.size() - 1, null);
+
         checkTableWithData(nodes.get(0), "t1");
 
-        createTableWithData(nodes.get(0), "t2", nodes.size());
+        createTableWithData(nodes, "t2", nodes.size());
 
         log.info("Starting the node.");
 
@@ -1001,32 +1024,66 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Creates a table and load data to it.
      *
-     * @param ignite Ignite.
+     * @param nodes Ignite nodes.
      * @param name Table name.
      * @param replicas Replica factor.
      */
-    private static void createTableWithData(Ignite ignite, String name, int replicas) {
-        createTableWithData(ignite, name, replicas, 10);
+    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas) throws InterruptedException {
+        createTableWithData(nodes, name, replicas, 10);
     }
 
     /**
      * Creates a table and load data to it.
      *
-     * @param ignite Ignite.
+     * @param nodes Ignite nodes.
      * @param name Table name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
-        try (Session session = ignite.sql().createSession()) {
+    private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions)
+            throws InterruptedException {
+        try (Session session = nodes.get(0).sql().createSession()) {
             session.execute(null, "CREATE TABLE " + name
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH replicas=" + replicas + ", partitions=" + partitions);
+
+            waitForIndex(nodes, name + "_PK");
 
             for (int i = 0; i < 100; i++) {
                 session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                         i, VALUE_PRODUCER.apply(i));
             }
         }
+    }
+
+    private void waitForIndex(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
+        // FIXME: Wait for the index to be created on all nodes,
+        //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18203 to avoid missed updates to the PK index.
+
+        Stream<TablesConfiguration> partialTablesConfiguration = Stream.empty();
+
+        if (partialNode != null) {
+            partialTablesConfiguration = partialNode.stream()
+                    .filter(ConfigurationManager.class::isInstance)
+                    .map(c -> ((ConfigurationManager) c).configurationRegistry().getConfiguration(TablesConfiguration.KEY))
+                    .filter(Objects::nonNull)
+                    .findAny()
+                    .map(Stream::of)
+                    .orElseThrow();
+        }
+
+        Stream<TablesConfiguration> nodesTablesConfigurations = nodes.stream()
+                .filter(Objects::nonNull)
+                .map(node -> node.clusterConfiguration().getConfiguration(TablesConfiguration.KEY));
+
+        List<TablesConfiguration> tablesConfigurations = Stream.concat(nodesTablesConfigurations, partialTablesConfiguration)
+                .collect(Collectors.toList());
+
+        assertTrue(waitForCondition(
+                () -> tablesConfigurations.stream()
+                        .map(cfg -> cfg.indexes().get(indexName.toUpperCase()))
+                        .allMatch(Objects::nonNull),
+                10_000
+        ));
     }
 
     /**

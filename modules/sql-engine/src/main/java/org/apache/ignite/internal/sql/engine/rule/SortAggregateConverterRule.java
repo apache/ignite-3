@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
@@ -57,21 +58,15 @@ public class SortAggregateConverterRule {
 
         /** {@inheritDoc} */
         @Override
-        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
-                LogicalAggregate agg) {
-            // Applicable only for GROUP BY or SELECT DISTINCT
-            if (nullOrEmpty(agg.getGroupSet()) || agg.getGroupSets().size() > 1) {
+        @Nullable
+        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
+            if (HintUtils.isExpandDistinctAggregate(agg) || agg.getGroupSets().size() > 1) {
                 return null;
             }
-
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
-                return null;
-            }
-
-            RelOptCluster cluster = agg.getCluster();
-            RelNode input = agg.getInput();
 
             RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
+
+            RelOptCluster cluster = agg.getCluster();
 
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE)
                     .replace(collation)
@@ -81,10 +76,12 @@ public class SortAggregateConverterRule {
                     .replace(collation)
                     .replace(IgniteDistributions.single());
 
+            RelNode input = convert(agg.getInput(), inTrait);
+
             return new IgniteColocatedSortAggregate(
                     cluster,
                     outTrait,
-                    convert(input, inTrait),
+                    input,
                     agg.getGroupSet(),
                     agg.getGroupSets(),
                     agg.getAggCallList()
@@ -99,10 +96,8 @@ public class SortAggregateConverterRule {
 
         /** {@inheritDoc} */
         @Override
-        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
-                LogicalAggregate agg) {
-            // Applicable only for GROUP BY or SELECT DISTINCT
-            if (nullOrEmpty(agg.getGroupSet()) || agg.getGroupSets().size() > 1) {
+        protected @Nullable PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
+            if ((nullOrEmpty(agg.getGroupSet()) && agg.getGroupSets().isEmpty()) || agg.getGroupSets().size() > 1) {
                 return null;
             }
 
@@ -121,7 +116,7 @@ public class SortAggregateConverterRule {
             RelNode map = new IgniteMapSortAggregate(
                     cluster,
                     outTrait.replace(IgniteDistributions.random()),
-                    convert(input, inTrait),
+                    convert(input, inTrait.replace(IgniteDistributions.random())),
                     agg.getGroupSet(),
                     agg.getGroupSets(),
                     agg.getAggCallList(),

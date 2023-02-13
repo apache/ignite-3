@@ -17,17 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.metastorage.command.cursor.CursorCloseCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CursorHasNextCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CursorNextCommand;
-import org.apache.ignite.internal.metastorage.command.cursor.CursorsCloseCommand;
-import org.apache.ignite.internal.metastorage.command.info.CompoundConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.IfInfo;
-import org.apache.ignite.internal.metastorage.command.info.OperationInfo;
-import org.apache.ignite.internal.metastorage.command.info.SimpleConditionInfo;
-import org.apache.ignite.internal.metastorage.command.info.StatementInfo;
-import org.apache.ignite.internal.metastorage.command.info.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.command.info.UpdateInfo;
+import org.apache.ignite.internal.metastorage.command.cursor.CloseAllCursorsCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.CloseCursorCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.CreatePrefixCursorCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.CreateRangeCursorCommand;
+import org.apache.ignite.internal.metastorage.command.cursor.NextBatchCommand;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
@@ -35,27 +29,6 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 @MessageGroup(groupType = 111, groupName = "MetaStorageCommands")
 public interface MetastorageCommandsMessageGroup {
-    /** Message type for {@link OperationInfo}. */
-    short OPERATION_INFO = 1;
-
-    /** Message type for {@link UpdateInfo}. */
-    short UPDATE_INFO = 2;
-
-    /** Message type for {@link StatementInfo}. */
-    short STATEMENT_INFO = 3;
-
-    /** Message type for {@link SimpleConditionInfo}. */
-    short SIMPLE_CONDITION_INFO = 4;
-
-    /** Message type for {@link CompoundConditionInfo}. */
-    short COMPOUND_CONDITION_INFO = 5;
-
-    /** Message type for {@link StatementResultInfo}. */
-    short STATEMENT_RESULT_INFO = 6;
-
-    /** Message type for {@link IfInfo}. */
-    short IF_INFO = 7;
-
     /** Message type for {@link InvokeCommand}. */
     short INVOKE = 10;
 
@@ -94,27 +67,18 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link RemoveAllCommand}. */
     short REMOVE_ALL = 51;
 
-    /** Message type for {@link RangeCommand}. */
-    short RANGE = 60;
+    /** Message type for {@link CreateRangeCursorCommand}. */
+    short CREATE_RANGE_CURSOR = 60;
 
-    /** Message type for {@link PrefixCommand}. */
-    short PREFIX = 61;
+    /** Message type for {@link CreatePrefixCursorCommand}. */
+    short CREATE_PREFIX_CURSOR = 61;
 
-    /** Message type for {@link WatchExactKeysCommand}. */
-    short WATCH_EXACT_KEYS = 70;
+    /** Message type for {@link NextBatchCommand}. */
+    short NEXT_BATCH = 62;
 
-    /** Message type for {@link WatchRangeKeysCommand}. */
-    short WATCH_RANGE_KEYS = 71;
+    /** Message type for {@link CloseCursorCommand}. */
+    short CLOSE_CURSOR = 63;
 
-    /** Message type for {@link CursorHasNextCommand}. */
-    short CURSOR_HAS_NEXT = 80;
-
-    /** Message type for {@link CursorNextCommand}. */
-    short CURSOR_NEXT = 81;
-
-    /** Message type for {@link CursorCloseCommand}. */
-    short CURSOR_CLOSE = 82;
-
-    /** Message type for {@link CursorsCloseCommand}. */
-    short CURSORS_CLOSE = 83;
+    /** Message type for {@link CloseAllCursorsCommand}. */
+    short CLOSE_ALL_CURSORS = 64;
 }

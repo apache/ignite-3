@@ -369,8 +369,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     chainHead.txId,
                     chainHead.commitTableId,
                     chainHead.commitPartitionId,
-                    firstCommit.ts
-            );
+                    firstCommit.ts);
         }
 
         VersionChain cur = firstCommit;
@@ -541,7 +540,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         closed = true;
 
-        clear();
+        clear0();
     }
 
     public void destroy() {
@@ -550,9 +549,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** Removes all entries from this storage. */
     public synchronized void clear() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        clear0();
+    }
+
+    private synchronized void clear0() {
         map.clear();
 
         gcQueue.clear();
+
+        lastAppliedIndex = 0;
+        lastAppliedTerm = 0;
+        groupConfig = null;
     }
 
     private void checkStorageClosed() {
@@ -577,10 +586,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         rebalance = true;
 
-        clear();
+        clear0();
 
         lastAppliedIndex = REBALANCE_IN_PROGRESS;
         lastAppliedTerm = REBALANCE_IN_PROGRESS;
+
+        groupConfig = null;
     }
 
     void abortRebalance() {
@@ -592,13 +603,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         rebalance = false;
 
-        clear();
+        clear0();
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
+
+        groupConfig = null;
     }
 
-    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm) {
+    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
         checkStorageClosed();
 
         assert rebalance;
@@ -607,6 +620,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
+        this.groupConfig = raftGroupConfig;
     }
 
     boolean closed() {

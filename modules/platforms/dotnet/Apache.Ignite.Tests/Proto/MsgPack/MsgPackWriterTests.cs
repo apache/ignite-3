@@ -79,8 +79,6 @@ public class MsgPackWriterTests
     {
         foreach (var number in GetNumbers())
         {
-            Console.WriteLine(number);
-
             var res = Write(x => x.MessageWriter.Write(number));
 
             Assert.AreEqual(number, new MessagePackReader(res.AsMemory()).ReadInt64());

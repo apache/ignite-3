@@ -20,6 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -27,11 +30,14 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -54,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
+import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -326,22 +333,22 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         IndexDescriptor indexDescriptor = new IndexDescriptor("IDX1", List.of("idxCol2", "idxCol1"));
 
-        Index<IndexDescriptor> hashIndexMock = Mockito.mock(Index.class);
+        Index<IndexDescriptor> hashIndexMock = mock(Index.class);
 
         Mockito.doReturn(indexDescriptor).when(hashIndexMock).descriptor();
         //CHECKSTYLE:OFF:Indentation
         Mockito.doAnswer(invocation -> {
                     if (key != null) {
-                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                        validateBound(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 })
                 .when(hashIndexMock)
-                .lookup(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any());
+                .lookup(Mockito.anyInt(), (UUID) any(), any(), any(), any());
         //CHECKSTYLE:ON:Indentation
 
-        IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
+        IgniteIndex indexMock = mock(IgniteIndex.class);
         Mockito.doReturn(IgniteIndex.Type.HASH).when(indexMock).type();
         Mockito.doReturn(hashIndexMock).when(indexMock).index();
         Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
@@ -372,23 +379,23 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         );
 
-        SortedIndex sortedIndexMock = Mockito.mock(SortedIndex.class);
+        SortedIndex sortedIndexMock = mock(SortedIndex.class);
 
         //CHECKSTYLE:OFF:Indentation
         Mockito.doAnswer(invocation -> {
                     if (lowerBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(2));
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
                     }
                     if (upperBound != null) {
-                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(3));
+                        validateBoundPrefix(indexDescriptor, schemaDescriptor, invocation.getArgument(4));
                     }
 
                     return dummyPublisher(partitionData(tableData, schemaDescriptor, invocation.getArgument(0)));
                 }).when(sortedIndexMock)
-                .scan(Mockito.anyInt(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyInt(), Mockito.any());
+                .scan(Mockito.anyInt(), (UUID) any(), any(), any(), any(), Mockito.anyInt(), any());
         //CHECKSTYLE:ON:Indentation
 
-        IgniteIndex indexMock = Mockito.mock(IgniteIndex.class);
+        IgniteIndex indexMock = mock(IgniteIndex.class);
         Mockito.doReturn(Type.SORTED).when(indexMock).type();
         Mockito.doReturn(sortedIndexMock).when(indexMock).index();
         Mockito.doReturn(indexDescriptor.columns()).when(indexMock).columns();
@@ -410,17 +417,21 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         RangeIterable<Object[]> rangeIterable = null;
 
         if (lowerBound != null || upperBound != null) {
-            RangeCondition<Object[]> range = Mockito.mock(RangeCondition.class);
+            RangeCondition<Object[]> range = mock(RangeCondition.class);
 
             when(range.lower()).thenReturn(lowerBound);
             when(range.upper()).thenReturn(upperBound);
             when(range.lowerInclude()).thenReturn(true);
             when(range.upperInclude()).thenReturn(true);
 
-            rangeIterable = Mockito.mock(RangeIterable.class);
+            rangeIterable = mock(RangeIterable.class);
 
+            Iterator mockIterator = mock(Iterator.class);
+            doCallRealMethod().when(rangeIterable).forEach(any(Consumer.class));
+            when(rangeIterable.iterator()).thenReturn(mockIterator);
+            when(mockIterator.hasNext()).thenReturn(true, false);
+            when(mockIterator.next()).thenReturn(range);
             when(rangeIterable.size()).thenReturn(1);
-            when(rangeIterable.iterator()).thenAnswer(inv -> List.of(range).iterator());
         }
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
@@ -428,7 +439,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 ectx.rowHandler().factory(ectx.getTypeFactory(), rowType),
                 index,
                 new TestTable(rowType, schemaDescriptor),
-                new int[]{0, 2},
+                List.of(new PartitionWithTerm(0, -1L), new PartitionWithTerm(2, -1L)),
                 index.type() == Type.SORTED ? comp : null,
                 rangeIterable,
                 null,
@@ -478,7 +489,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     }
 
     private BinaryRow convertToRow(SchemaDescriptor schemaDescriptor, Object[] row) {
-        RowAssembler asm = new RowAssembler(schemaDescriptor, 0, 1);
+        RowAssembler asm = new RowAssembler(schemaDescriptor);
 
         for (int i = 0; i < row.length; i++) {
             RowAssembler.writeValue(asm, schemaDescriptor.column(i), row[i]);

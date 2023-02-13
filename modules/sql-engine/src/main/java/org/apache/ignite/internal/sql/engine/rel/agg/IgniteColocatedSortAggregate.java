@@ -57,15 +57,13 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
     ) {
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
 
-        assert !TraitUtils.collation(traitSet).isDefault();
-        assert !groupSet.isEmpty() && groupSets.size() == 1;
-
         collation = TraitUtils.collation(traitSet);
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteColocatedSortAggregate(RelInput input) {
         super(input);
@@ -73,7 +71,6 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
         collation = input.getCollation();
 
         assert Objects.nonNull(collation);
-        assert !collation.isDefault();
     }
 
     /** {@inheritDoc} */

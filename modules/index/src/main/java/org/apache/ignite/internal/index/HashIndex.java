@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,6 +80,18 @@ public class HashIndex implements Index<IndexDescriptor> {
     @Override
     public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns) {
         return table.lookup(partId, tx, id, key, columns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Publisher<BinaryRow> lookup(
+            int partId,
+            UUID txId,
+            PrimaryReplica recipient,
+            BinaryTuple key,
+            @Nullable BitSet columns
+    ) {
+        return table.lookup(partId, txId, recipient, id, key, columns);
     }
 
     /** {@inheritDoc} */

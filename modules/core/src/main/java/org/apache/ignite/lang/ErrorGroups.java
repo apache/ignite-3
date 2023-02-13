@@ -39,6 +39,9 @@ public class ErrorGroups {
         /** Illegal argument or argument in a wrong format has been passed. */
         public static final int ILLEGAL_ARGUMENT_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
 
+        /** SSL can not be configured error. */
+        public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(5);
+
         /** Unknown error. */
         @Deprecated
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
@@ -265,29 +268,26 @@ public class ErrorGroups {
         /** Error of unexpected tx state on state change. */
         public static final int TX_UNEXPECTED_STATE_ERR = TX_ERR_GROUP.registerErrorCode(3);
 
-        /** Failed to release a lock on a key. */
-        public static final int RELEASE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
-
         /** Failed to acquire a lock on a key due to a conflict. */
-        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(5);
+        public static final int ACQUIRE_LOCK_ERR = TX_ERR_GROUP.registerErrorCode(4);
 
         /** Failed to acquire a lock on a key within a timeout. */
-        public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(6);
+        public static final int ACQUIRE_LOCK_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode(5);
 
         /** Failed to commit a transaction. */
-        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(7);
+        public static final int TX_COMMIT_ERR = TX_ERR_GROUP.registerErrorCode(6);
 
         /** Failed to rollback a transaction. */
-        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(8);
+        public static final int TX_ROLLBACK_ERR = TX_ERR_GROUP.registerErrorCode(7);
 
         /** Failed to enlist read-write operation into read-only transaction. */
-        public static final int TX_INSUFFICIENT_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode(9);
+        public static final int TX_FAILED_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode(8);
 
         /** The error happens when the replica is not ready to handle a request. */
-        public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode(10);
+        public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode(9);
 
         /** Tx state storage rebalancing error. */
-        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(11);
+        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode(10);
     }
 
     /** Replicator error group. */
@@ -361,5 +361,30 @@ public class ErrorGroups {
 
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
+    }
+
+    /**
+     * Node configuration error group.
+     */
+    public static class NodeConfiguration {
+        /**
+         * Node configuration error group.
+         */
+        public static final ErrorGroup NODE_CONFIGURATION_ERR_GROUP = ErrorGroup.newGroup("NODECFG", 12);
+
+        /**
+         * Config read error.
+         */
+        public static final int CONFIG_READ_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(1);
+
+        /**
+         * Config file creation error.
+         */
+        public static final int CONFIG_FILE_CREATE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(2);
+
+        /**
+         * Config write error.
+         */
+        public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
     }
 }

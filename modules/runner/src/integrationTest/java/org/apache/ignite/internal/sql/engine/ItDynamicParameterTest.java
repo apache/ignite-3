@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTypeUtils.toSqlType;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -30,8 +33,11 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,6 +47,16 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 /** Dynamic parameters checks. */
 public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
+
+    @BeforeEach
+    public void createTable() {
+        sql("CREATE TABLE t1 (id INTEGER PRIMARY KEY, val1 INTEGER NOT NULL, val2 INTEGER)");
+    }
+
+    @AfterEach
+    public void dropTables() {
+        sql("DROP TABLE IF EXISTS t1");
+    }
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
@@ -60,7 +76,6 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testDynamicParameters() {
-        assertQuery("SELECT COALESCE(?, ?)").withParams("a", 10).returns("a").check();
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
@@ -102,20 +117,86 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, null).returns(null).check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, 13).returns(13).check();
-        assertQuery("SELECT COALESCE(?, ?)").withParams("a", 10).returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams("a", "b").returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(22, 33).returns(22).check();
 
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1).returns("INTEGER").check();
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1d).returns("DOUBLE").check();
+
+        assertQuery("SELECT ?::INTEGER = '8'").withParams(8).returns(true).check();
     }
 
-    // After fix the mute reason need to merge the test with above testWithDifferentParametersTypes
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18369")
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
     @Test
-    public void testWithDifferentParametersTypes2() {
-        assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check();
-        assertQuery("SELECT COALESCE(?, ?)").withParams(12, "b").returns(12).check();
+    public void testWithDifferentParametersTypesMismatch() {
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").returns(12.2).check());
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check());
+    }
+
+    @Test
+    public void testUnspecifiedDynamicParameterInExplain() {
+        assertUnexpectedNumberOfParameters("EXPLAIN PLAN FOR SELECT * FROM t1 WHERE id > ?");
+    }
+
+    @Test
+    public void testDynamicParametersInExplain() {
+        sql("EXPLAIN PLAN FOR SELECT * FROM t1 WHERE id > ?", 1);
+    }
+
+    @Test
+    public void testUnspecifiedDynamicParameterInSelectList() {
+        assertUnexpectedNumberOfParameters("SELECT COALESCE(?)");
+        assertUnexpectedNumberOfParameters("SELECT * FROM (VALUES(1, 2, ?)) t1");
+    }
+
+    @Test
+    public void testUnspecifiedDynamicParameterInInsert() {
+        assertUnexpectedNumberOfParameters("INSERT INTO t1 VALUES(1, 2, ?)");
+    }
+
+    @Test
+    public void testUnspecifiedDynamicParameterInUpdate() {
+        // column value
+        assertUnexpectedNumberOfParameters("UPDATE t1 SET val1=? WHERE id = 1");
+        // predicate
+        assertUnexpectedNumberOfParameters("UPDATE t1 SET val1=10 WHERE id = ?");
+    }
+
+    @Test
+    public void testUnspecifiedDynamicParameterInDelete() {
+        assertUnexpectedNumberOfParameters("DELETE FROM t1 WHERE id = ? AND val1=1");
+    }
+
+    @Test
+    public void testUnexpectedNumberOfParametersInSelectList() {
+        assertUnexpectedNumberOfParameters("SELECT 1", 1);
+        assertUnexpectedNumberOfParameters("SELECT ?", 1, 2);
+    }
+
+    @Test
+    public void testUnexpectedNumberOfParametersInSelectInInsert() {
+        assertUnexpectedNumberOfParameters("INSERT INTO t1 VALUES(1, 2, 3)", 1);
+        assertUnexpectedNumberOfParameters("INSERT INTO t1 VALUES(1, 2, ?)", 1, 2);
+    }
+
+    @Test
+    public void testUnexpectedNumberOfParametersInDelete() {
+        assertUnexpectedNumberOfParameters("DELETE FROM t1 WHERE id = 1 AND val1=1", 1);
+        assertUnexpectedNumberOfParameters("DELETE FROM t1 WHERE id = ? AND val1=1", 1, 2);
+    }
+
+    @Test
+    public void testUnspecifiedDynamicParameterInLimitOffset() {
+        assertUnexpectedNumberOfParameters("SELECT * FROM t1 LIMIT 1", 1);
+        assertUnexpectedNumberOfParameters("SELECT * FROM t1 LIMIT ?", 1, 2);
+
+        assertUnexpectedNumberOfParameters("SELECT * FROM t1 LIMIT 1 OFFSET 1", 1);
+        assertUnexpectedNumberOfParameters("SELECT * FROM t1 LIMIT 1 OFFSET ?", 1, 2);
+
+        assertUnexpectedNumberOfParameters("SELECT * FROM t1 OFFSET 1", 1);
+        assertUnexpectedNumberOfParameters("SELECT * FROM t1 OFFSET ?", 1, 2);
     }
 
     private Object generateValueByType(int i, ColumnType type) {
@@ -166,5 +247,13 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
             default:
                 throw new IllegalArgumentException("unsupported type " + type);
         }
+    }
+
+    private static void assertUnexpectedNumberOfParameters(String query, Object... params) {
+        CalciteContextException err = assertThrows(CalciteContextException.class, () -> {
+            assertQuery(query).withParams(params).check();
+        }, "query: " + query);
+
+        assertThat("query: " + query, err.getMessage(), containsString("Unexpected number of query parameters"));
     }
 }

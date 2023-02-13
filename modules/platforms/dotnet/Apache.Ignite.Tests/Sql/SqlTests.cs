@@ -56,7 +56,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestSimpleQuery()
         {
-            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select 1 as num, 'hello' as str", 1);
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select 1 as num, 'hello' as str");
             var rows = await resultSet.ToListAsync();
 
             Assert.AreEqual(-1, resultSet.AffectedRows);
@@ -203,7 +203,7 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestMultipleEnumerationThrows()
         {
             // GetAll -> GetAsyncEnumerator.
-            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT 1");
             await resultSet.ToListAsync();
 
             var ex = Assert.Throws<IgniteClientException>(() => resultSet.GetAsyncEnumerator());
@@ -211,7 +211,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet.ToListAsync());
 
             // GetAsyncEnumerator -> GetAll.
-            await using var resultSet2 = await Client.Sql.ExecuteAsync(null, "SELECT 1", 1);
+            await using var resultSet2 = await Client.Sql.ExecuteAsync(null, "SELECT 1");
             _ = resultSet2.GetAsyncEnumerator();
 
             Assert.ThrowsAsync<IgniteClientException>(async () => await resultSet2.ToListAsync());
@@ -294,12 +294,16 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("TESTDDLDML", columns[0].Origin!.TableName);
             Assert.IsTrue(columns[0].Nullable);
             Assert.AreEqual(SqlColumnType.String, columns[0].Type);
+            Assert.AreEqual(int.MinValue, columns[0].Scale); // TODO IGNITE-18602 should conform to javadoc/xmldoc.
+            Assert.AreEqual(65536, columns[0].Precision);
 
             Assert.AreEqual("ID", columns[1].Name);
             Assert.AreEqual("ID", columns[1].Origin!.ColumnName);
             Assert.AreEqual("PUBLIC", columns[1].Origin!.SchemaName);
             Assert.AreEqual("TESTDDLDML", columns[1].Origin!.TableName);
             Assert.IsFalse(columns[1].Nullable);
+            Assert.AreEqual(0, columns[1].Scale);
+            Assert.AreEqual(10, columns[1].Precision);
 
             Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);

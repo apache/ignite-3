@@ -108,11 +108,16 @@ public:
             wr(writer);
 
             buffer.write_length_header();
+        }
 
-            {
-                std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
-                m_request_handlers[reqId] = std::move(handler);
-            }
+        {
+            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+            m_request_handlers[reqId] = std::move(handler);
+        }
+
+        if (m_logger->is_debug_enabled()) {
+            m_logger->log_debug(
+                "Performing request: op=" + std::to_string(int(op)) + ", req_id=" + std::to_string(reqId));
         }
 
         bool sent = m_pool->send(m_id, std::move(message));

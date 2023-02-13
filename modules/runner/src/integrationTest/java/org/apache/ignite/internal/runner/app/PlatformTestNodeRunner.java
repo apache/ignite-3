@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -35,24 +34,22 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientDataType;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
-import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -179,6 +176,8 @@ public class PlatformTestNodeRunner {
                         .changePartitions(10)
         ));
 
+        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+
         TableDefinition schTblAll = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
                 SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
@@ -191,12 +190,12 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
                 SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
                 SchemaBuilders.column("bitmask", ColumnType.bitmaskOf(64)).asNullable(true).build(),
-                SchemaBuilders.column("time", ColumnType.time(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
-                SchemaBuilders.column("datetime", ColumnType.datetime(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
-                SchemaBuilders.column("timestamp", ColumnType.timestamp(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
+                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("time2", ColumnType.time(2)).asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("datetime2", ColumnType.datetime(3)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp2", ColumnType.timestamp(4)).asNullable(true).build(),
                 SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
@@ -218,12 +217,12 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
                 SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
                 SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
-                SchemaBuilders.column("time", ColumnType.time(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
-                SchemaBuilders.column("datetime", ColumnType.datetime(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
-                SchemaBuilders.column("timestamp", ColumnType.timestamp(ColumnType.TemporalColumnType.MAX_TIME_PRECISION))
-                        .asNullable(true).build(),
+                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("time2", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("datetime2", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
+                SchemaBuilders.column("timestamp2", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
                 SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
                 SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
@@ -350,6 +349,9 @@ public class PlatformTestNodeRunner {
         public Integer execute(JobExecutionContext context, Object... args) {
             var columnCount = (int) args[0];
             var buf = (byte[]) args[1];
+            var timePrecision = (int) args[2];
+            var timestampPrecision = (int) args[3];
+
             var columns = new Column[columnCount];
             var tuple = Tuple.create(columnCount);
             var reader = new BinaryTupleReader(columnCount * 3, buf);
@@ -423,17 +425,17 @@ public class PlatformTestNodeRunner {
                         break;
 
                     case ClientDataType.TIME:
-                        columns[i] = new Column(i, colName, NativeTypes.time(9), false);
+                        columns[i] = new Column(i, colName, NativeTypes.time(timePrecision), false);
                         tuple.set(colName, reader.timeValue(valIdx));
                         break;
 
                     case ClientDataType.DATETIME:
-                        columns[i] = new Column(i, colName, NativeTypes.datetime(9), false);
+                        columns[i] = new Column(i, colName, NativeTypes.datetime(timePrecision), false);
                         tuple.set(colName, reader.dateTimeValue(valIdx));
                         break;
 
                     case ClientDataType.TIMESTAMP:
-                        columns[i] = new Column(i, colName, NativeTypes.timestamp(), false);
+                        columns[i] = new Column(i, colName, NativeTypes.timestamp(timestampPrecision), false);
                         tuple.set(colName, reader.timestampValue(valIdx));
                         break;
 
@@ -445,7 +447,7 @@ public class PlatformTestNodeRunner {
             var colocationColumns = Arrays.stream(columns).map(Column::name).toArray(String[]::new);
             var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
 
-            var marsh = new TupleMarshallerImpl(new TestSchemaRegistry(schema));
+            var marsh = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
             try {
                 Row row = marsh.marshal(tuple);
@@ -454,54 +456,6 @@ public class PlatformTestNodeRunner {
             } catch (TupleMarshallerException e) {
                 throw new RuntimeException(e);
             }
-        }
-    }
-
-    private static class TestSchemaRegistry implements SchemaRegistry {
-        private final SchemaDescriptor schema;
-
-        private TestSchemaRegistry(SchemaDescriptor schema) {
-            this.schema = schema;
-        }
-
-        @Override
-        public SchemaDescriptor schema() {
-            return schema;
-        }
-
-        @Override
-        public SchemaDescriptor schema(int ver) throws SchemaRegistryException {
-            return schema;
-        }
-
-        @Override
-        public @Nullable SchemaDescriptor schemaCached(int ver) {
-            return schema;
-        }
-
-        @Override
-        public SchemaDescriptor waitLatestSchema() {
-            return schema;
-        }
-
-        @Override
-        public int lastSchemaVersion() {
-            return 0;
-        }
-
-        @Override
-        public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-            return null;
-        }
-
-        @Override
-        public Row resolve(BinaryRow row) {
-            return null;
-        }
-
-        @Override
-        public Collection<Row> resolve(Collection<BinaryRow> rows) {
-            return null;
         }
     }
 }

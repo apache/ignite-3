@@ -25,8 +25,10 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -178,13 +180,19 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
     public void destroy() {
         closed = true;
 
-        clear();
+        clear0();
     }
 
     /**
      * Removes all index data.
      */
     public void clear() {
+        checkStorageClosedOrInProcessOfRebalance();
+
+        index.clear();
+    }
+
+    private void clear0() {
         index.clear();
     }
 
@@ -337,7 +345,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         rebalance = true;
 
-        clear();
+        clear0();
     }
 
     /**
@@ -352,7 +360,7 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
 
         rebalance = false;
 
-        clear();
+        clear0();
     }
 
     /**
@@ -364,5 +372,12 @@ public class TestSortedIndexStorage implements SortedIndexStorage {
         assert rebalance;
 
         rebalance = false;
+    }
+
+    /**
+     * Returns all indexed row ids.
+     */
+    public Set<RowId> allRowsIds() {
+        return index.values().stream().flatMap(m -> m.keySet().stream()).collect(Collectors.toSet());
     }
 }

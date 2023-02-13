@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Sql
 {
+    using System.Data.Common;
     using System.Threading.Tasks;
     using Table;
     using Transactions;
@@ -44,5 +45,14 @@ namespace Apache.Ignite.Sql
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
         Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args);
+
+        /// <summary>
+        /// Executes single SQL statement and returns a <see cref="DbDataReader"/> to consume them in an efficient, forward-only way.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <returns>Data reader.</returns>
+        Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args);
     }
 }

@@ -27,7 +27,6 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.jetbrains.annotations.NotNull;
 
@@ -49,14 +48,13 @@ public final class MarshallerUtil {
                 // Return zero for pojo as they are not serialized yet.
                 return (val instanceof byte[]) ? ((byte[]) val).length : 0;
             case STRING:
-                // Overestimating size here prevents from later unwanted row buffer expanding.
-                return ((CharSequence) val).length() << 1;
+                return utf8EncodedLength((CharSequence) val);
 
             case NUMBER:
-                return RowAssembler.sizeInBytes((BigInteger) val);
+                return sizeInBytes((BigInteger) val);
 
             case DECIMAL:
-                return RowAssembler.sizeInBytes((BigDecimal) val);
+                return sizeInBytes((BigDecimal) val);
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);
@@ -139,5 +137,47 @@ public final class MarshallerUtil {
      * Stub.
      */
     private MarshallerUtil() {
+    }
+
+    /**
+     * Calculates encoded string length.
+     *
+     * @param seq Char sequence.
+     * @return Encoded string length.
+     * @implNote This implementation is not tolerant to malformed char sequences.
+     */
+    public static int utf8EncodedLength(CharSequence seq) {
+        int cnt = 0;
+
+        for (int i = 0, len = seq.length(); i < len; i++) {
+            char ch = seq.charAt(i);
+
+            if (ch <= 0x7F) {
+                cnt++;
+            } else if (ch <= 0x7FF) {
+                cnt += 2;
+            } else if (Character.isHighSurrogate(ch)) {
+                cnt += 4;
+                ++i;
+            } else {
+                cnt += 3;
+            }
+        }
+
+        return cnt;
+    }
+
+    /**
+     * Calculates byte size for BigInteger value.
+     */
+    public static int sizeInBytes(BigInteger val) {
+        return val.bitLength() / 8 + 1;
+    }
+
+    /**
+     * Calculates byte size for BigDecimal value.
+     */
+    public static int sizeInBytes(BigDecimal val) {
+        return sizeInBytes(val.unscaledValue());
     }
 }

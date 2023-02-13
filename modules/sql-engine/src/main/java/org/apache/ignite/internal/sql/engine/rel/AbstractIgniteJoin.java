@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,10 +49,8 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -102,30 +99,6 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         RelTraitSet rightTraits = right.replace(RelCollations.EMPTY);
 
         return List.of(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
-        // The node is rewindable only if both sources are rewindable.
-
-        RelTraitSet left = inputTraits.get(0);
-        RelTraitSet right = inputTraits.get(1);
-
-        RewindabilityTrait leftRewindability = TraitUtils.rewindability(left);
-        RewindabilityTrait rightRewindability = TraitUtils.rewindability(right);
-
-        List<Pair<RelTraitSet, List<RelTraitSet>>> pairs = new ArrayList<>();
-
-        pairs.add(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-                List.of(left.replace(RewindabilityTrait.ONE_WAY), right.replace(RewindabilityTrait.ONE_WAY))));
-
-        if (leftRewindability.rewindable() && rightRewindability.rewindable()) {
-            pairs.add(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE),
-                    List.of(left.replace(RewindabilityTrait.REWINDABLE), right.replace(RewindabilityTrait.REWINDABLE))));
-        }
-
-        return List.copyOf(pairs);
     }
 
     /** {@inheritDoc} */
@@ -197,18 +170,6 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
         res.add(Pair.of(outTraits, List.of(leftTraits, rightTraits)));
 
         return List.copyOf(res);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits) {
-        // left correlations
-        Set<CorrelationId> corrIds = new HashSet<>(TraitUtils.correlation(inTraits.get(0)).correlationIds());
-        // right correlations
-        corrIds.addAll(TraitUtils.correlation(inTraits.get(1)).correlationIds());
-
-        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(corrIds)), inTraits));
     }
 
     /** {@inheritDoc} */

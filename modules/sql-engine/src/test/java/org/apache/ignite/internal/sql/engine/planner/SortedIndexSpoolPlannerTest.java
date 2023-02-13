@@ -29,7 +29,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -42,12 +41,14 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * SortedIndexSpoolPlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-18689")
 public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
     /**
      * Check equi-join on not colocated fields. CorrelatedNestedLoopJoinTest is applicable for this case only with IndexSpool.
@@ -188,7 +189,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                                     assertTrue(fld1Bounds.lowerBound() instanceof RexFieldAccess);
                                     assertFalse(fld1Bounds.lowerInclude());
                                     // NULLS LAST in collation, so nulls can be skipped by upper bound.
-                                    assertTrue(((RexLiteral) fld1Bounds.upperBound()).isNull());
+                                    assertEquals("$NULL_BOUND()", fld1Bounds.upperBound().toString());
                                     assertFalse(fld1Bounds.upperInclude());
 
                                     return true;

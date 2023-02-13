@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,7 +52,6 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
@@ -432,12 +433,22 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tblId Table id.
      * @return The latest schema version.
      */
+    // TODO: Make this method async, see https://issues.apache.org/jira/browse/IGNITE-18732
     private int latestSchemaVersion(UUID tblId) {
-        try (Cursor<Entry> cur = metastorageMgr.prefix(schemaHistPrefix(tblId))) {
-            int lastVer = INITIAL_SCHEMA_VERSION;
+        var latestVersionFuture = new CompletableFuture<Integer>();
 
-            for (Entry ent : cur) {
-                String key = new String(ent.key(), StandardCharsets.UTF_8);
+        metastorageMgr.prefix(schemaHistPrefix(tblId)).subscribe(new Subscriber<>() {
+            private int lastVer = INITIAL_SCHEMA_VERSION;
+
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                // Request unlimited demand.
+                subscription.request(Long.MAX_VALUE);
+            }
+
+            @Override
+            public void onNext(Entry item) {
+                String key = new String(item.key(), StandardCharsets.UTF_8);
                 int descVer = extractVerFromSchemaKey(key);
 
                 if (descVer > lastVer) {
@@ -445,9 +456,25 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 }
             }
 
-            return lastVer;
-        } catch (NodeStoppingException e) {
-            throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
+            @Override
+            public void onError(Throwable throwable) {
+                latestVersionFuture.completeExceptionally(throwable);
+            }
+
+            @Override
+            public void onComplete() {
+                latestVersionFuture.complete(lastVer);
+            }
+        });
+
+        try {
+            return latestVersionFuture.get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IgniteInternalException("Interrupted when getting schema version from metastorage", e);
+        } catch (TimeoutException | ExecutionException e) {
+            throw new IgniteInternalException("Exception when getting schema version from metastorage", e);
         }
     }
 
@@ -457,6 +484,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param tblId Table id.
      * @return Schema representation if schema found, {@code null} otherwise.
      */
+    // TODO: Make this method async, see https://issues.apache.org/jira/browse/IGNITE-18732
     private byte[] schemaByVersion(UUID tblId, int ver) {
         try {
             return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))

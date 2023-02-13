@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.io;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 
@@ -46,7 +47,7 @@ public interface ClientConnectionMultiplexer {
      * @return Created connection.
      * @throws IgniteClientConnectionException when connection can't be established.
      */
-    ClientConnection open(
+    CompletableFuture<ClientConnection> openAsync(
             InetSocketAddress addr,
             ClientMessageHandler msgHnd,
             ClientConnectionStateHandler stateHnd)

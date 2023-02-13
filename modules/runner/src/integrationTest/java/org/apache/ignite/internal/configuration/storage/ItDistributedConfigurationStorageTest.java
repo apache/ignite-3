@@ -23,15 +23,16 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -63,6 +64,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItDistributedConfigurationStorageTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -104,7 +108,8 @@ public class ItDistributedConfigurationStorageTest {
                     clusterService,
                     raftManager,
                     clusterStateStorage,
-                    logicalTopologyService
+                    logicalTopologyService,
+                    clusterManagementConfiguration
             );
 
             metaStorageManager = new MetaStorageManagerImpl(
@@ -112,7 +117,7 @@ public class ItDistributedConfigurationStorageTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    new SimpleInMemoryKeyValueStorage()
+                    new SimpleInMemoryKeyValueStorage(name())
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);
@@ -150,7 +155,7 @@ public class ItDistributedConfigurationStorageTest {
         }
 
         String name() {
-            return clusterService.topologyService().localMember().name();
+            return clusterService.localConfiguration().getName();
         }
     }
 
@@ -174,7 +179,7 @@ public class ItDistributedConfigurationStorageTest {
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
             assertThat(node.cfgStorage.writeConfigurationRevision(0, 1), willCompleteSuccessfully());
 
-            waitForCondition(() -> Objects.nonNull(node.vaultManager.get(MetaStorageManagerImpl.APPLIED_REV).join()), 3000);
+            assertTrue(waitForCondition(() -> node.metaStorageManager.appliedRevision() != 0, 3000));
         } finally {
             node.stop();
         }

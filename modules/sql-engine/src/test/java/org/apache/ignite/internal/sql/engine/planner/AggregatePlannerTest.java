@@ -26,11 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -188,7 +189,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     /**
-     * Test that aggregate has single distribution output even if parent node accept random distibution inputs.
+     * Test that aggregate has single distribution output even if parent node accept random distribution inputs.
      *
      * @throws Exception If failed.
      */
@@ -377,7 +378,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     /**
-     * Check that map aggregate does not contain distinct accumulator.
+     * Check that map aggregate does not contain distinct accumulator and can be planned at all.
      *
      * @throws Exception If failed.
      */
@@ -389,52 +390,43 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         publicSchema.addTable(tbl);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-18464 Colocated sort aggregates need to compose a plans with additional sort
-        //checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test", publicSchema);
-        //checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test", publicSchema);
-        //checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test", publicSchema);
-        //checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test", publicSchema);
-        //checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test", publicSchema);
+        checkDistinctInMapAggNode("SELECT COUNT(*) FROM test", publicSchema);
+        checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test", publicSchema);
+        checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test", publicSchema);
+        checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test", publicSchema);
+        checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test", publicSchema);
+        checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test", publicSchema);
 
-        checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-
+        checkDistinctInMapAggNode("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1, grp0", publicSchema);
         checkDistinctInMapAggNode("SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1", publicSchema);
-
         checkDistinctInMapAggNode("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-
         checkDistinctInMapAggNode("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-
         checkDistinctInMapAggNode("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-
         checkDistinctInMapAggNode("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", publicSchema);
-
         checkDistinctInMapAggNode("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", publicSchema);
     }
 
     /**
-     * Check that plan does not contain distinct accumulators on map nodes.
+     * Check that plan does not contain distinct accumulators on map nodes with additional expectations.
      *
      * @param sql Request string.
      * @param publicSchema Schema.
      * @throws Exception If failed.
      */
     private void checkDistinctInMapAggNode(String sql, IgniteSchema publicSchema) throws Exception {
-        List<Pair<String[], Boolean>> disabledRules = List.of(new Pair<>(new String[]{""}, false),
-                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"}, true),
+        List<Pair<String[], Predicate<IgniteRel>>> disabledRules = List.of(
                 new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
-                        "MapReduceSortAggregateConverterRule"}, true),
-                new Pair<>(new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule",
-                        "MapReduceHashAggregateConverterRule"}, true)
+                        "MapReduceSortAggregateConverterRule"}, node -> !findNodes(node, byClass(IgniteMapAggregateBase.class)).isEmpty()),
+                new Pair<>(new String[]{"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+                        "ColocatedHashAggregateConverterRule"}, node -> true),
+                new Pair<>(new String[]{"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+                        "ColocatedSortAggregateConverterRule"}, node -> true)
         );
 
-        for (Pair<String[], Boolean> rules : disabledRules) {
+        for (Pair<String[], Predicate<IgniteRel>> rules : disabledRules) {
             IgniteRel phys = physicalPlan(sql, publicSchema, rules.getFirst());
 
-            List<RelNode> nodes = findNodes(phys, byClass(IgniteMapAggregateBase.class));
-
-            if (rules.getSecond()) {
-                assertThat("No mapper found", !nodes.isEmpty());
-            }
+            assertTrue(rules.getSecond().test(phys), "[" + sql + "] Failed with disabled rules: " + Arrays.toString(rules.getFirst()));
 
             assertFalse(findNodes(phys, byClass(IgniteMapAggregateBase.class)).stream()
                             .anyMatch(n -> ((Aggregate) n).getAggCallList().stream()
