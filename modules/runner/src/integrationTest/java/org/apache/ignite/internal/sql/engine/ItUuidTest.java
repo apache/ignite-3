@@ -49,11 +49,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
      */
     @AfterAll
     public void dropTables() {
-        var igniteTables = CLUSTER_NODES.get(0).tables();
-
-        for (var table : igniteTables.tables()) {
-            sql("DROP TABLE " + table.name());
-        }
+        dropAllTables();
     }
 
     @BeforeAll
@@ -255,7 +251,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT ? > ?").withParams(uuid2, uuid1).returns(false).check();
         assertQuery("SELECT ? >= ?").withParams(uuid2, uuid1).returns(false).check();
 
-        assertQuery("SELECT ? > ?").withParams(uuid1, uuid2).returns(true).check();
-        assertQuery("SELECT ? >= ?").withParams(uuid1, uuid2).returns(true).check();
+        assertQuery("SELECT ? > ?").withParams(uuid2, uuid1).returns(true).check();
+        assertQuery("SELECT ? >= ?").withParams(uuid2, uuid1).returns(true).check();
     }
 }

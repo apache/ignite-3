@@ -1231,6 +1231,8 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 (short) typeNullable, true, (short) typeSearchable, true, false, false, null, 0, 0,
                 Types.OTHER, null, 10));
 
+        // IgniteCustomType: JDBC catalog level information for your type.
+
         types.add(Arrays.asList("OTHER", Types.OTHER, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "OTHER", 0, 0,
                 Types.OTHER, 0, null));

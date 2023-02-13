@@ -21,6 +21,7 @@ import static java.sql.Types.DATE;
 import static java.sql.Types.DECIMAL;
 import static java.sql.Types.INTEGER;
 import static java.sql.Types.NULL;
+import static java.sql.Types.OTHER;
 import static java.sql.Types.VARCHAR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -517,6 +518,41 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         checkNoEntitiesFoundForCatalog("");
         checkNoEntitiesFoundForCatalog("NOT_EXISTING_CATALOG");
     }
+
+    /**
+     * Test metadata for UUID type.
+     */
+    @Test
+    public void testUuidMetadata() throws SQLException {
+        try (Connection con = DriverManager.getConnection(URL)) {
+            try (Statement stmt = con.createStatement()) {
+                stmt.execute("CREATE TABLE UUIDS(id INT PRIMARY KEY, uuid_val UUID)");
+
+//                // Result set metadata
+//                try (ResultSet rs = stmt.executeQuery("SELECT uuid_val FROM UUIDS")) {
+//                    ResultSetMetaData metaData = rs.getMetaData();
+//                    assertEquals(OTHER, metaData.getColumnType(1));
+//                    assertEquals("java.util.UUID", metaData.getColumnClassName(1));
+//                }
+            }
+
+            DatabaseMetaData meta = conn.getMetaData();
+
+            // Catalog level metadata
+            try (ResultSet rs = meta.getColumns(null, "PUBLIC", "UUIDS", null)) {
+                while (rs.next()) {
+                    if ("UUID_VAL".equals(rs.getString("COLUMN_NAME"))) {
+                        assertEquals(OTHER, rs.getInt("DATA_TYPE"));
+                        // TYPE_NAME String => Data source dependent type name, for a UDT the type name is fully qualified
+                        assertEquals("OTHER", rs.getString("TYPE_NAME"));
+                        assertEquals(1, rs.getInt("NULLABLE"));
+                    }
+                }
+            }
+        }
+    }
+
+    // IgniteCustomType: Add JDBC metadata test for your type.
 
     /**
      * Check that lookup in the metadata have been performed using specified catalog name (that is neither {@code null} nor correct catalog
