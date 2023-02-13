@@ -30,6 +30,7 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -125,7 +126,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
         char[] ksPassword = ssl.keyStorePassword() == null ? null : ssl.keyStorePassword().toCharArray();
         if (ssl.keyStorePath() != null) {
-            try (var is = Files.newInputStream(Path.of(ssl.keyStorePath()))) {
+            try (InputStream is = Files.newInputStream(Path.of(ssl.keyStorePath()))) {
                 ks.load(is, ksPassword);
             }
         } else {
@@ -143,7 +144,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         KeyStore ts = KeyStore.getInstance(ssl.trustStoreType());
         char[] tsPassword = ssl.trustStorePassword() == null ? null : ssl.trustStorePassword().toCharArray();
         if (ssl.trustStorePath() != null) {
-            try (var is = Files.newInputStream(Path.of(ssl.trustStorePath()))) {
+            try (InputStream is = Files.newInputStream(Path.of(ssl.trustStorePath()))) {
                 ts.load(is, tsPassword);
             }
         } else {
