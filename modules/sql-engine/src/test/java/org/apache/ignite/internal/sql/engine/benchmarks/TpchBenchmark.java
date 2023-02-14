@@ -17,12 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
-import com.google.common.io.CharStreams;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -45,7 +39,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * {@code TPC-H} based benchmark.
+ * Benchmarks derived from <a href="http://www.tpc.org/tpch/">TPC-H</a>.
  */
 @Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
@@ -53,10 +47,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(3)
 @State(Scope.Benchmark)
-public class TpchJoinsBenchmark {
+public class TpchBenchmark {
 
     /**
-     * {@code numeric_id} or {@code numeric_id}v for variant queries. See {@link #loadQuery(String)}.
+     * Identifiers of TPC-H queries. See {@link TpchQueries#getQuery(String)}.
      */
     @Param({
             "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
@@ -81,7 +75,7 @@ public class TpchJoinsBenchmark {
         testCluster.start();
         gatewayNode = testCluster.node("N1");
 
-        queryString = loadQuery(queryId);
+        queryString = TpchQueries.getQuery(queryId);
     }
 
     /** Stops the cluster. */
@@ -107,43 +101,9 @@ public class TpchJoinsBenchmark {
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
                 //.addProfiler("gc")
-                .include(TpchJoinsBenchmark.class.getName())
+                .include(TpchBenchmark.class.getName())
                 .build();
 
         new Runner(build).run();
-    }
-
-    private static String loadQuery(String queryId) {
-        // variant query ends with "v"
-        boolean variant = queryId.endsWith("v");
-        int numericId;
-
-        if (variant) {
-            String idString = queryId.substring(0, queryId.length() - 1);
-            numericId = Integer.parseInt(idString);
-        } else {
-            numericId = Integer.parseInt(queryId);
-        }
-
-        if (variant) {
-            var variantQueryFile = String.format("tpch/variant_q%d.sql", numericId);
-            return loadFromResource(variantQueryFile);
-        } else {
-            var queryFile = String.format("tpch/q%s.sql", numericId);
-            return loadFromResource(queryFile);
-        }
-    }
-
-    private static String loadFromResource(String resource) {
-        try (InputStream is = TpchJoinsBenchmark.class.getClassLoader().getResourceAsStream(resource)) {
-            if (is == null) {
-                throw new IllegalArgumentException("Resource does not exist: " + resource);
-            }
-            try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
-                return CharStreams.toString(reader);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("I/O operation failed: " + resource, e);
-        }
     }
 }

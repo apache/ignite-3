@@ -23,7 +23,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders.ClusterBuild
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 
 /**
- * Provide utility methods to register tables from the TPC-H benchmark in a {@link ClusterBuilder}.
+ * Provides utility methods to register tables described by the TPC-H benchmark in a {@link ClusterBuilder}.
  */
 public final class TpchSchema {
 
@@ -43,7 +43,7 @@ public final class TpchSchema {
     }
 
     /**
-     * Registers tables from the TPC-H benchmark in the given cluster with the scaling factor of {@code 1}.
+     * Registers tables from the TPC-H benchmark in the given {@link ClusterBuilder cluster builder} with the scaling factor of {@code 1}.
      *
      * @param clusterBuilder  a cluster builder.
      * @param dataSize the number of rows data provider is going to produce for each table.
