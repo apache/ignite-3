@@ -58,11 +58,6 @@ public class RetryLimitPolicy implements RetryPolicy {
             return true;
         }
 
-        if (context.iteration() < retryLimit) {
-            return true;
-        } else {
-            System.out.println(retryLimit + " retries exceeded");
-            return false;
-        }
+        return context.iteration() < retryLimit;
     }
 }

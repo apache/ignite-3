@@ -176,10 +176,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Close the channel with cause.
      */
-    private void close(@Nullable Throwable cause) {
+    private void close(@Nullable Exception cause) {
         if (closed.compareAndSet(false, true)) {
-            System.out.println("Connection closed: " + this);
-
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
 
@@ -190,7 +188,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             sock.close();
 
             for (ClientRequestFuture pendingReq : pendingReqs.values()) {
-                pendingReq.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed 2 " + this, cause));
+                pendingReq.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", cause));
             }
         }
     }
@@ -243,8 +241,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         long id = reqId.getAndIncrement();
 
         if (closed()) {
-            System.out.println("Channel is closed: " + this);
-            throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed " + this);
+            throw new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed");
         }
 
         ClientRequestFuture fut = new ClientRequestFuture();
@@ -265,8 +262,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    close(f.cause());
-                    fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send request " + this, f.cause()));
+                    fut.completeExceptionally(new IgniteClientConnectionException(CONNECTION_ERR, "Failed to send request", f.cause()));
                 }
             });
 
