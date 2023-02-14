@@ -78,12 +78,14 @@ class ClientFutureUtils {
                         resFut.completeExceptionally(new IllegalStateException("doWithRetry failed without exception"));
                     } else {
                         var resErr = ctx.errors.get(0);
+                        StringBuilder builder = new StringBuilder();
 
                         for (int i = 1; i < ctx.errors.size(); i++) {
                             resErr.addSuppressed(ctx.errors.get(i));
+                            builder.append(ctx.errors.get(i).getMessage()).append(", ");
                         }
 
-                        System.out.println("doWithRetry failed: " + resErr.getMessage() + ", attempt: " + ctx.attempt);
+                        System.out.println("doWithRetry failed: " + resErr.getMessage() + ", attempt: " + ctx.attempt  + ", errs: " + builder);
                         resFut.completeExceptionally(resErr);
                     }
                 }
