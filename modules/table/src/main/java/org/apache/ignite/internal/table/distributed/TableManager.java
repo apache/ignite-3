@@ -2169,6 +2169,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
+        // TODO: IGNITE-18565 вот тут надо будет поправить, мол мы могли уже создать их
         return table.internalTable().storage().createMvPartition(partitionId)
                 .thenComposeAsync(mvPartitionStorage -> {
                     TxStateStorage txStateStorage = table.internalTable().txStateStorage().getOrCreateTxStateStorage(partitionId);
