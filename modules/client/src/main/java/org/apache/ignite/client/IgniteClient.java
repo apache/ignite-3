@@ -136,7 +136,7 @@ public interface IgniteClient extends Ignite {
          * @param loggerFactory A factory.
          * @return This instance.
          */
-        public Builder loggerFactory(LoggerFactory loggerFactory) {
+        public Builder loggerFactory(@Nullable LoggerFactory loggerFactory) {
             this.loggerFactory = loggerFactory;
 
             return this;

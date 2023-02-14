@@ -33,8 +33,10 @@ import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -179,10 +181,16 @@ public class RetryPolicyTest {
         // => fail on 4th request
         initServer(reqId -> reqId % 4 == 0);
 
-        try (var client = getClient(new RetryReadPolicy())) {
+        var loggerFactory = new TestLoggerFactory("c");
+
+        try (var client = getClient(new RetryReadPolicy(), loggerFactory)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             recView.get(null, Tuple.create().set("id", 1L));
             recView.get(null, Tuple.create().set("id", 1L));
+
+            IgniteTestUtils.waitForCondition(
+                    () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Disconnected from server")),
+                    1000);
         }
     }
 
@@ -257,10 +265,15 @@ public class RetryPolicyTest {
     }
 
     private IgniteClient getClient(@Nullable RetryPolicy retryPolicy) {
+        return getClient(retryPolicy, null);
+    }
+
+    private IgniteClient getClient(@Nullable RetryPolicy retryPolicy, @Nullable LoggerFactory loggerFactory) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
                 .reconnectThrottlingPeriod(0)
+                .loggerFactory(loggerFactory)
                 .build();
     }
 
