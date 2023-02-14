@@ -32,6 +32,7 @@ public class NodeMetadataDto {
     private final String restHost;
     @Schema(description = "The HTTP port exposed to REST API.")
     private final int httpPort;
+    @Schema(description = "The HTTPS port exposed to REST API.")
     private final int httpsPort;
 
     /**
