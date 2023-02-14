@@ -856,11 +856,9 @@ public class ItMetaStorageServiceTest {
 
     /**
      * Tests {@link MetaStorageService#closeCursors(String)}.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testCursorsCleanup() throws Exception {
+    public void testCursorsCleanup() throws InterruptedException {
         startNodes(2);
 
         Node leader = nodes.get(0);
@@ -875,6 +873,7 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
+        var subscriptionLatch = new CountDownLatch(3);
         var closeCursorLatch = new CountDownLatch(1);
 
         class MockSubscriber implements Subscriber<Entry> {
@@ -882,6 +881,8 @@ public class ItMetaStorageServiceTest {
 
             @Override
             public void onSubscribe(Subscription subscription) {
+                subscriptionLatch.countDown();
+
                 try {
                     assertTrue(closeCursorLatch.await(10, TimeUnit.SECONDS));
                 } catch (Throwable e) {
@@ -917,7 +918,14 @@ public class ItMetaStorageServiceTest {
 
         learner.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node1Subscriber0);
 
-        leader.metaStorageService.closeCursors(leader.clusterService.topologyService().localMember().id()).get();
+        // Wait for all cursors to be registered on the server side.
+        assertTrue(subscriptionLatch.await(10, TimeUnit.SECONDS));
+
+        String leaderId = leader.clusterService.topologyService().localMember().id();
+
+        CompletableFuture<Void> closeCursorsFuture = leader.metaStorageService.closeCursors(leaderId);
+
+        assertThat(closeCursorsFuture, willCompleteSuccessfully());
 
         closeCursorLatch.countDown();
 
