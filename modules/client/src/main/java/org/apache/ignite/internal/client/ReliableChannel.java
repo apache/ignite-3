@@ -222,6 +222,8 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
             ClientChannel ch) {
+        System.out.println("serviceAsyncInternal: " + opCode + ", " + ch);
+
         return ch.serviceAsync(opCode, payloadWriter, payloadReader).whenComplete((res, err) -> {
             if (err != null && unwrapConnectionException(err) != null) {
                 onChannelFailure(ch);
