@@ -961,6 +961,15 @@ public class PlannerTest extends AbstractPlannerTest {
         assertPlan(sql, Collections.singleton(publicSchema), hintCheck, hintStrategies, List.of());
     }
 
+    @Test
+    public void testMinusDateSerialization() throws Exception {
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        IgniteRel phys = physicalPlan("SELECT (DATE '2021-03-01' - DATE '2021-01-01') MONTHS", publicSchema);
+
+        checkSplitAndSerialization(phys, publicSchema);
+    }
+
     /**
      * IntermediateMapping.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
