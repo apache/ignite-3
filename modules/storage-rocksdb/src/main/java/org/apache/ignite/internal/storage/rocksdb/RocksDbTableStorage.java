@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTI
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexId;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageExists;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.io.IOException;
@@ -140,6 +141,8 @@ public class RocksDbTableStorage implements MvTableStorage {
     private final ConcurrentMap<Integer, CompletableFuture<Void>> destroyFutureByPartitionId = new ConcurrentHashMap<>();
 
     private final Set<Integer> rebalancePartitions = ConcurrentHashMap.newKeySet();
+
+    private final ConcurrentMap<Integer, CompletableFuture<Void>> operationFutureByPartitionId = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -406,22 +409,32 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    // TODO: IGNITE-18565 исправить это
+    // TODO: IGNITE-18565 интегрировать с уничтожением партиции и ребалансом
     public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) throws StorageException {
         return inBusyLock(busyLock, () -> {
-            RocksDbMvPartitionStorage partition = getMvPartitionBusy(partitionId);
+            operationFutureByPartitionId.compute(
+                    partitionId,
+                    (partId, operationFuture) -> {
+                        if (getMvPartitionBusy(partitionId) != null || operationFuture != null) {
+                            throwExceptionIfStorageExists(createStorageInfo(partitionId));
+                        }
 
-            if (partition != null) {
+                        return new CompletableFuture<>();
+                    });
+
+            try {
+                RocksDbMvPartitionStorage partition = new RocksDbMvPartitionStorage(this, partitionId);
+
+                partitions.set(partitionId, partition);
+
+                meta.putPartitionId(partitionId);
+
                 return completedFuture(partition);
+            } catch (Throwable t) {
+                return failedFuture(t);
+            } finally {
+                operationFutureByPartitionId.remove(partitionId);
             }
-
-            partition = new RocksDbMvPartitionStorage(this, partitionId);
-
-            partitions.set(partitionId, partition);
-
-            meta.putPartitionId(partitionId);
-
-            return completedFuture(partition);
         });
     }
 
@@ -845,5 +858,12 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     private List<RocksDbSortedIndexStorage> getSortedIndexStorages(int partitionId) {
         return sortedIndices.values().stream().map(indexes -> indexes.get(partitionId)).filter(Objects::nonNull).collect(toList());
+    }
+
+    /**
+     * Creates a short info of the multi-versioned partition storage in the format "table=user, partitionId=1".
+     */
+    String createStorageInfo(int partitionId) {
+        return IgniteStringFormatter.format("table={}, partitionId={}", getTableName(), partitionId);
     }
 }

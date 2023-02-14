@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageExists;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -66,7 +68,8 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     protected final ConcurrentMap<Integer, CompletableFuture<Void>> rebalanceFutureByPartitionId = new ConcurrentHashMap<>();
 
-    /** Busy lock. */
+    protected final ConcurrentMap<Integer, CompletableFuture<Void>> operationFutureByPartitionId = new ConcurrentHashMap<>();
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
@@ -194,22 +197,32 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     abstract CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage);
 
     @Override
-    // TODO: IGNITE-18565 исправить это
-    public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) throws StorageException {
+    // TODO: IGNITE-18565 интегрировать с уничтожением партиции и ребалансом
+    public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) {
         return busy(() -> {
-            AbstractPageMemoryMvPartitionStorage partition = getMvPartitionBusy(partitionId);
+            operationFutureByPartitionId.compute(
+                    partitionId,
+                    (partId, operationFuture) -> {
+                        if (getMvPartitionBusy(partitionId) != null || operationFuture != null) {
+                            throwExceptionIfStorageExists(createStorageInfo(partitionId));
+                        }
 
-            if (partition != null) {
+                        return new CompletableFuture<>();
+                    });
+
+            try {
+                AbstractPageMemoryMvPartitionStorage partition = createMvPartitionStorage(partitionId);
+
+                partition.start();
+
+                mvPartitions.set(partitionId, partition);
+
                 return completedFuture(partition);
+            } catch (Throwable t) {
+                return failedFuture(t);
+            } finally {
+                operationFutureByPartitionId.remove(partitionId);
             }
-
-            partition = createMvPartitionStorage(partitionId);
-
-            partition.start();
-
-            mvPartitions.set(partitionId, partition);
-
-            return completedFuture(partition);
         });
     }
 
@@ -456,5 +469,12 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public String getTableName() {
         return tableCfg.name().value();
+    }
+
+    /**
+     * Creates a short info of the multi-versioned partition storage in the format "table=user, partitionId=1".
+     */
+    public String createStorageInfo(int partitionId) {
+        return IgniteStringFormatter.format("table={}, partitionId={}", getTableName(), partitionId);
     }
 }

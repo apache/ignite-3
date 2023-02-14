@@ -495,6 +495,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         return getOrCreatePartitionMeta(groupPartitionId, filePageStore);
     }
 
+    // TODO: IGNITE-18565 вот тут надо будет удалить, после интеграции с уничтожением партиции
     private void waitPartitionToBeDestroyed(int partitionId) {
         CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
 

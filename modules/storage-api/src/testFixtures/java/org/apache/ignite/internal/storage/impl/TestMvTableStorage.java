@@ -105,7 +105,8 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) throws StorageException {
+    // TODO: IGNITE-18565 интегрировать с уничтожением партиции и ребалансом
+    public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) {
         checkPartitionId(partitionId);
 
         TestMvPartitionStorage testMvPartitionStorage = partitions.compute(partitionId, (partId, mvPartitionStorage) -> {
