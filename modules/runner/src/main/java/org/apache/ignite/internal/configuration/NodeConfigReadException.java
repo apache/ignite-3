@@ -15,23 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
+import org.apache.ignite.lang.IgniteException;
 
-/** Keystore configuration schema. */
-@Config
-public class KeyStoreConfigurationSchema {
-    /** Keystore type. */
-    @Value(hasDefault = true)
-    public String type = "PKCS12";
+/**
+ * Throws when node bootstrap configuration read failed with IO problem.
+ */
+public class NodeConfigReadException extends IgniteException {
 
-    /** Keystore path. */
-    @Value(hasDefault = true)
-    public String path = "";
-
-    /** Keystore password. */
-    @Value(hasDefault = true)
-    public String password = "";
+    public NodeConfigReadException(String msg, Throwable cause) {
+        super(NodeConfiguration.CONFIG_READ_ERR, msg, cause);
+    }
 }

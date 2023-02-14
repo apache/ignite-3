@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
+import org.apache.ignite.lang.IgniteException;
 
-/** Keystore configuration schema. */
-@Config
-public class KeyStoreConfigurationSchema {
-    /** Keystore type. */
-    @Value(hasDefault = true)
-    public String type = "PKCS12";
+/**
+ * Throws when node bootstrap configuration file failed to create with IO problem.
+ */
+public class NodeConfigCreateException extends IgniteException {
 
-    /** Keystore path. */
-    @Value(hasDefault = true)
-    public String path = "";
+    public NodeConfigCreateException(String msg) {
+        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg);
+    }
 
-    /** Keystore password. */
-    @Value(hasDefault = true)
-    public String password = "";
+    public NodeConfigCreateException(String msg, Throwable cause) {
+        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg, cause);
+    }
 }

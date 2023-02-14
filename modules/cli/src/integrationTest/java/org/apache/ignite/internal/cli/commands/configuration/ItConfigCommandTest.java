@@ -68,6 +68,31 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     }
 
     @Test
+    @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
+    void addNodeConfigKeyValue() {
+        // When update default data storage to rocksdb
+        execute("node", "config", "update", "--node-url", NODE_URL,
+                "network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                this::assertOutputIsNotEmpty
+        );
+
+        // When read the updated cluster configuration
+        execute("node", "config", "show", "--node-url", NODE_URL);
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("\"netClusterNodes\" : [ \"localhost:3344\", \"localhost:3345\" ]")
+        );
+    }
+
+    @Test
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb

@@ -69,6 +69,7 @@ public class IgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
+    //TODO: Move IGNITE-18778
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
         Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
