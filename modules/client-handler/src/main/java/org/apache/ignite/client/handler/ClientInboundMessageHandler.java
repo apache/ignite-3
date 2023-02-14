@@ -92,7 +92,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Handles messages from thin clients.
@@ -261,11 +260,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private static void writeMagic(ChannelHandlerContext ctx) {
+    private void writeMagic(ChannelHandlerContext ctx) {
         ctx.write(Unpooled.wrappedBuffer(ClientMessageCommon.MAGIC_BYTES));
     }
 
-    private static void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
+    private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
 
         // writeAndFlush releases pooled buffer.
@@ -322,12 +321,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
+    private ClientMessagePacker getPacker(ByteBufAllocator alloc) {
         // Outgoing messages are released on write.
         return new ClientMessagePacker(alloc.buffer());
     }
 
-    private static ClientMessageUnpacker getUnpacker(ByteBuf buf) {
+    private ClientMessageUnpacker getUnpacker(ByteBuf buf) {
         return new ClientMessageUnpacker(buf);
     }
 
@@ -367,7 +366,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    @Nullable
     private CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
