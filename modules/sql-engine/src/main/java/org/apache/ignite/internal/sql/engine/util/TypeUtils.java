@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +43,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -265,6 +267,19 @@ public class TypeUtils {
             return (int) ((Period) val).toTotalMonths();
         } else if (storageType == byte[].class) {
             return new ByteString((byte[]) val);
+        } else if (val instanceof Number && storageType != val.getClass()) {
+            // For dynamic parameters we don't know exact parameter type in compile time. To avoid casting errors in
+            // runtime we should convert parameter value to expected type.
+            Number num = (Number) val;
+
+            return Byte.class.equals(storageType) || byte.class.equals(storageType) ? SqlFunctions.toByte(num) :
+                    Short.class.equals(storageType) || short.class.equals(storageType) ? SqlFunctions.toShort(num) :
+                            Integer.class.equals(storageType) || int.class.equals(storageType) ? SqlFunctions.toInt(num) :
+                                    Long.class.equals(storageType) || long.class.equals(storageType) ? SqlFunctions.toLong(num) :
+                                            Float.class.equals(storageType) || float.class.equals(storageType) ? SqlFunctions.toFloat(num) :
+                                                    Double.class.equals(storageType) || double.class.equals(storageType)
+                                                            ? SqlFunctions.toDouble(num) :
+                                                            BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else if (storageType == UUID.class) {
             assert val instanceof UUID : storageTypeMismatch(val, UUID.class);
             return val;

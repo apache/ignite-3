@@ -60,7 +60,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
-            //    https://issues.apache.org/jira/browse/IGNITE-18258
+            //    https://issues.apache.org/jira/browse/IGNITE-18789
             //    https://issues.apache.org/jira/browse/IGNITE-18414
             //    https://issues.apache.org/jira/browse/IGNITE-18415
             //    https://issues.apache.org/jira/browse/IGNITE-18345
@@ -91,14 +91,13 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
     }
 
     // After fix the mute reason need to merge the test with above testDynamicParameters
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18258")
     @Test
     public void testDynamicParameters2() {
-        assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8).check();
+        assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
         assertQuery("SELECT ? % ?").withParams(11, 10).returns(BigDecimal.valueOf(1)).check();
 
-        assertQuery("SELECT id from person where salary<? and id>?").withParams(15, 1).returns(2).check();
+        assertQuery("SELECT id from person where salary<? and id<?").withParams(15, 3).returns(0).check();
     }
 
     // After fix the mute reason need to merge the test with above testDynamicParameters
