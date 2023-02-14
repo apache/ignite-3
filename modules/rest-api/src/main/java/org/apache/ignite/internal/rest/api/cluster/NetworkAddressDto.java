@@ -33,7 +33,7 @@ public class NetworkAddressDto {
     private final String host;
 
     /** Port. */
-    @Schema(description = "Port hte node runs on.")
+    @Schema(description = "Port the node runs on.")
     private final int port;
 
     /**
