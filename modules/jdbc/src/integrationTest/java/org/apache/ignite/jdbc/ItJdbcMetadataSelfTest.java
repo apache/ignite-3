@@ -358,7 +358,9 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         Set<String> expectedPks = new HashSet<>(Arrays.asList(
                 "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
-                "PUBLIC.PERSON.PK_PERSON.ORGID"));
+                "PUBLIC.PERSON.PK_PERSON.ORGID",
+                "PUBLIC.UUIDS.PK_UUIDS.ID"
+        ));
 
         Set<String> actualPks = new HashSet<>(expectedPks.size());
 
