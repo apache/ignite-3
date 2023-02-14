@@ -55,7 +55,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 public class TpchJoinsBenchmark {
 
-    // The numeric query id or <numeric_id>v for variant queries.
+    /**
+     * {@code numeric_id} or {@code numeric_id}v for variant queries. See {@link #loadQuery(String)}.
+     */
     @Param({
             "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
             "13", "14", "14v", "15", "16", "17", "18", "19", "20", "21", "22"
@@ -79,13 +81,7 @@ public class TpchJoinsBenchmark {
         testCluster.start();
         gatewayNode = testCluster.node("N1");
 
-        // variant query ends with "v"
-        if (queryId.endsWith("v")) {
-            String qId = queryId.substring(0, queryId.length() - 1);
-            queryString = loadQuery(Integer.parseInt(qId), true);
-        } else {
-            queryString = loadQuery(Integer.parseInt(queryId), false);
-        }
+        queryString = loadQuery(queryId);
     }
 
     /** Stops the cluster. */
@@ -117,12 +113,23 @@ public class TpchJoinsBenchmark {
         new Runner(build).run();
     }
 
-    private static String loadQuery(int id, boolean variant){
+    private static String loadQuery(String queryId) {
+        // variant query ends with "v"
+        boolean variant = queryId.endsWith("v");
+        int numericId;
+
         if (variant) {
-            var variantQueryFile = String.format("tpch/variant_q%d.sql", id);
+            String idString = queryId.substring(0, queryId.length() - 1);
+            numericId = Integer.parseInt(idString);
+        } else {
+            numericId = Integer.parseInt(queryId);
+        }
+
+        if (variant) {
+            var variantQueryFile = String.format("tpch/variant_q%d.sql", numericId);
             return loadFromResource(variantQueryFile);
         } else {
-            var queryFile = String.format("tpch/q%s.sql", id);
+            var queryFile = String.format("tpch/q%s.sql", numericId);
             return loadFromResource(queryFile);
         }
     }
