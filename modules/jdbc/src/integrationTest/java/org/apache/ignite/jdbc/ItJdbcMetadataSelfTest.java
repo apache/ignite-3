@@ -528,12 +528,12 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             try (Statement stmt = con.createStatement()) {
                 stmt.execute("CREATE TABLE UUIDS(id INT PRIMARY KEY, uuid_val UUID)");
 
-//                // Result set metadata
-//                try (ResultSet rs = stmt.executeQuery("SELECT uuid_val FROM UUIDS")) {
-//                    ResultSetMetaData metaData = rs.getMetaData();
-//                    assertEquals(OTHER, metaData.getColumnType(1));
-//                    assertEquals("java.util.UUID", metaData.getColumnClassName(1));
-//                }
+                // Result set metadata
+                try (ResultSet rs = stmt.executeQuery("SELECT uuid_val FROM UUIDS")) {
+                    ResultSetMetaData metaData = rs.getMetaData();
+                    assertEquals(OTHER, metaData.getColumnType(1));
+                    assertEquals("java.util.UUID", metaData.getColumnClassName(1));
+                }
             }
 
             DatabaseMetaData meta = conn.getMetaData();
