@@ -468,7 +468,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         // See SqlTypeFactory::createSqlType.
         //
         // TODO workaround for https://issues.apache.org/jira/browse/CALCITE-5297
-        //  Set nullable to false and uncomment the assertion after upgrade to calcite 1.33.
+        //  Set nullable to false and uncomment the assertion after upgrading to calcite 1.33.
         IgniteCustomType customType = customTypeFactory.newType(true, precision);
         // assert !customType.isNullable() : "makeCustomType must not return a nullable type: " + typeName + " " + customType;
         return canonize(customType);
