@@ -123,35 +123,6 @@ namespace Apache.Ignite.Internal
         /// Performs an in-out operation.
         /// </summary>
         /// <param name="clientOp">Client op code.</param>
-        /// <param name="tx">Transaction.</param>
-        /// <param name="request">Request data.</param>
-        /// <param name="preferredNode">Preferred node.</param>
-        /// <returns>Response data.</returns>
-        public async Task<PooledBuffer> DoOutInOpAsync(
-            ClientOp clientOp,
-            Transaction? tx,
-            PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default)
-        {
-            if (tx == null)
-            {
-                // Use failover socket with reconnect and retry behavior.
-                return await DoOutInOpAsync(clientOp, request, preferredNode).ConfigureAwait(false);
-            }
-
-            if (tx.FailoverSocket != this)
-            {
-                throw new IgniteClientException(ErrorGroups.Client.Connection, "Specified transaction belongs to a different IgniteClient instance.");
-            }
-
-            // Use tx-specific socket without retry and failover.
-            return await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Performs an in-out operation.
-        /// </summary>
-        /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Response data and socket.</returns>
