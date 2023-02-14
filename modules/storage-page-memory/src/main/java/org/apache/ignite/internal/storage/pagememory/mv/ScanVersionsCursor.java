@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static java.util.Collections.emptyIterator;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.rowVersionToResultNotFillingLastCommittedTs;
@@ -29,7 +28,6 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Cursor reading all versions for {@link RowId}.
@@ -39,26 +37,21 @@ import org.jetbrains.annotations.Nullable;
 class ScanVersionsCursor implements Cursor<ReadResult> {
     private final AbstractPageMemoryMvPartitionStorage storage;
 
-    private final @Nullable VersionChain versionChain;
+    private final VersionChain versionChain;
 
     private final Iterator<RowVersion> rowVersionIterator;
 
     /**
      * Constructor.
      *
-     * @param rowId Row ID.
+     * @param versionChain Version chain.
      * @param storage Multi-versioned partition storage.
      * @throws StorageException If there is an error when collecting all versions of the chain.
      */
-    ScanVersionsCursor(
-            RowId rowId,
-            AbstractPageMemoryMvPartitionStorage storage
-    ) {
+    ScanVersionsCursor(VersionChain versionChain, AbstractPageMemoryMvPartitionStorage storage) {
         this.storage = storage;
-
-        versionChain = storage.readVersionChain(rowId);
-
-        rowVersionIterator = versionChain == null ? emptyIterator() : collectRowVersions();
+        this.versionChain = versionChain;
+        this.rowVersionIterator = collectRowVersions();
     }
 
     @Override
