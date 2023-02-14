@@ -197,6 +197,7 @@ namespace Apache.Ignite.Internal.Table
 
             if (assignment == null || assignment.Length == 0)
             {
+                // Happens on table drop.
                 return default;
             }
 
