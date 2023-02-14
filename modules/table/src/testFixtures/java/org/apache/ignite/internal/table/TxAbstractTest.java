@@ -1903,12 +1903,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFixed(true);
+        testTransactionAlreadyFinished(true);
     }
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFixed(false);
+        testTransactionAlreadyFinished(false);
     }
 
     /**
@@ -1916,7 +1916,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
      */
-    private void testTransactionAlreadyFixed(boolean commit) {
+    private void testTransactionAlreadyFinished(boolean commit) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();

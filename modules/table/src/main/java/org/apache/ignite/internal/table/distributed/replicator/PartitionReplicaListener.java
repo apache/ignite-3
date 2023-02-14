@@ -1128,7 +1128,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return allOf(txFutures.toArray(new CompletableFuture<?>[0]))
                 .exceptionally(e -> {
                     assert !request.commit() :
-                            "Transaction is committing, but an operation was completed with exception [txId=" + request.txId()
+                            "Transaction is committing, but an operation has completed with exception [txId=" + request.txId()
                                     + ", err=" + e.getMessage() + ']';
 
                     return null;
@@ -2238,8 +2238,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Class that stores a list of futures for operations that has happened in a specific transaction, and a state of the transaction relate
-     * of the replica.
+     * Class that stores a list of futures for operations that has happened in a specific transaction.
+     * Also, the class has a property {@code state} that represents a transaction state.
      */
     private static class TxCleanupReadyFutureList {
         /**
