@@ -109,7 +109,7 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
         computeDigest();
     }
 
-    /** Return the name of this type. **/
+    /** Returns the name of this type. **/
     public abstract String getCustomTypeName();
 
     /**
