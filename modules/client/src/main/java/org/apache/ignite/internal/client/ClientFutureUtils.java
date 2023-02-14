@@ -83,6 +83,7 @@ class ClientFutureUtils {
                             resErr.addSuppressed(ctx.errors.get(i));
                         }
 
+                        System.out.println("doWithRetry failed: " + resErr.getMessage() + ", attempt: " + ctx.attempt);
                         resFut.completeExceptionally(resErr);
                     }
                 }

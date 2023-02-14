@@ -500,7 +500,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     private CompletableFuture<ClientChannel> getCurChannelAsync() {
         if (closed) {
-            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed"));
+            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "ReliableChannel is closed"));
         }
 
         curChannelsGuard.readLock().lock();
@@ -695,23 +695,33 @@ public final class ReliableChannel implements AutoCloseable {
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync(boolean ignoreThrottling) {
             if (close) {
+                System.out.println("getOrCreateChannelAsync 2");
+
                 return CompletableFuture.completedFuture(null);
             }
 
             var chFut0 = chFut;
 
             if (isFutureInProgressOrDoneAndChannelOpen(chFut0)) {
+                var ch = ClientFutureUtils.getNowSafe(chFut0);
+
+                System.out.println("getOrCreateChannelAsync 3: " + chFut0 + ", " + (ch == null ? null : ch.closed()) + ", " + ch);
+
                 return chFut0;
             }
 
             synchronized (this) {
                 if (close) {
+                    System.out.println("getOrCreateChannelAsync 4");
+
                     return CompletableFuture.completedFuture(null);
                 }
 
                 chFut0 = chFut;
 
                 if (isFutureInProgressOrDoneAndChannelOpen(chFut0)) {
+                    System.out.println("getOrCreateChannelAsync 5");
+
                     return chFut0;
                 }
 
@@ -719,6 +729,8 @@ public final class ReliableChannel implements AutoCloseable {
                     return CompletableFuture.failedFuture(
                             new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                 }
+
+                System.out.println("getOrCreateChannelAsync 6 " + chFut0);
 
                 chFut0 = chFactory.apply(chCfg, connMgr).thenApply(ch -> {
                     var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());

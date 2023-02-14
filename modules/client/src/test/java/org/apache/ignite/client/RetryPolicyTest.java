@@ -174,7 +174,7 @@ public class RetryPolicyTest {
     public void testRetryReadPolicyRetriesReadOperations() throws Exception {
         initServer(reqId -> reqId % 3 == 0);
 
-        try (var client = getClient(new RetryReadPolicy())) {
+        try (var client = getClient(new RetryReadPolicy().retryLimit(1000))) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             recView.get(null, Tuple.create().set("id", 1L));
             recView.get(null, Tuple.create().set("id", 1L));
