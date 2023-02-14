@@ -194,13 +194,19 @@ namespace Apache.Ignite.Internal.Table
             }
 
             var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
+
+            if (assignment == null || assignment.Length == 0)
+            {
+                return default;
+            }
+
             var partition = Math.Abs(colocationHash % assignment.Length);
             var nodeId = assignment[partition];
 
             return PreferredNode.FromId(nodeId);
         }
 
-        private async ValueTask<string[]> GetPartitionAssignmentAsync()
+        private async ValueTask<string[]?> GetPartitionAssignmentAsync()
         {
             var socketVer = _socket.PartitionAssignmentVersion;
             var assignment = _partitionAssignment;
@@ -346,7 +352,7 @@ namespace Apache.Ignite.Internal.Table
         /// Loads the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        private async Task<string[]> LoadPartitionAssignmentAsync()
+        private async Task<string[]?> LoadPartitionAssignmentAsync()
         {
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(Id);
@@ -354,10 +360,16 @@ namespace Apache.Ignite.Internal.Table
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
 
-            string[] Read()
+            string[]? Read()
             {
                 var r = resBuf.GetReader();
                 var count = r.ReadArrayHeader();
+
+                if (count == 0)
+                {
+                    return null;
+                }
+
                 var res = new string[count];
 
                 for (int i = 0; i < count; i++)
