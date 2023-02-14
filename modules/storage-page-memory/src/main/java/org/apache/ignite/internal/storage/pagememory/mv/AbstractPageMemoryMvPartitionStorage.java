@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ge
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,9 +40,8 @@ import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
-import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
+import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
+import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -80,6 +80,16 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract implementation of partition storage using Page Memory.
+ *
+ * <p>A few words about parallel operations with version chains:
+ * <ul>
+ *     <li>All update operations (including creation) must first be synchronized by row ID using
+ *     {@link #inUpdateVersionChainLock(RowId, Supplier)};</li>
+ *     <li>Reads and updates of version chains (or a single version) must be synchronized by the {@link #versionChainTree}, for example for
+ *     reading you can use {@link #findVersionChain(RowId, Function)} or
+ *     {@link AbstractPartitionTimestampCursor#createVersionChainCursorIfMissing()}, and for updates you can use {@link InvokeClosure}
+ *     for example {@link AddWriteInvokeClosure} or {@link CommitWriteInvokeClosure}.</li>
+ * </ul>
  */
 public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
@@ -519,9 +529,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                     return addWrite.getPreviousUncommittedRowVersion();
                 } catch (IgniteInternalCheckedException e) {
-                    if (e.getCause() instanceof StorageException) {
-                        throw (StorageException) e.getCause();
-                    }
+                    throwStorageExceptionIfItCause(e);
 
                     if (e.getCause() instanceof TxIdMismatchException) {
                         throw (TxIdMismatchException) e.getCause();
@@ -550,9 +558,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                     return abortWrite.getPreviousUncommittedRowVersion();
                 } catch (IgniteInternalCheckedException e) {
-                    if (e.getCause() instanceof StorageException) {
-                        throw (StorageException) e.getCause();
-                    }
+                    throwStorageExceptionIfItCause(e);
 
                     throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
                 }
@@ -573,9 +579,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                     return null;
                 } catch (IgniteInternalCheckedException e) {
-                    if (e.getCause() instanceof StorageException) {
-                        throw (StorageException) e.getCause();
-                    }
+                    throwStorageExceptionIfItCause(e);
 
                     throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
                 }
@@ -608,9 +612,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                     return null;
                 } catch (IgniteInternalCheckedException e) {
-                    if (e.getCause() instanceof StorageException) {
-                        throw (StorageException) e.getCause();
-                    }
+                    throwStorageExceptionIfItCause(e);
 
                     throw new StorageException("Error while executing addWriteCommitted: [rowId={}, {}]", e, rowId, createStorageInfo());
                 }
@@ -879,21 +881,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     <T> @Nullable T findVersionChain(RowId rowId, Function<VersionChain, T> mapper) {
         try {
-            return versionChainTree.findOne(new VersionChainKey(rowId), new TreeRowClosure<>() {
-                @Override
-                public boolean apply(BplusTree<VersionChainKey, VersionChain> tree, BplusIo<VersionChainKey> io, long pageAddr, int idx) {
-                    return true;
-                }
-
+            return versionChainTree.findOne(new VersionChainKey(rowId), new TreeRowMapClosure<>() {
                 @Override
                 public T map(VersionChain treeRow) {
                     return mapper.apply(treeRow);
                 }
             }, null);
         } catch (IgniteInternalCheckedException e) {
-            if (e.getCause() instanceof StorageException) {
-                throw (StorageException) e.getCause();
-            }
+            throwStorageExceptionIfItCause(e);
 
             throw new StorageException("Row version lookup failed: [rowId={}, {}]", e, rowId, createStorageInfo());
         }
@@ -901,8 +896,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     /**
      * Organizes external synchronization of update operations for the same version chain.
-     *
-     * <p>NOTE: When you try to execute in the closures on the pages of the tree, it leads to a deadlock.
      */
     protected <T> T inUpdateVersionChainLock(RowId rowId, Supplier<T> supplier) {
         LockHolder<ReentrantLock> lockHolder = updateVersionChainLockByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {

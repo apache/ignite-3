@@ -1186,7 +1186,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     private <R> Cursor<R> findLowerUnbounded(
             L upper,
             boolean upIncl,
-            TreeRowClosure<L, T> c,
+            TreeRowMapClosure<L, T, R> c,
             @Nullable Object x
     ) throws IgniteInternalCheckedException {
         ForwardCursor<R> cursor = new ForwardCursor<>(upper, upIncl, c, x);
@@ -1257,7 +1257,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     public <R> Cursor<R> find(
             @Nullable L lower,
             @Nullable L upper,
-            TreeRowClosure<L, T> c,
+            TreeRowMapClosure<L, T, R> c,
             @Nullable Object x
     ) throws IgniteInternalCheckedException {
         return find(lower, upper, true, true, c, x);
@@ -1282,7 +1282,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             @Nullable L upper,
             boolean lowIncl,
             boolean upIncl,
-            @Nullable TreeRowClosure<L, T> c,
+            @Nullable TreeRowMapClosure<L, T, R> c,
             @Nullable Object x
     ) throws IgniteInternalCheckedException {
         checkDestroyed();
@@ -1553,7 +1553,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * Returns found result or {@code null}.
      *
      * @param row Lookup row for exact match.
-     * @param c Tree row closure, if the tree row is not found, then {@code null} will be passed to the {@link TreeRowClosure#map}.
+     * @param c Tree row closure, if the tree row is not found, then {@code null} will be passed to the {@link TreeRowMapClosure#map}.
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @throws CorruptedDataStructureException If the data structure is broken.
      * @throws CorruptedTreeException If there were {@link RuntimeException} or {@link AssertionError}.
@@ -1561,7 +1561,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      */
     public final <R> @Nullable R findOne(
             L row,
-            @Nullable TreeRowClosure<L, T> c,
+            @Nullable TreeRowMapClosure<L, T, R> c,
             @Nullable Object x
     ) throws IgniteInternalCheckedException {
         checkDestroyed();
@@ -3367,7 +3367,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     private final class GetOne<R> extends Get {
         private final @Nullable Object arg;
 
-        private final @Nullable TreeRowClosure<L, T> treeRowClosure;
+        private final @Nullable TreeRowMapClosure<L, T, R> treeRowClosure;
 
         private @Nullable R res;
 
@@ -3376,13 +3376,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          *
          * @param row Row.
          * @param treeRowClosure Tree row closure, if the tree row is not found, then {@code null} will be passed to the
-         *      {@link TreeRowClosure#map}.
+         *      {@link TreeRowMapClosure#map}.
          * @param arg Implementation specific argument.
          * @param findLast Ignore row passed, find last row
          */
         private GetOne(
                 @Nullable L row,
-                @Nullable TreeRowClosure<L, T> treeRowClosure,
+                @Nullable TreeRowMapClosure<L, T, R> treeRowClosure,
                 @Nullable Object arg,
                 boolean findLast
         ) {
@@ -6207,7 +6207,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         private int row = -1;
 
         /** Filter closure. */
-        private final @Nullable TreeRowClosure<L, T> treeRowClosure;
+        private final @Nullable TreeRowMapClosure<L, T, R> treeRowClosure;
 
         private @Nullable Boolean hasNext = null;
 
@@ -6222,7 +6222,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         ForwardCursor(
                 @Nullable L upperBound,
                 boolean upIncl,
-                @Nullable TreeRowClosure<L, T> treeRowClosure,
+                @Nullable TreeRowMapClosure<L, T, R> treeRowClosure,
                 @Nullable Object arg
         ) {
             this(null, upperBound, true, upIncl, treeRowClosure, arg);
@@ -6243,7 +6243,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 @Nullable L upperBound,
                 boolean lowIncl,
                 boolean upIncl,
-                @Nullable TreeRowClosure<L, T> treeRowClosure,
+                @Nullable TreeRowMapClosure<L, T, R> treeRowClosure,
                 @Nullable Object arg
         ) {
             super(lowerBound, upperBound, lowIncl, upIncl);
@@ -6577,6 +6577,16 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @throws IgniteInternalCheckedException If failed.
          */
         boolean apply(BplusTree<L, T> tree, BplusIo<L> io, long pageAddr, int idx) throws IgniteInternalCheckedException;
+    }
+
+    /**
+     * Extension of the {@link TreeRowClosure} with the ability to {@link #map(Object) convert} tree row to some object.
+     */
+    public interface TreeRowMapClosure<L, T extends L, R> extends TreeRowClosure<L, T> {
+        @Override
+        default boolean apply(BplusTree<L, T> tree, BplusIo<L> io, long pageAddr, int idx) throws IgniteInternalCheckedException {
+            return true;
+        }
 
         /**
          * Converts a tree row to some object.
@@ -6585,7 +6595,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          *
          * @param treeRow Tree row.
          */
-        default <R> R map(T treeRow) {
+        default R map(T treeRow) {
             return (R) treeRow;
         }
     }

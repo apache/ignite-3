@@ -84,6 +84,7 @@ import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
+import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -2377,12 +2378,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         tree.put(0L);
 
-        TreeRowClosure<Long, Long> treeRowClosure = new TreeRowClosure<>() {
-            @Override
-            public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) {
-                return true;
-            }
-
+        TreeRowMapClosure<Long, Long, String> treeRowClosure = new TreeRowMapClosure<>() {
             @Override
             public String map(Long treeRow) {
                 return "row" + treeRow;
@@ -2400,12 +2396,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         tree.put(0L);
         tree.put(1L);
 
-        TreeRowClosure<Long, Long> treeRowClosure = new TreeRowClosure<>() {
-            @Override
-            public boolean apply(BplusTree<Long, Long> tree, BplusIo<Long> io, long pageAddr, int idx) {
-                return true;
-            }
-
+        TreeRowMapClosure<Long, Long, String> treeRowClosure = new TreeRowMapClosure<>() {
             @Override
             public String map(Long treeRow) {
                 return "row" + treeRow;
@@ -3005,7 +2996,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     /**
      * {@link TreeRowClosure} implementation for the test.
      */
-    static class TestTreeFindFilteredClosure implements TreeRowClosure<Long, Long> {
+    static class TestTreeFindFilteredClosure implements TreeRowMapClosure<Long, Long, Long> {
         private final Set<Long> vals;
 
         /**

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
+
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
-import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
+import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -74,6 +74,8 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
                 RowId rowId = result.rowId();
 
+                // Since the tree cursor caches elements, we can get empty version chains when the cursor cache fills up,
+                // so we try to find the desired version in the chain again.
                 if (result.isEmpty()) {
                     result = storage.findVersionChain(
                             rowId,
@@ -151,27 +153,20 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
      */
     abstract ReadResult findRowVersion(VersionChain versionChain);
 
-    private void createVersionChainCursorIfMissing() {
+    void createVersionChainCursorIfMissing() {
         if (cursor != null) {
             return;
         }
 
         try {
-            cursor = storage.versionChainTree.find(null, null, new TreeRowClosure<>() {
-                @Override
-                public boolean apply(BplusTree<VersionChainKey, VersionChain> tree, BplusIo<VersionChainKey> io, long pageAddr, int idx) {
-                    return true;
-                }
-
+            cursor = storage.versionChainTree.find(null, null, new TreeRowMapClosure<>() {
                 @Override
                 public ReadResult map(VersionChain treeRow) {
                     return findRowVersion(treeRow);
                 }
             }, null);
         } catch (IgniteInternalCheckedException e) {
-            if (e.getCause() instanceof StorageException) {
-                throw (StorageException) e.getCause();
-            }
+            throwStorageExceptionIfItCause(e);
 
             throw new StorageException("Find failed: " + storage.createStorageInfo(), e);
         }
