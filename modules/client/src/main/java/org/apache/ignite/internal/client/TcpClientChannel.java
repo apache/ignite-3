@@ -178,6 +178,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(@Nullable Throwable cause) {
         if (closed.compareAndSet(false, true)) {
+            System.out.println("Connection closed: " + this);
+
             // Disconnect can happen before we initialize the timer.
             var timer = heartbeatTimer;
 

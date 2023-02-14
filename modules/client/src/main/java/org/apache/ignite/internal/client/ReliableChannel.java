@@ -733,6 +733,7 @@ public final class ReliableChannel implements AutoCloseable {
                 System.out.println("getOrCreateChannelAsync 6 " + chFut0);
 
                 chFut0 = chFactory.apply(chCfg, connMgr).thenApply(ch -> {
+                    System.out.println("Connection established: " + ch);
                     var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
 
                     if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {
