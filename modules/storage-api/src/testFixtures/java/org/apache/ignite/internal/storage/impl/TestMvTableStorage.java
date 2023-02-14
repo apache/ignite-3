@@ -121,8 +121,7 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    @Nullable
-    public MvPartitionStorage getMvPartition(int partitionId) {
+    public @Nullable MvPartitionStorage getMvPartition(int partitionId) {
         return partitions.get(partitionId);
     }
 

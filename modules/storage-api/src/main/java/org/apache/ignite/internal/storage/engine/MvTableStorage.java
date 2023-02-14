@@ -51,12 +51,13 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * <p>If the partition has already been created or is in the process of being created, an {@link StorageException} will be thrown.
      *
+     * <p>If the partition is in the process of being destroyed, it will be re-created after the destruction is completed.
+     *
      * @param partitionId Partition ID.
      * @return Future that will be completed when the partition creation completes.
      * @throws IllegalArgumentException If Partition ID is out of configured bounds.
      * @throws StorageException If an error has occurred during the partition creation.
      */
-    // TODO: IGNITE-18565 интегрировать с уничтожение партиции и ребалансом
     CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId);
 
     /**
@@ -77,6 +78,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @return Future that will complete when the destroy of the partition is completed.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      */
+    // TODO: IGNITE-18565 думаю тут надо бросаться исключением если не нашлось партиции или повторноу удаляем
     CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**

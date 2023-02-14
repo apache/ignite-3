@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -113,11 +112,14 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage.start();
 
-        assertThat(tableStorage.getMvPartition(PARTITION_ID), is(notNullValue()));
+        assertThat(tableStorage.getMvPartition(PARTITION_ID), is(nullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_1), is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
-                is(equalTo(unwrap(testData))));
+
+        assertThat(
+                unwrap(createMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
+                is(equalTo(unwrap(testData)))
+        );
     }
 
     @Test
