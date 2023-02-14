@@ -33,12 +33,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -52,8 +52,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -72,9 +71,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Integration tests for {@link MetaStorageManagerImpl}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetaStorageManagerImplTest {
+public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     private VaultManager vaultManager;
 
     private ClusterService clusterService;
@@ -86,8 +84,7 @@ public class ItMetaStorageManagerImplTest {
     private MetaStorageManagerImpl metaStorageManager;
 
     @BeforeEach
-    void setUp(TestInfo testInfo, @WorkDirectory Path workDir, @InjectConfiguration RaftConfiguration raftConfiguration)
-            throws NodeStoppingException {
+    void setUp(TestInfo testInfo, @InjectConfiguration RaftConfiguration raftConfiguration) throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
@@ -107,6 +104,7 @@ public class ItMetaStorageManagerImplTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );
@@ -266,6 +264,7 @@ public class ItMetaStorageManagerImplTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );
