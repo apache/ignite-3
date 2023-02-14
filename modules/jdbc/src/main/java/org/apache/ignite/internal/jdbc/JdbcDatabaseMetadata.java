@@ -1228,7 +1228,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 Types.LONGVARBINARY, 0, null));
 
         types.add(Arrays.asList("UUID", Types.OTHER, ColumnMetadata.UNDEFINED_PRECISION, "'", "'", null,
-                (short) typeNullable, true, (short) typeSearchable, true, false, false, null, 0, 0,
+                (short) typeNullable, false, (short) typeSearchable, true, false, false, null, 0, 0,
                 Types.OTHER, null, 10));
 
         // IgniteCustomType: JDBC catalog level information for your type.

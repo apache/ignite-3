@@ -154,7 +154,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                     return Enum.class;
                 case ANY:
                     if (type instanceof IgniteCustomType) {
-                        var customType = (IgniteCustomType) type;
+                        var customType = (IgniteCustomType<?>) type;
                         return customType.storageType();
                     }
                     // fallthrough
@@ -423,7 +423,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     @Override
     public RelDataType createTypeWithNullability(RelDataType type, boolean nullable) {
         if (type instanceof IgniteCustomType) {
-            return canonize(((IgniteCustomType) type).createWithNullability(nullable));
+            return canonize(((IgniteCustomType<?>) type).createWithNullability(nullable));
         } else {
             return super.createTypeWithNullability(type, nullable);
         }
@@ -469,7 +469,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         //
         // TODO workaround for https://issues.apache.org/jira/browse/IGNITE-18752
         //  Set nullable to false and uncomment the assertion after upgrading to calcite 1.33.
-        IgniteCustomType customType = customTypeFactory.newType(true, precision);
+        IgniteCustomType<?> customType = customTypeFactory.newType(true, precision);
         // assert !customType.isNullable() : "makeCustomType must not return a nullable type: " + typeName + " " + customType;
         return canonize(customType);
     }
@@ -538,7 +538,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     @FunctionalInterface
     interface IgniteCustomTypeFactory {
-        IgniteCustomType newType(boolean nullable, int precision);
+        IgniteCustomType<?> newType(boolean nullable, int precision);
     }
 
     /** {@inheritDoc} */

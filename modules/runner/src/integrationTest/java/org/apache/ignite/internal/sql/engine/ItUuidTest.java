@@ -167,7 +167,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
         var query = "SELECT id, CASE uuid_key WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t;";
         var t = assertThrows(CalciteContextException.class, () -> sql(query, UUID_1));
-        assertThat(t.getMessage(), containsString("There is no operator UUID = BOOLEAN"));
+        assertThat(t.getMessage(), containsString("Invalid types for comparison: UUID = BOOLEAN"));
     }
 
     @ParameterizedTest

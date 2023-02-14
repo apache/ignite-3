@@ -361,7 +361,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     if (SqlTypeUtil.isCharacter(lhs) || SqlTypeUtil.isCharacter(rhs)) {
                         return dataType;
                     }
-                    throw newValidationError(expr, IgniteResource.INSTANCE.noSqlOperator(lhs, sqlCall.getOperator(), rhs));
+
+                    var ex = RESOURCE.invalidTypesForComparison(
+                            lhs.getFullTypeString(), sqlKind.sql, rhs.getFullTypeString());
+
+                    throw SqlUtil.newContextException(expr.getParserPosition(), ex);
                 }
             }
         }

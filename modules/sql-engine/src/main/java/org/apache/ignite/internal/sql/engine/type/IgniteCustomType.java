@@ -29,15 +29,23 @@ import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.ConverterUtils;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 
 /**
  * A base class for custom data types.
- * <p><b>Custom data type implementation check list.</b></p>
- * <p>
- *     Add a subclass that extends {@link IgniteCustomType}.
- * </p>
+ *
+ * <p><b>Custom data type implementation check list.</b>
+ *
+ * <p>Add a subclass that extends {@link IgniteCustomType}.
  * <ul>
  *     <li>Implement {@link IgniteCustomType#storageType()} - storage type must implement {@link Comparable}.
  *     This is a requirement imposed by calcite's row-expressions implementation.
@@ -46,56 +54,55 @@ import org.apache.ignite.sql.ColumnType;
  *     <li>Implement {@link IgniteCustomType#columnType()}.</li>
  *     <li>Implement {@link IgniteCustomType#createWithNullability(boolean)}.</li>
  * </ul>
- * <p>
- *    Code base contains comments that start with {@code IgniteCustomType:} to provide extra information.
- * </p>
- * <p>
- * Update {@link IgniteTypeFactory}'s constructor to register your type.
- * </p>
- * <p>
- * Update type inference for dynamic parameters in
- * {@link org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator IgniteSqlValidator}.
- * </p>
- * <p>
- * Update {@link org.apache.ignite.internal.sql.engine.util.TypeUtils TypeUtils}:
- * </p>
+ *
+ * <p>Code base contains comments that start with {@code IgniteCustomType:} to provide extra information.
+ *
+ * <p>Update {@link IgniteTypeFactory}'s constructor to register your type.
+ *
+ * <p>Update type inference for dynamic parameters in {@link IgniteSqlValidator}.
+ *
+ * <p>Update {@link TypeUtils}:
  * <ul>
- *     <li>Update {@link org.apache.ignite.internal.sql.engine.util.TypeUtils#toInternal(ExecutionContext, Object, Type)
- *     TypeUtils::toInternal} and {@link org.apache.ignite.internal.sql.engine.util.TypeUtils#fromInternal(ExecutionContext, Object, Type)
- *     TypeUtils::fromInternal} to add assertions that check that a value has the same type as a {@link #storageType()}.</li>
+ *     <li>Update {@link TypeUtils#toInternal(ExecutionContext, Object, Type)} and
+ *     {@link TypeUtils#fromInternal(ExecutionContext, Object, Type)} to add assertions that check
+ *     that a value has the same type as a {@link #storageType()}.</li>
  * </ul>
- * <p>
- * Update both {@link org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator RexToLitTranslator} and
- * {@link org.apache.ignite.internal.sql.engine.exec.exp.ConverterUtils ConveterUtils} to implement runtime routines for conversion
+ *
+ * <p>Update both {@link RexToLixTranslator RexToLitTranslator} and
+ * {@link ConverterUtils} to implement runtime routines for conversion
  * of your type from other data types if necessary.
- * </p>
- * Further steps:
+ *
+ * <p>Further steps:
  * <ul>
  *     <li>Update an SQL parser generator code to support your type - see {@code DataTypeEx()}.</li>
- *     <li>Update {@link org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators Accumulators}
+ *     <li>Update {@link Accumulators}
  *     if your type supports some aggregation functions.
  *     By default all custom data type support {@code COUNT} and {@code ANY_VALUE}.</li>
  *     <li>Update serialisation/deserialisation in {@code RelJson} to store extra attributes if necessary.</li>
  *     <li>There probably some methods in {@link IgniteTypeSystem} that maybe subject to change
  *     when a custom data type is implemented.</li>
  * </ul>
- * Client code/JDBC:
+ *
+ * <p>Client code/JDBC:
  * <ul>
  *     <li>Update {@code JdbcDatabaseMetadata::getTypeInfo} to return information about your type.</li>
  *     <li>Update {@code JdbcColumnMeta::typeName} to return the correct name for your time.</li>
  * </ul>
- * <b>Update this documentation when you are going to change this procedure.</b>
+ *
+ * <p><b>Update this documentation when you are going to change this procedure.</b>
  *
 */
-public abstract class IgniteCustomType extends RelDataTypeImpl {
-    /** Nullable flag. */
+public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> extends RelDataTypeImpl {
+
+    private final Class<StorageT> storageType;
+
     private final boolean nullable;
 
-    /** Precision. **/
     private final int precision;
 
     /** Constructor. */
-    protected IgniteCustomType(boolean nullable, int precision) {
+    protected IgniteCustomType(Class<StorageT> storageType, boolean nullable, int precision) {
+        this.storageType = storageType;
         this.nullable = nullable;
         this.precision = precision;
 
@@ -107,19 +114,24 @@ public abstract class IgniteCustomType extends RelDataTypeImpl {
 
     /**
      * Returns the storage type of this data type.
-     * This method is called by {@link IgniteTypeFactory#getJavaClass(RelDataType)}
-     * to provide types for a expression interpreter. Execution engine also relies on the fact that this
-     * type is also used by {@link org.apache.ignite.internal.sql.engine.util.TypeUtils} in type conversions.
      *
-     * @see org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl
-     * @see org.apache.ignite.internal.sql.engine.util.TypeUtils#toInternal(ExecutionContext, Object, Type)
-     * @see org.apache.ignite.internal.sql.engine.util.TypeUtils#fromInternal(ExecutionContext, Object, Type)
+     * <p>This method is called by {@link IgniteTypeFactory#getJavaClass(RelDataType)}
+     * to provide types for a expression interpreter. Execution engine also relies on the fact that this
+     * type is also used by {@link TypeUtils TypeUtils} in type conversions.</p>
+     *
+     * @see ExpressionFactoryImpl
+     * @see TypeUtils#toInternal(ExecutionContext, Object, Type)
+     * @see TypeUtils#fromInternal(ExecutionContext, Object, Type)
      */
-    public abstract Type storageType();
+    public final Type storageType() {
+        return storageType;
+    }
 
     /**
      * Returns the {@link NativeType} for this custom data type.
+     * <p>
      * At the moment it serves the following purpose:
+     * </p>
      * <ul>
      *     <li>
      *         Used by {@link IgniteTypeFactory#relDataTypeToNative(RelDataType)} to retrieve underlying
@@ -127,14 +139,15 @@ public abstract class IgniteCustomType extends RelDataTypeImpl {
      *     </li>
      *     <li>
      *         To retrieve a java type to perform type conversions by
-     *         {@link org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl}.
+     *         {@link ExecutionServiceImpl}.
      *     </li>
      * </ul>
+     *
      */
     public abstract NativeType nativeType();
 
     /**
-     * Returns the {@link ColumnType} of this data type. Provides type information for {@link org.apache.ignite.sql.ColumnMetadata}.
+     * Returns the {@link ColumnType} of this data type. Provides type information for {@link ColumnMetadata}.
      */
     public abstract ColumnType columnType();
 
@@ -160,7 +173,7 @@ public abstract class IgniteCustomType extends RelDataTypeImpl {
     }
 
     /** Creates an instance of this type with the specified nullability. **/
-    public abstract IgniteCustomType createWithNullability(boolean nullable);
+    public abstract IgniteCustomType<StorageT> createWithNullability(boolean nullable);
 
     /**
      * Creates an {@link SqlTypeNameSpec} for this custom data type, which is used as an argument for the CAST function.

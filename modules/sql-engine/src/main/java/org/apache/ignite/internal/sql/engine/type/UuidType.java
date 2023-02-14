@@ -17,24 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
-import java.lang.reflect.Type;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 
 /** UUID SQL type. */
-public final class UuidType extends IgniteCustomType {
+public final class UuidType extends IgniteCustomType<UUID> {
 
     /** A string name of this type: {@code UUID}. **/
     public static final String NAME = "UUID";
 
-    /** A java type of type. **/
-    public static final Class<?> JAVA_TYPE = UUID.class;
+    /** The storage type. **/
+    public static final Class<UUID> JAVA_TYPE = UUID.class;
 
     /** Constructor. */
     public UuidType(boolean nullable) {
-        super(nullable, PRECISION_NOT_SPECIFIED);
+        super(JAVA_TYPE, nullable, PRECISION_NOT_SPECIFIED);
     }
 
     /** {@inheritDoc} */
@@ -46,12 +45,6 @@ public final class UuidType extends IgniteCustomType {
     @Override
     public String getCustomTypeName() {
         return NAME;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Type storageType() {
-        return JAVA_TYPE;
     }
 
     /** {@inheritDoc} */
@@ -68,7 +61,7 @@ public final class UuidType extends IgniteCustomType {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteCustomType createWithNullability(boolean nullable) {
+    public UuidType createWithNullability(boolean nullable) {
         return new UuidType(nullable);
     }
 }
