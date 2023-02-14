@@ -38,6 +38,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -214,7 +215,7 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void testRetryReadPolicyAllOperationsSupported() throws IllegalAccessException {
+    public void testRetryReadPolicyAllOperationsSupported() {
         var plc = new RetryReadPolicy();
         var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, 0, null, null);
 
@@ -250,7 +251,7 @@ public class RetryPolicyTest {
         }
     }
 
-    private IgniteClient getClient(RetryPolicy retryPolicy) {
+    private IgniteClient getClient(@Nullable RetryPolicy retryPolicy) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
