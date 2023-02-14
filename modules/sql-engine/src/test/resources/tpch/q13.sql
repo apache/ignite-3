@@ -21,4 +21,3 @@ GROUP BY
 ORDER BY
     custdist DESC,
     c_count DESC
-
