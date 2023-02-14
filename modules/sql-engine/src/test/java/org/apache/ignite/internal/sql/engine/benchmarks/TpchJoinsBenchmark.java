@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import com.google.common.io.CharStreams;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -111,36 +112,33 @@ public class TpchJoinsBenchmark {
         Options build = new OptionsBuilder()
                 //.addProfiler("gc")
                 .include(TpchJoinsBenchmark.class.getName())
+                .warmupIterations(1)
+                .measurementIterations(1)
                 .build();
 
         new Runner(build).run();
     }
 
     private static String loadQuery(int id, boolean variant){
-        var query = String.format("tpch/q%s.sql", id);
-        var is = TpchJoinsBenchmark.class.getClassLoader().getResourceAsStream(query);
-        if (is == null) {
-            throw new IllegalStateException("Query does not exist: " + query);
-        }
-
-        String queryString;
-        try {
-            queryString = CharStreams.toString(new InputStreamReader(is, StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to load a query", e);
-        }
-
-        var variantQueryFile = String.format("tpch/variant_q%d.sql", id);
-
         if (variant) {
-            var variantQuery = TpchJoinsBenchmark.class.getClassLoader().getResourceAsStream(variantQueryFile);
-            try {
-                return CharStreams.toString(new InputStreamReader(variantQuery, StandardCharsets.UTF_8));
-            } catch (IOException e) {
-                throw new UncheckedIOException("Failed to load a query", e);
-            }
+            var variantQueryFile = String.format("tpch/variant_q%d.sql", id);
+            return loadFromResource(variantQueryFile);
         } else {
-            return queryString;
+            var queryFile = String.format("tpch/q%s.sql", id);
+            return loadFromResource(queryFile);
+        }
+    }
+
+    private static String loadFromResource(String resource) {
+        try (InputStream is = TpchJoinsBenchmark.class.getClassLoader().getResourceAsStream(resource)) {
+            if (is == null) {
+                throw new IllegalArgumentException("Resource does not exist: " + resource);
+            }
+            try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                return CharStreams.toString(reader);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("I/O operation failed: " + resource, e);
         }
     }
 }
