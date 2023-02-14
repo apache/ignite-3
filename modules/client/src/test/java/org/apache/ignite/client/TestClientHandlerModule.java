@@ -228,7 +228,11 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-            if (shouldDropConnection.apply(cnt.incrementAndGet())) {
+            int reqId = cnt.incrementAndGet();
+
+            System.out.println("Request " + reqId);
+
+            if (shouldDropConnection.apply(reqId)) {
                 ((ReferenceCounted) msg).release();
 
                 ctx.close();

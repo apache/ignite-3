@@ -172,7 +172,12 @@ public class RetryPolicyTest {
 
     @Test
     public void testRetryReadPolicyRetriesReadOperations() throws Exception {
-        initServer(reqId -> reqId % 3 == 0);
+        // Standard requests are:
+        // 1: Handshake
+        // 2: SCHEMAS_GET
+        // 3: PARTITION_ASSIGNMENT_GET
+        // => fail on 4th request
+        initServer(reqId -> reqId % 4 == 0);
 
         try (var client = getClient(new RetryReadPolicy().retryLimit(1000))) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
