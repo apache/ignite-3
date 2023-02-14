@@ -112,8 +112,6 @@ public class TpchJoinsBenchmark {
         Options build = new OptionsBuilder()
                 //.addProfiler("gc")
                 .include(TpchJoinsBenchmark.class.getName())
-                .warmupIterations(1)
-                .measurementIterations(1)
                 .build();
 
         new Runner(build).run();
