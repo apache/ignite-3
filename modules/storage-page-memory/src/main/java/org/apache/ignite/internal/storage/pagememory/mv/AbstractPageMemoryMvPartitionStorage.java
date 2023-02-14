@@ -515,6 +515,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                     versionChainTree.invoke(new VersionChainKey(rowId), null, addWrite);
 
+                    addWrite.afterCompletion();
+
                     return addWrite.getPreviousUncommittedRowVersion();
                 } catch (IgniteInternalCheckedException e) {
                     if (e.getCause() instanceof StorageException) {
@@ -540,11 +542,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return inUpdateVersionChainLock(rowId, () -> {
                 try {
-                    AbortWriteInvokeClosure abortWriteInvokeClosure = new AbortWriteInvokeClosure(rowId, this);
+                    AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, this);
 
-                    versionChainTree.invoke(new VersionChainKey(rowId), null, abortWriteInvokeClosure);
+                    versionChainTree.invoke(new VersionChainKey(rowId), null, abortWrite);
 
-                    return abortWriteInvokeClosure.getPreviousUncommittedRowVersion();
+                    abortWrite.afterCompletion();
+
+                    return abortWrite.getPreviousUncommittedRowVersion();
                 } catch (IgniteInternalCheckedException e) {
                     if (e.getCause() instanceof StorageException) {
                         throw (StorageException) e.getCause();
@@ -870,10 +874,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Searches version chain by row ID and converts the found version chain to the result if found.
      *
      * @param rowId Row ID.
-     * @param function Function for converting the version chain to a result, function is executed under the read lock of the page on which
+     * @param mapper Function for converting the version chain to a result, function is executed under the read lock of the page on which
      *      the version chain is located. If the version chain is not found, then {@code null} will be passed to the function.
      */
-    <T> @Nullable T findVersionChain(RowId rowId, Function<VersionChain, T> function) {
+    <T> @Nullable T findVersionChain(RowId rowId, Function<VersionChain, T> mapper) {
         try {
             return versionChainTree.findOne(new VersionChainKey(rowId), new TreeRowClosure<>() {
                 @Override
@@ -883,7 +887,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 @Override
                 public T map(VersionChain treeRow) {
-                    return function.apply(treeRow);
+                    return mapper.apply(treeRow);
                 }
             }, null);
         } catch (IgniteInternalCheckedException e) {

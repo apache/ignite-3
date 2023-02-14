@@ -102,19 +102,21 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return operationType;
     }
 
-    @Override
-    public void onUpdate() {
-        assert operationType == OperationType.NOOP ? toRemove == null : toRemove != null : "toRemove=" + toRemove + ", op=" + operationType;
-
-        if (toRemove != null) {
-            storage.removeRowVersion(toRemove);
-        }
-    }
-
     /**
      * Returns the result for {@link MvPartitionStorage#abortWrite(RowId)}.
      */
     @Nullable BinaryRow getPreviousUncommittedRowVersion() {
         return previousUncommittedRowVersion;
+    }
+
+    /**
+     * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
+     */
+    void afterCompletion() {
+        assert operationType == OperationType.NOOP ? toRemove == null : toRemove != null : "toRemove=" + toRemove + ", op=" + operationType;
+
+        if (toRemove != null) {
+            storage.removeRowVersion(toRemove);
+        }
     }
 }

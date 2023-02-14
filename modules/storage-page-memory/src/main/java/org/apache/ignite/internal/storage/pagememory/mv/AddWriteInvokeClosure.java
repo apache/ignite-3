@@ -91,7 +91,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         if (oldRow.isUncommitted()) {
-            throwIfChainBelongsToAnotherTx(oldRow, txId);
+            throwIfChainBelongsToAnotherTx(oldRow);
         }
 
         RowVersion newVersion = insertRowVersion(row, oldRow.newestCommittedLink());
@@ -120,13 +120,6 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return OperationType.PUT;
     }
 
-    @Override
-    public void onUpdate() {
-        if (toRemove != null) {
-            storage.removeRowVersion(toRemove);
-        }
-    }
-
     /**
      * Returns the result for {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)}.
      */
@@ -144,11 +137,20 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return rowVersion;
     }
 
-    private void throwIfChainBelongsToAnotherTx(VersionChain versionChain, UUID txId) {
+    private void throwIfChainBelongsToAnotherTx(VersionChain versionChain) {
         assert versionChain.isUncommitted();
 
         if (!txId.equals(versionChain.transactionId())) {
             throw new TxIdMismatchException(txId, versionChain.transactionId());
+        }
+    }
+
+    /**
+     * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
+     */
+    void afterCompletion() {
+        if (toRemove != null) {
+            storage.removeRowVersion(toRemove);
         }
     }
 }

@@ -6198,6 +6198,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         /** Implementation specific argument. */
         private final @Nullable Object arg;
 
+        /** {@code null} array means the end of iteration over the cursor. */
         private @Nullable R @Nullable [] results = (R[]) OBJECT_EMPTY_ARRAY;
 
         private @Nullable T lastRow;
