@@ -74,15 +74,6 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
                 RowId rowId = result.rowId();
 
-                // Since the tree cursor caches elements, we can get empty version chains when the cursor cache fills up,
-                // so we try to find the desired version in the chain again.
-                if (result.isEmpty()) {
-                    result = storage.findVersionChain(
-                            rowId,
-                            versionChain -> versionChain == null ? ReadResult.empty(rowId) : findRowVersion(versionChain)
-                    );
-                }
-
                 if (result.isEmpty() && !result.isWriteIntent()) {
                     continue;
                 }
