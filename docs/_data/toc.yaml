@@ -46,7 +46,11 @@
 - title: REST API
   url: rest/rest-api
 - title: Thin Clients
-  url: thin-clients/index
+  items:
+    - title: Thin Clients Overview
+      url: thin-clients/index
+    - title: .NET LINQ Queries
+      url: thin-clients/linq
 - title: Distributed Computing
   url: compute/compute
 - title: Data Region Configuration
