@@ -117,7 +117,7 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
      *
      * <p>This method is called by {@link IgniteTypeFactory#getJavaClass(RelDataType)}
      * to provide types for a expression interpreter. Execution engine also relies on the fact that this
-     * type is also used by {@link TypeUtils TypeUtils} in type conversions.</p>
+     * type is also used by {@link TypeUtils TypeUtils} in type conversions.
      *
      * @see ExpressionFactoryImpl
      * @see TypeUtils#toInternal(ExecutionContext, Object, Type)
@@ -129,9 +129,8 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
 
     /**
      * Returns the {@link NativeType} for this custom data type.
-     * <p>
-     * At the moment it serves the following purpose:
-     * </p>
+     *
+     * <p>At the moment it serves the following purpose:
      * <ul>
      *     <li>
      *         Used by {@link IgniteTypeFactory#relDataTypeToNative(RelDataType)} to retrieve underlying
@@ -142,7 +141,6 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
      *         {@link ExecutionServiceImpl}.
      *     </li>
      * </ul>
-     *
      */
     public abstract NativeType nativeType();
 
