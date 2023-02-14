@@ -417,6 +417,11 @@ public class ClientTable implements Table {
                 w -> w.out().packUuid(id),
                 r -> {
                     int cnt = r.in().unpackArrayHeader();
+
+                    if (cnt == 0) {
+                        return null;
+                    }
+
                     List<String> res = new ArrayList<>(cnt);
 
                     for (int i = 0; i < cnt; i++) {
