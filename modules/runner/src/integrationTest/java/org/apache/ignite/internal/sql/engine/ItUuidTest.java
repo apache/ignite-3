@@ -251,7 +251,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT ? > ?").withParams(uuid2, uuid1).returns(false).check();
         assertQuery("SELECT ? >= ?").withParams(uuid2, uuid1).returns(false).check();
 
-        assertQuery("SELECT ? > ?").withParams(uuid2, uuid1).returns(true).check();
-        assertQuery("SELECT ? >= ?").withParams(uuid2, uuid1).returns(true).check();
+        assertQuery("SELECT ? > ?").withParams(uuid1, uuid2).returns(true).check();
+        assertQuery("SELECT ? >= ?").withParams(uuid1, uuid2).returns(true).check();
     }
 }

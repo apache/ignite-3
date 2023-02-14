@@ -71,14 +71,18 @@ import org.apache.ignite.sql.ColumnType;
  * </p>
  * Further steps:
  * <ul>
- *     <li>Update an SQL parser generator code to support your type - see DataTypeEx().</li>
- *     <li>Update JdbcDatabaseMetadata getTypeInfo.</li>
+ *     <li>Update an SQL parser generator code to support your type - see {@code DataTypeEx()}.</li>
  *     <li>Update {@link org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators Accumulators}
  *     if your type supports some aggregation functions.
  *     By default all custom data type support {@code COUNT} and {@code ANY_VALUE}.</li>
- *     <li>Update serialisation/deserialisation code to store extra attributes.</li>
+ *     <li>Update serialisation/deserialisation in {@code RelJson} to store extra attributes if necessary.</li>
  *     <li>There probably some methods in {@link IgniteTypeSystem} that maybe subject to change
  *     when a custom data type is implemented.</li>
+ * </ul>
+ * Client code/JDBC:
+ * <ul>
+ *     <li>Update {@code JdbcDatabaseMetadata::getTypeInfo} to return information about your type.</li>
+ *     <li>Update {@code JdbcColumnMeta::typeName} to return the correct name for your time.</li>
  * </ul>
  * <b>Update this documentation when you are going to change this procedure.</b>
  *

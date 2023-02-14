@@ -459,17 +459,17 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      * @return a custom data type.
      */
     public RelDataType createCustomType(String typeName, int precision) {
-        MakeCustomType makeCustomType = customDataTypes.typeConstructors.get(typeName);
-        if (makeCustomType == null) {
+        IgniteCustomTypeFactory customTypeFactory = customDataTypes.typeConstructors.get(typeName);
+        if (customTypeFactory == null) {
             throw new IllegalArgumentException("Unexpected custom data type: " + typeName);
         }
 
         // By default a type must not be nullable.
         // See SqlTypeFactory::createSqlType.
         //
-        // Set nullable to false and uncomment the assertion when https://issues.apache.org/jira/browse/IGNITE-18753
-        // is resolved.
-        IgniteCustomType customType = makeCustomType.newType(true, precision);
+        // TODO workaround for https://issues.apache.org/jira/browse/CALCITE-5297
+        //  Set nullable to false and uncomment the assertion after upgrade to calcite 1.33.
+        IgniteCustomType customType = customTypeFactory.newType(true, precision);
         // assert !customType.isNullable() : "makeCustomType must not return a nullable type: " + typeName + " " + customType;
         return canonize(customType);
     }
@@ -511,7 +511,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         /**
          * Stores functions that are being used by {@link #createCustomType(String, int)} to create type instances.
          */
-        private final Map<String, MakeCustomType> typeConstructors;
+        private final Map<String, IgniteCustomTypeFactory> typeConstructors;
 
         CustomDataTypes(Set<NewCustomType> customDataTypes) {
             this.javaTypes = customDataTypes.stream()
@@ -527,9 +527,9 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
         final Class<?> storageType;
 
-        final MakeCustomType makeType;
+        final IgniteCustomTypeFactory makeType;
 
-        NewCustomType(String typeName, Class<?> storageType, MakeCustomType makeType) {
+        NewCustomType(String typeName, Class<?> storageType, IgniteCustomTypeFactory makeType) {
             this.typeName = typeName;
             this.storageType = storageType;
             this.makeType = makeType;
@@ -537,7 +537,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     }
 
     @FunctionalInterface
-    interface MakeCustomType {
+    interface IgniteCustomTypeFactory {
         IgniteCustomType newType(boolean nullable, int precision);
     }
 
