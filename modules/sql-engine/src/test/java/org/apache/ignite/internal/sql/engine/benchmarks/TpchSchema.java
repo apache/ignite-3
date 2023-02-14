@@ -46,19 +46,22 @@ public final class TpchSchema {
      * Registers tables from the TPC-H benchmark in the given cluster with the scaling factor of {@code 1}.
      *
      * @param clusterBuilder  a cluster builder.
+     * @param dataSize the number of rows generated for each table.
      */
-    public static void registerTables(ClusterBuilder clusterBuilder) {
-        registerTables(clusterBuilder, 1);
+    public static void registerTables(ClusterBuilder clusterBuilder, int dataSize) {
+        registerTables(clusterBuilder, 1, dataSize);
     }
 
     /**
      * Registers tables from the TPC-H benchmark in the given cluster with the given scaling factor.
      *
      * @param clusterBuilder  a cluster builder.
+     * @param scalingFactor scaling factor.
+     * @param dataSize the number of rows generated for each table.
      */
-    public static void registerTables(ClusterBuilder clusterBuilder, int scalingFactor) {
+    public static void registerTables(ClusterBuilder clusterBuilder, int scalingFactor, int dataSize) {
         // Register default data provider factory that is going to generate random data data.
-        clusterBuilder.dataProviderFactory(new RepeatedRandomRowDataProviderFactory(10));
+        clusterBuilder.dataProviderFactory(new RepeatedRandomRowDataProviderFactory(dataSize));
 
         clusterBuilder.addTable().name("PART")
                 .addColumn("P_PARTKEY", NativeTypes.INT64)
