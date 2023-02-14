@@ -30,7 +30,7 @@ import org.apache.ignite.network.NodeMetadata;
 public class NodeMetadataDto {
     @Schema(description = "The host exposed to REST API.")
     private final String restHost;
-    @Schema(description = "The port exposed to REST API.")
+    @Schema(description = "The HTTP port exposed to REST API.")
     private final int httpPort;
     private final int httpsPort;
 
