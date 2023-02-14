@@ -543,8 +543,9 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 while (rs.next()) {
                     if ("UUID_VAL".equals(rs.getString("COLUMN_NAME"))) {
                         assertEquals(OTHER, rs.getInt("DATA_TYPE"));
-                        // TYPE_NAME String => Data source dependent type name, for a UDT the type name is fully qualified
-                        assertEquals("OTHER", rs.getString("TYPE_NAME"));
+                        // Javadoc for DatabaseMetaData::getColumns states:
+                        // 6. TYPE_NAME String => Data source dependent type name, for a UDT the type name is fully qualified
+                        assertEquals("UUID", rs.getString("TYPE_NAME"));
                         assertEquals(1, rs.getInt("NULLABLE"));
                     }
                 }
