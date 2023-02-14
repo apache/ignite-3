@@ -179,7 +179,7 @@ public class RetryPolicyTest {
         // => fail on 4th request
         initServer(reqId -> reqId % 4 == 0);
 
-        try (var client = getClient(new RetryReadPolicy().retryLimit(1000))) {
+        try (var client = getClient(new RetryReadPolicy())) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             recView.get(null, Tuple.create().set("id", 1L));
             recView.get(null, Tuple.create().set("id", 1L));
