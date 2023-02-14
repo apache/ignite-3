@@ -188,9 +188,8 @@ public class RetryPolicyTest {
             recView.get(null, Tuple.create().set("id", 1L));
             recView.get(null, Tuple.create().set("id", 1L));
 
-            IgniteTestUtils.waitForCondition(
-                    () -> loggerFactory.logger.entries().stream().anyMatch(x -> x.contains("Disconnected from server")),
-                    1000);
+            loggerFactory.assertLogContains("Disconnected from server");
+            loggerFactory.assertLogContains("Going to retry operation because of error [op=TUPLE_GET");
         }
     }
 
