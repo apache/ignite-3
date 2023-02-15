@@ -24,6 +24,9 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
@@ -38,8 +41,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /** SSL support integration test. */
@@ -60,7 +61,6 @@ public class ItSslTest {
     }
 
     @Nested
-    @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithoutSsl {
 
         @WorkDirectory
@@ -104,10 +104,18 @@ public class ItSslTest {
                 assertThat(client.clusterNodes(), hasSize(2));
             }
         }
+
+        @Test
+        @DisplayName("Jdbc driver could establish the connection when SSL disabled")
+        void jdbcCouldConnectWithoutSsl() throws SQLException {
+            var url = "jdbc:ignite:thin://127.0.0.1:10800";
+            try (Connection conn = DriverManager.getConnection(url)) {
+                // No-op.
+            }
+        }
     }
 
     @Nested
-    @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSsl {
 
         @WorkDirectory
@@ -172,6 +180,12 @@ public class ItSslTest {
         }
 
         @Test
+        void jdbcCannotConnectWithoutSsl() {
+            var url = "jdbc:ignite:thin://127.0.0.1:10800";
+            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+        }
+
+        @Test
         @DisplayName("Client can connect with SSL configured")
         void clientCanConnectWithSsl() throws Exception {
             var sslConfiguration =
@@ -190,10 +204,23 @@ public class ItSslTest {
                 assertThat(client.clusterNodes(), hasSize(2));
             }
         }
+
+        @Test
+        @DisplayName("Jdbc client can connect with SSL configured")
+        void jdbcCanConnectWithSsl() throws SQLException {
+            var url =
+                    "jdbc:ignite:thin://127.0.0.1:10800"
+                            + "?sslEnabled=true"
+                            + "&trustStorePath=" + trustStorePath
+                            + "&trustStoreType=JKS"
+                            + "&trustStorePassword=" + password;
+            try (Connection conn = DriverManager.getConnection(url)) {
+                // No-op.
+            }
+        }
     }
 
     @Nested
-    @TestInstance(Lifecycle.PER_CLASS)
     class ClusterWithSslAndClientAuth {
 
         @WorkDirectory
@@ -265,6 +292,12 @@ public class ItSslTest {
         }
 
         @Test
+        void jdbcCannotConnectWithoutSsl() {
+            var url = "jdbc:ignite:thin://127.0.0.1:10800";
+            assertThrows(SQLException.class, () -> DriverManager.getConnection(url));
+        }
+
+        @Test
         @DisplayName("Client can not connect without client authentication configured")
         void clientCanNotConnectWithoutClientAuth() {
             var sslConfiguration =
@@ -303,6 +336,24 @@ public class ItSslTest {
                     .build()
             ) {
                 assertThat(client.clusterNodes(), hasSize(2));
+            }
+        }
+
+        @Test
+        @DisplayName("Jdbc client can connect with SSL configured")
+        void jdbcCanConnectWithSslAndClientAuth() throws SQLException {
+            var url =
+                    "jdbc:ignite:thin://127.0.0.1:10800"
+                            + "?sslEnabled=true"
+                            + "&trustStorePath=" + trustStorePath
+                            + "&trustStoreType=JKS"
+                            + "&trustStorePassword=" + password
+                            + "&clientAuth=require"
+                            + "&keyStorePath=" + keyStorePath
+                            + "&keyStoreType=PKCS12"
+                            + "&keyStorePassword=" + password;
+            try (Connection conn = DriverManager.getConnection(url)) {
+                // No-op.
             }
         }
     }
