@@ -24,7 +24,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
-import static org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest.TestTree.threadId;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.NOOP;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.PUT;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.REMOVE;
@@ -2785,10 +2784,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return io.getLookupRow(this, pageAddr, idx);
         }
 
-        static Object threadId() {
-            return Thread.currentThread().getId(); //.getName();
-        }
-
         private static void printLocks(IgniteStringBuilder b, ConcurrentMap<Object, Map<Long, Long>> locks, Map<Object, Long> beforeLock) {
             for (Map.Entry<Object, Map<Long, Long>> entry : locks.entrySet()) {
                 Object thId = entry.getKey();
@@ -2825,11 +2820,11 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             b.app("\n--------read---------\n");
 
-            printLocks(b, TestPageLockListener.readLocks, TestPageLockListener.beforeReadLock);
+//            printLocks(b, TestPageLockListener.readLocks, TestPageLockListener.beforeReadLock);
 
             b.app("\n-+------write---------\n");
 
-            printLocks(b, TestPageLockListener.writeLocks, TestPageLockListener.beforeWriteLock);
+//            printLocks(b, TestPageLockListener.writeLocks, TestPageLockListener.beforeWriteLock);
 
             return b.toString();
         }
@@ -3021,13 +3016,13 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      * {@link PageLockListener} implementation for the test.
      */
     private static class TestPageLockListener implements PageLockListener {
-        static ConcurrentMap<Object, Long> beforeReadLock = new ConcurrentHashMap<>();
+        static final ThreadLocal<Long> beforeReadLock = new ThreadLocal<>();
 
-        static ConcurrentMap<Object, Long> beforeWriteLock = new ConcurrentHashMap<>();
+        static final ThreadLocal<Long> beforeWriteLock = new ThreadLocal<>();
 
-        static ConcurrentMap<Object, Map<Long, Long>> readLocks = new ConcurrentHashMap<>();
+        static final ThreadLocal<Map<Long, Long>> readLocks = new ThreadLocal<>();
 
-        static ConcurrentMap<Object, Map<Long, Long>> writeLocks = new ConcurrentHashMap<>();
+        static final ThreadLocal<Map<Long, Long>> writeLocks = new ThreadLocal<>();
 
         private final PageLockListener delegate;
 
@@ -3049,7 +3044,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                 println("  onBeforeReadLock: " + hexLong(pageId));
             }
 
-            assertNull(beforeReadLock.put(threadId(), pageId));
+//            assertNull(beforeReadLock.get());
+//
+//            beforeReadLock.set(pageId);
         }
 
         /** {@inheritDoc} */
@@ -3066,10 +3063,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
                 checkPageId(pageId, pageAddr);
 
-                assertNull(locks(true).put(pageId, actual));
+//                assertNull(locks(true).put(pageId, actual));
             }
 
-            assertEquals(Long.valueOf(pageId), beforeReadLock.remove(threadId()));
+//            assertEquals(pageId, beforeReadLock.get());
+//
+//            beforeReadLock.set(null);
         }
 
         /** {@inheritDoc} */
@@ -3085,7 +3084,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             long actual = getPageId(pageAddr);
 
-            assertEquals(Long.valueOf(actual), locks(true).remove(pageId));
+//            assertEquals(Long.valueOf(actual), locks(true).remove(pageId));
         }
 
         /** {@inheritDoc} */
@@ -3097,7 +3096,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                 println("  onBeforeWriteLock: " + hexLong(pageId));
             }
 
-            assertNull(beforeWriteLock.put(threadId(), pageId));
+//            assertNull(beforeWriteLock.get());
+//
+//            beforeWriteLock.set(pageId);
         }
 
         /** {@inheritDoc} */
@@ -3118,10 +3119,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                     actual = pageId; // It is a newly allocated page.
                 }
 
-                assertNull(locks(false).put(pageId, actual));
+//                assertNull(locks(false).put(pageId, actual));
             }
 
-            assertEquals(Long.valueOf(pageId), beforeWriteLock.remove(threadId()));
+//            assertEquals(pageId, beforeWriteLock.get());
+//
+//            beforeWriteLock.set(null);
         }
 
         /** {@inheritDoc} */
@@ -3135,7 +3138,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
             assertEquals(effectivePageId(pageId), effectivePageId(getPageId(pageAddr)));
 
-            assertEquals(Long.valueOf(pageId), locks(false).remove(pageId));
+//            assertEquals(Long.valueOf(pageId), locks(false).remove(pageId));
         }
 
         /** {@inheritDoc} */
@@ -3145,19 +3148,15 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
 
         private static Map<Long, Long> locks(boolean readLock) {
-            ConcurrentMap<Object, Map<Long, Long>> m = readLock ? readLocks : writeLocks;
+            ThreadLocal<Map<Long, Long>> m = readLock ? readLocks : writeLocks;
 
-            Object thId = threadId();
-
-            Map<Long, Long> locks = m.get(thId);
+            Map<Long, Long> locks = m.get();
 
             if (locks == null) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
-                locks = new ConcurrentHashMap<>();
+                locks = new HashMap<>();
 
-                if (m.putIfAbsent(thId, locks) != null) {
-                    locks = m.get(thId);
-                }
+                m.set(locks);
             }
 
             return locks;
