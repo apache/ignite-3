@@ -493,6 +493,59 @@ public class PlannerTest extends AbstractPlannerTest {
         );
     }
 
+    /** Tests complex bounds expressions. */
+    @Test
+    public void testBoundsComplex() throws Exception {
+        IgniteTypeFactory typeFactory = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
+
+        TestTable tbl = new TestTable(
+                new RelDataTypeFactory.Builder(typeFactory)
+                        .add("C1", typeFactory.createJavaType(Integer.class))
+                        .add("C2", typeFactory.createJavaType(Integer.class))
+                        .add("C3", typeFactory.createJavaType(Integer.class))
+                        .add("C4", typeFactory.createJavaType(Integer.class))
+                        .build(), "TEST") {
+            @Override
+            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
+                return ColocationGroup.forNodes(select(NODES, 0));
+            }
+
+            @Override
+            public IgniteDistribution distribution() {
+                return IgniteDistributions.hash(List.of(0));
+            }
+        };
+
+        tbl.addIndex("C1C2C3", 0, 1, 2);
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable(tbl);
+
+        assertBounds("SELECT * FROM TEST WHERE C1 = ? + 10", List.of(10), publicSchema,
+                exact("+(?0, 10)")
+        );
+
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("10"), publicSchema,
+                exact(1),
+                range("||(SUBSTRING(?0, 1, 2), _UTF-8'3')", "$NULL_BOUND()", false, false)
+        );
+
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(C3::VARCHAR, 1, 2) || '3'", List.of(), publicSchema,
+                exact(1),
+                empty()
+        );
+
+        assertBounds("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 = t1.C1 + t1.C3 * ?) FROM TEST t1", List.of(10), publicSchema,
+                exact("+($cor0.C1, *($cor0.C3, ?0))")
+        );
+
+        assertPlan("SELECT * FROM TEST WHERE C1 = ? + C3", publicSchema, nodeOrAnyChild(isTableScan("TEST")), List.of(10));
+
+        assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 < t1.C1 + t2.C1) FROM TEST t1", publicSchema,
+                nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
+    }
+
     /** String representation of LEAST or GREATEST operator converted to CASE. */
     private String leastOrGreatest(boolean least, String val0, String val1, String type) {
         return "CASE(OR(IS NULL(" + val0 + "), IS NULL(" + val1 + ")), null:" + type + ", " + (least ? '<' : '>')

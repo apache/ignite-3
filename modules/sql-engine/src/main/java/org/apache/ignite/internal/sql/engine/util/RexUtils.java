@@ -744,7 +744,8 @@ public class RexUtils {
     private static boolean idxOpSupports(RexNode op) {
         return op instanceof RexLiteral
                 || op instanceof RexDynamicParam
-                || op instanceof RexFieldAccess;
+                || op instanceof RexFieldAccess
+                || !containsRef(op);
     }
 
     /**
@@ -942,6 +943,28 @@ public class RexUtils {
         }
 
         return keys;
+    }
+
+    private static boolean containsRef(RexNode node) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
+            @Override
+            public Void visitInputRef(RexInputRef inputRef) {
+                throw Util.FoundOne.NULL;
+            }
+
+            @Override
+            public Void visitLocalRef(RexLocalRef locRef) {
+                throw Util.FoundOne.NULL;
+            }
+        };
+
+        try {
+            node.accept(v);
+
+            return false;
+        } catch (Util.FoundOne e) {
+            return true;
+        }
     }
 
     /** Visitor for replacing scan local refs to input refs. */
