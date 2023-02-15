@@ -99,7 +99,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         CompletableFuture<ClusterNode> leaderFut = new CompletableFuture<>();
 
-        raftClient.subscribeLeader(node -> {
+        raftClient.subscribeLeader((node, term) -> {
             leaderFut.complete(node);
         });
 
@@ -127,7 +127,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
-        raftClient.subscribeLeader(node -> {
+        raftClient.subscribeLeader((node, term) -> {
             leaderRef.set(node);
         });
 
@@ -172,7 +172,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
-        raftClient.subscribeLeader(node -> {
+        raftClient.subscribeLeader((node, term) -> {
             leaderRef.set(node);
         });
 
@@ -300,7 +300,8 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
                         peersAndLearners,
                         true,
                         executor,
-                        new LogicalTopologyServiceTestImpl(cluster)
+                        new LogicalTopologyServiceTestImpl(cluster),
+                        true
                 ).join();
             }
         }
