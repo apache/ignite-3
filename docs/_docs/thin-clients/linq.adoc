@@ -18,7 +18,8 @@ tab:SQL[]
 [source, csharp]
 ----
 var query = "select KEY, VAL from PUBLIC.TBL1 where (KEY > ?) order by KEY asc";
-await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(transaction: null, query, 3);
+await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.
+    ExecuteAsync(transaction: null, query, 3);
 var queryResults = new List<Poco>();
 await foreach (IIgniteTuple row in resultSet)
 {
@@ -183,7 +184,8 @@ tab:Asynchronous[]
 [source, csharp]
 ----
 List<Person> list = await query.ToListAsync();
-Dictionary<string, int> dict = await query.ToDictionaryAsync(x => x.Name, x => x.Age);
+Dictionary<string, int> dict = await query.
+    ToDictionaryAsync(x => x.Name, x => x.Age);
 ----
 --
 
@@ -292,7 +294,9 @@ tab:Multiple Columns[]
 ----
 var bookCountByAuthorAndYear = bookTable.GetRecordView<Book>().AsQueryable()
     .GroupBy(book => new { book.Author, book.Year })
-    .Select(grp => new { Author = grp.Key.Author, Year = grp.Key.Year, Count = x.Count() })
+    .Select(grp => new { Author = grp.Key.Author,
+                                  Year = grp.Key.Year,
+                                  Count = x.Count() })
     .ToList();
 ----
 --
