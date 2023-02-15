@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.stream.Collectors.toList;
 
 import com.codahale.metrics.Gauge;
@@ -124,6 +125,8 @@ public class Replicator implements ThreadId.OnError {
     // Pending response queue;
     private final PriorityQueue<RpcResponse> pendingResponses = new PriorityQueue<>(50);
 
+    private final String metricName;
+
     private int getAndIncrementReqSeq() {
         final int prev = this.reqSeq;
         this.reqSeq++;
@@ -161,6 +164,7 @@ public class Replicator implements ThreadId.OnError {
         this.timerManager = replicatorOptions.getTimerManager();
         this.raftOptions = raftOptions;
         this.rpcService = replicatorOptions.getRaftRpcService();
+        this.metricName = getReplicatorMetricName(replicatorOptions);
         setState(State.Created);
     }
 
@@ -544,7 +548,7 @@ public class Replicator implements ThreadId.OnError {
         final int seq, final Future<Message> rpcInfly) {
         this.rpcInFly = new Inflight(reqType, startIndex, count, size, seq, rpcInfly);
         this.inflights.add(this.rpcInFly);
-        this.nodeMetrics.recordSize("replicate-inflights-count", this.inflights.size());
+        this.nodeMetrics.recordSize(name(this.metricName, "replicate-inflights-count"), this.inflights.size());
     }
 
     /**
@@ -861,9 +865,8 @@ public class Replicator implements ThreadId.OnError {
         final MetricRegistry metricRegistry = opts.getNode().getNodeMetrics().getMetricRegistry();
         if (metricRegistry != null) {
             try {
-                final String replicatorMetricName = getReplicatorMetricName(opts);
-                if (!metricRegistry.getNames().contains(replicatorMetricName)) {
-                    metricRegistry.register(replicatorMetricName, new ReplicatorMetricSet(opts, r));
+                if (!metricRegistry.getNames().contains(r.metricName)) {
+                    metricRegistry.register(r.metricName, new ReplicatorMetricSet(opts, r));
                 }
             }
             catch (final IllegalArgumentException e) {
@@ -884,7 +887,7 @@ public class Replicator implements ThreadId.OnError {
         return r.id;
     }
 
-    private static String getReplicatorMetricName(final ReplicatorOptions opts) {
+    private String getReplicatorMetricName(final ReplicatorOptions opts) {
         return "replicator-" + opts.getNode().getGroupId() + "/" + opts.getPeerId();
     }
 
@@ -1129,7 +1132,7 @@ public class Replicator implements ThreadId.OnError {
         // Unregister replicator metric set
         if (this.nodeMetrics.isEnabled()) {
             this.nodeMetrics.getMetricRegistry() //
-                .removeMatching(MetricFilter.startsWith(getReplicatorMetricName(this.options)));
+                .removeMatching(MetricFilter.startsWith(this.metricName));
         }
         setState(State.Destroyed);
         notifyReplicatorStatusListener((Replicator) savedId.getData(), ReplicatorEvent.DESTROYED);
