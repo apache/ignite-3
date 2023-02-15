@@ -21,6 +21,7 @@ import static java.util.function.Predicate.not;
 
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -28,11 +29,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -40,10 +36,17 @@ import org.apache.ignite.internal.util.ArrayUtils;
  * AggregatePlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
+public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerTest {
+
+    private final String[] disableRules = {
+            "MapReduceHashAggregateConverterRule",
+            "MapReduceSortAggregateConverterRule",
+            "ColocatedSortAggregateConverterRule"
+    };
+
     @Override
     protected String[] disabledRules() {
-        return new String[0];
+        return disableRules;
     }
 
     @Override
@@ -59,12 +62,10 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase2(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(hasAggregate())
-                                        .and(input(isTableScan("TEST")))
-                                ))
+                                .and(input(isTableScan("TEST")))
                         ))
                 )
         );
@@ -83,23 +84,20 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase4(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(hasAggregate())
-                                        .and(input(isTableScan("TEST")))
-                                ))
-                        ))
-                )
+                                .and(input(isTableScan("TEST")))
+                        )))
         );
     }
 
     @Override
     protected void checkTestCase5(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(hasAggregate())
-                        .and(hasChildThat(isIndexScan("TEST", "grp0_grp1")))
+                        .and(input(isTableScan("TEST")))
                 )
         );
     }
@@ -107,14 +105,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase6(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                                .and(hasAggregate())
-                                                .and(input(isIndexScan("TEST", "grp0_grp1")))
-                                        ))
-                                )
-                        ))
+                                .and(input(isTableScan("TEST")))
+                        )))
         );
     }
 
@@ -160,15 +155,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase10(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                        .and(input(isTableScan("TEST")))
-                                ))
+                                .and(input(isTableScan("TEST")))
                         ))
                 )
         );
@@ -177,10 +168,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase11(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                        // TODO: Why don't utilize the index?
+                        .and(input(isTableScan("TEST")))
                 )
         );
     }
@@ -188,15 +180,12 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase12(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
-                                ))
+                                // TODO: Why don't utilize the index?
+                                .and(input(isTableScan("TEST")))
                         ))
                 )
         );
@@ -229,8 +218,10 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase15(String sql, IgniteSchema schema, String... additionalRules) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
-                        .and(input(isIndexScan("TEST", "val0")))
+                nodeOrAnyChild(isInstanceOf(IgniteSort.class)
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isTableScan("TEST")))
+                        ))
                 ),
                 ArrayUtils.concat(disabledRules(), additionalRules));
     }
@@ -238,10 +229,10 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase16(String sql, IgniteSchema schema, String... additionalRules) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(input(isIndexScan("TEST", "val0")))
+                nodeOrAnyChild(isInstanceOf(IgniteSort.class)
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))
                 ),
@@ -251,26 +242,24 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase17(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteSort.class)
-                                .and(s -> s.collation().equals(collation))
+                isInstanceOf(IgniteSort.class)
+                        .and(s -> RelCollations.contains(collation, s.getCollation().getKeys()))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
                                 .and(input(isTableScan("TEST")))
                         ))
-                )
         );
     }
 
     @Override
     protected void checkTestCase18(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteSort.class)
-                                        .and(s -> s.collation().equals(collation))
+                isInstanceOf(IgniteSort.class)
+                        .and(s -> RelCollations.contains(collation, s.getCollation().getKeys()))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
-                )
         );
     }
 
@@ -330,16 +319,17 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
     @Override
     protected void checkTestCase23(String sql, IgniteSchema schema) throws Exception {
-        Predicate<? extends RelNode> subtreePredicate = isInstanceOf(IgniteColocatedSortAggregate.class)
+        Predicate<? extends RelNode> subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                 // Check the second aggregation step contains accumulators.
                 // Plan must not contain distinct accumulators.
                 .and(hasAggregate())
                 .and(not(hasDistinctAggregate()))
                 // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
-                .and(input(isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                ));
+                ))
+        );
 
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(input(0, subtreePredicate))
@@ -349,22 +339,18 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
     @Override
     protected void checkTestCase24(String sql, IgniteSchema schema) throws Exception {
-        Predicate<? extends RelNode> subtreePredicate = isInstanceOf(IgniteColocatedSortAggregate.class)
+        Predicate<? extends RelNode> subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                 // Check the second aggregation step contains accumulators.
                 // Plan must not contain distinct accumulators.
                 .and(hasAggregate())
                 .and(not(hasDistinctAggregate()))
                 // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
-                .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                ))
-                        ))
-                ));
+                        .and(input(isInstanceOf(IgniteExchange.class)))
+                ))
+        );
 
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(input(0, subtreePredicate))
@@ -375,12 +361,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected void checkTestCase25(String sql, IgniteSchema schema) throws Exception {
         assertPlan(sql, schema,
-                nodeOrAnyChild(isInstanceOf(IgniteSort.class)
-                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(not(hasAggregate()))
-                                        .and(input(isTableScan("TEST")))
-                                ))
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isTableScan("TEST")))
                         ))
                 )
         );

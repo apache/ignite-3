@@ -286,7 +286,10 @@ public class TestBuilders {
         @Override
         public TestTable build() {
             return new TestTable(
-                    new TableDescriptorImpl(columns, distribution), name, dataProviders, size
+                    new TableDescriptorImpl(columns, distribution),
+                    Objects.requireNonNull(name),
+                    dataProviders,
+                    size
             );
         }
 
