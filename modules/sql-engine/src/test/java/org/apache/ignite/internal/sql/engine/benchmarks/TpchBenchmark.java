@@ -85,10 +85,12 @@ public class TpchBenchmark {
     }
 
     /**
-     * Runs {@code TPC-H query}.
+     * Benchmark that measures the time it takes to prepare a {@code TPC-H query}.
+     *
+     * <p>The result includes the time to complete the following stages: parsing, validation, and planning.
      */
     @Benchmark
-    public void runQuery(Blackhole bh) {
+    public void prepareQuery(Blackhole bh) {
         bh.consume(gatewayNode.prepare(queryString));
     }
 

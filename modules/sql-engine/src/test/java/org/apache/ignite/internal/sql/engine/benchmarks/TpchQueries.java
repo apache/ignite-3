@@ -41,8 +41,8 @@ public final class TpchQueries {
      *     named variant_q{numeric_id}.sql.</li>
      * </ul>
      *
-     * @param queryId the identifier of a query.
-     * @return  an SQL query.
+     * @param queryId The identifier of a query.
+     * @return  An SQL query.
      */
     public static String getQuery(String queryId) {
         // variant query ends with "v"
@@ -78,4 +78,3 @@ public final class TpchQueries {
         }
     }
 }
-

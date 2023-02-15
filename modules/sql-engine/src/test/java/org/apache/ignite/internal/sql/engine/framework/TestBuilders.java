@@ -94,12 +94,15 @@ public class TestBuilders {
         ClusterTableBuilder addTable();
 
         /**
-         * Specifies a data provider factory that is used to create instances of default {@link DataProvider  data providers}.
-         * When a table has no data provider is this the provided factory is used to create one.
+         * When specified the given factory is used to create instances of
+         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data providers} for tables
+         * that have no {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data provider} set.
+         *
+         * <p>Note: when a table has default data provider this method has no effect.
          *
          * @return {@code this} for chaining.
          */
-        ClusterBuilder dataProviderFactory(DataProviderFactory dataProviderFactory);
+        ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory);
 
         /**
          * Builds the cluster object.
@@ -243,7 +246,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ClusterBuilder dataProviderFactory(DataProviderFactory dataProviderFactory) {
+        public ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory) {
             this.dataProviderFactory = dataProviderFactory;
             return this;
         }
