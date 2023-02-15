@@ -1,6 +1,6 @@
 = .NET LINQ Queries
 
-Apache Ignite.NET includes a LINQ provider that is integrated with Ignite SQL APIs. You can avoid dealing with SQL syntax directly and write queries in C# with LINQ. LINQ provider translates C# LINQ expressions into Ignite-specific SQL. For example, the following two snippets achieve the same result:
+Apache Ignite .NET client provides LINQ support that is integrated with Ignite SQL APIs. You can avoid working with SQL syntax directly and write queries in C# with LINQ. C# LINQ expressions are then translated into Ignite-specific SQL. For example, the following two snippets achieve the same result:
 
 [tabs]
 --
@@ -29,19 +29,19 @@ await foreach (IIgniteTuple row in resultSet)
 
 LINQ has the following advantages over SQL:
 
-* Queries are strongly typed and compile-time checked:
-* Easier to write and maintain with IDE support (auto-completion, navigation, find usages).
-* Refactoring-friendly: rename a column and all queries are updated at once.
-* Ignite-specific SQL knowledge is not required, and most C# developers are already familiar with LINQ.
-* Safe against SQL injections.
+* Queries are strongly typed and checked at compilation;
+* It is easier to write and maintain with IDE support (auto-completion, navigation, find usages);
+* LINQ is refactoring-friendly: rename a column and all queries are updated at once;
+* Ignite-specific SQL knowledge is not required, and most C# developers are already familiar with LINQ;
+* LINQ is safe against SQL injections;
 * Results are mapped to types naturally.
 
-Our benchmarks indicate that in real-world scenarios LINQ queries are on par with equivalent SQL queries.
-However, a small overhead still exists (due to query translation), and your mileage may vary depending on the query complexity, so it's recommended to measure the performance of your queries.
+In real-world scenarios Apache Ignite LINQ queries are on par with equivalent SQL queries.
+However, a small overhead still exists (due to query translation), and your mileage may vary depending on the query complexity, so it is recommended to measure the performance of your queries.
 
 == Getting Started With LINQ
 
-Here is how you can create a simple LINQ table in Apache Ignite:
+Here is how you can create a simple table in Apache Ignite:
 
 1. Create a table:
 +
@@ -83,7 +83,7 @@ List<string> names = await view.AsQueryable()
     .ToListAsync();
 ----
 
-== Using LINQ API
+== Using LINQ
 
 === Inspecting Generated SQL
 
@@ -328,10 +328,10 @@ Below is a list of .NET aggregate functions and their SQL equivalents that are s
 [cols="30%,30%,30%", width="70%"]
 |===
 |LINQ synchronous method |LINQ asynchronous method  | SQL Operator
-|First|FirstAsync|FIRST ... LIMIT 1
-|FirstOrDefault|FirstOrDefaultAsync|
-|Single|SingleAsync|FIRST ... LIMIT 2
-|SingleOrDefault|SingleOrDefaultAsync|
+|First|FirstAsync|FIRST
+|FirstOrDefault|FirstOrDefaultAsync|FIRST ... LIMIT 1
+|Single|SingleAsync|FIRST
+|SingleOrDefault|SingleOrDefaultAsync|FIRST ... LIMIT 2
 |Max|MaxAsync|MAX
 |Min|MinAsync|MIN
 |Average|AverageAsync|AVG
@@ -488,22 +488,26 @@ public List<Book> GetBooks(string? author, int? year)
 Unless custom mapping is provided with `[Column]`, LINQ provider will use property or field names as column names,
 using unquoted identifiers, which are case-insensitive.
 
-**C#**
-
+[tabs]
+--
+tab:C#[]
 [source, csharp]
 ----
 bookTable.GetRecordView<Book>().AsQueryable().Select(x => x.Author).ToList();
 ----
 
-**Resulting SQL**
-
+tab:Resulting SQL[]
 [source, csharp]
 ----
 select _T0.AUTHOR from PUBLIC.books as _T0
 ----
+--
 
 To use quoted identifiers, or to map column names to different property names, use `[Column]` attribute:
 
+[tabs]
+--
+tab:C#[]
 [source, csharp]
 ----
 public class Book
@@ -515,12 +519,12 @@ public class Book
 public record Book([property: Column("book_author")] string Author);
 ----
 
-**Resulting SQL**
-
+tab:Resulting SQL[]
 [source, sql]
 ----
 SELECT _T0."book_author" FROM PUBLIC.books AS _T0
 ----
+--
 
 === KeyValueView
 
