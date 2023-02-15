@@ -243,6 +243,7 @@ namespace Apache.Ignite.Internal
             {
                 ThrowIfDisposed();
 
+                // 1. Preferred node connection.
                 if (preferredNode != default)
                 {
                     var key = preferredNode.Id ?? preferredNode.Name;
@@ -261,6 +262,13 @@ namespace Apache.Ignite.Internal
                     }
                 }
 
+                // 2. Round-robin connection.
+                if (GetNextSocketWithoutReconnect() is { } nextSocket)
+                {
+                    return nextSocket;
+                }
+
+                // 3. Default connection.
                 if (_socket == null || _socket.IsDisposed)
                 {
                     if (_socket?.IsDisposed == true)
@@ -332,7 +340,7 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
-        /// Gets next connected socket, or connects a new one.
+        /// Gets the next connected socket, or connects a new one.
         /// </summary>
         [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async ValueTask<ClientSocket> GetNextSocketAsync()
@@ -364,6 +372,27 @@ namespace Apache.Ignite.Internal
 
             throw new AggregateException(
                 "Failed to establish Ignite thin client connection, examine inner exceptions for details.", errors!);
+        }
+
+        /// <summary>
+        /// Gets the next connected socket, without establishing new connections.
+        /// </summary>
+        private ClientSocket? GetNextSocketWithoutReconnect()
+        {
+            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+
+            for (var i = 0; i < _endpoints.Count; i++)
+            {
+                var idx = (startIdx + i) % _endpoints.Count;
+                var endPoint = _endpoints[idx];
+
+                if (endPoint.Socket is { IsDisposed: false })
+                {
+                    return endPoint.Socket;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
