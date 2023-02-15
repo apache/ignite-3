@@ -36,7 +36,7 @@ LINQ has the following advantages over SQL:
 * LINQ is safe against SQL injections;
 * Results are mapped to types naturally.
 
-In real-world scenarios Apache Ignite LINQ queries are on par with equivalent SQL queries.
+In real-world scenarios the performance of Apache Ignite LINQ queries is on par with equivalent SQL queries.
 However, a small overhead still exists (due to query translation), and your mileage may vary depending on the query complexity, so it is recommended to measure the performance of your queries.
 
 == Getting Started With LINQ
@@ -47,7 +47,8 @@ Here is how you can create a simple table in Apache Ignite:
 +
 [source, csharp]
 ----
-await Client.Sql.ExecuteAsync(null, @"CREATE TABLE PUBLIC.PERSON (NAME VARCHAR PRIMARY KEY, AGE INT)");
+await Client.Sql.ExecuteAsync(
+    null, @"CREATE TABLE PUBLIC.PERSON (NAME VARCHAR PRIMARY KEY, AGE INT)");
 ----
 +
 2. Define the classes (or records) that represent tables:
@@ -93,7 +94,9 @@ Viewing generated SQL is useful for debugging and performance tuning. There are 
 +
 [source, csharp]
 ----
-IQueryable<Person> query = table.GetRecordView<Person>().AsQueryable().Where(x => x.Age > 30);
+IQueryable<Person> query = table.GetRecordView<Person>()
+    .AsQueryable()
+    .Where(x => x.Age > 30);
 string sql = query.ToQueryString();
 ----
 +
@@ -244,7 +247,10 @@ Use the standard `Join` method to perform joins on other tables:
 var customerQuery = customerTable.GetRecordView<Customer>().AsQueryable();
 var orderQuery = orderTable.GetRecordView<Order>().AsQueryable();
 var ordersByCustomer = customerQuery
-    .Join(orderQuery, cust => cust.Id, order => order.CustId, (cust, order) => new { cust.Name, order.Amount })
+    .Join(orderQuery,
+        cust => cust.Id,
+        order => order.CustId,
+        (cust, order) => new { cust.Name, order.Amount })
     .ToList();
 ----
 
@@ -258,7 +264,10 @@ For example, not every book in a library is borrowed by a student, so a left out
 var bookQuery = bookTable.GetRecordView<Book>().AsQueryable();
 var studentQuery = studentTable.GetRecordView<Student>().AsQueryable();
 var booksWithStudents = bookQuery
-    .Join(studentQuery.DefaultIfEmpty(), book => book.StudentId, student => student.Id, (book, student) => new { book.Title, student.Name })
+    .Join(studentQuery.DefaultIfEmpty(),
+        book => book.StudentId,
+        student => student.Id,
+        (book, student) => new { book.Title, student.Name })
     .ToList();
 ----
 
@@ -308,17 +317,20 @@ Multiple result sets can be combined by using the `Union`, `Intersect`, `Except`
 
 [source, csharp]
 ----
-IQueryable<string> employeeEmails = employeeTable.GetRecordView<Employee>().AsQueryable()
+IQueryable<string> employeeEmails = employeeTable
+    .GetRecordView<Employee>().AsQueryable()
     .Select(x => x.Email);
 
-IQueryable<string> customerEmails = customerTable.GetRecordView<Customer>().AsQueryable()
+IQueryable<string> customerEmails = customerTable
+    .GetRecordView<Customer>().AsQueryable()
     .Select(x => x.Email);
 
 List<string> allEmails = employeeEmails.Union(customerEmails)
     .OrderBy(x => x)
     .ToList();
 
-List<string> employeesThatAreCustomers = employeeEmails.Intersect(customerEmails).ToList();
+List<string> employeesThatAreCustomers = employeeEmails
+    .Intersect(customerEmails).ToList();
 ----
 
 === Aggregate Functions
@@ -416,7 +428,10 @@ Here is the example of how you can use string functions:
 ----
 List<string> fullNames = table.GetRecordView<Person>().AsQueryable()
     .Where(p => p.FirstName.StartsWith("Jo"))
-    .Select(p => new { FullName = p.FirstName.ToUpper() + " " + p.LastName.ToLower() })
+    .Select(p => new {
+        FullName = p.FirstName.ToUpper() +
+        " " +
+        p.LastName.ToLower() })
     .ToList();
 ----
 
@@ -452,7 +467,9 @@ await orders
     .Where(x => x.CustomerId == customerId)
     .ExecuteUpdateAsync(
         order => order.SetProperty(x => x.Discount, 0.1m)
-                      .SetProperty(x => x.Note, x => x.Note + " Happy birthday, " + x.CustomerName));
+                      .SetProperty(x => x.Note, x => x.Note +
+                            " Happy birthday, " +
+                            x.CustomerName));
 ----
 
 Resulting SQL:
@@ -532,7 +549,8 @@ All examples above use `IRecordView<T>` to perform queries; LINQ provider suppor
 
 [source, csharp]
 ----
-IQueryable<KeyValuePair<int, Book>> query = bookTable.GetKeyValueView<int, Book>().AsQueryable();
+IQueryable<KeyValuePair<int, Book>> query =
+    bookTable.GetKeyValueView<int, Book>().AsQueryable();
 List<Book> books = query
     .Where(x => x.Key > 10)
     .Select(x => x.Value)

@@ -45,9 +45,9 @@
       url: sql-reference/operators-and-functions
 - title: REST API
   url: rest/rest-api
-- title: Thin Clients
+- title: Clients
   items:
-    - title: Thin Clients Overview
+    - title: Clients Overview
       url: thin-clients/index
     - title: .NET LINQ Queries
       url: thin-clients/linq
