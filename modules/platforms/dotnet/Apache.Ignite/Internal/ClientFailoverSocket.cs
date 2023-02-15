@@ -214,6 +214,16 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Gets active connections.
+        /// </summary>
+        /// <returns>Active connections.</returns>
+        public IEnumerable<ConnectionContext> GetConnections() =>
+            _endpoints
+                .Select(e => e.Socket?.ConnectionContext)
+                .Where(ctx => ctx != null)
+                .ToList()!;
+
+        /// <summary>
         /// Gets the primary socket. Reconnects if necessary.
         /// </summary>
         /// <param name="preferredNode">Preferred node.</param>
@@ -222,7 +232,7 @@ namespace Apache.Ignite.Internal
             "Microsoft.Design",
             "CA1031:DoNotCatchGeneralExceptionTypes",
             Justification = "Any connection exception should be handled.")]
-        public async ValueTask<ClientSocket> GetSocketAsync(PreferredNode preferredNode = default)
+        private async ValueTask<ClientSocket> GetSocketAsync(PreferredNode preferredNode = default)
         {
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
@@ -265,16 +275,6 @@ namespace Apache.Ignite.Internal
                 _socketLock.Release();
             }
         }
-
-        /// <summary>
-        /// Gets active connections.
-        /// </summary>
-        /// <returns>Active connections.</returns>
-        public IEnumerable<ConnectionContext> GetConnections() =>
-            _endpoints
-                .Select(e => e.Socket?.ConnectionContext)
-                .Where(ctx => ctx != null)
-                .ToList()!;
 
         [SuppressMessage(
             "Microsoft.Design",
@@ -441,10 +441,8 @@ namespace Apache.Ignite.Internal
         {
             try
             {
-                IPAddress? ip;
-
                 // GetHostEntry accepts IPs, but TryParse is a more efficient shortcut.
-                return IPAddress.TryParse(host, out ip) ? new[] {ip} : Dns.GetHostEntry(host).AddressList;
+                return IPAddress.TryParse(host, out var ip) ? new[] { ip } : Dns.GetHostEntry(host).AddressList;
             }
             catch (SocketException e)
             {
