@@ -80,22 +80,20 @@ public class PartitionAwarenessTests
     }
 
     [Test]
-    public async Task TestPutWithTxUsesDefaultNode()
+    public async Task TestPutWithTxUsesTxNode()
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+
         var tx = await client.Transactions.BeginAsync();
-        var (defaultServer, secondaryServer) = GetServerPair();
+        var txServer = new[] { _server1, _server2 }.Single(x => x.ClientOps.Contains(ClientOp.TxBegin));
 
-        // Second server.
-        await recordView.UpsertAsync(tx, 1);
-        await recordView.UpsertAsync(tx, 3);
+        for (int i = 0; i < 10; i++)
+        {
+            await recordView.UpsertAsync(tx, i);
+        }
 
-        Assert.AreEqual(
-            new[] { ClientOp.TableGet, ClientOp.TxBegin, ClientOp.SchemasGet, ClientOp.TupleUpsert, ClientOp.TupleUpsert },
-            defaultServer.ClientOps);
-
-        CollectionAssert.IsEmpty(secondaryServer.ClientOps);
+        Assert.AreEqual(Enumerable.Repeat(ClientOp.TupleUpsert, 10), txServer.ClientOps.TakeLast(10));
     }
 
     [Test]
