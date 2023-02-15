@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -66,8 +67,8 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     public void testUuidLiterals() {
         UUID uuid1 = UUID.randomUUID();
 
-        assertQuery(String.format("SELECT CAST('%s' as UUID)", uuid1)).columnTypes(UUID.class).returns(uuid1).check();
-        assertQuery(String.format("SELECT '%s'::UUID", uuid1)).columnTypes(UUID.class).returns(uuid1).check();
+        assertQuery(format("SELECT CAST('{}' as UUID)", uuid1)).columnTypes(UUID.class).returns(uuid1).check();
+        assertQuery(format("SELECT '{}'::UUID", uuid1)).columnTypes(UUID.class).returns(uuid1).check();
         // from a dynamic parameter
         assertQuery("SELECT ?").withParams(uuid1).columnTypes(UUID.class).returns(uuid1).check();
     }
@@ -110,7 +111,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     @Test
     public void testUuidInQueries() {
         // cast from string
-        sql(String.format("INSERT INTO t VALUES (1, CAST('%s' as UUID))", UUID_1));
+        sql(format("INSERT INTO t VALUES (1, CAST('{}' as UUID))", UUID_1));
 
         assertQuery("SELECT uuid_key FROM t WHERE id=1").columnTypes(UUID.class).returns(UUID_1).check();
 
@@ -143,7 +144,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
         // UUID can be used by several aggregate functions
         for (var func : Arrays.asList("COUNT", "ANY_VALUE")) {
-            sql(String.format("SELECT %s(uuid_key) FROM t", func));
+            sql(format("SELECT {}(uuid_key) FROM t", func));
         }
     }
 
@@ -173,7 +174,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     @ParameterizedTest
     @MethodSource("binaryComparisonOperators")
     public void testUuidInvalidOperationsAreRejected(String op) {
-        var query = String.format("SELECT ? %s 1", op);
+        var query = format("SELECT ? {} 1", op);
         var t = assertThrows(IgniteException.class, () -> sql(query, UUID_1));
         assertThat(t.getMessage(), containsString("class java.util.UUID cannot be cast to class java.lang.Integer"));
     }
@@ -187,9 +188,9 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     @ParameterizedTest
     @MethodSource("binaryArithmeticOperators")
     public void testUuidUnsupportedOperators(String op) {
-        var query = String.format("SELECT CAST('%s' as UUID) %s CAST('%s' as UUID)", UUID_1, op, UUID_1);
+        var query = format("SELECT CAST('{}' as UUID) {} CAST('{}' as UUID)", UUID_1, op, UUID_1);
         var t = assertThrows(IgniteException.class, () -> sql(query));
-        var errorMessage = String.format("Invalid types for arithmetic: class java.util.UUID %s class java.util.UUID", op);
+        var errorMessage = format("Invalid types for arithmetic: class java.util.UUID {} class java.util.UUID", op);
         assertThat(t.getMessage(), containsString(errorMessage));
     }
 
@@ -217,11 +218,11 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testUuidTypeCoercion() {
-        assertQuery(String.format("SELECT CAST('%s' as UUID) = '%s'", UUID_1, UUID_1)).returns(true).check();
-        assertQuery(String.format("SELECT '%s' = CAST('%s' as UUID)", UUID_1, UUID_1)).returns(true).check();
+        assertQuery(format("SELECT CAST('{}' as UUID) = '{}'", UUID_1, UUID_1)).returns(true).check();
+        assertQuery(format("SELECT '{}' = CAST('{}' as UUID)", UUID_1, UUID_1)).returns(true).check();
 
-        assertQuery(String.format("SELECT '%s'::UUID = '%s'", UUID_1, UUID_1)).returns(true).check();
-        assertQuery(String.format("SELECT '%s'= '%s'::UUID", UUID_1, UUID_1)).returns(true).check();
+        assertQuery(format("SELECT '{}'::UUID = '{}'", UUID_1, UUID_1)).returns(true).check();
+        assertQuery(format("SELECT '{}'= '{}'::UUID", UUID_1, UUID_1)).returns(true).check();
 
         // UUID / String
         checkUuidComparison(UUID_1.toString(), UUID_2);

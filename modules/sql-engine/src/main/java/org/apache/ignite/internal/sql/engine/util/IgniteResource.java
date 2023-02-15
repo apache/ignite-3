@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.Resources;
-import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 
 /**
