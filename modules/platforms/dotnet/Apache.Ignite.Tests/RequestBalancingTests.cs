@@ -45,18 +45,20 @@ public class RequestBalancingTests
         // ReSharper disable once AccessToDisposedClosure
         TestUtils.WaitForCondition(() => client.GetConnections().Count == 3, 5000);
 
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 10; i++)
         {
             await client.Tables.GetTablesAsync();
             await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         }
 
+        // All servers get their share of requests.
         foreach (var server in new[] { server1, server2, server3 })
         {
             CollectionAssert.Contains(server.ClientOps, ClientOp.TableGet, server.Node.Name);
             CollectionAssert.Contains(server.ClientOps, ClientOp.TablesGet, server.Node.Name);
         }
 
-        Assert.AreEqual(10, server1.ClientOps.Count + server2.ClientOps.Count + server3.ClientOps.Count);
+        // Total number of requests across all servers.
+        Assert.AreEqual(20, server1.ClientOps.Count + server2.ClientOps.Count + server3.ClientOps.Count);
     }
 }
