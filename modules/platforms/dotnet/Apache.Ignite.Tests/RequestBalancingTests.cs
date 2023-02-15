@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System.Threading.Tasks;
+using Internal.Proto;
 using NUnit.Framework;
 
 /// <summary>
@@ -30,7 +31,32 @@ public class RequestBalancingTests
     [Test]
     public async Task TestRequestsAreRoundRobinBalanced()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        using var server1 = new FakeServer(nodeName: "s1");
+        using var server2 = new FakeServer(nodeName: "s2");
+        using var server3 = new FakeServer(nodeName: "s3");
+
+        var clientCfg = new IgniteClientConfiguration
+        {
+            Endpoints = { server1.Endpoint, server2.Endpoint, server3.Endpoint }
+        };
+
+        using var client = await IgniteClient.StartAsync(clientCfg);
+
+        // ReSharper disable once AccessToDisposedClosure
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 3, 5000);
+
+        for (var i = 0; i < 5; i++)
+        {
+            await client.Tables.GetTablesAsync();
+            await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+        }
+
+        foreach (var server in new[] { server1, server2, server3 })
+        {
+            CollectionAssert.Contains(server.ClientOps, ClientOp.TableGet, server.Node.Name);
+            CollectionAssert.Contains(server.ClientOps, ClientOp.TablesGet, server.Node.Name);
+        }
+
+        Assert.AreEqual(10, server1.ClientOps.Count + server2.ClientOps.Count + server3.ClientOps.Count);
     }
 }
