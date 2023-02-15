@@ -101,7 +101,11 @@ namespace Apache.Ignite.Tests.Compute
 
                 var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { node }, jobClassName: string.Empty);
 
-                Assert.AreEqual(node.Name, res);
+                // Every third request goes to a different node due to a combination of retry and round-robin logic.
+                if ((i - 4) % 3 != 0)
+                {
+                    Assert.AreEqual(node.Name, res, $"Iteration {i}");
+                }
             }
         }
     }
