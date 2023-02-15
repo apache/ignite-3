@@ -302,7 +302,7 @@ namespace Apache.Ignite.Internal
                         continue;
                     }
 
-                    tasks.Add(ConnectAsync(endpoint));
+                    tasks.Add(ConnectAsync(endpoint).AsTask());
                 }
 
                 await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -366,7 +366,7 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Connects to the given endpoint.
         /// </summary>
-        private async Task<ClientSocket> ConnectAsync(SocketEndpoint endpoint)
+        private async ValueTask<ClientSocket> ConnectAsync(SocketEndpoint endpoint)
         {
             if (endpoint.Socket?.IsDisposed == false)
             {
