@@ -42,7 +42,4 @@ public interface IgniteResource {
 
     @Resources.BaseMessage("Unexpected number of query parameters. Provided {0} but there is only {1} dynamic parameter(s).")
     Resources.ExInst<SqlValidatorException> unexpectedParameter(int provided, int expected);
-
-    @Resources.BaseMessage("There is no operator {0} {1} {2}")
-    Resources.ExInst<SqlValidatorException> noSqlOperator(RelDataType lhs, SqlOperator op, RelDataType rhs);
 }
