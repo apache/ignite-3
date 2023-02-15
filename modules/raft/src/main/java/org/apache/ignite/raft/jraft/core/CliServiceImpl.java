@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -384,6 +385,15 @@ public class CliServiceImpl implements CliService {
         catch (final Exception e) {
             return new Status(-1, e.getMessage());
         }
+    }
+
+    @Override
+    public Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner) {
+        Status status = removeLearners(groupId, conf, Arrays.asList(learner));
+        if (status.isOk()) {
+            status = addPeer(groupId, conf, new PeerId(learner.getConsistentId()));
+        }
+        return status;
     }
 
     @Override
