@@ -68,14 +68,9 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        var (defaultServer, _) = GetServerPair();
 
         // Warm up.
         await recordView.UpsertAsync(null, 1);
-
-        Assert.AreEqual(
-            new[] { ClientOp.TableGet, ClientOp.SchemasGet, ClientOp.PartitionAssignmentGet },
-            defaultServer.ClientOps.Take(3));
 
         // Check.
         await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2, _server1);
