@@ -269,7 +269,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000);
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
 
         // Stop the second node.
         secondNode.stop();
@@ -301,7 +301,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000);
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
 
         // Stop the second node.
         secondNode.stop();
@@ -330,7 +330,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         assertThat(logicalTopologyNodes, willBe(Set.of(firstNode.name(), secondNode.name())));
 
-        waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000);
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
 
         // Make first node lose the second node from the Physical and Logical topologies.
         firstNode.startDroppingMessagesTo(secondNode, ScaleCubeMessage.class);
