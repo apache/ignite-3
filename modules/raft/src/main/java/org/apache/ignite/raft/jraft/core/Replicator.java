@@ -883,7 +883,7 @@ public class Replicator implements ThreadId.OnError {
         r.lastRpcSendTimestamp = Utils.monotonicMs();
         r.startHeartbeatTimer(Utils.nowMs());
         // id.unlock in sendEmptyEntries
-        r.sendEmptyEntries(false);
+        r.sendProbeRequest();
         return r.id;
     }
 
@@ -969,7 +969,7 @@ public class Replicator implements ThreadId.OnError {
             // _next_index otherwise the replicator is likely waits in            executor.shutdown();
             // _wait_more_entries and no further logs would be replicated even if the
             // last_index of this followers is less than |next_index - 1|
-            r.sendEmptyEntries(false);
+            r.sendProbeRequest();
         }
         else if (errCode != RaftError.ESTOP.getNumber()) {
             // id is unlock in _send_entries
@@ -1010,7 +1010,7 @@ public class Replicator implements ThreadId.OnError {
             this.blockTimer = null;
             LOG.error("Fail to add timer", e);
             // id unlock in sendEmptyEntries.
-            sendEmptyEntries(false);
+            sendProbeRequest();
         }
     }
 
@@ -1220,7 +1220,7 @@ public class Replicator implements ThreadId.OnError {
                 }
                 LOG.warn("Heartbeat to peer {} failure, try to send a probe request.", r.options.getPeerId());
                 doUnlock = false;
-                r.sendEmptyEntries(false);
+                r.sendProbeRequest();
                 r.startHeartbeatTimer(startTimeMs);
                 return;
             }
@@ -1268,7 +1268,7 @@ public class Replicator implements ThreadId.OnError {
                 holdingQueue.size(), r.options.getPeerId(), r.raftOptions.getMaxReplicatorInflightMsgs());
             r.resetInflights();
             r.setState(State.Probe);
-            r.sendEmptyEntries(false);
+            r.sendProbeRequest();
             return;
         }
 
@@ -1388,7 +1388,7 @@ public class Replicator implements ThreadId.OnError {
             r.resetInflights();
             r.setState(State.Probe);
             // unlock id in sendEmptyEntries
-            r.sendEmptyEntries(false);
+            r.sendProbeRequest();
             return false;
         }
         // record metrics
@@ -1482,7 +1482,7 @@ public class Replicator implements ThreadId.OnError {
                 }
             }
             // dummy_id is unlock in _send_heartbeat
-            r.sendEmptyEntries(false);
+            r.sendProbeRequest();
             return false;
         }
         if (isLogDebugEnabled) {
@@ -1712,6 +1712,10 @@ public class Replicator implements ThreadId.OnError {
         }
         //id unlock in send empty entries.
         r.sendEmptyEntries(true, closure);
+    }
+
+    private void sendProbeRequest() {
+        sendEmptyEntries(false);
     }
 
     private static void sendHeartbeat(final ThreadId id) {
