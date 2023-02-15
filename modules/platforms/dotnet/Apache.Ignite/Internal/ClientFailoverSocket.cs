@@ -117,6 +117,7 @@ namespace Apache.Ignite.Internal
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Secondary connections are established in the background.
+            // TODO IGNITE-18808 Do this periodically.
             _ = socket.ConnectAllSockets();
 
             return socket;
