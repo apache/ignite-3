@@ -43,7 +43,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
@@ -63,7 +62,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -434,122 +432,6 @@ public class PlannerTest extends AbstractPlannerTest {
         assertNotNull(plan);
 
         assertEquals(3, plan.fragments().size());
-    }
-
-    /** Tests bounds merge. */
-    @Test
-    public void testBoundsMerge() throws Exception {
-        IgniteTypeFactory typeFactory = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable tbl = new TestTable(
-                new RelDataTypeFactory.Builder(typeFactory)
-                        .add("C1", typeFactory.createJavaType(Integer.class))
-                        .add("C2", typeFactory.createJavaType(Integer.class))
-                        .add("C3", typeFactory.createJavaType(Integer.class))
-                        .add("C4", typeFactory.createJavaType(Integer.class))
-                        .build(), "TEST") {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.hash(List.of(0));
-            }
-        };
-
-        tbl.addIndex("C1C2C3", 0, 1, 2);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1", List.of(10), publicSchema,
-                range("$GREATEST2(?0, 1)", "$NULL_BOUND()", true, false)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= ? AND C1 > ?", List.of(10, 10, 10), publicSchema,
-                range("$GREATEST2($GREATEST2(?0, ?1), ?2)", "$NULL_BOUND()", true, false)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1 AND C1 < ? AND C1 < ?", List.of(10, 10, 10), publicSchema,
-                range("$GREATEST2(?0, 1)", "$LEAST2(?1, ?2)", true, false)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 < ? AND C1 BETWEEN 1 AND 10 ", List.of(10), publicSchema,
-                range(1, "$LEAST2(?0, 10)", true, true)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 NOT IN (1, 2) AND C1 >= ?", List.of(10), publicSchema,
-                range("?0", "$NULL_BOUND()", true, false)
-        );
-
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.DESC_NULLS_LAST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4");
-
-        assertBounds("SELECT * FROM TEST WHERE C4 > ? AND C4 >= 1 AND C4 < ? AND C4 < ?", List.of(10, 10, 10), publicSchema,
-                range("$LEAST2(?1, ?2)", "$GREATEST2(?0, 1)", false, true)
-        );
-    }
-
-    /** Tests complex bounds expressions. */
-    @Test
-    public void testBoundsComplex() throws Exception {
-        IgniteTypeFactory typeFactory = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
-
-        TestTable tbl = new TestTable(
-                new RelDataTypeFactory.Builder(typeFactory)
-                        .add("C1", typeFactory.createJavaType(Integer.class))
-                        .add("C2", typeFactory.createJavaType(Integer.class))
-                        .add("C3", typeFactory.createJavaType(Integer.class))
-                        .add("C4", typeFactory.createJavaType(Integer.class))
-                        .build(), "TEST") {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.hash(List.of(0));
-            }
-        };
-
-        tbl.addIndex("C1C2C3", 0, 1, 2);
-
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
-
-        assertBounds("SELECT * FROM TEST WHERE C1 = ? + 10", List.of(10), publicSchema,
-                exact("+(?0, 10)")
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("10"), publicSchema,
-                exact(1),
-                range("||(SUBSTRING(?0, 1, 2), _UTF-8'3')", "$NULL_BOUND()", false, false)
-        );
-
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(C3::VARCHAR, 1, 2) || '3'", List.of(), publicSchema,
-                exact(1),
-                empty()
-        );
-
-        assertBounds("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 = t1.C1 + t1.C3 * ?) FROM TEST t1", List.of(10), publicSchema,
-                exact("+($cor0.C1, *($cor0.C3, ?0))")
-        );
-
-        assertPlan("SELECT * FROM TEST WHERE C1 = ? + C3", publicSchema, nodeOrAnyChild(isTableScan("TEST")), List.of(10));
-
-        assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 < t1.C1 + t2.C1) FROM TEST t1", publicSchema,
-                nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
-    }
-
-    /** String representation of LEAST or GREATEST operator converted to CASE. */
-    private String leastOrGreatest(boolean least, String val0, String val1, String type) {
-        return "CASE(OR(IS NULL(" + val0 + "), IS NULL(" + val1 + ")), null:" + type + ", " + (least ? '<' : '>')
-                + '(' + val0 + ", " + val1 + "), " + val0 + ", " + val1 + ')';
     }
 
     @Test

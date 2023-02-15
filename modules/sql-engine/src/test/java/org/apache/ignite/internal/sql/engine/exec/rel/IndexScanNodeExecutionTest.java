@@ -431,7 +431,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             when(rangeIterable.iterator()).thenReturn(mockIterator);
             when(mockIterator.hasNext()).thenReturn(true, false);
             when(mockIterator.next()).thenReturn(range);
-            when(rangeIterable.size()).thenReturn(1);
+            when(rangeIterable.multiBounds()).thenReturn(false);
         }
 
         IndexScanNode<Object[]> scanNode = new IndexScanNode<>(
