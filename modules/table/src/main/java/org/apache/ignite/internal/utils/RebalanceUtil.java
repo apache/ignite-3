@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.utils;
 
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -89,7 +91,7 @@ public class RebalanceUtil {
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
             String tableName, TablePartitionId partId, Collection<String> dataNodes,
-            int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
+            int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum, Set<Assignment> tableCfgPartAssignments) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
@@ -99,6 +101,8 @@ public class RebalanceUtil {
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
         Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
+
+        boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
         byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
 
@@ -114,8 +118,20 @@ public class RebalanceUtil {
         //                remove(partition.assignments.planned)
         //    else:
         //        skip
+
+        Condition newAssignmentsCondition;
+
+        if (isNewAssignments) {
+            newAssignmentsCondition = or(
+                    notExists(partAssignmentsStableKey),
+                    and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey))
+            );
+        } else {
+            newAssignmentsCondition = and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey));
+        }
+
         var iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
-                iif(and(notExists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
+                iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, ByteUtils.longToBytes(revision))

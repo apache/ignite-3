@@ -632,12 +632,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
 
+                byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
+
+                List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
                 for (int i = 0; i < partCnt; i++) {
                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
                             baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
-                            replicasCtx.storageRevision(), metaStorageMgr, i);
+                            replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
                 }
 
                 return allOf(futures);
@@ -1874,25 +1878,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                 int replicas = tableView.replicas();
 
-                                Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, part, replicas);
+                                int partId = part;
 
-                                // TODO IGNITE-18624 This check will not be needed when dataNodes from distribution zone will be used
-                                // instead of BaselineManager.nodes.
-                                if (!partAssignments.equals(tableAssignments.get(part))) {
-                                    int partId = part;
+                                updatePendingAssignmentsKeys(
+                                        tableView.name(), replicaGrpId, dataNodes, replicas,
+                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part, tableAssignments.get(part)
+                                ).exceptionally(e -> {
+                                    LOG.error(
+                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                            partId
+                                    );
 
-                                    updatePendingAssignmentsKeys(
-                                            tableView.name(), replicaGrpId, dataNodes, replicas,
-                                            evt.entryEvent().newEntry().revision(), metaStorageMgr, part
-                                    ).exceptionally(e -> {
-                                        LOG.error(
-                                                "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
-                                                partId
-                                        );
-
-                                        return null;
-                                    });
-                                }
+                                    return null;
+                                });
                             }
                         }
                     }
