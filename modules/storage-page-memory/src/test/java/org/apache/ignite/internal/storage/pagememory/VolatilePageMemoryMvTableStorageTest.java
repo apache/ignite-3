@@ -124,7 +124,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void partitionDestructionFreesHashIndexPages() throws Exception {
-        tableStorage.createMvPartition(0);
+        getOrCreateMvPartition(0);
 
         HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
 
@@ -171,7 +171,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void partitionDestructionFreesSortedIndexPages() throws Exception {
-        tableStorage.createMvPartition(0);
+        getOrCreateMvPartition(0);
 
         SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
 
@@ -187,7 +187,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void tableStorageDestructionFreesHashIndexPages() throws Exception {
-        tableStorage.createMvPartition(0);
+        getOrCreateMvPartition(0);
 
         HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(0, hashIdx.id());
 
@@ -203,7 +203,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @Test
     void tableStorageDestructionFreesSortedIndexPages() throws Exception {
-        tableStorage.createMvPartition(0);
+        getOrCreateMvPartition(0);
 
         SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(0, sortedIdx.id());
 
