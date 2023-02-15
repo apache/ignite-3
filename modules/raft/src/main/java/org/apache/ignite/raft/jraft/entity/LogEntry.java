@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.raft.jraft.util.CrcUtil;
 
@@ -79,21 +78,12 @@ public class LogEntry implements Checksum {
     @Override
     public long checksum() {
         long c = checksum(this.type.getNumber(), this.id.checksum());
-        c = checksumPeers(this.peers, c);
-        c = checksumPeers(this.oldPeers, c);
-        c = checksumPeers(this.learners, c);
-        c = checksumPeers(this.oldLearners, c);
+        c = checksum(this.peers, c);
+        c = checksum(this.oldPeers, c);
+        c = checksum(this.learners, c);
+        c = checksum(this.oldLearners, c);
         if (this.data != null && this.data.hasRemaining()) {
             c = checksum(c, CrcUtil.crc64(this.data));
-        }
-        return c;
-    }
-
-    private long checksumPeers(final Collection<PeerId> peers, long c) {
-        if (peers != null && !peers.isEmpty()) {
-            for (final PeerId peer : peers) {
-                c = checksum(c, peer.checksum());
-            }
         }
         return c;
     }
