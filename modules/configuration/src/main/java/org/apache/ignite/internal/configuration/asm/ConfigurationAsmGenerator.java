@@ -87,6 +87,7 @@ import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Type;
@@ -100,7 +101,16 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(ConfigurationAsmGenerator.class.getClassLoader());
+
+    private static class Key extends IgniteBiTuple<Map<Class<?>, Set<Class<?>>>, Map<Class<?>, Set<Class<?>>>> {
+        public Key(@Nullable Map<Class<?>, Set<Class<?>>> val1, @Nullable Map<Class<?>, Set<Class<?>>> val2) {
+            super(val1, val2);
+        }
+    }
+
+    // There can be only a limited number of combinations. Generally speaking, only one in production environment.
+    private static final Map<Key, ConfigurationAsmGenerator> globalCache = new HashMap<>();
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -174,6 +184,25 @@ public class ConfigurationAsmGenerator {
             return; // Already compiled.
         }
 
+        synchronized (globalCache) {
+            Key key = new Key(internalSchemaExtensions, polymorphicSchemaExtensions);
+
+            ConfigurationAsmGenerator cgen = globalCache.get(key);
+
+            if (cgen == null || cgen == this) {
+                globalCache.put(key, this);
+
+                compileSync(rootSchemaClass, internalSchemaExtensions, polymorphicSchemaExtensions);
+            } else {
+                cgen.compileRootSchema(rootSchemaClass, internalSchemaExtensions, polymorphicSchemaExtensions);
+
+                schemasInfo.putAll(cgen.schemasInfo);
+            }
+        }
+    }
+
+    private void compileSync(Class<?> rootSchemaClass, Map<Class<?>, Set<Class<?>>> internalSchemaExtensions,
+            Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions) {
         Queue<Class<?>> compileQueue = new ArrayDeque<>();
         compileQueue.add(rootSchemaClass);
 
