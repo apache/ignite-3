@@ -366,11 +366,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     mvTableStorages.put(index, mvTableStorage);
                     closeables.add(mvTableStorage::close);
 
-                    CompletableFuture<MvPartitionStorage> createMvPartitionFuture = mvTableStorage.createMvPartition(0);
-
-                    assertThat(createMvPartitionFuture, willCompleteSuccessfully());
-
-                    MvPartitionStorage mvPartitionStorage = createMvPartitionFuture.join();
+                    MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, 0);
                     mvPartitionStorages.put(index, mvPartitionStorage);
                     closeables.add(mvPartitionStorage::close);
 
@@ -412,5 +408,19 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         rowBuilder.appendLong(value);
 
         return new Row(SCHEMA, rowBuilder.build());
+    }
+
+    private static MvPartitionStorage getOrCreateMvPartition(MvTableStorage tableStorage, int partitionId) {
+        MvPartitionStorage mvPartition = tableStorage.getMvPartition(partitionId);
+
+        if (mvPartition != null) {
+            return mvPartition;
+        }
+
+        CompletableFuture<MvPartitionStorage> createMvPartitionFuture = tableStorage.createMvPartition(0);
+
+        assertThat(createMvPartitionFuture, willCompleteSuccessfully());
+
+        return createMvPartitionFuture.join();
     }
 }
