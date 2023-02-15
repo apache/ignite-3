@@ -740,106 +740,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
                         .thenApply(storage -> new StorageUpdateHandler(partId, storage, table.indexStorageAdapters(partId)));
 
-                CompletableFuture<Void> startGroupFut;
-
-                // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
-                if (oldPartAssignment.isEmpty() && localMemberAssignment != null) {
-                    startGroupFut = partitionStoragesFut.thenComposeAsync(partitionStorages -> {
-                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-
-                        boolean hasData = mvPartitionStorage.lastAppliedIndex() > 0;
-
-                        CompletableFuture<Boolean> fut;
-
-                        // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
-                        // from the Raft group in order to avoid the double vote problem.
-                        // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
-                        if (internalTbl.storage().isVolatile() || !hasData) {
-                            fut = queryDataNodesCount(tblId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
-                                boolean fullPartitionRestart = dataNodesCount == 0;
-
-                                if (fullPartitionRestart) {
-                                    return true;
-                                }
-
-                                boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
-
-                                if (majorityAvailable) {
-                                    RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
-
-                                    return false;
-                                } else {
-                                    // No majority and not a full partition restart - need to restart nodes
-                                    // with current partition.
-                                    String msg = "Unable to start partition " + partId + ". Majority not available.";
-
-                                    throw new IgniteInternalException(msg);
-                                }
-                            });
-                        } else {
-                            fut = completedFuture(true);
-                        }
-
-                        return fut.thenCompose(startGroup -> {
-                            if (!startGroup) {
-                                return completedFuture(null);
-                            }
-
-                            return partitionDataStorageFut
-                                    .thenCompose(s -> storageUpdateHandlerFut)
-                                    .thenAcceptAsync(storageUpdateHandler -> {
-                                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
-
-                                        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                                                internalTbl.storage(),
-                                                internalTbl.txStateStorage(),
-                                                partitionKey(internalTbl, partId),
-                                                table
-                                        );
-
-                                        Peer serverPeer = newConfiguration.peer(localMemberName);
-
-                                        var raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
-
-                                        PartitionDataStorage partitionDataStorage = partitionDataStorageFut.join();
-
-                                        try {
-                                            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                                            ((Loza) raftMgr).startRaftGroupNode(
-                                                    raftNodeId,
-                                                    newConfiguration,
-                                                    new PartitionListener(
-                                                            partitionDataStorage,
-                                                            storageUpdateHandler,
-                                                            txStatePartitionStorage,
-                                                            safeTime
-                                                    ),
-                                                    new RebalanceRaftGroupEventsListener(
-                                                            metaStorageMgr,
-                                                            tablesCfg.tables().get(table.name()),
-                                                            replicaGrpId,
-                                                            partId,
-                                                            busyLock,
-                                                            createPartitionMover(internalTbl, partId),
-                                                            this::calculateAssignments,
-                                                            rebalanceScheduler
-                                                    ),
-                                                    groupOptions
-                                            );
-                                        } catch (NodeStoppingException ex) {
-                                            throw new CompletionException(ex);
-                                        }
-                                    }, ioExecutor);
-                        });
-                    }, ioExecutor);
-                } else {
-                    startGroupFut = completedFuture(null);
-                }
+                CompletableFuture<Void> startGroupFut = completedFuture(null);
 
                 startGroupFut
                         .thenCompose(v -> storageUpdateHandlerFut)
                         .thenComposeAsync(v -> {
                             try {
+                                // TODO: sanpwc Rework raft client to be like replica client.
                                 return raftMgr.startRaftGroupService(replicaGrpId, newConfiguration);
                             } catch (NodeStoppingException ex) {
                                 return failedFuture(ex);
@@ -852,38 +759,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 return completedFuture(null);
                             }
 
-                            StorageUpdateHandler storageUpdateHandler = storageUpdateHandlerFut.join();
+                            storageUpdateHandlerFut.join();
 
-                            return partitionStoragesFut.thenAccept(partitionStorages -> {
-                                MvPartitionStorage partitionStorage = partitionStorages.getMvPartitionStorage();
-                                TxStateStorage txStateStorage = partitionStorages.getTxStateStorage();
-
-                                try {
-                                    replicaMgr.startReplica(replicaGrpId,
-                                            new PartitionReplicaListener(
-                                                    partitionStorage,
-                                                    updatedRaftGroupService,
-                                                    txManager,
-                                                    lockMgr,
-                                                    scanRequestExecutor,
-                                                    partId,
-                                                    tblId,
-                                                    table.indexesLockers(partId),
-                                                    new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
-                                                    () -> table.indexStorageAdapters(partId).get(),
-                                                    clock,
-                                                    safeTime,
-                                                    txStateStorage,
-                                                    placementDriver,
-                                                    storageUpdateHandler,
-                                                    this::isLocalPeer,
-                                                    schemaManager.schemaRegistry(causalityToken, tblId)
-                                            )
-                                    );
-                                } catch (NodeStoppingException ex) {
-                                    throw new AssertionError("Loza was stopped before Table manager", ex);
-                                }
-                            });
+                            return partitionStoragesFut;
                         })
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
@@ -898,10 +776,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }).join();
     }
 
+    // TODO: sanpwc Remove?
     private boolean isLocalPeer(Peer peer) {
         return peer.consistentId().equals(clusterService.topologyService().localMember().name());
     }
 
+    // TODO: sanpwc Remove?
     private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
         return new SnapshotAwarePartitionDataStorage(
                 partitionStorage,
@@ -910,10 +790,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
     }
 
+    // TODO: sanpwc Remove?
     private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
     }
 
+    // TODO: sanpwc Remove?
     /**
      * Calculates the quantity of the data nodes for the partition of the table.
      *
@@ -944,6 +826,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 .thenApply(unused -> Arrays.stream(requestFutures).filter(CompletableFuture::join).count());
     }
 
+    // TODO: sanpwc Remove?
     private RaftGroupOptions groupOptionsForPartition(
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
@@ -1283,6 +1166,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    // TODO: sanpwc Remove?
     private Set<Assignment> calculateAssignments(TableConfiguration tableCfg, int partNum) {
         return AffinityUtils.calculateAssignmentForPartition(
                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
@@ -2128,6 +2012,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
+    // TODO: sanpwc Remove?
     private PartitionMover createPartitionMover(InternalTable internalTable, int partId) {
         return new PartitionMover(busyLock, () -> internalTable.partitionRaftGroupService(partId));
     }
@@ -2145,6 +2030,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
     }
 
+    // TODO: sanpwc Remove?
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
         var peers = new HashSet<String>();
         var learners = new HashSet<String>();
@@ -2168,6 +2054,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future of creating or getting partition stores.
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
+    // TODO: sanpwc Remove?
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         return CompletableFuture
                 .supplyAsync(() -> {

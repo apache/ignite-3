@@ -93,6 +93,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.replicaendpointmanager.ReplicaEndpointManager;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -576,6 +577,8 @@ public class ItRebalanceDistributedTest {
 
         private final TableManager tableManager;
 
+        private final ReplicaEndpointManager replicaEndpointManager;
+
         private final BaselineManager baselineMgr;
 
         private final ConfigurationManager nodeCfgMgr;
@@ -767,6 +770,27 @@ public class ItRebalanceDistributedTest {
                     }
                 }
             };
+
+            replicaEndpointManager = new ReplicaEndpointManager(
+                    name,
+                    registry,
+                    tablesCfg,
+                    clusterService,
+                    raftManager,
+                    Mockito.mock(ReplicaManager.class),
+                    Mockito.mock(LockManager.class),
+                    replicaSvc,
+                    baselineMgr,
+                    clusterService.topologyService(),
+                    txManager,
+                    dataStorageMgr,
+                    storagePath,
+                    metaStorageManager,
+                    schemaManager,
+                    view -> new LocalLogStorageFactory(),
+                    new HybridClockImpl(),
+                    new OutgoingSnapshotsManager(clusterService.messagingService()),
+                    tableManager);
         }
 
         /**
@@ -786,7 +810,8 @@ public class ItRebalanceDistributedTest {
                     baselineMgr,
                     dataStorageMgr,
                     schemaManager,
-                    tableManager
+                    tableManager,
+                    replicaEndpointManager
             );
 
             nodeComponents.forEach(IgniteComponent::start);

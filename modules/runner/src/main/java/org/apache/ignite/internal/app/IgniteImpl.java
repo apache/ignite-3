@@ -83,6 +83,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicaendpointmanager.ReplicaEndpointManager;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -210,6 +211,9 @@ public class IgniteImpl implements Ignite {
     private final TableManager distributedTblMgr;
 
     private final IndexManager indexManager;
+
+    // TODO: sanpwc javadoc.
+    private final ReplicaEndpointManager replicaEndpointManager;
 
     /** Rest module. */
     private final RestComponent restComponent;
@@ -442,6 +446,28 @@ public class IgniteImpl implements Ignite {
 
         indexManager = new IndexManager(tablesConfiguration, schemaManager, distributedTblMgr);
 
+        replicaEndpointManager = new ReplicaEndpointManager(
+                name,
+                registry,
+                tablesConfiguration,
+                clusterSvc,
+                raftMgr,
+                replicaMgr,
+                lockMgr,
+                replicaSvc,
+                baselineMgr,
+                clusterSvc.topologyService(),
+                txManager,
+                dataStorageMgr,
+                storagePath,
+                metaStorageMgr,
+                schemaManager,
+                volatileLogStorageFactoryCreator,
+                clock,
+                outgoingSnapshotsManager,
+                distributedTblMgr
+        );
+
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
@@ -599,6 +625,7 @@ public class IgniteImpl implements Ignite {
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
                                     indexManager,
+                                    replicaEndpointManager,
                                     qryEngine,
                                     clientHandlerModule
                             );

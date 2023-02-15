@@ -1242,7 +1242,10 @@ public class InternalTableImpl implements InternalTable {
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
         RaftGroupService svc = partitionMap.get(partId);
-        tx.assignCommitPartition(new TablePartitionId(tableId, partId));
+
+        TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+
+        tx.assignCommitPartition(partGroupId);
 
         // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
         CompletableFuture<LeaderWithTerm> fut0 = svc.refreshAndGetLeaderWithTerm();
@@ -1251,13 +1254,17 @@ public class InternalTableImpl implements InternalTable {
         // TODO asch a leader race is possible when enlisting different keys from the same partition.
         return fut0.handle((primaryPeerAndTerm, e) -> {
             if (e != null) {
-                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.", e);
+                throw withCause(
+                        TransactionException::new,
+                        REPLICA_UNAVAILABLE_ERR,
+                        "Failed to get the primary replica, partGroupId=[" + partGroupId +']',
+                        e
+                );
             }
             if (primaryPeerAndTerm.leader() == null) {
-                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.");
+                throw new TransactionException(REPLICA_UNAVAILABLE_ERR,
+                        "Failed to get the primary replica, partGroupId=[" + partGroupId +']');
             }
-
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
             return tx.enlist(partGroupId,
                     new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.leader().consistentId()), primaryPeerAndTerm.term()));

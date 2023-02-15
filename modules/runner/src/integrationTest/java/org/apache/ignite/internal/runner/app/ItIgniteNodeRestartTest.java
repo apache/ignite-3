@@ -83,6 +83,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.replicaendpointmanager.ReplicaEndpointManager;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -344,6 +345,28 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var indexManager = new IndexManager(tblCfg, schemaManager, tableManager);
 
+        ReplicaEndpointManager replicaEndpointManager = new ReplicaEndpointManager(
+                name,
+                registry,
+                tblCfg,
+                clusterSvc,
+                raftMgr,
+                replicaMgr,
+                lockManager,
+                replicaService,
+                mock(BaselineManager.class),
+                clusterSvc.topologyService(),
+                txManager,
+                dataStorageManager,
+                storagePath,
+                metaStorageMgr,
+                schemaManager,
+                view -> new LocalLogStorageFactory(),
+                hybridClock,
+                new OutgoingSnapshotsManager(clusterSvc.messagingService()),
+                tableManager
+        );
+
         // Preparing the result map.
 
         partialNode.add(vault);
@@ -376,7 +399,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 dataStorageManager,
                 schemaManager,
                 tableManager,
-                indexManager
+                indexManager,
+                replicaEndpointManager
         );
 
         for (IgniteComponent component : otherComponents) {

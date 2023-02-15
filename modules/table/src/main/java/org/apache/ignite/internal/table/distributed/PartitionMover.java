@@ -45,7 +45,7 @@ public class PartitionMover {
     /**
      * Constructor.
      */
-    PartitionMover(IgniteSpinBusyLock busyLock, Supplier<RaftGroupService> raftGroupServiceSupplier) {
+    public PartitionMover(IgniteSpinBusyLock busyLock, Supplier<RaftGroupService> raftGroupServiceSupplier) {
         this.busyLock = busyLock;
         this.raftGroupServiceSupplier = raftGroupServiceSupplier;
     }

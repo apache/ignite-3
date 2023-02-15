@@ -487,6 +487,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private <R extends NetworkMessage> void sendWithRetry(
             Peer peer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime, CompletableFuture<R> fut
     ) {
+        System.out.println("!!! sendWithRetry " + System.currentTimeMillis() + " : " + requestFactory.apply(peer).toString());
         if (!busyLock.enterBusy()) {
             fut.cancel(true);
 
