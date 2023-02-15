@@ -175,6 +175,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
 
         if (prevSchema == null) {
+            // This is intentionally a blocking call, because this method is used in a synchronous part of the configuration listener.
+            // See the call site for more details.
             prevSchema = schemaByVersion(tableId, prevVersion).get();
         }
 
