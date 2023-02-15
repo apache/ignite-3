@@ -101,7 +101,6 @@ public class PartitionAwarenessTests
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
-        var (defaultServer, _) = GetServerPair();
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
@@ -116,7 +115,9 @@ public class PartitionAwarenessTests
         }
 
         // First request on default node receives update flag.
-        await AssertOpOnNode(() => client.Tables.GetTablesAsync(), ClientOp.TablesGet, defaultServer);
+        // Make two requests because balancing uses round-robin node.
+        await client.Tables.GetTablesAsync();
+        await client.Tables.GetTablesAsync();
 
         // Second request loads and uses new assignment.
         await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server1, allowExtraOps: true);
@@ -369,12 +370,6 @@ public class PartitionAwarenessTests
         };
 
         return await IgniteClient.StartAsync(cfg);
-    }
-
-    private (FakeServer Default, FakeServer Secondary) GetServerPair()
-    {
-        // Any server can be primary due to round-robin balancing in ClientFailoverSocket.
-        return _server1.ClientOps.Count > 0 ? (_server1, _server2) : (_server2, _server1);
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local
