@@ -38,7 +38,7 @@ namespace Apache.Ignite.Internal
     internal sealed class ClientFailoverSocket : IDisposable
     {
         /** Current global endpoint index for Round-robin. */
-        private static long _endPointIndex;
+        private static long _globalEndPointIndex;
 
         /** Logger. */
         private readonly IIgniteLogger? _logger;
@@ -71,6 +71,9 @@ namespace Apache.Ignite.Internal
 
         /** Cluster id from the first handshake. */
         private Guid? _clusterId;
+
+        /** Local index for round-robin balancing within this FailoverSocket. */
+        private long _endPointIndex = Interlocked.Increment(ref _globalEndPointIndex);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
