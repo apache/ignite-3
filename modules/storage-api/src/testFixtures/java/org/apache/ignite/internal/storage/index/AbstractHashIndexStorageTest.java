@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationCon
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
 import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
-import static org.apache.ignite.internal.storage.BaseMvStoragesTest.createMvPartition;
+import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -79,7 +79,7 @@ public abstract class AbstractHashIndexStorageTest {
 
         createTestTable(tableStorage.configuration());
 
-        this.partitionStorage = createMvPartition(tableStorage, TEST_PARTITION);
+        this.partitionStorage = getOrCreateMvPartition(tableStorage, TEST_PARTITION);
         this.indexStorage = createIndex(tableStorage, tablesCfg);
         this.serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
     }

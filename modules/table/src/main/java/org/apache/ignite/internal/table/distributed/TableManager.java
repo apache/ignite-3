@@ -2169,15 +2169,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
-        // TODO: IGNITE-18565 вот тут надо будет поправить, мол мы могли уже создать их
-        return table.internalTable().storage().createMvPartition(partitionId)
+        InternalTable internalTable = table.internalTable();
+
+        MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+
+        return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
                 .thenComposeAsync(mvPartitionStorage -> {
-                    TxStateStorage txStateStorage = table.internalTable().txStateStorage().getOrCreateTxStateStorage(partitionId);
+                    TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
 
                     if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
                             || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
                         return allOf(
-                                table.internalTable().storage().clearPartition(partitionId),
+                                internalTable.storage().clearPartition(partitionId),
                                 txStateStorage.clear()
                         ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
                     } else {

@@ -240,9 +240,15 @@ public abstract class BaseMvStoragesTest {
     }
 
     /**
-     * Creates a multi-versioned partition storage.
+     * Retrieves or creates a multi-versioned partition storage.
      */
-    public static MvPartitionStorage createMvPartition(MvTableStorage tableStorage, int partitionId) {
+    public static MvPartitionStorage getOrCreateMvPartition(MvTableStorage tableStorage, int partitionId) {
+        MvPartitionStorage mvPartition = tableStorage.getMvPartition(partitionId);
+
+        if (mvPartition != null) {
+            return mvPartition;
+        }
+
         CompletableFuture<MvPartitionStorage> createMvPartitionStorageFuture = tableStorage.createMvPartition(partitionId);
 
         assertThat(createMvPartitionStorageFuture, willCompleteSuccessfully());

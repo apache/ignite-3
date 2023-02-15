@@ -293,6 +293,10 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             partitions = new AtomicReferenceArray<>(tableCfg.value().partitions());
+
+            for (int partId : meta.getPartitionIds()) {
+                partitions.set(partId, new RocksDbMvPartitionStorage(this, partId));
+            }
         });
     }
 
