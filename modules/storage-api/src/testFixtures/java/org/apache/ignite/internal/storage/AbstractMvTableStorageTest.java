@@ -64,7 +64,6 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -485,6 +484,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkLastApplied(mvPartitionStorage, 10, 10, 20);
         checkRaftGroupConfigs(raftGroupConfig, mvPartitionStorage.committedGroupConfiguration());
+
+        // TODO: IGNITE-18023 возможно тут надо бы проверить что будет не пустая очередь для вакуума
     }
 
     @Test
@@ -532,6 +533,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkLastApplied(mvPartitionStorage, 0, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
+
+        // TODO: IGNITE-18023 возможно тут надо бы проверить что будет пустая очередь для вакуума
     }
 
     @Test
@@ -873,11 +876,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
             assertThrows(StorageRebalanceException.class, storage::rowsCount);
 
-            // TODO: IGNITE-18020 Add check
-            // TODO: IGNITE-18023 Add check
-            if (storage instanceof TestMvPartitionStorage) {
-                assertThrows(StorageRebalanceException.class, () -> storage.pollForVacuum(clock.now()));
-            }
+            assertThrows(StorageRebalanceException.class, () -> storage.pollForVacuum(clock.now()));
 
             return null;
         });
