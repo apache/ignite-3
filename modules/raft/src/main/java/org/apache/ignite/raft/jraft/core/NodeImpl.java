@@ -3776,6 +3776,11 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
+    public State getNodeState() {
+        return this.state;
+    }
+
+    @Override
     public void describe(final Printer out) {
         // node
         final String _nodeId;
