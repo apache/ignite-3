@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.type;
 
 import java.util.UUID;
+import org.apache.calcite.rel.type.RelDataTypeFamily;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -30,6 +31,9 @@ public final class UuidType extends IgniteCustomType<UUID> {
 
     /** The storage type. **/
     public static final Class<UUID> JAVA_TYPE = UUID.class;
+
+    /** The type family. **/
+    public static final RelDataTypeFamily TYPE_FAMILY = new IgniteCustomTypeFamily(NAME);
 
     /** Constructor. */
     public UuidType(boolean nullable) {
@@ -57,6 +61,12 @@ public final class UuidType extends IgniteCustomType<UUID> {
     @Override
     public ColumnType columnType() {
         return ColumnType.UUID;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataTypeFamily getFamily() {
+        return TYPE_FAMILY;
     }
 
     /** {@inheritDoc} */

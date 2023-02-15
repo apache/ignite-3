@@ -25,7 +25,6 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -53,6 +52,8 @@ import org.apache.ignite.sql.ColumnType;
  *     <li>Implement {@link IgniteCustomType#nativeType()}.</li>
  *     <li>Implement {@link IgniteCustomType#columnType()}.</li>
  *     <li>Implement {@link IgniteCustomType#createWithNullability(boolean)}.</li>
+ *     <li>Implement {@link IgniteCustomType#getFamily()}. In the simple case implementation must return
+ *     an instance of {@link IgniteCustomTypeFamily} that is shared by all instances of this type.</li>
  * </ul>
  *
  * <p>Code base contains comments that start with {@code IgniteCustomType:} to provide extra information.
@@ -155,9 +156,7 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
     }
 
     /** {@inheritDoc} */
-    @Override public final RelDataTypeFamily getFamily() {
-        return SqlTypeFamily.ANY;
-    }
+    @Override public abstract RelDataTypeFamily getFamily();
 
     /** {@inheritDoc} */
     @Override public final SqlTypeName getSqlTypeName() {
