@@ -252,7 +252,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                         : NativeTypes.blobOf(relType.getPrecision());
             case ANY:
                 if (relType instanceof IgniteCustomType) {
-                    var customType = (IgniteCustomType) relType;
+                    var customType = (IgniteCustomType<?>) relType;
                     return customType.nativeType();
                 }
                 // fallthrough
@@ -325,7 +325,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                     return Enum.class;
                 case ANY:
                     if (type instanceof IgniteCustomType) {
-                        var customType = (IgniteCustomType) type;
+                        var customType = (IgniteCustomType<?>) type;
                         var nativeType = customType.nativeType();
                         return Commons.nativeTypeToClass(nativeType);
                     }
@@ -368,15 +368,15 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             // when at least one of its arguments have sqlTypeName = ANY.
             assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
 
-            IgniteCustomType firstCustomType = null;
+            IgniteCustomType<?> firstCustomType = null;
             SqlTypeFamily sqlTypeFamily = null;
 
             for (var type : types) {
                 if (type instanceof IgniteCustomType) {
-                    var customType = (IgniteCustomType) type;
+                    var customType = (IgniteCustomType<?>) type;
 
                     if (firstCustomType == null) {
-                        firstCustomType = (IgniteCustomType) type;
+                        firstCustomType = (IgniteCustomType<?>) type;
                     } else if (!Objects.equals(firstCustomType.getCustomTypeName(), customType.getCustomTypeName())) {
                         // IgniteCustomType: Conversion between custom data types is not supported.
                         return null;
@@ -454,12 +454,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     /**
      * Creates a custom data type with the given {@code typeName} and precision.
      *
-     * @param typeName type name.
-     * @param precision precision if supported.
-     * @return a custom data type.
+     * @param typeName Type name.
+     * @param precision Precision if supported.
+     * @return A custom data type.
      */
     public RelDataType createCustomType(String typeName, int precision) {
-        IgniteCustomTypeFactory customTypeFactory = customDataTypes.typeConstructors.get(typeName);
+        IgniteCustomTypeFactory customTypeFactory = customDataTypes.typeFactories.get(typeName);
         if (customTypeFactory == null) {
             throw new IllegalArgumentException("Unexpected custom data type: " + typeName);
         }
@@ -478,8 +478,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
      * Creates a custom data type with the given {@code typeName} and without precision.
      * A shorthand for {@code createCustomType(typeName, -1)}.
      *
-     * @param typeName type name.
-     * @return a custom data type.
+     * @param typeName Type name.
+     * @return A custom data type.
      */
     public RelDataType createCustomType(String typeName) {
         return createCustomType(typeName, PRECISION_NOT_SPECIFIED);
@@ -501,8 +501,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     private static final class CustomDataTypes {
 
         /**
-         * Contains java types used registered custom data types.
-         * We need those to throw errors to reject attempts to create custom data types via
+         * Contains java types used by registered custom data types.
+         * We need those to reject attempts to create custom data types via
          * {@link IgniteTypeFactory#createType(Type)}/{@link IgniteTypeFactory#createJavaType(Class)}
          * methods of {@link IgniteTypeFactory}.
          */
@@ -511,14 +511,14 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         /**
          * Stores functions that are being used by {@link #createCustomType(String, int)} to create type instances.
          */
-        private final Map<String, IgniteCustomTypeFactory> typeConstructors;
+        private final Map<String, IgniteCustomTypeFactory> typeFactories;
 
         CustomDataTypes(Set<NewCustomType> customDataTypes) {
             this.javaTypes = customDataTypes.stream()
                     .map(t -> t.storageType)
                     .collect(Collectors.toSet());
 
-            this.typeConstructors = customDataTypes.stream().collect(Collectors.toMap((v) -> v.typeName, (v) -> v.makeType));
+            this.typeFactories = customDataTypes.stream().collect(Collectors.toMap((v) -> v.typeName, (v) -> v.typeFactory));
         }
     }
 
@@ -527,12 +527,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
         final Class<?> storageType;
 
-        final IgniteCustomTypeFactory makeType;
+        final IgniteCustomTypeFactory typeFactory;
 
-        NewCustomType(String typeName, Class<?> storageType, IgniteCustomTypeFactory makeType) {
+        NewCustomType(String typeName, Class<?> storageType, IgniteCustomTypeFactory typeFactory) {
             this.typeName = typeName;
             this.storageType = storageType;
-            this.makeType = makeType;
+            this.typeFactory = typeFactory;
         }
     }
 

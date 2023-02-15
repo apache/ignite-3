@@ -176,7 +176,7 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
     /**
      * Creates an {@link SqlTypeNameSpec} for this custom data type, which is used as an argument for the CAST function.
      *
-     * @return  an sql type name spec.
+     * @return  An SQL type name spec.
      */
     public final SqlTypeNameSpec createTypeNameSpec() {
         if (getPrecision() == PRECISION_NOT_SPECIFIED) {

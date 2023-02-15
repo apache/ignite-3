@@ -49,8 +49,8 @@ public final class UuidFunctions {
     /**
      * Creates a cast expression that convert the given operation into {@link UuidType}.
      *
-     * @param operand an operand
-     * @return a cast to UUID expression.
+     * @param operand An operand
+     * @return A cast to UUID expression.
      */
     public static Expression cast(Expression operand) {
         return Expressions.call(CAST, operand);
@@ -59,8 +59,8 @@ public final class UuidFunctions {
     /**
      * Performs casts from object to {@code UUID}. Accepts values that are Strings, UUIDs.
      *
-     * @param value a value.
-     * @return  an UUID.
+     * @param value A value.
+     * @return  An UUID.
      * @throws ClassCastException if type can not be converted to UUID.
      */
     public static UUID cast(Object value) {
