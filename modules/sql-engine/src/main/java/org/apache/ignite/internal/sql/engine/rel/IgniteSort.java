@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.FETCH_IS_PARAM_FACTOR;
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.OFFSET_IS_PARAM_FACTOR;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.doubleFromRex;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
@@ -43,19 +46,51 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  */
 public class IgniteSort extends Sort implements IgniteRel {
     /**
+     * Enforcer flag.
+     */
+    private final boolean enforcer;
+
+    /**
      * Constructor.
      *
-     * @param cluster   Cluster.
-     * @param traits    Trait set.
-     * @param child     Input node.
+     * @param cluster Cluster.
+     * @param traits Trait set.
+     * @param child Input node.
      * @param collation Collation.
+     * @param offset Offset.
+     * @param fetch Limit.
+     * @param enforcer Enforcer flag.
      */
     public IgniteSort(
             RelOptCluster cluster,
             RelTraitSet traits,
             RelNode child,
-            RelCollation collation) {
-        super(cluster, traits, child, collation);
+            RelCollation collation,
+            RexNode offset,
+            RexNode fetch,
+            boolean enforcer
+    ) {
+        super(cluster, traits, child, collation, offset, fetch);
+
+        this.enforcer = enforcer;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param cluster Cluster.
+     * @param traits Trait set.
+     * @param child Input node.
+     * @param collation Collation.
+     * @param enforcer Enforcer flag.
+     */
+    public IgniteSort(
+            RelOptCluster cluster,
+            RelTraitSet traits,
+            RelNode child,
+            RelCollation collation,
+            boolean enforcer) {
+        this(cluster, traits, child, collation, null, null, enforcer);
     }
 
     /**
@@ -64,6 +99,9 @@ public class IgniteSort extends Sort implements IgniteRel {
      */
     public IgniteSort(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
+
+        // No need to enforce anything on ready, fragmented and sent plan.
+        enforcer = false;
     }
 
     /** {@inheritDoc} */
@@ -75,9 +113,7 @@ public class IgniteSort extends Sort implements IgniteRel {
             RexNode offset,
             RexNode fetch
     ) {
-        assert offset == null && fetch == null;
-
-        return new IgniteSort(getCluster(), traitSet, newInput, newCollation);
+        return new IgniteSort(getCluster(), traitSet, newInput, traitSet.getCollation(), offset, fetch, enforcer);
     }
 
     /** {@inheritDoc} */
@@ -99,9 +135,14 @@ public class IgniteSort extends Sort implements IgniteRel {
             return null;
         }
 
-        RelCollation collation = TraitUtils.collation(required);
+        RelCollation requiredCollation = TraitUtils.collation(required);
+        RelCollation relCollation = traitSet.getCollation();
 
-        return Pair.of(required.replace(collation), List.of(required.replace(RelCollations.EMPTY)));
+        if (!requiredCollation.satisfies(relCollation)) {
+            return null;
+        }
+
+        return Pair.of(required, List.of(required.replace(RelCollations.EMPTY)));
     }
 
     /** {@inheritDoc} */
@@ -118,15 +159,24 @@ public class IgniteSort extends Sort implements IgniteRel {
 
     /** {@inheritDoc} */
     @Override
-    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
-        double rows = mq.getRowCount(getInput());
+    public double estimateRowCount(RelMetadataQuery mq) {
+        return memRows(mq.getRowCount(getInput()));
+    }
 
-        double cpuCost = rows * IgniteCost.ROW_PASS_THROUGH_COST + Util.nLogN(rows) * IgniteCost.ROW_COMPARISON_COST;
-        double memory = rows * getRowType().getFieldCount() * IgniteCost.AVERAGE_FIELD_SIZE;
+    /** {@inheritDoc} */
+    @Override
+    public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
+        double inputRows = mq.getRowCount(getInput());
+
+        double memRows = memRows(inputRows);
+
+        double cpuCost = inputRows * IgniteCost.ROW_PASS_THROUGH_COST + Util.nLogM(inputRows, memRows)
+                * IgniteCost.ROW_COMPARISON_COST;
+        double memory = memRows * getRowType().getFieldCount() * IgniteCost.AVERAGE_FIELD_SIZE;
 
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
-        RelOptCost cost = costFactory.makeCost(rows, cpuCost, 0, memory, 0);
+        RelOptCost cost = costFactory.makeCost(inputRows, cpuCost, 0, memory, 0);
 
         // Distributed sorting is more preferable than sorting on the single node.
         if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
@@ -139,6 +189,22 @@ public class IgniteSort extends Sort implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSort(cluster, getTraitSet(), sole(inputs), collation);
+        return new IgniteSort(cluster, getTraitSet(), sole(inputs), collation, offset, fetch, enforcer);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isEnforcer() {
+        return enforcer;
+    }
+
+    /** Rows number to keep in memory and sort. */
+    private double memRows(double inputRows) {
+        double fetch = this.fetch != null ? doubleFromRex(this.fetch, inputRows * FETCH_IS_PARAM_FACTOR)
+                : inputRows;
+        double offset = this.offset != null ? doubleFromRex(this.offset, inputRows * OFFSET_IS_PARAM_FACTOR)
+                : 0;
+
+        return Math.min(inputRows, fetch + offset);
     }
 }

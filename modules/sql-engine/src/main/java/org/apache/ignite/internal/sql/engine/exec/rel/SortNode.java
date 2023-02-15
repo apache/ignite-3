@@ -19,9 +19,15 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.PriorityQueue;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.BoundedPriorityQueue;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Sort node.
@@ -38,16 +44,45 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     /** Rows buffer. */
     private final PriorityQueue<RowT> rows;
 
+    /** SQL select limit. Negative if disabled. */
+    private final int limit;
+
+    /** Reverse-ordered rows in case of limited sort. */
+    private List<RowT> reversed;
+
     /**
      * Constructor.
      *
-     * @param ctx  Execution context.
+     * @param ctx Execution context.
+     * @param comp Rows comparator.
+     * @param offset Offset.
+     * @param fetch Limit.
+     */
+    public SortNode(ExecutionContext<RowT> ctx,
+            Comparator<RowT> comp,
+            @Nullable Supplier<Integer> offset,
+            @Nullable Supplier<Integer> fetch) {
+        super(ctx);
+        assert fetch == null || fetch.get() >= 0;
+        assert offset == null || offset.get() >= 0;
+
+        limit = fetch == null ? -1 : fetch.get() + (offset == null ? 0 : offset.get());
+
+        if (limit < 0) {
+            rows = new PriorityQueue<>(comp);
+        } else {
+            rows = new BoundedPriorityQueue<>(limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
+        }
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param ctx Execution context.
      * @param comp Rows comparator.
      */
     public SortNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
-        super(ctx);
-
-        rows = comp == null ? new PriorityQueue<>() : new PriorityQueue<>(comp);
+        this(ctx, comp, null, null);
     }
 
     /** {@inheritDoc} */
@@ -56,6 +91,9 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         requested = 0;
         waiting = 0;
         rows.clear();
+        if (reversed != null) {
+            reversed.clear();
+        }
     }
 
     /** {@inheritDoc} */
@@ -91,6 +129,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
+        assert reversed == null || reversed.isEmpty();
 
         checkState();
 
@@ -127,12 +166,32 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         inLoop = true;
         try {
-            while (requested > 0 && !rows.isEmpty()) {
+            // Prepare final order (reversed).
+            if (limit > 0 && !rows.isEmpty()) {
+                if (reversed == null) {
+                    reversed = new ArrayList<>(rows.size());
+                }
+
+                while (!rows.isEmpty()) {
+                    reversed.add(rows.poll());
+
+                    if (++processed >= Commons.IN_BUFFER_SIZE) {
+                        // Allow the others to do their job.
+                        context().execute(this::flush, this::onError);
+
+                        return;
+                    }
+                }
+
+                processed = 0;
+            }
+
+            while (requested > 0 && !(reversed == null ? rows.isEmpty() : reversed.isEmpty())) {
                 checkState();
 
                 requested--;
 
-                downstream().push(rows.poll());
+                downstream().push(reversed == null ? rows.poll() : reversed.remove(reversed.size() - 1));
 
                 if (++processed >= inBufSize && requested > 0) {
                     // allow others to do their job
@@ -142,7 +201,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 }
             }
 
-            if (rows.isEmpty()) {
+            if (reversed == null ? rows.isEmpty() : reversed.isEmpty()) {
                 if (requested > 0) {
                     downstream().end();
                 }

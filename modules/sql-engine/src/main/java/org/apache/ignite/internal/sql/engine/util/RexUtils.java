@@ -906,6 +906,25 @@ public class RexUtils {
     }
 
     /**
+     * Double value of the literal expression.
+     *
+     * @return Double value of the literal expression.
+     */
+    public static double doubleFromRex(RexNode n, double def) {
+        try {
+            if (n.isA(SqlKind.LITERAL)) {
+                return ((RexLiteral) n).getValueAs(Integer.class);
+            } else {
+                return def;
+            }
+        } catch (Exception e) {
+            assert false : "Unable to extract value: " + e.getMessage();
+
+            return def;
+        }
+    }
+
+    /**
      * NotNullKeys.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
