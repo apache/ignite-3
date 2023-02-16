@@ -52,10 +52,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation libs.jetbrains.annotations
-}
 
-compileJava {
-    options.compilerArgs << '--add-exports' << 'java.base/jdk.internal.misc=ALL-UNNAMED'
 }
 
 description = 'ignite-page-memory'

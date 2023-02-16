@@ -50,10 +50,6 @@ dependencies {
     testFixturesImplementation libs.auto.service.annotations
 }
 
-compileJava {
-    options.compilerArgs << '--add-exports' << 'java.base/jdk.internal.misc=ALL-UNNAMED'
-}
-
 test {
     filter {
         //Don't run parametrized tests from inner static classes which should not run.

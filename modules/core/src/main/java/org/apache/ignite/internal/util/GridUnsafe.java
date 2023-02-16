@@ -61,20 +61,6 @@ public abstract class GridUnsafe {
     /** Unsafe. */
     private static final Unsafe UNSAFE = unsafe();
 
-    public static jdk.internal.misc.Unsafe internalUnsafe = internal();
-
-    private static jdk.internal.misc.Unsafe internal() {
-        try {
-            Field f = Unsafe.class.getDeclaredField("theInternalUnsafe");
-
-            f.setAccessible(true);
-
-            return (jdk.internal.misc.Unsafe) f.get(null);
-        } catch (Throwable e) {
-            throw new AssertionError(e);
-        }
-    }
-
     /** Page size. */
     private static final int PAGE_SIZE = UNSAFE.pageSize();
 

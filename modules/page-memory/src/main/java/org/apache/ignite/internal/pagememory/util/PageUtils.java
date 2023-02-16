@@ -102,7 +102,7 @@ public class PageUtils {
         assert addr > 0 : addr;
         assert off >= 0;
 
-        return GridUnsafe.internalUnsafe.getShortAcquire(null, addr + off);
+        return GridUnsafe.getShort(addr + off);
     }
 
     /**
@@ -130,7 +130,7 @@ public class PageUtils {
         assert addr > 0 : addr;
         assert off >= 0;
 
-        return GridUnsafe.internalUnsafe.getLongAcquire(null, addr + off);
+        return GridUnsafe.getLong(addr + off);
     }
 
     /**
@@ -215,7 +215,7 @@ public class PageUtils {
         assert addr > 0 : addr;
         assert off >= 0;
 
-        GridUnsafe.internalUnsafe.putShortRelease(null, addr + off, v);
+        GridUnsafe.putShort(addr + off, v);
     }
 
     /**
@@ -243,7 +243,7 @@ public class PageUtils {
         assert addr > 0 : addr;
         assert off >= 0;
 
-        GridUnsafe.internalUnsafe.putLongRelease(null, addr + off, v);
+        GridUnsafe.putLong(addr + off, v);
     }
 
     /**
