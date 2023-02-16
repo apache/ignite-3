@@ -52,7 +52,6 @@ public class ValueConditionTest {
      */
     @Test
     public void eq() {
-
         Condition cond = new ValueCondition(EQUAL, KEY, VAL_1);
 
         assertTrue(cond.test(new EntryImpl(KEY, VAL_1, 1, 1)));

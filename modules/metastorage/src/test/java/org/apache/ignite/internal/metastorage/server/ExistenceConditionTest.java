@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type.EXISTS;
 import static org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type.NOT_EXISTS;
-import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.NOT_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,14 +47,13 @@ public class ExistenceConditionTest {
     /** Tombstone entry. */
     private static final Entry TOMBSTONE = EntryImpl.tombstone(KEY, 1, 1);
 
-    private static final byte[] VAL_1 = new byte[]{11};
-
     /**
      * Tests {@link ExistenceCondition.Type#EXISTS} condition for regular, empty and tombstone entries.
      */
     @Test
     public void exists() {
-        Condition valueCond = new ValueCondition()
+        Condition cond = new ExistenceCondition(EXISTS, KEY);
+
         assertTrue(cond.test(ENTRY));
         assertFalse(cond.test(EMPTY));
         assertFalse(cond.test(TOMBSTONE));
