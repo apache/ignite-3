@@ -82,7 +82,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * Whether to notify callback after subscription to pass the current leader and term into it, even if the leader
      * did not change in that moment (see {@link #subscribeLeader(BiConsumer)}).
      */
-    private final boolean notifyOnSubscribe;
+    private final boolean notifyOnSubscription;
 
     /**
      * The constructor.
@@ -92,7 +92,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param executor RPC executor.
      * @param raftClient RPC RAFT client.
      * @param logicalTopologyService Logical topology.
-     * @param notifyOnSubscribe Whether to notify callback after subscription to pass the current leader and term into it,
+     * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it,
      *        even if the leader did not change in that moment (see {@link #subscribeLeader(BiConsumer)}).
      */
     private TopologyAwareRaftGroupService(
@@ -102,7 +102,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             RaftConfiguration raftConfiguration,
             RaftGroupService raftClient,
             LogicalTopologyService logicalTopologyService,
-            boolean notifyOnSubscribe
+            boolean notifyOnSubscription
     ) {
         this.clusterService = cluster;
         this.factory = factory;
@@ -111,7 +111,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.raftClient = raftClient;
         this.logicalTopologyService = logicalTopologyService;
         this.serverEventHandler = new ServerEventHandler();
-        this.notifyOnSubscribe = notifyOnSubscribe;
+        this.notifyOnSubscription = notifyOnSubscription;
 
         cluster.messagingService().addMessageHandler(RaftMessageGroup.class, (message, senderConsistentId, correlationId) -> {
             if (message instanceof LeaderChangeNotification) {
@@ -163,7 +163,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param getLeader True to get the group's leader upon service creation.
      * @param executor RPC executor.
      * @param logicalTopologyService Logical topology service.
-     * @param notifyOnSubscribe Whether to notify callback after subscription to pass the current leader and term into it,
+     * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it,
      *        even if the leader did not change in that moment (see {@link #subscribeLeader(BiConsumer)}).
      * @return Future to create a raft client.
      */
@@ -176,11 +176,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             boolean getLeader,
             ScheduledExecutorService executor,
             LogicalTopologyService logicalTopologyService,
-            boolean notifyOnSubscribe
+            boolean notifyOnSubscription
     ) {
         return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor)
                 .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
-                        raftGroupService, logicalTopologyService, notifyOnSubscribe));
+                        raftGroupService, logicalTopologyService, notifyOnSubscription));
     }
 
     /**
@@ -284,7 +284,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             }
         }
 
-        if (notifyOnSubscribe) {
+        if (notifyOnSubscription) {
             return CompletableFuture.allOf(futs).whenCompleteAsync((unused, throwable) -> {
                 if (throwable != null) {
                     throw new IgniteException(Common.UNEXPECTED_ERR, throwable);

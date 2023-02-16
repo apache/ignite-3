@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.client;
 
 import static org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest.TestReplicationGroup.GROUP_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -99,9 +100,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         CompletableFuture<ClusterNode> leaderFut = new CompletableFuture<>();
 
-        raftClient.subscribeLeader((node, term) -> {
-            leaderFut.complete(node);
-        });
+        raftClient.subscribeLeader((node, term) -> leaderFut.complete(node));
 
         ClusterNode leader = leaderFut.get(10, TimeUnit.SECONDS);
 
@@ -115,23 +114,33 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     public void testChangeLeaderWhenActualLeft(TestInfo testInfo) throws Exception {
         var clusterServices = new HashMap<NetworkAddress, ClusterService>();
         var raftServers = new HashMap<NetworkAddress, JraftServerImpl>();
+        Predicate<NetworkAddress> isServerAddress = addr -> addr.port() < PORT_BASE + 3;
 
         TopologyAwareRaftGroupService raftClient = startCluster(
                 testInfo,
                 clusterServices,
                 raftServers,
-                addr -> addr.port() < PORT_BASE + 3,
+                isServerAddress,
                 4,
                 PORT_BASE + 3
         );
 
-        AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+        TopologyAwareRaftGroupService raftClientNoInitialNotify = startTopologyAwareClient(
+                clusterServices.entrySet().iterator().next().getValue(),
+                clusterServices,
+                isServerAddress,
+                4,
+                false
+        );
 
-        raftClient.subscribeLeader((node, term) -> {
-            leaderRef.set(node);
-        });
+        AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+        AtomicReference<ClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
+
+        raftClient.subscribeLeader((node, term) -> leaderRef.set(node));
+        raftClientNoInitialNotify.subscribeLeader((node, term) -> leaderRefNoInitialNotify.set(node));
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> leaderRef.get() != null, 10_000));
+        assertFalse(IgniteTestUtils.waitForCondition(() -> leaderRefNoInitialNotify.get() != null, 100));
 
         ClusterNode leader = leaderRef.get();
 
@@ -146,6 +155,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         clusterServices.remove(new NetworkAddress("localhost", leader.address().port())).stop();
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> !leader.equals(leaderRef.get()), 10_000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> !leader.equals(leaderRefNoInitialNotify.get()), 10_000));
 
         log.info("New Leader: " + leaderRef.get());
 
@@ -160,23 +170,33 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     public void testChangeLeaderForce(TestInfo testInfo) throws Exception {
         var clusterServices = new HashMap<NetworkAddress, ClusterService>();
         var raftServers = new HashMap<NetworkAddress, JraftServerImpl>();
+        Predicate<NetworkAddress> isServerAddress = addr -> addr.port() < PORT_BASE + 3;
 
         TopologyAwareRaftGroupService raftClient = startCluster(
                 testInfo,
                 clusterServices,
                 raftServers,
-                addr -> addr.port() < PORT_BASE + 3,
+                isServerAddress,
                 4,
                 PORT_BASE + 3
         );
 
-        AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+        TopologyAwareRaftGroupService raftClientNoInitialNotify = startTopologyAwareClient(
+                clusterServices.entrySet().iterator().next().getValue(),
+                clusterServices,
+                isServerAddress,
+                4,
+                false
+        );
 
-        raftClient.subscribeLeader((node, term) -> {
-            leaderRef.set(node);
-        });
+        AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+        AtomicReference<ClusterNode> leaderRefNoInitialNotify = new AtomicReference<>();
+
+        raftClient.subscribeLeader((node, term) -> leaderRef.set(node));
+        raftClientNoInitialNotify.subscribeLeader((node, term) -> leaderRefNoInitialNotify.set(node));
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> leaderRef.get() != null, 10_000));
+        assertFalse(IgniteTestUtils.waitForCondition(() -> leaderRefNoInitialNotify.get() != null, 100));
 
         ClusterNode leader = leaderRef.get();
 
@@ -190,7 +210,10 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         raftClient.transferLeadership(newLeaderPeer).get();
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> newLeaderPeer.consistentId().equals(leaderRef.get().name()), 10_000));
+        String leaderId = newLeaderPeer.consistentId();
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> leaderId.equals(leaderRef.get().name()), 10_000));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> leaderId.equals(leaderRefNoInitialNotify.get().name()), 10_000));
 
         log.info("New Leader: " + leaderRef.get());
 
@@ -269,10 +292,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         for (NetworkAddress addr : addresses) {
             var cluster = clusterServices.get(addr);
 
-            PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(
-                    addresses.stream().filter(isServerAddress)
-                            .map(netAddr -> clusterServices.get(netAddr).topologyService().localMember().name()).collect(
-                                    Collectors.toSet()));
+            PeersAndLearners peersAndLearners = peersAndLearners(clusterServices, isServerAddress, nodes);
 
             if (isServerAddress.test(addr)) { //RAFT server node
                 var localPeer = peersAndLearners.peers().stream()
@@ -292,20 +312,41 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
             }
 
             if (addr.port() == clientPort) {
-                raftClient = (TopologyAwareRaftGroupService) TopologyAwareRaftGroupService.start(
-                        GROUP_ID,
-                        cluster,
-                        FACTORY,
-                        raftConfiguration,
-                        peersAndLearners,
-                        true,
-                        executor,
-                        new LogicalTopologyServiceTestImpl(cluster),
-                        true
-                ).join();
+                raftClient = startTopologyAwareClient(cluster, clusterServices, isServerAddress, nodes, true);
             }
         }
         return raftClient;
+    }
+
+    private TopologyAwareRaftGroupService startTopologyAwareClient(
+            ClusterService localClusterService,
+            HashMap<NetworkAddress, ClusterService> clusterServices,
+            Predicate<NetworkAddress> isServerAddress,
+            int nodes,
+            boolean notifyOnSubscription
+    ) {
+        return (TopologyAwareRaftGroupService) TopologyAwareRaftGroupService.start(
+                GROUP_ID,
+                localClusterService,
+                FACTORY,
+                raftConfiguration,
+                peersAndLearners(clusterServices, isServerAddress, nodes),
+                true,
+                executor,
+                new LogicalTopologyServiceTestImpl(localClusterService),
+                notifyOnSubscription
+        ).join();
+    }
+
+    private static PeersAndLearners peersAndLearners(
+            HashMap<NetworkAddress, ClusterService> clusterServices,
+            Predicate<NetworkAddress> isServerAddress,
+            int nodes
+    ) {
+        return PeersAndLearners.fromConsistentIds(
+                getNetworkAddresses(nodes).stream().filter(isServerAddress)
+                        .map(netAddr -> clusterServices.get(netAddr).topologyService().localMember().name()).collect(
+                                Collectors.toSet()));
     }
 
     /**
