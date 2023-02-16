@@ -43,8 +43,12 @@
       url: sql-reference/dml
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
-- title: REST API
-  url: rest/rest-api
+- title: REST
+  items:
+    - title: Overview
+      url: rest/rest-api
+    - title: Reference
+      url: rest/reference
 - title: Clients
   items:
     - title: Clients Overview
