@@ -1060,7 +1060,7 @@ public class Accumulators {
             var acc = functions.get(functionName);
 
             if (acc == null) {
-                var error = format("No aggregate function: {}, operand type: {}", functionName, customTypeName);
+                var error = format("No aggregate function: {}({})", functionName, customTypeName);
                 throw new IllegalArgumentException(error);
             }
 
