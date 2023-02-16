@@ -21,6 +21,15 @@ using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Tests;
 
+/// <summary>
+/// Measures simple operation on a fake server - retrieve table id by name. Indicates overall networking performance.
+/// <para />
+/// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
+/// |   Method |     Mean |    Error |   StdDev | Allocated |
+/// |--------- |---------:|---------:|---------:|----------:|
+/// | TableGet | 24.22 us | 0.347 us | 0.308 us |      2 KB |.
+/// </summary>
+[MemoryDiagnoser]
 public class TableGetBenchmarks
 {
     private FakeServer _server = null!;
