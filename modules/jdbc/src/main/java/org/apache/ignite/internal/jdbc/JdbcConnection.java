@@ -173,16 +173,16 @@ public class JdbcConnection implements Connection {
 
     private @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
         if (connProps.isSslEnabled()) {
-                    return SslConfiguration.builder()
-                            .enabled(true)
-                            .trustStoreType(connProps.getTrustStoreType())
-                            .trustStorePath(connProps.getTrustStorePath())
-                            .trustStorePassword(connProps.getTrustStorePassword())
-                            .clientAuth(connProps.getClientAuth())
-                            .keyStoreType(connProps.getKeyStoreType())
-                            .keyStorePath(connProps.getKeyStorePath())
-                            .keyStorePassword(connProps.getKeyStorePassword())
-                            .build();
+            return SslConfiguration.builder()
+                    .enabled(true)
+                    .trustStoreType(connProps.getTrustStoreType())
+                    .trustStorePath(connProps.getTrustStorePath())
+                    .trustStorePassword(connProps.getTrustStorePassword())
+                    .clientAuth(connProps.getClientAuth())
+                    .keyStoreType(connProps.getKeyStoreType())
+                    .keyStorePath(connProps.getKeyStorePath())
+                    .keyStorePassword(connProps.getKeyStorePassword())
+                    .build();
         } else {
             return null;
         }
