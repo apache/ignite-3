@@ -67,7 +67,6 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
-            NativeTypeSpec.UUID,
             NativeTypeSpec.BITMASK,
             NativeTypeSpec.DECIMAL,
             NativeTypeSpec.NUMBER,
@@ -98,7 +97,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
     @EnumSource(
             value = NativeTypeSpec.class,
-            names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
+            names = {"INT8", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
             mode = Mode.EXCLUDE
     )
     // @EnumSource(value = NativeTypeSpec.class, names = {"BYTES", "TIME", "DATETIME"}, mode = Mode.INCLUDE)

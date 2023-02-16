@@ -26,7 +26,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -53,6 +53,13 @@ public class LeastRestrictiveTypesTest {
     private static final RelDataType BIGINT = TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT);
 
     private static final RelDataType DECIMAL = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 1000, 10);
+
+    private static final RelDataType UUID = TYPE_FACTORY.createCustomType(UuidType.NAME);
+
+    private static final RelDataType VARCHAR = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR, 36);
+
+    // ANY produced by the default implementation of leastRestrictiveType has nullability = true
+    private static final RelDataType ANY = TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.ANY), true);
 
     @ParameterizedTest
     @MethodSource("tinyIntTests")
@@ -208,6 +215,29 @@ public class LeastRestrictiveTypesTest {
         return tests.stream();
     }
 
+    @ParameterizedTest
+    @MethodSource("uuidTests")
+    public void testUuid(RelDataType t1, RelDataType t2, LeastRestrictiveType leastRestrictiveType) {
+        expectLeastRestrictiveType(t1, t2, leastRestrictiveType);
+        expectLeastRestrictiveType(t2, t1, leastRestrictiveType);
+    }
+
+    private static Stream<Arguments> uuidTests() {
+        List<Arguments> tests = new ArrayList<>();
+
+        tests.add(Arguments.arguments(UUID, TINYINT, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, SMALLINT, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, INTEGER, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, FLOAT, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, REAL, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, DOUBLE, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, DECIMAL, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, BIGINT, new LeastRestrictiveType(ANY)));
+        tests.add(Arguments.arguments(UUID, VARCHAR, new LeastRestrictiveType(UUID)));
+
+        return tests.stream();
+    }
+
     private static final class LeastRestrictiveType {
         final RelDataType relDataType;
 
@@ -215,7 +245,7 @@ public class LeastRestrictiveTypesTest {
             this.relDataType = TYPE_FACTORY.createSqlType(sqlTypeName);
         }
 
-        private LeastRestrictiveType(@Nullable RelDataType relDataType) {
+        private LeastRestrictiveType(RelDataType relDataType) {
             this.relDataType = relDataType;
         }
 
