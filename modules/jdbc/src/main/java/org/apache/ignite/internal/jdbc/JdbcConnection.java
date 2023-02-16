@@ -51,7 +51,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
@@ -151,15 +150,13 @@ public class JdbcConnection implements Connection {
         int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
 
         try {
-            Builder builder = IgniteClient.builder()
+            client = ((TcpIgniteClient) IgniteClient.builder()
                     .addresses(addrs)
                     .connectTimeout(netTimeout)
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
                     .reconnectThrottlingRetries(reconnectThrottlingRetries)
-                    .ssl(extractSslConfiguration(connProps)
-                    .build();
-
-            client = ((TcpIgniteClient) builder.build());
+                    .ssl(extractSslConfiguration(connProps))
+                    .build());
 
         } catch (Exception e) {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
