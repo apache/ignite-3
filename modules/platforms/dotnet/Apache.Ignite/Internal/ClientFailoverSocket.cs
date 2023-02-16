@@ -228,7 +228,7 @@ namespace Apache.Ignite.Internal
                 .ToList()!;
 
         /// <summary>
-        /// Gets the primary socket. Reconnects if necessary.
+        /// Gets a socket. Reconnects if necessary.
         /// </summary>
         /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Client socket.</returns>
@@ -238,6 +238,7 @@ namespace Apache.Ignite.Internal
             Justification = "Any connection exception should be handled.")]
         private async ValueTask<ClientSocket> GetSocketAsync(PreferredNode preferredNode = default)
         {
+            // TODO: This locking is too strict, we can do better.
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
             try
