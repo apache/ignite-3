@@ -40,6 +40,7 @@ public class TableGetMultiThreadedBenchmarks
     private List<FakeServer> _servers = null!;
     private IIgniteClient _client = null!;
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global, MemberCanBePrivate.Global (benchmark parameter).
     [Params(1, 2, 4)]
     public int ServerCount { get; set; }
 
