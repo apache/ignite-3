@@ -87,6 +87,8 @@ public class RebalanceUtil {
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
+     * @param partNum Partition id.
+     * @param tableCfgPartAssignments Table configuration assignments.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
