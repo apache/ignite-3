@@ -26,14 +26,15 @@ using BenchmarkDotNet.Attributes;
 using Tests;
 
 /// <summary>
-/// Measures simple operation on a fake server - retrieve table id by name from multiple threads.
+/// Measures simple operation on a fake server from multiple threads.
+/// Demonstrates how client scales with the number of server connections.
 /// <para />
 /// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
-/// |   Method | ServerCount |     Mean |     Error |    StdDev |
-/// |--------- |------------ |---------:|----------:|----------:|
-/// | TableGet |           1 | 1.520 ms | 0.0304 ms | 0.0406 ms |
-/// | TableGet |           2 | 1.266 ms | 0.0250 ms | 0.0560 ms |
-/// | TableGet |           4 | 1.010 ms | 0.0202 ms | 0.0421 ms |.
+/// |   Method | ServerCount |     Mean |   Error |  StdDev |
+/// |--------- |------------ |---------:|--------:|--------:|
+/// | TableGet |           1 | 514.1 ms | 1.29 ms | 1.20 ms |
+/// | TableGet |           2 | 259.5 ms | 0.41 ms | 0.39 ms |
+/// | TableGet |           4 | 129.7 ms | 0.33 ms | 0.31 ms |.
 /// </summary>
 public class TableGetMultiThreadedBenchmarks
 {
@@ -45,17 +46,12 @@ public class TableGetMultiThreadedBenchmarks
     [Params(1, 2, 4)]
     public int ServerCount { get; set; }
 
-    // ReSharper disable once UnusedAutoPropertyAccessor.Global, MemberCanBePrivate.Global (benchmark parameter).
-    [Params(0, 10)]
-    public int ServerOperationDelayMs { get; set; }
-
     [GlobalSetup]
     public async Task GlobalSetup()
     {
-        var operationDelay = TimeSpan.FromMilliseconds(ServerOperationDelayMs);
-
+        // Use a delay on server to imitate some work.
         _servers = Enumerable.Range(0, ServerCount)
-            .Select(_ => new FakeServer { OperationDelay = operationDelay })
+            .Select(_ => new FakeServer { OperationDelay = TimeSpan.FromMilliseconds(5) })
             .ToList();
 
         _client = await IgniteClient.StartAsync(new IgniteClientConfiguration(_servers.Select(s => s.Endpoint).ToArray()));
