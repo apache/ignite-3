@@ -17,38 +17,45 @@
 
 namespace Apache.Ignite.Benchmarks.Table;
 
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Tests;
 
 /// <summary>
-/// Measures simple operation on a fake server - retrieve table id by name. Indicates overall networking performance.
+/// Measures simple operation on a fake server - retrieve table id by name from multiple threads.
 /// <para />
 /// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
-/// |   Method |     Mean |    Error |   StdDev | Allocated |
-/// |--------- |---------:|---------:|---------:|----------:|
-/// | TableGet | 24.22 us | 0.347 us | 0.308 us |      2 KB |.
+/// TODO.
 /// </summary>
 [MemoryDiagnoser]
-public class TableGetBenchmarks
+public class TableGetMultiThreadedBenchmarks
 {
-    private FakeServer _server = null!;
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Reviewed.")]
+    private List<FakeServer> _servers = null!;
     private IIgniteClient _client = null!;
+
+    [Params(1, 2, 4)]
+    public int ServerCount { get; set; }
 
     [GlobalSetup]
     public async Task GlobalSetup()
     {
-        _server = new FakeServer();
-        _client = await IgniteClient.StartAsync(new IgniteClientConfiguration(_server.Endpoint));
+        _servers = Enumerable.Range(0, ServerCount).Select(_ => new FakeServer()).ToList();
+
+        _client = await IgniteClient.StartAsync(new IgniteClientConfiguration(_servers.Select(s => s.Endpoint).ToArray()));
     }
 
     [GlobalCleanup]
     public void GlobalCleanup()
     {
         _client.Dispose();
-        _server.Dispose();
+        _servers.ForEach(s => s.Dispose());
     }
 
     [Benchmark]
-    public async Task TableGet() => await _client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+    public void TableGet() =>
+        Parallel.For(1, 1000, _ => _client.Tables.GetTableAsync(FakeServer.ExistingTableName).GetAwaiter().GetResult());
 }

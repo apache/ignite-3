@@ -24,6 +24,6 @@ internal static class Program
 {
     private static void Main()
     {
-        BenchmarkRunner.Run<TableGetBenchmarks>();
+        BenchmarkRunner.Run<TableGetMultiThreadedBenchmarks>();
     }
 }
