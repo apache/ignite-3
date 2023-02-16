@@ -52,15 +52,15 @@ namespace Apache.Ignite.Internal
         /** Cluster node id to endpoint map. */
         private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsById = new();
 
-        /** <see cref="_socket"/> lock. */
+        /** Socket connection lock. */
         [SuppressMessage(
             "Microsoft.Design",
             "CA2213:DisposableFieldsShouldBeDisposed",
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
 
-        /** Primary socket. Guarded by <see cref="_socketLock"/>. */
-        private ClientSocket? _socket;
+        /** Last connected socket. Used to track partition assignment updates. */
+        private volatile ClientSocket? _lastConnectedSocket;
 
         /** Disposed flag. */
         private volatile bool _disposed;
@@ -266,17 +266,7 @@ namespace Apache.Ignite.Internal
             }
 
             // 3. Default connection.
-            if (_socket == null || _socket.IsDisposed)
-            {
-                if (_socket?.IsDisposed == true)
-                {
-                    _logger?.Info("Primary socket connection lost, reconnecting.");
-                }
-
-                _socket = await GetNextSocketAsync().ConfigureAwait(false);
-            }
-
-            return _socket;
+            return await GetNextSocketAsync().ConfigureAwait(false);
         }
 
         [SuppressMessage(
@@ -414,6 +404,7 @@ namespace Apache.Ignite.Internal
 
                 _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
                 _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
+                _lastConnectedSocket = socket;
 
                 return socket;
             }
@@ -431,9 +422,9 @@ namespace Apache.Ignite.Internal
         {
             // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
             // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-            // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
+            // So we only react to updates from the last known good channel. When no user-initiated operations are performed on that
             // channel, heartbeat messages will trigger updates.
-            if (clientSocket == _socket)
+            if (clientSocket == _lastConnectedSocket)
             {
                 Interlocked.Increment(ref _assignmentVersion);
             }
