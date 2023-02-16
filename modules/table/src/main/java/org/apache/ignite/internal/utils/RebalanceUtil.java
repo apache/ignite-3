@@ -109,7 +109,9 @@ public class RebalanceUtil {
         byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
-        //        if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
+        //        if empty(partition.assignments.pending)
+        //              && ((isNewAssignments && empty(partition.assignments.stable))
+        //                  || (partition.assignments.stable != calcPartAssighments() && !empty(partition.assignments.stable))):
         //            partition.assignments.pending = calcPartAssignments()
         //            partition.change.trigger.revision = event.revision
         //        else:
