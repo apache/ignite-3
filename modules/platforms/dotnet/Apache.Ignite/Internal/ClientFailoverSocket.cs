@@ -238,55 +238,45 @@ namespace Apache.Ignite.Internal
             Justification = "Any connection exception should be handled.")]
         private async ValueTask<ClientSocket> GetSocketAsync(PreferredNode preferredNode = default)
         {
-            // TODO: This locking is too strict, we can do better.
-            await _socketLock.WaitAsync().ConfigureAwait(false);
+            ThrowIfDisposed();
 
-            try
+            // 1. Preferred node connection.
+            if (preferredNode != default)
             {
-                ThrowIfDisposed();
+                var key = preferredNode.Id ?? preferredNode.Name;
+                var map = preferredNode.Id != null ? _endpointsById : _endpointsByName;
 
-                // 1. Preferred node connection.
-                if (preferredNode != default)
+                if (map.TryGetValue(key!, out var endpoint))
                 {
-                    var key = preferredNode.Id ?? preferredNode.Name;
-                    var map = preferredNode.Id != null ? _endpointsById : _endpointsByName;
-
-                    if (map.TryGetValue(key!, out var endpoint))
+                    try
                     {
-                        try
-                        {
-                            return await ConnectAsync(endpoint).ConfigureAwait(false);
-                        }
-                        catch (Exception e)
-                        {
-                            _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
-                        }
+                        return await ConnectAsync(endpoint).ConfigureAwait(false);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
                     }
                 }
-
-                // 2. Round-robin connection.
-                if (GetNextSocketWithoutReconnect() is { } nextSocket)
-                {
-                    return nextSocket;
-                }
-
-                // 3. Default connection.
-                if (_socket == null || _socket.IsDisposed)
-                {
-                    if (_socket?.IsDisposed == true)
-                    {
-                        _logger?.Info("Primary socket connection lost, reconnecting.");
-                    }
-
-                    _socket = await GetNextSocketAsync().ConfigureAwait(false);
-                }
-
-                return _socket;
             }
-            finally
+
+            // 2. Round-robin connection.
+            if (GetNextSocketWithoutReconnect() is { } nextSocket)
             {
-                _socketLock.Release();
+                return nextSocket;
             }
+
+            // 3. Default connection.
+            if (_socket == null || _socket.IsDisposed)
+            {
+                if (_socket?.IsDisposed == true)
+                {
+                    _logger?.Info("Primary socket connection lost, reconnecting.");
+                }
+
+                _socket = await GetNextSocketAsync().ConfigureAwait(false);
+            }
+
+            return _socket;
         }
 
         [SuppressMessage(
@@ -407,28 +397,36 @@ namespace Apache.Ignite.Internal
                 return endpoint.Socket;
             }
 
-            var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+            await _socketLock.WaitAsync().ConfigureAwait(false);
 
-            // We are under _socketLock here.
-            if (_clusterId == null)
+            try
             {
-                _clusterId = socket.ConnectionContext.ClusterId;
+                var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+
+                if (_clusterId == null)
+                {
+                    _clusterId = socket.ConnectionContext.ClusterId;
+                }
+                else if (_clusterId != socket.ConnectionContext.ClusterId)
+                {
+                    socket.Dispose();
+
+                    throw new IgniteClientConnectionException(
+                        ErrorGroups.Client.ClusterIdMismatch,
+                        $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterId}");
+                }
+
+                endpoint.Socket = socket;
+
+                _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
+                _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
+
+                return socket;
             }
-            else if (_clusterId != socket.ConnectionContext.ClusterId)
+            finally
             {
-                socket.Dispose();
-
-                throw new IgniteClientConnectionException(
-                    ErrorGroups.Client.ClusterIdMismatch,
-                    $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterId}");
+                _socketLock.Release();
             }
-
-            endpoint.Socket = socket;
-
-            _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
-            _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
-
-            return socket;
         }
 
         /// <summary>
