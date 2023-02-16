@@ -174,10 +174,9 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
-    private void setupSsl(Builder builder) {
+    private @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
         if (connProps.isSslEnabled()) {
-            builder.ssl(
-                    SslConfiguration.builder()
+                    return SslConfiguration.builder()
                             .enabled(true)
                             .trustStoreType(connProps.getTrustStoreType())
                             .trustStorePath(connProps.getTrustStorePath())
@@ -186,8 +185,9 @@ public class JdbcConnection implements Connection {
                             .keyStoreType(connProps.getKeyStoreType())
                             .keyStorePath(connProps.getKeyStorePath())
                             .keyStorePassword(connProps.getKeyStorePassword())
-                            .build()
-            );
+                            .build();
+        } else {
+            return null;
         }
     }
 
