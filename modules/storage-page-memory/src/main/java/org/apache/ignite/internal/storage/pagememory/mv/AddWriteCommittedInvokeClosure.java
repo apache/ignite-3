@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.rowBytes;
 
 import java.nio.ByteBuffer;
@@ -35,10 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link InvokeClosure} for
  * {@link AbstractPageMemoryMvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)}.
  *
- * <p>Synchronization between reading and updating the version chain occurs due to the locks (read and write) of the page of the tree on
- * which the version chain is located.
- *
- * <p>Synchronization between update operations for the version chain must be external (by {@link RowId row ID}).
+ * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
@@ -50,6 +48,8 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
     private final HybridTimestamp commitTimestamp;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
+
+    private OperationType operationType;
 
     private @Nullable VersionChain newRow;
 
@@ -72,23 +72,40 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
             throw new StorageException("Write intent exists: [rowId={}, {}]", oldRow.rowId(), storage.createStorageInfo());
         }
 
-        long nextLink = oldRow == null ? NULL_LINK : oldRow.newestCommittedLink();
+        if (oldRow == null) {
+            operationType = OperationType.PUT;
 
-        RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, nextLink);
+            RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, NULL_LINK);
 
-        newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
+            newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
+        } else {
+            RowVersion current = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
+
+            // If the current and new version are tombstones, then there is no need to add a new version.
+            if (current.isTombstone() && row == null) {
+                operationType = OperationType.NOOP;
+            } else {
+                operationType = OperationType.PUT;
+
+                RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, oldRow.newestCommittedLink());
+
+                newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
+            }
+        }
     }
 
     @Override
     public @Nullable VersionChain newRow() {
-        assert newRow != null;
+        assert operationType == OperationType.PUT ? newRow != null : newRow == null : "newRow=" + newRow + ", op=" + operationType;
 
         return newRow;
     }
 
     @Override
     public OperationType operationType() {
-        return OperationType.PUT;
+        assert operationType != null;
+
+        return operationType;
     }
 
     private RowVersion insertCommittedRowVersion(@Nullable BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {

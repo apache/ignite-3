@@ -131,7 +131,15 @@ public class VersionChain extends VersionChainKey {
         return newestCommittedLink() != NULL_LINK;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Creates a copy of the version chain with new next link.
+     *
+     * @param nextLink New next link.
+     */
+    public VersionChain setNextLink(long nextLink) {
+        return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
+    }
+
     @Override
     public String toString() {
         return S.toString(VersionChain.class, this);

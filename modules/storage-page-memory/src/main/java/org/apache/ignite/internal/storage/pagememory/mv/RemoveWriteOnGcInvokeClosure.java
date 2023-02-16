@@ -24,19 +24,19 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
+ * Implementation of {@link InvokeClosure} for deleting a row version in version chain on garbage collection in
+ * {@link AbstractPageMemoryMvPartitionStorage#pollForVacuum(HybridTimestamp)}.
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
-class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
+public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain> {
     private final HybridTimestamp timestamp;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
@@ -45,38 +45,36 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable VersionChain newRow;
 
-    private long updateTimestampLink = NULL_LINK;
+    private RowVersion rowVersion;
 
-    private @Nullable RowVersion toRemove;
+    private RowVersion nextRowVersion;
 
-    CommitWriteInvokeClosure(HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+    RemoveWriteOnGcInvokeClosure(HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
         this.timestamp = timestamp;
         this.storage = storage;
     }
 
     @Override
     public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
-        if (oldRow == null || oldRow.transactionId() == null) {
-            // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
-            operationType = OperationType.NOOP;
+        assert oldRow != null : storage.createStorageInfo();
+        assert oldRow.nextLink() != NULL_LINK : oldRow;
+
+        rowVersion = findRowVersionLinkWithChecks(oldRow);
+        nextRowVersion = storage.readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE, true);
+
+        // If the head is a tombstone, then we must destroy both the found version and the chain so that there is no memory leak.
+        if (oldRow.headLink() == rowVersion.link() && rowVersion.isTombstone()) {
+            operationType = OperationType.REMOVE;
 
             return;
         }
 
         operationType = OperationType.PUT;
 
-        RowVersion current = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
-        RowVersion next = oldRow.nextLink() == NULL_LINK ? null : storage.readRowVersion(oldRow.nextLink(), ALWAYS_LOAD_VALUE, false);
-
-        // If the previous and current version are tombstones, then delete the current version.
-        if (next != null && current.isTombstone() && next.isTombstone()) {
-            toRemove = current;
-
-            newRow = VersionChain.createCommitted(oldRow.rowId(), next.link(), next.nextLink());
+        if (oldRow.headLink() == rowVersion.link()) {
+            newRow = oldRow.setNextLink(nextRowVersion.nextLink());
         } else {
-            updateTimestampLink = oldRow.headLink();
-
-            newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
+            newRow = oldRow;
         }
     }
 
@@ -96,29 +94,56 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     @Override
     public void onUpdate() {
-        assert operationType == OperationType.PUT ? true : updateTimestampLink == NULL_LINK :
-                "link=" + updateTimestampLink + ", op=" + operationType;
-
-        if (updateTimestampLink != NULL_LINK) {
+        if (operationType != OperationType.REMOVE) {
             try {
-                storage.rowVersionFreeList.updateTimestamp(updateTimestampLink, timestamp);
+                storage.rowVersionFreeList.updateNextLink(rowVersion.link(), nextRowVersion.nextLink());
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
-                        "Error while update timestamp: [link={}, timestamp={}, {}]",
+                        "Error updating the next link: [rowId={}, timestamp={}, row={}, nextRow={}, {}]",
                         e,
-                        updateTimestampLink, timestamp, storage.createStorageInfo());
+                        newRow.rowId(), timestamp, rowVersion, nextRowVersion, storage.createStorageInfo()
+                );
             }
         }
+    }
+
+    private RowVersion findRowVersionLinkWithChecks(VersionChain versionChain) {
+        RowVersion rowVersion = storage.foundRowVersion(versionChain, timestamp, false);
+
+        if (rowVersion == null) {
+            throw new StorageException(
+                    "Could not find row version in the version chain: [rowId={}, timestamp={}, {}]",
+                    versionChain.rowId(), timestamp, storage.createStorageInfo()
+            );
+        }
+
+        if (!rowVersion.hasNextLink()) {
+            throw new StorageException(
+                    "Missing next row version: [rowId={}, timestamp={}, {}]",
+                    versionChain.rowId(), timestamp, storage.createStorageInfo()
+            );
+        }
+
+        return rowVersion;
     }
 
     /**
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
     void afterCompletion() {
-        assert operationType == OperationType.PUT ? true : toRemove == null : "toRemove=" + toRemove + ", op=" + operationType;
+        storage.removeRowVersion(nextRowVersion);
 
-        if (toRemove != null) {
-            storage.removeRowVersion(toRemove);
+        if (operationType == OperationType.REMOVE) {
+            storage.removeRowVersion(rowVersion);
         }
+    }
+
+    /**
+     * Returns the removed row version from the version chain.
+     */
+    RowVersion getRemovedRowVersion() {
+        assert nextRowVersion != null;
+
+        return nextRowVersion;
     }
 }

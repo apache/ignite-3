@@ -51,7 +51,6 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         super(T_ROW_VERSION_DATA_IO, ver);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeRowData(long pageAddr, int dataOff, int payloadSize, RowVersion row, boolean newRow) {
         assertPageType(pageAddr);
@@ -71,7 +70,6 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         putByteBuffer(addr, 0, row.value());
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeFragmentData(RowVersion row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
@@ -110,7 +108,20 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Updates next link leaving the rest untouched.
+     *
+     * @param pageAddr Page address.
+     * @param itemId Item ID of the slot where row version (or its first fragment) is stored in this page.
+     * @param pageSize Size of the page.
+     * @param nextLink Next link to store.
+     */
+    public void updateNextLink(long pageAddr, int itemId, int pageSize, long nextLink) {
+        int payloadOffset = getPayloadOffset(pageAddr, itemId, pageSize, 0);
+
+        writePartitionless(pageAddr + payloadOffset + RowVersion.NEXT_LINK_OFFSET, nextLink);
+    }
+
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("RowVersionDataIo [\n");

@@ -33,10 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#abortWrite(RowId)}.
  *
- * <p>Synchronization between reading and updating the version chain occurs due to the locks (read and write) of the page of the tree on
- * which the version chain is located.
- *
- * <p>Synchronization between update operations for the version chain must be external (by {@link RowId row ID}).
+ * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */

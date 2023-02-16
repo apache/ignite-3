@@ -25,6 +25,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
  */
 class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> {
     private final int partitionId;
+
+    private final boolean loadValueBytes;
 
     private RowVersion result;
 
@@ -46,11 +49,11 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
-    ReadRowVersion(int partitionId) {
+    ReadRowVersion(int partitionId, boolean loadValueBytes) {
         this.partitionId = partitionId;
+        this.loadValueBytes = loadValueBytes;
     }
 
-    /** {@inheritDoc} */
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<HybridTimestamp> loadValue) {
         if (readingFirstSlot) {
@@ -74,6 +77,14 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
             return STOP_TRAVERSAL;
         }
 
+        if (!loadValueBytes) {
+            int valueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
+
+            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, valueSize);
+
+            return STOP_TRAVERSAL;
+        }
+
         return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
@@ -81,7 +92,6 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
         return PageIdUtils.partitionId(PageIdUtils.pageId(link));
     }
 
-    /** {@inheritDoc} */
     @Override
     public void finish() {
         if (result != null) {

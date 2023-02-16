@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SI
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import java.nio.ByteBuffer;
-import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
@@ -84,6 +83,19 @@ public final class RowVersion implements Storable {
         this.value = value;
     }
 
+    /**
+     * Constructor.
+     */
+    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp timestamp, long nextLink, int valueSize) {
+        this.partitionId = partitionId;
+        link(link);
+
+        this.timestamp = timestamp;
+        this.nextLink = nextLink;
+        this.valueSize = valueSize;
+        this.value = null;
+    }
+
     public @Nullable HybridTimestamp timestamp() {
         return timestamp;
     }
@@ -99,8 +111,8 @@ public final class RowVersion implements Storable {
         return valueSize;
     }
 
-    public ByteBuffer value() {
-        return Objects.requireNonNull(value);
+    public @Nullable ByteBuffer value() {
+        return value;
     }
 
     public boolean hasNextLink() {
@@ -112,7 +124,7 @@ public final class RowVersion implements Storable {
     }
 
     static boolean isTombstone(int valueSize) {
-        return valueSize == 0;
+        return valueSize <= 0;
     }
 
     static boolean isTombstone(byte[] valueBytes) {
@@ -127,25 +139,21 @@ public final class RowVersion implements Storable {
         return timestamp != null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public final void link(long link) {
         this.link = link;
     }
 
-    /** {@inheritDoc} */
     @Override
     public final long link() {
         return link;
     }
 
-    /** {@inheritDoc} */
     @Override
     public final int partition() {
         return partitionId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int size() {
         assert value != null;
@@ -153,19 +161,16 @@ public final class RowVersion implements Storable {
         return headerSize() + value.limit();
     }
 
-    /** {@inheritDoc} */
     @Override
     public int headerSize() {
         return HYBRID_TIMESTAMP_SIZE + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
     }
 
-    /** {@inheritDoc} */
     @Override
     public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
         return RowVersionDataIo.VERSIONS;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(RowVersion.class, this);
