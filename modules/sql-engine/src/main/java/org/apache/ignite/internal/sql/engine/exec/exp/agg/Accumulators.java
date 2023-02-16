@@ -1049,14 +1049,17 @@ public class Accumulators {
      */
     private static final class CustomDataTypeAccumulators {
 
-        final Map<String, Map<String, Supplier<Accumulator>>> accumulators = new HashMap<>();
+        /**
+         * type name -> { function name -> accumulator factory }.
+         */
+        final Map<String, Map<String, Supplier<Accumulator>>> accumulatorFactories = new HashMap<>();
 
         Supplier<Accumulator> getAccumulatorFactory(AggregateCall call) {
             var functionName = call.getAggregation().getName();
             var operandType = (IgniteCustomType<?>) call.getType();
             var customTypeName = operandType.getCustomTypeName();
 
-            var functions = accumulators.computeIfAbsent(customTypeName, (tpe) -> Collections.emptyMap());
+            var functions = accumulatorFactories.computeIfAbsent(customTypeName, (tpe) -> Collections.emptyMap());
             var acc = functions.get(functionName);
 
             if (acc == null) {
@@ -1076,7 +1079,7 @@ public class Accumulators {
         }
 
         private void addFunction(String typeName, String function, Supplier<Accumulator> acc) {
-            var functions = accumulators.computeIfAbsent(typeName, (f) -> new HashMap<>());
+            var functions = accumulatorFactories.computeIfAbsent(typeName, (f) -> new HashMap<>());
             functions.put(function, acc);
         }
     }
@@ -1143,7 +1146,7 @@ public class Accumulators {
             if (val == null) {
                 val = in;
             } else {
-                int cmp = val.compareTo(in);
+                var cmp = val.compareTo(in);
                 if (min) {
                     val = cmp > 0 ? in : val;
                 } else {
