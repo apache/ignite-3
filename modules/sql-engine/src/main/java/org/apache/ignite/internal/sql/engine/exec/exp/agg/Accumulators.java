@@ -79,10 +79,6 @@ public class Accumulators {
         return () -> new DistinctAccumulator(fac);
     }
 
-    /**
-     * AccumulatorFunctionFactory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
         // Update documentation in IgniteCustomType when you add an aggregate
         // that can work for any type out of the box.
