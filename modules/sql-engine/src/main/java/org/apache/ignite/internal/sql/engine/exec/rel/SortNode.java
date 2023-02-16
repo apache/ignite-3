@@ -68,7 +68,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         limit = fetch == null ? -1 : fetch.get() + (offset == null ? 0 : offset.get());
 
-        if (limit < 0) {
+        if (limit < 1) {
             rows = new PriorityQueue<>(comp);
         } else {
             rows = new BoundedPriorityQueue<>(limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
