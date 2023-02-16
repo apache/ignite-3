@@ -155,8 +155,9 @@ public class JdbcConnection implements Connection {
                     .addresses(addrs)
                     .connectTimeout(netTimeout)
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
-                    .reconnectThrottlingRetries(reconnectThrottlingRetries);
-            setupSsl(builder);
+                    .reconnectThrottlingRetries(reconnectThrottlingRetries)
+                    .ssl(extractSslConfiguration(connProps)
+                    .build();
 
             client = ((TcpIgniteClient) builder.build());
 
