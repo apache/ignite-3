@@ -197,7 +197,7 @@ paths:
       parameters:
       - name: path
         in: path
-        description: Cluster address.
+        description: "Configuration tree address. For example: `element.subelement`."
         required: true
         schema:
           type: string
@@ -230,7 +230,7 @@ paths:
     get:
       tags:
       - nodeConfiguration
-      description: Gets node configuratoon in HOCON format.
+      description: Gets node configuration in HOCON format.
       operationId: getNodeConfiguration
       parameters: []
       responses:
@@ -293,7 +293,7 @@ paths:
       parameters:
       - name: path
         in: path
-        description: Node address.
+        description: "Configuration tree address. For example: `element.subelement`."
         required: true
         schema:
           type: string
@@ -506,7 +506,7 @@ components:
           description: Parameter name.
         reason:
           type: string
-          description: THe issue with the parameter.
+          description: The issue with the parameter.
       description: Information about invalid request parameter.
     MetricSource:
       type: object
@@ -518,7 +518,7 @@ components:
           type: boolean
           description: "If True, the metric is tracked. Otherwise, the metric is not\
             \ tracked."
-      description: Metric sources. Provided by modules
+      description: Metric sources provided by modules.
     NetworkAddress:
       type: object
       properties:
@@ -527,27 +527,22 @@ components:
           description: Name of the host node is on.
         port:
           type: integer
-          description: Port hte node runs on.
+          description: Port the node runs on.
           format: int32
       description: Node network address information.
     NodeMetadata:
-
-      required:
-      - httpPort
-      - httpsPort
-      - restHost
       type: object
       properties:
         restHost:
           type: string
-        restPort:
+          description: The host exposed to REST API.
         httpPort:
           type: integer
-          description: The host exposed to REST API.
+          description: The HTTP port exposed to REST API.
           format: int32
         httpsPort:
           type: integer
-          description: The port exposed to REST API.
+          description: The HTTPS port exposed to REST API.
           format: int32
       description: Node metadata information.
     NodeState:
