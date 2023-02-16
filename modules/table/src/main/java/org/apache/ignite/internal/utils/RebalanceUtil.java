@@ -115,7 +115,7 @@ public class RebalanceUtil {
         //            partition.assignments.pending = calcPartAssignments()
         //            partition.change.trigger.revision = event.revision
         //        else:
-        //            if partition.assignments.pending != calcPartAssignments
+        //            if partition.assignments.pending != calcPartAssignments && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
         //                partition.change.trigger.revision = event.revision
         //            else
@@ -140,7 +140,7 @@ public class RebalanceUtil {
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
                         ).yield(PENDING_KEY_UPDATED),
-                        iif(value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
+                        iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
                                         put(partChangeTriggerKey, ByteUtils.longToBytes(revision))

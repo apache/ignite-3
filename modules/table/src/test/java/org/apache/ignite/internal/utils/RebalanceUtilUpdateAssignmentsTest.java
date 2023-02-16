@@ -202,7 +202,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         test(
                 nodes1, assignments1,
                 null, null, null,
-                null, null, assignments1
+                null, null, null
         );
     }
 
@@ -246,8 +246,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     void test7() {
         test(
                 nodes1, assignments2,
-                assignments4, assignments3, null,
-                assignments4, assignments3, assignments1
+                assignments1, null, null,
+                assignments1, null, null
         );
     }
 
@@ -255,13 +255,109 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     void test8() {
         test(
                 nodes1, assignments1,
+                assignments1, null, null,
+                assignments1, null, null
+        );
+    }
+
+    @Test
+    void test9() {
+        test(
+                nodes1, assignments2,
+                assignments2, null, null,
+                assignments2, assignments1, null
+        );
+    }
+
+    @Test
+    void test10() {
+        test(
+                nodes1, assignments2,
+                assignments4, assignments3, null,
+                assignments4, assignments3, assignments1
+        );
+    }
+
+    @Test
+    void test11() {
+        test(
+                nodes1, assignments1,
                 assignments3, assignments2, null,
                 assignments3, assignments2, assignments1
         );
     }
 
+    @Test
+    void test12() {
+        test(
+                nodes1, assignments2,
+                assignments1, assignments3, null,
+                assignments1, assignments3, assignments1
+        );
+    }
+
+    @Test
+    void test13() {
+        test(
+                nodes1, assignments2,
+                assignments2, assignments3, null,
+                assignments2, assignments3, assignments1
+        );
+    }
+
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments1.
+     * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=assignments1.
+     */
+    @Test
+    void test14() {
+        test(
+                nodes1, assignments1,
+                assignments1, assignments2, null,
+                assignments1, assignments2, assignments1
+        );
+    }
+
+    @Test
+    void test15() {
+        test(
+                nodes1, assignments1,
+                assignments1, assignments2, assignments3,
+                assignments1, assignments2, assignments1
+        );
+    }
+
+    @Test
+    void test16() {
+        test(
+                nodes1, assignments4,
+                assignments1, assignments2, assignments1,
+                assignments1, assignments2, assignments1
+        );
+    }
+
+    @Test
+    void test17() {
+        test(
+                nodes2, assignments2,
+                assignments1, assignments2, assignments1,
+                assignments1, assignments2, null
+        );
+    }
+
+    @Test
+    void test18() {
+        test(
+                nodes2, assignments4,
+                assignments1, assignments2, assignments1,
+                assignments1, assignments2, null
+        );
+    }
+
     private void test(
-            Collection<String> currentNodes,
+            Collection<String> nodesForNewAssignments,
             Set<Assignment> tableCfgAssignments,
             Set<Assignment> currentStableAssignments,
             Set<Assignment> currentPendingAssignments,
@@ -285,7 +381,9 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         }
 
         RebalanceUtil.updatePendingAssignmentsKeys(
-                "table1", tablePartitionId, currentNodes, replicas, 1, metaStorageManager, partNum, tableCfgAssignments);
+                "table1", tablePartitionId, nodesForNewAssignments,
+                replicas, 1, metaStorageManager, partNum, tableCfgAssignments
+        );
 
         byte[] actualStableBytes = keyValueStorage.get(stablePartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualStableAssignments = null;
