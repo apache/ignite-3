@@ -124,12 +124,9 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
-        /// Resets global endpoint index.
+        /// Resets global endpoint index. For testing purposes only (to make behavior deterministic).
         /// </summary>
-        public static void ResetGlobalEndpointIndex()
-        {
-            _globalEndPointIndex = 0;
-        }
+        public static void ResetGlobalEndpointIndex() => _globalEndPointIndex = 0;
 
         /// <summary>
         /// Performs an in-out operation.
