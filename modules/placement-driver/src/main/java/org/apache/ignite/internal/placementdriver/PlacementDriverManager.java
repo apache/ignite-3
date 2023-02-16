@@ -34,6 +34,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Placement driver manager.
@@ -168,5 +169,10 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     private void stepDownActiveActor() {
         isActiveActor = false;
+    }
+
+    @TestOnly
+    boolean isActiveActor() {
+        return isActiveActor;
     }
 }
