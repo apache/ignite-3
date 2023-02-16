@@ -216,7 +216,7 @@ public class TypeUtils {
         Type storageType = ectx.getTypeFactory().getResultClass(fieldType);
 
         if (isConvertableType(fieldType)) {
-            return v -> fromInternal(ectx, v, storageType);
+            return v -> fromInternal(v, storageType);
         }
 
         return Function.identity();
@@ -239,15 +239,15 @@ public class TypeUtils {
      * ToInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val) {
-        return val == null ? null : toInternal(ectx, val, val.getClass());
+    public static @Nullable Object toInternal(Object val) {
+        return val == null ? null : toInternal(val, val.getClass());
     }
 
     /**
      * ToInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object toInternal(Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class) {
@@ -278,7 +278,7 @@ public class TypeUtils {
      * FromInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static Object fromInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class && val instanceof Integer) {

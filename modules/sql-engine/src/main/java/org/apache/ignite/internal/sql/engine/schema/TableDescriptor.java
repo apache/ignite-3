@@ -19,8 +19,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -31,15 +29,9 @@ import org.jetbrains.annotations.Nullable;
  * TableDescriptor interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface TableDescriptor extends RelProtoDataType, InitializerExpressionFactory {
+public interface TableDescriptor extends InitializerExpressionFactory {
     /** Returns distribution of the table. */
     IgniteDistribution distribution();
-
-    /** {@inheritDoc} */
-    @Override
-    default RelDataType apply(RelDataTypeFactory factory) {
-        return rowType((IgniteTypeFactory) factory, null);
-    }
 
     /**
      * Returns row type excluding effectively virtual fields.

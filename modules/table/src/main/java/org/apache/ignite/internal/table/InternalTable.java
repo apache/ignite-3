@@ -367,27 +367,6 @@ public interface InternalTable extends ManuallyCloseable {
      * that reactively notifies about partition rows.
      *
      * @param partId The partition.
-     * @param tx The transaction.
-     * @param indexId Index id.
-     * @param key Key to search.
-     * @param columnsToInclude Row projection.
-     * @return {@link Publisher} that reactively notifies about partition rows.
-     * @deprecated IGNITE-17952 Use {@link #lookup(int, UUID, PrimaryReplica, UUID, BinaryTuple, BitSet)} instead.
-     */
-    @Deprecated
-    Publisher<BinaryRow> lookup(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    );
-
-    /**
-     * Lookup rows corresponding to the given key given partition index, providing {@link Publisher}
-     * that reactively notifies about partition rows.
-     *
-     * @param partId The partition.
      * @param txId Transaction id.
      * @param recipient Primary replica that will handle given get request.
      * @param indexId Index id.

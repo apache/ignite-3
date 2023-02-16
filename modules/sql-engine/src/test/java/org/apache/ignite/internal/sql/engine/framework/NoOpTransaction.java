@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.sql.engine.framework;
 
+import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -25,40 +26,64 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Local holder of {@link InternalTransaction#id() id} and {@link InternalTransaction#readTimestamp() readTimestamp} transaction attributes.
+ * Dummy transaction that should be used as mock transaction for execution tests.
  */
-// TODO IGNITE-17952 This class must not implement the transaction interface and may be passed to the remote nodes.
-public class LocalTxAttributesHolder implements InternalTransaction {
-    /** Transaction id. */
-    private final UUID id;
+public final class NoOpTransaction implements InternalTransaction {
 
-    /** Read timestamp. */
-    private final @Nullable HybridTimestamp readTimestamp;
+    private final UUID id = UUID.randomUUID();
+
+    private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1);
+
+    private final IgniteBiTuple<ClusterNode, Long> tuple;
+
+    private final ReplicationGroupId groupId = new ReplicationGroupId() {
+
+        private static final long serialVersionUID = -6498147568339477517L;
+    };
 
     /**
-     * Constructor.
+     * Constructs the object.
      *
-     * @param id Transaction id.
-     * @param readTimestamp Read timestamp.
+     * @param name Name of the node.
      */
-    public LocalTxAttributesHolder(UUID id, @Nullable HybridTimestamp readTimestamp) {
-        this.readTimestamp = readTimestamp;
-        this.id = id;
+    public NoOpTransaction(String name) {
+        var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
+        tuple = new IgniteBiTuple<>(new ClusterNode(name, name, networkAddress), 1L);
+    }
+
+    @Override
+    public void commit() throws TransactionException {
+
+    }
+
+    @Override
+    public CompletableFuture<Void> commitAsync() {
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void rollback() throws TransactionException {
+
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackAsync() {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public boolean isReadOnly() {
-        return readTimestamp != null;
+        return true;
     }
 
     @Override
-    public @Nullable HybridTimestamp readTimestamp() {
-        return readTimestamp;
+    public HybridTimestamp readTimestamp() {
+        return hybridTimestamp;
     }
 
     @Override
@@ -67,52 +92,33 @@ public class LocalTxAttributesHolder implements InternalTransaction {
     }
 
     @Override
-    public void commit() throws TransactionException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> commitAsync() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void rollback() throws TransactionException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public CompletableFuture<Void> rollbackAsync() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(ReplicationGroupId replicationGroupId) {
-        throw new UnsupportedOperationException();
+        return tuple;
     }
 
     @Override
     public TxState state() {
-        throw new UnsupportedOperationException();
+        return TxState.COMMITED;
     }
 
     @Override
     public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
-        throw new UnsupportedOperationException();
+        return true;
     }
 
     @Override
     public ReplicationGroupId commitPartition() {
-        throw new UnsupportedOperationException();
+        return groupId;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        throw new UnsupportedOperationException();
+    public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId,
+            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+        return nodeAndTerm;
     }
 
     @Override
     public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        throw new UnsupportedOperationException();
+        resultFuture.complete(null);
     }
 }

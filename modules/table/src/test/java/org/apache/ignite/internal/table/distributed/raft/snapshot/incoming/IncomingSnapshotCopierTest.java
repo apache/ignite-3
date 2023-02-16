@@ -424,7 +424,7 @@ public class IncomingSnapshotCopierTest {
 
         MessagingService messagingService = mock(MessagingService.class);
 
-        when(messagingService.invoke(any(), any(), anyLong())).then(invocation -> {
+        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong())).then(invocation -> {
             networkInvokeLatch.countDown();
 
             return new CompletableFuture<>();

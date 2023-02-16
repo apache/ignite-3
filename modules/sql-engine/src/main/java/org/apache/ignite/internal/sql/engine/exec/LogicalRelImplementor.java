@@ -105,7 +105,7 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -318,7 +318,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteIndexScan rel) {
-        InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
+        IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
@@ -383,7 +383,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         List<RexNode> projects = rel.projects();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
 
-        InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
+        IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
 
         assert tbl != null;
 
@@ -562,26 +562,17 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTableModify rel) {
-        switch (rel.getOperation()) {
-            case INSERT:
-            case UPDATE:
-            case DELETE:
-            case MERGE:
-                InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
+        UpdateableTable table = rel.getTable().unwrap(UpdateableTable.class);
 
-                assert tbl != null;
+        assert table != null;
 
-                ModifyNode<RowT> node = new ModifyNode<>(ctx, tbl,
-                        rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(ctx, table, rel.getOperation(), rel.getUpdateColumnList());
 
-                Node<RowT> input = visit(rel.getInput());
+        Node<RowT> input = visit(rel.getInput());
 
-                node.register(input);
+        node.register(input);
 
-                return node;
-            default:
-                throw new AssertionError("Unsupported operation: " + rel.getOperation());
-        }
+        return node;
     }
 
     /** {@inheritDoc} */

@@ -19,43 +19,35 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.rel.core.TableModify;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
+import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.internal.util.Pair;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ModifyNode.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
-    private static final IgniteLogger LOG = Loggers.forClass(ModifyNode.class);
-
-    private final InternalIgniteTable table;
-
     private final TableModify.Operation modifyOp;
 
-    private final List<String> cols;
+    private final UpdateableTable table;
 
-    private final InternalTable tableView;
+    private final @Nullable List<String> updateColumns;
 
-    private List<ModifyRow> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
+    private final int @Nullable [] mapping;
+
+    private List<RowT> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
     private long updatedRows;
 
@@ -67,32 +59,27 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private State state = State.UPDATING;
 
-    private InternalTransaction tx;
-
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param ctx  Execution context.
-     * @param table Table object.
-     * @param op Operation/
-     * @param cols Update column list.
+     * @param ctx An execution context.
+     * @param table A table to update.
+     * @param op A type of the update operation.
+     * @param updateColumn Enumeration of columns to update if applicable.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
-            InternalIgniteTable table,
+            UpdateableTable table,
             TableModify.Operation op,
-            List<String> cols
+            @Nullable List<String> updateColumn
     ) {
         super(ctx);
 
         this.table = table;
         this.modifyOp = op;
-        this.cols = cols;
+        this.updateColumns = updateColumn;
 
-        tx = ctx.transaction();
-
-        tableView = table.table();
+        this.mapping = mapping(table.descriptor(), updateColumn);
     }
 
     /** {@inheritDoc} */
@@ -121,19 +108,9 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         waiting--;
 
-        switch (modifyOp) {
-            case DELETE:
-            case UPDATE:
-            case INSERT:
-            case MERGE:
-                rows.add(table.toModifyRow(context(), row, modifyOp, cols));
+        rows.add(row);
 
-                flushTuples(false);
-
-                break;
-            default:
-                throw new UnsupportedOperationException(modifyOp.name());
-        }
+        flushTuples(false);
 
         if (waiting == 0) {
             source().request(waiting = MODIFY_BATCH_SIZE);
@@ -197,69 +174,203 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
     }
 
-    /** Returns mapping of modifications per modification action. */
-    private Map<ModifyRow.Operation, Collection<BinaryRowEx>> getOperationsPerAction(List<ModifyRow> rows) {
-        Map<ModifyRow.Operation, Collection<BinaryRowEx>> store = new EnumMap<>(ModifyRow.Operation.class);
-
-        for (ModifyRow tuple : rows) {
-            store.computeIfAbsent(tuple.getOp(), k -> new ArrayList<>()).add(tuple.getRow());
-        }
-
-        return store;
-    }
-
     private void flushTuples(boolean force) {
-        if (nullOrEmpty(rows) || !force && rows.size() < MODIFY_BATCH_SIZE) {
+        if (nullOrEmpty(rows) || (!force && rows.size() < MODIFY_BATCH_SIZE)) {
             return;
         }
 
-        List<ModifyRow> rows = this.rows;
+        List<RowT> rows = this.rows;
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
-        Map<ModifyRow.Operation, Collection<BinaryRowEx>> operations = getOperationsPerAction(rows);
+        switch (modifyOp) {
+            case INSERT:
+                table.insertAll(context(), rows).join();
 
-        for (Map.Entry<ModifyRow.Operation, Collection<BinaryRowEx>> op : operations.entrySet()) {
-            switch (op.getKey()) {
-                case INSERT_ROW:
-                    Collection<BinaryRow> conflictKeys = tableView.insertAll(op.getValue(), tx).join();
+                break;
+            case UPDATE:
+                inlineUpdates(0, rows);
 
-                    if (!conflictKeys.isEmpty()) {
-                        IgniteTypeFactory typeFactory = context().getTypeFactory();
-                        RowHandler.RowFactory<RowT> rowFactory = context().rowHandler().factory(
-                                context().getTypeFactory(),
-                                table.descriptor().insertRowType(typeFactory)
-                        );
+                table.upsertAll(context(), rows).join();
 
-                        List<String> conflictKeys0 = conflictKeys.stream()
-                                .map(binRow -> table.toRow(context(), binRow, rowFactory, null))
-                                .map(context().rowHandler()::toString)
-                                .collect(Collectors.toList());
+                break;
+            case MERGE:
+                Pair<List<RowT>, List<RowT>> split = splitMerge(rows);
 
-                        throw conflictKeysException(conflictKeys0);
-                    }
+                List<CompletableFuture<?>> mergeParts = new ArrayList<>(2);
 
-                    break;
-                case UPDATE_ROW:
-                    tableView.upsertAll(op.getValue(), tx).join();
+                if (split.getFirst() != null) {
+                    mergeParts.add(table.insertAll(context(), split.getFirst()));
+                }
 
-                    break;
-                case DELETE_ROW:
-                    tableView.deleteAll(op.getValue(), tx).join();
+                if (split.getSecond() != null) {
+                    mergeParts.add(table.upsertAll(context(), split.getSecond()));
+                }
 
-                    break;
-                default:
-                    throw new UnsupportedOperationException(op.getKey().name());
-            }
+                CompletableFuture.allOf(
+                        mergeParts.toArray(CompletableFuture[]::new)
+                ).join();
+
+                break;
+            case DELETE:
+                table.deleteAll(context(), rows).join();
+
+                break;
+            default:
+                throw new UnsupportedOperationException(modifyOp.name());
         }
 
         updatedRows += rows.size();
     }
 
-    /** Transforms keys list to appropriate exception. */
-    private RuntimeException conflictKeysException(List<String> conflictKeys) {
-        LOG.debug("Unable to update some keys because of conflict [op={}, keys={}]", modifyOp, conflictKeys);
+    /** See {@link #mapping(TableDescriptor, List)}. */
+    private void inlineUpdates(int offset, List<RowT> rows) {
+        if (mapping == null) {
+            return;
+        }
 
-        return new SqlException(ErrorGroups.Sql.DUPLICATE_KEYS_ERR, "PK unique constraint is violated");
+        assert updateColumns != null;
+
+        RowHandler<RowT> handler = context().rowHandler();
+
+        int rowSize = handler.columnCount(rows.get(0));
+        int updateColumnOffset = hasUpsertSemantic(rowSize) ? rowSize - (mapping.length + updateColumns.size()) : 0;
+
+        for (RowT row : rows) {
+            for (int i = 0; i < mapping.length; i++) {
+                if (offset == 0 && i == mapping[i]) {
+                    continue;
+                }
+
+                handler.set(i, row, handler.get(mapping[i] + updateColumnOffset, row));
+            }
+        }
+    }
+
+    /**
+     * Splits the rows of merge operation onto rows that should be inserted and rows that should be updated.
+     *
+     * @param rows Rows to split.
+     * @return Pair where first element is list of rows to insert (or null if there is no such rows), and second
+     *     element is list of rows to update (or null if there is no such rows).
+     */
+    private Pair<List<RowT>, List<RowT>> splitMerge(List<RowT> rows) {
+        if (nullOrEmpty(updateColumns)) {
+            // WHEN NOT MATCHED clause only
+            return new Pair<>(rows, null);
+        }
+
+        assert mapping != null;
+
+        List<RowT> rowsToInsert = null;
+        List<RowT> rowsToUpdate = null;
+
+        RowHandler<RowT> handler = context().rowHandler();
+        int rowSize = handler.columnCount(rows.get(0));
+
+        int updateColumnOffset = rowSize - (mapping.length + updateColumns.size());
+
+        if (!hasUpsertSemantic(rowSize)) {
+            // WHEN MATCHED clause only
+            rowsToUpdate = rows;
+        } else {
+            rowsToInsert = new ArrayList<>();
+            rowsToUpdate = new ArrayList<>();
+
+            for (RowT row : rows) {
+                // this check doesn't seem correct because NULL could be a legit value for column,
+                // but this is how it was implemented before, so I just file an issue to deal with this later
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-18883
+                if (handler.get(updateColumnOffset, row) == null) {
+                    rowsToInsert.add(row);
+                } else {
+                    rowsToUpdate.add(row);
+                }
+            }
+
+            if (nullOrEmpty(rowsToInsert)) {
+                rowsToInsert = null;
+            }
+
+            if (nullOrEmpty(rowsToUpdate)) {
+                rowsToUpdate = null;
+            }
+        }
+
+        if (rowsToUpdate != null) {
+            inlineUpdates(updateColumnOffset, rowsToUpdate);
+        }
+
+        return new Pair<>(rowsToInsert, rowsToUpdate);
+    }
+
+    /**
+     * Returns {@code true} if this ModifyNode is MERGE operator that has both WHEN MATCHED and WHEN NOT MATCHED
+     * clauses, thus has na UPSERT semantic.
+     *
+     * <p>The rows passed to the node have one of the possible format: <ol>
+     *     <li>[insert row type] -- the node is INSERT or MERGE with WHEN NOT MATCHED clause only</li>
+     *     <li>[delete row type] -- the node is DELETE</li>
+     *     <li>[full row type] + [columns to update] -- the node is UPDATE or MERGE with WHEN MATCHED clause only</li>
+     *     <li>[insert row type] + [full row type] + [columns to update] -- the node is MERGE with both handlers, has UPSERT semantic</li>
+     * </ol>
+     *
+     * @param rowSize The size of the row passed to the node.
+     * @return {@code true} if the node is MERGE with UPSERT semantic.
+     */
+    private boolean hasUpsertSemantic(int rowSize) {
+        return mapping != null && updateColumns != null && rowSize > mapping.length + updateColumns.size();
+    }
+
+    /**
+     * Creates a mapping to inline updates into the row.
+     *
+     * <p>The row passed to the modify node contains columns specified by
+     * {@link TableDescriptor#selectForUpdateRowType(IgniteTypeFactory)} followed by {@link #updateColumns}. Here is an example:
+     *
+     * <pre>
+     *     CREATE TABLE t (a INT, b INT, c INT);
+     *     INSERT INTO t VALUES (2, 2, 2);
+     *
+     *     UPDATE t SET b = b + 10, c = c * 10;
+     *     -- If selectForUpdateRowType specifies all the table columns,
+     *     -- then the following row should be passed to ModifyNode:
+     *     -- [2, 2, 2, 12, 20], where first three values is the original values
+     *     -- of columns A, B, and C respectively, 12 is the computed value for column B,
+     *     -- and 20 is the computed value for column C
+     * </pre>
+     *
+     * <p>For example above we should get mapping [0, 3, 4]: <ul>
+     *     <li>The column at index 0 is A. It's not updated, thus it mapped onto itself: 0 --> 0</li>
+     *     <li>The column at index 1 is B. B should be updated, and new value for B is at the index 3: 1 --> 3</li>
+     *     <li>The column at index 2 is C. C should be updated, and new value for C is at the index 4: 2 --> 4</li>
+     * </ul>
+     *
+     * @param descriptor A descriptor of the target table.
+     * @param updateColumns Enumeration of columns to update.
+     * @return A mapping to inline the updates into the row.
+     */
+    private static int @Nullable [] mapping(TableDescriptor descriptor, @Nullable List<String> updateColumns) {
+        if (updateColumns == null) {
+            return null;
+        }
+
+        int columnCount = descriptor.columnsCount();
+
+        int[] mapping = new int[columnCount];
+
+        Object2IntMap<String> updateColumnIndexes = new Object2IntOpenHashMap<>(updateColumns.size());
+
+        for (int i = 0; i < updateColumns.size(); i++) {
+            updateColumnIndexes.put(updateColumns.get(i), i + columnCount);
+        }
+
+        for (int i = 0; i < columnCount; i++) {
+            ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(i);
+
+            mapping[i] = updateColumnIndexes.getOrDefault(columnDescriptor.name(), i);
+        }
+
+        return mapping;
     }
 
     private enum State {
@@ -269,4 +380,5 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         END
     }
+
 }

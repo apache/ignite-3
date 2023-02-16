@@ -168,7 +168,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         replicaService = mock(ReplicaService.class);
 
-        when(replicaService.invoke(any(), any()))
+        when(replicaService.invoke(any(ClusterNode.class), any()))
                 .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(1)));
 
         for (int i = 0; i < nodes(); i++) {

@@ -29,7 +29,6 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.ConverterUtils;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -61,8 +60,8 @@ import org.apache.ignite.sql.ColumnType;
  *
  * <p>Update {@link TypeUtils}:
  * <ul>
- *     <li>Update {@link TypeUtils#toInternal(ExecutionContext, Object, Type)} and
- *     {@link TypeUtils#fromInternal(ExecutionContext, Object, Type)} to add assertions that check
+ *     <li>Update {@link TypeUtils#toInternal(Object, Type)} and
+ *     {@link TypeUtils#fromInternal(Object, Type)} to add assertions that check
  *     that a value has the same type as a {@link #storageType()}.</li>
  * </ul>
  *
@@ -121,8 +120,8 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
      * type is also used by {@link TypeUtils TypeUtils} in type conversions.
      *
      * @see ExpressionFactoryImpl
-     * @see TypeUtils#toInternal(ExecutionContext, Object, Type)
-     * @see TypeUtils#fromInternal(ExecutionContext, Object, Type)
+     * @see TypeUtils#toInternal(Object, Type)
+     * @see TypeUtils#fromInternal(Object, Type)
      */
     public final Type storageType() {
         return storageType;
