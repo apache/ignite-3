@@ -98,6 +98,8 @@ public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
         assertExpression("MAX(val)").returns(1).check();
         assertExpression("ANY_VALUE(val)").returns(1).check();
         assertExpression("COUNT(*) FILTER(WHERE val <> 1)").returns(0L).check();
+        assertExpression("EVERY(val = 1)").returns(true).check();
+        assertExpression("SOME(val = 1)").returns(true).check();
     }
 
     @Test

@@ -75,8 +75,10 @@ public class Accumulators {
             case "$SUM0":
                 return sumEmptyIsZeroFactory(call);
             case "MIN":
+            case "EVERY":
                 return minFactory(call);
             case "MAX":
+            case "SOME":
                 return maxFactory(call);
             case "SINGLE_VALUE":
                 return SingleVal.FACTORY;
