@@ -41,7 +41,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -140,7 +139,6 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     /**
      * Tests a scenario when a node is restarted.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18795")
     @Test
     void testNodeRestart(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);

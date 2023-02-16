@@ -65,6 +65,7 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -280,6 +281,11 @@ public final class Commons {
      */
     public static IgniteTypeFactory typeFactory() {
         return typeFactory(cluster());
+    }
+
+    /** Row-expression builder. **/
+    public static RexBuilder rexBuilder() {
+        return cluster().getRexBuilder();
     }
 
     /**
