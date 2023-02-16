@@ -26,14 +26,18 @@ import java.util.Objects;
 /**
  * REST representation of internal ClusterState.
  */
-@Schema(name = "ClusterState")
+@Schema(name = "ClusterState", description = "Information about current cluster state.")
 public class ClusterStateDto {
+    @Schema(description = "List of cluster management group nodes. These nodes are responsible for maintaining RAFT cluster topology.")
     private final Collection<String> cmgNodes;
 
+    @Schema(description = "List of metastorage nodes. These nodes are responsible for storing RAFT cluster metadata.")
     private final Collection<String> msNodes;
 
+    @Schema(description = "Version of Apache Ignite that the cluster was created on.")
     private final String igniteVersion;
 
+    @Schema(description = "Unique tag that identifies the cluster.")
     private final ClusterTagDto clusterTag;
 
     /**
