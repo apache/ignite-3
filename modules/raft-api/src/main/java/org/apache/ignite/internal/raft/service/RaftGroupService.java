@@ -181,10 +181,10 @@ public interface RaftGroupService {
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param learners List of learners.
+     * @param learners Collection of learners.
      * @return A future.
      */
-    CompletableFuture<Void> removeLearners(List<Peer> learners);
+    CompletableFuture<Void> removeLearners(Collection<Peer> learners);
 
     /**
      * Set learners of the raft group to needed list of learners.
@@ -194,10 +194,10 @@ public interface RaftGroupService {
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param learners List of learners.
+     * @param learners Collection of learners.
      * @return A future.
      */
-    CompletableFuture<Void> resetLearners(List<Peer> learners);
+    CompletableFuture<Void> resetLearners(Collection<Peer> learners);
 
     /**
      * Takes a state machine snapshot on a given group peer.

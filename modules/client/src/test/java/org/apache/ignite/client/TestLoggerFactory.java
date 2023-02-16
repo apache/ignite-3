@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.lang.System.Logger;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +30,7 @@ import org.apache.ignite.lang.LoggerFactory;
  * Logger factory for tests.
  */
 public class TestLoggerFactory implements LoggerFactory {
-    public final ListLogger logger;
+    final ListLogger logger;
 
     TestLoggerFactory(String factoryName) {
         this.logger = new ListLogger(factoryName);
@@ -37,6 +39,10 @@ public class TestLoggerFactory implements LoggerFactory {
     @Override
     public Logger forName(String name) {
         return logger;
+    }
+
+    void assertLogContains(String msg) {
+        assertTrue(logger.entries().stream().anyMatch(x -> x.contains(msg)));
     }
 
     /** Logger that stores all messages in a list. */
