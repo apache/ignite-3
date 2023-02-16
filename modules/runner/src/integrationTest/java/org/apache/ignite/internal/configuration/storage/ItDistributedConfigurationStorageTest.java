@@ -35,6 +35,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -101,14 +102,14 @@ public class ItDistributedConfigurationStorageTest {
             raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
                     clusterStateStorage,
-                    logicalTopologyService,
+                    logicalTopology,
                     clusterManagementConfiguration
             );
 
@@ -116,6 +117,7 @@ public class ItDistributedConfigurationStorageTest {
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
                     new SimpleInMemoryKeyValueStorage(name())
             );

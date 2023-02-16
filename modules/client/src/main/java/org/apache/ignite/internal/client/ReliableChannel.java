@@ -500,7 +500,7 @@ public final class ReliableChannel implements AutoCloseable {
 
     private CompletableFuture<ClientChannel> getCurChannelAsync() {
         if (closed) {
-            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed"));
+            return CompletableFuture.failedFuture(new IgniteClientConnectionException(CONNECTION_ERR, "ReliableChannel is closed"));
         }
 
         curChannelsGuard.readLock().lock();

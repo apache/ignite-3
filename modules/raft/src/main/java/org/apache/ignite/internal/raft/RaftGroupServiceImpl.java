@@ -360,7 +360,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> removeLearners(List<Peer> learners) {
+    public CompletableFuture<Void> removeLearners(Collection<Peer> learners) {
         Peer leader = this.leader;
 
         if (leader == null) {
@@ -378,7 +378,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> resetLearners(List<Peer> learners) {
+    public CompletableFuture<Void> resetLearners(Collection<Peer> learners) {
         Peer leader = this.leader;
 
         if (leader == null) {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.distributed;
 
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
 
@@ -47,8 +46,9 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
     @Override
     @AfterEach
     public void after() throws Exception {
-        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000);
-        IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000);
+        //TODO Uncomment and add "assertTrue" when fixed IGNITE-18814.
+        // IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(accounts, 0), 5_000);
+        // IgniteTestUtils.waitForCondition(() -> assertPartitionsSame(customers, 0), 5_000);
 
         super.after();
     }

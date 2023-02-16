@@ -43,7 +43,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             runRace(
                     () -> abortWrite(ROW_ID),
                     () -> read(ROW_ID, clock.now()),
-                    () -> scanFirstEntry(clock.now())
+                    () -> scanFirstEntry(clock.now()),
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertNull(read(ROW_ID, clock.now()));
@@ -58,7 +60,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             runRace(
                     () -> commitWrite(ROW_ID, clock.now()),
                     () -> read(ROW_ID, clock.now()),
-                    () -> scanFirstEntry(clock.now())
+                    () -> scanFirstEntry(clock.now()),
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW);
@@ -73,7 +77,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             runRace(
                     () -> addWrite(ROW_ID, TABLE_ROW2, TX_ID),
                     () -> read(ROW_ID, clock.now()),
-                    () -> scanFirstEntry(clock.now())
+                    () -> scanFirstEntry(clock.now()),
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW2);
@@ -82,7 +88,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
-    void testRegularGcAndRead(AddAndCommit addAndCommit) {
+    public void testRegularGcAndRead(AddAndCommit addAndCommit) {
         for (int i = 0; i < REPEATS; i++) {
             HybridTimestamp firstCommitTs = addAndCommit(TABLE_ROW);
 
@@ -102,7 +108,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
-    void testTombstoneGcAndRead(AddAndCommit addAndCommit) {
+    public void testTombstoneGcAndRead(AddAndCommit addAndCommit) {
         for (int i = 0; i < REPEATS; i++) {
             HybridTimestamp firstCommitTs = addAndCommit.perform(this, TABLE_ROW);
 
@@ -120,7 +126,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
-    void testTombstoneGcAndAddWrite(AddAndCommit addAndCommit) {
+    public void testTombstoneGcAndAddWrite(AddAndCommit addAndCommit) {
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
@@ -141,7 +147,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
-    void testTombstoneGcAndCommitWrite(AddAndCommit addAndCommit) {
+    public void testTombstoneGcAndCommitWrite(AddAndCommit addAndCommit) {
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
@@ -164,7 +170,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
-    void testTombstoneGcAndAbortWrite(AddAndCommit addAndCommit) {
+    public void testTombstoneGcAndAbortWrite(AddAndCommit addAndCommit) {
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
@@ -183,7 +189,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
     @ParameterizedTest
     @EnumSource(AddAndCommit.class)
-    void testConcurrentGc(AddAndCommit addAndCommit) {
+    public void testConcurrentGc(AddAndCommit addAndCommit) {
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
@@ -207,6 +213,13 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         }
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private void scanFirstVersion(RowId rowId) {
+        try (var cursor = scan(rowId)) {
+            cursor.hasNext();
+        }
+    }
+
     /**
      * Adds a tombstone and cleans a GC queue until nothing's there.
      */
@@ -220,7 +233,10 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         } while (row != null);
     }
 
-    private enum AddAndCommit {
+    /**
+     * Performing add write.
+     */
+    protected enum AddAndCommit {
         ATOMIC {
             @Override
             HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable BinaryRow binaryRow) {
