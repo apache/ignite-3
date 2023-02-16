@@ -290,6 +290,7 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
+            // TODO: Locking is too strict, we can connect to multiple endpoints in parallel?
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
             var tasks = new List<Task>(_endpoints.Count);
