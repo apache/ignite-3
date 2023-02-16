@@ -131,11 +131,15 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
             SchemaDescriptor newSchema = SchemaUtils.prepareSchemaDescriptor(newSchemaVersion, tblCfg);
 
             // This is intentionally a blocking call to enforce configuration listener execution order. Unfortunately it is not possible
-            // to execute this method asynchronously, because there is a race between this listener and completion of associated
-            // VersionedValues.
+            // to execute this method asynchronously, because the schema descriptor is needed to fire the CREATE event as a synchronous part
+            // of the configuration listener.
             try {
                 setColumnMapping(newSchema, tblId);
-            } catch (ExecutionException | InterruptedException e) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                return failedFuture(e);
+            } catch (ExecutionException e) {
                 return failedFuture(e);
             }
 
