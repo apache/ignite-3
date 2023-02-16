@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -51,6 +52,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -115,6 +117,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
@@ -308,10 +311,10 @@ public class ReplicaEndpointManager implements IgniteComponent {
 
         busyLock.block();
 
-//        Map<UUID, TableImpl> tables = tableManager.tablesByIdVv.latest();
-//
-//        cleanUpTablesResources(tables);
-//
+        Map<UUID, TableImpl> tables = tableManager.latestTables();
+
+        cleanUpTablesResources(tables);
+
 //        cleanUpTablesResources(tablesToStopInCaseOfError);
 //
 //        tablesToStopInCaseOfError.clear();
@@ -964,6 +967,77 @@ public class ReplicaEndpointManager implements IgniteComponent {
 
     private boolean isLocalPeer(Peer peer) {
         return peer.consistentId().equals(clusterService.topologyService().localMember().name());
+    }
+
+    /**
+     * Stops resources that are related to provided tables.
+     *
+     * @param tables Tables to stop.
+     */
+    private void cleanUpTablesResources(Map<UUID, TableImpl> tables) {
+        for (TableImpl table : tables.values()) {
+            table.beforeClose();
+
+            List<Runnable> stopping = new ArrayList<>();
+
+            AtomicReference<Exception> exception = new AtomicReference<>();
+
+            AtomicBoolean nodeStoppingEx = new AtomicBoolean();
+
+            for (int p = 0; p < table.internalTable().partitions(); p++) {
+                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+
+                stopping.add(() -> {
+                    try {
+                        raftMgr.stopRaftNodes(replicationGroupId);
+                    } catch (Exception e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+
+                stopping.add(() -> {
+                    try {
+                        replicaMgr.stopReplica(replicationGroupId);
+                    } catch (Exception e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+            }
+
+            stopping.forEach(Runnable::run);
+
+            try {
+                IgniteUtils.closeAllManually(
+                        table.internalTable().storage(),
+                        table.internalTable().txStateStorage(),
+                        table.internalTable()
+                );
+            } catch (Exception e) {
+                if (!exception.compareAndSet(null, e)) {
+                    exception.get().addSuppressed(e);
+                }
+            }
+
+            if (exception.get() != null) {
+                LOG.info("Unable to stop table [name={}, tableId={}]", exception.get(), table.name(), table.tableId());
+            }
+        }
     }
 
 }

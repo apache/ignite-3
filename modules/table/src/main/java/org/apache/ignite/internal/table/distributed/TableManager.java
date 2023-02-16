@@ -243,9 +243,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
-    /** Executor for scheduling retries of a rebalance. */
-    private final ScheduledExecutorService rebalanceScheduler;
-
     /** Transaction state storage scheduled pool. */
     private final ScheduledExecutorService txStateStorageScheduledPool;
 
@@ -394,9 +391,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "scan-query-executor-", LOG));
-
-        rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -841,13 +835,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
-        cleanUpTablesResources(tables);
+//        cleanUpTablesResources(tables);
 
         cleanUpTablesResources(tablesToStopInCaseOfError);
 
         tablesToStopInCaseOfError.clear();
 
-        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(ioExecutor, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS);
         shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS);
