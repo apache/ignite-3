@@ -24,28 +24,52 @@ import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
  * Accumulators.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class Accumulators {
+
+    private final CustomDataTypeAccumulators customDataTypeAccumulators;
+
+    /**
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public Accumulators(IgniteTypeFactory typeFactory) {
+        // IgniteCustomType: Register aggregate functions for the custom data types.
+
+        var customTypeAccumulators = new CustomDataTypeAccumulators();
+
+        var uuidType = (IgniteCustomType<?>) typeFactory.createCustomType(UuidType.NAME);
+        customTypeAccumulators.addMinAggregate(uuidType);
+        customTypeAccumulators.addMaxAggregate(uuidType);
+
+        this.customDataTypeAccumulators = customTypeAccumulators;
+    }
+
     /**
      * AccumulatorFactory.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
+    public Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
         if (!call.isDistinct()) {
             return accumulatorFunctionFactory(call);
         }
@@ -59,7 +83,7 @@ public class Accumulators {
      * AccumulatorFunctionFactory.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
+    private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
         // Update documentation in IgniteCustomType when you add an aggregate
         // that can work for any type out of the box.
         switch (call.getAggregation().getName()) {
@@ -84,7 +108,7 @@ public class Accumulators {
         }
     }
 
-    private static Supplier<Accumulator> avgFactory(AggregateCall call) {
+    private Supplier<Accumulator> avgFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
@@ -94,15 +118,16 @@ public class Accumulators {
             case FLOAT:
             case INTEGER:
             default:
-                // IgniteCustomType: AVG for a custom type should go here.
-                if (call.type.getSqlTypeName() == ANY) {
+                if (call.type instanceof IgniteCustomType<?>) {
+                    return customDataTypeAccumulators.getAccumulatorFactory(call);
+                } else if (call.type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 }
                 return DoubleAvg.FACTORY;
         }
     }
 
-    private static Supplier<Accumulator> sumFactory(AggregateCall call) {
+    private Supplier<Accumulator> sumFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
@@ -117,15 +142,16 @@ public class Accumulators {
             case SMALLINT:
             case INTEGER:
             default:
-                // IgniteCustomType: SUM for a custom type should go here.
-                if (call.type.getSqlTypeName() == ANY) {
+                if (call.type instanceof IgniteCustomType<?>) {
+                    return customDataTypeAccumulators.getAccumulatorFactory(call);
+                } else if (call.type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 }
                 return () -> new Sum(new LongSumEmptyIsZero());
         }
     }
 
-    private static Supplier<Accumulator> sumEmptyIsZeroFactory(AggregateCall call) {
+    private Supplier<Accumulator> sumEmptyIsZeroFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
@@ -140,15 +166,16 @@ public class Accumulators {
             case SMALLINT:
             case INTEGER:
             default:
-                // IgniteCustomType: $SUM0 for a custom type should go here.
-                if (call.type.getSqlTypeName() == ANY) {
+                if (call.type instanceof IgniteCustomType<?>) {
+                    return customDataTypeAccumulators.getAccumulatorFactory(call);
+                } else if (call.type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 }
                 return LongSumEmptyIsZero.FACTORY;
         }
     }
 
-    private static Supplier<Accumulator> minFactory(AggregateCall call) {
+    private Supplier<Accumulator> minFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case DOUBLE:
             case REAL:
@@ -163,15 +190,16 @@ public class Accumulators {
                 return VarCharMinMax.MIN_FACTORY;
             case BIGINT:
             default:
-                // IgniteCustomType: MIN for a custom type should go here.
-                if (call.type.getSqlTypeName() == ANY) {
+                if (call.type instanceof IgniteCustomType) {
+                    return customDataTypeAccumulators.getAccumulatorFactory(call);
+                } else if (call.type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 }
                 return LongMinMax.MIN_FACTORY;
         }
     }
 
-    private static Supplier<Accumulator> maxFactory(AggregateCall call) {
+    private Supplier<Accumulator> maxFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case DOUBLE:
             case REAL:
@@ -186,8 +214,9 @@ public class Accumulators {
                 return VarCharMinMax.MAX_FACTORY;
             case BIGINT:
             default:
-                // IgniteCustomType: MAX for a custom type should go here.
-                if (call.type.getSqlTypeName() == ANY) {
+                if (call.type instanceof IgniteCustomType) {
+                    return customDataTypeAccumulators.getAccumulatorFactory(call);
+                } else if (call.type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 }
                 return LongMinMax.MAX_FACTORY;
@@ -1016,6 +1045,115 @@ public class Accumulators {
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return acc.returnType(typeFactory);
+        }
+    }
+
+    /**
+     * Registry for {@link Accumulator accumulators} for custom data types.
+     */
+    private static final class CustomDataTypeAccumulators {
+
+        final Map<String, Map<String, Supplier<Accumulator>>> accumulators = new HashMap<>();
+
+        Supplier<Accumulator> getAccumulatorFactory(AggregateCall call) {
+            var functionName = call.getAggregation().getName();
+            var operandType = (IgniteCustomType<?>) call.getType();
+            var customTypeName = operandType.getCustomTypeName();
+
+            var functions = accumulators.computeIfAbsent(customTypeName, (tpe) -> Collections.emptyMap());
+            var acc = functions.get(functionName);
+
+            if (acc == null) {
+                var error = format("No aggregate function: {}, operand type: {}", functionName, customTypeName);
+                throw new IllegalArgumentException(error);
+            }
+
+            return acc;
+        }
+
+        private void addMinAggregate(IgniteCustomType<?> type) {
+            addFunction(type.getCustomTypeName(), "MIN", () -> new IgniteCustomTypeMinMax(true, type));
+        }
+
+        private void addMaxAggregate(IgniteCustomType<?> type) {
+            addFunction(type.getCustomTypeName(), "MAX", () -> new IgniteCustomTypeMinMax(false, type));
+        }
+
+        private void addFunction(String typeName, String function, Supplier<Accumulator> acc) {
+            var functions = accumulators.computeIfAbsent(typeName, (f) -> new HashMap<>());
+            functions.put(function, acc);
+        }
+    }
+
+    private static final class IgniteCustomTypeMinMax implements Accumulator {
+
+        private static final long serialVersionUID = -6715222394982885246L;
+
+        private final boolean min;
+
+        private final List<RelDataType> arguments;
+
+        private final RelDataType returnType;
+
+        @SuppressWarnings({"rawtypes"})
+        private Comparable val;
+
+        private IgniteCustomTypeMinMax(boolean min, IgniteCustomType<?> relDataType) {
+            this.min = min;
+            this.arguments = List.of(relDataType.createWithNullability(true));
+            this.returnType = relDataType.createWithNullability(true);
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        @SuppressWarnings({"rawtypes"})
+        public void add(Object... args) {
+            Comparable in = (Comparable) args[0];
+
+            doApply(in);
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public void apply(Accumulator other) {
+            IgniteCustomTypeMinMax other0 = (IgniteCustomTypeMinMax) other;
+            doApply(other0.val);
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public Object end() {
+            return val;
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return arguments;
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return returnType;
+        }
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        private void doApply(Comparable in) {
+            if (in == null) {
+                return;
+            }
+
+            if (val == null) {
+                val = in;
+            } else {
+                int cmp = val.compareTo(in);
+                if (min) {
+                    val = cmp > 0 ? in : val;
+                } else {
+                    val = cmp < 0 ? in : val;
+                }
+            }
         }
     }
 
