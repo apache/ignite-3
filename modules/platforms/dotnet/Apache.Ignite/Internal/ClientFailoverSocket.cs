@@ -290,15 +290,12 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
-            // TODO: Locking is too strict, we can connect to multiple endpoints in parallel?
-            await _socketLock.WaitAsync().ConfigureAwait(false);
-
-            var tasks = new List<Task>(_endpoints.Count);
-
-            _logger?.Debug("Establishing secondary connections...");
-
             try
             {
+                var tasks = new List<Task>(_endpoints.Count);
+
+                _logger?.Debug("Establishing secondary connections...");
+
                 foreach (var endpoint in _endpoints)
                 {
                     if (endpoint.Socket?.IsDisposed == false)
@@ -314,10 +311,6 @@ namespace Apache.Ignite.Internal
             catch (Exception e)
             {
                 _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
-            }
-            finally
-            {
-                _socketLock.Release();
             }
         }
 
