@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Benchmarks.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -44,10 +45,18 @@ public class TableGetMultiThreadedBenchmarks
     [Params(1, 2, 4)]
     public int ServerCount { get; set; }
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global, MemberCanBePrivate.Global (benchmark parameter).
+    [Params(0, 10)]
+    public int ServerOperationDelayMs { get; set; }
+
     [GlobalSetup]
     public async Task GlobalSetup()
     {
-        _servers = Enumerable.Range(0, ServerCount).Select(_ => new FakeServer()).ToList();
+        var operationDelay = TimeSpan.FromMilliseconds(ServerOperationDelayMs);
+
+        _servers = Enumerable.Range(0, ServerCount)
+            .Select(_ => new FakeServer { OperationDelay = operationDelay })
+            .ToList();
 
         _client = await IgniteClient.StartAsync(new IgniteClientConfiguration(_servers.Select(s => s.Endpoint).ToArray()));
     }
