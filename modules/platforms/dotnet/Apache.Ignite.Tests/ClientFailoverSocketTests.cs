@@ -27,7 +27,6 @@ using NUnit.Framework;
 /// </summary>
 public class ClientFailoverSocketTests
 {
-    // TODO: Test that disposed socket throws exception
     [Test]
     public async Task TestBackgroundConnectionProcessDoesNotBlockOperations()
     {
