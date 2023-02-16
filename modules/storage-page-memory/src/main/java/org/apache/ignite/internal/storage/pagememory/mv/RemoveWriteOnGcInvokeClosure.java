@@ -27,6 +27,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -40,6 +41,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
 public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain> {
+    private final RowId rowId;
+
     private final HybridTimestamp timestamp;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
@@ -54,7 +57,8 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     private @Nullable RowVersion toUpdate;
 
-    RemoveWriteOnGcInvokeClosure(HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+    RemoveWriteOnGcInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+        this.rowId = rowId;
         this.timestamp = timestamp;
         this.storage = storage;
     }
@@ -159,6 +163,10 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
      */
     void afterCompletion() {
         toRemove.forEach(storage::removeRowVersion);
+
+        if (toUpdate != null && !result.hasNextLink()) {
+            storage.removeFromGc(rowId, toUpdate.timestamp());
+        }
     }
 
     /**

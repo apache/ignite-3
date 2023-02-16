@@ -990,7 +990,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowId rowId = next.get2();
 
             return inUpdateVersionChainLock(rowId, () -> {
-                RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowTimestamp, this);
+                RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, this);
 
                 try {
                     versionChainTree.invoke(new VersionChainKey(rowId), null, removeWriteOnGc);
@@ -1033,5 +1033,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         Comparator<IgniteBiTuple<HybridTimestamp, RowId>> comparing = Comparator.comparing(IgniteBiTuple::get1);
 
         return comparing.thenComparing(IgniteBiTuple::get2);
+    }
+
+    void removeFromGc(RowId rowId, HybridTimestamp timestamp) {
+        gcQueue.remove(new IgniteBiTuple<>(timestamp, rowId));
     }
 }
