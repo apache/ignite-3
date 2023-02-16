@@ -396,8 +396,12 @@ namespace Apache.Ignite.Internal.Table
             ClientOp clientOp,
             Transaction? tx,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default) =>
-            await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+            PreferredNode preferredNode = default)
+        {
+            var (buf, _) = await _table.Socket.DoOutInOpAndGetSocketAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+
+            return buf;
+        }
 
         private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,
