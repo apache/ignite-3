@@ -476,7 +476,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /**
      * Creates a custom data type with the given {@code typeName} and without precision.
-     * A shorthand for {@code createCustomType(typeName, -1)}.
+     *
+     * <p>A shorthand for {@code createCustomType(typeName, -1)}.
      *
      * @param typeName Type name.
      * @return A custom data type.
@@ -502,7 +503,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
         /**
          * Contains java types used by registered custom data types.
-         * We need those to reject attempts to create custom data types via
+         *
+         * <p>We need those to reject attempts to create custom data types via
          * {@link IgniteTypeFactory#createType(Type)}/{@link IgniteTypeFactory#createJavaType(Class)}
          * methods of {@link IgniteTypeFactory}.
          */

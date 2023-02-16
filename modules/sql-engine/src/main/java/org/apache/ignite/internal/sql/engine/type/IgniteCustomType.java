@@ -23,6 +23,7 @@ import org.apache.calcite.rel.type.RelDataTypeFamily;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -47,9 +48,6 @@ import org.apache.ignite.sql.ColumnType;
  *
  * <p>Add a subclass that extends {@link IgniteCustomType}.
  * <ul>
- *     <li>Implement {@link IgniteCustomType#storageType()} - storage type must implement {@link Comparable}.
- *     This is a requirement imposed by calcite's row-expressions implementation.
- *     (see {@link org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder IgniteRexBuilder}).</li>
  *     <li>Implement {@link IgniteCustomType#nativeType()}.</li>
  *     <li>Implement {@link IgniteCustomType#columnType()}.</li>
  *     <li>Implement {@link IgniteCustomType#createWithNullability(boolean)}.</li>
@@ -91,6 +89,9 @@ import org.apache.ignite.sql.ColumnType;
  *
  * <p><b>Update this documentation when you are going to change this procedure.</b>
  *
+ * @param <StorageT> A class representing value in a storage. Must implement {@link Comparable}.
+ *     This is a requirement imposed by calcite's row-expressions implementation
+ *     (see {@link org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder IgniteRexBuilder}).
 */
 public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> extends RelDataTypeImpl {
 
@@ -176,16 +177,15 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
     /**
      * Creates an {@link SqlTypeNameSpec} for this custom data type, which is used as an argument for the CAST function.
      *
-     * @return  An SQL type name spec.
+     * @return An SQL type name spec.
      */
     public final SqlTypeNameSpec createTypeNameSpec() {
-        if (getPrecision() == PRECISION_NOT_SPECIFIED) {
-            SqlIdentifier typeNameId = new SqlIdentifier(getCustomTypeName(), SqlParserPos.ZERO);
+        SqlIdentifier typeNameId = new SqlIdentifier(getCustomTypeName(), SqlParserPos.ZERO);
 
+        if (getPrecision() == PRECISION_NOT_SPECIFIED) {
             return new IgniteSqlTypeNameSpec(typeNameId, SqlParserPos.ZERO);
         } else {
-            var typeNameId = new SqlIdentifier(getCustomTypeName(), SqlParserPos.ZERO);
-            var precision = SqlLiteral.createExactNumeric(Integer.toString(getPrecision()), SqlParserPos.ZERO);
+            SqlNumericLiteral precision = SqlLiteral.createExactNumeric(Integer.toString(getPrecision()), SqlParserPos.ZERO);
 
             return new IgniteSqlTypeNameSpec(typeNameId, precision, SqlParserPos.ZERO);
         }
