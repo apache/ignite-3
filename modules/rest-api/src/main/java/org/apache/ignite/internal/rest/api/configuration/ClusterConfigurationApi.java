@@ -104,5 +104,6 @@ public interface ClusterConfigurationApi {
             MediaType.PROBLEM_JSON
     })
     @Get("/{path}")
-    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true, description = "Configuration tree address. For example: `element.subelement`.")  String path);
+    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
+            description = "Configuration tree address. For example: `element.subelement`.")  String path);
 }

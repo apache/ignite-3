@@ -83,7 +83,8 @@ public interface NodeConfigurationApi {
             MediaType.PROBLEM_JSON
     })
     @Get("/{path}")
-    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true, description = "Configuration tree address. For example: `element.subelement`.") String path);
+    String getConfigurationByPath(@PathVariable("path") @Parameter(required = true,
+            description = "Configuration tree address. For example: `element.subelement`.") String path);
 
     /**
      * Updates node configuration in HOCON format. This is represented as a plain text.

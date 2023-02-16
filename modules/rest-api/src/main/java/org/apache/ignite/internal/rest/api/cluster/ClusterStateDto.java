@@ -26,7 +26,7 @@ import java.util.Objects;
 /**
  * REST representation of internal ClusterState.
  */
-@Schema(name = "ClusterState", description="Information about current cluster state.")
+@Schema(name = "ClusterState", description = "Information about current cluster state.")
 public class ClusterStateDto {
     @Schema(description = "List of cluster management group nodes. These nodes are responsible for maintaining RAFT cluster topology.")
     private final Collection<String> cmgNodes;
