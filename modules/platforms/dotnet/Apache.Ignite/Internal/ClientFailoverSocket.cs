@@ -124,6 +124,14 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Resets global endpoint index.
+        /// </summary>
+        public static void ResetGlobalEndpointIndex()
+        {
+            _globalEndPointIndex = 0;
+        }
+
+        /// <summary>
         /// Performs an in-out operation.
         /// </summary>
         /// <param name="clientOp">Client op code.</param>

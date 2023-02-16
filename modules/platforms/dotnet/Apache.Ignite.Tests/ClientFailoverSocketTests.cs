@@ -17,13 +17,39 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Threading.Tasks;
 using Internal;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="ClientFailoverSocket"/>.
 /// </summary>
 public class ClientFailoverSocketTests
 {
-    // TODO: Test that socket can be used while connections are established in background
     // TODO: Test that disposed socket throws exception
+    [Test]
+    public async Task TestBackgroundConnectionProcessDoesNotBlockOperations()
+    {
+        ClientFailoverSocket.ResetGlobalEndpointIndex();
+
+        var operationTimeout = TimeSpan.FromSeconds(1);
+        var handshakeDelay = TimeSpan.FromSeconds(10);
+
+        using var server1 = new FakeServer { HandshakeDelay = handshakeDelay };
+        using var server2 = new FakeServer();
+
+        var clientCfg = new IgniteClientConfiguration
+        {
+            Endpoints = { server1.Endpoint, server2.Endpoint }
+        };
+
+        // First connection will go to server2, which does not have a delay.
+        // Second connection will be established in background, and will take 10 seconds, but will not delay operations.
+        var client = await IgniteClient.StartAsync(clientCfg).WaitAsync(operationTimeout);
+        var tables = await client.Tables.GetTablesAsync().WaitAsync(operationTimeout);
+
+        Assert.AreEqual(0, tables.Count);
+        Assert.AreEqual(1, client.GetConnections().Count);
+    }
 }
