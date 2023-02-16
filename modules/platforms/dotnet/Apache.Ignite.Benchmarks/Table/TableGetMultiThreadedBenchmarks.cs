@@ -28,9 +28,12 @@ using Tests;
 /// Measures simple operation on a fake server - retrieve table id by name from multiple threads.
 /// <para />
 /// Results on i9-12900H, .NET SDK 6.0.405, Ubuntu 22.04:
-/// TODO.
+/// |   Method | ServerCount |     Mean |     Error |    StdDev |
+/// |--------- |------------ |---------:|----------:|----------:|
+/// | TableGet |           1 | 1.520 ms | 0.0304 ms | 0.0406 ms |
+/// | TableGet |           2 | 1.266 ms | 0.0250 ms | 0.0560 ms |
+/// | TableGet |           4 | 1.010 ms | 0.0202 ms | 0.0421 ms |.
 /// </summary>
-[MemoryDiagnoser]
 public class TableGetMultiThreadedBenchmarks
 {
     [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Reviewed.")]
@@ -57,5 +60,5 @@ public class TableGetMultiThreadedBenchmarks
 
     [Benchmark]
     public void TableGet() =>
-        Parallel.For(1, 1000, _ => _client.Tables.GetTableAsync(FakeServer.ExistingTableName).GetAwaiter().GetResult());
+        Parallel.For(1, 100, _ => _client.Tables.GetTableAsync(FakeServer.ExistingTableName).GetAwaiter().GetResult());
 }
