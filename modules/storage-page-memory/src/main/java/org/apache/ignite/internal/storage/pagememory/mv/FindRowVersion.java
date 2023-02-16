@@ -18,20 +18,22 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionIdFromLink;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
-import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Looks for a row version in the version chain by timestamp.
+ * Search for a row version in version chains.
  */
-class FindRowVersion implements PageMemoryTraversal<HybridTimestamp> {
+class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
     private final int partitionId;
 
     private final boolean loadValueBytes;
@@ -56,17 +58,15 @@ class FindRowVersion implements PageMemoryTraversal<HybridTimestamp> {
     }
 
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, HybridTimestamp arg) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, RowVersionFilter arg) {
         if (!rowVersionFounded) {
-            HybridTimestamp readTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
+            long nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
-            long nextLink = PartitionlessLinks.readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
-
-            if (readTimestamp != null && readTimestamp.compareTo(arg) == 0) {
+            if (arg.apply(link, pageAddr + payload.offset())) {
                 rowVersionFounded = true;
 
                 rowLink = link;
-                rowTimestamp = readTimestamp;
+                rowTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
                 rowNextLink = nextLink;
 
                 if (!loadValueBytes) {
@@ -104,9 +104,38 @@ class FindRowVersion implements PageMemoryTraversal<HybridTimestamp> {
     }
 
     /**
-     * Returns the row version in the version chain found by the timestamp, {@code null} if not found.
+     * Returns the found version in the version chain, {@code null} if not found.
      */
     @Nullable RowVersion getResult() {
         return result;
+    }
+
+    /**
+     * Row version filter in the version chain.
+     */
+    interface RowVersionFilter {
+        /**
+         * Returns {@code true} if the version matches.
+         *
+         * @param rowVersionLink Row version link;
+         * @param rowVersionAdder Address to row version (including page address + offset within it).
+         */
+        boolean apply(long rowVersionLink, long rowVersionAdder);
+
+        static RowVersionFilter equalsByTimestamp(HybridTimestamp timestamp) {
+            return (rowVersionLink, rowVersionAdder) -> {
+                HybridTimestamp readTimestamp = HybridTimestamps.readTimestamp(rowVersionAdder, RowVersion.TIMESTAMP_OFFSET);
+
+                return readTimestamp != null && readTimestamp.compareTo(timestamp) == 0;
+            };
+        }
+
+        static RowVersionFilter equalsByNextLink(long nextLink) {
+            return (rowVersionLink, rowVersionAdder) -> {
+                long readNextLink = readPartitionless(partitionIdFromLink(rowVersionLink), rowVersionAdder, RowVersion.NEXT_LINK_OFFSET);
+
+                return readNextLink == nextLink;
+            };
+        }
     }
 }

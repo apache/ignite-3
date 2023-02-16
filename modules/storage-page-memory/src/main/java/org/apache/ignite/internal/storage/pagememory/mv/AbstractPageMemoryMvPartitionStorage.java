@@ -73,6 +73,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
+import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -396,18 +397,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return read.result();
     }
 
-    @Nullable RowVersion foundRowVersion(VersionChain versionChain, HybridTimestamp timestamp, boolean loadValueBytes) {
+    @Nullable RowVersion foundRowVersion(VersionChain versionChain, RowVersionFilter filter, boolean loadValueBytes) {
         assert versionChain.headLink() != NULL_LINK;
 
         FindRowVersion findRowVersion = new FindRowVersion(partitionId, loadValueBytes);
 
         try {
-            rowVersionDataPageReader.traverse(versionChain.headLink(), findRowVersion, timestamp);
+            rowVersionDataPageReader.traverse(versionChain.headLink(), findRowVersion, filter);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
-                    "Error when looking up row version in version chain: [rowId={}, headLink={}, timestamp={}, {}]",
+                    "Error when looking up row version in version chain: [rowId={}, headLink={}, {}]",
                     e,
-                    versionChain.rowId(), versionChain.headLink(), timestamp, createStorageInfo()
+                    versionChain.rowId(), versionChain.headLink(), createStorageInfo()
             );
         }
 
@@ -1006,7 +1007,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 removeWriteOnGc.afterCompletion();
 
-                RowVersion removedRowVersion = removeWriteOnGc.getRemovedRowVersion();
+                RowVersion removedRowVersion = removeWriteOnGc.getResult();
 
                 return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
             });

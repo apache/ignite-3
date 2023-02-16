@@ -19,7 +19,10 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
+import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByNextLink;
+import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByTimestamp;
 
+import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -45,9 +48,11 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     private @Nullable VersionChain newRow;
 
-    private RowVersion rowVersion;
+    private List<RowVersion> toRemove;
 
-    private RowVersion nextRowVersion;
+    private RowVersion result;
+
+    private @Nullable RowVersion toUpdate;
 
     RemoveWriteOnGcInvokeClosure(HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
         this.timestamp = timestamp;
@@ -59,22 +64,44 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         assert oldRow != null : storage.createStorageInfo();
         assert oldRow.nextLink() != NULL_LINK : oldRow;
 
-        rowVersion = findRowVersionLinkWithChecks(oldRow);
-        nextRowVersion = storage.readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE, true);
+        RowVersion rowVersion = findRowVersionLinkWithChecks(oldRow);
+        RowVersion nextRowVersion = storage.readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE, true);
 
-        // If the head is a tombstone, then we must destroy both the found version and the chain so that there is no memory leak.
-        if (oldRow.headLink() == rowVersion.link() && rowVersion.isTombstone()) {
-            operationType = OperationType.REMOVE;
+        result = nextRowVersion;
 
-            return;
-        }
+        // If the found version is a tombstone, then we must remove it as well.
+        if (rowVersion.isTombstone()) {
+            toRemove = List.of(nextRowVersion, rowVersion);
 
-        operationType = OperationType.PUT;
+            // If the found version is the head of the chain, then delete the entire chain.
+            if (oldRow.headLink() == rowVersion.link()) {
+                operationType = OperationType.REMOVE;
+            } else if (oldRow.nextLink() == rowVersion.link()) {
+                operationType = OperationType.PUT;
 
-        if (oldRow.headLink() == rowVersion.link()) {
-            newRow = oldRow.setNextLink(nextRowVersion.nextLink());
+                toUpdate = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
+
+                newRow = oldRow.setNextLink(nextRowVersion.nextLink());
+            } else {
+                operationType = OperationType.PUT;
+
+                newRow = oldRow;
+
+                // Let's find the parent row version and update the link for it.
+                toUpdate = storage.foundRowVersion(oldRow, equalsByNextLink(rowVersion.link()), false);
+            }
         } else {
-            newRow = oldRow;
+            operationType = OperationType.PUT;
+
+            toRemove = List.of(nextRowVersion);
+
+            toUpdate = rowVersion;
+
+            if (oldRow.headLink() == rowVersion.link()) {
+                newRow = oldRow.setNextLink(nextRowVersion.nextLink());
+            } else {
+                newRow = oldRow;
+            }
         }
     }
 
@@ -94,21 +121,21 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     @Override
     public void onUpdate() {
-        if (operationType != OperationType.REMOVE) {
+        if (toUpdate != null) {
             try {
-                storage.rowVersionFreeList.updateNextLink(rowVersion.link(), nextRowVersion.nextLink());
+                storage.rowVersionFreeList.updateNextLink(toUpdate.link(), result.nextLink());
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
-                        "Error updating the next link: [rowId={}, timestamp={}, row={}, nextRow={}, {}]",
+                        "Error updating the next link: [rowId={}, timestamp={}, rowLink={}, nextLink={}, {}]",
                         e,
-                        newRow.rowId(), timestamp, rowVersion, nextRowVersion, storage.createStorageInfo()
+                        newRow.rowId(), timestamp, toUpdate.link(), result.nextLink(), storage.createStorageInfo()
                 );
             }
         }
     }
 
     private RowVersion findRowVersionLinkWithChecks(VersionChain versionChain) {
-        RowVersion rowVersion = storage.foundRowVersion(versionChain, timestamp, false);
+        RowVersion rowVersion = storage.foundRowVersion(versionChain, equalsByTimestamp(timestamp), false);
 
         if (rowVersion == null) {
             throw new StorageException(
@@ -131,19 +158,15 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
     void afterCompletion() {
-        storage.removeRowVersion(nextRowVersion);
-
-        if (operationType == OperationType.REMOVE) {
-            storage.removeRowVersion(rowVersion);
-        }
+        toRemove.forEach(storage::removeRowVersion);
     }
 
     /**
-     * Returns the removed row version from the version chain.
+     * Returns the version that was removed in the version chain on garbage collection.
      */
-    RowVersion getRemovedRowVersion() {
-        assert nextRowVersion != null;
+    RowVersion getResult() {
+        assert result != null;
 
-        return nextRowVersion;
+        return result;
     }
 }

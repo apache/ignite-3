@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionIdFromLink;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
 import java.nio.ByteBuffer;
@@ -24,7 +25,6 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.jetbrains.annotations.Nullable;
@@ -86,10 +86,6 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
         }
 
         return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
-    }
-
-    private int partitionIdFromLink(long link) {
-        return PageIdUtils.partitionId(PageIdUtils.pageId(link));
     }
 
     @Override
