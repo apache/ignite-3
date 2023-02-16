@@ -290,6 +290,7 @@ public class ItSslTest {
                 + "      }\n"
                 + "  }\n"
                 + "}";
+
         @WorkDirectory
         private Path workDir;
         private Cluster cluster;
