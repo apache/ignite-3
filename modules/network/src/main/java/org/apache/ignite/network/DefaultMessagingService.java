@@ -82,12 +82,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final AtomicLong correlationIdGenerator = new AtomicLong();
 
     /** Executor for outbound messages. */
-    private final ExecutorService outboundExecutor = Executors.newSingleThreadExecutor(
+    private final ExecutorService outboundExecutor = Executors.newFixedThreadPool(
+            4,
             new NamedThreadFactory("MessagingService-outbound-", LOG)
     );
 
     /** Executor for inbound messages. */
-    private final ExecutorService inboundExecutor = Executors.newSingleThreadExecutor(
+    private final ExecutorService inboundExecutor = Executors.newFixedThreadPool(
+            4,
             new NamedThreadFactory("MessagingService-inbound-", LOG)
     );
 
