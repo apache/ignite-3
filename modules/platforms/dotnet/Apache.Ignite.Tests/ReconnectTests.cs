@@ -38,7 +38,9 @@ public class ReconnectTests
         using var server = new FakeServer { SendInvalidMagic = true };
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
-        Assert.AreEqual("Invalid header", ex!.Message);
+
+        StringAssert.StartsWith("Failed to connect to endpoint: 127.0.0.1:", ex!.Message);
+        StringAssert.StartsWith("Invalid magic bytes returned from the server", ex.InnerException!.Message);
     }
 
     [Test]
