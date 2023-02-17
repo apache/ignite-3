@@ -636,8 +636,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             MvPartitionStorage storage = listener.getMvStorage();
 
             if (storageIdx == 0) {
-                storageIdx = storage.persistedIndex();
-            } else if (storageIdx != storage.persistedIndex()) {
+                storageIdx = storage.lastAppliedIndex();
+            } else if (storageIdx != storage.lastAppliedIndex()) {
                 return false;
             }
         }
