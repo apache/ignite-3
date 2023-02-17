@@ -280,32 +280,38 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            if (_endpoints.Count == 1)
+            var tasks = new List<Task>(_endpoints.Count);
+
+            while (!_disposed)
             {
-                return;
-            }
-
-            try
-            {
-                var tasks = new List<Task>(_endpoints.Count);
-
-                _logger?.Debug("Establishing secondary connections...");
-
-                foreach (var endpoint in _endpoints)
+                try
                 {
-                    if (endpoint.Socket?.IsDisposed == false)
+                    tasks.Clear();
+
+                    foreach (var endpoint in _endpoints)
                     {
-                        continue;
+                        if (endpoint.Socket?.IsDisposed == false)
+                        {
+                            continue;
+                        }
+
+                        tasks.Add(ConnectAsync(endpoint).AsTask());
                     }
 
-                    tasks.Add(ConnectAsync(endpoint).AsTask());
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
                 }
 
-                await Task.WhenAll(tasks).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                if (Configuration.ReconnectInterval <= TimeSpan.Zero)
+                {
+                    // Interval is zero - periodic reconnect is disabled.
+                    return;
+                }
+
+                await Task.Delay(Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
 
