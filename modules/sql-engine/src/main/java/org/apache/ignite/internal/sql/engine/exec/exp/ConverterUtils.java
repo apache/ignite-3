@@ -21,6 +21,7 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.adapter.enumerable.RexImpTable;
 import org.apache.calcite.linq4j.tree.ConstantExpression;
 import org.apache.calcite.linq4j.tree.ConstantUntypedNull;
@@ -36,6 +37,7 @@ import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.type.UuidFunctions;
 
 /**
  * ConverterUtils.
@@ -394,6 +396,12 @@ public class ConverterUtils {
                 }
                 return result;
             }
+        } else if (toType == UUID.class) {
+            // IgniteCustomType: implement runtime conversion routines.
+            // UUID can be created from a string/object type by a CAST expression.
+            // We get an object type here because type info is erased for dynamic parameters.
+            // See DataContextInputGetter in RexExecutorImpl.
+            return UuidFunctions.cast(operand);
         }
         return Expressions.convert_(operand, toType);
     }

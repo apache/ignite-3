@@ -79,7 +79,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
-            var executor = new IgniteQueryExecutor(_sql, transaction, options);
+            var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration);
             var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
 
             if (typeof(T).IsKeyValuePair())
@@ -396,8 +396,12 @@ namespace Apache.Ignite.Internal.Table
             ClientOp clientOp,
             Transaction? tx,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default) =>
-            await _table.Socket.DoOutInOpAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+            PreferredNode preferredNode = default)
+        {
+            var (buf, _) = await _table.Socket.DoOutInOpAndGetSocketAsync(clientOp, tx, request, preferredNode).ConfigureAwait(false);
+
+            return buf;
+        }
 
         private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,

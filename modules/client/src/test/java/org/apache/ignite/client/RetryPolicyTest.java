@@ -35,9 +35,11 @@ import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -171,12 +173,22 @@ public class RetryPolicyTest {
 
     @Test
     public void testRetryReadPolicyRetriesReadOperations() throws Exception {
-        initServer(reqId -> reqId % 3 == 0);
+        // Standard requests are:
+        // 1: Handshake
+        // 2: SCHEMAS_GET
+        // 3: PARTITION_ASSIGNMENT_GET
+        // => fail on 4th request
+        initServer(reqId -> reqId % 4 == 0);
 
-        try (var client = getClient(new RetryReadPolicy())) {
+        var loggerFactory = new TestLoggerFactory("c");
+
+        try (var client = getClient(new RetryReadPolicy(), loggerFactory)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             recView.get(null, Tuple.create().set("id", 1L));
             recView.get(null, Tuple.create().set("id", 1L));
+
+            loggerFactory.assertLogContains("Disconnected from server");
+            loggerFactory.assertLogContains("Going to retry operation because of error [op=TUPLE_GET");
         }
     }
 
@@ -214,9 +226,9 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void testRetryReadPolicyAllOperationsSupported() throws IllegalAccessException {
+    public void testRetryReadPolicyAllOperationsSupported() {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, 0, null, null);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, null, 0, 0, null, null, null);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);
@@ -250,11 +262,16 @@ public class RetryPolicyTest {
         }
     }
 
-    private IgniteClient getClient(RetryPolicy retryPolicy) {
+    private IgniteClient getClient(@Nullable RetryPolicy retryPolicy) {
+        return getClient(retryPolicy, null);
+    }
+
+    private IgniteClient getClient(@Nullable RetryPolicy retryPolicy, @Nullable LoggerFactory loggerFactory) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
                 .reconnectThrottlingPeriod(0)
+                .loggerFactory(loggerFactory)
                 .build();
     }
 

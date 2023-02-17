@@ -367,12 +367,12 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> removeLearners(List<Peer> learners) {
+    public CompletableFuture<Void> removeLearners(Collection<Peer> learners) {
         return raftClient.removeLearners(learners);
     }
 
     @Override
-    public CompletableFuture<Void> resetLearners(List<Peer> learners) {
+    public CompletableFuture<Void> resetLearners(Collection<Peer> learners) {
         return raftClient.resetLearners(learners);
     }
 

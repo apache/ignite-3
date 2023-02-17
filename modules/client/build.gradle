@@ -32,6 +32,7 @@ dependencies {
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec
+    implementation libs.netty.handler
     implementation libs.auto.service.annotations
 
     annotationProcessor libs.auto.service

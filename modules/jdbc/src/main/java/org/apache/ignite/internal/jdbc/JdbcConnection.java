@@ -51,6 +51,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -149,12 +150,12 @@ public class JdbcConnection implements Connection {
         int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
 
         try {
-            client = ((TcpIgniteClient) IgniteClient
-                    .builder()
+            client = ((TcpIgniteClient) IgniteClient.builder()
                     .addresses(addrs)
                     .connectTimeout(netTimeout)
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
                     .reconnectThrottlingRetries(reconnectThrottlingRetries)
+                    .ssl(extractSslConfiguration(connProps))
                     .build());
 
         } catch (Exception e) {
@@ -168,6 +169,23 @@ public class JdbcConnection implements Connection {
         schema = normalizeSchema(connProps.getSchema());
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
+    }
+
+    private @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
+        if (connProps.isSslEnabled()) {
+            return SslConfiguration.builder()
+                    .enabled(true)
+                    .trustStoreType(connProps.getTrustStoreType())
+                    .trustStorePath(connProps.getTrustStorePath())
+                    .trustStorePassword(connProps.getTrustStorePassword())
+                    .clientAuth(connProps.getClientAuth())
+                    .keyStoreType(connProps.getKeyStoreType())
+                    .keyStorePath(connProps.getKeyStorePath())
+                    .keyStorePassword(connProps.getKeyStorePassword())
+                    .build();
+        } else {
+            return null;
+        }
     }
 
     /** {@inheritDoc} */

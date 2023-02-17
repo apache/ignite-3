@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compute
 {
+    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
     using Internal.Proto;
@@ -95,14 +96,16 @@ namespace Apache.Ignite.Tests.Compute
             // ReSharper disable once AccessToDisposedClosure
             TestUtils.WaitForCondition(() => client.GetConnections().Count == 2, 5000);
 
+            var nodeNames = new HashSet<string>();
+
             for (int i = 0; i < 100; i++)
             {
                 var node = i % 2 == 0 ? server1.Node : server2.Node;
-
                 var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { node }, jobClassName: string.Empty);
-
-                Assert.AreEqual(node.Name, res);
+                nodeNames.Add(res);
             }
+
+            CollectionAssert.AreEquivalent(new[] { "s1", "s2" }, nodeNames);
         }
     }
 }

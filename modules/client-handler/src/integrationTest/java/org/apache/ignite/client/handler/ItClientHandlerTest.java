@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -27,32 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.mockito.Mockito;
 import org.msgpack.core.MessagePack;
 
 /**
@@ -60,27 +41,25 @@ import org.msgpack.core.MessagePack;
  */
 public class ItClientHandlerTest {
     /** Magic bytes. */
-    private static final byte[] MAGIC = new byte[]{0x49, 0x47, 0x4E, 0x49};
+    private static final byte[] MAGIC = {0x49, 0x47, 0x4E, 0x49};
 
     private ClientHandlerModule serverModule;
 
-    private ConfigurationManager configurationManager;
-
-    private NettyBootstrapFactory bootstrapFactory;
+    private TestServer testServer;
 
     private int serverPort;
 
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        serverModule = startServer(testInfo);
+        testServer = new TestServer();
+        serverModule = testServer.start(testInfo);
         serverPort = serverModule.localAddress().getPort();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         serverModule.stop();
-        configurationManager.stop();
-        bootstrapFactory.stop();
+        testServer.tearDown();
     }
 
     @Test
@@ -205,40 +184,6 @@ public class ItClientHandlerTest {
             assertEquals("org.apache.ignite.lang.IgniteException", errClassName);
             assertNull(errStackTrace);
         }
-    }
-
-    private ClientHandlerModule startServer(TestInfo testInfo) {
-        configurationManager = new ConfigurationManager(
-                List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
-                Set.of(),
-                new TestConfigurationStorage(LOCAL),
-                List.of(),
-                List.of()
-        );
-
-        configurationManager.start();
-
-        var registry = configurationManager.configurationRegistry();
-
-        registry.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(10800).changePortRange(10)
-        ).join();
-
-        bootstrapFactory = new NettyBootstrapFactory(registry.getConfiguration(NetworkConfiguration.KEY), testInfo.getDisplayName());
-
-        bootstrapFactory.start();
-
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
-
-        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
-                registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()));
-
-        module.start();
-
-        return module;
     }
 
     private void writeAndFlushLoop(Socket socket) throws Exception {

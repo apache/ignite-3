@@ -39,6 +39,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.GregorianCalendar;
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -51,11 +52,12 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     private static final String STATIC_SQL =
             "SELECT 1::INTEGER as id, true as boolVal, 1::TINYINT as byteVal, 1::SMALLINT as shortVal, 1::INTEGER as intVal, 1::BIGINT "
                     + "as longVal, 1.0::FLOAT as floatVal, 1.0::DOUBLE as doubleVal, 1.0::DECIMAL as bigVal, "
-                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, 0::TIMESTAMP as tsVal;";
+                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, 0::TIMESTAMP as tsVal,"
+                    + "'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID as uuidVal";
 
     /** SQL query. */
     private static final String SQL_SINGLE_RES = "select id, boolVal, byteVal, shortVal, intVal, longVal, floatVal, "
-            + "doubleVal, bigVal, strVal from TEST WHERE id = 1";
+            + "doubleVal, bigVal, strVal, uuidVal from TEST WHERE id = 1";
 
     @BeforeAll
     public static void beforeClass() throws SQLException {
@@ -75,16 +77,21 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
                     + "dateval DATE,"
                     + "timeval TIME,"
                     + "tsval TIMESTAMP,"
-                    + "urlval BINARY"
+                    + "urlval BINARY,"
+                    + "uuidVal UUID"
                     + ")"
             );
 
             stmt.executeUpdate("INSERT INTO test ("
-                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigval, strval, dateval, timeval, tsval)"
-                    + " VALUES (1, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01')");
+                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigval, strval,"
+                    + "dateval, timeval, tsval, uuidVal) "
+                    + "VALUES (1, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', "
+                    + "date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01', 'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID)");
             stmt.executeUpdate("INSERT INTO test ("
-                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigval, strval, dateval, timeval, tsval)"
-                    + " VALUES (2, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01')");
+                    + "id, boolval, byteval, shortval, intval, longval, floatval, doubleval, bigval, strval,"
+                    + "dateval, timeval, tsval, uuidVal) "
+                    + "VALUES (2, 1, 1, 1, 1, 1, 1.0, 1.0, 1, '1', "
+                    + "date '1901-02-01', time '01:01:01', timestamp '1970-01-01 00:00:01', 'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID)");
         }
     }
 
@@ -556,6 +563,20 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         assertEquals(new Date(new Timestamp(-10800000).getTime()), rs.getObject(14, Date.class));
         assertEquals(new Time(new Timestamp(-10800000).getTime()), rs.getObject(14, Time.class));
         assertEquals(new Timestamp(-10800000), rs.getObject(14, Timestamp.class));
+
+        assertFalse(rs.next());
+    }
+
+    @Test
+    public void testUuid() throws SQLException {
+        ResultSet rs = stmt.executeQuery(STATIC_SQL);
+
+        assertTrue(rs.next());
+
+        Object uuidVal = rs.getObject("uuidVal");
+
+        assertNotNull(uuidVal);
+        assertEquals(UUID.fromString("fd10556e-fc27-4a99-b5e4-89b8344cb3ce"), uuidVal);
 
         assertFalse(rs.next());
     }
