@@ -65,5 +65,7 @@ public class ReconnectTests
 
         using var servers = FakeServerGroup.Create(10, idx => new FakeServer { DropConnections = idx < 9 });
         using var client = await servers.ConnectClientAsync();
+
+        Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
 }
