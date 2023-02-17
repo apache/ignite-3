@@ -45,7 +45,9 @@ public class PartitionMetaIo extends PageIo {
 
     public static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
-    private static final int PAGE_COUNT_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
+    public static final int GARBAGE_COLLECTION_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int PAGE_COUNT_OFF = GARBAGE_COLLECTION_META_PAGE_ID_OFF + Long.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
@@ -74,6 +76,7 @@ public class PartitionMetaIo extends PageIo {
         setIndexColumnsFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
         setIndexTreeMetaPageId(pageAddr, 0);
+        setGarbageCollectionTreeMetaPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
     }
 
@@ -225,6 +228,27 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
+     * Sets an garbage collection tree meta page id.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Meta page id.
+     */
+    public void setGarbageCollectionTreeMetaPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, GARBAGE_COLLECTION_META_PAGE_ID_OFF, pageId);
+    }
+
+    /**
+     * Returns an garbage collection tree meta page id.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getGarbageCollectionTreeMetaPageId(long pageAddr) {
+        return getLong(pageAddr, GARBAGE_COLLECTION_META_PAGE_ID_OFF);
+    }
+
+    /**
      * Sets the count of pages.
      *
      * @param pageAddr Page address.
@@ -256,6 +280,7 @@ public class PartitionMetaIo extends PageIo {
                 .app("indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
                 .app("versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
                 .app("indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
+                .app("garbageCollectionTreeMetaPageId=").appendHex(getGarbageCollectionTreeMetaPageId(addr)).nl()
                 .app("pageCount=").app(getPageCount(addr)).nl()
                 .app(']');
     }

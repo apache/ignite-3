@@ -165,7 +165,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         toRemove.forEach(storage::removeRowVersion);
 
         if (toUpdate != null && !result.hasNextLink()) {
-            storage.removeFromGc(rowId, toUpdate.timestamp());
+            storage.gcQueue.removeFromGc(rowId, toUpdate.timestamp());
         }
     }
 

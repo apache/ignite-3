@@ -31,15 +31,14 @@ import org.jetbrains.annotations.Nullable;
  * Code to work with {@link HybridTimestamp}s.
  */
 public class HybridTimestamps {
-    /**
-     * Physical time component to store for {@code null} hybrid timestamp values.
-     */
+    /** Physical time component to store for {@code null} hybrid timestamp values. */
     private static final long NULL_PHYSICAL_TIME = 0L;
 
-    /**
-     * Logical time component to store for {@code null} hybrid timestamp values.
-     */
+    /** Logical time component to store for {@code null} hybrid timestamp values. */
     private static final int NULL_LOGICAL_TIME = 0;
+
+    /** Payload size in bytes. */
+    public static final int SIZE_IN_BYTES = Long.BYTES + Integer.BYTES;
 
     /**
      * Reads a {@link HybridTimestamp} value from memory.
@@ -47,7 +46,7 @@ public class HybridTimestamps {
      * @param pageAddr Address where page data starts.
      * @param offset Offset to the timestamp value relative to pageAddr.
      */
-    static @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
+    public static @Nullable HybridTimestamp readTimestamp(long pageAddr, int offset) {
         long physical = getLong(pageAddr, offset);
         int logical = getInt(pageAddr, offset + Long.BYTES);
 

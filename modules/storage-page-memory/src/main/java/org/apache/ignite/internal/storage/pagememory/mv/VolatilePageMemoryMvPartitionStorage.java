@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -71,12 +72,14 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param destructionExecutor Executor used to destruct partitions.
+     * @param gcQueue Garbage collection queue.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
             int partitionId,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
+            GarbageCollectionTree gcQueue,
             GradualTaskExecutor destructionExecutor
     ) {
         super(
@@ -85,7 +88,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree
+                indexMetaTree,
+                gcQueue
         );
 
         this.destructionExecutor = destructionExecutor;

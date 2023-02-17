@@ -22,6 +22,9 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GarbageCollectionInnerIo;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GarbageCollectionLeafIo;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GarbageCollectionMetaIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainInnerIo;
@@ -34,7 +37,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainMetaIo;
  */
 @AutoService(PageIoModule.class)
 public class MvPageIoModule implements PageIoModule {
-    /** {@inheritDoc} */
     @Override
     public Collection<IoVersions<?>> ioVersions() {
         return List.of(
@@ -42,7 +44,10 @@ public class MvPageIoModule implements PageIoModule {
                 VersionChainInnerIo.VERSIONS,
                 VersionChainLeafIo.VERSIONS,
                 RowVersionDataIo.VERSIONS,
-                BlobFragmentIo.VERSIONS
+                BlobFragmentIo.VERSIONS,
+                GarbageCollectionMetaIo.VERSIONS,
+                GarbageCollectionInnerIo.VERSIONS,
+                GarbageCollectionLeafIo.VERSIONS
         );
     }
 }

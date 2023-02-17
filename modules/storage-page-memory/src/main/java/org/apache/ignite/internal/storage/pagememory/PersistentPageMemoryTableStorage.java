@@ -45,6 +45,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPart
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
@@ -123,6 +124,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
+            GarbageCollectionTree garbageCollectionTree
+                    = createGarbageCollectionTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
+
             return new PersistentPageMemoryMvPartitionStorage(
                     this,
                     partitionId,
@@ -130,7 +134,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     rowVersionFreeList,
                     indexColumnsFreeList,
                     versionChainTree,
-                    indexMetaTree
+                    indexMetaTree,
+                    garbageCollectionTree
             );
         });
     }
@@ -369,6 +374,53 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     String.format("Error creating IndexMetaTree [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
+                    e
+            );
+        }
+    }
+
+    /**
+     * Returns new {@link GarbageCollectionTree} instance for partition.
+     *
+     * @param tableView Table configuration.
+     * @param partitionId Partition ID.
+     * @param reuseList Reuse list.
+     * @param pageMemory Persistent page memory instance.
+     * @param meta Partition metadata.
+     * @throws StorageException If failed.
+     */
+    private GarbageCollectionTree createGarbageCollectionTree(
+            TableView tableView,
+            int partitionId,
+            ReuseList reuseList,
+            PersistentPageMemory pageMemory,
+            PartitionMeta meta
+    ) {
+        try {
+            boolean initNew = false;
+
+            if (meta.garbageCollectionTreeMetaPageId() == 0) {
+                long rootPageId = pageMemory.allocatePage(tableView.tableId(), partitionId, FLAG_AUX);
+
+                meta.garbageCollectionTreeMetaPageId(lastCheckpointId(), rootPageId);
+
+                initNew = true;
+            }
+
+            return new GarbageCollectionTree(
+                    tableView.tableId(),
+                    tableView.name(),
+                    partitionId,
+                    dataRegion.pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    meta.garbageCollectionTreeMetaPageId(),
+                    reuseList,
+                    initNew
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating GarbageCollectionTree [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
                     e
             );
         }

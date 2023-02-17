@@ -24,13 +24,10 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -73,13 +70,14 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionRowVersion;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
@@ -116,6 +114,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected volatile IndexMetaTree indexMetaTree;
 
+    protected volatile GarbageCollectionTree gcQueue;
+
     protected final DataPageReader rowVersionDataPageReader;
 
     protected final ConcurrentMap<UUID, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
@@ -131,8 +131,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Version chain update lock by row ID. */
     private final ConcurrentMap<RowId, LockHolder<ReentrantLock>> updateVersionChainLockByRowId = new ConcurrentHashMap<>();
 
-    private final ConcurrentSkipListSet<IgniteBiTuple<HybridTimestamp, RowId>> gcQueue = new ConcurrentSkipListSet<>(gcQueueComparator());
-
     /**
      * Constructor.
      *
@@ -142,6 +140,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      */
     protected AbstractPageMemoryMvPartitionStorage(
             int partitionId,
@@ -149,7 +148,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GarbageCollectionTree gcQueue
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
@@ -159,6 +159,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
+
+        this.gcQueue = gcQueue;
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -963,65 +965,52 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            Iterator<IgniteBiTuple<HybridTimestamp, RowId>> iterator = gcQueue.iterator();
+            GarbageCollectionRowVersion first = gcQueue.findFirstFromGc();
 
             // Garbage collection queue is empty.
-            if (!iterator.hasNext()) {
+            if (first == null) {
                 return null;
             }
 
-            IgniteBiTuple<HybridTimestamp, RowId> next = iterator.next();
-
-            HybridTimestamp rowTimestamp = next.get1();
+            HybridTimestamp rowTimestamp = first.getTimestamp();
 
             // There are no versions in the garbage collection queue before watermark.
             if (rowTimestamp.compareTo(lowWatermark) > 0) {
                 return null;
             }
 
-            RowId rowId = next.get2();
+            RowId rowId = first.getRowId();
 
             return inUpdateVersionChainLock(rowId, () -> {
                 // Someone processed the element in parallel.
-                if (!gcQueue.remove(next)) {
+                if (!gcQueue.removeFromGc(rowId, rowTimestamp)) {
                     return null;
                 }
 
-                RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, this);
-
-                try {
-                    versionChainTree.invoke(new VersionChainKey(rowId), null, removeWriteOnGc);
-                } catch (IgniteInternalCheckedException e) {
-                    throwStorageExceptionIfItCause(e);
-
-                    throw new StorageException(
-                            "Error removing row version from version chain on garbage collection: [rowId={}, rowTimestamp={}, "
-                                    + "lowWatermark={}, {}]",
-                            e,
-                            rowId, rowTimestamp, lowWatermark, createStorageInfo()
-                    );
-                }
-
-                removeWriteOnGc.afterCompletion();
-
-                RowVersion removedRowVersion = removeWriteOnGc.getResult();
+                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp);
 
                 return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
             });
         });
     }
 
-    private static Comparator<IgniteBiTuple<HybridTimestamp, RowId>> gcQueueComparator() {
-        Comparator<IgniteBiTuple<HybridTimestamp, RowId>> comparing = Comparator.comparing(IgniteBiTuple::get1);
+    private RowVersion removeWriteOnGc(RowId rowId, HybridTimestamp rowTimestamp) {
+        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, this);
 
-        return comparing.thenComparing(IgniteBiTuple::get2);
-    }
+        try {
+            versionChainTree.invoke(new VersionChainKey(rowId), null, removeWriteOnGc);
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
 
-    void addToGc(RowId rowId, HybridTimestamp timestamp) {
-        gcQueue.add(new IgniteBiTuple<>(timestamp, rowId));
-    }
+            throw new StorageException(
+                    "Error removing row version from version chain on garbage collection: [rowId={}, rowTimestamp={}, {}]",
+                    e,
+                    rowId, rowTimestamp, createStorageInfo()
+            );
+        }
 
-    void removeFromGc(RowId rowId, HybridTimestamp timestamp) {
-        gcQueue.remove(new IgniteBiTuple<>(timestamp, rowId));
+        removeWriteOnGc.afterCompletion();
+
+        return removeWriteOnGc.getResult();
     }
 }
