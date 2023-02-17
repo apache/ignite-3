@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using System.Threading.Tasks;
+using Internal;
 using NUnit.Framework;
 
 /// <summary>
@@ -36,17 +38,25 @@ public class ReconnectTests
     }
 
     [Test]
-    public void TestFailedInitialConnectionToAllServersThrowsException()
+    public void TestFailedInitialConnectionToAllServersThrowsAggregateException()
     {
         using var servers = FakeServerGroup.Create(3, _ => new FakeServer { DropConnections = true });
 
-        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await servers.ConnectClientAsync());
-        StringAssert.StartsWith("Failed to connect to endpoint: 127.0.0.1:", ex!.Message);
+        var ex = Assert.ThrowsAsync<AggregateException>(async () => await servers.ConnectClientAsync());
+        Assert.AreEqual(3, ex!.InnerExceptions.Count);
+
+        foreach (var innerEx in ex.InnerExceptions)
+        {
+            StringAssert.StartsWith("Failed to connect to endpoint: 127.0.0.1:", innerEx.Message);
+            Assert.IsInstanceOf<IgniteClientConnectionException>(innerEx);
+        }
     }
 
     [Test]
     public async Task TestFailedInitialConnectionToSomeServersAndSuccessfulConnectionToOneDoesNotThrow()
     {
+        ClientFailoverSocket.ResetGlobalEndpointIndex();
+
         using var servers = FakeServerGroup.Create(5, idx => new FakeServer { DropConnections = idx < 4 });
         using var client = await servers.ConnectClientAsync();
     }

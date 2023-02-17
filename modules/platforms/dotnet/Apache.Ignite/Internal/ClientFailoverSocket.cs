@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.IO;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -349,7 +350,7 @@ namespace Apache.Ignite.Internal
                 {
                     return await ConnectAsync(endPoint).ConfigureAwait(false);
                 }
-                catch (SocketException e)
+                catch (IgniteClientConnectionException e) when (e.InnerException is SocketException or IOException)
                 {
                     errors ??= new List<Exception>();
 
