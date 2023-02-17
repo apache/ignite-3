@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.rowBytes;
 
 import java.nio.ByteBuffer;
@@ -81,7 +81,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
             newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
         } else {
-            RowVersion current = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
+            RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
 
             // If the current and new version are tombstones, then there is no need to add a new version.
             if (current.isTombstone() && row == null) {

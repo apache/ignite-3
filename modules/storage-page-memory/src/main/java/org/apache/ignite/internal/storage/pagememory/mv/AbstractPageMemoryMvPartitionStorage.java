@@ -100,6 +100,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
+    static final Predicate<HybridTimestamp> DONT_LOAD_VALUE = timestamp -> false;
+
     protected final int partitionId;
 
     protected final int groupId;
@@ -383,11 +385,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     RowVersion readRowVersion(long rowVersionLink, Predicate<HybridTimestamp> loadValue) {
-        return readRowVersion(rowVersionLink, loadValue, true);
-    }
-
-    RowVersion readRowVersion(long rowVersionLink, Predicate<HybridTimestamp> loadValue, boolean loadValueBytes) {
-        ReadRowVersion read = new ReadRowVersion(partitionId, loadValueBytes);
+        ReadRowVersion read = new ReadRowVersion(partitionId);
 
         try {
             rowVersionDataPageReader.traverse(rowVersionLink, read, loadValue);

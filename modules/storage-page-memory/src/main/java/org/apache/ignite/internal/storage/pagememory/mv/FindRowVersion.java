@@ -59,29 +59,29 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, RowVersionFilter filter) {
-        if (!rowVersionFound) {
-            long nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
-
-            if (filter.apply(link, pageAddr + payload.offset())) {
-                rowVersionFound = true;
-
-                rowLink = link;
-                rowTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
-                rowNextLink = nextLink;
-
-                if (!loadValueBytes) {
-                    rowValueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
-
-                    return STOP_TRAVERSAL;
-                } else {
-                    return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
-                }
-            } else {
-                return nextLink;
-            }
-        } else {
+        if (rowVersionFound) {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
         }
+
+        long nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
+
+        if (!filter.apply(link, pageAddr + payload.offset())) {
+            return nextLink;
+        }
+
+        rowVersionFound = true;
+
+        rowLink = link;
+        rowTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
+        rowNextLink = nextLink;
+
+        if (loadValueBytes) {
+            return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
+        }
+
+        rowValueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
+
+        return STOP_TRAVERSAL;
     }
 
     @Override

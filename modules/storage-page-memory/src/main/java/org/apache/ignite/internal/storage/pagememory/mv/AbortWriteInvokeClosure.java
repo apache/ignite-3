@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -70,7 +71,10 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         toRemove = latestVersion;
 
         if (latestVersion.hasNextLink()) {
-            newRow = VersionChain.createCommitted(rowId, latestVersion.nextLink(), latestVersion.nextLink());
+            // Next can be safely replaced with any value (like 0), because this field is only used when there
+            // is some uncommitted value, but when we add an uncommitted value, we 'fix' such placeholder value
+            // (like 0) by replacing it with a valid value.
+            newRow = VersionChain.createCommitted(rowId, latestVersion.nextLink(), NULL_LINK);
 
             operationType = OperationType.PUT;
         } else {

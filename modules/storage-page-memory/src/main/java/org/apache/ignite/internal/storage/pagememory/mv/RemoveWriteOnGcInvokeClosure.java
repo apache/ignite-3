@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByNextLink;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByTimestamp;
 
@@ -68,7 +69,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         assert oldRow.hasNextLink() : oldRow;
 
         RowVersion rowVersion = findRowVersionLinkWithChecks(oldRow);
-        RowVersion nextRowVersion = storage.readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE, true);
+        RowVersion nextRowVersion = storage.readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
 
         result = nextRowVersion;
 
@@ -83,7 +84,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
                 operationType = OperationType.PUT;
 
                 // Find the version for which this version is RowVersion#nextLink.
-                toUpdate = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
+                toUpdate = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
 
                 newRow = oldRow.withNextLink(nextRowVersion.nextLink());
             } else {

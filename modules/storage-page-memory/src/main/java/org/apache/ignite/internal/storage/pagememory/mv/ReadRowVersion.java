@@ -35,8 +35,6 @@ import org.jetbrains.annotations.Nullable;
 class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> {
     private final int partitionId;
 
-    private final boolean loadValueBytes;
-
     private RowVersion result;
 
     private boolean readingFirstSlot = true;
@@ -49,9 +47,8 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
-    ReadRowVersion(int partitionId, boolean loadValueBytes) {
+    ReadRowVersion(int partitionId) {
         this.partitionId = partitionId;
-        this.loadValueBytes = loadValueBytes;
     }
 
     @Override
@@ -72,12 +69,6 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
         nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
         if (!loadValue.test(timestamp)) {
-            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, null);
-
-            return STOP_TRAVERSAL;
-        }
-
-        if (!loadValueBytes) {
             int valueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
 
             result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, valueSize);

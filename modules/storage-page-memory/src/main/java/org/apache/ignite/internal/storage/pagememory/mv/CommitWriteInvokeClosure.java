@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -70,8 +70,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         operationType = OperationType.PUT;
 
-        RowVersion current = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
-        RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), ALWAYS_LOAD_VALUE, false) : null;
+        RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
+        RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
 
         // If the previous and current version are tombstones, then delete the current version.
         if (next != null && current.isTombstone() && next.isTombstone()) {
