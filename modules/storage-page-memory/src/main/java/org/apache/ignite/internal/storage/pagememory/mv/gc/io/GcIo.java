@@ -21,10 +21,12 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
+import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.mv.HybridTimestamps;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
@@ -36,7 +38,8 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
  * <p>Defines a following data layout:
  * <ul>
  *     <li>Row ID (16 bytes);</li>
- *     <li>Row timestamp (12 bytes).</li>
+ *     <li>Row timestamp (12 bytes);</li>
+ *     <li>Row link (6 bytes).</li>
  * </ul>
  */
 public interface GcIo {
@@ -49,8 +52,11 @@ public interface GcIo {
     /** Offset of row timestamp, 12 bytes. */
     int ROW_TIMESTAMP_OFFSET = ROW_ID_LSB_OFFSET + Long.BYTES;
 
+    /** Offset of row link, 6 bytes. */
+    int ROW_LINK_OFFSET = ROW_TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
+
     /** Payload size in bytes. */
-    int SIZE_IN_BYTES = ROW_TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
+    int SIZE_IN_BYTES = ROW_LINK_OFFSET + PARTITIONLESS_LINK_SIZE_BYTES;
 
     /**
      * Returns an offset of the element inside the page.
@@ -83,6 +89,8 @@ public interface GcIo {
         putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
 
         HybridTimestamps.writeTimestampToMemory(pageAddr, off + ROW_TIMESTAMP_OFFSET, row.getTimestamp());
+
+        PartitionlessLinks.writePartitionless(pageAddr + off + ROW_LINK_OFFSET, row.getLink());
     }
 
     /**
@@ -131,7 +139,8 @@ public interface GcIo {
 
         return new GcRowVersion(
                 new RowId(partitionId, rowIdMsb, rowIdLsb),
-                requireNonNull(HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET))
+                requireNonNull(HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET)),
+                PartitionlessLinks.readPartitionless(partitionId, pageAddr, offset + ROW_LINK_OFFSET)
         );
     }
 }

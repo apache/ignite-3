@@ -28,15 +28,19 @@ public class GcRowVersion {
 
     private final HybridTimestamp timestamp;
 
+    private final long link;
+
     /**
      * Constructor.
      *
      * @param rowId Row ID.
      * @param timestamp Row timestamp.
+     * @param link Row version link.
      */
-    public GcRowVersion(RowId rowId, HybridTimestamp timestamp) {
+    public GcRowVersion(RowId rowId, HybridTimestamp timestamp, long link) {
         this.rowId = rowId;
         this.timestamp = timestamp;
+        this.link = link;
     }
 
     /**
@@ -51,5 +55,12 @@ public class GcRowVersion {
      */
     public HybridTimestamp getTimestamp() {
         return timestamp;
+    }
+
+    /**
+     * Returns row version link.
+     */
+    public long getLink() {
+        return link;
     }
 }

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByNextLink;
-import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByTimestamp;
 
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -45,6 +44,8 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     private final HybridTimestamp timestamp;
 
+    private final long link;
+
     private final AbstractPageMemoryMvPartitionStorage storage;
 
     private OperationType operationType;
@@ -57,9 +58,10 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     private @Nullable RowVersion toUpdate;
 
-    RemoveWriteOnGcInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+    RemoveWriteOnGcInvokeClosure(RowId rowId, HybridTimestamp timestamp, long link, AbstractPageMemoryMvPartitionStorage storage) {
         this.rowId = rowId;
         this.timestamp = timestamp;
+        this.link = link;
         this.storage = storage;
     }
 
@@ -68,7 +70,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         assert oldRow != null : "rowId=" + rowId + ", storage=" + storage.createStorageInfo();
         assert oldRow.hasNextLink() : oldRow;
 
-        RowVersion rowVersion = findRowVersionLinkWithChecks(oldRow);
+        RowVersion rowVersion = readRowVersionWithChecks(oldRow);
         RowVersion nextRowVersion = storage.readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE);
 
         result = nextRowVersion;
@@ -139,8 +141,8 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         }
     }
 
-    private RowVersion findRowVersionLinkWithChecks(VersionChain versionChain) {
-        RowVersion rowVersion = storage.findRowVersion(versionChain, equalsByTimestamp(timestamp), false);
+    private RowVersion readRowVersionWithChecks(VersionChain versionChain) {
+        RowVersion rowVersion = storage.readRowVersion(link, ALWAYS_LOAD_VALUE);
 
         if (rowVersion == null) {
             throw new StorageException(
@@ -166,7 +168,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         toRemove.forEach(storage::removeRowVersion);
 
         if (toUpdate != null && !result.hasNextLink()) {
-            storage.gcQueue.remove(rowId, toUpdate.timestamp());
+            storage.gcQueue.remove(rowId, toUpdate.timestamp(), toUpdate.link());
         }
     }
 

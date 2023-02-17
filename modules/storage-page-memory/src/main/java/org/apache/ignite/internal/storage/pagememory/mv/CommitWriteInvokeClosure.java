@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -51,7 +52,11 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable RowVersion toRemove;
 
-    private boolean addToGc;
+    /**
+     * Link to the row version for which the commit occurred. It will be a {@link PageIdUtils#NULL_LINK} if the current and the previous
+     * row versions are tombstones or have only one row version in the version chain.
+     */
+    private long rowLinkForGc = NULL_LINK;
 
     CommitWriteInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
         this.rowId = rowId;
@@ -83,7 +88,9 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
             newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
 
-            addToGc = oldRow.hasNextLink();
+            if (oldRow.hasNextLink()) {
+                rowLinkForGc = oldRow.headLink();
+            }
         }
     }
 
@@ -128,8 +135,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             storage.removeRowVersion(toRemove);
         }
 
-        if (addToGc) {
-            storage.gcQueue.add(rowId, timestamp);
+        if (rowLinkForGc != NULL_LINK) {
+            storage.gcQueue.add(rowId, timestamp, rowLinkForGc);
         }
     }
 }

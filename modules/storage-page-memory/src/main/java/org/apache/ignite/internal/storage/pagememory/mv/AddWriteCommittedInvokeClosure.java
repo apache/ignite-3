@@ -26,6 +26,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -53,7 +54,11 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable VersionChain newRow;
 
-    private boolean addToGc;
+    /**
+     * Link to the row version for which the commit occurred. It will be a {@link PageIdUtils#NULL_LINK} if the current and the previous
+     * row versions are tombstones or have only one row version in the version chain.
+     */
+    private long rowLinkForGc = NULL_LINK;
 
     AddWriteCommittedInvokeClosure(
             RowId rowId,
@@ -93,7 +98,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
                 newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
 
-                addToGc = true;
+                rowLinkForGc = newVersion.link();
             }
         }
     }
@@ -126,8 +131,8 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
     void afterCompletion() {
-        if (addToGc) {
-            storage.gcQueue.add(rowId, commitTimestamp);
+        if (rowLinkForGc != NULL_LINK) {
+            storage.gcQueue.add(rowId, commitTimestamp, rowLinkForGc);
         }
     }
 }

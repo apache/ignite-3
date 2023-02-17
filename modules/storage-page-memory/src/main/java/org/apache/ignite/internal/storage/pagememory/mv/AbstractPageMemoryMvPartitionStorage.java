@@ -990,19 +990,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return inUpdateVersionChainLock(rowId, () -> {
                 // Someone processed the element in parallel.
-                if (!gcQueue.remove(rowId, rowTimestamp)) {
+                if (!gcQueue.remove(rowId, rowTimestamp, first.getLink())) {
                     return null;
                 }
 
-                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp);
+                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, first.getLink());
 
                 return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
             });
         });
     }
 
-    private RowVersion removeWriteOnGc(RowId rowId, HybridTimestamp rowTimestamp) {
-        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, this);
+    private RowVersion removeWriteOnGc(RowId rowId, HybridTimestamp rowTimestamp, long rowLink) {
+        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, rowLink, this);
 
         try {
             versionChainTree.invoke(new VersionChainKey(rowId), null, removeWriteOnGc);

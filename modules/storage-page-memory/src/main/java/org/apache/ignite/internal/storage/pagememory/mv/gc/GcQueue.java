@@ -96,9 +96,9 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
     /**
      * Adds a row version to the garbage collection queue.
      */
-    public void add(RowId rowId, HybridTimestamp timestamp) {
+    public void add(RowId rowId, HybridTimestamp timestamp, long link) {
         try {
-            put(new GcRowVersion(rowId, timestamp));
+            put(new GcRowVersion(rowId, timestamp, link));
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error occurred while adding row version to the garbage collection queue: [rowId={}, timestamp={}, {}]",
@@ -113,9 +113,9 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
      *
      * @return {@code true} if the row version was removed from the garbage collection queue.
      */
-    public boolean remove(RowId rowId, HybridTimestamp timestamp) {
+    public boolean remove(RowId rowId, HybridTimestamp timestamp, long link) {
         try {
-            return remove(new GcRowVersion(rowId, timestamp)) != null;
+            return remove(new GcRowVersion(rowId, timestamp, link)) != null;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error occurred while deleting row version form the garbage collection queue: [rowId={}, timestamp={}, {}]",
