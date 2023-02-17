@@ -104,5 +104,7 @@ public class ReconnectTests
 
         // Connection is restored in background due to ReconnectInterval.
         TestUtils.WaitForCondition(() => client.GetConnections().Count > 0, 3000);
+
+        Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
 }
