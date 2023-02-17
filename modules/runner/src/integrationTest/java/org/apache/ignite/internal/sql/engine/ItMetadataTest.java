@@ -139,7 +139,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                 // + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
 
                 // Custom types
-                 + "UUID_C UUID, "
+                + "UUID_C UUID, "
                 // TODO: IGNITE-18431: Sql. BitSet is not supported.
                 // + "BITSET_C BITMASK, "
                 // + "BITSET_C BITMASK(8), "
