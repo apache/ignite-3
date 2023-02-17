@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.UuidFunctions;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.NotNull;
@@ -281,8 +282,13 @@ public class TypeUtils {
                                                             ? SqlFunctions.toDouble(num) :
                                                             BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else if (storageType == UUID.class) {
-            assert val instanceof UUID : storageTypeMismatch(val, UUID.class);
-            return val;
+            //ToDo: This a quick fix of the issue https://issues.apache.org/jira/browse/IGNITE-18831 and should be reworked.
+            if (val instanceof String) {
+                return UuidFunctions.cast(val);
+            } else {
+                assert val instanceof UUID : storageTypeMismatch(val, UUID.class);
+                return val;
+            }
         } else {
             // IgniteCustomType: Add storageTypeMismatch assertion for your type.
             return val;
