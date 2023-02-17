@@ -106,6 +106,11 @@ namespace Apache.Ignite
 
         /// <summary>
         /// Gets endpoints to connect to.
+        /// <para />
+        /// Providing addresses of multiple nodes in the cluster will improve performance:
+        /// Ignite will balance requests across all connections, and use partition awareness to send key-based requests
+        /// directly to the primary node.
+        /// <para />
         /// Examples of supported formats:
         ///  * 192.168.1.25 (default port is used, see <see cref="DefaultPort"/>).
         ///  * 192.168.1.25:780 (custom port)
@@ -146,8 +151,10 @@ namespace Apache.Ignite
         /// <para />
         /// Default is <see cref="DefaultReconnectInterval"/>. Set to <see cref="TimeSpan.Zero"/> to disable periodic reconnect.
         /// <para />
-        /// Client repairs failed connections on demand (when a request is made). However, when multiple connections exist
-        /// (<see cref="Endpoints"/> contains addresses of multiple nodes), some of those connections may not TODO.
+        /// Ignite balances requests across all healthy connections (when multiple endpoints are configured).
+        /// Ignite also repairs connections on demand (when a request is made).
+        /// However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
+        /// client will check all configured endpoints and try to reconnect them in case of failure.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
