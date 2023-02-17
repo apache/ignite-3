@@ -74,6 +74,13 @@ public class PlacementDriverManager implements IgniteComponent {
 
     /**
      * The constructor.
+     *
+     * @param replicationGroupId Id of placement driver group.
+     * @param clusterService Cluster service.
+     * @param raftConfiguration Raft configuration.
+     * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
+     * @param logicalTopologyService Logical topology service.
+     * @param raftClientExecutor Raft client executor.
      */
     public PlacementDriverManager(
             ReplicationGroupId replicationGroupId,
@@ -97,16 +104,16 @@ public class PlacementDriverManager implements IgniteComponent {
     @Override
     public void start() {
         placementDriverNodesNamesProvider.get()
-                .thenCompose(metaStorageNodes -> {
+                .thenCompose(placementDriverNodes -> {
                     String thisNodeName = clusterService.topologyService().localMember().name();
 
-                    if (metaStorageNodes.contains(thisNodeName)) {
+                    if (placementDriverNodes.contains(thisNodeName)) {
                         return TopologyAwareRaftGroupService.start(
                                 replicationGroupId,
                                 clusterService,
                                 raftMessagesFactory,
                                 raftConfiguration,
-                                PeersAndLearners.fromConsistentIds(metaStorageNodes),
+                                PeersAndLearners.fromConsistentIds(placementDriverNodes),
                                 true,
                                 raftClientExecutor,
                                 logicalTopologyService,
