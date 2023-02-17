@@ -25,8 +25,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Function;
-import java.util.function.IntSupplier;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -46,10 +46,10 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private final Map<Long, ColumnMapper> mappingCache = new ConcurrentHashMap<>();
 
     /** Schema store. */
-    private final Function<Integer, CompletableFuture<SchemaDescriptor>> history;
+    private final IntFunction<CompletableFuture<SchemaDescriptor>> history;
 
     /** The method to provide the latest schema version on cluster. */
-    private final IntSupplier latestVersionStore;
+    private final Supplier<CompletableFuture<Integer>> latestVersionStore;
 
     /**
      * Constructor.
@@ -59,8 +59,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param initialSchema      Initial schema.
      */
     public SchemaRegistryImpl(
-            Function<Integer, CompletableFuture<SchemaDescriptor>> history,
-            IntSupplier latestVersionStore,
+            IntFunction<CompletableFuture<SchemaDescriptor>> history,
+            Supplier<CompletableFuture<Integer>> latestVersionStore,
             SchemaDescriptor initialSchema
     ) {
         this.history = history;
@@ -118,7 +118,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public SchemaDescriptor waitLatestSchema() {
-        int lastVer0 = latestVersionStore.getAsInt();
+        // TODO: remove blocking code https://issues.apache.org/jira/browse/IGNITE-17931
+        int lastVer0 = latestVersionStore.get().join();
         Integer lastLocalVer = schemaCache.lastKey();
 
         assert lastLocalVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastLocalVer

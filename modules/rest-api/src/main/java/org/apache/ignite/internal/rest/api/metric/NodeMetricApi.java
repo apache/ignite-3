@@ -38,11 +38,11 @@ import org.apache.ignite.internal.rest.constants.MediaType;
 public interface NodeMetricApi {
 
     /** Enable metric source. */
-    @Operation(operationId = "enableNodeMetric")
-    @ApiResponse(responseCode = "200", description = "Metric source enabled")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "enableNodeMetric", description = "Enables a specific metric source.")
+    @ApiResponse(responseCode = "200", description = "Metric source enabled.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "404", description = "Metric source not found",
+    @ApiResponse(responseCode = "404", description = "Metric source not found.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
@@ -50,11 +50,11 @@ public interface NodeMetricApi {
     void enable(@Body String srcName);
 
     /** Disable metric source. */
-    @Operation(operationId = "disableNodeMetric")
-    @ApiResponse(responseCode = "200", description = "Metric source disabled")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "disableNodeMetric", description = "Disables a specific metric source.")
+    @ApiResponse(responseCode = "200", description = "Metric source disabled.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "404", description = "Metric source not found",
+    @ApiResponse(responseCode = "404", description = "Metric source not found.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
@@ -62,9 +62,9 @@ public interface NodeMetricApi {
     void disable(@Body String srcName);
 
     /** List metric sources. */
-    @Operation(operationId = "listNodeMetrics")
-    @ApiResponse(responseCode = "200", description = "Metric sources returned")
-    @ApiResponse(responseCode = "500", description = "Internal error",
+    @Operation(operationId = "listNodeMetrics", description = "Provides a list of all available metric sources.")
+    @ApiResponse(responseCode = "200", description = "Returned a list of metric sources.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
     @Get()
