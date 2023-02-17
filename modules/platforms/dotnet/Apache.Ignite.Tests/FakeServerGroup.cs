@@ -58,4 +58,12 @@ public sealed class FakeServerGroup : IDisposable
             server.Dispose();
         }
     }
+
+    public void DropAllConnections()
+    {
+        foreach (var server in _servers)
+        {
+            server.DropConnection();
+        }
+    }
 }

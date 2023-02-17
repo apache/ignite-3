@@ -28,8 +28,6 @@ using NUnit.Framework;
 /// </summary>
 public class ReconnectTests
 {
-    // TODO: Test reconnect to one node
-    // TODO: Test reconnect to multiple nodes (all fail, some fail, etc)
     // TODO: Test connection to a node that was not initially available (add FakeServer flag that rejects connections)
     // TODO: Check that reconnect stops on dispose
     // TODO: What happens if all nodes are lost? Do we just keep trying?
@@ -85,7 +83,7 @@ public class ReconnectTests
 
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
-    public async Task TestDroppedConnectionIsRestoredInBackground()
+    public async Task TestDroppedConnectionsAreRestoredInBackground()
     {
         var cfg = new IgniteClientConfiguration
         {
@@ -93,18 +91,24 @@ public class ReconnectTests
             ReconnectInterval = TimeSpan.FromMilliseconds(300)
         };
 
-        using var server = new FakeServer();
+        using var server = FakeServerGroup.Create(10, _ => new FakeServer());
         using var client = await server.ConnectClientAsync(cfg);
 
-        Assert.AreEqual(1, client.GetConnections().Count);
-        server.DropConnection();
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
+        server.DropAllConnections();
 
-        // Dropped connection is detected by heartbeat.
+        // Dropped connections are detected by heartbeat.
         TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 500);
 
-        // Connection is restored in background due to ReconnectInterval.
-        TestUtils.WaitForCondition(() => client.GetConnections().Count > 0, 3000);
+        // Connections are restored in background due to ReconnectInterval.
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+    }
+
+    [Test]
+    public void TestInitiallyUnavailableNodeIsConnectedInBackground()
+    {
+
     }
 }
