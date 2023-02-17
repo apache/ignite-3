@@ -25,4 +25,6 @@ public class ReconnectTests
     // TODO: Test reconnect to one node
     // TODO: Test reconnect to multiple nodes (all fail, some fail, etc)
     // TODO: Test connection to a node that was not initially available (add FakeServer flag that rejects connections)
+    // TODO: Check that reconnect stops on dispose
+    // TODO: What happens if all nodes are lost? Do we just keep trying?
 }
