@@ -99,6 +99,7 @@ public class ItPortRangeTest {
                         10300,
                         10400,
                         true,
+                        false,
                         true
                 ))
                 .collect(Collectors.toList());
