@@ -24,9 +24,9 @@ import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -65,6 +65,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -88,18 +89,18 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     private MetaStorageManager metaStorageManager;
 
-    static int partNum = 2;
-    static int replicas = 2;
+    private static final int partNum = 2;
+    private static final int replicas = 2;
 
-    static Set<String> nodes1 = IntStream.of(5).mapToObj(i -> "nodes1_" + i).collect(toSet());
-    static Set<String> nodes2 = IntStream.of(5).mapToObj(i -> "nodes2_" + i).collect(toSet());
-    static Set<String> nodes3 = IntStream.of(5).mapToObj(i -> "nodes3_" + i).collect(toSet());
-    static Set<String> nodes4 = IntStream.of(5).mapToObj(i -> "nodes4_" + i).collect(toSet());
+    private static final Set<String> nodes1 = IntStream.of(5).mapToObj(i -> "nodes1_" + i).collect(toSet());
+    private static final Set<String> nodes2 = IntStream.of(5).mapToObj(i -> "nodes2_" + i).collect(toSet());
+    private static final Set<String> nodes3 = IntStream.of(5).mapToObj(i -> "nodes3_" + i).collect(toSet());
+    private static final Set<String> nodes4 = IntStream.of(5).mapToObj(i -> "nodes4_" + i).collect(toSet());
 
-    static Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, replicas);
-    static Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, replicas);
-    static Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, replicas);
-    static Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, replicas);
+    private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, replicas);
+    private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, replicas);
+    private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, replicas);
+    private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, replicas);
 
     @BeforeEach
     public void setUp() {
@@ -185,6 +186,19 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         });
     }
 
+    @AfterEach
+    public void tearDown() throws Exception {
+        clusterCfgMgr.stop();
+
+        keyValueStorage.close();
+    }
+
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=null, pending=null, planned=null.
+     * Expected assignments in the metastorage after updating: stable=null, pending=assignments1, planned=null.
+     */
     @Test
     void test1() {
         test(
@@ -195,7 +209,10 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     }
 
     /**
-     * Impossible invariant in real environment.
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments1.
+     * Current assignments in the metastorage: stable=null, pending=null, planned=null.
+     * Expected assignments in the metastorage after updating: stable=null, pending=null, planned=null.
      */
     @Test
     void test2() {
@@ -206,6 +223,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=null, pending=assignments3, planned=null.
+     * Expected assignments in the metastorage after updating: stable=null, pending=assignments3, planned=assignments1.
+     */
     @Test
     void test3() {
         test(
@@ -215,6 +238,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments1.
+     * Current assignments in the metastorage: stable=null, pending=assignments3, planned=null.
+     * Expected assignments in the metastorage after updating: stable=null, pending=assignments3, planned=assignments1.
+     */
     @Test
     void test4() {
         test(
@@ -224,6 +253,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=assignments3, pending=null, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments3, pending=assignments1, planned=null.
+     */
     @Test
     void test5() {
         test(
@@ -233,6 +268,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments1.
+     * Current assignments in the metastorage: stable=assignments3, pending=null, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments3, pending=assignments1, planned=null.
+     */
     @Test
     void test6() {
         test(
@@ -242,6 +283,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=assignments1, pending=null, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=null, planned=null.
+     */
     @Test
     void test7() {
         test(
@@ -251,6 +298,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments1.
+     * Current assignments in the metastorage: stable=assignments1, pending=null, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=null, planned=null.
+     */
     @Test
     void test8() {
         test(
@@ -260,6 +313,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=assignments2, pending=null, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments2, pending=assignments1, planned=null.
+     */
     @Test
     void test9() {
         test(
@@ -269,6 +328,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=assignments4, pending=assignments3, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments4, pending=assignments3, planned=assignments1.
+     */
     @Test
     void test10() {
         test(
@@ -278,6 +343,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments1.
+     * Current assignments in the metastorage: stable=assignments3, pending=assignments2, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments3, pending=assignments2, planned=assignments1.
+     */
     @Test
     void test11() {
         test(
@@ -287,6 +358,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=assignments1, pending=assignments3, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments3, planned=assignments1.
+     */
     @Test
     void test12() {
         test(
@@ -296,6 +373,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=assignments2, pending=assignments3, planned=null.
+     * Expected assignments in the metastorage after updating: stable=assignments2, pending=assignments3, planned=assignments1.
+     */
     @Test
     void test13() {
         test(
@@ -320,6 +403,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments1.
+     * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments3.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=assignments1.
+     */
     @Test
     void test15() {
         test(
@@ -329,6 +418,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes1.
+     * The table configuration assignments: assignments4.
+     * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments1.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=assignments1.
+     */
     @Test
     void test16() {
         test(
@@ -338,6 +433,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes2.
+     * The table configuration assignments: assignments2.
+     * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments1.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=null.
+     */
     @Test
     void test17() {
         test(
@@ -347,6 +448,12 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         );
     }
 
+    /**
+     * Nodes for new assignments calculating: nodes2.
+     * The table configuration assignments: assignments4.
+     * Current assignments in the metastorage: stable=assignments1, pending=assignments2, planned=assignments1.
+     * Expected assignments in the metastorage after updating: stable=assignments1, pending=assignments2, planned=null.
+     */
     @Test
     void test18() {
         test(
@@ -412,24 +519,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         if (expectedStableAssignments != null) {
             assertNotNull(actualStableBytes);
-            assertTrue(actualStableAssignments.containsAll(expectedStableAssignments));
-            assertTrue(expectedStableAssignments.containsAll(actualStableAssignments));
+            assertEquals(actualStableAssignments, expectedStableAssignments);
         } else {
             assertNull(actualStableBytes);
         }
 
         if (expectedPendingAssignments != null) {
             assertNotNull(actualPendingBytes);
-            assertTrue(actualPendingAssignments.containsAll(expectedPendingAssignments));
-            assertTrue(expectedPendingAssignments.containsAll(actualPendingAssignments));
+            assertEquals(actualPendingAssignments, expectedPendingAssignments);
         } else {
             assertNull(actualPendingBytes);
         }
 
         if (expectedPlannedAssignments != null) {
             assertNotNull(actualPlannedBytes);
-            assertTrue(actualPlannedAssignments.containsAll(expectedPlannedAssignments));
-            assertTrue(expectedPlannedAssignments.containsAll(actualPlannedAssignments));
+            assertEquals(actualPlannedAssignments, expectedPlannedAssignments);
         } else {
             assertNull(actualPlannedBytes);
         }

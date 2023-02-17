@@ -987,13 +987,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return;
         }
 
+        busyLock.block();
+
         metaStorageMgr.unregisterWatch(distributionZonesDataNodesListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
-
-        busyLock.block();
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 

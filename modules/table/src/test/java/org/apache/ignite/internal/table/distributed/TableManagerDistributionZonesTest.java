@@ -88,6 +88,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -228,6 +229,15 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 null,
                 mock(OutgoingSnapshotsManager.class)
         );
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        clusterCfgMgr.stop();
+
+        keyValueStorage.close();
+
+        tableManager.stop();
     }
 
     @Test

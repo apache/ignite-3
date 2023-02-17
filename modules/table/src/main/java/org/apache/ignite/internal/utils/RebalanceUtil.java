@@ -71,12 +71,22 @@ public class RebalanceUtil {
     /** Return code of metastore multi-invoke which identifies,
      * that planned key was removed, because current rebalance is already have the same target.
      */
-    private static final int PLANNED_KEY_REMOVED = 2;
+    private static final int PLANNED_KEY_REMOVED_EQUALS_PENDING = 2;
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that planned key was removed, because current assignment is empty.
+     */
+    private static final int PLANNED_KEY_REMOVED_EMPTY_PENDING = 3;
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that assignments do not need to be updated.
+     */
+    private static final int ASSIGNMENT_NOT_UPDATED = 4;
 
     /** Return code of metastore multi-invoke which identifies,
      * that this trigger event was already processed by another node and must be skipped.
      */
-    private static final int OUTDATED_UPDATE_RECEIVED = 3;
+    private static final int OUTDATED_UPDATE_RECEIVED = 5;
 
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
@@ -145,7 +155,12 @@ public class RebalanceUtil {
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
                                         put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
                                 ).yield(PLANNED_KEY_UPDATED),
-                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED))),
+                                iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
+                                        ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING),
+                                        iif(notExists(partAssignmentsPendingKey),
+                                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING),
+                                                ops().yield(ASSIGNMENT_NOT_UPDATED))
+                                ))),
                 ops().yield(OUTDATED_UPDATE_RECEIVED));
 
         return metaStorageMgr.invoke(iif).thenAccept(sr -> {
@@ -163,9 +178,22 @@ public class RebalanceUtil {
                             partAssignmentsPlannedKey, partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
-                case PLANNED_KEY_REMOVED:
+                case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+
+                    break;
+                case PLANNED_KEY_REMOVED_EMPTY_PENDING:
+                    LOG.info(
+                            "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
+                                    + "[key={}, partition={}, table={}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+
+                    break;
+                case ASSIGNMENT_NOT_UPDATED:
+                    LOG.debug(
+                            "Assignments are not updated [key={}, partition={}, table={}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
