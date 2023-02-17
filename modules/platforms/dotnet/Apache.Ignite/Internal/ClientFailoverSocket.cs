@@ -114,7 +114,7 @@ namespace Apache.Ignite.Internal
         {
             var socket = new ClientFailoverSocket(configuration);
 
-            await socket.GetSocketAsync().ConfigureAwait(false);
+            await socket.GetNextSocketAsync().ConfigureAwait(false);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Secondary connections are established in the background.
@@ -350,7 +350,7 @@ namespace Apache.Ignite.Internal
                 {
                     return await ConnectAsync(endPoint).ConfigureAwait(false);
                 }
-                catch (IgniteClientConnectionException e) when (e.InnerException is SocketException or IOException)
+                catch (IgniteClientConnectionException e) when (e.GetBaseException() is SocketException or IOException)
                 {
                     errors ??= new List<Exception>();
 

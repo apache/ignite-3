@@ -57,7 +57,7 @@ public class ReconnectTests
     {
         ClientFailoverSocket.ResetGlobalEndpointIndex();
 
-        using var servers = FakeServerGroup.Create(5, idx => new FakeServer { DropConnections = idx < 4 });
+        using var servers = FakeServerGroup.Create(10, idx => new FakeServer { DropConnections = idx < 9 });
         using var client = await servers.ConnectClientAsync();
     }
 }
