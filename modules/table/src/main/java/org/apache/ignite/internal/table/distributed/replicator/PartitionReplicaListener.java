@@ -274,56 +274,52 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processTxStateReplicaRequest((TxStateReplicaRequest) request);
         }
 
-        return ensureReplicaIsPrimary(request)
-                .thenCompose((isPrimary) -> {
-                    if (request instanceof ReadWriteSingleRowReplicaRequest) {
-                        var req = (ReadWriteSingleRowReplicaRequest) request;
+        if (request instanceof ReadWriteSingleRowReplicaRequest) {
+            var req = (ReadWriteSingleRowReplicaRequest) request;
 
-                        return appendTxCommand(req.transactionId(), req.requestType(), () ->
-                                processSingleEntryAction(req));
-                    } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                        var req = (ReadWriteMultiRowReplicaRequest) request;
+            return appendTxCommand(req.transactionId(), req.requestType(), () ->
+                    processSingleEntryAction(req));
+        } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
+            var req = (ReadWriteMultiRowReplicaRequest) request;
 
-                        return appendTxCommand(req.transactionId(), req.requestType(), () ->
-                                processMultiEntryAction(req));
-                    } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
-                        var req = (ReadWriteSwapRowReplicaRequest) request;
+            return appendTxCommand(req.transactionId(), req.requestType(), () ->
+                    processMultiEntryAction(req));
+        } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
+            var req = (ReadWriteSwapRowReplicaRequest) request;
 
-                        return appendTxCommand(req.transactionId(), req.requestType(), () ->
-                                processTwoEntriesAction(req))
-                                .thenApply(Function.identity());
-                    } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
-                        var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
+            return appendTxCommand(req.transactionId(), req.requestType(), () ->
+                    processTwoEntriesAction(req))
+                    .thenApply(Function.identity());
+        } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
+            var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
-                        return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, () ->
-                                processScanRetrieveBatchAction(req))
-                                .thenApply(Function.identity());
-                    } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
-                        processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
+            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, () ->
+                    processScanRetrieveBatchAction(req))
+                    .thenApply(Function.identity());
+        } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
+            processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
-                        return completedFuture(null);
-                    } else if (request instanceof TxFinishReplicaRequest) {
-                        return processTxFinishAction((TxFinishReplicaRequest) request)
-                                .thenApply(Function.identity());
-                    } else if (request instanceof TxCleanupReplicaRequest) {
-                        return processTxCleanupAction((TxCleanupReplicaRequest) request)
-                                .thenApply(Function.identity());
-                    } else if (request instanceof ReadOnlySingleRowReplicaRequest) {
-                        return processReadOnlySingleEntryAction((ReadOnlySingleRowReplicaRequest) request, isPrimary)
-                                .thenApply(Function.identity());
-                    } else if (request instanceof ReadOnlyMultiRowReplicaRequest) {
-                        return processReadOnlyMultiEntryAction((ReadOnlyMultiRowReplicaRequest) request, isPrimary)
-                                .thenApply(Function.identity());
-                    } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-                        return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary)
-                                .thenApply(Function.identity());
-                    } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-                        return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request)
-                                .thenApply(Function.identity());
-                    } else {
-                        throw new UnsupportedReplicaRequestException(request.getClass());
-                    }
-                });
+            return completedFuture(null);
+        } else if (request instanceof TxFinishReplicaRequest) {
+            return processTxFinishAction((TxFinishReplicaRequest) request)
+                    .thenApply(Function.identity());
+        } else if (request instanceof TxCleanupReplicaRequest) {
+            return processTxCleanupAction((TxCleanupReplicaRequest) request)
+                    .thenApply(Function.identity());
+        } else if (request instanceof ReadOnlySingleRowReplicaRequest) {
+            return processReadOnlySingleEntryAction((ReadOnlySingleRowReplicaRequest) request)
+                    .thenApply(Function.identity());
+        } else if (request instanceof ReadOnlyMultiRowReplicaRequest) {
+            return processReadOnlyMultiEntryAction((ReadOnlyMultiRowReplicaRequest) request)
+                    .thenApply(Function.identity());
+        } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
+            return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request)
+                    .thenApply(Function.identity());
+        } else if (request instanceof ReplicaSafeTimeSyncRequest) {
+            return processReplicaSafeTimeSyncRequest().thenApply(Function.identity());
+        } else {
+            throw new UnsupportedReplicaRequestException(request.getClass());
+        }
     }
 
     /**
@@ -381,22 +377,16 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes retrieve batch for read only transaction.
      *
      * @param request Read only retrieve batch request.
-     * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
-    private CompletableFuture<List<BinaryRow>> processReadOnlyScanRetrieveBatchAction(
-            ReadOnlyScanRetrieveBatchReplicaRequest request,
-            Boolean isPrimary
-    ) {
-        requireNonNull(isPrimary);
-
+    private CompletableFuture<List<BinaryRow>> processReadOnlyScanRetrieveBatchAction(ReadOnlyScanRetrieveBatchReplicaRequest request) {
         UUID txId = request.transactionId();
         int batchCount = request.batchSize();
         HybridTimestamp readTimestamp = request.readTimestamp();
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(readTimestamp);
+        CompletableFuture<Void> safeReadFuture = safeTime.waitFor(readTimestamp);
 
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
@@ -474,10 +464,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes single entry request for read only transaction.
      *
      * @param request Read only single entry request.
-     * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
-    private CompletableFuture<BinaryRow> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request, Boolean isPrimary) {
+    private CompletableFuture<BinaryRow> processReadOnlySingleEntryAction(ReadOnlySingleRowReplicaRequest request) {
         BinaryRow searchRow = request.binaryRow();
         HybridTimestamp readTimestamp = request.readTimestamp();
 
@@ -486,7 +475,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
+        CompletableFuture<Void> safeReadFuture = safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> resolveRowByPkForReadOnly(searchRow, readTimestamp));
     }
@@ -495,13 +484,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes multiple entries request for read only transaction.
      *
      * @param request Read only multiple entries request.
-     * @param isPrimary Whether the given replica is primary.
      * @return Result future.
      */
-    private CompletableFuture<ArrayList<BinaryRow>> processReadOnlyMultiEntryAction(
-            ReadOnlyMultiRowReplicaRequest request,
-            Boolean isPrimary
-    ) {
+    private CompletableFuture<ArrayList<BinaryRow>> processReadOnlyMultiEntryAction(ReadOnlyMultiRowReplicaRequest request) {
         Collection<BinaryRow> searchRows = request.binaryRows();
         HybridTimestamp readTimestamp = request.readTimestamp();
 
@@ -510,7 +495,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     format("Unknown single request [actionType={}]", request.requestType()));
         }
 
-        CompletableFuture<Void> safeReadFuture = isPrimary ? completedFuture(null) : safeTime.waitFor(request.readTimestamp());
+        CompletableFuture<Void> safeReadFuture = safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> {
             ArrayList<CompletableFuture<BinaryRow>> resolutionFuts = new ArrayList<>(searchRows.size());
@@ -540,10 +525,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Handler to process {@link ReplicaSafeTimeSyncRequest}.
      *
-     * @param request Request.
      * @return Future.
      */
-    private CompletionStage<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request) {
+    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest() {
         return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(hybridTimestamp(hybridClock.now())).build());
     }
 
@@ -586,7 +570,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Processes scan close request.
      *
      * @param request Scan close request operation.
-     * @return Listener response.
      */
     private void processScanCloseAction(ReadWriteScanCloseReplicaRequest request) {
         UUID txId = request.transactionId();
@@ -1965,50 +1948,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return completedFuture(null);
                 });
-    }
-
-    /**
-     * Ensure that the primary replica was not changed.
-     *
-     * @param request Replica request.
-     * @return Future. The result is not null only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
-     */
-    private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        Long expectedTerm;
-
-        if (request instanceof ReadWriteReplicaRequest) {
-            expectedTerm = ((ReadWriteReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else if (request instanceof TxFinishReplicaRequest) {
-            expectedTerm = ((TxFinishReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else if (request instanceof TxCleanupReplicaRequest) {
-            expectedTerm = ((TxCleanupReplicaRequest) request).term();
-
-            assert expectedTerm != null;
-        } else {
-            expectedTerm = null;
-        }
-
-        if (expectedTerm != null) {
-            return raftClient.refreshAndGetLeaderWithTerm()
-                    .thenCompose(replicaAndTerm -> {
-                                long currentTerm = replicaAndTerm.term();
-
-                                if (expectedTerm == currentTerm) {
-                                    return completedFuture(null);
-                                } else {
-                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
-                                }
-                            }
-                    );
-        } else if (request instanceof ReadOnlyReplicaRequest) {
-            return raftClient.refreshAndGetLeaderWithTerm().thenApply(replicaAndTerm -> isLocalPeerChecker.apply(replicaAndTerm.leader()));
-        } else {
-            return completedFuture(null);
-        }
     }
 
     /**
