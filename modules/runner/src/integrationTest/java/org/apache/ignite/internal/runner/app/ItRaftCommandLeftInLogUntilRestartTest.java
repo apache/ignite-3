@@ -57,6 +57,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The class has tests of cluster recovery when no all committed RAFT commands applied to the state machine.
  */
+@Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
+        + "but the table have not started yet.")
 public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegrationTest {
 
     private final Object[][] dataSet = {
@@ -91,8 +93,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
      *
      * @throws Exception If fail.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
-            + "but the table have not started yet.")
+    @Test
     public void testUpdateAllCommand() throws Exception {
         restartClusterWithNotAppliedCommands(
                 tx -> {
@@ -128,8 +129,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
      *
      * @throws Exception If fail.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
-            + "but the table have not started yet.")
+    @Test
     public void testUpdateCommandKeyValueView() throws Exception {
         restartClusterWithNotAppliedCommands(
                 tx -> {
@@ -153,7 +153,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
      * @param checkAction An action to check data after restart.
      * @throws Exception If fail.
      */
-    public void restartClusterWithNotAppliedCommands(
+    private void restartClusterWithNotAppliedCommands(
             Consumer<Transaction> beforeBlock,
             Consumer<Transaction> afterBlock,
             Consumer<IgniteImpl> checkAction

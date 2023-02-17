@@ -145,7 +145,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
      *
      * @param rowId Row id.
-     * @param row Table row to update. Key only row means value removal.
+     * @param row Table row to update. {@code null} means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.
