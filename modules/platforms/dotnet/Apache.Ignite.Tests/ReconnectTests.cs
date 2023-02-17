@@ -26,11 +26,9 @@ using NUnit.Framework;
 /// <summary>
 /// Automatic reconnect tests.
 /// </summary>
+[SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Tests.")]
 public class ReconnectTests
 {
-    // TODO: Test connection to a node that was not initially available (add FakeServer flag that rejects connections)
-    // TODO: Check that reconnect stops on dispose
-    // TODO: What happens if all nodes are lost? Do we just keep trying?
     [Test]
     public void TestInvalidMagicThrowsException()
     {
@@ -82,7 +80,6 @@ public class ReconnectTests
     }
 
     [Test]
-    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestDroppedConnectionsAreRestoredInBackground()
     {
         var cfg = new IgniteClientConfiguration
@@ -91,11 +88,11 @@ public class ReconnectTests
             ReconnectInterval = TimeSpan.FromMilliseconds(300)
         };
 
-        using var server = FakeServerGroup.Create(10, _ => new FakeServer());
-        using var client = await server.ConnectClientAsync(cfg);
+        using var servers = FakeServerGroup.Create(10, _ => new FakeServer());
+        using var client = await servers.ConnectClientAsync(cfg);
 
         TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
-        server.DropAllConnections();
+        servers.DropAllConnections();
 
         // Dropped connections are detected by heartbeat.
         TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 500);
@@ -107,8 +104,62 @@ public class ReconnectTests
     }
 
     [Test]
-    public void TestInitiallyUnavailableNodeIsConnectedInBackground()
+    public async Task TestInitiallyUnavailableNodesAreConnectedInBackground()
     {
+        var cfg = new IgniteClientConfiguration
+        {
+            ReconnectInterval = TimeSpan.FromMilliseconds(100)
+        };
 
+        using var servers = FakeServerGroup.Create(5, idx => new FakeServer { DropConnections = idx > 0 });
+        using var client = await servers.ConnectClientAsync(cfg);
+
+        Assert.AreEqual(1, client.GetConnections().Count);
+
+        foreach (var server in servers.Servers)
+        {
+            server.DropConnections = false;
+        }
+
+        // When all servers are back online, connections are established in background due to ReconnectInterval.
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 5, 3000);
+
+        Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+    }
+
+    [Test]
+    public async Task TestReconnectAfterFullClusterRestart()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            ReconnectInterval = TimeSpan.FromMilliseconds(100)
+        };
+
+        using var servers = FakeServerGroup.Create(10, _ => new FakeServer());
+        using var client = await servers.ConnectClientAsync(cfg);
+
+        Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+
+        // Drop all connections and block new connections.
+        foreach (var server in servers.Servers)
+        {
+            server.DropConnections = true;
+            server.DropConnection();
+        }
+
+        // Client fails to perform operations.
+        Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
+
+        // Allow new connections.
+        foreach (var server in servers.Servers)
+        {
+            server.DropConnections = false;
+        }
+
+        // Client works again.
+        Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+
+        // All connections are restored.
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10);
     }
 }

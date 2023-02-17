@@ -27,12 +27,12 @@ using System.Threading.Tasks;
 /// </summary>
 public sealed class FakeServerGroup : IDisposable
 {
-    private readonly IReadOnlyList<FakeServer> _servers;
-
     public FakeServerGroup(IReadOnlyList<FakeServer> servers)
     {
-        _servers = servers;
+        Servers = servers;
     }
+
+    public IReadOnlyList<FakeServer> Servers { get; }
 
     public static FakeServerGroup Create(int count, Func<int, FakeServer> factory) =>
         new(Enumerable.Range(0, count).Select(factory).ToList());
@@ -43,7 +43,7 @@ public sealed class FakeServerGroup : IDisposable
 
         cfg.Endpoints.Clear();
 
-        foreach (var server in _servers)
+        foreach (var server in Servers)
         {
             cfg.Endpoints.Add(server.Endpoint);
         }
@@ -53,7 +53,7 @@ public sealed class FakeServerGroup : IDisposable
 
     public void Dispose()
     {
-        foreach (var server in _servers)
+        foreach (var server in Servers)
         {
             server.Dispose();
         }
@@ -61,7 +61,7 @@ public sealed class FakeServerGroup : IDisposable
 
     public void DropAllConnections()
     {
-        foreach (var server in _servers)
+        foreach (var server in Servers)
         {
             server.DropConnection();
         }
