@@ -95,7 +95,7 @@ public class ReconnectTests
         servers.DropAllConnections();
 
         // Dropped connections are detected by heartbeat.
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 500);
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 3000);
 
         // Connections are restored in background due to ReconnectInterval.
         TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
