@@ -616,7 +616,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /** {@inheritDoc} */
     @Override
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
-        int hash = 0;
+        long storageIdx = 0;
 
         for (Map.Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza svc = entry.getValue();
@@ -635,9 +635,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             MvPartitionStorage storage = listener.getMvStorage();
 
-            if (hash == 0) {
-                hash = storage.hashCode();
-            } else if (hash != storage.hashCode()) {
+            if (storageIdx == 0) {
+                storageIdx = storage.persistedIndex();
+            } else if (storageIdx != storage.persistedIndex()) {
                 return false;
             }
         }
