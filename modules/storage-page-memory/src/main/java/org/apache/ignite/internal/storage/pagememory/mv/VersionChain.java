@@ -150,7 +150,7 @@ public class VersionChain extends VersionChainKey {
      *
      * @param nextLink New next link.
      */
-    public VersionChain setNextLink(long nextLink) {
+    public VersionChain withNextLink(long nextLink) {
         return new VersionChain(rowId, transactionId, commitTableId, commitPartitionId, headLink, nextLink);
     }
 

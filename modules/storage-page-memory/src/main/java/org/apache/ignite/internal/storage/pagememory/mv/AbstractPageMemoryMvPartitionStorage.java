@@ -70,8 +70,8 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionRowVersion;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -114,7 +114,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected volatile IndexMetaTree indexMetaTree;
 
-    protected volatile GarbageCollectionTree gcQueue;
+    protected volatile GcQueue gcQueue;
 
     protected final DataPageReader rowVersionDataPageReader;
 
@@ -149,7 +149,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
-            GarbageCollectionTree gcQueue
+            GcQueue gcQueue
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
@@ -398,7 +398,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return read.result();
     }
 
-    @Nullable RowVersion foundRowVersion(VersionChain versionChain, RowVersionFilter filter, boolean loadValueBytes) {
+    @Nullable RowVersion findRowVersion(VersionChain versionChain, RowVersionFilter filter, boolean loadValueBytes) {
         assert versionChain.hasHeadLink();
 
         FindRowVersion findRowVersion = new FindRowVersion(partitionId, loadValueBytes);
@@ -974,7 +974,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            GarbageCollectionRowVersion first = gcQueue.findFirstFromGc();
+            GcRowVersion first = gcQueue.getFirst();
 
             // Garbage collection queue is empty.
             if (first == null) {
@@ -992,7 +992,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return inUpdateVersionChainLock(rowId, () -> {
                 // Someone processed the element in parallel.
-                if (!gcQueue.removeFromGc(rowId, rowTimestamp)) {
+                if (!gcQueue.remove(rowId, rowTimestamp)) {
                     return null;
                 }
 

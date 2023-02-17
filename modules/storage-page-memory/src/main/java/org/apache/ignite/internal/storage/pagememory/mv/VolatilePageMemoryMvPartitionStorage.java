@@ -39,7 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -79,7 +79,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             int partitionId,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
-            GarbageCollectionTree gcQueue,
+            GcQueue gcQueue,
             GradualTaskExecutor destructionExecutor
     ) {
         super(
@@ -311,7 +311,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     public void updateDataStructures(
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
-            GarbageCollectionTree gcQueue
+            GcQueue gcQueue
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 

@@ -45,7 +45,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPart
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
@@ -128,8 +128,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
-            GarbageCollectionTree garbageCollectionTree
-                    = createGarbageCollectionTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
+            GcQueue gcQueue = createGcQueue(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
             return new PersistentPageMemoryMvPartitionStorage(
                     this,
@@ -139,7 +138,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
-                    garbageCollectionTree
+                    gcQueue
             );
         });
     }
@@ -384,7 +383,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     /**
-     * Returns new {@link GarbageCollectionTree} instance for partition.
+     * Returns new {@link GcQueue} instance for partition.
      *
      * @param tableView Table configuration.
      * @param partitionId Partition ID.
@@ -393,7 +392,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param meta Partition metadata.
      * @throws StorageException If failed.
      */
-    private GarbageCollectionTree createGarbageCollectionTree(
+    private GcQueue createGcQueue(
             TableView tableView,
             int partitionId,
             ReuseList reuseList,
@@ -403,22 +402,22 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         try {
             boolean initNew = false;
 
-            if (meta.garbageCollectionTreeMetaPageId() == 0) {
+            if (meta.gcQueueMetaPageId() == 0) {
                 long rootPageId = pageMemory.allocatePage(tableView.tableId(), partitionId, FLAG_AUX);
 
-                meta.garbageCollectionTreeMetaPageId(lastCheckpointId(), rootPageId);
+                meta.gcQueueMetaPageId(lastCheckpointId(), rootPageId);
 
                 initNew = true;
             }
 
-            return new GarbageCollectionTree(
+            return new GcQueue(
                     tableView.tableId(),
                     tableView.name(),
                     partitionId,
                     dataRegion.pageMemory(),
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
-                    meta.garbageCollectionTreeMetaPageId(),
+                    meta.gcQueueMetaPageId(),
                     reuseList,
                     initNew
             );
@@ -462,8 +461,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
                 IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
-                GarbageCollectionTree garbageCollectionTree
-                        = createGarbageCollectionTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
+                GcQueue gcQueue = createGcQueue(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
                 ((PersistentPageMemoryMvPartitionStorage) mvPartitionStorage).updateDataStructures(
                         meta,
@@ -471,7 +469,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                         indexColumnsFreeList,
                         versionChainTree,
                         indexMetaTree,
-                        garbageCollectionTree
+                        gcQueue
                 );
 
                 return null;

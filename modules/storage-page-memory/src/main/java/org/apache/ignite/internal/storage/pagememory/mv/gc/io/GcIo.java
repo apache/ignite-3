@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.gc.io;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.mv.HybridTimestamps;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionRowVersion;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 
 /**
- * Interface for {@link GarbageCollectionTree}-related IO.
+ * Interface for {@link GcQueue}-related IO.
  *
  * <p>Defines a following data layout:
  * <ul>
@@ -36,7 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree
  *     <li>Row timestamp (12 bytes).</li>
  * </ul>
  */
-public interface GarbageCollectionIo {
+public interface GcIo {
     /** Offset of rowId's most significant bits, 8 bytes. */
     int ROW_ID_MSB_OFFSET = 0;
 
@@ -47,7 +50,7 @@ public interface GarbageCollectionIo {
     int ROW_TIMESTAMP_OFFSET = ROW_ID_LSB_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
-    int SIZE_IN_BYTES = ROW_TIMESTAMP_OFFSET + HybridTimestamps.SIZE_IN_BYTES;
+    int SIZE_IN_BYTES = ROW_TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
 
     /**
      * Returns an offset of the element inside the page.
@@ -61,7 +64,7 @@ public interface GarbageCollectionIo {
      *
      * @see BplusIo#store(long, int, BplusIo, long, int)
      */
-    default void store(long dstPageAddr, int dstIdx, BplusIo<GarbageCollectionRowVersion> srcIo, long srcPageAddr, int srcIdx) {
+    default void store(long dstPageAddr, int dstIdx, BplusIo<GcRowVersion> srcIo, long srcPageAddr, int srcIdx) {
         int dstOffset = offset(dstIdx);
         int srcOffset = offset(srcIdx);
 
@@ -73,7 +76,7 @@ public interface GarbageCollectionIo {
      *
      * @see BplusIo#storeByOffset(long, int, Object)
      */
-    default void storeByOffset(long pageAddr, int off, GarbageCollectionRowVersion row) {
+    default void storeByOffset(long pageAddr, int off, GcRowVersion row) {
         RowId rowId = row.getRowId();
 
         putLong(pageAddr, off + ROW_ID_MSB_OFFSET, rowId.mostSignificantBits());
@@ -84,17 +87,19 @@ public interface GarbageCollectionIo {
 
     /**
      * Compare the row version for garbage collection from the page with passed row version, thus defining the order of element in the
-     * {@link GarbageCollectionTree}.
+     * {@link GcQueue}.
      *
      * @param pageAddr Page address.
      * @param idx Element's index.
      * @param rowVersion Row version for garbage collection.
      * @return Comparison result.
      */
-    default int compare(long pageAddr, int idx, GarbageCollectionRowVersion rowVersion) {
+    default int compare(long pageAddr, int idx, GcRowVersion rowVersion) {
         int offset = offset(idx);
 
-        int cmp = HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET).compareTo(rowVersion.getTimestamp());
+        HybridTimestamp readTimestamp = requireNonNull(HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET));
+
+        int cmp = readTimestamp.compareTo(rowVersion.getTimestamp());
 
         if (cmp != 0) {
             return cmp;
@@ -118,15 +123,15 @@ public interface GarbageCollectionIo {
      * @param idx Element's index.
      * @param partitionId Partition id to enrich read partitionless links.
      */
-    default GarbageCollectionRowVersion getRow(long pageAddr, int idx, int partitionId) {
+    default GcRowVersion getRow(long pageAddr, int idx, int partitionId) {
         int offset = offset(idx);
 
         long rowIdMsb = getLong(pageAddr, offset + ROW_ID_MSB_OFFSET);
         long rowIdLsb = getLong(pageAddr, offset + ROW_ID_LSB_OFFSET);
 
-        return new GarbageCollectionRowVersion(
+        return new GcRowVersion(
                 new RowId(partitionId, rowIdMsb, rowIdLsb),
-                HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET)
+                requireNonNull(HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET))
         );
     }
 }

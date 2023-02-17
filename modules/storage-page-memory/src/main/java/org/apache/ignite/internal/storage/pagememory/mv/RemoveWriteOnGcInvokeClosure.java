@@ -85,14 +85,14 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
                 // Find the version for which this version is RowVersion#nextLink.
                 toUpdate = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
 
-                newRow = oldRow.setNextLink(nextRowVersion.nextLink());
+                newRow = oldRow.withNextLink(nextRowVersion.nextLink());
             } else {
                 operationType = OperationType.PUT;
 
                 newRow = oldRow;
 
                 // Find the version for which this version is RowVersion#nextLink.
-                toUpdate = storage.foundRowVersion(oldRow, equalsByNextLink(rowVersion.link()), false);
+                toUpdate = storage.findRowVersion(oldRow, equalsByNextLink(rowVersion.link()), false);
             }
         } else {
             operationType = OperationType.PUT;
@@ -102,7 +102,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
             toUpdate = rowVersion;
 
             if (oldRow.headLink() == rowVersion.link()) {
-                newRow = oldRow.setNextLink(nextRowVersion.nextLink());
+                newRow = oldRow.withNextLink(nextRowVersion.nextLink());
             } else {
                 newRow = oldRow;
             }
@@ -139,7 +139,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     }
 
     private RowVersion findRowVersionLinkWithChecks(VersionChain versionChain) {
-        RowVersion rowVersion = storage.foundRowVersion(versionChain, equalsByTimestamp(timestamp), false);
+        RowVersion rowVersion = storage.findRowVersion(versionChain, equalsByTimestamp(timestamp), false);
 
         if (rowVersion == null) {
             throw new StorageException(
@@ -165,7 +165,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         toRemove.forEach(storage::removeRowVersion);
 
         if (toUpdate != null && !result.hasNextLink()) {
-            storage.gcQueue.removeFromGc(rowId, toUpdate.timestamp());
+            storage.gcQueue.remove(rowId, toUpdate.timestamp());
         }
     }
 

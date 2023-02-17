@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_ROW_VERSION_DATA_IO;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -36,9 +37,6 @@ import org.jetbrains.annotations.Nullable;
  * Data pages IO for {@link RowVersion}.
  */
 public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
-    /** Page IO type. */
-    public static final short T_ROW_VERSION_DATA_IO = 12;
-
     /** I/O versions. */
     public static final IoVersions<RowVersionDataIo> VERSIONS = new IoVersions<>(new RowVersionDataIo(1));
 

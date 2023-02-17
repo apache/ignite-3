@@ -23,7 +23,7 @@ import org.apache.ignite.internal.storage.RowId;
 /**
  * Row version in the version chain that should be garbage collected.
  */
-public class GarbageCollectionRowVersion {
+public class GcRowVersion {
     private final RowId rowId;
 
     private final HybridTimestamp timestamp;
@@ -34,7 +34,7 @@ public class GarbageCollectionRowVersion {
      * @param rowId Row ID.
      * @param timestamp Row timestamp.
      */
-    public GarbageCollectionRowVersion(RowId rowId, HybridTimestamp timestamp) {
+    public GcRowVersion(RowId rowId, HybridTimestamp timestamp) {
         this.rowId = rowId;
         this.timestamp = timestamp;
     }

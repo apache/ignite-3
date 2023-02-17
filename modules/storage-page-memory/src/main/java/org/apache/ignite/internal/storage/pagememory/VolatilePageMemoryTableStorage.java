@@ -32,7 +32,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -73,14 +73,14 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         IndexMetaTree indexMetaTree = createIndexMetaTree(partitionId, tableCfg.value());
 
-        GarbageCollectionTree garbageCollectionTree = createGarbageCollectionTree(partitionId, tableCfg.value());
+        GcQueue gcQueue = createGarbageCollectionTree(partitionId, tableCfg.value());
 
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
                 partitionId,
                 versionChainTree,
                 indexMetaTree,
-                garbageCollectionTree,
+                gcQueue,
                 destructionExecutor
         );
     }
@@ -107,13 +107,13 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         }
     }
 
-    private GarbageCollectionTree createGarbageCollectionTree(int partitionId, TableView tableCfgView) {
+    private GcQueue createGarbageCollectionTree(int partitionId, TableView tableCfgView) {
         int grpId = tableCfgView.tableId();
 
         long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partitionId, FLAG_AUX);
 
         try {
-            return new GarbageCollectionTree(
+            return new GcQueue(
                     grpId,
                     tableCfgView.name(),
                     partitionId,

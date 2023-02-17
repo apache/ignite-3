@@ -103,7 +103,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     @Override
     public void onUpdate() {
-        assert operationType == OperationType.PUT ? true : updateTimestampLink == NULL_LINK :
+        assert operationType == OperationType.PUT || updateTimestampLink == NULL_LINK :
                 "link=" + updateTimestampLink + ", op=" + operationType;
 
         if (updateTimestampLink != NULL_LINK) {
@@ -122,14 +122,14 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
     void afterCompletion() {
-        assert operationType == OperationType.PUT ? true : toRemove == null : "toRemove=" + toRemove + ", op=" + operationType;
+        assert operationType == OperationType.PUT || toRemove == null : "toRemove=" + toRemove + ", op=" + operationType;
 
         if (toRemove != null) {
             storage.removeRowVersion(toRemove);
         }
 
         if (addToGc) {
-            storage.gcQueue.addToGc(rowId, timestamp);
+            storage.gcQueue.add(rowId, timestamp);
         }
     }
 }

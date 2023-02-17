@@ -60,7 +60,7 @@ public class PartitionMeta {
 
     private volatile long indexTreeMetaPageId;
 
-    private volatile long garbageCollectionTreeMetaPageId;
+    private volatile long gcQueueMetaPageId;
 
     private volatile int pageCount;
 
@@ -92,7 +92,7 @@ public class PartitionMeta {
             long indexColumnsFreeListRootPageId,
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
-            long garbageCollectionTreeMetaPageId,
+            long gcQueueMetaPageId,
             int pageCount
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
@@ -102,7 +102,7 @@ public class PartitionMeta {
         this.indexColumnsFreeListRootPageId = indexColumnsFreeListRootPageId;
         this.versionChainTreeRootPageId = versionChainTreeRootPageId;
         this.indexTreeMetaPageId = indexTreeMetaPageId;
-        this.garbageCollectionTreeMetaPageId = garbageCollectionTreeMetaPageId;
+        this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.pageCount = pageCount;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
@@ -125,7 +125,7 @@ public class PartitionMeta {
                 metaIo.getIndexColumnsFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
-                metaIo.getGarbageCollectionTreeMetaPageId(pageAddr),
+                metaIo.getGcQueueMetaPageId(pageAddr),
                 metaIo.getPageCount(pageAddr)
         );
     }
@@ -254,22 +254,22 @@ public class PartitionMeta {
     }
 
     /**
-     * Returns garbage collection tree meta page id.
+     * Returns garbage collection queue meta page id.
      */
-    public long garbageCollectionTreeMetaPageId() {
-        return garbageCollectionTreeMetaPageId;
+    public long gcQueueMetaPageId() {
+        return gcQueueMetaPageId;
     }
 
     /**
-     * Sets an garbage collection tree meta page id.
+     * Sets an garbage collection queue meta page id.
      *
      * @param checkpointId Checkpoint id.
-     * @param garbageCollectionTreeMetaPageId Garbage collection tree meta page id.
+     * @param gcQueueMetaPageId Garbage collection queue meta page id.
      */
-    public void garbageCollectionTreeMetaPageId(@Nullable UUID checkpointId, long garbageCollectionTreeMetaPageId) {
+    public void gcQueueMetaPageId(@Nullable UUID checkpointId, long gcQueueMetaPageId) {
         updateSnapshot(checkpointId);
 
-        this.garbageCollectionTreeMetaPageId = garbageCollectionTreeMetaPageId;
+        this.gcQueueMetaPageId = gcQueueMetaPageId;
     }
 
     /**
@@ -338,7 +338,7 @@ public class PartitionMeta {
 
         private final long indexTreeMetaPageId;
 
-        private final long garbageCollectionTreeMetaPageId;
+        private final long gcQueueMetaPageId;
 
         private final int pageCount;
 
@@ -357,7 +357,7 @@ public class PartitionMeta {
             rowVersionFreeListRootPageId = partitionMeta.rowVersionFreeListRootPageId;
             indexColumnsFreeListRootPageId = partitionMeta.indexColumnsFreeListRootPageId;
             indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
-            garbageCollectionTreeMetaPageId = partitionMeta.garbageCollectionTreeMetaPageId;
+            gcQueueMetaPageId = partitionMeta.gcQueueMetaPageId;
             pageCount = partitionMeta.pageCount;
         }
 
@@ -411,10 +411,10 @@ public class PartitionMeta {
         }
 
         /**
-         * Returns garbage collection tree meta page id.
+         * Returns garbage collection queue meta page id.
          */
-        public long garbageCollectionTreeMetaPageId() {
-            return garbageCollectionTreeMetaPageId;
+        public long gcQueueMetaPageId() {
+            return gcQueueMetaPageId;
         }
 
         /**
@@ -438,7 +438,7 @@ public class PartitionMeta {
             metaIo.setIndexColumnsFreeListRootPageId(pageAddr, indexColumnsFreeListRootPageId);
             metaIo.setRowVersionFreeListRootPageId(pageAddr, rowVersionFreeListRootPageId);
             metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
-            metaIo.setGarbageCollectionTreeMetaPageId(pageAddr, garbageCollectionTreeMetaPageId);
+            metaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
             metaIo.setPageCount(pageAddr, pageCount);
         }
 

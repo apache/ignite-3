@@ -26,17 +26,17 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GarbageCollectionInnerIo;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GarbageCollectionIo;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GarbageCollectionLeafIo;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GarbageCollectionMetaIo;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcInnerIo;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcIo;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcLeafIo;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcMetaIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link BplusTree} implementation for garbage collection of obsolete row versions in version chains.
  */
-public class GarbageCollectionTree extends BplusTree<GarbageCollectionRowVersion, GarbageCollectionRowVersion> {
+public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
     /**
      * Constructor.
      *
@@ -51,7 +51,7 @@ public class GarbageCollectionTree extends BplusTree<GarbageCollectionRowVersion
      * @param initNew {@code True} if new tree should be created.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public GarbageCollectionTree(
+    public GcQueue(
             int grpId,
             String grpName,
             int partId,
@@ -74,31 +74,31 @@ public class GarbageCollectionTree extends BplusTree<GarbageCollectionRowVersion
                 reuseList
         );
 
-        setIos(GarbageCollectionInnerIo.VERSIONS, GarbageCollectionLeafIo.VERSIONS, GarbageCollectionMetaIo.VERSIONS);
+        setIos(GcInnerIo.VERSIONS, GcLeafIo.VERSIONS, GcMetaIo.VERSIONS);
 
         initTree(initNew);
     }
 
     @Override
-    protected int compare(BplusIo<GarbageCollectionRowVersion> io, long pageAddr, int idx, GarbageCollectionRowVersion row) {
-        GarbageCollectionIo garbageCollectionIo = (GarbageCollectionIo) io;
+    protected int compare(BplusIo<GcRowVersion> io, long pageAddr, int idx, GcRowVersion row) {
+        GcIo gcIo = (GcIo) io;
 
-        return garbageCollectionIo.compare(pageAddr, idx, row);
+        return gcIo.compare(pageAddr, idx, row);
     }
 
     @Override
-    public GarbageCollectionRowVersion getRow(BplusIo<GarbageCollectionRowVersion> io, long pageAddr, int idx, Object x) {
-        GarbageCollectionIo garbageCollectionIo = (GarbageCollectionIo) io;
+    public GcRowVersion getRow(BplusIo<GcRowVersion> io, long pageAddr, int idx, Object x) {
+        GcIo gcIo = (GcIo) io;
 
-        return garbageCollectionIo.getRow(pageAddr, idx, partId);
+        return gcIo.getRow(pageAddr, idx, partId);
     }
 
     /**
      * Adds a row version to the garbage collection queue.
      */
-    public void addToGc(RowId rowId, HybridTimestamp timestamp) {
+    public void add(RowId rowId, HybridTimestamp timestamp) {
         try {
-            put(new GarbageCollectionRowVersion(rowId, timestamp));
+            put(new GcRowVersion(rowId, timestamp));
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error occurred while adding row version to the garbage collection queue: [rowId={}, timestamp={}, {}]",
@@ -113,9 +113,9 @@ public class GarbageCollectionTree extends BplusTree<GarbageCollectionRowVersion
      *
      * @return {@code true} if the row version was removed from the garbage collection queue.
      */
-    public boolean removeFromGc(RowId rowId, HybridTimestamp timestamp) {
+    public boolean remove(RowId rowId, HybridTimestamp timestamp) {
         try {
-            return remove(new GarbageCollectionRowVersion(rowId, timestamp)) != null;
+            return remove(new GcRowVersion(rowId, timestamp)) != null;
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error occurred while deleting row version form the garbage collection queue: [rowId={}, timestamp={}, {}]",
@@ -128,7 +128,7 @@ public class GarbageCollectionTree extends BplusTree<GarbageCollectionRowVersion
     /**
      * Returns the first element from the garbage collection queue, {@code null} if the queue is empty.
      */
-    public @Nullable GarbageCollectionRowVersion findFirstFromGc() {
+    public @Nullable GcRowVersion getFirst() {
         try {
             return findFirst();
         } catch (IgniteInternalCheckedException e) {

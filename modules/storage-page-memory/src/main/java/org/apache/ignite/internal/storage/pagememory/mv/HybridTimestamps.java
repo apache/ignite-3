@@ -37,9 +37,6 @@ public class HybridTimestamps {
     /** Logical time component to store for {@code null} hybrid timestamp values. */
     private static final int NULL_LOGICAL_TIME = 0;
 
-    /** Payload size in bytes. */
-    public static final int SIZE_IN_BYTES = Long.BYTES + Integer.BYTES;
-
     /**
      * Reads a {@link HybridTimestamp} value from memory.
      *

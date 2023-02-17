@@ -17,26 +17,25 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.gc.io;
 
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_GC_META_IO;
+
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
-import org.apache.ignite.internal.storage.pagememory.mv.gc.GarbageCollectionTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 
 /**
- * IO routines for {@link GarbageCollectionTree} meta pages.
+ * IO routines for {@link GcQueue} meta pages.
  */
-public class GarbageCollectionMetaIo extends BplusMetaIo {
-    /** Page IO type. */
-    public static final short T_GARBAGE_COLLECTION_META_IO = 14;
-
+public class GcMetaIo extends BplusMetaIo {
     /** I/O versions. */
-    public static final IoVersions<GarbageCollectionMetaIo> VERSIONS = new IoVersions<>(new GarbageCollectionMetaIo(1));
+    public static final IoVersions<GcMetaIo> VERSIONS = new IoVersions<>(new GcMetaIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected GarbageCollectionMetaIo(int ver) {
-        super(T_GARBAGE_COLLECTION_META_IO, ver);
+    protected GcMetaIo(int ver) {
+        super(T_GC_META_IO, ver);
     }
 }

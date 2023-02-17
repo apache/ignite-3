@@ -38,7 +38,7 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
     private final boolean loadValueBytes;
 
-    private boolean rowVersionFounded;
+    private boolean rowVersionFound;
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
@@ -58,12 +58,12 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
     }
 
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, RowVersionFilter arg) {
-        if (!rowVersionFounded) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, RowVersionFilter filter) {
+        if (!rowVersionFound) {
             long nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
-            if (arg.apply(link, pageAddr + payload.offset())) {
-                rowVersionFounded = true;
+            if (filter.apply(link, pageAddr + payload.offset())) {
+                rowVersionFound = true;
 
                 rowLink = link;
                 rowTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
@@ -86,7 +86,7 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
     @Override
     public void finish() {
-        if (!rowVersionFounded) {
+        if (!rowVersionFound) {
             return;
         }
 
@@ -113,26 +113,27 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
     /**
      * Row version filter in the version chain.
      */
+    @FunctionalInterface
     interface RowVersionFilter {
         /**
          * Returns {@code true} if the version matches.
          *
          * @param rowVersionLink Row version link;
-         * @param rowVersionAdder Address to row version (including page address + offset within it).
+         * @param rowVersionAddr Address of row version (including page address + offset within it).
          */
-        boolean apply(long rowVersionLink, long rowVersionAdder);
+        boolean apply(long rowVersionLink, long rowVersionAddr);
 
         static RowVersionFilter equalsByTimestamp(HybridTimestamp timestamp) {
-            return (rowVersionLink, rowVersionAdder) -> {
-                HybridTimestamp readTimestamp = HybridTimestamps.readTimestamp(rowVersionAdder, RowVersion.TIMESTAMP_OFFSET);
+            return (rowVersionLink, rowVersionAddr) -> {
+                HybridTimestamp readTimestamp = HybridTimestamps.readTimestamp(rowVersionAddr, RowVersion.TIMESTAMP_OFFSET);
 
                 return readTimestamp != null && readTimestamp.compareTo(timestamp) == 0;
             };
         }
 
         static RowVersionFilter equalsByNextLink(long nextLink) {
-            return (rowVersionLink, rowVersionAdder) -> {
-                long readNextLink = readPartitionless(partitionIdFromLink(rowVersionLink), rowVersionAdder, RowVersion.NEXT_LINK_OFFSET);
+            return (rowVersionLink, rowVersionAddr) -> {
+                long readNextLink = readPartitionless(partitionIdFromLink(rowVersionLink), rowVersionAddr, RowVersion.NEXT_LINK_OFFSET);
 
                 return readNextLink == nextLink;
             };

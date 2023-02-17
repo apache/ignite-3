@@ -79,7 +79,7 @@ public final class RowVersion implements Storable {
 
         this.timestamp = timestamp;
         this.nextLink = nextLink;
-        this.valueSize = value == null ? -1 : value.limit();
+        this.valueSize = value == null ? 0 : value.limit();
         this.value = value;
     }
 
@@ -124,7 +124,7 @@ public final class RowVersion implements Storable {
     }
 
     static boolean isTombstone(int valueSize) {
-        return valueSize <= 0;
+        return valueSize == 0;
     }
 
     static boolean isTombstone(byte[] valueBytes) {

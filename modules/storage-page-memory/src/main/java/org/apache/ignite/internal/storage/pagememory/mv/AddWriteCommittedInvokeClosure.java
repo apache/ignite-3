@@ -127,7 +127,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
      */
     void afterCompletion() {
         if (addToGc) {
-            storage.gcQueue.addToGc(rowId, commitTimestamp);
+            storage.gcQueue.add(rowId, commitTimestamp);
         }
     }
 }
