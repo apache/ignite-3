@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests;
 
+using NUnit.Framework;
+
 /// <summary>
 /// Automatic reconnect tests.
 /// </summary>
@@ -27,4 +29,16 @@ public class ReconnectTests
     // TODO: Test connection to a node that was not initially available (add FakeServer flag that rejects connections)
     // TODO: Check that reconnect stops on dispose
     // TODO: What happens if all nodes are lost? Do we just keep trying?
+    [Test]
+    public void TestInvalidMagicFromAllServersThrowsException()
+    {
+    }
+
+    [Test]
+    public void TestFailedInitialConnectionToAllServersThrowsException()
+    {
+        using var servers = FakeServerGroup.Create(3, () => new FakeServer { DropConnections = true });
+
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await servers.ConnectClientAsync());
+    }
 }

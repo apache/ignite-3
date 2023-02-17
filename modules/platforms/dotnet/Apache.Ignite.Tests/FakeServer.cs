@@ -117,6 +117,10 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
+        public bool DropConnections { get; set; }
+
+        public bool SendInvalidMagic { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -426,6 +430,12 @@ namespace Apache.Ignite.Tests
             while (!_cts.IsCancellationRequested)
             {
                 using Socket handler = _listener.Accept();
+
+                if (DropConnections)
+                {
+                    continue;
+                }
+
                 _handler = handler;
 
                 handler.NoDelay = true;
@@ -436,7 +446,7 @@ namespace Apache.Ignite.Tests
                 using var handshake = ReceiveBytes(handler, msgSize);
 
                 // Write handshake response.
-                handler.Send(ProtoCommon.MagicBytes);
+                handler.Send(SendInvalidMagic ? ProtoCommon.MagicBytes.Reverse().ToArray() : ProtoCommon.MagicBytes);
                 Thread.Sleep(HandshakeDelay);
 
                 using var handshakeBufferWriter = new PooledArrayBuffer();
