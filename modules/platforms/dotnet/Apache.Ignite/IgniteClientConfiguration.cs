@@ -85,6 +85,7 @@ namespace Apache.Ignite
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
             HeartbeatInterval = other.HeartbeatInterval;
+            ReconnectInterval = other.ReconnectInterval;
         }
 
         /// <summary>

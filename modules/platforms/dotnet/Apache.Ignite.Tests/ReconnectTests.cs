@@ -99,7 +99,10 @@ public class ReconnectTests
         Assert.AreEqual(1, client.GetConnections().Count);
         server.DropConnection();
 
+        // Dropped connection is detected by heartbeat.
         TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 500);
+
+        // Connection is restored in background due to ReconnectInterval.
         TestUtils.WaitForCondition(() => client.GetConnections().Count > 0, 3000);
     }
 }
