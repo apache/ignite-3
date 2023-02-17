@@ -86,7 +86,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     /** RPC executor. */
     protected ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory("Raft-Group-Client", log));
 
-    //@Test
+    @Test
     public void testOneNodeReplicationGroup(TestInfo testInfo) throws Exception {
         var clusterServices = new HashMap<NetworkAddress, ClusterService>();
         var raftServers = new HashMap<NetworkAddress, JraftServerImpl>();
@@ -433,6 +433,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
     /**
      * Checks the condition after cluster and raft clients initialization.
+     *
      * @param leaderName Current leader name.
      * @return Condition result.
      */
@@ -500,6 +501,9 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         }
     }
 
+    /**
+     * Test implementation of {@link LogicalTopologyService}.
+     */
     protected static class LogicalTopologyServiceTestImpl implements LogicalTopologyService {
         private final ClusterService clusterService;
 
