@@ -21,7 +21,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Internal;
 
 /// <summary>
 /// A group of fake servers.
@@ -35,8 +34,8 @@ public sealed class FakeServerGroup : IDisposable
         _servers = servers;
     }
 
-    public static FakeServerGroup Create(int count, Func<FakeServer> factory) =>
-        new(Enumerable.Range(1, count).Select(_ => factory()).ToList());
+    public static FakeServerGroup Create(int count, Func<int, FakeServer> factory) =>
+        new(Enumerable.Range(0, count).Select(factory).ToList());
 
     public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
     {
