@@ -112,7 +112,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                                         PhysTypeImpl.of(typeFactory, rowType,
                                                 JavaRowFormat.SCALAR, false))));
 
-        RexBuilder builder = new RexBuilder(typeFactory);
+        RexBuilder builder = Commons.rexBuilder();
         RexProgramBuilder programBuilder = new RexProgramBuilder(rowType, builder);
         RexNode cast = builder.makeCast(to, builder.makeInputRef(from, 0));
         programBuilder.addProject(cast, null);

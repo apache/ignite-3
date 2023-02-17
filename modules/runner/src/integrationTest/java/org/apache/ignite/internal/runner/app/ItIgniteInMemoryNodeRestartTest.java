@@ -285,6 +285,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
     /**
      * Restarts all the nodes with the partition.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18822")
     @Test
     public void inMemoryNodeFullPartitionRestart(TestInfo testInfo) throws Exception {
         // Start three nodes, the first one is going to be CMG and MetaStorage leader.

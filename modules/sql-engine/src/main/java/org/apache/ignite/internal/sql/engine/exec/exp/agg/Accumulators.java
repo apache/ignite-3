@@ -60,6 +60,8 @@ public class Accumulators {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
+        // Update documentation in IgniteCustomType when you add an aggregate
+        // that can work for any type out of the box.
         switch (call.getAggregation().getName()) {
             case "COUNT":
                 return LongCount.FACTORY;
@@ -92,6 +94,10 @@ public class Accumulators {
             case FLOAT:
             case INTEGER:
             default:
+                // IgniteCustomType: AVG for a custom type should go here.
+                if (call.type.getSqlTypeName() == ANY) {
+                    throw unsupportedAggregateFunction(call);
+                }
                 return DoubleAvg.FACTORY;
         }
     }
@@ -111,6 +117,10 @@ public class Accumulators {
             case SMALLINT:
             case INTEGER:
             default:
+                // IgniteCustomType: SUM for a custom type should go here.
+                if (call.type.getSqlTypeName() == ANY) {
+                    throw unsupportedAggregateFunction(call);
+                }
                 return () -> new Sum(new LongSumEmptyIsZero());
         }
     }
@@ -130,6 +140,10 @@ public class Accumulators {
             case SMALLINT:
             case INTEGER:
             default:
+                // IgniteCustomType: $SUM0 for a custom type should go here.
+                if (call.type.getSqlTypeName() == ANY) {
+                    throw unsupportedAggregateFunction(call);
+                }
                 return LongSumEmptyIsZero.FACTORY;
         }
     }
@@ -149,6 +163,10 @@ public class Accumulators {
                 return VarCharMinMax.MIN_FACTORY;
             case BIGINT:
             default:
+                // IgniteCustomType: MIN for a custom type should go here.
+                if (call.type.getSqlTypeName() == ANY) {
+                    throw unsupportedAggregateFunction(call);
+                }
                 return LongMinMax.MIN_FACTORY;
         }
     }
@@ -168,6 +186,10 @@ public class Accumulators {
                 return VarCharMinMax.MAX_FACTORY;
             case BIGINT:
             default:
+                // IgniteCustomType: MAX for a custom type should go here.
+                if (call.type.getSqlTypeName() == ANY) {
+                    throw unsupportedAggregateFunction(call);
+                }
                 return LongMinMax.MAX_FACTORY;
         }
     }
@@ -489,6 +511,7 @@ public class Accumulators {
         }
     }
 
+    // not used?
     private static class IntSumEmptyIsZero implements Accumulator {
         public static final Supplier<Accumulator> FACTORY = IntSumEmptyIsZero::new;
 
@@ -994,5 +1017,11 @@ public class Accumulators {
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
             return acc.returnType(typeFactory);
         }
+    }
+
+    private static AssertionError unsupportedAggregateFunction(AggregateCall call) {
+        var functionName = call.getAggregation().getName();
+        var typeName = call.getType().getSqlTypeName();
+        return new AssertionError(functionName + " is not supported for " + typeName);
     }
 }
