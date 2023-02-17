@@ -19,17 +19,18 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -50,9 +51,11 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
 
+    private final ReplicationGroupId replicationGroupId;
+
     private final ClusterService clusterService;
 
-    private final ClusterManagementGroupManager cmgManager;
+    private final Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider;
 
     /**
      * Raft client future. Can contain null, if this node is not in placement driver group.
@@ -73,15 +76,17 @@ public class PlacementDriverManager implements IgniteComponent {
      * The constructor.
      */
     public PlacementDriverManager(
+            ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
             RaftConfiguration raftConfiguration,
-            ClusterManagementGroupManager cmgManager,
+            Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
             LogicalTopologyService logicalTopologyService,
             ScheduledExecutorService raftClientExecutor
     ) {
+        this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
         this.raftConfiguration = raftConfiguration;
-        this.cmgManager = cmgManager;
+        this.placementDriverNodesNamesProvider = placementDriverNodesNamesProvider;
         this.logicalTopologyService = logicalTopologyService;
         this.raftClientExecutor = raftClientExecutor;
 
@@ -91,13 +96,13 @@ public class PlacementDriverManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        cmgManager.metaStorageNodes()
+        placementDriverNodesNamesProvider.get()
                 .thenCompose(metaStorageNodes -> {
                     String thisNodeName = clusterService.topologyService().localMember().name();
 
                     if (metaStorageNodes.contains(thisNodeName)) {
                         return TopologyAwareRaftGroupService.start(
-                                MetastorageGroupId.INSTANCE,
+                                replicationGroupId,
                                 clusterService,
                                 raftMessagesFactory,
                                 raftConfiguration,

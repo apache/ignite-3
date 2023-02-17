@@ -74,6 +74,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
@@ -363,7 +364,14 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
         );
 
-        placementDriverMgr = new PlacementDriverManager(clusterSvc, raftConfiguration, cmgMgr, logicalTopologyService, raftExecutorService);
+        placementDriverMgr = new PlacementDriverManager(
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                raftConfiguration,
+                cmgMgr::metaStorageNodes,
+                logicalTopologyService,
+                raftExecutorService
+        );
 
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
