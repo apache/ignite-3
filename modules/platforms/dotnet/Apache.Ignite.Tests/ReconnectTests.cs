@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal;
 using NUnit.Framework;
@@ -80,5 +81,25 @@ public class ReconnectTests
         server.DropConnection();
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+    }
+
+    [Test]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
+    public async Task TestDroppedConnectionIsRestoredInBackground()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            HeartbeatInterval = TimeSpan.FromMilliseconds(100),
+            ReconnectInterval = TimeSpan.FromMilliseconds(300)
+        };
+
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync(cfg);
+
+        Assert.AreEqual(1, client.GetConnections().Count);
+        server.DropConnection();
+
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 500);
+        TestUtils.WaitForCondition(() => client.GetConnections().Count > 0, 3000);
     }
 }

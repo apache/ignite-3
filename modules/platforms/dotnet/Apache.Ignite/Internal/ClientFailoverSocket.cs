@@ -229,9 +229,9 @@ namespace Apache.Ignite.Internal
         /// <returns>Active connections.</returns>
         public IEnumerable<ConnectionContext> GetConnections() =>
             _endpoints
-                .Select(e => e.Socket?.ConnectionContext)
-                .Where(ctx => ctx != null)
-                .ToList()!;
+                .Where(e => e.Socket is { IsDisposed: false, ConnectionContext: not null })
+                .Select(e => e.Socket!.ConnectionContext)
+                .ToList();
 
         /// <summary>
         /// Gets a socket. Reconnects if necessary.
