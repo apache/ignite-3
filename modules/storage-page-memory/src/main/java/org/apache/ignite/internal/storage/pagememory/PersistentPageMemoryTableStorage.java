@@ -458,12 +458,16 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
                 IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
+                GarbageCollectionTree garbageCollectionTree
+                        = createGarbageCollectionTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
+
                 ((PersistentPageMemoryMvPartitionStorage) mvPartitionStorage).updateDataStructures(
                         meta,
                         rowVersionFreeList,
                         indexColumnsFreeList,
                         versionChainTree,
-                        indexMetaTree
+                        indexMetaTree,
+                        garbageCollectionTree
                 );
 
                 return null;

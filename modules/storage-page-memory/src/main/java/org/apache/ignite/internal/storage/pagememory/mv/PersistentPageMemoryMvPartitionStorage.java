@@ -374,6 +374,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
@@ -381,7 +382,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GarbageCollectionTree gcQueue
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
@@ -391,6 +393,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.indexFreeList = indexFreeList;
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
+        this.gcQueue = gcQueue;
 
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
@@ -422,6 +425,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexFreeList::close,
                 versionChainTree::close,
                 indexMetaTree::close,
+                gcQueue::close,
                 blobStorage::close
         );
     }

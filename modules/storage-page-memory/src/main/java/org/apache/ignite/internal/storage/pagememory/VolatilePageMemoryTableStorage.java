@@ -182,7 +182,8 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         volatilePartitionStorage.updateDataStructures(
                 createVersionChainTree(partitionId, tableView),
-                createIndexMetaTree(partitionId, tableView)
+                createIndexMetaTree(partitionId, tableView),
+                createGarbageCollectionTree(partitionId, tableView)
         );
 
         return completedFuture(null);

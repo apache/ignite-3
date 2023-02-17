@@ -773,6 +773,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         resources.add(versionChainTree::close);
         resources.add(indexMetaTree::close);
+        resources.add(gcQueue::close);
 
         hashIndexes.values().forEach(index -> resources.add(index::close));
         sortedIndexes.values().forEach(index -> resources.add(index::close));
