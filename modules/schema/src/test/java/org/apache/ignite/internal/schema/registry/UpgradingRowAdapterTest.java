@@ -151,15 +151,25 @@ public class UpgradingRowAdapterTest {
 
         BinaryRow row = serializeValuesToRow(schema, values);
 
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                schema
+        );
+
         // Validate row.
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
-                () -> INITIAL_SCHEMA_VERSION, schema), row);
+        validateRow(values, schemaRegistry, row);
 
         // Validate upgraded row.
         values.add(addedColumnIndex, null);
 
-        validateRow(values, new SchemaRegistryImpl(v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
-                () -> schema2.version(), schema2), row);
+        var schema2Registry = new SchemaRegistryImpl(
+                v -> v == 1 ? completedFuture(schema) : completedFuture(schema2),
+                () -> completedFuture(schema2.version()),
+                schema2
+        );
+
+        validateRow(values, schema2Registry, row);
     }
 
     private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, BinaryRow binaryRow) {

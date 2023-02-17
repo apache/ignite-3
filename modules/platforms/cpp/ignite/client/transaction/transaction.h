@@ -59,7 +59,7 @@ public:
      * Rollbacks the transaction.
      */
     IGNITE_API void rollback() {
-        return sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
+        sync<void>([this](auto callback) { rollback_async(std::move(callback)); });
     }
 
     /**

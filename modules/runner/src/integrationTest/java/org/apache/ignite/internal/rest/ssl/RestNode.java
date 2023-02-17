@@ -27,7 +27,7 @@ public class RestNode {
     private static final String keyStorePath = "ssl/keystore.p12";
 
     /** Key store password. */
-    private static final String keyStorePassword = "changeIt";
+    private static final String keyStorePassword = "changeit";
 
     private final Path workDir;
     private final String name;

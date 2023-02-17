@@ -185,11 +185,13 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         ClusterNode node = command.node().asClusterNode();
 
         if (validationManager.isNodeValidated(node)) {
+            validationManager.completeValidation(node);
+
             logicalTopology.putNode(node);
 
-            LOG.info("Node added to the logical topology [node={}]", node.name());
-
-            validationManager.completeValidation(node);
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Node added to the logical topology [node={}]", node.name());
+            }
 
             return null;
         } else {

@@ -154,7 +154,7 @@ public class StopCalciteModuleTest {
                 new Column[]{new Column(1, "VAL", NativeTypes.INT32, false)}
         );
 
-        schemaReg = new SchemaRegistryImpl((v) -> completedFuture(schemaDesc), () -> INITIAL_SCHEMA_VERSION, schemaDesc);
+        schemaReg = new SchemaRegistryImpl((v) -> completedFuture(schemaDesc), () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaDesc);
 
         when(tbl.name()).thenReturn("TEST");
 

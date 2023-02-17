@@ -60,10 +60,12 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
+import org.apache.ignite.internal.configuration.NodeConfigReadException;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -133,8 +135,6 @@ import org.apache.ignite.network.serialization.SerializationRegistryServiceLoade
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.intellij.lang.annotations.Language;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -267,7 +267,11 @@ public class IgniteImpl implements Ignite {
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *         {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
+    IgniteImpl(String name,
+            NodeBootstrapConfiguration configuration,
+            Path workDir,
+            @Nullable ClassLoader serviceProviderClassLoader
+    ) {
         this.name = name;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name, Loggers.forClass(LongJvmPauseDetector.class));
@@ -283,7 +287,7 @@ public class IgniteImpl implements Ignite {
         nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalConfigurationStorage(vaultMgr),
+                new LocalFileConfigurationStorage(configuration),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
@@ -360,6 +364,7 @@ public class IgniteImpl implements Ignite {
                 vaultMgr,
                 clusterSvc,
                 cmgMgr,
+                logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
         );
@@ -554,7 +559,7 @@ public class IgniteImpl implements Ignite {
      *         previously use default values. Please pay attention that previously specified properties are searched in the
      *         {@code workDir} specified by the user.
      */
-    public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
+    public CompletableFuture<Ignite> start(NodeBootstrapConfiguration cfg) {
         ExecutorService startupExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create(name, "start", LOG));
 
         try {
@@ -570,14 +575,11 @@ public class IgniteImpl implements Ignite {
             lifecycleManager.startComponent(nodeCfgMgr);
 
             // Node configuration manager bootstrap.
-            if (cfg != null) {
-                try {
-                    nodeCfgMgr.bootstrap(cfg);
-                } catch (Exception e) {
-                    throw new IgniteException("Unable to parse user-specific configuration", e);
-                }
-            } else {
-                nodeCfgMgr.configurationRegistry().initializeDefaults();
+
+            try {
+                nodeCfgMgr.bootstrap(cfg.configPath());
+            } catch (Exception e) {
+                throw new NodeConfigReadException("Unable to parse user-specific configuration", e);
             }
 
             // Start the components that are required to join the cluster.
@@ -868,7 +870,6 @@ public class IgniteImpl implements Ignite {
      * @param workDir Ignite work directory.
      * @return Partitions store path.
      */
-    @NotNull
     private static Path getPartitionsStorePath(Path workDir) {
         Path partitionsStore = workDir.resolve(PARTITIONS_STORE_PATH);
 

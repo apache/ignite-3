@@ -60,8 +60,10 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -854,11 +856,9 @@ public class ItMetaStorageServiceTest {
 
     /**
      * Tests {@link MetaStorageService#closeCursors(String)}.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testCursorsCleanup() throws Exception {
+    public void testCursorsCleanup() throws InterruptedException {
         startNodes(2);
 
         Node leader = nodes.get(0);
@@ -873,14 +873,23 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        class MockSubscriber implements Subscriber<Entry> {
-            private Subscription subscription;
+        var subscriptionLatch = new CountDownLatch(3);
+        var closeCursorLatch = new CountDownLatch(1);
 
+        class MockSubscriber implements Subscriber<Entry> {
             private final CompletableFuture<Entry> result = new CompletableFuture<>();
 
             @Override
             public void onSubscribe(Subscription subscription) {
-                this.subscription = subscription;
+                subscriptionLatch.countDown();
+
+                try {
+                    assertTrue(closeCursorLatch.await(10, TimeUnit.SECONDS));
+                } catch (Throwable e) {
+                    onError(e);
+                }
+
+                subscription.request(1);
             }
 
             @Override
@@ -895,6 +904,7 @@ public class ItMetaStorageServiceTest {
 
             @Override
             public void onComplete() {
+                result.completeExceptionally(new AssertionError("No items produced"));
             }
         }
 
@@ -908,11 +918,16 @@ public class ItMetaStorageServiceTest {
 
         learner.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node1Subscriber0);
 
-        leader.metaStorageService.closeCursors(leader.clusterService.topologyService().localMember().id()).get();
+        // Wait for all cursors to be registered on the server side.
+        assertTrue(subscriptionLatch.await(10, TimeUnit.SECONDS));
 
-        node0Subscriber0.subscription.request(1);
-        node0Subscriber1.subscription.request(1);
-        node1Subscriber0.subscription.request(1);
+        String leaderId = leader.clusterService.topologyService().localMember().id();
+
+        CompletableFuture<Void> closeCursorsFuture = leader.metaStorageService.closeCursors(leaderId);
+
+        assertThat(closeCursorsFuture, willCompleteSuccessfully());
+
+        closeCursorLatch.countDown();
 
         assertThat(node0Subscriber0.result, willFailFast(NoSuchElementException.class));
         assertThat(node0Subscriber1.result, willFailFast(NoSuchElementException.class));

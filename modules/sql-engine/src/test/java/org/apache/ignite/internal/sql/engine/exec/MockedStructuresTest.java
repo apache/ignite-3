@@ -55,9 +55,11 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -269,12 +271,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     /** Dummy metastore activity mock. */
-    private void mockMetastore() throws Exception {
+    private void mockMetastore() {
         when(msm.prefix(any())).thenReturn(subscriber -> {
             subscriber.onSubscribe(mock(Subscription.class));
 
             subscriber.onComplete();
         });
+
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
     }
 
     /**
@@ -550,7 +554,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tblsCfg,
                 cs,
                 rm,
-                null,
+                mock(ReplicaManager.class),
                 null,
                 null,
                 bm,

@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.stream.Collectors.toSet;
+
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -90,7 +91,7 @@ class ValidationManager {
     }
 
     /**
-     * Validates a given node and issues a validation token.
+     * Validates a given node and saves it in the set of validated nodes.
      *
      * @return {@code null} in case of successful validation or a {@link ValidationErrorResponse} otherwise.
      */
@@ -134,16 +135,17 @@ class ValidationManager {
     void removeValidatedNodes(Collection<ClusterNode> nodes) {
         Set<String> validatedNodeIds = storage.getValidatedNodes().stream()
                 .map(ClusterNode::id)
-                // Using a sorted collection to have a stable notification order.
-                .collect(Collectors.toCollection(TreeSet::new));
+                .collect(toSet());
 
-        nodes.forEach(node -> {
-            if (validatedNodeIds.contains(node.id())) {
-                storage.removeValidatedNode(node);
+        // Using a sorted stream to have a stable notification order.
+        nodes.stream()
+                .filter(node -> validatedNodeIds.contains(node.id()))
+                .sorted(Comparator.comparing(ClusterNode::id))
+                .forEach(node -> {
+                    storage.removeValidatedNode(node);
 
-                logicalTopology.onNodeInvalidated(node);
-            }
-        });
+                    logicalTopology.onNodeInvalidated(node);
+                });
     }
 
     /**
@@ -152,6 +154,16 @@ class ValidationManager {
      * @param node Node that wishes to join the logical topology.
      */
     void completeValidation(ClusterNode node) {
+        // Remove all other versions of this node, if they were validated at some point, but not removed from the physical topology.
+        storage.getValidatedNodes().stream()
+                .filter(n -> n.name().equals(node.name()) && !n.id().equals(node.id()))
+                .sorted(Comparator.comparing(ClusterNode::id))
+                .forEach(nodeVersion -> {
+                    storage.removeValidatedNode(nodeVersion);
+
+                    logicalTopology.onNodeInvalidated(nodeVersion);
+                });
+
         storage.removeValidatedNode(node);
     }
 }

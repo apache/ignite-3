@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
+import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.internal.client.HostAndPortRange;
 
 /**
@@ -126,4 +127,116 @@ public interface ConnectionProperties {
      * @throws SQLException On error.
      */
     void setConnectionTimeout(Integer connTimeout) throws SQLException;
+
+    /**
+     * SSL enabled.
+     *
+     * @return true if SSL is enabled.
+     */
+    boolean isSslEnabled();
+
+    /**
+     * Enable/disable ssl.
+     *
+     * @param enabled true if SSL is enabled.
+     */
+    void setSslEnabled(boolean enabled);
+
+    /**
+     * SSL client authentication. Can be NONE, REQUIRE, and OPTIONAL.
+     *
+     * @param clientAuth SSL client authentication.
+     */
+    void setClientAuth(ClientAuthenticationMode clientAuth);
+
+    /**
+     * SSL client authentication.
+     *
+     * @return SSL client authentication.
+     */
+    ClientAuthenticationMode getClientAuth();
+
+    /**
+     * Set trust store path that will be used to setup SSL connection.
+     *
+     * @param trustStorePath Trust store path.
+     */
+    void setTrustStorePath(String trustStorePath);
+
+    /**
+     * Set trust store password.
+     *
+     * @param password Trust store password.
+     */
+    void setTrustStorePassword(String password);
+
+    /**
+     * Set keystore type. For example, PKSC12 or JKS.
+     *
+     * @param type Truststore type.
+     */
+    void setTrustStoreType(String type);
+
+    /**
+     * Trust store path.
+     *
+     * @return Truststore path.
+     */
+    String getTrustStorePath();
+
+    /**
+     * Truststore password.
+     *
+     * @return Truststore password.
+     */
+    String getTrustStorePassword();
+
+    /**
+     * Truststore type.
+     *
+     * @return Truststore type.
+     */
+    String getTrustStoreType();
+
+    /**
+     * Set keystore type. For example, PKSC12 or JKS.
+     *
+     * @param type Keystore type.
+     */
+    void setKeyStoreType(String type);
+
+    /**
+     * Set key store path that will be used to setup SSL connection.
+     *
+     * @param keyStorePath Key store path.
+     */
+    void setKeyStorePath(String keyStorePath);
+
+    /**
+     * Set key store password.
+     *
+     * @param password Key store password.
+     */
+    void setKeyStorePassword(String password);
+
+    /**
+     * Key store path.
+     *
+     * @return Keystore path.
+     */
+    String getKeyStorePath();
+
+    /**
+     * Keystore password.
+     *
+     * @return Keystore password.
+     */
+    String getKeyStorePassword();
+
+    /**
+     * Keystore type.
+     *
+     * @return Keytore type.
+     */
+    String getKeyStoreType();
 }
