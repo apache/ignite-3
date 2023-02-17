@@ -37,6 +37,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
 class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
+    private final RowId rowId;
+
     private final HybridTimestamp timestamp;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
@@ -49,7 +51,10 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable RowVersion toRemove;
 
-    CommitWriteInvokeClosure(HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+    private boolean addToGc;
+
+    CommitWriteInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+        this.rowId = rowId;
         this.timestamp = timestamp;
         this.storage = storage;
     }
@@ -66,7 +71,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         operationType = OperationType.PUT;
 
         RowVersion current = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
-        RowVersion next = oldRow.nextLink() == NULL_LINK ? null : storage.readRowVersion(oldRow.nextLink(), ALWAYS_LOAD_VALUE, false);
+        RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), ALWAYS_LOAD_VALUE, false) : null;
 
         // If the previous and current version are tombstones, then delete the current version.
         if (next != null && current.isTombstone() && next.isTombstone()) {
@@ -77,6 +82,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             updateTimestampLink = oldRow.headLink();
 
             newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
+
+            addToGc = oldRow.hasNextLink();
         }
     }
 
@@ -119,6 +126,10 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         if (toRemove != null) {
             storage.removeRowVersion(toRemove);
+        }
+
+        if (addToGc) {
+            storage.addToGc(rowId, timestamp);
         }
     }
 }

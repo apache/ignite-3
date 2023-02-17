@@ -132,6 +132,20 @@ public class VersionChain extends VersionChainKey {
     }
 
     /**
+     * Returns {@code true} if there is a link to the next version.
+     */
+    public boolean hasNextLink() {
+        return nextLink != NULL_LINK;
+    }
+
+    /**
+     * Returns {@code true} if there is a link to the head version.
+     */
+    public boolean hasHeadLink() {
+        return headLink != NULL_LINK;
+    }
+
+    /**
      * Creates a copy of the version chain with new next link.
      *
      * @param nextLink New next link.

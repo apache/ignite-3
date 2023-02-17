@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByNextLink;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByTimestamp;
@@ -65,8 +64,8 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     @Override
     public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
-        assert oldRow != null : storage.createStorageInfo();
-        assert oldRow.nextLink() != NULL_LINK : oldRow;
+        assert oldRow != null : "rowId=" + rowId + ", storage=" + storage.createStorageInfo();
+        assert oldRow.hasNextLink() : oldRow;
 
         RowVersion rowVersion = findRowVersionLinkWithChecks(oldRow);
         RowVersion nextRowVersion = storage.readRowVersion(rowVersion.nextLink(), ALWAYS_LOAD_VALUE, true);
@@ -83,6 +82,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
             } else if (oldRow.nextLink() == rowVersion.link()) {
                 operationType = OperationType.PUT;
 
+                // Find the version for which this version is RowVersion#nextLink.
                 toUpdate = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE, false);
 
                 newRow = oldRow.setNextLink(nextRowVersion.nextLink());
@@ -91,7 +91,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
                 newRow = oldRow;
 
-                // Let's find the parent row version and update the link for it.
+                // Find the version for which this version is RowVersion#nextLink.
                 toUpdate = storage.foundRowVersion(oldRow, equalsByNextLink(rowVersion.link()), false);
             }
         } else {

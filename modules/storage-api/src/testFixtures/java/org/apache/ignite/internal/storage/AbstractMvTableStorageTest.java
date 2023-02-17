@@ -484,8 +484,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkLastApplied(mvPartitionStorage, 10, 10, 20);
         checkRaftGroupConfigs(raftGroupConfig, mvPartitionStorage.committedGroupConfiguration());
-
-        // TODO: IGNITE-18023 возможно тут надо бы проверить что будет не пустая очередь для вакуума
     }
 
     @Test
@@ -533,8 +531,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkLastApplied(mvPartitionStorage, 0, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
-
-        // TODO: IGNITE-18023 возможно тут надо бы проверить что будет пустая очередь для вакуума
     }
 
     @Test

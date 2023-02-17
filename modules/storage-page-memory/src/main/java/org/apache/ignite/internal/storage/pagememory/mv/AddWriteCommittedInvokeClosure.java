@@ -53,6 +53,8 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable VersionChain newRow;
 
+    private boolean addToGc;
+
     AddWriteCommittedInvokeClosure(
             RowId rowId,
             @Nullable BinaryRow row,
@@ -87,9 +89,11 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
             } else {
                 operationType = OperationType.PUT;
 
-                RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, oldRow.newestCommittedLink());
+                RowVersion newVersion = insertCommittedRowVersion(row, commitTimestamp, oldRow.headLink());
 
                 newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
+
+                addToGc = true;
             }
         }
     }
@@ -116,5 +120,14 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
         storage.insertRowVersion(rowVersion);
 
         return rowVersion;
+    }
+
+    /**
+     * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
+     */
+    void afterCompletion() {
+        if (addToGc) {
+            storage.addToGc(rowId, commitTimestamp);
+        }
     }
 }

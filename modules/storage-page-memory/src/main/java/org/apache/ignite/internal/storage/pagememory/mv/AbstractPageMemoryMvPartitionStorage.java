@@ -398,7 +398,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Nullable RowVersion foundRowVersion(VersionChain versionChain, RowVersionFilter filter, boolean loadValueBytes) {
-        assert versionChain.headLink() != NULL_LINK;
+        assert versionChain.hasHeadLink();
 
         FindRowVersion findRowVersion = new FindRowVersion(partitionId, loadValueBytes);
 
@@ -606,13 +606,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return inUpdateVersionChainLock(rowId, () -> {
                 try {
-                    CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(timestamp, this);
+                    CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(rowId, timestamp, this);
 
                     versionChainTree.invoke(new VersionChainKey(rowId), null, commitWrite);
 
                     commitWrite.afterCompletion();
-
-                    addToGcQueue(commitWrite.newRow(), timestamp);
 
                     return null;
                 } catch (IgniteInternalCheckedException e) {
@@ -646,7 +644,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                     versionChainTree.invoke(new VersionChainKey(rowId), null, addWriteCommitted);
 
-                    addToGcQueue(addWriteCommitted.newRow(), commitTimestamp);
+                    addWriteCommitted.afterCompletion();
 
                     return null;
                 } catch (IgniteInternalCheckedException e) {
@@ -982,14 +980,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 return null;
             }
 
-            // Someone processed the element in parallel.
-            if (!gcQueue.remove(next)) {
-                return null;
-            }
-
             RowId rowId = next.get2();
 
             return inUpdateVersionChainLock(rowId, () -> {
+                // Someone processed the element in parallel.
+                if (!gcQueue.remove(next)) {
+                    return null;
+                }
+
                 RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, this);
 
                 try {
@@ -1014,25 +1012,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
-    private void addToGcQueue(@Nullable VersionChain versionChain, HybridTimestamp timestamp) {
-        if (versionChain == null) {
-            return;
-        }
-
-        assert !versionChain.isUncommitted();
-
-        // If there is only one version, then it does not need to be added to the garbage collection queue.
-        if (versionChain.nextLink() == NULL_LINK) {
-            return;
-        }
-
-        gcQueue.add(new IgniteBiTuple<>(timestamp, versionChain.rowId()));
-    }
-
     private static Comparator<IgniteBiTuple<HybridTimestamp, RowId>> gcQueueComparator() {
         Comparator<IgniteBiTuple<HybridTimestamp, RowId>> comparing = Comparator.comparing(IgniteBiTuple::get1);
 
         return comparing.thenComparing(IgniteBiTuple::get2);
+    }
+
+    void addToGc(RowId rowId, HybridTimestamp timestamp) {
+        gcQueue.add(new IgniteBiTuple<>(timestamp, rowId));
     }
 
     void removeFromGc(RowId rowId, HybridTimestamp timestamp) {
