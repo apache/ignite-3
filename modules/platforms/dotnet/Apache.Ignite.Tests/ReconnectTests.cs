@@ -33,8 +33,12 @@ public class ReconnectTests
     // TODO: Check that reconnect stops on dispose
     // TODO: What happens if all nodes are lost? Do we just keep trying?
     [Test]
-    public void TestInvalidMagicFromAllServersThrowsException()
+    public void TestInvalidMagicThrowsException()
     {
+        using var server = new FakeServer { SendInvalidMagic = true };
+
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync());
+        Assert.AreEqual("Invalid header", ex!.Message);
     }
 
     [Test]
