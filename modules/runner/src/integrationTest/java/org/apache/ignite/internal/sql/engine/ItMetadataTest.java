@@ -139,8 +139,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                 // + "INTERVAL_SEC_C2 INTERVAL SECOND(9), "
 
                 // Custom types
-                // TODO: IGNITE-16376 support additional data types.
-                // + "UUID_C UUID, "
+                 + "UUID_C UUID, "
+                // TODO: IGNITE-18431: Sql. BitSet is not supported.
                 // + "BITSET_C BITMASK, "
                 // + "BITSET_C BITMASK(8), "
 
@@ -194,7 +194,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         new MetadataMatcher().name("TIMESTAMP_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
 
                         // Interval types
-                        // TODO: Ignite doesn't support interval types.
+                        // TODO: IGNITE-17373: Ignite doesn't support interval types yet.
                         // new MetadataMatcher().name("INTERVAL_YEAR_C"),
                         // new MetadataMatcher().name("INTERVAL_MONTH_C"),
                         // new MetadataMatcher().name("INTERVAL_DAY_C"),
@@ -204,8 +204,8 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
                         // new MetadataMatcher().name("INTERVAL_SEC_C2"),
 
                         // Custom types
-                        // TODO: IGNITE-16376 support additional data types.
-                        // new MetadataMatcher().name("UUID_C"),
+                        new MetadataMatcher().name("UUID_C"),
+                        // TODO: IGNITE-18431: Sql. BitSet is not supported.
                         // new MetadataMatcher().name("BITSET_C"),
                         // new MetadataMatcher().name("BITSET_C2"),
 
