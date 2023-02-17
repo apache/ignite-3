@@ -128,8 +128,14 @@ public class RebalanceUtil {
         //            if partition.assignments.pending != calcPartAssignments && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
         //                partition.change.trigger.revision = event.revision
-        //            else
+        //            else if partition.assignments.pending == calcPartAssignments
         //                remove(partition.assignments.planned)
+        //                message after the metastorage invoke:
+        //                "Remove planned key because current pending key has the same value."
+        //            else if empty(partition.assignments.pending)
+        //                remove(partition.assignments.planned)
+        //                message after the metastorage invoke:
+        //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
         //        skip
 
