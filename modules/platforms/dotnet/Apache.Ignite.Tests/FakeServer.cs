@@ -135,6 +135,8 @@ namespace Apache.Ignite.Tests
 
         public void ClearOps() => _ops?.Clear();
 
+        public void DropConnection() => _handler?.Dispose();
+
         public void Dispose()
         {
             lock (_disposeSyncRoot)

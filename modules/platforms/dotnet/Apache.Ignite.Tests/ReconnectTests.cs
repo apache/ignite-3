@@ -68,4 +68,17 @@ public class ReconnectTests
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
+
+    [Test]
+    public async Task TestDroppedConnectionIsRestoredOnDemand()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+
+        server.DropConnection();
+
+        Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+    }
 }
