@@ -60,6 +60,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /** Data region instance. */
     private final PersistentPageMemoryDataRegion dataRegion;
 
+    /** Table ID. Cached to avoid configuration races (e.g. when destroying a table). */
+    private final int tableId;
+
     /**
      * Constructor.
      *
@@ -78,6 +81,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         this.engine = engine;
         this.dataRegion = dataRegion;
+        this.tableId = tableCfg.tableId().value();
     }
 
     /**
@@ -99,7 +103,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     protected void finishDestruction() {
-        dataRegion.pageMemory().onGroupDestroyed(tableCfg.tableId().value());
+        dataRegion.pageMemory().onGroupDestroyed(tableId);
     }
 
     @Override
@@ -486,7 +490,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     private GroupPartitionId createGroupPartitionId(int partitionId) {
-        return new GroupPartitionId(tableCfg.tableId().value(), partitionId);
+        return new GroupPartitionId(tableId, partitionId);
     }
 
     private <V> V inCheckpointLock(Supplier<V> supplier) {

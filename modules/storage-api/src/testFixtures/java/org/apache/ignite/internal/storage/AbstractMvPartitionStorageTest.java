@@ -1005,10 +1005,16 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId = new RowId(PARTITION_ID, 100, 0);
 
         // Populate storage with several versions for the same row id.
-        List<TestValue> values = new ArrayList<>(List.of(value, value2));
+        List<TestValue> values = new ArrayList<>();
+
+        values.add(value);
+        values.add(value2);
+        values.add(null); // A tombstone.
 
         for (TestValue value : values) {
-            addWrite(rowId, binaryRow(key, value), newTransactionId());
+            BinaryRow row = value == null ? null : binaryRow(key, value);
+
+            addWrite(rowId, row, newTransactionId());
 
             commitWrite(rowId, clock.now());
         }
@@ -1033,9 +1039,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         for (int i = 0; i < list.size(); i++) {
             IgniteBiTuple<TestKey, TestValue> kv = list.get(i);
 
-            assertEquals(key, kv.getKey());
+            if (kv == null) {
+                assertThat(values.get(i), is(nullValue()));
+            } else {
+                assertThat(key, is(kv.getKey()));
 
-            assertEquals(values.get(i), kv.getValue());
+                assertThat(values.get(i), is(kv.getValue()));
+            }
         }
     }
 

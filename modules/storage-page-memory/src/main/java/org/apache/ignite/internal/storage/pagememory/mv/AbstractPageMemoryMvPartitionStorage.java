@@ -673,13 +673,21 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     static ReadResult rowVersionToResultNotFillingLastCommittedTs(VersionChain versionChain, RowVersion rowVersion) {
-        BinaryRow row = new ByteBufferRow(rowVersion.value());
+        RowId rowId = versionChain.rowId();
 
         if (rowVersion.isCommitted()) {
-            return ReadResult.createFromCommitted(versionChain.rowId(), row, rowVersion.timestamp());
+            if (rowVersion.isTombstone()) {
+                return ReadResult.empty(rowId);
+            } else {
+                BinaryRow row = new ByteBufferRow(rowVersion.value());
+
+                return ReadResult.createFromCommitted(rowId, row, rowVersion.timestamp());
+            }
         } else {
+            BinaryRow row = rowVersion.isTombstone() ? null : new ByteBufferRow(rowVersion.value());
+
             return ReadResult.createFromWriteIntent(
-                    versionChain.rowId(),
+                    rowId,
                     row,
                     versionChain.transactionId(),
                     versionChain.commitTableId(),

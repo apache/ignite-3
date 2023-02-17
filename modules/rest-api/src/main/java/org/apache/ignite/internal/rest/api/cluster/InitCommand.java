@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -31,10 +32,13 @@ import org.jetbrains.annotations.Nullable;
  * REST command for initializing a cluster.
  */
 public class InitCommand {
+    @Schema(description = "A list of RAFT metastorage nodes.")
     private final Collection<String> metaStorageNodes;
 
+    @Schema(description = "A list of RAFT cluster management nodes.")
     private final Collection<String> cmgNodes;
 
+    @Schema(description = "The name of the cluster.")
     private final String clusterName;
 
     /**
