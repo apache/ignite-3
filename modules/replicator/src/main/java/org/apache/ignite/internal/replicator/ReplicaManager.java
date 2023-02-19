@@ -322,7 +322,7 @@ public class ReplicaManager implements IgniteComponent {
                                             request.groupId(),
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestamp(clock.update(requestTimestamp))
+                            .timestampLong(clock.update(requestTimestamp).longValue())
                             .build(),
                     correlationId);
         } else {
@@ -360,7 +360,7 @@ public class ReplicaManager implements IgniteComponent {
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestamp(clock.update(requestTimestamp))
+                    .timestampLong(clock.update(requestTimestamp).longValue())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -378,7 +378,7 @@ public class ReplicaManager implements IgniteComponent {
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestamp(clock.update(requestTimestamp))
+                    .timestampLong(clock.update(requestTimestamp).longValue())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY

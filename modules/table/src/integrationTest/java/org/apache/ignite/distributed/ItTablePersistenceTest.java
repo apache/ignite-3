@@ -18,7 +18,6 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -226,7 +225,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .tablePartitionId(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0)))
                         .rowUuid(new RowId(0).uuid())
                         .rowBuffer(binaryRow == null ? null : binaryRow.byteBuffer())
-                        .safeTime(hybridTimestamp(hybridClock.now()))
+                        .safeTimeLong(hybridClock.nowLong())
                         .build();
 
                 return service.run(cmd);
@@ -236,9 +235,9 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 FinishTxCommand cmd = msgFactory.finishTxCommand()
                         .txId(req0.txId())
                         .commit(req0.commit())
-                        .commitTimestamp(hybridTimestamp(req0.commitTimestamp()))
+                        .commitTimestampLong(req0.commitTimestampLong())
                         .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(UUID.randomUUID(), 0))))
-                        .safeTime(hybridTimestamp(hybridClock.now()))
+                        .safeTimeLong(hybridClock.nowLong())
                         .build();
 
                 return service.run(cmd)
@@ -246,8 +245,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             TxCleanupCommand cleanupCmd = msgFactory.txCleanupCommand()
                                     .txId(req0.txId())
                                     .commit(req0.commit())
-                                    .commitTimestamp(hybridTimestamp(req0.commitTimestamp()))
-                                    .safeTime(hybridTimestamp(hybridClock.now()))
+                                    .commitTimestampLong(req0.commitTimestampLong())
+                                    .safeTimeLong(hybridClock.nowLong())
                                     .build();
 
                             return service.run(cleanupCmd);

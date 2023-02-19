@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.List;
-import org.apache.ignite.internal.replicator.command.HybridTimestampMessage;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -35,7 +35,14 @@ public interface FinishTxCommand extends PartitionCommand {
     /**
      * Returns a transaction commit timestamp.
      */
-    HybridTimestampMessage commitTimestamp();
+    long commitTimestampLong();
+
+    /**
+     * Returns a transaction commit timestamp.
+     */
+    default HybridTimestamp commitTimestamp() {
+        return HybridTimestamp.of(commitTimestampLong());
+    }
 
     /**
      * Returns an ordered replication groups ids.

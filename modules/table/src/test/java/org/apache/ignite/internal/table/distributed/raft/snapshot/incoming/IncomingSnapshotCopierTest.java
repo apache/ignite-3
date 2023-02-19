@@ -57,7 +57,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -331,12 +330,13 @@ public class IncomingSnapshotCopierTest {
             Collections.reverse(readResults);
 
             List<ByteBuffer> rowVersions = new ArrayList<>();
-            List<HybridTimestamp> timestamps = new ArrayList<>();
+            long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
             UUID commitTableId = null;
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
+            int j = 0;
             for (ReadResult readResult : readResults) {
                 rowVersions.add(readResult.binaryRow().byteBuffer());
 
@@ -345,7 +345,7 @@ public class IncomingSnapshotCopierTest {
                     commitTableId = readResult.commitTableId();
                     commitPartitionId = readResult.commitPartitionId();
                 } else {
-                    timestamps.add(readResult.commitTimestamp());
+                    timestamps[j++] = readResult.commitTimestamp().longValue();
                 }
             }
 

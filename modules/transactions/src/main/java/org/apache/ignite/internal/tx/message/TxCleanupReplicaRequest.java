@@ -39,7 +39,6 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      *
      * @return Transaction id.
      */
-    @Marshallable
     UUID txId();
 
     /**
@@ -54,8 +53,16 @@ public interface TxCleanupReplicaRequest extends ReplicaRequest, TimestampAware 
      *
      * @return Commit timestamp.
      */
-    @Marshallable
-    HybridTimestamp commitTimestamp();
+    long commitTimestampLong();
+
+    /**
+     * Returns a transaction commit timestamp.
+     *
+     * @return Commit timestamp.
+     */
+    default HybridTimestamp commitTimestamp() {
+        return HybridTimestamp.of(commitTimestampLong());
+    }
 
     /**
      * Gets a raft term.

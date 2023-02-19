@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal;
 
+import static java.lang.Math.max;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Test hybrid clock with custom supplier of current time.
@@ -31,7 +36,7 @@ public class TestHybridClock implements HybridClock {
     private final LongSupplier currentTimeMillisSupplier;
 
     /** Latest time. */
-    private volatile HybridTimestamp latestTime;
+    private volatile long latestTime;
 
     /**
      * Var handle for {@link #latestTime}.
@@ -40,7 +45,7 @@ public class TestHybridClock implements HybridClock {
 
     static {
         try {
-            LATEST_TIME = MethodHandles.lookup().findVarHandle(TestHybridClock.class, "latestTime", HybridTimestamp.class);
+            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockImpl.class, "latestTime", long.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -48,43 +53,59 @@ public class TestHybridClock implements HybridClock {
 
     public TestHybridClock(LongSupplier currentTimeMillisSupplier) {
         this.currentTimeMillisSupplier = currentTimeMillisSupplier;
-        this.latestTime = new HybridTimestamp(currentTimeMillisSupplier.getAsLong(), 0);
+        this.latestTime = currentTime();
     }
 
-    /** {@inheritDoc} */
+    private long currentTime() {
+        return currentTimeMillisSupplier.getAsLong() << LOGICAL_TIME_BITS_SIZE;
+    }
+
     @Override
-    public HybridTimestamp now() {
+    public long nowLong() {
         while (true) {
-            long currentTimeMillis = currentTimeMillisSupplier.getAsLong();
+            long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
-            HybridTimestamp latestTime = this.latestTime;
+            long oldLatestTime = latestTime;
 
-            HybridTimestamp newLatestTime;
+            long newLatestTime = max(oldLatestTime + 1, now);
 
-            if (latestTime.getPhysical() >= currentTimeMillis) {
-                newLatestTime = latestTime.addTicks(1);
-            } else {
-                newLatestTime = new HybridTimestamp(currentTimeMillis, 0);
-            }
-
-            if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
                 return newLatestTime;
             }
         }
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public HybridTimestamp now() {
+        return HybridTimestamp.of(nowLong());
+    }
+
+    /**
+     * Creates a timestamp for a received event.
+     *
+     * @param requestTime Timestamp from request.
+     * @return The hybrid timestamp.
+     */
     @Override
     public HybridTimestamp update(HybridTimestamp requestTime) {
         while (true) {
-            HybridTimestamp now = new HybridTimestamp(currentTimeMillisSupplier.getAsLong(), -1);
+            long now = currentTime();
 
-            HybridTimestamp newLatestTime = HybridTimestamp.max(now, requestTime, latestTime).addTicks(1);
+            // Read the latest time after accessing UTC time to reduce contention.
+            long oldLatestTime = this.latestTime;
 
-            if (LATEST_TIME.compareAndSet(this, latestTime, newLatestTime)) {
-                return newLatestTime;
+            long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
+
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
+                return HybridTimestamp.of(newLatestTime);
             }
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(HybridClock.class, this);
     }
 }

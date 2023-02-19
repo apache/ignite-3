@@ -95,8 +95,7 @@ public class PendingComparableValuesTrackerTest {
 
                 tracker.update(now);
 
-                HybridTimestamp timestampToWait =
-                        new HybridTimestamp(now.getPhysical() + 1, now.getLogical() + random.nextInt(1000));
+                HybridTimestamp timestampToWait = now.addTicks((1 << HybridTimestamp.LOGICAL_TIME_BITS_SIZE) + random.nextInt(1000));
 
                 CompletableFuture<Void> future = tracker.waitFor(timestampToWait);
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableLongTime;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -456,7 +457,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .root(fragment.serialized())
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
-                    .txTime(ctx.transaction().readTimestamp())
+                    .txTimeLong(nullableLongTime(ctx.transaction().readTimestamp()))
                     .txId(ctx.transaction().id())
                     .build();
 

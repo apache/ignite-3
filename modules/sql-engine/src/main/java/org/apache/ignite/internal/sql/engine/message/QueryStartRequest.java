@@ -54,12 +54,17 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     /**
      * Read only transaction time or null if this is read write transaction.
      */
-    @Marshallable
-    @Nullable HybridTimestamp txTime();
+    long txTimeLong();
+
+    /**
+     * Read only transaction time or null if this is read write transaction.
+     */
+    default @Nullable HybridTimestamp txTime() {
+        return HybridTimestamp.of(txTimeLong());
+    }
 
     /**
      * Transaction id.
      */
-    @Marshallable
     UUID txId();
 }

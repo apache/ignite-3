@@ -45,7 +45,6 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      *
      * @return Transaction id.
      */
-    @Marshallable
     UUID txId();
 
     /**
@@ -58,8 +57,14 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
     /**
      * Transaction commit timestamp.
      */
-    @Marshallable
-    HybridTimestamp commitTimestamp();
+    long commitTimestampLong();
+
+    /**
+     * Transaction commit timestamp.
+     */
+    default HybridTimestamp commitTimestamp() {
+        return HybridTimestamp.of(commitTimestampLong());
+    }
 
     /**
      * Returns enlisted partition groups aggregated by expected primary replica nodes.

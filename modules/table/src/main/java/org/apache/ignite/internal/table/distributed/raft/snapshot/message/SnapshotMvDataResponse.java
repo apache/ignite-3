@@ -20,12 +20,10 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -56,8 +54,7 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
          * List of commit timestamps for all committed versions. Might be smaller than {@link #rowVersions()} if there's a write-intent
          * in the chain.
          */
-        @Marshallable
-        List<HybridTimestamp> timestamps();
+        long[] timestamps();
 
         /** Transaction id for write-intent if it's present. */
         @Nullable UUID txId();

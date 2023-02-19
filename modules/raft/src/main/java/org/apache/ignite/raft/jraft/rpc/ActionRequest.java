@@ -35,7 +35,6 @@ public interface ActionRequest extends Message {
     /**
      * @return Action's command.
      */
-    @Marshallable
     Command command();
 
     /**

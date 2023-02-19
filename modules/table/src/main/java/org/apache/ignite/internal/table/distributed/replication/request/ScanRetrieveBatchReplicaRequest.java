@@ -40,7 +40,6 @@ public interface ScanRetrieveBatchReplicaRequest extends ReplicaRequest {
      *
      * @return Index id.
      */
-    @Marshallable
     UUID indexToUse();
 
     /**

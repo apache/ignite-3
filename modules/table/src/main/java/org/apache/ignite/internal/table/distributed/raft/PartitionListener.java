@@ -156,7 +156,7 @@ public class PartitionListener implements RaftGroupListener {
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                safeTime.update(safeTimePropagatingCommand.safeTime().asHybridTimestamp());
+                safeTime.update(safeTimePropagatingCommand.safeTime());
             }
 
             try {
@@ -272,7 +272,7 @@ public class PartitionListener implements RaftGroupListener {
                         .stream()
                         .map(TablePartitionIdMessage::asTablePartitionId)
                         .collect(Collectors.toList()),
-                cmd.commitTimestamp() != null ? cmd.commitTimestamp().asHybridTimestamp() : null
+                cmd.commitTimestamp()
         );
 
         TxMeta txMetaBeforeCas = txStateStorage.get(txId);
@@ -326,7 +326,7 @@ public class PartitionListener implements RaftGroupListener {
 
         if (cmd.commit()) {
             storage.runConsistently(() -> {
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp().asHybridTimestamp()));
+                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
 
                 txsPendingRowIds.remove(txId);
 

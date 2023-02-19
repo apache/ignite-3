@@ -339,7 +339,7 @@ class OutgoingSnapshotMvDataStreamingTest {
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
 
-        assertThat(response.rows().get(0).timestamps(), is(empty()));
+        assertThat(response.rows().get(0).timestamps().length, is(0));
     }
 
     @Test

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.message;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -28,9 +27,11 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TxMessageGroup.TX_STATE_REQUEST)
 public interface TxStateReplicaRequest extends ReplicaRequest {
-    @Marshallable
     UUID txId();
 
-    @Marshallable
-    HybridTimestamp readTimestamp();
+    long readTimestampLong();
+
+    default HybridTimestamp readTimestamp() {
+        return HybridTimestamp.of(readTimestampLong());
+    }
 }

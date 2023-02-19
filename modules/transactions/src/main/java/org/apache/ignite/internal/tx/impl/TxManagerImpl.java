@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableLongTime;
 
 import java.util.List;
 import java.util.Map;
@@ -125,7 +126,7 @@ public class TxManagerImpl implements TxManager {
                 .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
-                .commitTimestamp(commitTimestamp)
+                .commitTimestampLong(nullableLongTime(commitTimestamp))
                 .term(term)
                 .build();
 
@@ -153,7 +154,7 @@ public class TxManagerImpl implements TxManager {
                             .groupId(replicationGroupIds.get(i).get1())
                             .txId(txId)
                             .commit(commit)
-                            .commitTimestamp(commitTimestamp)
+                            .commitTimestampLong(nullableLongTime(commitTimestamp))
                             .term(replicationGroupIds.get(i).get2())
                             .build()
             );

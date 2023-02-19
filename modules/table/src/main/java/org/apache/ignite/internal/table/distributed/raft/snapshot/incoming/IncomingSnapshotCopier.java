@@ -384,7 +384,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private void writeVersion(ResponseEntry entry, int i) {
         RowId rowId = new RowId(partId(), entry.rowId());
 
-        HybridTimestamp timestamp = i < entry.timestamps().size() ? entry.timestamps().get(i) : null;
+        Long timestamp = i < entry.timestamps().length ? entry.timestamps()[i] : null;
 
         ByteBuffer rowVersion = entry.rowVersions().get(i);
 
@@ -401,7 +401,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, binaryRow, timestamp);
+            partition.addWriteCommitted(rowId, binaryRow, HybridTimestamp.of(timestamp.longValue()));
         }
     }
 }

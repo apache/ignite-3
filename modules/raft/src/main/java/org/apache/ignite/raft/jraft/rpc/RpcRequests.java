@@ -175,8 +175,11 @@ public final class RpcRequests {
         @Marshallable
         ByteString data();
 
-        @Marshallable
-        HybridTimestamp timestamp();
+        long timestampLong();
+
+        default HybridTimestamp timestamp() {
+            return HybridTimestamp.of(timestampLong());
+        }
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
@@ -187,8 +190,11 @@ public final class RpcRequests {
 
         long lastLogIndex();
 
-        @Marshallable
-        HybridTimestamp timestamp();
+        long timestampLong();
+
+        default HybridTimestamp timestamp() {
+            return HybridTimestamp.of(timestampLong());
+        }
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_REQUEST)

@@ -380,7 +380,7 @@ public class InternalTableImpl implements InternalTable {
                 .flags(flags)
                 .columnsToInclude(columnsToInclude)
                 .batchSize(batchSize)
-                .timestamp(clock.now());
+                .timestampLong(clock.nowLong());
 
         if (primaryReplicaAndTerm != null) {
             ReadWriteScanRetrieveBatchReplicaRequest request = requestBuilder.term(primaryReplicaAndTerm.get2()).build();
@@ -509,7 +509,7 @@ public class InternalTableImpl implements InternalTable {
                             .transactionId(txo.id())
                             .term(term)
                             .requestType(RequestType.RW_GET)
-                            .timestamp(clock.now())
+                            .timestampLong(clock.nowLong())
                             .build()
             );
         }
@@ -556,7 +556,7 @@ public class InternalTableImpl implements InternalTable {
                             .transactionId(txo.id())
                             .term(term)
                             .requestType(RequestType.RW_GET_ALL)
-                            .timestamp(clock.now())
+                            .timestampLong(clock.nowLong())
                             .build(),
                     this::collectMultiRowsResponses);
         }
@@ -605,7 +605,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_UPSERT)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build());
     }
 
@@ -622,7 +622,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_UPSERT_ALL)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build(),
                 CompletableFuture::allOf);
     }
@@ -640,7 +640,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_UPSERT)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -658,7 +658,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_INSERT)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -676,7 +676,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_INSERT_ALL)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build(),
                 this::collectMultiRowsResponses);
     }
@@ -694,7 +694,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_REPLACE_IF_EXIST)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -713,7 +713,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_REPLACE)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -731,7 +731,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_REPLACE)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -749,7 +749,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -767,7 +767,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -785,7 +785,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
@@ -803,7 +803,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_ALL)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build(),
                 this::collectMultiRowsResponses);
     }
@@ -824,7 +824,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_EXACT_ALL)
-                        .timestamp(clock.now())
+                        .timestampLong(clock.nowLong())
                         .build(),
                 this::collectMultiRowsResponses);
     }

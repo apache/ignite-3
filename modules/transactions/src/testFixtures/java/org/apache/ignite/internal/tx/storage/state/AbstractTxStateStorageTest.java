@@ -121,15 +121,13 @@ public abstract class AbstractTxStateStorageTest {
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {
-        long physical = Math.abs(uuid.getMostSignificantBits());
+        long time = Math.abs(uuid.getMostSignificantBits());
 
-        if (physical == 0) {
-            physical++;
+        if (time <= 0) {
+            time++;
         }
 
-        int logical = Math.abs(Long.valueOf(uuid.getLeastSignificantBits()).intValue());
-
-        return new HybridTimestamp(physical, logical);
+        return HybridTimestamp.of(time);
     }
 
     @Test

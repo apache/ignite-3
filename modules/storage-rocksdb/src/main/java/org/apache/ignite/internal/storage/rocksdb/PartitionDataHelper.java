@@ -173,17 +173,15 @@ class PartitionDataHelper implements ManuallyCloseable {
         assert buf.order() == KEY_BYTE_ORDER;
 
         // "bitwise negation" turns ascending order into a descending one.
-        buf.putLong(~ts.getPhysical());
-        buf.putInt(~ts.getLogical());
+        buf.putLong(~ts.longValue());
     }
 
     static HybridTimestamp readTimestampDesc(ByteBuffer keyBuf) {
         assert keyBuf.order() == KEY_BYTE_ORDER;
 
-        long physical = ~keyBuf.getLong(ROW_PREFIX_SIZE);
-        int logical = ~keyBuf.getInt(ROW_PREFIX_SIZE + Long.BYTES);
+        long time = ~keyBuf.getLong(ROW_PREFIX_SIZE);
 
-        return new HybridTimestamp(physical, logical);
+        return HybridTimestamp.of(time);
     }
 
     /**
@@ -192,17 +190,15 @@ class PartitionDataHelper implements ManuallyCloseable {
     static void putTimestampNatural(ByteBuffer buf, HybridTimestamp ts) {
         assert buf.order() == KEY_BYTE_ORDER;
 
-        buf.putLong(ts.getPhysical());
-        buf.putInt(ts.getLogical());
+        buf.putLong(ts.longValue());
     }
 
     static HybridTimestamp readTimestampNatural(ByteBuffer keyBuf, int offset) {
         assert keyBuf.order() == KEY_BYTE_ORDER;
 
-        long physical = keyBuf.getLong(offset);
-        int logical = keyBuf.getInt(offset + Long.BYTES);
+        long time = keyBuf.getLong(offset);
 
-        return new HybridTimestamp(physical, logical);
+        return HybridTimestamp.of(time);
     }
 
     @Override

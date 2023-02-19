@@ -28,7 +28,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -320,13 +319,15 @@ public class OutgoingSnapshot {
             return null;
         }
 
-        List<ByteBuffer> buffers = new ArrayList<>(rowVersionsN2O.size());
-        List<HybridTimestamp> commitTimestamps = new ArrayList<>(rowVersionsN2O.size());
+        int count = rowVersionsN2O.size();
+        List<ByteBuffer> buffers = new ArrayList<>(count);
+
+        long[] commitTimestamps = new long[rowVersionsN2O.get(count - 1).isWriteIntent() ? count - 1 : count];
         UUID transactionId = null;
         UUID commitTableId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-        for (int i = rowVersionsN2O.size() - 1; i >= 0; i--) {
+        for (int i = count - 1, j = 0; i >= 0; i--) {
             ReadResult version = rowVersionsN2O.get(i);
             BinaryRow row = version.binaryRow();
 
@@ -337,7 +338,7 @@ public class OutgoingSnapshot {
                 commitTableId = version.commitTableId();
                 commitPartitionId = version.commitPartitionId();
             } else {
-                commitTimestamps.add(version.commitTimestamp());
+                commitTimestamps[j++] = version.commitTimestamp().longValue();
             }
         }
 
