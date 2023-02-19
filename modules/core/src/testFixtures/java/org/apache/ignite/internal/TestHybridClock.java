@@ -24,7 +24,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
@@ -45,7 +44,7 @@ public class TestHybridClock implements HybridClock {
 
     static {
         try {
-            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockImpl.class, "latestTime", long.class);
+            LATEST_TIME = MethodHandles.lookup().findVarHandle(TestHybridClock.class, "latestTime", long.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }
