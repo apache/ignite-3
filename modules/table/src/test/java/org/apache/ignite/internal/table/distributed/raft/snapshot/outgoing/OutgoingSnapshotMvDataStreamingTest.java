@@ -106,7 +106,7 @@ class OutgoingSnapshotMvDataStreamingTest {
                 clock.now()
         );
 
-        configurePartitionAccessToHaveExactlyOneRowWith(List.of(version1, version2));
+        configurePartitionAccessToHaveExactlyOneRowWith(List.of(version2, version1));
 
         SnapshotMvDataResponse response = getMvDataResponse(Long.MAX_VALUE);
 
@@ -118,11 +118,11 @@ class OutgoingSnapshotMvDataStreamingTest {
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
-        assertThat(responseRow.timestamps(), is(equalTo(List.of(version1.commitTimestamp()))));
+        assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
 
         assertThat(responseRow.rowVersions(), hasSize(2));
-        assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{2}));
-        assertThat(responseRow.rowVersions().get(1).array(), is(new byte[]{1}));
+        assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{1}));
+        assertThat(responseRow.rowVersions().get(1).array(), is(new byte[]{2}));
     }
 
     private void configurePartitionAccessToHaveExactlyOneRowWith(List<ReadResult> versions) {
@@ -160,7 +160,10 @@ class OutgoingSnapshotMvDataStreamingTest {
         SnapshotMvDataResponse.ResponseEntry responseRow = response.rows().get(0);
 
         //noinspection ConstantConditions
-        assertThat(responseRow.timestamps(), is(equalTo(List.of(version2.commitTimestamp(), version1.commitTimestamp()))));
+        assertThat(
+                responseRow.timestamps(),
+                is(equalTo(new long[] {version2.commitTimestamp().longValue(), version1.commitTimestamp().longValue()}))
+        );
 
         assertThat(responseRow.rowVersions(), hasSize(2));
         assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{2}));
@@ -240,7 +243,7 @@ class OutgoingSnapshotMvDataStreamingTest {
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
-        assertThat(responseRow.timestamps(), is(equalTo(List.of(version1.commitTimestamp()))));
+        assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
 
         assertThat(responseRow.rowVersions(), hasSize(2));
         assertThat(responseRow.rowVersions().get(0).array(), is(new byte[]{1}));
