@@ -23,6 +23,7 @@ set(SOURCES
     ignite_client.cpp
     sql/sql.cpp
     sql/result_set.cpp
+    table/key_value_view.cpp
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
@@ -42,6 +43,7 @@ set(PUBLIC_HEADERS
     ignite_logger.h
     sql/sql.h
     table/ignite_tuple.h
+    table/key_value_view.h
     table/record_view.h
     table/table.h
     table/tables.h

@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/table/ignite_tuple.h"
+#include "ignite/client/table/key_value_view.h"
 #include "ignite/client/table/record_view.h"
 #include "ignite/common/config.h"
 
@@ -63,6 +64,13 @@ public:
      * @return Record binary view.
      */
     [[nodiscard]] IGNITE_API record_view<ignite_tuple> record_binary_view() const noexcept;
+
+    /**
+     * Gets the key-value binary view.
+     *
+     * @return Record binary view.
+     */
+    [[nodiscard]] IGNITE_API key_value_view<ignite_tuple> key_value_binary_view() const noexcept;
 
 private:
     /**
