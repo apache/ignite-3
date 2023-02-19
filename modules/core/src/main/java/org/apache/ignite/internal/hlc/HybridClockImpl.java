@@ -43,6 +43,7 @@ public class HybridClockImpl implements HybridClock {
     }
 
     private volatile long latestTime;
+
     /**
      * The constructor which initializes the latest time to current time by system clock.
      */

@@ -35,10 +35,10 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      */
     public static final long NULL_HYBRID_TIMESTAMP = 0L;
 
-    /** */
+    /** Number of bits in "logical time" part. */
     public static final int LOGICAL_TIME_BITS_SIZE = 2 * Byte.SIZE;
 
-    /** */
+    /** Number of bits in "physical time" part. */
     public static final int PHYSICAL_TIME_BITS_SIZE = 6 * Byte.SIZE;
 
     /** Timestamp size in bytes. */
@@ -47,7 +47,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /** A constant holding the maximum value a {@code HybridTimestamp} can have. */
     public static final HybridTimestamp MAX_VALUE = new HybridTimestamp(Long.MAX_VALUE);
 
-    /** */
+    /** Long time value, that consists of physical time in higher 6 bytes and logical time in lower 2 bytes. */
     private final long time;
 
     /**
