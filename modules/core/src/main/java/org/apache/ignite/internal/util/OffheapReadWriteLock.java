@@ -110,30 +110,24 @@ public class OffheapReadWriteLock {
      * @param lock Lock address.
      */
     public boolean readLock(long lock, int tag) {
-        long state = GridUnsafe.getLongVolatile(null, lock);
+        long state;
 
-        assert state != 0;
+        for (int i = 0; i < SPIN_CNT; i++) {
+            state = GridUnsafe.getLong(null, lock);
 
-        // Check write waiters first.
-        int writeWaitCnt = writersWaitCount(state);
-
-        if (writeWaitCnt == 0) {
-            for (int i = 0; i < SPIN_CNT; i++) {
-                if (!checkTag(state, tag)) {
-                    return false;
-                }
-
-                if (canReadLock(state)) {
-                    if (GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, 1, 0, 0))) {
-                        return true;
-                    } else {
-                        // Retry CAS, do not count as spin cycle.
-                        i--;
-                    }
-                }
-
-                state = GridUnsafe.getLongVolatile(null, lock);
+            if (!checkTag(state, tag)) {
+                return false;
             }
+
+            if (canReadLock(state)) {
+                if (GridUnsafe.compareAndSwapLong(null, lock, state, updateState(state, 1, 0, 0))) {
+                    return true;
+                } else {
+                    // Retry CAS, do not count as spin cycle.
+                    i--;
+                }
+            }
+
         }
 
         int idx = lockIndex(lock);
@@ -158,7 +152,7 @@ public class OffheapReadWriteLock {
      */
     public void readUnlock(long lock) {
         while (true) {
-            long state = GridUnsafe.getLongVolatile(null, lock);
+            long state = GridUnsafe.getLong(null, lock);
 
             if (lockCount(state) <= 0) {
                 throw new IllegalMonitorStateException("Attempted to release a read lock while not holding it "
@@ -213,7 +207,7 @@ public class OffheapReadWriteLock {
         assert tag != 0;
 
         for (int i = 0; i < SPIN_CNT; i++) {
-            long state = GridUnsafe.getLongVolatile(null, lock);
+            long state = GridUnsafe.getLong(null, lock);
 
             assert state != 0;
 
@@ -277,7 +271,7 @@ public class OffheapReadWriteLock {
         assert tag != 0;
 
         while (true) {
-            long state = GridUnsafe.getLongVolatile(null, lock);
+            long state = GridUnsafe.getLong(null, lock);
 
             if (lockCount(state) != -1) {
                 throw new IllegalMonitorStateException("Attempted to release write lock while not holding it "
@@ -348,7 +342,7 @@ public class OffheapReadWriteLock {
      */
     public Boolean upgradeToWriteLock(long lock, int tag) {
         for (int i = 0; i < SPIN_CNT; i++) {
-            long state = GridUnsafe.getLongVolatile(null, lock);
+            long state = GridUnsafe.getLong(null, lock);
 
             if (!checkTag(state, tag)) {
                 return null;
@@ -373,7 +367,7 @@ public class OffheapReadWriteLock {
         try {
             // First, add write waiter.
             while (true) {
-                long state = GridUnsafe.getLongVolatile(null, lock);
+                long state = GridUnsafe.getLong(null, lock);
 
                 if (!checkTag(state, tag)) {
                     return null;
@@ -418,7 +412,7 @@ public class OffheapReadWriteLock {
         try {
             while (true) {
                 try {
-                    long state = GridUnsafe.getLongVolatile(null, lock);
+                    long state = GridUnsafe.getLong(null, lock);
 
                     if (!checkTag(state, tag)) {
                         // We cannot lock with this tag, release waiter.
@@ -470,7 +464,7 @@ public class OffheapReadWriteLock {
         try {
             while (true) {
                 try {
-                    long state = GridUnsafe.getLongVolatile(null, lock);
+                    long state = GridUnsafe.getLong(null, lock);
 
                     if (!checkTag(state, tag)) {
                         // We cannot lock with this tag, release waiter.
@@ -510,7 +504,7 @@ public class OffheapReadWriteLock {
      * @return Lock monitor object that corresponds to the stripe for this lock address.
      */
     private int lockIndex(long lock) {
-        return IgniteUtils.safeAbs(IgniteUtils.hash(lock)) & monitorsMask;
+        return IgniteUtils.hash(lock) & monitorsMask;
     }
 
     /**
@@ -665,7 +659,7 @@ public class OffheapReadWriteLock {
 
         while (true) {
             // Safe to do non-volatile read because of CAS below.
-            long state = GridUnsafe.getLongVolatile(null, lock);
+            long state = GridUnsafe.getLong(null, lock);
 
             long updated = updateState(state, 0, delta, 0);
 
@@ -685,7 +679,7 @@ public class OffheapReadWriteLock {
         assert lockObj.isHeldByCurrentThread();
 
         while (true) {
-            long state = GridUnsafe.getLongVolatile(null, lock);
+            long state = GridUnsafe.getLong(null, lock);
 
             long updated = updateState(state, 0, 0, delta);
 
