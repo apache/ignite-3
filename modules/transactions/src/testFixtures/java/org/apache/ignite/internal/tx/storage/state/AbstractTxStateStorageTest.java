@@ -124,7 +124,7 @@ public abstract class AbstractTxStateStorageTest {
         long time = Math.abs(uuid.getMostSignificantBits());
 
         if (time <= 0) {
-            time++;
+            time = 1;
         }
 
         return HybridTimestamp.of(time);
