@@ -241,8 +241,8 @@ public class TypeUtils {
     /**
      * ToInternal. Converts the given value to its presentation used by the execution engine.
      *
-     * @deprecated The implementation of this method is incorrect, because it relies on the assumption that
-     *      {@code val.getClass() == storageType(val)} always true, which sometimes is not the case.
+     * @deprecated The implementation of this method is incorrect because it relies on the assumption that
+     *      {@code val.getClass() == storageType(val)} is always true, which sometimes is not the case.
      *      Use {@link #toInternal(ExecutionContext, Object, Type)} that provides type information instead.
      */
     @Deprecated
