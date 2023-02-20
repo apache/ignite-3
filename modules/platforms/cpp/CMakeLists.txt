@@ -50,6 +50,7 @@ option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
+option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 
 # Turn on DLL export directives.
 add_definitions(-DIGNITE_IMPL)
