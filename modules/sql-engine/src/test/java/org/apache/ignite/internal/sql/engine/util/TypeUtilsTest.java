@@ -50,7 +50,7 @@ public class TypeUtilsTest {
      * @see TypeUtils#fromInternal(ExecutionContext, Object, Type) from internal.
      */
     @ParameterizedTest
-    @MethodSource("typeAndValue")
+    @MethodSource("valueAndType")
     public void testToFromInternalMatch(Object value, Class<?> type) {
         Object internal = TypeUtils.toInternal(ectx, value, type);
         assertNotNull(internal, "Conversion to internal has produced null");
@@ -63,7 +63,7 @@ public class TypeUtilsTest {
         assertEquals(internal, internal2, "toInternal w/o type parameter");
     }
 
-    private static Stream<Arguments> typeAndValue() {
+    private static Stream<Arguments> valueAndType() {
         return Stream.of(
                 Arguments.of((byte) 1, Byte.class),
                 Arguments.of((short) 1, Short.class),
