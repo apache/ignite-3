@@ -227,11 +227,20 @@ namespace Apache.Ignite.Internal
         /// Gets active connections.
         /// </summary>
         /// <returns>Active connections.</returns>
-        public IEnumerable<ConnectionContext> GetConnections() =>
-            _endpoints
-                .Where(e => e.Socket is { IsDisposed: false, ConnectionContext: not null })
-                .Select(e => e.Socket!.ConnectionContext)
-                .ToList();
+        public IEnumerable<ConnectionContext> GetConnections()
+        {
+            var res = new List<ConnectionContext>(_endpoints.Count);
+
+            foreach (var endpoint in _endpoints)
+            {
+                if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
+                {
+                    res.Add(ctx);
+                }
+            }
+
+            return res;
+        }
 
         /// <summary>
         /// Gets a socket. Reconnects if necessary.
