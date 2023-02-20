@@ -64,8 +64,8 @@ public final class IgniteCustomTypeCoercionRules {
      * @param toType  Target custom data type.
      */
     public boolean needToCast(RelDataType fromType, IgniteCustomType toType) {
-        // The implementation of this method must all use ::canCastFrom(typeName).
-        // because the former is used to generate rules for runtime execution.
+        // The implementation of this method must always use ::canCastFrom(typeName),
+        // because canCastFrom is can be used to generate rules for runtime execution.
         var rules = canCastFrom(toType.getCustomTypeName());
 
         return rules.contains(fromType.getSqlTypeName());
