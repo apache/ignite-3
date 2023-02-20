@@ -335,51 +335,55 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         var lhs = getValidatedNodeType(sqlCall.operand(0));
         var rhs = getValidatedNodeType(sqlCall.operand(1));
 
-        if (lhs.getSqlTypeName() == SqlTypeName.ANY || rhs.getSqlTypeName() == SqlTypeName.ANY) {
-            // IgniteCustomType:
-            //
-            // The correct way to implement the validation error bellow would be to move these coercion rules to SqlOperandTypeChecker:
-            // 1) Implement the SqlOperandTypeChecker that prohibit arithmetic operations
-            // between types that neither support binary/unary operators nor support type coercion.
-            // 2) Specify that SqlOperandTypeChecker for every binary/unary operator defined in
-            // IgniteSqlOperatorTable
-            //
-            // This would allow to reject plans that contain type errors
-            // at the validation stage.
-            //
-            // Similar approach can also be used to handle casts between types that can not
-            // be converted into one another.
-            //
-            // And if applied to dynamic parameters with combination of a modified SqlOperandTypeChecker for
-            // a cast function this would allow to reject plans with invalid values w/o at validation stage.
-            //
-            var customTypeCoercionRules = typeFactory().getCustomTypeCoercionRules();
-            boolean canConvert;
-
-            // IgniteCustomType: To enable implicit casts to a custom data type.
-            if (lhs instanceof IgniteCustomType) {
-                var customType = (IgniteCustomType) lhs;
-                var customTypeName = customType.getCustomTypeName();
-
-                canConvert = customTypeCoercionRules.needToCast(customTypeName, rhs);
-            } else if (rhs instanceof IgniteCustomType) {
-                var customType = (IgniteCustomType) rhs;
-                var customTypeName = customType.getCustomTypeName();
-
-                canConvert = customTypeCoercionRules.needToCast(customTypeName, lhs);
-            } else {
-                // We should not get here because at least one operand type must be a IgniteCustomType.
-                throw new AssertionError("At least one operand must be a custom data type: " + expr);
-            }
-
-            if (!canConvert) {
-                var ex = RESOURCE.invalidTypesForComparison(
-                        lhs.getFullTypeString(), sqlKind.sql, rhs.getFullTypeString());
-
-                throw SqlUtil.newContextException(expr.getParserPosition(), ex);
-            }
+        if (lhs.getSqlTypeName() != SqlTypeName.ANY && rhs.getSqlTypeName() != SqlTypeName.ANY) {
+            return dataType;
         }
-        return dataType;
+
+        // IgniteCustomType:
+        //
+        // The correct way to implement the validation error bellow would be to move these coercion rules to SqlOperandTypeChecker:
+        // 1) Implement the SqlOperandTypeChecker that prohibit arithmetic operations
+        // between types that neither support binary/unary operators nor support type coercion.
+        // 2) Specify that SqlOperandTypeChecker for every binary/unary operator defined in
+        // IgniteSqlOperatorTable
+        //
+        // This would allow to reject plans that contain type errors
+        // at the validation stage.
+        //
+        // Similar approach can also be used to handle casts between types that can not
+        // be converted into one another.
+        //
+        // And if applied to dynamic parameters with combination of a modified SqlOperandTypeChecker for
+        // a cast function this would allow to reject plans with invalid values w/o at validation stage.
+        //
+        var customTypeCoercionRules = typeFactory().getCustomTypeCoercionRules();
+        boolean canConvert;
+
+        // IgniteCustomType: To enable implicit casts to a custom data type.
+        if (lhs instanceof IgniteCustomType) {
+            var customType = (IgniteCustomType) lhs;
+            var customTypeName = customType.getCustomTypeName();
+
+            canConvert = customTypeCoercionRules.needToCast(customTypeName, rhs);
+        } else if (rhs instanceof IgniteCustomType) {
+            var customType = (IgniteCustomType) rhs;
+            var customTypeName = customType.getCustomTypeName();
+
+            canConvert = customTypeCoercionRules.needToCast(customTypeName, lhs);
+        } else {
+            // We should not get here because at least one operand type must be a IgniteCustomType
+            // and only custom data types must use SqlTypeName::ANY.
+            throw new AssertionError("At least one operand must be a custom data type: " + expr);
+        }
+
+        if (!canConvert) {
+            var ex = RESOURCE.invalidTypesForComparison(
+                    lhs.getFullTypeString(), sqlKind.sql, rhs.getFullTypeString());
+
+            throw SqlUtil.newContextException(expr.getParserPosition(), ex);
+        } else {
+            return dataType;
+        }
     }
 
 
