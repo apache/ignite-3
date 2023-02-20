@@ -146,7 +146,6 @@ public final class IgniteCustomTypeSpec {
      * @return A method that implements a cast function.
      */
     public static Method getCastFunction(Class<?> clazz, String method) {
-        //
         try {
             return clazz.getMethod(method, Object.class);
         } catch (NoSuchMethodException e) {
