@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Provides cast expressions for {@link IgniteCustomType custom data types}.
  */
-public final class CustomTypesConversion {
+final class CustomTypesConversion {
 
     static final CustomTypesConversion INSTANCE = new CustomTypesConversion(Commons.typeFactory());
 
