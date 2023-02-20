@@ -55,13 +55,12 @@ public final class IgniteCustomTypeCoercionRules {
     }
 
     /**
-     * Checks whether the cast operation is needed to convert this type.
+     * Checks whether the cast operation is needed to convert {@code fromType} to the custom type {@code toType}.
      *
-     * <p>
-     * NOTE: <b>This method returns {@code false} when called with the same argument as both parameters, because
+     * <p>NOTE: <b>This method returns {@code false}, when called with the same argument as both parameters, because
      * there is no need to add casts between the same types.</b>
      *
-     * @param fromType  Another data type.
+     * @param fromType  Source data type.
      * @param toType  Target custom data type.
      */
     public boolean needToCast(RelDataType fromType, IgniteCustomType toType) {
