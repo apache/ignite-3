@@ -613,7 +613,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return manager;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Check the storage of partition is the same across all nodes.
+     * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
+     * The method is required to update when a procedure is based on comparison of all storage entries will appear.
+     *
+     * @param table The table.
+     * @param partId Partition id.
+     * @return True if {@link MvPartitionStorage#lastAppliedIndex()} is equivalent across all nodes, false otherwise.
+     */
     @Override
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
         long storageIdx = 0;
