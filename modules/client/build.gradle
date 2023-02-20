@@ -56,4 +56,17 @@ dependencies {
     testImplementation libs.archunit.junit5
 }
 
+def archTestDir = "$buildDir/archtest"
+
+task copyMainClassPathToArchTestDir(type: Copy) {
+    from sourceSets.main.runtimeClasspath
+    into archTestDir
+}
+
+test {
+    systemProperty "archtest.dir", archTestDir
+}
+
+test.dependsOn copyMainClassPathToArchTestDir
+
 description = 'ignite-client'

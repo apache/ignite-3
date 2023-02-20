@@ -17,18 +17,21 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.fail;
+
+import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
-import com.tngtech.archunit.core.importer.Location;
-import com.tngtech.archunit.junit.AnalyzeClasses;
-import com.tngtech.archunit.junit.ArchTest;
-import com.tngtech.archunit.junit.LocationProvider;
-import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
+import com.tngtech.archunit.lang.syntax.elements.FieldsShouldConjunction;
+import java.io.File;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Set;
-import org.apache.ignite.client.ClientArchTest.ClassesWithLibsLocationProvider;
+import java.util.Arrays;
+import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Test;
 
 /**
  * This test ensures static logger is not used in the modules the client module relies on.
@@ -36,33 +39,45 @@ import org.apache.ignite.internal.logger.IgniteLogger;
  * <p>It's possible to specify a custom logger for an Ignite client, and that configured logger should be used everywhere throughout
  * a client, that's why we shouldn't use a static logger.
  */
-@AnalyzeClasses(
-        locations = ClassesWithLibsLocationProvider.class
-)
 public class ClientArchTest {
-    static class ClassesWithLibsLocationProvider implements LocationProvider {
-        @Override
-        public Set<Location> get(Class<?> testClass) {
-            // ignite-3/modules/client
-            Path modulesRoot = Path.of("").toAbsolutePath();
 
-            return Set.of(Location.of(modulesRoot));
+    private static final Path CLASS_PATH_DIR = Path.of(System.getProperty("archtest.dir"));
+
+    private static JavaClasses clientModuleDependencies() {
+        File classpath = CLASS_PATH_DIR.toFile();
+        File[] classpathFiles = classpath.listFiles();
+        if (classpathFiles == null) {
+            fail("Failed to list files in " + classpath.getAbsolutePath());
         }
 
-        private static Path directoryFromBuildDir(String folder) {
-            Path path = Paths.get("target", folder);
-            if (!path.toFile().exists()) {
-                path = Paths.get("build", folder);
-            }
-            if (!path.toFile().exists()) {
-                throw new AssertionError("Expect " + folder + " directory to exist.");
-            }
-            return path;
+        return new ClassFileImporter().importJars(
+                Arrays.stream(classpathFiles)
+                        .filter(f -> f.getName().endsWith(".jar"))
+                        .map(ClientArchTest::jarFile)
+                        .collect(Collectors.toList())
+        );
+    }
+
+    @NotNull
+    private static JarFile jarFile(File f) {
+        try {
+            return new JarFile(f);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
-    @ArchTest
-    public static final ArchRule NO_STATIC_LOGGER_FIELD = ArchRuleDefinition.noFields()
-            .that().haveRawType(IgniteLogger.class)
-            .should().haveModifier(JavaModifier.STATIC);
+    private static JavaClasses clientModuleClasses() {
+        return new ClassFileImporter().importPath(CLASS_PATH_DIR);
+    }
+
+    @Test
+    void noStaticIgniteLoggerDefined() {
+        FieldsShouldConjunction noStaticIgniteLogger = ArchRuleDefinition.noFields()
+                .that().haveRawType(IgniteLogger.class)
+                .should().haveModifier(JavaModifier.STATIC);
+
+        noStaticIgniteLogger.check(clientModuleClasses());
+        noStaticIgniteLogger.check(clientModuleDependencies());
+    }
 }
