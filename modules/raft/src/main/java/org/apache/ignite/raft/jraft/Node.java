@@ -21,6 +21,7 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.core.Replicator;
+import org.apache.ignite.raft.jraft.core.State;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -76,13 +77,6 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param blocking if true, will be blocked until the node finish it's state change
      */
     boolean isLeader(final boolean blocking);
-
-    /**
-     * Shutdown local replica node.
-     *
-     * @param done callback
-     */
-    void shutdown(final Closure done);
 
     /**
      * Block the thread until the node is successfully stopped.
@@ -309,6 +303,13 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @return node's target election priority value.
      */
     int getNodeTargetPriority();
+
+    /**
+     * Get the node's state.
+     *
+     * @return node's state.
+     */
+    State getNodeState();
 
     /**
      * Get the node's current term.
