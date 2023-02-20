@@ -65,7 +65,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec;
  *     when a custom data type is implemented.</li>
  * </ul>
  *
- * <p>Type conversion is implemented in {@code CustomTypesConversion} and uses type coercion rules defined for your custom type.
+ * <p>Type conversion is implemented in {@code CustomTypesConversion} and uses rules defined for your custom type.
  *
  * <p>Client code/JDBC:
  * <ul>

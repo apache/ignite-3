@@ -98,10 +98,10 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             charset = StandardCharsets.UTF_8;
         }
 
-        // IgniteCustomType: all prototypes of custom types are registered here.
+        // IgniteCustomType: all custom data types are registered here
         NewCustomType uuidType = new NewCustomType(UuidType.SPEC, (nullable, precision) -> new UuidType(nullable));
         // UUID type can be converted from character types.
-        uuidType.addCoercionRule(SqlTypeName.CHAR_TYPES);
+        uuidType.addCoercionRules(SqlTypeName.CHAR_TYPES);
 
         customDataTypes = new CustomDataTypes(Set.of(uuidType));
     }
@@ -566,7 +566,10 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             this.typeFactory = typeFactory;
         }
 
-        void addCoercionRule(Collection<SqlTypeName> types) {
+        /**
+         * Adds a type coercion rule to from the given built-in SQL types to this custom data type.
+         */
+        void addCoercionRules(Collection<SqlTypeName> types) {
             canBeCoercedTo.addAll(types);
         }
     }
