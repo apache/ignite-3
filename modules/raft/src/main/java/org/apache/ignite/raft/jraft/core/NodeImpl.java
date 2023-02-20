@@ -181,7 +181,6 @@ public class NodeImpl implements Node, RaftServerService {
     private BallotBox ballotBox;
     private SnapshotExecutor snapshotExecutor;
     private ReplicatorGroup replicatorGroup;
-    private final List<Closure> shutdownContinuations = new ArrayList<>();
     private RaftClientService rpcClientService;
     private ReadOnlyService readOnlyService;
 
@@ -2635,12 +2634,8 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private void afterShutdown() {
-        List<Closure> savedDoneList = null;
         this.writeLock.lock();
         try {
-            if (!this.shutdownContinuations.isEmpty()) {
-                savedDoneList = new ArrayList<>(this.shutdownContinuations);
-            }
             if (this.logStorage != null) {
                 this.logStorage.shutdown();
             }
@@ -2648,11 +2643,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
         finally {
             this.writeLock.unlock();
-        }
-        if (savedDoneList != null) {
-            for (final Closure closure : savedDoneList) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), closure);
-            }
         }
     }
 
@@ -2686,11 +2676,6 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.readLock.unlock();
         }
-    }
-
-    @Override
-    public void shutdown() {
-        shutdown(null);
     }
 
     public void onConfigurationChangeDone(final long term) {
@@ -3011,7 +2996,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void shutdown(final Closure done) {
+    public void shutdown() {
         this.writeLock.lock();
         try {
             LOG.info("Node {} shutdown, currTerm={} state={}.", getNodeId(), this.currTerm, this.state);
@@ -3056,20 +3041,6 @@ public class NodeImpl implements Node, RaftServerService {
                             event.shutdownLatch = latch;
                         }));
                 }
-            }
-
-            if (this.state != State.STATE_SHUTDOWN) {
-                if (done != null) {
-                    this.shutdownContinuations.add(done);
-                }
-                return;
-            }
-
-            // This node is down, it's ok to invoke done right now. Don't invoke this
-            // in place to avoid the dead writeLock issue when done.Run() is going to acquire
-            // a writeLock which is already held by the caller
-            if (done != null) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done);
             }
         }
         finally {
