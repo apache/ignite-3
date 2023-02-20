@@ -31,7 +31,7 @@ import org.apache.calcite.sql.validate.implicit.TypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 
 /**
- * Defines rules for coercing {@link SqlTypeName built-in types} to {@link IgniteCustomType custom data types}.
+ * Defines rules for coercing {@link SqlTypeName built-in SQL types} to {@link IgniteCustomType custom data types}.
  *
  * @see IgniteTypeCoercion ignite type coercion.
  * @see TypeCoercion calcite's TypeCoercion interface.
@@ -93,7 +93,7 @@ public final class IgniteCustomTypeCoercionRules {
         }
 
         /**
-         * Adds a rule that allows cast from the given custom type to the specified built-in type.
+         * Adds a rule that allows cast from the given custom type to the specified built-in SQL type.
          */
         public Builder addRule(String typeName, SqlTypeName to) {
             var rules = canCastFrom.computeIfAbsent(typeName, (k) -> EnumSet.noneOf(SqlTypeName.class));
@@ -102,7 +102,7 @@ public final class IgniteCustomTypeCoercionRules {
         }
 
         /**
-         * Adds rules that allow casts from the given custom type to the specified built-in types.
+         * Adds rules that allow casts from the given custom type to the specified built-in SQL types.
          */
         public Builder addRules(String typeName, Collection<SqlTypeName> typeNames) {
             var rules = canCastFrom.computeIfAbsent(typeName, (k) -> EnumSet.noneOf(SqlTypeName.class));
