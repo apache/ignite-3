@@ -396,7 +396,7 @@ public class ConverterUtils {
             }
         }
 
-        // IgniteCustomType: implement runtime conversion routines.
+        // IgniteCustomType: call runtime conversion routines.
         var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);
         if (toCustomType != null) {
             return toCustomType;
