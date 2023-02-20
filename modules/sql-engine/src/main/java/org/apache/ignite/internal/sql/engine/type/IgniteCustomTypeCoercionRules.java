@@ -72,7 +72,7 @@ public final class IgniteCustomTypeCoercionRules {
         return rules.contains(fromType.getSqlTypeName());
     }
 
-    /** Returns a set of built-in types the given custom type can be converted from. **/
+    /** Returns a set of built-in SQL types the given custom type can be converted from. **/
     public Set<SqlTypeName> canCastFrom(String typeName) {
         return canCastFrom.getOrDefault(typeName, Collections.emptySet());
     }
