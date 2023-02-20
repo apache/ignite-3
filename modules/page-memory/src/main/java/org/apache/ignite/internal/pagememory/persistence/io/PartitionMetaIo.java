@@ -228,7 +228,7 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets an garbage collection queue meta page id.
+     * Sets a garbage collection queue meta page id.
      *
      * @param pageAddr Page address.
      * @param pageId Meta page id.

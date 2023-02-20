@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.gc.io;
 
-import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
@@ -105,7 +104,7 @@ public interface GcIo {
     default int compare(long pageAddr, int idx, GcRowVersion rowVersion) {
         int offset = offset(idx);
 
-        HybridTimestamp readTimestamp = requireNonNull(HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET));
+        HybridTimestamp readTimestamp = HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET);
 
         int cmp = readTimestamp.compareTo(rowVersion.getTimestamp());
 
@@ -139,7 +138,7 @@ public interface GcIo {
 
         return new GcRowVersion(
                 new RowId(partitionId, rowIdMsb, rowIdLsb),
-                requireNonNull(HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET)),
+                HybridTimestamps.readTimestamp(pageAddr, offset + ROW_TIMESTAMP_OFFSET),
                 PartitionlessLinks.readPartitionless(partitionId, pageAddr, offset + ROW_LINK_OFFSET)
         );
     }

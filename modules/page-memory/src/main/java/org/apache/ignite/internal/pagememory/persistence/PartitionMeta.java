@@ -261,7 +261,7 @@ public class PartitionMeta {
     }
 
     /**
-     * Sets an garbage collection queue meta page id.
+     * Sets a garbage collection queue meta page id.
      *
      * @param checkpointId Checkpoint id.
      * @param gcQueueMetaPageId Garbage collection queue meta page id.

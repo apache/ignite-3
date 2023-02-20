@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
@@ -123,11 +124,11 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
          */
         boolean apply(long rowVersionLink, long rowVersionAddr);
 
-        static RowVersionFilter equalsByTimestamp(HybridTimestamp timestamp) {
+        static RowVersionFilter equalsByTimestamp(@Nullable HybridTimestamp timestamp) {
             return (rowVersionLink, rowVersionAddr) -> {
                 HybridTimestamp readTimestamp = HybridTimestamps.readTimestamp(rowVersionAddr, RowVersion.TIMESTAMP_OFFSET);
 
-                return readTimestamp != null && readTimestamp.compareTo(timestamp) == 0;
+                return Objects.equals(timestamp, readTimestamp);
             };
         }
 

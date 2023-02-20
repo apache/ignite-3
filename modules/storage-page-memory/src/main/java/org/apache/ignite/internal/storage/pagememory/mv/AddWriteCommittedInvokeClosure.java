@@ -55,10 +55,12 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
     private @Nullable VersionChain newRow;
 
     /**
-     * Link to the row version for which the commit occurred. It will be a {@link PageIdUtils#NULL_LINK} if the current and the previous
-     * row versions are tombstones or have only one row version in the version chain.
+     * Row version that will be added to the garbage collection queue when the {@link #afterCompletion() closure completes}.
+     *
+     * <p>Row version must be committed. It will be a {@link PageIdUtils#NULL_LINK} if the current and the previous row versions are
+     * tombstones or have only one row version in the version chain.
      */
-    private long rowLinkForGc = NULL_LINK;
+    private long rowLinkForAddToGcQueue = NULL_LINK;
 
     AddWriteCommittedInvokeClosure(
             RowId rowId,
@@ -98,7 +100,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
                 newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
 
-                rowLinkForGc = newVersion.link();
+                rowLinkForAddToGcQueue = newVersion.link();
             }
         }
     }
@@ -131,8 +133,8 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
     void afterCompletion() {
-        if (rowLinkForGc != NULL_LINK) {
-            storage.gcQueue.add(rowId, commitTimestamp, rowLinkForGc);
+        if (rowLinkForAddToGcQueue != NULL_LINK) {
+            storage.gcQueue.add(rowId, commitTimestamp, rowLinkForAddToGcQueue);
         }
     }
 }

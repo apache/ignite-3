@@ -53,10 +53,12 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     private @Nullable RowVersion toRemove;
 
     /**
-     * Link to the row version for which the commit occurred. It will be a {@link PageIdUtils#NULL_LINK} if the current and the previous
-     * row versions are tombstones or have only one row version in the version chain.
+     * Row version that will be added to the garbage collection queue when the {@link #afterCompletion() closure completes}.
+     *
+     * <p>Row version must be committed. It will be a {@link PageIdUtils#NULL_LINK} if the current and the previous row versions are
+     * tombstones or have only one row version in the version chain.
      */
-    private long rowLinkForGc = NULL_LINK;
+    private long rowLinkForAddToGcQueue = NULL_LINK;
 
     CommitWriteInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
         this.rowId = rowId;
@@ -89,7 +91,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
 
             if (oldRow.hasNextLink()) {
-                rowLinkForGc = oldRow.headLink();
+                rowLinkForAddToGcQueue = oldRow.headLink();
             }
         }
     }
@@ -135,8 +137,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             storage.removeRowVersion(toRemove);
         }
 
-        if (rowLinkForGc != NULL_LINK) {
-            storage.gcQueue.add(rowId, timestamp, rowLinkForGc);
+        if (rowLinkForAddToGcQueue != NULL_LINK) {
+            storage.gcQueue.add(rowId, timestamp, rowLinkForAddToGcQueue);
         }
     }
 }

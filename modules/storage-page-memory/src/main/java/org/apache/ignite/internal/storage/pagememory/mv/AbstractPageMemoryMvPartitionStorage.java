@@ -990,6 +990,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return inUpdateVersionChainLock(rowId, () -> {
                 // Someone processed the element in parallel.
+                // TODO: IGNITE-18843 Should try to get the RowVersion again
                 if (!gcQueue.remove(rowId, rowTimestamp, first.getLink())) {
                     return null;
                 }
