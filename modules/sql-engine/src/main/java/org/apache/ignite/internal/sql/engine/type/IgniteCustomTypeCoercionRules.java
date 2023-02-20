@@ -55,20 +55,25 @@ public final class IgniteCustomTypeCoercionRules {
     }
 
     /**
-     * Checks whether the given custom data type can be converted from the specified type.
+     * Checks whether the cast operation is needed to convert this type.
      *
-     * @param typeName Type name.
-     * @param fromType Another data type.
+     * <p>
+     * NOTE: <b>This method returns {@code false} when called with the same argument as both parameters, because
+     * there is no need to add casts between the same types.</b>
+     *
+     * @param fromType  Another data type.
+     * @param toType  Target custom data type.
      */
-    public boolean needToCast(String typeName, RelDataType fromType) {
+    public boolean needToCast(RelDataType fromType, IgniteCustomType toType) {
         // The implementation of this method must all use ::canCastFrom(typeName).
         // because the former is used to generate rules for runtime execution.
-        var rules = canCastFrom(typeName);
+        var rules = canCastFrom(toType.getCustomTypeName());
 
         return rules.contains(fromType.getSqlTypeName());
     }
 
-    private Set<SqlTypeName> canCastFrom(String typeName) {
+    /** Returns a set of built-in types the given custom type can be converted from. **/
+    public Set<SqlTypeName> canCastFrom(String typeName) {
         return canCastFrom.getOrDefault(typeName, Collections.emptySet());
     }
 

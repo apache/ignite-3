@@ -163,14 +163,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             RelDataType fromType = validator.deriveType(scope, node);
 
             // IgniteCustomType: whether we need implicit cast from one type to another.
-            boolean toCustomType = toType instanceof IgniteCustomType;
-            if (fromType instanceof IgniteCustomType && toCustomType) {
-                IgniteCustomType from = (IgniteCustomType) fromType;
+            // We can get toType = ANY in e1, at least in case where e1 is part of CASE <e1> WHERE ... END expression.
+            if (toType instanceof IgniteCustomType) {
                 IgniteCustomType to = (IgniteCustomType) toType;
-                return !Objects.equals(from.getCustomTypeName(), to.getCustomTypeName());
-            } else if (toCustomType) {
-                IgniteCustomType to = (IgniteCustomType) toType;
-                return typeCoercionRules.needToCast(to.getCustomTypeName(), fromType);
+                return typeCoercionRules.needToCast(fromType, to);
             }
         }
 

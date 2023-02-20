@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFamily;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.sql.SqlIdentifier;

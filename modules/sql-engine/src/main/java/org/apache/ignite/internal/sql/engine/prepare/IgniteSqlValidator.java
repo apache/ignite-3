@@ -57,6 +57,7 @@ import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeInference;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -360,16 +361,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         boolean canConvert;
 
         // IgniteCustomType: To enable implicit casts to a custom data type.
-        if (lhs instanceof IgniteCustomType) {
+        if (SqlTypeUtil.equalSansNullability(typeFactory(), lhs, rhs)) {
+            // We can always perform binary comparison operations between instances of the same type.
+            canConvert = true;
+        } else if (lhs instanceof IgniteCustomType) {
             var customType = (IgniteCustomType) lhs;
-            var customTypeName = customType.getCustomTypeName();
 
-            canConvert = customTypeCoercionRules.needToCast(customTypeName, rhs);
+            canConvert = customTypeCoercionRules.needToCast(rhs, customType);
         } else if (rhs instanceof IgniteCustomType) {
             var customType = (IgniteCustomType) rhs;
-            var customTypeName = customType.getCustomTypeName();
 
-            canConvert = customTypeCoercionRules.needToCast(customTypeName, lhs);
+            canConvert = customTypeCoercionRules.needToCast(lhs, customType);
         } else {
             // We should not get here because at least one operand type must be a IgniteCustomType
             // and only custom data types must use SqlTypeName::ANY.

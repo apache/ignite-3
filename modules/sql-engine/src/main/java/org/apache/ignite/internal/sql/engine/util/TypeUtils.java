@@ -286,6 +286,11 @@ public class TypeUtils {
                                                             ? SqlFunctions.toDouble(num) :
                                                             BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
+            //   Fix this after BOOLEAN type supported is implemented.
+            if (storageType == Boolean.class) {
+                return val;
+            }
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
@@ -315,6 +320,11 @@ public class TypeUtils {
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
         } else {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-17298 SQL: Support BOOLEAN datatype.
+            //   Fix this after BOOLEAN type supported is implemented.
+            if (storageType == Boolean.class) {
+                return val;
+            }
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
