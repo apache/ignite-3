@@ -47,7 +47,8 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Implicit type cast implementation. */
@@ -56,8 +57,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     // We are using thread local here b/c TypeCoercion is expected to be stateless.
     private static final ThreadLocal<ContextStack> contextStack = ThreadLocal.withInitial(ContextStack::new);
 
+    private final IgniteCustomTypeCoercionRules typeCoercionRules;
+
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
         super(typeFactory, validator);
+        this.typeCoercionRules = ((IgniteTypeFactory) typeFactory).getCustomTypeCoercionRules();
     }
 
     /** {@inheritDoc} **/
@@ -157,14 +161,16 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             }
         } else if (toType.getSqlTypeName() == SqlTypeName.ANY) {
             RelDataType fromType = validator.deriveType(scope, node);
+
             // IgniteCustomType: whether we need implicit cast from one type to another.
-            if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
+            boolean toCustomType = toType instanceof IgniteCustomType;
+            if (fromType instanceof IgniteCustomType && toCustomType) {
                 IgniteCustomType from = (IgniteCustomType) fromType;
                 IgniteCustomType to = (IgniteCustomType) toType;
                 return !Objects.equals(from.getCustomTypeName(), to.getCustomTypeName());
-            } else if (SqlTypeUtil.isCharacter(fromType) && toType instanceof UuidType) {
-                // IgniteCustomType: implicit casts from character types to UUID
-                return true;
+            } else if (toCustomType) {
+                IgniteCustomType to = (IgniteCustomType) toType;
+                return typeCoercionRules.needToCast(to.getCustomTypeName(), fromType);
             }
         }
 

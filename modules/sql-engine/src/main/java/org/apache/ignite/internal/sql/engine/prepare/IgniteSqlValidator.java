@@ -57,7 +57,6 @@ import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlOperandTypeInference;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
@@ -67,6 +66,7 @@ import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -325,48 +325,58 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         SqlKind sqlKind = expr.getKind();
         // See the comments below.
+        // IgniteCustomType: at the moment we allow operations, involving custom data types, that are binary comparison to fail at runtime.
         if (!SqlKind.BINARY_COMPARISON.contains(sqlKind)) {
             return dataType;
         }
         // Comparison and arithmetic operators are SqlCalls.
         SqlCall sqlCall = (SqlCall) expr;
+        // IgniteCustomType: We only handle binary operations here.
+        var lhs = getValidatedNodeType(sqlCall.operand(0));
+        var rhs = getValidatedNodeType(sqlCall.operand(1));
 
-        for (var operand : sqlCall.getOperandList()) {
-            var operandType = getValidatedNodeType(operand);
-            if (operandType.getSqlTypeName() == SqlTypeName.ANY) {
-                // IgniteCustomType:
-                //
-                // The correct way to implement the validation error bellow would be
-                // 1) Implement the SqlOperandTypeChecker that prohibit arithmetic operations
-                // between types that neither support binary/unary operators nor support type coercion.
-                // 2) Specify that SqlOperandTypeChecker for every binary/unary operator defined in
-                // IgniteSqlOperatorTable
-                //
-                // This would allow to reject plans that contain type errors
-                // at the validation stage.
-                //
-                // Similar approach can also be used to handle casts between types that can not
-                // be converted into one another.
-                //
-                // And if applied to dynamic parameters with combination of a modified SqlOperandTypeChecker for
-                // a cast function this would allow to reject plans with invalid values w/o at validation stage.
-                //
-                var lhs = getValidatedNodeType(sqlCall.operand(0));
-                var rhs = getValidatedNodeType(sqlCall.operand(1));
+        if (lhs.getSqlTypeName() == SqlTypeName.ANY || rhs.getSqlTypeName() == SqlTypeName.ANY) {
+            // IgniteCustomType:
+            //
+            // The correct way to implement the validation error bellow would be to move these coercion rules to SqlOperandTypeChecker:
+            // 1) Implement the SqlOperandTypeChecker that prohibit arithmetic operations
+            // between types that neither support binary/unary operators nor support type coercion.
+            // 2) Specify that SqlOperandTypeChecker for every binary/unary operator defined in
+            // IgniteSqlOperatorTable
+            //
+            // This would allow to reject plans that contain type errors
+            // at the validation stage.
+            //
+            // Similar approach can also be used to handle casts between types that can not
+            // be converted into one another.
+            //
+            // And if applied to dynamic parameters with combination of a modified SqlOperandTypeChecker for
+            // a cast function this would allow to reject plans with invalid values w/o at validation stage.
+            //
+            var customTypeCoercionRules = typeFactory().getCustomTypeCoercionRules();
+            boolean canConvert;
 
-                if (lhs.getSqlTypeName() != rhs.getSqlTypeName()) {
-                    // IgniteCustomType: To enable implicit casts from varchar types to a custom data type (for some expressions).
-                    // This check must also be moved to SqlOperandTypeChecker.
-                    // Also see IgniteTypeCoercion::needToCast. (It would be better if code were located in one place).
-                    if (SqlTypeUtil.isCharacter(lhs) || SqlTypeUtil.isCharacter(rhs)) {
-                        return dataType;
-                    }
+            // IgniteCustomType: To enable implicit casts to a custom data type.
+            if (lhs instanceof IgniteCustomType) {
+                var customType = (IgniteCustomType) lhs;
+                var customTypeName = customType.getCustomTypeName();
 
-                    var ex = RESOURCE.invalidTypesForComparison(
-                            lhs.getFullTypeString(), sqlKind.sql, rhs.getFullTypeString());
+                canConvert = customTypeCoercionRules.needToCast(customTypeName, rhs);
+            } else if (rhs instanceof IgniteCustomType) {
+                var customType = (IgniteCustomType) rhs;
+                var customTypeName = customType.getCustomTypeName();
 
-                    throw SqlUtil.newContextException(expr.getParserPosition(), ex);
-                }
+                canConvert = customTypeCoercionRules.needToCast(customTypeName, lhs);
+            } else {
+                // We should not get here because at least one operand type must be a IgniteCustomType.
+                throw new AssertionError("At least one operand must be a custom data type: " + expr);
+            }
+
+            if (!canConvert) {
+                var ex = RESOURCE.invalidTypesForComparison(
+                        lhs.getFullTypeString(), sqlKind.sql, rhs.getFullTypeString());
+
+                throw SqlUtil.newContextException(expr.getParserPosition(), ex);
             }
         }
         return dataType;

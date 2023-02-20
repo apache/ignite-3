@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
-import java.lang.reflect.Type;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFamily;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -28,47 +26,33 @@ import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
-import org.apache.ignite.internal.sql.engine.exec.exp.ConverterUtils;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnType;
 
 /**
  * A base class for custom data types.
  *
  * <p><b>Custom data type implementation check list.</b>
  *
- * <p>Add a subclass that extends {@link IgniteCustomType}.
+ * <p>Create a subclass of {@link IgniteCustomType}.
+ *
+ * <p>Define {@link IgniteCustomTypeSpec type spec} for your type that describes the following properties:
  * <ul>
- *     <li>Implement {@link IgniteCustomType#nativeType()}.</li>
- *     <li>Implement {@link IgniteCustomType#columnType()}.</li>
- *     <li>Implement {@link IgniteCustomType#createWithNullability(boolean)}.</li>
+ *     <li>{@link IgniteCustomTypeSpec#typeName() type name}.</li>
+ *     <li>{@link IgniteCustomTypeSpec#nativeType() native type}.</li>
+ *     <li>{@link IgniteCustomTypeSpec#columnType() column type}.</li>
+ *     <li>{@link IgniteCustomTypeSpec#storageType() storage type}.</li>
+ *     <li>{@link IgniteCustomTypeSpec#castFunction() cast function}.
+ *     See {@link IgniteCustomTypeSpec#getCastFunction(Class, String) getCastFunction}.
+ *     </li>
  * </ul>
  *
  * <p>Code base contains comments that start with {@code IgniteCustomType:} to provide extra information.
  *
- * <p>Update {@link IgniteTypeFactory}'s constructor to register your type.
+ * <p>Update {@link IgniteTypeFactory}'s constructor to register your type and to specify type coercion rules.
  *
  * <p>Update type inference for dynamic parameters in {@link IgniteSqlValidator}.
- *
- * <p>Update {@link TypeUtils}:
- * <ul>
- *     <li>Update {@link TypeUtils#toInternal(ExecutionContext, Object, Type)} and
- *     {@link TypeUtils#fromInternal(ExecutionContext, Object, Type)} to add assertions that check
- *     that a value has the same type as a {@link #storageType()}.</li>
- * </ul>
- *
- * <p>Update both {@link RexToLixTranslator RexToLitTranslator} and
- * {@link ConverterUtils} to implement runtime routines for conversion
- * of your type from other data types if necessary.
  *
  * <p>Further steps:
  * <ul>
@@ -81,6 +65,8 @@ import org.apache.ignite.sql.ColumnType;
  *     when a custom data type is implemented.</li>
  * </ul>
  *
+ * <p>Type conversion is implemented in {@code CustomTypesConversion} and uses type coercion rules defined for your custom type.
+ *
  * <p>Client code/JDBC:
  * <ul>
  *     <li>Update {@code JdbcDatabaseMetadata::getTypeInfo} to return information about your type.</li>
@@ -89,66 +75,35 @@ import org.apache.ignite.sql.ColumnType;
  *
  * <p><b>Update this documentation when you are going to change this procedure.</b>
  *
- * @param <StorageT> A class representing value in a storage. Must implement {@link Comparable}.
- *     This is a requirement imposed by calcite's row-expressions implementation
- *     (see {@link org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder IgniteRexBuilder}).
 */
-public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> extends RelDataTypeImpl {
+public abstract class IgniteCustomType extends RelDataTypeImpl {
 
-    private final Class<StorageT> storageType;
+    private final IgniteCustomTypeSpec spec;
 
     private final boolean nullable;
 
     private final int precision;
 
     /** Constructor. */
-    protected IgniteCustomType(Class<StorageT> storageType, boolean nullable, int precision) {
-        this.storageType = storageType;
+    protected IgniteCustomType(IgniteCustomTypeSpec spec, boolean nullable, int precision) {
+        this.spec = spec;
         this.nullable = nullable;
         this.precision = precision;
 
         computeDigest();
     }
 
-    /** Returns the name of this type. **/
-    public abstract String getCustomTypeName();
-
-    /**
-     * Returns the storage type of this data type.
-     *
-     * <p>This method is called by {@link IgniteTypeFactory#getJavaClass(RelDataType)}
-     * to provide types for a expression interpreter. Execution engine also relies on the fact that this
-     * type is also used by {@link TypeUtils TypeUtils} in type conversions.
-     *
-     * @see ExpressionFactoryImpl
-     * @see TypeUtils#toInternal(ExecutionContext, Object, Type)
-     * @see TypeUtils#fromInternal(ExecutionContext, Object, Type)
-     */
-    public final Type storageType() {
-        return storageType;
+    /** Returns the name of this type. A short handfor {@code spec().typeName() }. **/
+    public final String getCustomTypeName() {
+        return spec.typeName();
     }
 
     /**
-     * Returns the {@link NativeType} for this custom data type.
-     *
-     * <p>At the moment it serves the following purpose:
-     * <ul>
-     *     <li>
-     *         Used by {@link IgniteTypeFactory#relDataTypeToNative(RelDataType)} to retrieve underlying
-     *        {@link NativeType} for DDL queries.
-     *     </li>
-     *     <li>
-     *         To retrieve a java type to perform type conversions by
-     *         {@link ExecutionServiceImpl}.
-     *     </li>
-     * </ul>
+     * Returns the {@link IgniteCustomTypeSpec specification} of this type.
      */
-    public abstract NativeType nativeType();
-
-    /**
-     * Returns the {@link ColumnType} of this data type. Provides type information for {@link ColumnMetadata}.
-     */
-    public abstract ColumnType columnType();
+    public final IgniteCustomTypeSpec spec() {
+        return spec;
+    }
 
     /** {@inheritDoc} */
     @Override public final boolean isNullable() {
@@ -172,7 +127,7 @@ public abstract class IgniteCustomType<StorageT extends Comparable<StorageT>> ex
     }
 
     /** Creates an instance of this type with the specified nullability. **/
-    public abstract IgniteCustomType<StorageT> createWithNullability(boolean nullable);
+    public abstract IgniteCustomType createWithNullability(boolean nullable);
 
     /**
      * Creates an {@link SqlTypeNameSpec} for this custom data type, which is used as an argument for the CAST function.
