@@ -117,7 +117,7 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
-        public bool DropConnections { get; set; }
+        public bool DropNewConnections { get; set; }
 
         public bool SendInvalidMagic { get; set; }
 
@@ -135,7 +135,7 @@ namespace Apache.Ignite.Tests
 
         public void ClearOps() => _ops?.Clear();
 
-        public void DropConnection() => _handler?.Dispose();
+        public void DropExistingConnection() => _handler?.Dispose();
 
         public void Dispose()
         {
@@ -433,7 +433,7 @@ namespace Apache.Ignite.Tests
             {
                 using Socket handler = _listener.Accept();
 
-                if (DropConnections)
+                if (DropNewConnections)
                 {
                     continue;
                 }

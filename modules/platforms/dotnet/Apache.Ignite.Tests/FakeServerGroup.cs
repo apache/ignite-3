@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -33,6 +34,18 @@ public sealed class FakeServerGroup : IDisposable
     }
 
     public IReadOnlyList<FakeServer> Servers { get; }
+
+    [SuppressMessage("Design", "CA1044:Properties should not be write only", Justification = "Tests.")]
+    public bool DropNewConnections
+    {
+        set
+        {
+            foreach (var server in Servers)
+            {
+                server.DropNewConnections = value;
+            }
+        }
+    }
 
     public static FakeServerGroup Create(int count, Func<int, FakeServer> factory) =>
         new(Enumerable.Range(0, count).Select(factory).ToList());
@@ -59,11 +72,11 @@ public sealed class FakeServerGroup : IDisposable
         }
     }
 
-    public void DropAllConnections()
+    public void DropExistingConnections()
     {
         foreach (var server in Servers)
         {
-            server.DropConnection();
+            server.DropExistingConnection();
         }
     }
 }
