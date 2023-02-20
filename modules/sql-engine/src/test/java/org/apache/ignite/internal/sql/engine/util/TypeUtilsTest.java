@@ -49,13 +49,14 @@ public class TypeUtilsTest {
     @MethodSource("typeAndValue")
     public void testToFromInternalMatch(Object value, Class<?> type) {
         Object internal = TypeUtils.toInternal(ectx, value, type);
-        assertNotNull(internal, "Conversion to internal produced null");
+        assertNotNull(internal, "Conversion to internal has produced null");
 
         Object original = TypeUtils.fromInternal(ectx, internal, type);
-        assertEquals(value, original, "fromInternal");
+        assertEquals(value, original, "toInternal -> fromInternal");
+        assertNotNull(original, "Conversion from internal has produced null");
 
-        Object internal2 = TypeUtils.toInternal(ectx, internal);
-        assertEquals(internal, internal2, "fromInternal");
+        Object internal2 = TypeUtils.toInternal(ectx, original);
+        assertEquals(internal, internal2, "toInternal w/o type parameter");
     }
 
     private static Stream<Arguments> typeAndValue() {
