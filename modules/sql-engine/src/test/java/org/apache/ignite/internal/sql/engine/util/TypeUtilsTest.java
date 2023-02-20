@@ -27,23 +27,27 @@ import java.time.LocalTime;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mockito;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for {@link TypeUtils}.
  */
+@ExtendWith(MockitoExtension.class)
 public class TypeUtilsTest {
 
-    private final ExecutionContext<?> ectx = Mockito.mock(ExecutionContext.class);
+    @Mock
+    private ExecutionContext<?> ectx;
 
     /**
      * Checks that conversions to and from internal types is consistent.
      *
-     * @see TypeUtils#fromInternal(ExecutionContext, Object, Type) to internal.
-     * @see TypeUtils#toInternal(ExecutionContext, Object, Type) from internal.
+     * @see TypeUtils#toInternal(ExecutionContext, Object, Type) to internal.
+     * @see TypeUtils#fromInternal(ExecutionContext, Object, Type) from internal.
      */
     @ParameterizedTest
     @MethodSource("typeAndValue")
