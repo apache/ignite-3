@@ -365,13 +365,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             // We can always perform binary comparison operations between instances of the same type.
             canConvert = true;
         } else if (lhs instanceof IgniteCustomType) {
-            var customType = (IgniteCustomType) lhs;
-
-            canConvert = customTypeCoercionRules.needToCast(rhs, customType);
+            canConvert = customTypeCoercionRules.needToCast(rhs, (IgniteCustomType) lhs);
         } else if (rhs instanceof IgniteCustomType) {
-            var customType = (IgniteCustomType) rhs;
-
-            canConvert = customTypeCoercionRules.needToCast(lhs, customType);
+            canConvert = customTypeCoercionRules.needToCast(lhs, (IgniteCustomType) rhs);
         } else {
             // We should not get here because at least one operand type must be a IgniteCustomType
             // and only custom data types must use SqlTypeName::ANY.
