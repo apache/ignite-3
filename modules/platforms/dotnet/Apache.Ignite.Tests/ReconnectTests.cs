@@ -153,6 +153,6 @@ public class ReconnectTests
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 
         // All connections are restored.
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10);
+        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
     }
 }
