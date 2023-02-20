@@ -17,24 +17,17 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
+import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 
-@ExtendWith(WorkDirectoryExtension.class)
-class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
-    @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
-
-    @WorkDirectory
-    private Path workDir;
+class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStorageGcTest {
+    @InjectConfiguration
+    private VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
     @Override
     protected StorageEngine createEngine() {
@@ -42,6 +35,6 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        return new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
     }
 }

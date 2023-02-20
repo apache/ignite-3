@@ -15,32 +15,52 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.internal.storage.pagememory.mv.gc;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 
 /**
- * Search key for the {@link VersionChainTree}.
+ * Row version in the version chain that should be garbage collected.
  */
-public class VersionChainKey {
-    /** Row id. */
-    @IgniteToStringInclude
-    protected final RowId rowId;
+public class GcRowVersion {
+    private final RowId rowId;
+
+    private final HybridTimestamp timestamp;
+
+    private final long link;
 
     /**
      * Constructor.
      *
-     * @param rowId Search row id.
+     * @param rowId Row ID.
+     * @param timestamp Row timestamp.
+     * @param link Row version link.
      */
-    public VersionChainKey(RowId rowId) {
+    public GcRowVersion(RowId rowId, HybridTimestamp timestamp, long link) {
         this.rowId = rowId;
+        this.timestamp = timestamp;
+        this.link = link;
     }
 
     /**
-     * Returns a row id.
+     * Returns row ID.
      */
-    public RowId rowId() {
+    public RowId getRowId() {
         return rowId;
+    }
+
+    /**
+     * Returns row timestamp.
+     */
+    public HybridTimestamp getTimestamp() {
+        return timestamp;
+    }
+
+    /**
+     * Returns row version link.
+     */
+    public long getLink() {
+        return link;
     }
 }

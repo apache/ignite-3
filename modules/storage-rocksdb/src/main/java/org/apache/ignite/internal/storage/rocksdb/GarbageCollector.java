@@ -202,6 +202,7 @@ class GarbageCollector {
                 // Find the row that should be garbage collected.
                 ByteBuffer dataKey = getRowForGcKey(it, gcElementRowId);
 
+                // TODO: IGNITE-18843 Should try to get the RowVersion again
                 if (dataKey == null) {
                     // No row for GC.
                     return null;

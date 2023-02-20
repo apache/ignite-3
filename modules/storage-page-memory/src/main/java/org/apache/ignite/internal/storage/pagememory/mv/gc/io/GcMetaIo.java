@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv.io;
+package org.apache.ignite.internal.storage.pagememory.mv.gc.io;
 
-import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_VERSION_CHAIN_META_IO;
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_GC_META_IO;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 
 /**
- * IO routines for {@link VersionChainTree} meta pages.
+ * IO routines for {@link GcQueue} meta pages.
  */
-public class VersionChainMetaIo extends BplusMetaIo {
+public class GcMetaIo extends BplusMetaIo {
     /** I/O versions. */
-    public static final IoVersions<VersionChainMetaIo> VERSIONS = new IoVersions<>(new VersionChainMetaIo(1));
+    public static final IoVersions<GcMetaIo> VERSIONS = new IoVersions<>(new GcMetaIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected VersionChainMetaIo(int ver) {
-        super(T_VERSION_CHAIN_META_IO, ver);
+    protected GcMetaIo(int ver) {
+        super(T_GC_META_IO, ver);
     }
 }

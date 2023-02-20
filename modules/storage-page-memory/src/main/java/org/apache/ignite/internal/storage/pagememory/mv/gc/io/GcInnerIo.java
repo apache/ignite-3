@@ -15,50 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv.io;
+package org.apache.ignite.internal.storage.pagememory.mv.gc.io;
 
-import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_VERSION_CHAIN_INNER_IO;
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_GC_INNER_IO;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainKey;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 
 /**
- * IO routines for {@link VersionChainTree} inner pages.
- *
- * <p>Structure: link(long).
+ * IO routines for {@link GcQueue} inner pages.
  */
-public final class VersionChainInnerIo extends BplusInnerIo<VersionChainKey> implements VersionChainIo {
+public class GcInnerIo extends BplusInnerIo<GcRowVersion> implements GcIo {
     /** I/O versions. */
-    public static final IoVersions<VersionChainInnerIo> VERSIONS = new IoVersions<>(new VersionChainInnerIo(1));
+    public static final IoVersions<GcInnerIo> VERSIONS = new IoVersions<>(new GcInnerIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    private VersionChainInnerIo(int ver) {
-        super(T_VERSION_CHAIN_INNER_IO, ver, true, SIZE_IN_BYTES);
+    private GcInnerIo(int ver) {
+        super(T_GC_INNER_IO, ver, true, SIZE_IN_BYTES);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void store(long dstPageAddr, int dstIdx, BplusIo<VersionChainKey> srcIo, long srcPageAddr, int srcIdx) {
-        VersionChainIo.super.store(dstPageAddr, dstIdx, srcIo, srcPageAddr, srcIdx);
+    public void store(long dstPageAddr, int dstIdx, BplusIo<GcRowVersion> srcIo, long srcPageAddr, int srcIdx) {
+        GcIo.super.store(dstPageAddr, dstIdx, srcIo, srcPageAddr, srcIdx);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void storeByOffset(long pageAddr, int off, VersionChainKey row) {
-        VersionChainIo.super.storeByOffset(pageAddr, off, row);
+    public void storeByOffset(long pageAddr, int off, GcRowVersion row) {
+        GcIo.super.storeByOffset(pageAddr, off, row);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public VersionChainKey getLookupRow(BplusTree<VersionChainKey, ?> tree, long pageAddr, int idx) {
+    public GcRowVersion getLookupRow(BplusTree<GcRowVersion, ?> tree, long pageAddr, int idx) {
         return getRow(pageAddr, idx, 0xFFFF);
     }
 }

@@ -17,30 +17,31 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-
 /**
- * Search key for the {@link VersionChainTree}.
+ * Collection of all page types that relate to multi-versioned partition storage.
  */
-public class VersionChainKey {
-    /** Row id. */
-    @IgniteToStringInclude
-    protected final RowId rowId;
+public interface MvPageTypes {
+    /** Version chain tree meta page IO type. */
+    short T_VERSION_CHAIN_META_IO = 9;
 
-    /**
-     * Constructor.
-     *
-     * @param rowId Search row id.
-     */
-    public VersionChainKey(RowId rowId) {
-        this.rowId = rowId;
-    }
+    /** Version chain tree inner page IO type. */
+    short T_VERSION_CHAIN_INNER_IO = 10;
 
-    /**
-     * Returns a row id.
-     */
-    public RowId rowId() {
-        return rowId;
-    }
+    /** Version chain tree leaf page IO type. */
+    short T_VERSION_CHAIN_LEAF_IO = 11;
+
+    /** Row version data page IO type. */
+    short T_ROW_VERSION_DATA_IO = 12;
+
+    /** Blob fragment page IO type. */
+    short T_BLOB_FRAGMENT_IO = 13;
+
+    /** Garbage collection queue meta page IO type. */
+    short T_GC_META_IO = 14;
+
+    /** Garbage collection queue inner page IO type. */
+    short T_GC_INNER_IO = 15;
+
+    /** Garbage collection queue leaf page IO type. */
+    short T_GC_LEAF_IO = 16;
 }
