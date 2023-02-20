@@ -197,8 +197,13 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         TxMeta txMeta = txStateStorage.get(cmd.txId());
+
         if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.lastApplied(commandIndex, commandTerm);
+            storage.runConsistently(() -> {
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return null;
+            });
 
             return;
         }
@@ -227,9 +232,11 @@ public class PartitionListener implements RaftGroupListener {
 
         TxMeta txMeta = txStateStorage.get(cmd.txId());
         if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.lastApplied(commandIndex, commandTerm);
+            storage.runConsistently(() -> {
+                storage.lastApplied(commandIndex, commandTerm);
 
-            return;
+                return null;
+            });
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {

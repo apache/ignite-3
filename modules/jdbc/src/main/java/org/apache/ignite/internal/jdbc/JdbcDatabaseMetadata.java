@@ -49,6 +49,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
+import org.apache.ignite.sql.ColumnMetadata;
 
 /**
  * JDBC database metadata implementation.
@@ -1225,6 +1226,12 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         types.add(Arrays.asList("LONGVARBINARY", Types.LONGVARBINARY, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "LONGVARBINARY", 0, 0,
                 Types.LONGVARBINARY, 0, null));
+
+        types.add(Arrays.asList("UUID", Types.OTHER, ColumnMetadata.UNDEFINED_PRECISION, "'", "'", null,
+                (short) typeNullable, false, (short) typeSearchable, true, false, false, null, 0, 0,
+                Types.OTHER, null, 10));
+
+        // IgniteCustomType: JDBC catalog level information for your type.
 
         types.add(Arrays.asList("OTHER", Types.OTHER, Integer.MAX_VALUE, "'", "'", "LENGTH",
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "OTHER", 0, 0,

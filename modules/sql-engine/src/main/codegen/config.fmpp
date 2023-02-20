@@ -46,6 +46,8 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec",
+      "org.apache.ignite.internal.sql.engine.type.UuidType",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
     ]
 
@@ -68,6 +70,7 @@ data: {
       "DATA_NODES_AUTO_ADJUST_SCALE_UP"
       "DATA_NODES_AUTO_ADJUST_SCALE_DOWN",
       "RENAME",
+      "UUID",
     ]
 
     # List of non-reserved keywords to add;
@@ -290,6 +293,7 @@ data: {
 #     "INTERSECT"
       "INTERSECTION"
 #     "INTERVAL"
+      "UUID"
 #     "INTO"
       "IS"
       "ISOLATION"
@@ -636,6 +640,7 @@ data: {
     # Return type of method implementation should be "SqlTypeNameSpec".
     # Example: SqlParseTimeStampZ().
     dataTypeParserMethods: [
+      "SqlParseUuidType(s)",
     ]
 
     # Binary operators tokens.

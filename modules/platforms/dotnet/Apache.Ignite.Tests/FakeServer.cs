@@ -101,6 +101,8 @@ namespace Apache.Ignite.Tests
 
         public TimeSpan HandshakeDelay { get; set; }
 
+        public TimeSpan OperationDelay { get; set; }
+
         public TimeSpan HeartbeatDelay { get; set; }
 
         public int Port => ((IPEndPoint)_listener.LocalEndPoint!).Port;
@@ -462,6 +464,11 @@ namespace Apache.Ignite.Tests
                 {
                     msgSize = ReceiveMessageSize(handler);
                     using var msg = ReceiveBytes(handler, msgSize);
+
+                    if (OperationDelay > TimeSpan.Zero)
+                    {
+                        Thread.Sleep(OperationDelay);
+                    }
 
                     if (_shouldDropConnection(++requestCount))
                     {
