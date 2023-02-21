@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -48,9 +49,13 @@ public class RaftServiceEventListener {
                 actions = new HashSet<>();
             }
 
-            actions.add(notifyAction);
+            var finalActions = actions;
 
             nodesSubscriptions.compute(subscriber, (node, nodeActions) -> {
+                if (!nullOrEmpty(finalActions) && !nullOrEmpty(nodeActions)) {
+                    return nodeActions;
+                }
+
                 if (nodeActions == null) {
                     nodeActions = new HashSet<>();
                 }
@@ -59,6 +64,8 @@ public class RaftServiceEventListener {
 
                 return nodeActions;
             });
+
+            actions.add(notifyAction);
 
             return actions;
         });
@@ -77,7 +84,7 @@ public class RaftServiceEventListener {
 
                 grpNodeActions.retainAll(nodeActions);
 
-                if (CollectionUtils.nullOrEmpty(grpNodeActions)) {
+                if (nullOrEmpty(grpNodeActions)) {
                     return nodeActions;
                 }
 
@@ -88,14 +95,14 @@ public class RaftServiceEventListener {
                 nodeActions.remove(actionToRemove);
                 actions.remove(actionToRemove);
 
-                if (CollectionUtils.nullOrEmpty(nodeActions)) {
+                if (nullOrEmpty(nodeActions)) {
                     return null;
                 }
 
                 return nodeActions;
             });
 
-            if (CollectionUtils.nullOrEmpty(actions)) {
+            if (nullOrEmpty(actions)) {
                 return null;
             }
 

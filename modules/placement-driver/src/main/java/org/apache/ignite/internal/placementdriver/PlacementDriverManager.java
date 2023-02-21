@@ -17,10 +17,25 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Placement driver manager.
@@ -31,21 +46,100 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final RaftMessagesFactory raftMessagesFactory = new RaftMessagesFactory();
+
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
+
+    private final ReplicationGroupId replicationGroupId;
+
+    private final ClusterService clusterService;
+
+    private final Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider;
+
+    /**
+     * Raft client future. Can contain null, if this node is not in placement driver group.
+     */
+    private final CompletableFuture<TopologyAwareRaftGroupService> raftClientFuture;
+
+    private final ScheduledExecutorService raftClientExecutor;
+
+    private final LogicalTopologyService logicalTopologyService;
+
+    private final RaftConfiguration raftConfiguration;
+
+    private volatile boolean isActiveActor;
+
+    private volatile long lastTermSeen = -1;
 
     /**
      * The constructor.
      *
-     * @param metaStorageMgr Meta Storage manager.
+     * @param replicationGroupId Id of placement driver group.
+     * @param clusterService Cluster service.
+     * @param raftConfiguration Raft configuration.
+     * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
+     * @param logicalTopologyService Logical topology service.
+     * @param raftClientExecutor Raft client executor.
      */
-    public PlacementDriverManager(MetaStorageManager metaStorageMgr) {
+    public PlacementDriverManager(
+            ReplicationGroupId replicationGroupId,
+            ClusterService clusterService,
+            RaftConfiguration raftConfiguration,
+            Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
+            LogicalTopologyService logicalTopologyService,
+            ScheduledExecutorService raftClientExecutor
+    ) {
+        this.replicationGroupId = replicationGroupId;
+        this.clusterService = clusterService;
+        this.raftConfiguration = raftConfiguration;
+        this.placementDriverNodesNamesProvider = placementDriverNodesNamesProvider;
+        this.logicalTopologyService = logicalTopologyService;
+        this.raftClientExecutor = raftClientExecutor;
+
+        raftClientFuture = new CompletableFuture<>();
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
+        placementDriverNodesNamesProvider.get()
+                .thenCompose(placementDriverNodes -> {
+                    String thisNodeName = clusterService.topologyService().localMember().name();
 
+                    if (placementDriverNodes.contains(thisNodeName)) {
+                        return TopologyAwareRaftGroupService.start(
+                                replicationGroupId,
+                                clusterService,
+                                raftMessagesFactory,
+                                raftConfiguration,
+                                PeersAndLearners.fromConsistentIds(placementDriverNodes),
+                                true,
+                                raftClientExecutor,
+                                logicalTopologyService,
+                                true
+                            ).thenCompose(client -> {
+                                TopologyAwareRaftGroupService topologyAwareClient = (TopologyAwareRaftGroupService) client;
+
+                                return topologyAwareClient.subscribeLeader(this::onLeaderChange).thenApply(v -> topologyAwareClient);
+                            });
+                    } else {
+                        return completedFuture(null);
+                    }
+                })
+                .whenComplete((client, ex) -> {
+                    if (ex == null) {
+                        raftClientFuture.complete(client);
+                    } else {
+                        raftClientFuture.completeExceptionally(ex);
+                    }
+                });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void beforeNodeStop() {
+        withRaftClientIfPresent(c -> c.unsubscribeLeader().join());
     }
 
     /** {@inheritDoc} */
@@ -56,5 +150,47 @@ public class PlacementDriverManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
+    }
+
+    private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {
+        raftClientFuture.thenAccept(client -> {
+            if (client != null) {
+                closure.accept(client);
+            }
+        });
+    }
+
+    private void onLeaderChange(ClusterNode leader, Long term) {
+        if (term > lastTermSeen) {
+            if (leader.equals(clusterService.topologyService().localMember())) {
+                takeOverActiveActor();
+            } else {
+                stepDownActiveActor();
+            }
+
+            lastTermSeen = term;
+        }
+    }
+
+    /**
+     * Takes over active actor of placement driver group.
+     */
+    private void takeOverActiveActor() {
+        isActiveActor = true;
+    }
+
+
+    /**
+     * Steps down as active actor.
+     */
+    private void stepDownActiveActor() {
+        isActiveActor = false;
+    }
+
+    @TestOnly
+    boolean isActiveActor() {
+        return isActiveActor;
     }
 }
