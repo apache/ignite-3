@@ -690,6 +690,26 @@ public final class ReliableChannel implements AutoCloseable {
             return getOrCreateChannelAsync(false);
         }
 
+        private @Nullable ClientChannel getNow() {
+            if (close) {
+                return null;
+            }
+
+            var f = chFut;
+
+            if (f == null) {
+                return null;
+            }
+
+            var ch = ClientFutureUtils.getNowSafe(f);
+
+            if (ch == null || ch.closed()) {
+                return null;
+            }
+
+            return ch;
+        }
+
         /**
          * Get or create channel.
          */
@@ -822,7 +842,7 @@ public final class ReliableChannel implements AutoCloseable {
                 return true;
             }
 
-            var ch = f.getNow(null);
+            var ch = ClientFutureUtils.getNowSafe(f);
 
             return ch != null && !ch.closed();
         }
