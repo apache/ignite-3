@@ -80,8 +80,8 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestZeroOrNegativeHeartbeatIntervalThrows()
         {
-            Assert.ThrowsAsync<IgniteClientException>(async () => await ConnectAndGetLog(TimeSpan.Zero));
-            Assert.ThrowsAsync<IgniteClientException>(async () => await ConnectAndGetLog(TimeSpan.FromSeconds(-1)));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await ConnectAndGetLog(TimeSpan.Zero));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await ConnectAndGetLog(TimeSpan.FromSeconds(-1)));
         }
 
         private static async Task<string> ConnectAndGetLog(TimeSpan heartbeatInterval)

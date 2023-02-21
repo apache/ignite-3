@@ -48,6 +48,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIn
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
@@ -86,6 +87,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -94,9 +96,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GcQueue gcQueue
     ) {
-        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree);
+        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, gcQueue);
 
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
@@ -371,6 +374,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
@@ -378,7 +382,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GcQueue gcQueue
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
@@ -388,6 +393,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         this.indexFreeList = indexFreeList;
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
+        this.gcQueue = gcQueue;
 
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
@@ -419,6 +425,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 indexFreeList::close,
                 versionChainTree::close,
                 indexMetaTree::close,
+                gcQueue::close,
                 blobStorage::close
         );
     }

@@ -181,7 +181,6 @@ public class NodeImpl implements Node, RaftServerService {
     private BallotBox ballotBox;
     private SnapshotExecutor snapshotExecutor;
     private ReplicatorGroup replicatorGroup;
-    private final List<Closure> shutdownContinuations = new ArrayList<>();
     private RaftClientService rpcClientService;
     private ReadOnlyService readOnlyService;
 
@@ -286,7 +285,7 @@ public class NodeImpl implements Node, RaftServerService {
             if (event.shutdownLatch != null) {
                 if (!this.tasks.isEmpty()) {
                     executeApplyingTasks(this.tasks);
-                    this.tasks.clear();
+                    reset();
                 }
                 event.shutdownLatch.countDown();
                 return;
@@ -295,8 +294,15 @@ public class NodeImpl implements Node, RaftServerService {
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
                 executeApplyingTasks(this.tasks);
-                this.tasks.clear();
+                reset();
             }
+        }
+
+        private void reset() {
+            for (final LogEntryAndClosure task : tasks) {
+                task.reset();
+            }
+            this.tasks.clear();
         }
     }
 
@@ -1557,18 +1563,21 @@ public class NodeImpl implements Node, RaftServerService {
                         final Status st = new Status(RaftError.EPERM, "expected_term=%d doesn't match current_term=%d",
                             task.expectedTerm, this.currTerm);
                         Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.done, st);
+                        task.reset();
                     }
                     continue;
                 }
                 if (!this.ballotBox.appendPendingTask(this.conf.getConf(),
                     this.conf.isStable() ? null : this.conf.getOldConf(), task.done)) {
                     Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.done, new Status(RaftError.EINTERNAL, "Fail to append task."));
+                    task.reset();
                     continue;
                 }
                 // set task entry info before adding to list.
                 task.entry.getId().setTerm(this.currTerm);
                 task.entry.setType(EnumOutter.EntryType.ENTRY_TYPE_DATA);
                 entries.add(task.entry);
+                task.reset();
             }
             this.logManager.appendEntries(entries, new LeaderStableClosure(entries));
             // update conf.first
@@ -2625,12 +2634,8 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private void afterShutdown() {
-        List<Closure> savedDoneList = null;
         this.writeLock.lock();
         try {
-            if (!this.shutdownContinuations.isEmpty()) {
-                savedDoneList = new ArrayList<>(this.shutdownContinuations);
-            }
             if (this.logStorage != null) {
                 this.logStorage.shutdown();
             }
@@ -2638,11 +2643,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
         finally {
             this.writeLock.unlock();
-        }
-        if (savedDoneList != null) {
-            for (final Closure closure : savedDoneList) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), closure);
-            }
         }
     }
 
@@ -2676,11 +2676,6 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.readLock.unlock();
         }
-    }
-
-    @Override
-    public void shutdown() {
-        shutdown(null);
     }
 
     public void onConfigurationChangeDone(final long term) {
@@ -3001,7 +2996,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public void shutdown(final Closure done) {
+    public void shutdown() {
         this.writeLock.lock();
         try {
             LOG.info("Node {} shutdown, currTerm={} state={}.", getNodeId(), this.currTerm, this.state);
@@ -3046,20 +3041,6 @@ public class NodeImpl implements Node, RaftServerService {
                             event.shutdownLatch = latch;
                         }));
                 }
-            }
-
-            if (this.state != State.STATE_SHUTDOWN) {
-                if (done != null) {
-                    this.shutdownContinuations.add(done);
-                }
-                return;
-            }
-
-            // This node is down, it's ok to invoke done right now. Don't invoke this
-            // in place to avoid the dead writeLock issue when done.Run() is going to acquire
-            // a writeLock which is already held by the caller
-            if (done != null) {
-                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done);
             }
         }
         finally {
@@ -3776,6 +3757,11 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
+    public State getNodeState() {
+        return this.state;
+    }
+
+    @Override
     public void describe(final Printer out) {
         // node
         final String _nodeId;
@@ -3835,8 +3821,8 @@ public class NodeImpl implements Node, RaftServerService {
         this.ballotBox.describe(out);
 
         // snapshotExecutor
-        out.println("snapshotExecutor: ");
         if (this.snapshotExecutor != null) {
+            out.println("snapshotExecutor: ");
             this.snapshotExecutor.describe(out);
         }
 

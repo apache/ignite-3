@@ -41,7 +41,8 @@ public class SocketTimeoutTest
             SocketTimeout = TimeSpan.FromMilliseconds(50)
         };
 
-        Assert.ThrowsAsync<TimeoutException>(async () => await server.ConnectClientAsync(cfg));
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(cfg));
+        Assert.IsInstanceOf<TimeoutException>(ex?.InnerException);
     }
 
     [Test]
