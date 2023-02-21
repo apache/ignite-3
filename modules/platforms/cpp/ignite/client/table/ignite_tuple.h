@@ -41,7 +41,10 @@ public:
      *
      * @param capacity Capacity.
      */
-    explicit ignite_tuple(size_t capacity) { m_pairs.reserve(capacity); }
+    explicit ignite_tuple(size_t capacity) {
+        m_pairs.reserve(capacity);
+        m_indices.reserve(capacity);
+    }
 
     /**
      * Constructor.
@@ -51,6 +54,7 @@ public:
     ignite_tuple(std::initializer_list<std::pair<std::string, primitive>> pairs)
         : m_pairs(pairs)
         , m_indices() {
+        m_indices.reserve(pairs.size());
         for (size_t i = 0; i < m_pairs.size(); ++i)
             m_indices.emplace(std::make_pair(parse_name(m_pairs[i].first), i));
     }
@@ -177,6 +181,28 @@ public:
         if (it == m_indices.end())
             return -1;
         return std::int32_t(it->second);
+    }
+
+    /**
+     * Concatenation operator.
+     *
+     * @param left Left hand value.
+     * @param right Right hand value.
+     * @return Resulting tuple.
+     */
+    friend ignite_tuple operator+(const ignite_tuple& left, const ignite_tuple& right) {
+        // TODO: IGNITE-18855 eliminate unnecessary tuple transformation;
+
+        ignite_tuple res(left.column_count() + right.column_count());
+        res.m_pairs.assign(left.m_pairs.begin(), left.m_pairs.end());
+        res.m_indices.insert(left.m_indices.begin(), left.m_indices.end());
+
+        for (const auto &pair : right.m_pairs) {
+            res.m_pairs.emplace_back(pair);
+            res.m_indices.emplace(pair.first, res.m_pairs.size() - 1);
+        }
+
+        return res;
     }
 
 private:

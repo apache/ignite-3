@@ -28,8 +28,8 @@ record_view<ignite_tuple> table::record_binary_view() const noexcept {
     return record_view<ignite_tuple>{m_impl};
 }
 
-key_value_view<ignite_tuple> table::key_value_binary_view() const noexcept {
-    return key_value_view<ignite_tuple>{m_impl};
+key_value_view<ignite_tuple, ignite_tuple> table::key_value_binary_view() const noexcept {
+    return key_value_view<ignite_tuple, ignite_tuple>{m_impl};
 }
 
 } // namespace ignite

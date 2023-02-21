@@ -70,7 +70,7 @@ public:
      *
      * @return Record binary view.
      */
-    [[nodiscard]] IGNITE_API key_value_view<ignite_tuple> key_value_binary_view() const noexcept;
+    [[nodiscard]] IGNITE_API key_value_view<ignite_tuple, ignite_tuple> key_value_binary_view() const noexcept;
 
 private:
     /**

@@ -177,7 +177,7 @@ public:
      * @param key Key.
      * @param value Value.
      */
-    IGNITE_API void get(transaction *tx, const key_type &key, const value_type &value) {
+    IGNITE_API void put(transaction *tx, const key_type &key, const value_type &value) {
         sync<void>([this, tx, &key, &value](auto callback) { put_async(tx, key, value, std::move(callback)); });
     }
 
@@ -189,7 +189,8 @@ public:
      * @param pairs Pairs to put.
      * @param callback Callback that called on operation completion.
      */
-    IGNITE_API void put_all_async(transaction *tx, std::vector<std::pair<key_type, value_type>> pairs, ignite_callback<void> callback);
+    IGNITE_API void put_all_async(
+        transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs, ignite_callback<void> callback);
 
     /**
      * Puts multiple key-value pairs.
@@ -198,9 +199,8 @@ public:
      *   single operation is used.
      * @param pairs Pairs to put.
      */
-    IGNITE_API void put_all(transaction *tx, std::vector<std::pair<key_type, value_type>> pairs) {
-        sync<void>([this, tx, pairs = std::move(pairs)](
-            auto callback) mutable { put_all_async(tx, std::move(pairs), std::move(callback)); });
+    IGNITE_API void put_all(transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs) {
+        sync<void>([this, tx, pairs](auto callback) mutable { put_all_async(tx, pairs, std::move(callback)); });
     }
 
     /**
@@ -225,7 +225,7 @@ public:
      * @param value Value.
      * @return A replaced value or @c std::nullopt if it did not exist.
      */
-    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_upsert(
+    [[nodiscard]] IGNITE_API std::optional<value_type> get_and_put(
         transaction *tx, const key_type &key, const value_type &value) {
         return sync<std::optional<value_type>>(
             [this, tx, &key, &value](auto callback) { get_and_put_async(tx, key, value, std::move(callback)); });
@@ -348,7 +348,7 @@ public:
      *   records from @c records that did not exist.
      */
     IGNITE_API void remove_all_async(
-        transaction *tx, std::vector<std::pair<key_type, value_type>> pairs, ignite_callback<std::vector<value_type>> callback);
+        transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs, ignite_callback<std::vector<value_type>> callback);
 
     /**
      * Removes records with given keys and values from the table. If one or more

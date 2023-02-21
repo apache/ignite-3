@@ -103,6 +103,16 @@ public:
     void get_async(transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
+     * Asynchronously determines if the table contains an entry for the specified key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param key Key.
+     * @param callback Callback.
+     */
+    void contains_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback);
+
+    /**
      * Gets multiple records by keys asynchronously.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
