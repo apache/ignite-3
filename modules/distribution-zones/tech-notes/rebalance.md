@@ -55,8 +55,8 @@ But for the new one we have an idea, which doesn't need the metastore at all:
 - On rebalanceDone/rebalanceError/leaderElected events the local event listener send a message to PrimaryReplica with the description of event
 - If PrimaryReplica is not available - we should retry send, until leader didn't find himself outdated (in this case, new leader will send leaderElected event to PrimaryReplica and receives the rebalance request again.
 
-### 4. Update the rebalance state after success rebalance
-Inside the one atomic metastore invoke we must update the keys according to the following pseudo-code:
+### 4. Update the rebalance state after successful rebalance
+Within the single atomic metastore invoke we must update the keys according to the following pseudo-code:
 ```
     metastoreInvoke: \\ atomic
         zoneId.assignment.stable = newPeers
@@ -81,7 +81,7 @@ The main idea of failover process: every rebalance request PlacementDriver->Prim
 After that we can prepare the following logic:
 - On every new PD leader elected - it must check the direct value (not the locally cached one) of `zoneId.assignment.pending`/`zondeId.assignment.cancel` (the last one always wins, if exists) keys and send `RebalanceRequest`/`CancelRebalanceRequest` to needed PrimaryReplicas and then listen updates from the last revision of this key.
 - On every PrimaryReplica reelection by PD it must send the new `RebalanceRequest`/`CancelRebalanceRequest` to PrimaryReplica, if pending/cancel (cancel always wins, if filled) key is not empty. 
-- On every leader reelection (for the leader oriented protocols) inside the replication group - leader send leaderElected event to PrimaryReplica, which force PrimaryReplica to send RebalanceRequest/CancelRebalanceRequest to the replication group leader again.
+- On every leader reelection (for the leader oriented protocols) inside the replication group - leader sends leaderElected event to PrimaryReplica, which forces PrimaryReplica to send RebalanceRequest/CancelRebalanceRequest to the replication group leader again.
 
 ## Cancel an ongoing rebalance process if needed
 Sometimes we must cancel the ongoing rebalance:
@@ -103,7 +103,7 @@ Also, every invoke with update of `*.cancel` key must be enriched by revision of
 It's needed to prevent the race, between the rebalance done and cancel persisting, otherwise we can try to cancel the wrong rebalance process.
 
 ### 2. PrimaryReplica->ReplicationGroup cancel protocol
-When PrimaryReplica send `CancelRebalanceRequest(oldTopology, newTopology)` to the ReplicationGroup following cases available:
-- Replication group has ongoing rebalance oldToplogy->newTopology. So, it must be cancelled and cleanup for the configuration state of replication group to  oldTopology must be executed.
+When PrimaryReplica send `CancelRebalanceRequest(oldTopology, newTopology)` to the ReplicationGroup following cases are possible:
+- Replication group has ongoing rebalance oldTopology->newTopology. So, it must be cancelled and cleanup for the configuration state of replication group to oldTopology must be executed.
 - Replication group has no ongoing rebalance and currentTopology==oldTopology. So, nothing to cancel, return success response.
 - Replication group has no ongoing rebalance and currentTopology==newTopology. So, cancel request can't be executed, return the response about it. Result recipient of this response (placement driver) must log this fact and do the same routine for usual rebalanceDone.
