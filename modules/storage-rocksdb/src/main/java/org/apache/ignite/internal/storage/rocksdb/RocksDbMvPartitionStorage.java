@@ -1477,7 +1477,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      *
      * @throws StorageRebalanceException If there was an error when finishing the rebalance.
      */
-    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm, byte[] raftGroupConfig) {
+    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
         if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
@@ -1485,7 +1485,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         try {
             saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
 
-            saveRaftGroupConfigurationOnRebalance(writeBatch, raftGroupConfig);
+            saveGroupConfigurationOnRebalance(writeBatch, groupConfig);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -1513,7 +1513,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         persistedIndex = lastAppliedIndex;
     }
 
-    private void saveRaftGroupConfigurationOnRebalance(WriteBatch writeBatch, byte[] config) throws RocksDBException {
+    private void saveGroupConfigurationOnRebalance(WriteBatch writeBatch, byte[] config) throws RocksDBException {
         saveGroupConfiguration(writeBatch, config);
 
         this.lastGroupConfig = copy(config);
