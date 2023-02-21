@@ -433,8 +433,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
             // Do N checks - they will go to different nodes becase of request balancing.
             for (int i = 0; i < nodeCount; i++) {
-                if (client().tables().table(tableName) == null)
+                if (client().tables().table(tableName) == null) {
                     return false;
+                }
             }
 
             return true;
