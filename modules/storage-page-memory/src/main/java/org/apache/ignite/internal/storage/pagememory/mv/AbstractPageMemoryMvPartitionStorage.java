@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -72,6 +71,7 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTre
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
+import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -131,7 +131,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Version chain update lock by row ID. */
-    private final ConcurrentMap<RowId, LockHolder<ReentrantLock>> updateVersionChainLockByRowId = new ConcurrentHashMap<>();
+    private final ReentrantLockByRowId updateVersionChainLockByRowId = new ReentrantLockByRowId();
 
     /**
      * Constructor.
@@ -942,29 +942,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Organizes external synchronization of update operations for the same version chain.
      */
     protected <T> T inUpdateVersionChainLock(RowId rowId, Supplier<T> supplier) {
-        LockHolder<ReentrantLock> lockHolder = updateVersionChainLockByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
-            if (reentrantLockLockHolder == null) {
-                reentrantLockLockHolder = new LockHolder<>(new ReentrantLock());
-            }
-
-            reentrantLockLockHolder.incrementHolders();
-
-            return reentrantLockLockHolder;
-        });
-
-        lockHolder.getLock().lock();
-
-        try {
-            return supplier.get();
-        } finally {
-            lockHolder.getLock().unlock();
-
-            updateVersionChainLockByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
-                assert reentrantLockLockHolder != null;
-
-                return reentrantLockLockHolder.decrementHolders() ? null : reentrantLockLockHolder;
-            });
-        }
+        return updateVersionChainLockByRowId.inLock(rowId, supplier);
     }
 
     @Override
