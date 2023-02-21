@@ -51,7 +51,6 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -877,7 +876,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /**
      * Sets the RAFT group configuration on rebalance.
      */
-    public abstract void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config);
+    public abstract void committedGroupConfigurationOnRebalance(byte[] config);
 
     /**
      * Prepares the storage and its indexes for cleanup.

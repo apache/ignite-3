@@ -24,7 +24,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -101,19 +100,10 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 
     /**
-     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
-     * {@code null} if it was never saved.
-     *
-     * @see MvPartitionStorage#committedGroupConfiguration()
-     */
-    @Nullable
-    RaftGroupConfiguration committedGroupConfiguration();
-
-    /**
      * Updates RAFT group configuration.
      *
      * @param config Configuration to save.
-     * @see MvPartitionStorage#committedGroupConfiguration(RaftGroupConfiguration)
+     * @see MvPartitionStorage#committedGroupConfiguration(byte[])
      */
     void committedGroupConfiguration(RaftGroupConfiguration config);
 

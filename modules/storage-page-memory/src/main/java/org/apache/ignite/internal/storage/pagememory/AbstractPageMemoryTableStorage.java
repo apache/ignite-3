@@ -39,7 +39,6 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -383,7 +382,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            RaftGroupConfiguration raftGroupConfig
+            byte[] raftGroupConfig
     ) {
         return inBusyLock(busyLock, () -> {
             AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);

@@ -75,7 +75,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -167,6 +166,8 @@ public class PartitionCommandListenerTest {
 
     @Captor
     private ArgumentCaptor<Throwable> commandClosureResultCaptor;
+
+    private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
     /**
      * Initializes a table listener before tests.
@@ -404,8 +405,14 @@ public class PartitionCommandListenerTest {
                 1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
         ));
 
+        RaftGroupConfiguration expectedConfig = new RaftGroupConfiguration(
+                List.of("peer"),
+                List.of("learner"),
+                List.of("old-peer"),
+                List.of("old-learner")
+        );
         verify(mvPartitionStorage).committedGroupConfiguration(
-                new RaftGroupConfiguration(List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner"))
+                raftGroupConfigurationConverter.toBytes(expectedConfig)
         );
     }
 

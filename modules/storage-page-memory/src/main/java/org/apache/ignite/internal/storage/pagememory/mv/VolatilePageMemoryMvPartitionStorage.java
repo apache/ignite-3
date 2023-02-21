@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
@@ -61,8 +61,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     private volatile long lastAppliedTerm;
 
     /** Last group configuration. */
-    @Nullable
-    private volatile RaftGroupConfiguration groupConfig;
+    private volatile byte @Nullable [] groupConfig;
 
     /**
      * Constructor.
@@ -153,20 +152,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+    public byte @Nullable [] committedGroupConfiguration() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            return groupConfig;
+            byte[] currentConfig = groupConfig;
+            return currentConfig == null ? null : Arrays.copyOf(currentConfig, currentConfig.length);
         });
     }
 
     @Override
-    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+    public void committedGroupConfiguration(byte[] config) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            groupConfig = config;
+            groupConfig = Arrays.copyOf(config, config.length);
 
             return null;
         });
@@ -335,7 +335,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config) throws StorageException {
+    public void committedGroupConfigurationOnRebalance(byte[] config) throws StorageException {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.groupConfig = config;
