@@ -106,6 +106,9 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
 
     @Override
     public void onDisconnect() {
-
+        if (executor != null) {
+            executor.shutdown();
+            executor = null;
+        }
     }
 }
