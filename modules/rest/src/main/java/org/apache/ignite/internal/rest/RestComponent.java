@@ -276,13 +276,14 @@ public class RestComponent implements IgniteComponent {
     private static void validateKeyStorePath(String keyStorePath) {
         if (keyStorePath.trim().isEmpty()) {
             throw new IgniteException(
-                    Common.UNEXPECTED_ERR,
+                    Common.SSL_CONFIGURATION_ERR,
                     "Trust store path is not configured. Please check your rest.ssl.keyStore.path configuration."
             );
         }
+
         if (!Files.exists(Path.of(keyStorePath))) {
             throw new IgniteException(
-                    Common.UNEXPECTED_ERR,
+                    Common.SSL_CONFIGURATION_ERR,
                     "Trust store file not found: " + keyStorePath + ". Please check your rest.ssl.keyStore.path configuration."
             );
         }
@@ -291,13 +292,14 @@ public class RestComponent implements IgniteComponent {
     private static void validateTrustStore(String trustStorePath) {
         if (trustStorePath.trim().isEmpty()) {
             throw new IgniteException(
-                    Common.UNEXPECTED_ERR,
+                    Common.SSL_CONFIGURATION_ERR,
                     "Key store path is not configured. Please check your rest.ssl.trustStore.path configuration."
             );
         }
+
         if (!Files.exists(Path.of(trustStorePath))) {
             throw new IgniteException(
-                    Common.UNEXPECTED_ERR,
+                    Common.SSL_CONFIGURATION_ERR,
                     "Key store file not found: " + trustStorePath + ". Please check your rest.ssl.trustStore.path configuration."
             );
         }

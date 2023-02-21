@@ -99,7 +99,7 @@ class RestComponentTest {
         IgniteException thrown = assertThrows(IgniteException.class, component::start);
 
         // Then
-        assertThat(thrown.code(), is(Common.UNEXPECTED_ERR));
+        assertThat(thrown.code(), is(Common.SSL_CONFIGURATION_ERR));
     }
 
     @Test
@@ -119,7 +119,7 @@ class RestComponentTest {
         IgniteException thrown = assertThrows(IgniteException.class, component::start);
 
         // Then
-        assertThat(thrown.code(), is(Common.UNEXPECTED_ERR));
+        assertThat(thrown.code(), is(Common.SSL_CONFIGURATION_ERR));
     }
 
     private void generateKeystore(SelfSignedCertificate cert)
