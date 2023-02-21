@@ -228,7 +228,7 @@ public class ClientTable implements Table {
         if (tx == null) {
             out.out().packNil();
         } else {
-            ClientTransaction clientTx = getClientTx(tx);
+            ClientTransaction clientTx = ClientTransaction.get(tx);
 
             if (clientTx.channel() != out.clientChannel()) {
                 // Do not throw IgniteClientConnectionException to avoid retry kicking in.
@@ -237,16 +237,6 @@ public class ClientTable implements Table {
 
             out.out().packLong(clientTx.id());
         }
-    }
-
-    static ClientTransaction getClientTx(@NotNull Transaction tx) {
-        if (!(tx instanceof ClientTransaction)) {
-            throw new IgniteException(UNEXPECTED_ERR, "Unsupported transaction implementation: '"
-                    + tx.getClass()
-                    + "'. Use IgniteClient.transactions() to start transactions.");
-        }
-
-        return (ClientTransaction) tx;
     }
 
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
