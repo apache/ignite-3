@@ -312,7 +312,7 @@ public class TestMvTableStorage implements MvTableStorage {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            byte[] raftGroupConfig
+            byte[] groupConfig
     ) {
         checkPartitionId(partitionId);
 
@@ -330,7 +330,7 @@ public class TestMvTableStorage implements MvTableStorage {
 
         return rebalanceFuture
                 .thenAccept(unused -> {
-                    partitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm, raftGroupConfig);
+                    partitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm, groupConfig);
 
                     testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);
 

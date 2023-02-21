@@ -246,7 +246,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
-     * @param raftGroupConfig RAFT group configuration (byte representation).
+     * @param groupConfig Replication protocol group configuration (byte representation).
      * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageRebalanceException If there is an error when completing rebalance.
@@ -255,7 +255,7 @@ public interface MvTableStorage extends ManuallyCloseable {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            byte[] raftGroupConfig
+            byte[] groupConfig
     );
 
     /**

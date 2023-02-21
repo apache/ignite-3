@@ -382,7 +382,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            byte[] raftGroupConfig
+            byte[] groupConfig
     ) {
         return inBusyLock(busyLock, () -> {
             AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
@@ -401,7 +401,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 mvPartitionStorage.runConsistently(() -> {
                     mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
 
-                    mvPartitionStorage.committedGroupConfigurationOnRebalance(raftGroupConfig);
+                    mvPartitionStorage.committedGroupConfigurationOnRebalance(groupConfig);
 
                     return null;
                 });

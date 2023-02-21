@@ -750,7 +750,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            byte[] raftGroupConfig
+            byte[] groupConfig
     ) {
         return inBusyLock(busyLock, () -> {
             RocksDbMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
@@ -766,7 +766,7 @@ public class RocksDbTableStorage implements MvTableStorage {
             }
 
             try (WriteBatch writeBatch = new WriteBatch()) {
-                mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm, raftGroupConfig);
+                mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm, groupConfig);
 
                 getHashIndexStorages(partitionId).forEach(RocksDbHashIndexStorage::finishRebalance);
                 getSortedIndexStorages(partitionId).forEach(RocksDbSortedIndexStorage::finishRebalance);
