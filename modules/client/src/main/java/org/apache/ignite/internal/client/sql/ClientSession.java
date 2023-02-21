@@ -78,7 +78,7 @@ public class ClientSession implements Session {
      * @param properties Properties.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public ClientSession(
+    ClientSession(
             ReliableChannel ch,
             @Nullable Integer defaultPageSize,
             @Nullable String defaultSchema,
@@ -160,7 +160,7 @@ public class ClientSession implements Session {
             w.out().packObjectArrayAsBinaryTuple(arguments);
         };
 
-        PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<T>(r.clientChannel(), r.in(), mapper);
+        PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), r.in(), mapper);
 
         if (transaction != null) {
             //noinspection resource
@@ -290,7 +290,7 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder toBuilder() {
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private void packProperties(PayloadOutputChannel w, Map<String, Object> props) {
