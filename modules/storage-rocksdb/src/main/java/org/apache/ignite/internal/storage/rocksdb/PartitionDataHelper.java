@@ -27,7 +27,6 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
 import org.rocksdb.ColumnFamilyHandle;
@@ -79,9 +78,6 @@ class PartitionDataHelper implements ManuallyCloseable {
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
 
-    /** Thread-local row ID for which the lock was {@link #acquireLock(RowId)}. */
-    private static final ThreadLocal<RowId> LOCKED_ROW_ID = new ThreadLocal<>();
-
     /** Partition id. */
     private final int partitionId;
 
@@ -97,8 +93,7 @@ class PartitionDataHelper implements ManuallyCloseable {
     /** Read options for total order scans. */
     final ReadOptions scanReadOpts;
 
-    /** Version chain update lock by row ID. */
-    private final ReentrantLockByRowId updateVersionChainLockByRowId = new ReentrantLockByRowId();
+    final ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
 
     PartitionDataHelper(int partitionId, ColumnFamilyHandle partCf) {
         this.partitionId = partitionId;
@@ -211,51 +206,6 @@ class PartitionDataHelper implements ManuallyCloseable {
         int logical = keyBuf.getInt(offset + Long.BYTES);
 
         return new HybridTimestamp(physical, logical);
-    }
-
-    /**
-     * Acquires the lock by row ID.
-     *
-     * <p>Lock will be released either automatically after executing the write closure and write batch in
-     * {@link RocksDbMvPartitionStorage#runConsistently(WriteClosure)} or by calling {@link #releaseLock(RowId)}.
-     *
-     * <p>At the moment it is only possible to acquire a lock for one row ID per thread.
-     *
-     * @param rowId Row ID.
-     */
-    void acquireLock(RowId rowId) {
-        assert LOCKED_ROW_ID.get() == null : rowId;
-
-        LOCKED_ROW_ID.set(rowId);
-
-        updateVersionChainLockByRowId.acquireLock(rowId);
-    }
-
-    /**
-     * Releases the lock by row ID.
-     *
-     * @param rowId Row ID.
-     * @throws IllegalStateException If the lock could not be found by row ID.
-     * @throws IllegalMonitorStateException If the current thread does not hold this lock.
-     */
-    void releaseLock(RowId rowId) {
-        assert LOCKED_ROW_ID.get() != null : rowId;
-
-        LOCKED_ROW_ID.remove();
-
-        updateVersionChainLockByRowId.releaseLock(rowId);
-    }
-
-    /**
-     * Releases the lock after executing the write closure and writing batch in
-     * {@link RocksDbMvPartitionStorage#runConsistently(WriteClosure)} if it was {@link #acquireLock(RowId) acquired}.
-     */
-    void releaseLockAfterWriteBatch() {
-        RowId rowId = LOCKED_ROW_ID.get();
-
-        if (rowId != null) {
-            releaseLock(rowId);
-        }
     }
 
     @Override

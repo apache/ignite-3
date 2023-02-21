@@ -177,16 +177,18 @@ class GarbageCollector {
 
             GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
 
-            // In this loop, we are trying to check the row version from gc queue, and make sure that no one has processed it in parallel.
-            // If we fail, then we read the head again and repeat the cycle.
             while (true) {
                 if (gcRowVersion.getRowTimestamp().compareTo(lowWatermark) > 0) {
                     // No elements to garbage collect.
                     return null;
                 }
 
-                helper.acquireLock(gcRowVersion.getRowId());
+                // If no one has processed the head of the gc queue in parallel, then we must release the lock after write batch in
+                // WriteClosure#execute of MvPartitionStorage#runConsistently so that the indexes can be deleted consistently.
+                helper.lockByRowId.acquireLock(gcRowVersion.getRowId());
 
+                // We must refresh the iterator to try to read the head of the gc queue again and if someone deleted it in parallel,
+                // then read the new head of the queue.
                 refreshGcIterator(gcIt, gcKeyBuffer);
 
                 if (invalid(gcIt)) {
@@ -200,9 +202,9 @@ class GarbageCollector {
 
                 gcRowVersion = toGcRowVersion(gcKeyBuffer);
 
-                // Someone has processed the row version in parallel, so we need to take a new head of the queue.
+                // Someone has processed the element in parallel, so we need to take a new head of the queue.
                 if (!gcRowVersion.equals(oldGcRowVersion)) {
-                    helper.releaseLock(gcRowVersion.getRowId());
+                    helper.lockByRowId.releaseLock(gcRowVersion.getRowId());
 
                     continue;
                 }

@@ -238,7 +238,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     } catch (RocksDBException e) {
                         throw new StorageException("Unable to apply a write batch to RocksDB instance.", e);
                     } finally {
-                        helper.releaseLockAfterWriteBatch();
+                        helper.lockByRowId.releaseAllLockByCurrentThread();
                     }
                 } finally {
                     threadLocalWriteBatch.set(null);
