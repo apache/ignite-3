@@ -247,9 +247,11 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
                         return;
                     }
 
+                    long idx = event.committedIndex;
+
                     handler.onEvent(event, sequence, endOfBatch);
 
-                    appliedIndex.set(event.committedIndex);
+                    appliedIndex.set(idx);
                 }, exceptionHandler);
             }
         });

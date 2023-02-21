@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -74,6 +74,8 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
@@ -133,6 +135,8 @@ public class IncomingSnapshotCopierTest {
 
     private final UUID snapshotId = UUID.randomUUID();
 
+    private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
+
     @AfterEach
     void tearDown() {
         shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
@@ -183,7 +187,10 @@ public class IncomingSnapshotCopierTest {
 
         assertEquals(expLastAppliedIndex, outgoingMvPartitionStorage.lastAppliedIndex());
         assertEquals(expLastAppliedTerm, outgoingMvPartitionStorage.lastAppliedTerm());
-        assertEquals(expLastGroupConfig, outgoingMvPartitionStorage.committedGroupConfiguration());
+        assertArrayEquals(
+                raftGroupConfigurationConverter.toBytes(expLastGroupConfig),
+                outgoingMvPartitionStorage.committedGroupConfiguration()
+        );
         assertEquals(expLastAppliedIndex, outgoingTxStatePartitionStorage.lastAppliedIndex());
         assertEquals(expLastAppliedTerm, outgoingTxStatePartitionStorage.lastAppliedTerm());
 
@@ -275,7 +282,7 @@ public class IncomingSnapshotCopierTest {
         );
     }
 
-    private static void fillMvPartitionStorage(
+    private void fillMvPartitionStorage(
             MvPartitionStorage storage,
             long lastAppliedIndex,
             long lastAppliedTerm,
@@ -297,7 +304,7 @@ public class IncomingSnapshotCopierTest {
 
             storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-            storage.committedGroupConfiguration(raftGroupConfig);
+            storage.committedGroupConfiguration(raftGroupConfigurationConverter.toBytes(raftGroupConfig));
 
             return null;
         });

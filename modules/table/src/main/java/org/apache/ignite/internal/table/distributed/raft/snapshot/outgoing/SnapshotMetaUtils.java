@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.entity.SnapshotMetaBuilder;

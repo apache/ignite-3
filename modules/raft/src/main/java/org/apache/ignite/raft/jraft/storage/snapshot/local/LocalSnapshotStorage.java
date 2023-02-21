@@ -201,7 +201,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
                 }
             }
             catch (final IOException e) {
-                LOG.error("Fail to sync writer {}.", writer.getPath());
+                LOG.error("Fail to sync writer {}.", writer.getPath(), e);
                 ret = RaftError.EIO.getNumber();
                 ioe = e;
                 break;

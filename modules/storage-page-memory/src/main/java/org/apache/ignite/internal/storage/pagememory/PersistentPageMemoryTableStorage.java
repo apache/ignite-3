@@ -45,6 +45,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPart
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
@@ -127,6 +128,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
+            GcQueue gcQueue = createGcQueue(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
+
             return new PersistentPageMemoryMvPartitionStorage(
                     this,
                     partitionId,
@@ -134,7 +137,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     rowVersionFreeList,
                     indexColumnsFreeList,
                     versionChainTree,
-                    indexMetaTree
+                    indexMetaTree,
+                    gcQueue
             );
         });
     }
@@ -378,6 +382,53 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         }
     }
 
+    /**
+     * Returns new {@link GcQueue} instance for partition.
+     *
+     * @param tableView Table configuration.
+     * @param partitionId Partition ID.
+     * @param reuseList Reuse list.
+     * @param pageMemory Persistent page memory instance.
+     * @param meta Partition metadata.
+     * @throws StorageException If failed.
+     */
+    private GcQueue createGcQueue(
+            TableView tableView,
+            int partitionId,
+            ReuseList reuseList,
+            PersistentPageMemory pageMemory,
+            PartitionMeta meta
+    ) {
+        try {
+            boolean initNew = false;
+
+            if (meta.gcQueueMetaPageId() == 0) {
+                long rootPageId = pageMemory.allocatePage(tableView.tableId(), partitionId, FLAG_AUX);
+
+                meta.gcQueueMetaPageId(lastCheckpointId(), rootPageId);
+
+                initNew = true;
+            }
+
+            return new GcQueue(
+                    tableView.tableId(),
+                    tableView.name(),
+                    partitionId,
+                    dataRegion.pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    meta.gcQueueMetaPageId(),
+                    reuseList,
+                    initNew
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating GarbageCollectionTree [tableName=%s, partitionId=%s]", tableView.name(), partitionId),
+                    e
+            );
+        }
+    }
+
     @Override
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
@@ -410,12 +461,15 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
                 IndexMetaTree indexMetaTree = createIndexMetaTree(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
 
+                GcQueue gcQueue = createGcQueue(tableView, partitionId, rowVersionFreeList, pageMemory, meta);
+
                 ((PersistentPageMemoryMvPartitionStorage) mvPartitionStorage).updateDataStructures(
                         meta,
                         rowVersionFreeList,
                         indexColumnsFreeList,
                         versionChainTree,
-                        indexMetaTree
+                        indexMetaTree,
+                        gcQueue
                 );
 
                 return null;

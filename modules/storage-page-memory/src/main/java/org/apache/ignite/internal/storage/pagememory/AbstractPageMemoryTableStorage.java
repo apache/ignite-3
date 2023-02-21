@@ -42,7 +42,6 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -398,7 +397,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            RaftGroupConfiguration raftGroupConfig
+            byte[] groupConfig
     ) {
         return inBusyLock(busyLock, () -> {
             AbstractPageMemoryMvPartitionStorage mvPartitionStorage = getMvPartitionBusy(partitionId);
@@ -417,7 +416,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
                 mvPartitionStorage.runConsistently(() -> {
                     mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
 
-                    mvPartitionStorage.committedGroupConfigurationOnRebalance(raftGroupConfig);
+                    mvPartitionStorage.committedGroupConfigurationOnRebalance(groupConfig);
 
                     return null;
                 });

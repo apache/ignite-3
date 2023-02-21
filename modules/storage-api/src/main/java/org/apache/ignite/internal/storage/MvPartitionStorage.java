@@ -101,20 +101,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long persistedIndex();
 
     /**
-     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * Byte representation of the committed replication protocol group configuration corresponding to the write command with the highest
+     * index applied to the storage.
      * {@code null} if it was never saved.
      */
-    @Nullable
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    RaftGroupConfiguration committedGroupConfiguration();
+    byte @Nullable [] committedGroupConfiguration();
 
     /**
      * Updates RAFT group configuration.
      *
-     * @param config Configuration to save.
+     * @param config Byte representation of the configuration to save.
      */
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    void committedGroupConfiguration(RaftGroupConfiguration config);
+    void committedGroupConfiguration(byte[] config);
 
     /**
      * Reads the value from the storage as it was at the given timestamp.

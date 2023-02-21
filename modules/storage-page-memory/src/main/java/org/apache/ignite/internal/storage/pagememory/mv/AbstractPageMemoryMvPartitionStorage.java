@@ -48,9 +48,9 @@ import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
 import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -68,6 +68,9 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
+import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -96,6 +99,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     static final Predicate<HybridTimestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
+    static final Predicate<HybridTimestamp> DONT_LOAD_VALUE = timestamp -> false;
+
     protected final int partitionId;
 
     protected final int groupId;
@@ -109,6 +114,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected volatile IndexColumnsFreeList indexFreeList;
 
     protected volatile IndexMetaTree indexMetaTree;
+
+    protected volatile GcQueue gcQueue;
 
     protected final DataPageReader rowVersionDataPageReader;
 
@@ -134,6 +141,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexFreeList Free list fot {@link IndexColumns}.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      */
     protected AbstractPageMemoryMvPartitionStorage(
             int partitionId,
@@ -141,7 +149,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GcQueue gcQueue
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
@@ -151,6 +160,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
+
+        this.gcQueue = gcQueue;
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -384,6 +395,24 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return read.result();
     }
 
+    @Nullable RowVersion findRowVersion(VersionChain versionChain, RowVersionFilter filter, boolean loadValueBytes) {
+        assert versionChain.hasHeadLink();
+
+        FindRowVersion findRowVersion = new FindRowVersion(partitionId, loadValueBytes);
+
+        try {
+            rowVersionDataPageReader.traverse(versionChain.headLink(), findRowVersion, filter);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    "Error when looking up row version in version chain: [rowId={}, headLink={}, {}]",
+                    e,
+                    versionChain.rowId(), versionChain.headLink(), createStorageInfo()
+            );
+        }
+
+        return findRowVersion.getResult();
+    }
+
     @Nullable BinaryRow rowVersionToBinaryRow(RowVersion rowVersion) {
         if (rowVersion.isTombstone()) {
             return null;
@@ -575,7 +604,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return inUpdateVersionChainLock(rowId, () -> {
                 try {
-                    versionChainTree.invoke(new VersionChainKey(rowId), null, new CommitWriteInvokeClosure(timestamp, this));
+                    CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(rowId, timestamp, this);
+
+                    versionChainTree.invoke(new VersionChainKey(rowId), null, commitWrite);
+
+                    commitWrite.afterCompletion();
 
                     return null;
                 } catch (IgniteInternalCheckedException e) {
@@ -604,11 +637,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return inUpdateVersionChainLock(rowId, () -> {
                 try {
-                    versionChainTree.invoke(
-                            new VersionChainKey(rowId),
-                            null,
-                            new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp, this)
-                    );
+                    AddWriteCommittedInvokeClosure addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp,
+                            this);
+
+                    versionChainTree.invoke(new VersionChainKey(rowId), null, addWriteCommitted);
+
+                    addWriteCommitted.afterCompletion();
 
                     return null;
                 } catch (IgniteInternalCheckedException e) {
@@ -744,6 +778,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         resources.add(versionChainTree::close);
         resources.add(indexMetaTree::close);
+        resources.add(gcQueue::close);
 
         hashIndexes.values().forEach(index -> resources.add(index::close));
         sortedIndexes.values().forEach(index -> resources.add(index::close));
@@ -841,7 +876,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /**
      * Sets the RAFT group configuration on rebalance.
      */
-    public abstract void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config);
+    public abstract void committedGroupConfigurationOnRebalance(byte[] config);
 
     /**
      * Prepares the storage and its indexes for cleanup.
@@ -929,5 +964,60 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 return reentrantLockLockHolder.decrementHolders() ? null : reentrantLockLockHolder;
             });
         }
+    }
+
+    @Override
+    public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            GcRowVersion first = gcQueue.getFirst();
+
+            // Garbage collection queue is empty.
+            if (first == null) {
+                return null;
+            }
+
+            HybridTimestamp rowTimestamp = first.getTimestamp();
+
+            // There are no versions in the garbage collection queue before watermark.
+            if (rowTimestamp.compareTo(lowWatermark) > 0) {
+                return null;
+            }
+
+            RowId rowId = first.getRowId();
+
+            return inUpdateVersionChainLock(rowId, () -> {
+                // Someone processed the element in parallel.
+                // TODO: IGNITE-18843 Should try to get the RowVersion again
+                if (!gcQueue.remove(rowId, rowTimestamp, first.getLink())) {
+                    return null;
+                }
+
+                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, first.getLink());
+
+                return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
+            });
+        });
+    }
+
+    private RowVersion removeWriteOnGc(RowId rowId, HybridTimestamp rowTimestamp, long rowLink) {
+        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, rowLink, this);
+
+        try {
+            versionChainTree.invoke(new VersionChainKey(rowId), null, removeWriteOnGc);
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
+
+            throw new StorageException(
+                    "Error removing row version from version chain on garbage collection: [rowId={}, rowTimestamp={}, {}]",
+                    e,
+                    rowId, rowTimestamp, createStorageInfo()
+            );
+        }
+
+        removeWriteOnGc.afterCompletion();
+
+        return removeWriteOnGc.getResult();
     }
 }

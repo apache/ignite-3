@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.IO;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -113,7 +114,7 @@ namespace Apache.Ignite.Internal
         {
             var socket = new ClientFailoverSocket(configuration);
 
-            await socket.GetSocketAsync().ConfigureAwait(false);
+            await socket.GetNextSocketAsync().ConfigureAwait(false);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Secondary connections are established in the background.
@@ -226,11 +227,20 @@ namespace Apache.Ignite.Internal
         /// Gets active connections.
         /// </summary>
         /// <returns>Active connections.</returns>
-        public IEnumerable<ConnectionContext> GetConnections() =>
-            _endpoints
-                .Select(e => e.Socket?.ConnectionContext)
-                .Where(ctx => ctx != null)
-                .ToList()!;
+        public IEnumerable<ConnectionContext> GetConnections()
+        {
+            var res = new List<ConnectionContext>(_endpoints.Count);
+
+            foreach (var endpoint in _endpoints)
+            {
+                if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
+                {
+                    res.Add(ctx);
+                }
+            }
+
+            return res;
+        }
 
         /// <summary>
         /// Gets a socket. Reconnects if necessary.
@@ -280,32 +290,38 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            if (_endpoints.Count == 1)
+            var tasks = new List<Task>(_endpoints.Count);
+
+            while (!_disposed)
             {
-                return;
-            }
-
-            try
-            {
-                var tasks = new List<Task>(_endpoints.Count);
-
-                _logger?.Debug("Establishing secondary connections...");
-
-                foreach (var endpoint in _endpoints)
+                try
                 {
-                    if (endpoint.Socket?.IsDisposed == false)
+                    tasks.Clear();
+
+                    foreach (var endpoint in _endpoints)
                     {
-                        continue;
+                        if (endpoint.Socket?.IsDisposed == false)
+                        {
+                            continue;
+                        }
+
+                        tasks.Add(ConnectAsync(endpoint).AsTask());
                     }
 
-                    tasks.Add(ConnectAsync(endpoint).AsTask());
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
                 }
 
-                await Task.WhenAll(tasks).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                if (Configuration.ReconnectInterval <= TimeSpan.Zero)
+                {
+                    // Interval is zero - periodic reconnect is disabled.
+                    return;
+                }
+
+                await Task.Delay(Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
 
@@ -343,7 +359,7 @@ namespace Apache.Ignite.Internal
                 {
                     return await ConnectAsync(endPoint).ConfigureAwait(false);
                 }
-                catch (SocketException e)
+                catch (IgniteClientConnectionException e) when (e.GetBaseException() is SocketException or IOException)
                 {
                     errors ??= new List<Exception>();
 
