@@ -177,7 +177,7 @@ class GarbageCollector {
 
             GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
 
-            // In this loop, we are trying to read the head of the gc queue, and make sure that no one has processed it in parallel.
+            // In this loop, we are trying to check the row version from gc queue, and make sure that no one has processed it in parallel.
             // If we fail, then we read the head again and repeat the cycle.
             while (true) {
                 if (gcRowVersion.getRowTimestamp().compareTo(lowWatermark) > 0) {
@@ -200,11 +200,9 @@ class GarbageCollector {
 
                 gcRowVersion = toGcRowVersion(gcKeyBuffer);
 
-                // Someone has processed the head of the gc queue in parallel, so we need to take a new head of the queue.
+                // Someone has processed the row version in parallel, so we need to take a new head of the queue.
                 if (!gcRowVersion.equals(oldGcRowVersion)) {
                     helper.releaseLock(gcRowVersion.getRowId());
-
-                    gcIt.next();
 
                     continue;
                 }
@@ -367,6 +365,7 @@ class GarbageCollector {
 
         gcIt.seekForPrev(gcKeyBuffer);
 
+        // Row version was removed from the gc queue by someone, back to the head of gc queue.
         if (invalid(gcIt)) {
             gcIt.seek(helper.partitionStartPrefix());
         }
