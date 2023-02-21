@@ -11,8 +11,8 @@ PlacementDriver <- Metastore : Receives the notification about ***.cancel** upda
 PlacementDriver -> PrimaryReplica : Send CancelRebalanceRequest(oldTopology, newTopology)
 PrimaryReplica -> ReplicationGroup : Send CancelRebalanceRequest(oldTopology, newTopology) [see 2]
 ReplicationGroup -> ReplicationGroup : Process cancellation request and invoke onCancelDone listener
-ReplicationGroup -> PrimaryReplica : Send cancelnRebalanceDone message
-PrimaryReplica -> PlacementDriver : Send cancelnRebalanceDone message
+ReplicationGroup -> PrimaryReplica : Send CancelnRebalanceDone message
+PrimaryReplica -> PlacementDriver : Send CancelnRebalanceDone message
 PlacementDriver -> Metastore : Invoke general rebalance mestastore multi-invoke to update ***.planned/*.pending/*.cancel** and set current stable topology to the same **zonedId.assignment.stable** (needs to force the metastore update)
 DistributionZoneManager <- Metastore : Receives **zonedId.assignment.stable** update, stop unneeded replicas, prepare new rebalance if needed
 @enduml
