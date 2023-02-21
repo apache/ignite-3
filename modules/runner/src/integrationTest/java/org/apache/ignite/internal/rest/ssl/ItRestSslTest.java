@@ -102,6 +102,10 @@ public class ItRestSslTest {
                 .sslContext(sslContext())
                 .build();
 
+        sslClientWithClientAuth = HttpClient.newBuilder()
+                .sslContext(sslContextWithClientAuth())
+                .build();
+
         httpNode = RestNode.builder()
                 .setWorkDir(workDir)
                 .setName(testNodeName(testInfo, 3344))
@@ -132,18 +136,19 @@ public class ItRestSslTest {
                 .setDualProtocol(true)
                 .build();
 
-        Stream.of(httpNode, httpsNode, dualProtocolNode)
-                .forEach(RestNode::start);
-        sslClientWithClientAuth = HttpClient.newBuilder()
-                .sslContext(sslContextWithClientAuth())
+        httpsWithClientAuthNode = RestNode.builder()
+                .setWorkDir(workDir)
+                .setName(testNodeName(testInfo, 3347))
+                .setNetworkPort(3347)
+                .setHttpPort(10303)
+                .setHttpsPort(10403)
+                .setSslEnabled(true)
+                .setSslClientAuthEnabled(true)
+                .setDualProtocol(false)
                 .build();
 
-        httpNode = new RestNode(workDir, testNodeName(testInfo, 3344), 3344, 10300, 10400, false, false, false);
-        httpsNode = new RestNode(workDir, testNodeName(testInfo, 3345), 3345, 10301, 10401, true, false, false);
-        dualProtocolNode = new RestNode(workDir, testNodeName(testInfo, 3346), 3346, 10302, 10402, true, false, true);
-        httpsWithClientAuthNode = new RestNode(workDir, testNodeName(testInfo, 3347), 3347, 10303, 10403, true, true, false);
-
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode).forEach(RestNode::start);
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode)
+                .forEach(RestNode::start);
     }
 
     @Test

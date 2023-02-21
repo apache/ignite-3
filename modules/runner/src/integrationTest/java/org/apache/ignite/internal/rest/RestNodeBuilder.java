@@ -23,12 +23,16 @@ import java.nio.file.Path;
 public class RestNodeBuilder {
     private String keyStorePath = "ssl/keystore.p12";
     private String keyStorePassword = "changeit";
+    private String trustStorePath = "ssl/truststore.jks";
+    private String trustStorePassword = "changeit";
     private Path workDir;
     private String name;
     private int networkPort;
     private int httpPort;
     private int httpsPort;
     private boolean sslEnabled = false;
+
+    private boolean sslClientAuthEnabled = false;
     private boolean dualProtocol = false;
 
     public RestNodeBuilder setKeyStorePath(String keyStorePath) {
@@ -38,6 +42,16 @@ public class RestNodeBuilder {
 
     public RestNodeBuilder setKeyStorePassword(String keyStorePassword) {
         this.keyStorePassword = keyStorePassword;
+        return this;
+    }
+
+    public RestNodeBuilder setTrustStorePath(String trustStorePath) {
+        this.trustStorePath = trustStorePath;
+        return this;
+    }
+
+    public RestNodeBuilder setTrustStorePassword(String trustStorePassword) {
+        this.trustStorePassword = trustStorePassword;
         return this;
     }
 
@@ -71,6 +85,11 @@ public class RestNodeBuilder {
         return this;
     }
 
+    public RestNodeBuilder setSslClientAuthEnabled(boolean sslClientAuthEnabled) {
+        this.sslClientAuthEnabled = sslClientAuthEnabled;
+        return this;
+    }
+
     public RestNodeBuilder setDualProtocol(boolean dualProtocol) {
         this.dualProtocol = dualProtocol;
         return this;
@@ -81,12 +100,15 @@ public class RestNodeBuilder {
         return new RestNode(
                 keyStorePath,
                 keyStorePassword,
+                trustStorePath,
+                trustStorePassword,
                 workDir,
                 name,
                 networkPort,
                 httpPort,
                 httpsPort,
                 sslEnabled,
+                sslClientAuthEnabled,
                 dualProtocol
         );
     }

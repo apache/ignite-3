@@ -225,7 +225,7 @@ public class RestComponent implements IgniteComponent {
         }
     }
 
-    private Map<String, Object> properties(int port, int sslPort) {
+    private Map<String, Object> serverProperties(int port, int sslPort) {
         RestSslConfiguration sslCfg = restConfiguration.ssl();
         boolean sslEnabled = sslCfg.enabled().value();
 

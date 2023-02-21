@@ -26,20 +26,10 @@ import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 /** Presentation of Ignite node for tests. */
 public class RestNode {
 
-    /** Key store path. */
-    private static final String keyStorePath = "ssl/keystore.p12";
-
-    /** Key store password. */
-    private static final String keyStorePassword = "changeit";
-
-    /** Trust store path. */
-    private static final String trustStorePath = "ssl/truststore.jks";
-
-    /** Trust store password. */
-    private static final String trustStorePassword = "changeit";
-
     private final String keyStorePath;
     private final String keyStorePassword;
+    private final String trustStorePath;
+    private final String trustStorePassword;
     private final Path workDir;
     private final String name;
     private final int networkPort;
@@ -54,6 +44,8 @@ public class RestNode {
     public RestNode(
             String keyStorePath,
             String keyStorePassword,
+            String trustStorePath,
+            String trustStorePassword,
             Path workDir,
             String name,
             int networkPort,
@@ -65,6 +57,8 @@ public class RestNode {
     ) {
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
+        this.trustStorePath = trustStorePath;
+        this.trustStorePassword = trustStorePassword;
         this.workDir = workDir;
         this.name = name;
         this.networkPort = networkPort;
