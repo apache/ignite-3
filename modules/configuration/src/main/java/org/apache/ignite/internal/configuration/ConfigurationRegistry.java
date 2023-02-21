@@ -243,6 +243,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
      */
     public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
         SuperRoot superRoot = changer.superRoot();
+        LOG.warn("represent {}", superRoot);
 
         Object node;
         try {

@@ -31,6 +31,8 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,6 +42,7 @@ import org.jetbrains.annotations.Nullable;
 public class HoconPresentation implements ConfigurationPresentation<String> {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
+    private static final IgniteLogger LOG = Loggers.forClass(HoconPresentation.class);
 
     /**
      * Constructor.
@@ -59,7 +62,9 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
     /** {@inheritDoc} */
     @Override
     public String representByPath(@Nullable String path) {
-        return HoconConverter.represent(registry, path == null ? List.of() : split(path)).render(concise());
+        String render = HoconConverter.represent(registry, path == null ? List.of() : split(path)).render(concise());
+        LOG.warn("represent {}", render);
+        return render;
     }
 
     /** {@inheritDoc} */
