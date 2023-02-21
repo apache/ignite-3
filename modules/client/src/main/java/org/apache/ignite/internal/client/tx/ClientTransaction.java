@@ -129,6 +129,7 @@ public class ClientTransaction implements Transaction {
     /**
      * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is
      * not an instance of {@link ClientTransaction}.
+     *
      * @param tx Public transaction.
      * @return Internal transaction.
      */
