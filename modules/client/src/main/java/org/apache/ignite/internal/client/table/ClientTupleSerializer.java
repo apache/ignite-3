@@ -444,6 +444,13 @@ public class ClientTupleSerializer {
         }
     }
 
+    /**
+     * Gets partition awareness provider for the specified tuple.
+     *
+     * @param tx Transaction.
+     * @param rec Tuple.
+     * @return Partition awareness provider.
+     */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
         if (tx != null) {
             return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel());
@@ -452,6 +459,13 @@ public class ClientTupleSerializer {
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
     }
 
+    /**
+     * Gets partition awareness provider for the specified object.
+     *
+     * @param tx Transaction.
+     * @param rec Object.
+     * @return Partition awareness provider.
+     */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
             @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
         if (tx != null) {
