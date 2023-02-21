@@ -320,7 +320,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
-                saveRaftGroupConfiguration(requireWriteBatch(), config);
+                saveGroupConfiguration(requireWriteBatch(), config);
 
                 return null;
             } catch (RocksDBException e) {
@@ -329,7 +329,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private void saveRaftGroupConfiguration(AbstractWriteBatch writeBatch, byte[] config) throws RocksDBException {
+    private void saveGroupConfiguration(AbstractWriteBatch writeBatch, byte[] config) throws RocksDBException {
         writeBatch.put(meta, lastGroupConfigKey, config);
 
         pendingGroupConfig = copy(config);
@@ -1514,7 +1514,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private void saveRaftGroupConfigurationOnRebalance(WriteBatch writeBatch, byte[] config) throws RocksDBException {
-        saveRaftGroupConfiguration(writeBatch, config);
+        saveGroupConfiguration(writeBatch, config);
 
         this.lastGroupConfig = copy(config);
     }
