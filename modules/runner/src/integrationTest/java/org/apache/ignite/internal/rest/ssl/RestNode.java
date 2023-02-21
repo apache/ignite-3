@@ -29,12 +29,19 @@ public class RestNode {
     /** Key store password. */
     private static final String keyStorePassword = "changeit";
 
+    /** Trust store path. */
+    private static final String trustStorePath = "ssl/truststore.jks";
+
+    /** Trust store password. */
+    private static final String trustStorePassword = "changeit";
+
     private final Path workDir;
     private final String name;
     private final int networkPort;
     private final int httpPort;
     private final int httpsPort;
     private final boolean sslEnabled;
+    private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
 
     /** Constructor. */
@@ -45,6 +52,7 @@ public class RestNode {
             int httpPort,
             int httpsPort,
             boolean sslEnabled,
+            boolean sslClientAuthEnabled,
             boolean dualProtocol
     ) {
         this.workDir = workDir;
@@ -53,6 +61,7 @@ public class RestNode {
         this.httpPort = httpPort;
         this.httpsPort = httpsPort;
         this.sslEnabled = sslEnabled;
+        this.sslClientAuthEnabled = sslClientAuthEnabled;
         this.dualProtocol = dualProtocol;
     }
 
@@ -75,6 +84,8 @@ public class RestNode {
 
     private String bootstrapCfg() {
         String keyStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(keyStorePath).getPath();
+        String trustStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(trustStorePath).getPath();
+
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -87,10 +98,16 @@ public class RestNode {
                 + "    dualProtocol: " + dualProtocol + ",\n"
                 + "    ssl: {\n"
                 + "      enabled: " + sslEnabled + ",\n"
+                + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
                 + "        path: " + keyStoreAbsolutPath + ",\n"
-                    + "    password: " + keyStorePassword + "\n"
+                + "        password: " + keyStorePassword + "\n"
+                + "      }, \n"
+                + "      trustStore: {\n"
+                + "        type: JKS, "
+                + "        path: " + trustStoreAbsolutPath + ",\n"
+                + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
                 + "  }"

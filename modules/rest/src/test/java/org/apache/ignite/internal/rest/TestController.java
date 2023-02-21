@@ -15,24 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.rest;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.network.configuration.AbstractSslConfigurationSchema;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Get;
 
-/** REST SSL configuration. */
-@Config
-public class RestSslConfigurationSchema extends AbstractSslConfigurationSchema {
+/**
+ * Test controller. Exposes a single ping endpoint.
+ */
+@Controller
+public class TestController {
+    @Get("ping")
+    public String ping() {
+        return "pong";
+    }
 
-    /** SSL port. */
-    @Range(min = 1024, max = 0xFFFF)
-    @Value(hasDefault = true)
-    public final int port = 10400;
-
-    /** SSL port range. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int portRange = 100;
 }
