@@ -99,7 +99,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            return closure.execute();
+            try {
+                return closure.execute();
+            } finally {
+                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+            }
         });
     }
 

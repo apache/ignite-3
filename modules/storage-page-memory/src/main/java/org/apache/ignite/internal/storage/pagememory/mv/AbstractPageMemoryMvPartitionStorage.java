@@ -130,7 +130,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Version chain update lock by row ID. */
-    private final ReentrantLockByRowId updateVersionChainLockByRowId = new ReentrantLockByRowId();
+    protected final ReentrantLockByRowId updateVersionChainLockByRowId = new ReentrantLockByRowId();
 
     /**
      * Constructor.
@@ -950,39 +950,37 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwExceptionIfStorageNotInRunnableState();
 
             while (true) {
-                GcRowVersion first = gcQueue.getFirst();
+                // TODO: IGNITE-18867 Get and delete in one call
+                GcRowVersion head = gcQueue.getFirst();
 
                 // Garbage collection queue is empty.
-                if (first == null) {
+                if (head == null) {
                     return null;
                 }
 
-                HybridTimestamp rowTimestamp = first.getTimestamp();
+                HybridTimestamp rowTimestamp = head.getTimestamp();
 
                 // There are no versions in the garbage collection queue before watermark.
                 if (rowTimestamp.compareTo(lowWatermark) > 0) {
                     return null;
                 }
 
-                RowId rowId = first.getRowId();
+                RowId rowId = head.getRowId();
 
-                BinaryRowAndRowId binaryRowAndRowId = inUpdateVersionChainLock(rowId, () -> {
-                    // Someone processed the element in parallel.
-                    if (!gcQueue.remove(rowId, rowTimestamp, first.getLink())) {
-                        return null;
-                    }
+                // If no one has processed the head of the gc queue in parallel, then we must release the lock after executing
+                // WriteClosure#execute in MvPartitionStorage#runConsistently so that the indexes can be deleted consistently.
+                updateVersionChainLockByRowId.acquireLock(rowId);
 
-                    RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, first.getLink());
+                // Someone processed the element in parallel.
+                if (!gcQueue.remove(rowId, rowTimestamp, head.getLink())) {
+                    updateVersionChainLockByRowId.releaseLock(rowId);
 
-                    return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
-                });
-
-                // Since someone has processed the head of the queue in parallel, we need to take the next element of the queue.
-                if (binaryRowAndRowId == null) {
                     continue;
                 }
 
-                return binaryRowAndRowId;
+                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, head.getLink());
+
+                return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
             }
         });
     }
