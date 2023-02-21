@@ -182,9 +182,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     private void saveValues(Map<String, ? extends Serializable> values) {
         try {
-            Files.write(tempConfigPath, renderHoconString(values).getBytes(StandardCharsets.UTF_8),
+            String hoconString = renderHoconString(values);
+            Files.write(tempConfigPath, hoconString.getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.SYNC, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             Files.move(tempConfigPath, configPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            LOG.warn("Wrote config {} to file {}", hoconString, configPath);
         } catch (IOException e) {
             throw new NodeConfigWriteException(
                     "Failed to write values " + values + " to config file.", e);
