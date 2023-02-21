@@ -18,8 +18,19 @@
 package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItemInArray;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
@@ -193,17 +204,47 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
+            addAndCommit.perform(this, TABLE_ROW2);
+
             addAndCommit.perform(this, null);
 
+            Collection<BinaryRow> rows = new ConcurrentLinkedQueue<>(List.of(TABLE_ROW, TABLE_ROW2));
+
             runRace(
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE)
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow(), rows),
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow(), rows)
             );
 
+            assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
+
             assertNull(storage.closestRowId(ROW_ID));
+
+            assertThat(rows, empty());
         }
+    }
+
+    private void assertRemoveRow(BinaryRow row, Collection<BinaryRow> rows) {
+        assertNotNull(row);
+
+        BinaryRow found = rows.stream()
+                .filter(binaryRow -> Arrays.equals(binaryRow.bytes(), row.bytes()))
+                .findFirst()
+                .orElseGet(null);
+
+        assertNotNull(found, Arrays.toString(row.bytes()));
+
+        assertTrue(rows.remove(found), Arrays.toString(row.bytes()));
+    }
+
+    /**
+     * Checks that the actual {@link BinaryRow} is equal to one of the expected ones.
+     */
+    private void assertRowContains(BinaryRow actual, @Nullable BinaryRow... expected) {
+        assertNotNull(actual);
+
+        byte[][] elements = Stream.of(expected).map(binaryRow -> binaryRow == null ? null : binaryRow.bytes()).toArray(byte[][]::new);
+
+        assertThat(elements, hasItemInArray(actual.bytes()));
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")

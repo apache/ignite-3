@@ -972,33 +972,41 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            GcRowVersion first = gcQueue.getFirst();
+            while (true) {
+                GcRowVersion first = gcQueue.getFirst();
 
-            // Garbage collection queue is empty.
-            if (first == null) {
-                return null;
-            }
-
-            HybridTimestamp rowTimestamp = first.getTimestamp();
-
-            // There are no versions in the garbage collection queue before watermark.
-            if (rowTimestamp.compareTo(lowWatermark) > 0) {
-                return null;
-            }
-
-            RowId rowId = first.getRowId();
-
-            return inUpdateVersionChainLock(rowId, () -> {
-                // Someone processed the element in parallel.
-                // TODO: IGNITE-18843 Should try to get the RowVersion again
-                if (!gcQueue.remove(rowId, rowTimestamp, first.getLink())) {
+                // Garbage collection queue is empty.
+                if (first == null) {
                     return null;
                 }
 
-                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, first.getLink());
+                HybridTimestamp rowTimestamp = first.getTimestamp();
 
-                return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
-            });
+                // There are no versions in the garbage collection queue before watermark.
+                if (rowTimestamp.compareTo(lowWatermark) > 0) {
+                    return null;
+                }
+
+                RowId rowId = first.getRowId();
+
+                BinaryRowAndRowId binaryRowAndRowId = inUpdateVersionChainLock(rowId, () -> {
+                    // Someone processed the element in parallel.
+                    if (!gcQueue.remove(rowId, rowTimestamp, first.getLink())) {
+                        return null;
+                    }
+
+                    RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, first.getLink());
+
+                    return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
+                });
+
+                // Since someone has processed the head of the queue in parallel, we need to take the next element of the queue.
+                if (binaryRowAndRowId == null) {
+                    continue;
+                }
+
+                return binaryRowAndRowId;
+            }
         });
     }
 
