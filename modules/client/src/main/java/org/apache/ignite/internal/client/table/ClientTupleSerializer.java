@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
+import static org.apache.ignite.internal.client.table.ClientTable.getClientTx;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
@@ -446,8 +447,7 @@ public class ClientTupleSerializer {
 
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
         if (tx != null) {
-            // TODO: Validate tx type?
-            return PartitionAwarenessProvider.of(((ClientTransaction)tx).channel());
+            return PartitionAwarenessProvider.of(getClientTx(tx).channel());
         }
 
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
@@ -456,8 +456,7 @@ public class ClientTupleSerializer {
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
             @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
         if (tx != null) {
-            // TODO: Validate tx type?
-            return PartitionAwarenessProvider.of(((ClientTransaction)tx).channel());
+            return PartitionAwarenessProvider.of(getClientTx(tx).channel());
         }
 
         return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));

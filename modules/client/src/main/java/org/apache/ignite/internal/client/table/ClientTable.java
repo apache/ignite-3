@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.UNKNOWN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -160,7 +160,7 @@ public class ClientTable implements Table {
             int schemaCnt = r.in().unpackMapHeader();
 
             if (schemaCnt == 0) {
-                throw new IgniteException(UNKNOWN_ERR, "Schema not found: " + ver);
+                throw new IgniteException(UNEXPECTED_ERR, "Schema not found: " + ver);
             }
 
             ClientSchema last = null;
@@ -239,9 +239,9 @@ public class ClientTable implements Table {
         }
     }
 
-    private static ClientTransaction getClientTx(@NotNull Transaction tx) {
+    static ClientTransaction getClientTx(@NotNull Transaction tx) {
         if (!(tx instanceof ClientTransaction)) {
-            throw new IgniteException(UNKNOWN_ERR, "Unsupported transaction implementation: '"
+            throw new IgniteException(UNEXPECTED_ERR, "Unsupported transaction implementation: '"
                     + tx.getClass()
                     + "'. Use IgniteClient.transactions() to start transactions.");
         }
