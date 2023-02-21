@@ -729,7 +729,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
-                PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
+                PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
                 CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
@@ -1959,7 +1959,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                             .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
-                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
+                    PendingComparableValuesTracker<HybridTimestamp> safeTime =
+                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
                     InternalTable internalTable = tbl.internalTable();
 
