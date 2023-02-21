@@ -435,7 +435,7 @@ public class ClientTable implements Table {
             @Nullable PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
             ClientSchema schema) {
-        if (partitions == null || partitions.isEmpty() || provider == null) {
+        if (provider == null) {
             return null;
         }
 
@@ -444,6 +444,10 @@ public class ClientTable implements Table {
 
         if (ch != null) {
             return ch.protocolContext().clusterNode().id();
+        }
+
+        if (partitions == null || partitions.isEmpty()) {
+            return null;
         }
 
         Integer hash = provider.getObjectHashCode(schema);
