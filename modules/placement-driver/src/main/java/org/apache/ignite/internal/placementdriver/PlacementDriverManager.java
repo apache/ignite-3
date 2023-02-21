@@ -138,6 +138,12 @@ public class PlacementDriverManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
+    public void beforeNodeStop() {
+        withRaftClientIfPresent(c -> c.unsubscribeLeader().join());
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void stop() throws Exception {
         if (!isStopped.compareAndSet(false, true)) {
             return;
@@ -145,10 +151,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         busyLock.block();
 
-        withRaftClientIfPresent(client -> {
-            client.unsubscribeLeader();
-            client.shutdown();
-        });
+        withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
     }
 
     private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {

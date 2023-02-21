@@ -259,6 +259,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * Assigns a closure to call when a leader will is elected.
      *
      * @param callback Callback closure.
+     * @return Future that is completed when all subscription messages to peers are sent.
      */
     public CompletableFuture<Void> subscribeLeader(BiConsumer<ClusterNode, Long> callback) {
         assert !serverEventHandler.isSubscribed() : "The node already subscribed";
@@ -306,20 +307,29 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     /**
      * Unsubscribe of notification about a leader elected.
+     *
+     * @return Future that is completed when all messages about cancelling subscription to peers are sent.
      */
-    public void unsubscribeLeader() {
+    public CompletableFuture<Void> unsubscribeLeader() {
         serverEventHandler.setOnLeaderElectedCallback(null);
 
-        for (Peer peer : peers()) {
+        var peers = peers();
+        var futs = new CompletableFuture[peers.size()];
+
+        for (int i = 0; i < peers.size(); i++) {
+            Peer peer = peers.get(i);
+
             ClusterNode node = clusterService.topologyService().getByConsistentId(peer.consistentId());
 
             if (node != null) {
-                sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
+                futs[i] = sendSubscribeMessage(node, factory.subscriptionLeaderChangeRequest()
                         .groupId(groupId())
                         .subscribe(false)
                         .build());
             }
         }
+
+        return CompletableFuture.allOf(futs);
     }
 
     @Override
