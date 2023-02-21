@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.core.repl.registry.impl;
 
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+
 import com.google.gson.Gson;
 import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
@@ -100,14 +102,14 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, AsyncSessionEventLi
     public void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("JdbcUrlRegistry", log));
-            executor.scheduleWithFixedDelay(() -> fetchJdbcUrls(), 0, 5, TimeUnit.SECONDS);
+            executor.scheduleWithFixedDelay(this::fetchJdbcUrls, 0, 5, TimeUnit.SECONDS);
         }
     }
 
     @Override
     public void onDisconnect() {
         if (executor != null) {
-            executor.shutdown();
+            shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
             executor = null;
         }
     }
