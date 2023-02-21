@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.msgpack.core.annotations.Nullable;
 
 /**
  * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
@@ -169,7 +170,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param i the value to be written.
      */
-    public void packIntNullable(Integer i) {
+    public void packIntNullable(@Nullable Integer i) {
         if (i == null) {
             packNil();
         } else {
@@ -232,7 +233,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param v the value to be written.
      */
-    public void packLongNullable(Long v) {
+    public void packLongNullable(@Nullable Long v) {
         if (v == null) {
             packNil();
         } else {
@@ -269,7 +270,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param s the value to be written.
      */
-    public void packString(String s) {
+    public void packString(@Nullable String s) {
         assert !closed : "Packer is closed";
 
         if (s == null) {

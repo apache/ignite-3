@@ -28,9 +28,12 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.PayloadReader;
+import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
@@ -141,8 +144,7 @@ public class ClientSession implements Session {
 
         ClientStatement clientStatement = (ClientStatement) statement;
 
-        // TODO: Use tx channel if present.
-        return ch.serviceAsync(ClientOp.SQL_EXEC, w -> {
+        PayloadWriter payloadWriter = w -> {
             writeTx(transaction, w);
 
             w.out().packString(oneOf(clientStatement.defaultSchema(), defaultSchema));
@@ -156,7 +158,16 @@ public class ClientSession implements Session {
             w.out().packString(clientStatement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
-        }, r -> new ClientAsyncResultSet<T>(r.clientChannel(), r.in(), mapper));
+        };
+
+        PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<T>(r.clientChannel(), r.in(), mapper);
+
+        if (transaction != null) {
+            //noinspection resource
+            return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+        }
+
+        return ch.serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
     }
 
     /** {@inheritDoc} */
@@ -324,7 +335,7 @@ public class ClientSession implements Session {
         w.out().packBinaryTuple(builder);
     }
 
-    private static <T> T oneOf(T a, T b) {
+    private static <T> @Nullable T oneOf(@Nullable T a, @Nullable T b) {
         return a != null ? a : b;
     }
 }
