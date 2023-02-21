@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -444,16 +444,23 @@ public class ClientTupleSerializer {
         }
     }
 
-    @Nullable
-    public static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, @NotNull Tuple rec) {
-        // Disable partition awareness when transaction is used: tx belongs to a default connection.
-        return tx != null ? null : schema -> getColocationHash(schema, rec);
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
+        if (tx != null) {
+            // TODO: Validate tx type?
+            return PartitionAwarenessProvider.of(((ClientTransaction)tx).channel());
+        }
+
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
     }
 
-    @Nullable
-    public static Function<ClientSchema, Integer> getHashFunction(@Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
-        // Disable partition awareness when transaction is used: tx belongs to a default connection.
-        return tx != null ? null : schema -> getColocationHash(schema, mapper, rec);
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(
+            @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
+        if (tx != null) {
+            // TODO: Validate tx type?
+            return PartitionAwarenessProvider.of(((ClientTransaction)tx).channel());
+        }
+
+        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));
     }
 
     /**
