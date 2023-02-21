@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.util;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -29,6 +31,8 @@ import org.apache.ignite.internal.storage.RowId;
  * <p>Allows synchronization of version chain update operations.
  */
 public class ReentrantLockByRowId {
+    private final ThreadLocal<Object> lockedRowIds = new ThreadLocal<>();
+
     private final ConcurrentMap<RowId, LockHolder<ReentrantLock>> lockHolderByRowId = new ConcurrentHashMap<>();
 
     /**
@@ -40,12 +44,12 @@ public class ReentrantLockByRowId {
      * @return Value.
      */
     public <T> T inLock(RowId rowId, Supplier<T> supplier) {
-        acquireLock(rowId);
+        acquireLock0(rowId);
 
         try {
             return supplier.get();
         } finally {
-            releaseLock(rowId);
+            releaseLock0(rowId, false);
         }
     }
 
@@ -55,6 +59,87 @@ public class ReentrantLockByRowId {
      * @param rowId Row ID.
      */
     public void acquireLock(RowId rowId) {
+        acquireLock0(rowId);
+
+        Object lockedRowIds = this.lockedRowIds.get();
+
+        if (lockedRowIds == null) {
+            this.lockedRowIds.set(rowId);
+        } else if (lockedRowIds.getClass() == RowId.class) {
+            RowId lockedRowId = (RowId) lockedRowIds;
+
+            if (!lockedRowId.equals(rowId)) {
+                Set<RowId> rowIds = new HashSet<>();
+
+                rowIds.add(lockedRowId);
+                rowIds.add(rowId);
+
+                this.lockedRowIds.set(rowIds);
+            }
+        } else {
+            ((Set<RowId>) lockedRowIds).add(rowId);
+        }
+    }
+
+    /**
+     * Releases the lock by row ID.
+     *
+     * @param rowId Row ID.
+     * @throws IllegalStateException If the lock could not be found by row ID.
+     * @throws IllegalMonitorStateException If the current thread does not hold this lock.
+     */
+    public void releaseLock(RowId rowId) {
+        releaseLock0(rowId, false);
+
+        LockHolder<ReentrantLock> lockHolder = lockHolderByRowId.get(rowId);
+
+        if (lockHolder != null && lockHolder.getLock().isHeldByCurrentThread()) {
+            return;
+        }
+
+        Object lockedRowIds = this.lockedRowIds.get();
+
+        assert lockedRowIds != null : rowId;
+
+        if (lockedRowIds.getClass() == RowId.class) {
+            RowId lockedRowId = (RowId) lockedRowIds;
+
+            assert lockedRowId.equals(rowId) : "rowId=" + rowId + ", lockedRowId=" + lockedRowId;
+
+            this.lockedRowIds.remove();
+        } else {
+            Set<RowId> rowIds = ((Set<RowId>) lockedRowIds);
+
+            boolean remove = rowIds.remove(rowId);
+
+            assert remove : "rowId=" + rowId + ", lockedRowIds=" + rowIds;
+
+            if (rowIds.isEmpty()) {
+                this.lockedRowIds.remove();
+            }
+        }
+    }
+
+    /**
+     * Releases all locks {@link #acquireLock(RowId) acquired} by the current thread if exists.
+     *
+     * <p>Order of releasing the locks is not defined, each lock will be released with all re-entries.
+     */
+    public void releaseAllLockByCurrentThread() {
+        Object lockedRowIds = this.lockedRowIds.get();
+
+        this.lockedRowIds.remove();
+
+        if (lockedRowIds == null) {
+            return;
+        } else if (lockedRowIds.getClass() == RowId.class) {
+            releaseLock0(((RowId) lockedRowIds), true);
+        } else {
+            ((Set<RowId>) lockedRowIds).forEach(rowId -> releaseLock0(rowId, true));
+        }
+    }
+
+    private void acquireLock0(RowId rowId) {
         LockHolder<ReentrantLock> lockHolder = lockHolderByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
             if (reentrantLockLockHolder == null) {
                 reentrantLockLockHolder = new LockHolder<>(new ReentrantLock());
@@ -68,26 +153,23 @@ public class ReentrantLockByRowId {
         lockHolder.getLock().lock();
     }
 
-    /**
-     * Releases the lock by row ID.
-     *
-     * @param rowId Row ID.
-     * @throws IllegalStateException If the lock could not be found by row ID.
-     * @throws IllegalMonitorStateException If the current thread does not hold this lock.
-     */
-    public void releaseLock(RowId rowId) {
+    private void releaseLock0(RowId rowId, boolean untilHoldByCurrentThread) {
         LockHolder<ReentrantLock> lockHolder = lockHolderByRowId.get(rowId);
 
         if (lockHolder == null) {
             throw new IllegalStateException("Could not find lock by row ID: " + rowId);
         }
 
-        lockHolder.getLock().unlock();
+        ReentrantLock lock = lockHolder.getLock();
 
-        lockHolderByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
-            assert reentrantLockLockHolder != null;
+        do {
+            lock.unlock();
 
-            return reentrantLockLockHolder.decrementHolders() ? null : reentrantLockLockHolder;
-        });
+            lockHolderByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
+                assert reentrantLockLockHolder != null;
+
+                return reentrantLockLockHolder.decrementHolders() ? null : reentrantLockLockHolder;
+            });
+        } while (untilHoldByCurrentThread && lock.getHoldCount() > 0);
     }
 }
