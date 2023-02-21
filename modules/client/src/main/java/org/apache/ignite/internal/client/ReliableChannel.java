@@ -236,6 +236,7 @@ public final class ReliableChannel implements AutoCloseable {
     private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String preferredNodeId) {
         ClientChannelHolder holder = null;
 
+        // 1. Preferred node connection.
         if (preferredNodeName != null) {
             holder = nodeChannelsByName.get(preferredNodeName);
         } else if (preferredNodeId != null) {
@@ -252,6 +253,14 @@ public final class ReliableChannel implements AutoCloseable {
             });
         }
 
+        // 2. Round-robin connection.
+        ClientChannel nextCh = getNextChannelWithoutReconnect();
+
+        if (nextCh != null) {
+            return CompletableFuture.completedFuture(nextCh);
+        }
+
+        // 3. Default connection (with reconnect if necessary).
         return getDefaultChannelAsync();
     }
 
