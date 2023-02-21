@@ -325,7 +325,7 @@ public final class ReliableChannel implements AutoCloseable {
      * On current channel failure.
      */
     private void onChannelFailure(ClientChannel ch) {
-        // There is nothing wrong if curChIdx was concurrently changed, since channel was closed by another thread
+        // There is nothing wrong if defaultChIdx was concurrently changed, since channel was closed by another thread
         // when current index was changed and no other wrong channel will be closed by current thread because
         // onChannelFailure checks channel binded to the holder before closing it.
         onChannelFailure(channels.get(defaultChIdx), ch);
@@ -496,7 +496,7 @@ public final class ReliableChannel implements AutoCloseable {
             int startIdx = curChIdx.incrementAndGet();
 
             for (int i = 0; i < channels.size(); i++) {
-                int nextIdx = (startIdx + i) % channels.size();
+                int nextIdx = Math.abs(startIdx + i) % channels.size();
 
                 ClientChannelHolder hld = channels.get(nextIdx);
                 ClientChannel ch = hld == null ? null : hld.getNow();
