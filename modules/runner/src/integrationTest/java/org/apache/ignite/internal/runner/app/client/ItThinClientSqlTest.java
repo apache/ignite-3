@@ -428,6 +428,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
+        // TODO IGNITE-18733: remove this workaround when the issue is fixed.
+        // Currently newly created table is not immediately available on all nodes.
         boolean res = IgniteTestUtils.waitForCondition(() -> {
             var nodeCount = client().clusterNodes().size();
 
