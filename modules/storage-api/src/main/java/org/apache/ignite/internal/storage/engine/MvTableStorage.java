@@ -30,7 +30,6 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -202,7 +201,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalancePartition(int, long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.
+     *     <li>{@link #finishRebalancePartition(int, long, long, byte[])} - in case of successful completion of rebalance.
      *     </li>
      * </ul>
      *
@@ -247,7 +246,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
-     * @param raftGroupConfig RAFT group configuration.
+     * @param groupConfig Replication protocol group configuration (byte representation).
      * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageRebalanceException If there is an error when completing rebalance.
@@ -256,7 +255,7 @@ public interface MvTableStorage extends ManuallyCloseable {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            RaftGroupConfiguration raftGroupConfig
+            byte[] groupConfig
     );
 
     /**

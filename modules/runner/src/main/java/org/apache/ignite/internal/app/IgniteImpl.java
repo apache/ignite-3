@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_NAME;
+import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_SIZE;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -71,6 +77,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.rest.MetricRestFactory;
@@ -108,6 +115,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -253,6 +261,8 @@ public class IgniteImpl implements Ignite {
 
     private final RestAddressReporter restAddressReporter;
 
+    private final ScheduledExecutorService raftExecutorService;
+
     /**
      * The Constructor.
      *
@@ -310,11 +320,20 @@ public class IgniteImpl implements Ignite {
 
         clock = new HybridClockImpl();
 
+        RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY);
+
+        raftExecutorService = new ScheduledThreadPoolExecutor(CLIENT_POOL_SIZE,
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(clusterSvc.localConfiguration().getName(),
+                        CLIENT_POOL_NAME), LOG
+                )
+        );
+
         raftMgr = new Loza(
                 clusterSvc,
-                nodeConfigRegistry.getConfiguration(RaftConfiguration.KEY),
+                raftConfiguration,
                 workDir,
-                clock
+                clock,
+                raftExecutorService
         );
 
         LockManager lockMgr = new HeapLockManager();
@@ -354,7 +373,14 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
         );
 
-        placementDriverMgr = new PlacementDriverManager(metaStorageMgr);
+        placementDriverMgr = new PlacementDriverManager(
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                raftConfiguration,
+                cmgMgr::metaStorageNodes,
+                logicalTopologyService,
+                raftExecutorService
+        );
 
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
@@ -675,6 +701,7 @@ public class IgniteImpl implements Ignite {
     public void stop() {
         lifecycleManager.stopNode();
         restAddressReporter.removeReport();
+        IgniteUtils.shutdownAndAwaitTermination(raftExecutorService, 10, TimeUnit.SECONDS);
     }
 
     /** {@inheritDoc} */

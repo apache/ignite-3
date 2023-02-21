@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.table.distributed.raft;
 
 import java.io.Serializable;
 import java.util.Collection;

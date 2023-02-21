@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.impl;
 
 import static java.util.Comparator.comparing;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -57,8 +57,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
-    @Nullable
-    private volatile RaftGroupConfiguration groupConfig;
+    private volatile byte @Nullable [] groupConfig;
 
     private final int partitionId;
 
@@ -149,18 +148,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    @Nullable
-    public RaftGroupConfiguration committedGroupConfiguration() {
+    public byte @Nullable [] committedGroupConfiguration() {
         checkStorageClosed();
 
-        return groupConfig;
+        byte[] currentConfig = groupConfig;
+        return currentConfig == null ? null : Arrays.copyOf(currentConfig, currentConfig.length);
     }
 
     @Override
-    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+    public void committedGroupConfiguration(byte[] config) {
         checkStorageClosedOrInProcessOfRebalance();
 
-        this.groupConfig = config;
+        this.groupConfig = Arrays.copyOf(config, config.length);
     }
 
     @Override
@@ -611,7 +610,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         groupConfig = null;
     }
 
-    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
+    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
         checkStorageClosed();
 
         assert rebalance;
@@ -620,7 +619,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-        this.groupConfig = raftGroupConfig;
+        this.groupConfig = Arrays.copyOf(groupConfig, groupConfig.length);
     }
 
     boolean closed() {
