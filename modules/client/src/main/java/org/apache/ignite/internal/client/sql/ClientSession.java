@@ -141,6 +141,7 @@ public class ClientSession implements Session {
 
         ClientStatement clientStatement = (ClientStatement) statement;
 
+        // TODO: Use tx channel if present.
         return ch.serviceAsync(ClientOp.SQL_EXEC, w -> {
             writeTx(transaction, w);
 
@@ -155,7 +156,7 @@ public class ClientSession implements Session {
             w.out().packString(clientStatement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
-        }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in(), mapper));
+        }, r -> new ClientAsyncResultSet<T>(r.clientChannel(), r.in(), mapper));
     }
 
     /** {@inheritDoc} */
