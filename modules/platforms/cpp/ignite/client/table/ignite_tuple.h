@@ -199,7 +199,7 @@ public:
 
         for (const auto &pair : right.m_pairs) {
             res.m_pairs.emplace_back(pair);
-            res.m_indices.emplace(pair.first, res.m_pairs.size() - 1);
+            res.m_indices.emplace(parse_name(pair.first), res.m_pairs.size() - 1);
         }
 
         return res;
