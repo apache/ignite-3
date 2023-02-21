@@ -52,11 +52,15 @@ class PartitionAwarenessProvider {
         return channel;
     }
 
-    int getObjectHashCode(ClientSchema schema) {
+    Integer getObjectHashCode(ClientSchema schema) {
         if (hashFunc == null) {
             throw new IllegalStateException("Partition awareness is not enabled. Check channel() first.");
         }
 
         return hashFunc.apply(schema);
+    }
+
+    boolean isPartitionAwarenessEnabled() {
+        return hashFunc != null;
     }
 }

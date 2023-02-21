@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -275,17 +276,17 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
             @Nullable T defaultValue,
-            @Nullable Function<ClientSchema, Integer> hashFunction
+            @Nullable PartitionAwarenessProvider provider
     ) {
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
-        CompletableFuture<List<String>> partitionsFut = hashFunction == null
+        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(hashFunction, partitionsFut.getNow(null), schema);
+                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
@@ -322,7 +323,7 @@ public class ClientTable implements Table {
      * @param opCode Op code.
      * @param writer Writer.
      * @param reader Reader.
-     * @param hashFunction Hash function for partition awareness.
+     * @param provider Partition awareness provider.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
@@ -330,17 +331,17 @@ public class ClientTable implements Table {
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
-            @Nullable Function<ClientSchema, Integer> hashFunction) {
+            @Nullable PartitionAwarenessProvider provider) {
 
         CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
-        CompletableFuture<List<String>> partitionsFut = hashFunction == null
+        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String preferredNodeId = getPreferredNodeId(hashFunction, partitionsFut.getNow(null), schema);
+                    String preferredNodeId = getPreferredNodeId(provider, partitionsFut.getNow(null), schema);
 
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
@@ -431,14 +432,21 @@ public class ClientTable implements Table {
 
     @Nullable
     private static String getPreferredNodeId(
-            @Nullable Function<ClientSchema, Integer> hashFunction,
+            @Nullable PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
             ClientSchema schema) {
-        if (partitions == null || partitions.isEmpty() || hashFunction == null) {
+        if (partitions == null || partitions.isEmpty() || provider == null) {
             return null;
         }
 
-        Integer hash = hashFunction.apply(schema);
+        @SuppressWarnings("resource")
+        ClientChannel ch = provider.channel();
+
+        if (ch != null) {
+            return ch.protocolContext().clusterNode().id();
+        }
+
+        Integer hash = provider.getObjectHashCode(schema);
 
         if (hash == null) {
             return null;
