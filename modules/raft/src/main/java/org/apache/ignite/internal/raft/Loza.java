@@ -161,8 +161,6 @@ public class Loza implements RaftManager {
 
         busyLock.block();
 
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
         raftServer.stop();
     }
 

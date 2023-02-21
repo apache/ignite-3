@@ -421,6 +421,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * Leader election handler.
      */
     private static class ServerEventHandler {
+        /** A term of last elected leader. */
+        private long term = 0;
+
         /** A leader elected callback. */
         private BiConsumer<ClusterNode, Long> onLeaderElectedCallback;
 
@@ -431,7 +434,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          * @param term Term.
          */
         private synchronized void onLeaderElected(ClusterNode node, long term) {
-            if (onLeaderElectedCallback != null) {
+            if (onLeaderElectedCallback != null && term > this.term) {
+                this.term = term;
+
                 onLeaderElectedCallback.accept(node, term);
             }
         }

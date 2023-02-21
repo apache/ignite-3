@@ -145,7 +145,10 @@ public class PlacementDriverManager implements IgniteComponent {
 
         busyLock.block();
 
-        withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
+        withRaftClientIfPresent(client -> {
+            client.unsubscribeLeader();
+            client.shutdown();
+        });
     }
 
     private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {
