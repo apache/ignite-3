@@ -610,7 +610,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         groupConfig = null;
     }
 
-    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] raftGroupConfig) {
+    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
         checkStorageClosed();
 
         assert rebalance;
@@ -619,7 +619,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-        this.groupConfig = Arrays.copyOf(raftGroupConfig, raftGroupConfig.length);
+        this.groupConfig = Arrays.copyOf(groupConfig, groupConfig.length);
     }
 
     boolean closed() {
