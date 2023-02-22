@@ -27,11 +27,19 @@
 #include <vector>
 
 namespace ignite {
+// Forward declaration.
+class ignite_tuple;
+
+namespace detail {
+ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right);
+}
 
 /**
  * Ignite tuple.
  */
 class ignite_tuple {
+    friend ignite_tuple detail::concat(const ignite_tuple &left, const ignite_tuple &right);
+
 public:
     // Default
     ignite_tuple() = default;
@@ -41,7 +49,10 @@ public:
      *
      * @param capacity Capacity.
      */
-    explicit ignite_tuple(size_t capacity) { m_pairs.reserve(capacity); }
+    explicit ignite_tuple(size_t capacity) {
+        m_pairs.reserve(capacity);
+        m_indices.reserve(capacity);
+    }
 
     /**
      * Constructor.
@@ -51,6 +62,7 @@ public:
     ignite_tuple(std::initializer_list<std::pair<std::string, primitive>> pairs)
         : m_pairs(pairs)
         , m_indices() {
+        m_indices.reserve(pairs.size());
         for (size_t i = 0; i < m_pairs.size(); ++i)
             m_indices.emplace(std::make_pair(parse_name(m_pairs[i].first), i));
     }
