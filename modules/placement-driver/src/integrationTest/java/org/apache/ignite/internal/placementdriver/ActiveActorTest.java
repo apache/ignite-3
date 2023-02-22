@@ -25,15 +25,32 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 /**
  * Placement driver active actor test.
  */
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
     private Map<String, PlacementDriverManager> placementDriverManagers = new HashMap<>();
+
+    @Mock
+    MetaStorageManager msm;
+
+    @InjectConfiguration()
+    private TablesConfiguration tblsCfg;
 
     @AfterEach
     @Override
@@ -51,12 +68,16 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
     @Override
     protected void afterNodeStart(String nodeName, ClusterService clusterService, Set<String> placementDriverNodesNames) {
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
+                msm,
+                null,
                 TestReplicationGroup.GROUP_ID,
                 clusterService,
                 raftConfiguration,
                 () -> completedFuture(placementDriverNodesNames),
                 new LogicalTopologyServiceTestImpl(clusterService),
-                executor
+                executor,
+                tblsCfg,
+                new HybridClockImpl()
         );
 
         placementDriverManager.start();

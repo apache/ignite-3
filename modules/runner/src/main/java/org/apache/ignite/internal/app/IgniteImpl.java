@@ -390,15 +390,6 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH))
         );
 
-        placementDriverMgr = new PlacementDriverManager(
-                MetastorageGroupId.INSTANCE,
-                clusterSvc,
-                raftConfiguration,
-                cmgMgr::metaStorageNodes,
-                logicalTopologyService,
-                raftExecutorService
-        );
-
         this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
         clusterCfgMgr = new ConfigurationManager(
@@ -410,6 +401,21 @@ public class IgniteImpl implements Ignite {
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
+
+        placementDriverMgr = new PlacementDriverManager(
+                metaStorageMgr,
+                vaultMgr,
+                MetastorageGroupId.INSTANCE,
+                clusterSvc,
+                raftConfiguration,
+                cmgMgr::metaStorageNodes,
+                logicalTopologyService,
+                raftExecutorService,
+                tablesConfiguration,
+                clock
+        );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
@@ -432,8 +438,6 @@ public class IgniteImpl implements Ignite {
         );
 
         Path storagePath = getPartitionsStorePath(workDir);
-
-        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
                 tablesConfiguration,
@@ -644,8 +648,8 @@ public class IgniteImpl implements Ignite {
                         try {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
-                                    placementDriverMgr,
                                     clusterCfgMgr,
+                                    placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
