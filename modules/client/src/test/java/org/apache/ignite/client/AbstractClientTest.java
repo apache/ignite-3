@@ -170,6 +170,12 @@ public abstract class AbstractClientTest {
         }
     }
 
+    /**
+     * Gets a client connected to the specified servers.
+     *
+     * @param servers Servers.
+     * @return Client.
+     */
     public static IgniteClient getClient(TestServer... servers) {
         String[] addresses = Arrays.stream(servers).map(s -> "127.0.0.1:" + s.port()).toArray(String[]::new);
 
@@ -180,6 +186,12 @@ public abstract class AbstractClientTest {
                 .build();
     }
 
+    /**
+     * Gets cluster nodes with the specified names.
+     *
+     * @param names Names.
+     * @return Nodes.
+     */
     public static Set<ClusterNode> getClusterNodes(String... names) {
         return Arrays.stream(names)
                 .map(s -> new ClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
