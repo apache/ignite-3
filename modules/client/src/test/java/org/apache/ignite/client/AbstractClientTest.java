@@ -21,10 +21,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.netty.util.ResourceLeakDetector;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -163,5 +168,21 @@ public abstract class AbstractClientTest {
             assertEquals(x.columnName(i), y.columnName(i));
             assertEquals((Object) x.value(i), y.value(i));
         }
+    }
+
+    public static IgniteClient getClient(TestServer... servers) {
+        String[] addresses = Arrays.stream(servers).map(s -> "127.0.0.1:" + s.port()).toArray(String[]::new);
+
+        return IgniteClient.builder()
+                .addresses(addresses)
+                .reconnectThrottlingPeriod(0)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(3))
+                .build();
+    }
+
+    public static Set<ClusterNode> getClusterNodes(String... names) {
+        return Arrays.stream(names)
+                .map(s -> new ClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
+                .collect(Collectors.toSet());
     }
 }

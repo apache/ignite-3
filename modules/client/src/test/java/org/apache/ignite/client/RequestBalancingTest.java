@@ -17,8 +17,16 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.AbstractClientTest.getClient;
+import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Set;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,20 +36,20 @@ import org.junit.jupiter.api.Test;
  */
 public class RequestBalancingTest {
     /** Test server 1. */
-    TestServer server1;
+    private TestServer server1;
 
     /** Test server 2. */
-    TestServer server2;
+    private TestServer server2;
 
     /** Test server 3. */
-    TestServer server3;
+    private TestServer server3;
 
     @BeforeEach
     void setUp() throws Exception {
         FakeIgnite ignite = new FakeIgnite();
-        server1 = AbstractClientTest.startServer(10900, 10, 0, ignite);
-        server2 = AbstractClientTest.startServer(10900, 10, 0, ignite);
-        server3 = AbstractClientTest.startServer(10900, 10, 0, ignite);
+        server1 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s1");
+        server2 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s2");
+        server3 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s3");
     }
 
     @AfterEach
@@ -50,7 +58,18 @@ public class RequestBalancingTest {
     }
 
     @Test
-    public void testRequestsAreRoundRobinBalanced() {
+    public void testRequestsAreRoundRobinBalanced() throws Exception {
+        try (var client = getClient(server1, server2, server3)) {
+            assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
+            Set<ClusterNode> clusterNodes = getClusterNodes("s1", "s2", "s3");
 
+            String res1 = client.compute().<String>execute(clusterNodes, "job").join();
+            String res2 = client.compute().<String>execute(clusterNodes, "job").join();
+            String res3 = client.compute().<String>execute(clusterNodes, "job").join();
+
+            assertEquals("s1", res1);
+            assertEquals("s2", res2);
+            assertEquals("s3", res3);
+        }
     }
 }
