@@ -34,6 +34,8 @@ import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
@@ -41,11 +43,21 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class Accumulators {
+
+    private final IgniteTypeFactory typeFactory;
+
+    /**
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public Accumulators(IgniteTypeFactory typeFactory) {
+        this.typeFactory = typeFactory;
+    }
+
     /**
      * AccumulatorFactory.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
+    public Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
         if (!call.isDistinct()) {
             return accumulatorFunctionFactory(call);
         }
@@ -55,11 +67,7 @@ public class Accumulators {
         return () -> new DistinctAccumulator(fac);
     }
 
-    /**
-     * AccumulatorFunctionFactory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
+    private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
         // Update documentation in IgniteCustomType when you add an aggregate
         // that can work for any type out of the box.
         switch (call.getAggregation().getName()) {
@@ -72,9 +80,9 @@ public class Accumulators {
             case "$SUM0":
                 return sumEmptyIsZeroFactory(call);
             case "MIN":
-                return minFactory(call);
+                return minMaxFactory(true, call);
             case "MAX":
-                return maxFactory(call);
+                return minMaxFactory(false, call);
             case "SINGLE_VALUE":
                 return SingleVal.FACTORY;
             case "ANY_VALUE":
@@ -84,7 +92,7 @@ public class Accumulators {
         }
     }
 
-    private static Supplier<Accumulator> avgFactory(AggregateCall call) {
+    private Supplier<Accumulator> avgFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
@@ -102,7 +110,7 @@ public class Accumulators {
         }
     }
 
-    private static Supplier<Accumulator> sumFactory(AggregateCall call) {
+    private Supplier<Accumulator> sumFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
@@ -125,7 +133,7 @@ public class Accumulators {
         }
     }
 
-    private static Supplier<Accumulator> sumEmptyIsZeroFactory(AggregateCall call) {
+    private Supplier<Accumulator> sumEmptyIsZeroFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
@@ -148,49 +156,22 @@ public class Accumulators {
         }
     }
 
-    private static Supplier<Accumulator> minFactory(AggregateCall call) {
-        switch (call.type.getSqlTypeName()) {
-            case DOUBLE:
-            case REAL:
-            case FLOAT:
-                return DoubleMinMax.MIN_FACTORY;
-            case DECIMAL:
-                return DecimalMinMax.MIN_FACTORY;
-            case INTEGER:
-                return IntMinMax.MIN_FACTORY;
-            case CHAR:
-            case VARCHAR:
-                return VarCharMinMax.MIN_FACTORY;
-            case BIGINT:
-            default:
-                // IgniteCustomType: MIN for a custom type should go here.
-                if (call.type.getSqlTypeName() == ANY) {
-                    throw unsupportedAggregateFunction(call);
-                }
-                return LongMinMax.MIN_FACTORY;
-        }
-    }
+    private Supplier<Accumulator> minMaxFactory(boolean min, AggregateCall call) {
+        var type = call.getType();
+        var typeName = type.getSqlTypeName();
 
-    private static Supplier<Accumulator> maxFactory(AggregateCall call) {
-        switch (call.type.getSqlTypeName()) {
-            case DOUBLE:
-            case REAL:
-            case FLOAT:
-                return DoubleMinMax.MAX_FACTORY;
-            case DECIMAL:
-                return DecimalMinMax.MAX_FACTORY;
-            case INTEGER:
-                return IntMinMax.MAX_FACTORY;
+        switch (typeName) {
             case CHAR:
             case VARCHAR:
-                return VarCharMinMax.MAX_FACTORY;
-            case BIGINT:
+                return min ? VarCharMinMax.MIN_FACTORY : VarCharMinMax.MAX_FACTORY;
             default:
-                // IgniteCustomType: MAX for a custom type should go here.
-                if (call.type.getSqlTypeName() == ANY) {
+                if (type instanceof IgniteCustomType) {
+                    return MinMaxAccumulator.newAccumulator(min, typeFactory, type);
+                } else if (type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
+                } else {
+                    return MinMaxAccumulator.newAccumulator(min, typeFactory, type);
                 }
-                return LongMinMax.MAX_FACTORY;
         }
     }
 
@@ -644,63 +625,81 @@ public class Accumulators {
         }
     }
 
-    private static class DoubleMinMax implements Accumulator {
-        public static final Supplier<Accumulator> MIN_FACTORY = () -> new DoubleMinMax(true);
+    private static final class MinMaxAccumulator implements Accumulator {
 
-        public static final Supplier<Accumulator> MAX_FACTORY = () -> new DoubleMinMax(false);
+        private static final long serialVersionUID = 0;
 
         private final boolean min;
 
-        private double val;
+        private final List<RelDataType> arguments;
 
-        private boolean empty = true;
+        private final RelDataType returnType;
 
-        private DoubleMinMax(boolean min) {
+        @SuppressWarnings({"rawtypes"})
+        private Comparable val;
+
+        private MinMaxAccumulator(boolean min, RelDataTypeFactory typeFactory, RelDataType relDataType) {
+            var nullableType = typeFactory.createTypeWithNullability(relDataType, true);
+
             this.min = min;
+            this.arguments = List.of(nullableType);
+            this.returnType = nullableType;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void add(Object... args) {
-            Double in = (Double) args[0];
+        static Supplier<Accumulator> newAccumulator(boolean min, RelDataTypeFactory typeFactory, RelDataType type) {
+            return () -> new MinMaxAccumulator(min, typeFactory, type);
+        }
 
+        /** {@inheritDoc} **/
+        @Override
+        @SuppressWarnings({"rawtypes"})
+        public void add(Object... args) {
+            Comparable in = (Comparable) args[0];
+
+            doApply(in);
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public void apply(Accumulator other) {
+            MinMaxAccumulator other0 = (MinMaxAccumulator) other;
+            doApply(other0.val);
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public Object end() {
+            return val;
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return arguments;
+        }
+
+        /** {@inheritDoc} **/
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return returnType;
+        }
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        private void doApply(Comparable in) {
             if (in == null) {
                 return;
             }
 
-            val = empty ? in : min ? Math.min(val, in) : Math.max(val, in);
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            DoubleMinMax other0 = (DoubleMinMax) other;
-
-            if (other0.empty) {
-                return;
+            if (val == null) {
+                val = in;
+            } else {
+                var cmp = val.compareTo(in);
+                if (min) {
+                    val = cmp > 0 ? in : val;
+                } else {
+                    val = cmp < 0 ? in : val;
+                }
             }
-
-            val = empty ? other0.val : min ? Math.min(val, other0.val) : Math.max(val, other0.val);
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object end() {
-            return empty ? null : val;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
-            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(DOUBLE), true));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DOUBLE), true);
         }
     }
 
@@ -788,182 +787,6 @@ public class Accumulators {
                 // if there are no differences, then the shorter seq is first
                 return Integer.compare(s1.length(), s2.length());
             }
-        }
-    }
-
-    private static class IntMinMax implements Accumulator {
-        public static final Supplier<Accumulator> MIN_FACTORY = () -> new IntMinMax(true);
-
-        public static final Supplier<Accumulator> MAX_FACTORY = () -> new IntMinMax(false);
-
-        private final boolean min;
-
-        private int val;
-
-        private boolean empty = true;
-
-        private IntMinMax(boolean min) {
-            this.min = min;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void add(Object... args) {
-            Integer in = (Integer) args[0];
-
-            if (in == null) {
-                return;
-            }
-
-            val = empty ? in : min ? Math.min(val, in) : Math.max(val, in);
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            IntMinMax other0 = (IntMinMax) other;
-
-            if (other0.empty) {
-                return;
-            }
-
-            val = empty ? other0.val : min ? Math.min(val, other0.val) : Math.max(val, other0.val);
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object end() {
-            return empty ? null : val;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
-            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(INTEGER), true));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(INTEGER), true);
-        }
-    }
-
-    private static class LongMinMax implements Accumulator {
-        public static final Supplier<Accumulator> MIN_FACTORY = () -> new LongMinMax(true);
-
-        public static final Supplier<Accumulator> MAX_FACTORY = () -> new LongMinMax(false);
-
-        private final boolean min;
-
-        private long val;
-
-        private boolean empty = true;
-
-        private LongMinMax(boolean min) {
-            this.min = min;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void add(Object... args) {
-            Long in = (Long) args[0];
-
-            if (in == null) {
-                return;
-            }
-
-            val = empty ? in : min ? Math.min(val, in) : Math.max(val, in);
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            LongMinMax other0 = (LongMinMax) other;
-
-            if (other0.empty) {
-                return;
-            }
-
-            val = empty ? other0.val : min ? Math.min(val, other0.val) : Math.max(val, other0.val);
-            empty = false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object end() {
-            return empty ? null : val;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
-            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(BIGINT), true));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(BIGINT), true);
-        }
-    }
-
-    private static class DecimalMinMax implements Accumulator {
-        public static final Supplier<Accumulator> MIN_FACTORY = () -> new DecimalMinMax(true);
-
-        public static final Supplier<Accumulator> MAX_FACTORY = () -> new DecimalMinMax(false);
-
-        private final boolean min;
-
-        private BigDecimal val;
-
-        private DecimalMinMax(boolean min) {
-            this.min = min;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void add(Object... args) {
-            BigDecimal in = (BigDecimal) args[0];
-
-            if (in == null) {
-                return;
-            }
-
-            val = val == null ? in : min ? val.min(in) : val.max(in);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator other) {
-            DecimalMinMax other0 = (DecimalMinMax) other;
-
-            if (other0.val == null) {
-                return;
-            }
-
-            val = val == null ? other0.val : min ? val.min(other0.val) : val.max(other0.val);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object end() {
-            return val;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
-            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), true);
         }
     }
 
