@@ -42,7 +42,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPart
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -277,10 +276,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             } catch (Throwable t) {
                 mvPartitionStorage.finishCleanup();
 
-                throw new StorageException(
-                        IgniteStringFormatter.format("Failed to cleanup storage: [{}]", mvPartitionStorage.createStorageInfo()),
-                        t
-                );
+                throw new StorageException("Failed to cleanup storage: [{}]", t, mvPartitionStorage.createStorageInfo());
             }
         }));
     }

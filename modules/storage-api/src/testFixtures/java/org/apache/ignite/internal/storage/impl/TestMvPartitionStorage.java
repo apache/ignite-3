@@ -569,6 +569,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    private void checkStorageClosedForRebalance() {
+        if (closed) {
+            throw new StorageRebalanceException();
+        }
+    }
+
     private void checkStorageInProcessOfRebalance() {
         if (rebalance) {
             throw new StorageRebalanceException();
@@ -581,7 +587,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     void startRebalance() {
-        checkStorageClosed();
+        checkStorageClosedForRebalance();
 
         rebalance = true;
 
@@ -594,7 +600,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     void abortRebalance() {
-        checkStorageClosed();
+        checkStorageClosedForRebalance();
 
         if (!rebalance) {
             return;
@@ -611,7 +617,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
-        checkStorageClosed();
+        checkStorageClosedForRebalance();
 
         assert rebalance;
 

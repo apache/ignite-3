@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -159,7 +160,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         StorageException exception = assertThrows(StorageException.class, () -> tableStorage.createMvPartition(0));
 
-        assertThat(exception.getMessage(), containsString("Storage already exists or is being created"));
+        assertThat(exception.getMessage(), containsString("Storage already exists"));
     }
 
     /**
@@ -407,8 +408,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, () -> getAll(getFromSortedIndexCursor));
         assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
 
-        // Let's check that nothing will happen if we try to destroy a non-existing partition.
-        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        // What happens if there is no partition?
+        assertThrows(StorageException.class, () -> tableStorage.destroyPartition(PARTITION_ID));
     }
 
     @Test
@@ -547,7 +548,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         mvPartitionStorage.close();
 
-        assertThrows(StorageRebalanceException.class, () -> tableStorage.startRebalancePartition(PARTITION_ID));
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willFailFast(StorageRebalanceException.class));
     }
 
     @Test
@@ -697,14 +698,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     @Test
     void testClearForCanceledOrRebalancedPartition() {
         MvPartitionStorage mvPartitionStorage0 = getOrCreateMvPartition(PARTITION_ID);
-        tableStorage.createMvPartition(PARTITION_ID + 1);
+        getOrCreateMvPartition(PARTITION_ID + 1);
 
         mvPartitionStorage0.close();
         assertThat(tableStorage.startRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
 
         try {
-            assertThrows(StorageClosedException.class, () -> tableStorage.clearPartition(PARTITION_ID));
-            assertThrows(StorageRebalanceException.class, () -> tableStorage.clearPartition(PARTITION_ID + 1));
+            assertThat(tableStorage.clearPartition(PARTITION_ID), willFailFast(StorageClosedException.class));
+            assertThat(tableStorage.clearPartition(PARTITION_ID + 1), willFailFast(StorageRebalanceException.class));
         } finally {
             assertThat(tableStorage.abortRebalancePartition(PARTITION_ID + 1), willCompleteSuccessfully());
         }

@@ -77,7 +77,6 @@ public interface MvTableStorage extends ManuallyCloseable {
      * @return Future that will complete when the destroy of the partition is completed.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      */
-    // TODO: IGNITE-18565 думаю тут надо бросаться исключением если не нашлось партиции или повторноу удаляем
     CompletableFuture<Void> destroyPartition(int partitionId) throws StorageException;
 
     /**
