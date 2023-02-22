@@ -256,6 +256,17 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
         assertEquals(2, res.get(0).size());
         assertTrue(Objects.deepEquals(new byte[]{1, 2, 3}, res.get(0).get(0)));
         assertTrue(Objects.deepEquals(new byte[]{4, 5, 6}, res.get(0).get(1)));
+
+        sql("INSERT INTO tbl VALUES (4, x'01'),(5, x'FF'), (6, x'99aabbccddeeff00')");
+        res = sql("SELECT MIN(b), MAX(b) FROM tbl");
+
+        assertTrue(Objects.deepEquals(new byte[]{1}, res.get(0).get(0)));
+        assertTrue(Objects.deepEquals(new byte[]{-1}, res.get(0).get(1)));
+
+        sql("INSERT INTO tbl VALUES (7, x'FFFF')");
+        res = sql("SELECT MAX(b) FROM tbl");
+
+        assertTrue(Objects.deepEquals(new byte[]{-1, -1}, res.get(0).get(0)));
     }
 
     /** Test concatenation for Binary type. */

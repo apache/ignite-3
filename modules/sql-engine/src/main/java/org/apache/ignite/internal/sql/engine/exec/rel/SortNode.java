@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.BoundedPriorityQueue;
 import org.jetbrains.annotations.Nullable;
 
