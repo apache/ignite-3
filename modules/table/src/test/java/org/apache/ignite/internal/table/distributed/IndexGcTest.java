@@ -212,6 +212,44 @@ public class IndexGcTest {
         assertTrue(inIndex(tableRow2));
     }
 
+    @Test
+    void testRemoveTombstones() {
+        UUID rowUuid = UUID.randomUUID();
+        RowId rowId = new RowId(1, rowUuid);
+
+        var key1 = new TestKey(1, "foo");
+        var value1 = new TestValue(2, "bar");
+        BinaryRow tableRow1 = binaryRow(key1, value1);
+
+        var key2 = new TestKey(1, "foo");
+        var value2 = new TestValue(5, "baz");
+        BinaryRow tableRow2 = binaryRow(key2, value2);
+
+        addWrite(storageUpdateHandler, rowUuid, tableRow1);
+        commitWrite(rowId);
+
+        addWrite(storageUpdateHandler, rowUuid, null);
+        commitWrite(rowId);
+
+        // Second tombstone won't be actually put into the storage, but still, let's check.
+        addWrite(storageUpdateHandler, rowUuid, null);
+        commitWrite(rowId);
+
+        assertEquals(2, getRowVersions(rowId).size());
+        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
+
+        HybridTimestamp afterCommits = CLOCK.now();
+
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
+
+        assertEquals(0, getRowVersions(rowId).size());
+        // Older entries have different indexes, should be removed.
+        assertFalse(inIndex(tableRow1));
+    }
+
     private boolean inIndex(BinaryRow row) {
         BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
         BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);

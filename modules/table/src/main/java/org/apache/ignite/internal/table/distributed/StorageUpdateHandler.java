@@ -236,7 +236,7 @@ public class StorageUpdateHandler {
                         continue;
                     }
 
-                    // If any of the previous versions' index value matches the index value of
+                    // If any of the previous versions' index value equals the index value of
                     // the row to remove, then we can't remove that index as it can still be used.
                     BinaryTuple previousRowIndex = index.resolveIndexRow(previousRow);
 
@@ -258,6 +258,7 @@ public class StorageUpdateHandler {
      * Tries removing partition's oldest stale entry and its indexes.
      *
      * @param lowWatermark Low watermark for the vacuum.
+     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
      */
     public boolean vacuum(HybridTimestamp lowWatermark) {
         return storage.runConsistently(() -> {
@@ -275,8 +276,6 @@ public class StorageUpdateHandler {
             RowId rowId = vacuumed.rowId();
 
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                assert cursor.hasNext();
-
                 tryRemoveFromIndexes(binaryRow, rowId, cursor);
             }
 

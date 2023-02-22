@@ -171,8 +171,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *
      * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
      */
-    @Nullable
-    BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark);
+    @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark);
 
     /**
      * Returns the underlying {@link MvPartitionStorage}. Only for tests!

@@ -113,7 +113,7 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         return partitionStorage.pollForVacuum(lowWatermark);
     }
 
