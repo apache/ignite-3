@@ -46,11 +46,6 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  */
 public class IgniteSort extends Sort implements IgniteRel {
     /**
-     * Enforcer flag.
-     */
-    private final boolean enforcer;
-
-    /**
      * Constructor.
      *
      * @param cluster Cluster.
@@ -59,7 +54,6 @@ public class IgniteSort extends Sort implements IgniteRel {
      * @param collation Collation.
      * @param offset Offset.
      * @param fetch Limit.
-     * @param enforcer Enforcer flag.
      */
     public IgniteSort(
             RelOptCluster cluster,
@@ -67,12 +61,9 @@ public class IgniteSort extends Sort implements IgniteRel {
             RelNode child,
             RelCollation collation,
             RexNode offset,
-            RexNode fetch,
-            boolean enforcer
+            RexNode fetch
     ) {
         super(cluster, traits, child, collation, offset, fetch);
-
-        this.enforcer = enforcer;
     }
 
     /**
@@ -82,15 +73,13 @@ public class IgniteSort extends Sort implements IgniteRel {
      * @param traits Trait set.
      * @param child Input node.
      * @param collation Collation.
-     * @param enforcer Enforcer flag.
      */
     public IgniteSort(
             RelOptCluster cluster,
             RelTraitSet traits,
             RelNode child,
-            RelCollation collation,
-            boolean enforcer) {
-        this(cluster, traits, child, collation, null, null, enforcer);
+            RelCollation collation) {
+        this(cluster, traits, child, collation, null, null);
     }
 
     /**
@@ -99,9 +88,6 @@ public class IgniteSort extends Sort implements IgniteRel {
      */
     public IgniteSort(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
-
-        // No need to enforce anything on ready, fragmented and sent plan.
-        enforcer = false;
     }
 
     /** {@inheritDoc} */
@@ -113,7 +99,7 @@ public class IgniteSort extends Sort implements IgniteRel {
             RexNode offset,
             RexNode fetch
     ) {
-        return new IgniteSort(getCluster(), traitSet, newInput, traitSet.getCollation(), offset, fetch, enforcer);
+        return new IgniteSort(getCluster(), traitSet, newInput, traitSet.getCollation(), offset, fetch);
     }
 
     /** {@inheritDoc} */
@@ -189,13 +175,7 @@ public class IgniteSort extends Sort implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteSort(cluster, getTraitSet(), sole(inputs), collation, offset, fetch, enforcer);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean isEnforcer() {
-        return enforcer;
+        return new IgniteSort(cluster, getTraitSet(), sole(inputs), collation, offset, fetch);
     }
 
     /** Rows number to keep in memory and sort. */

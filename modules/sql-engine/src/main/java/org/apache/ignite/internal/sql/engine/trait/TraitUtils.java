@@ -147,7 +147,7 @@ public class TraitUtils {
 
         RelTraitSet traits = rel.getTraitSet().replace(toTrait);
 
-        return new IgniteSort(rel.getCluster(), traits, rel, toTrait, true);
+        return new IgniteSort(rel.getCluster(), traits, rel, toTrait);
     }
 
     /**

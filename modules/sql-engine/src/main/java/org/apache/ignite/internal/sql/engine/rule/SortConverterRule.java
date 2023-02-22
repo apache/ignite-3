@@ -80,8 +80,7 @@ public class SortConverterRule extends RelRule<SortConverterRule.Config> {
                         convert(sort.getInput(), cluster.traitSetOf(IgniteConvention.INSTANCE)),
                         sort.getCollation(),
                         sort.offset,
-                        sort.fetch,
-                        false
+                        sort.fetch
                 );
 
                 call.transformTo(
@@ -97,7 +96,7 @@ public class SortConverterRule extends RelRule<SortConverterRule.Config> {
             RelTraitSet inTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
             RelNode input = convert(sort.getInput(), inTraits);
 
-            call.transformTo(new IgniteSort(cluster, outTraits, input, sort.getCollation(), false));
+            call.transformTo(new IgniteSort(cluster, outTraits, input, sort.getCollation()));
         }
     }
 }

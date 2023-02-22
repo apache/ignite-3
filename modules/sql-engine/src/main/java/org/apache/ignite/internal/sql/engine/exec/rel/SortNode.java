@@ -175,7 +175,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 while (!rows.isEmpty()) {
                     reversed.add(rows.poll());
 
-                    if (++processed >= Commons.IN_BUFFER_SIZE) {
+                    if (++processed >= inBufSize) {
                         // Allow the others to do their job.
                         context().execute(this::flush, this::onError);
 
