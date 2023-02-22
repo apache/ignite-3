@@ -28,6 +28,7 @@ import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Service loader based implementation of an entry point for handling grid lifecycle.
@@ -112,9 +113,7 @@ public class IgnitionManager {
      * @param nodeName Node name to stop.
      */
     public static void stop(String nodeName) {
-        Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
-
-        ignition.stop(nodeName);
+        stop(nodeName, Thread.currentThread().getContextClassLoader());
     }
 
     /**
@@ -129,6 +128,16 @@ public class IgnitionManager {
         Ignition ignition = loadIgnitionService(clsLdr);
 
         ignition.stop(nodeName);
+    }
+
+    /**
+     * Stops all Ignite instances started in this JVM.
+     */
+    @TestOnly
+    public static void stopAll() {
+        Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
+
+        ignition.stopAll();
     }
 
     /**
