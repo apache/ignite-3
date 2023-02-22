@@ -59,7 +59,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile byte @Nullable [] groupConfig;
 
-    private final int partitionId;
+    final int partitionId;
 
     private volatile boolean closed;
 
