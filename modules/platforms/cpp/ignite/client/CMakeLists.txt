@@ -71,6 +71,4 @@ if (${INSTALL_IGNITE_FILES})
     ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
 endif()
 
-ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
-
 ignite_test(primitive_test primitive_test.cpp LIBS ${TARGET})
