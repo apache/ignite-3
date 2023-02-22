@@ -56,15 +56,10 @@ public interface Version extends Comparable<Version> {
      * @return Version instance of
      */
     static Version parseVersion(String s) {
-        try {
-            return UnitVersion.parse(s);
-        } catch (VersionParseException ignored) {
-            //No-op
+        if ("latest".equals(s)) {
+            return LATEST;
         }
 
-        if (!"latest".equals(s)) {
-            throw new VersionParseException("Cannot parse `" + s + "` as version.");
-        }
-        return LATEST;
+        return UnitVersion.parse(s);
     }
 }

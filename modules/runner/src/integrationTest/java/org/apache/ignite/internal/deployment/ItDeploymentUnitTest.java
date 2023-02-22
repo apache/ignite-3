@@ -21,7 +21,6 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.FileInputStream;
@@ -35,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.UnitStatus;
 import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
@@ -50,7 +50,7 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link org.apache.ignite.deployment.IgniteDeployment}.
  */
 public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
-    private static final long REPLICA_TIMEOUT = 10;
+    private static final long REPLICA_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
     private static final long SIZE_IN_BYTES = 1024L;
 
     private Path dummyFile;
@@ -61,7 +61,7 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
 
         if (!Files.exists(dummyFile)) {
             try (SeekableByteChannel channel = Files.newByteChannel(dummyFile, WRITE, CREATE)) {
-                channel.position(SIZE_IN_BYTES);
+                channel.position(SIZE_IN_BYTES - 4);
 
                 ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
                 buf.rewind();
@@ -111,7 +111,6 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
         assertThat(versions, willBe(List.of(unit1.version, unit2.version)));
     }
 
-
     @Test
     public void testDeployTwoUnitsAndUndeployOne() throws Exception {
         Unit unit1 = deployAndVerify("test", Version.parseVersion("1.1.0"), 1);
@@ -132,8 +131,7 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
         assertThat(newVersions, willBe(List.of(unit1.version)));
     }
 
-
-    private Unit deployAndVerify(String id, Version version, int nodeIndex) throws Exception {
+    private Unit deployAndVerify(String id, Version version, int nodeIndex) {
         IgniteImpl entryNode = node(nodeIndex);
 
         CompletableFuture<Boolean> deploy = entryNode.deployment()
@@ -142,7 +140,7 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
         assertThat(deploy, willBe(true));
 
         Unit unit = new Unit(entryNode, id, version);
-        assertThat(getNodeUnitFile(unit).toFile().exists(), is(true));
+        assertTrue(Files.exists(getNodeUnitFile(unit)));
 
         return unit;
     }
@@ -163,7 +161,13 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
 
     private void waitUnitReplica(IgniteImpl ignite, Unit unit) throws InterruptedException {
         Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version);
-        IgniteTestUtils.waitForCondition(() -> unitPath.toFile().getTotalSpace() == SIZE_IN_BYTES, REPLICA_TIMEOUT);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+            try {
+                return Files.exists(unitPath) && Files.size(unitPath) == SIZE_IN_BYTES;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }, REPLICA_TIMEOUT));
     }
 
     private void waitUnitClean(IgniteImpl ignite, Unit unit) throws InterruptedException {

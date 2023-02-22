@@ -35,6 +35,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-configuration')
     implementation project(':ignite-network')
+    implementation project(':ignite-schema')
 
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional

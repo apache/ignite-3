@@ -60,6 +60,7 @@ import org.apache.ignite.internal.deployunit.message.DeployUnitResponseBuilder;
 import org.apache.ignite.internal.deployunit.message.DeployUnitResponseImpl;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitRequestImpl;
+import org.apache.ignite.internal.deployunit.message.UndeployUnitResponse;
 import org.apache.ignite.internal.deployunit.message.UndeployUnitResponseImpl;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -231,7 +232,14 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                                                 .id(id)
                                                 .version(version.render())
                                                 .build(),
-                                        Long.MAX_VALUE);
+                                        Long.MAX_VALUE)
+                                .thenAccept(message -> {
+                                    Throwable error = ((UndeployUnitResponse) message).error();
+                                    if (error != null) {
+                                        LOG.error("Failed to undeploy unit " + id + ":" + version
+                                                + " from node " + node, error);
+                                    }
+                                });
                     }
                     return null;
                 });

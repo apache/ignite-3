@@ -53,7 +53,7 @@ public class UnitVersion implements Version {
      */
     public static UnitVersion parse(String s) {
         try {
-            String[] split = s.split("\\.");
+            String[] split = s.split("\\.", -1);
             if (split.length > 3 || split.length == 0) {
                 throw new VersionParseException("Invalid version format");
             }
