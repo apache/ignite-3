@@ -108,7 +108,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param keys Keys.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   resulting records with all columns filled from the table. The order of
      *   elements is guaranteed to be the same as the order of keys. If a record
      *   does not exist, the resulting element of the corresponding order is
@@ -187,7 +187,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param pairs Pairs to put.
-     * @param callback Callback that called on operation completion.
+     * @param callback Callback that is called on operation completion.
      */
     IGNITE_API void put_all_async(
         transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs, ignite_callback<void> callback);
@@ -264,7 +264,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param key Key.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
     IGNITE_API void remove_async(transaction *tx, const key_type &key, ignite_callback<bool> callback);
@@ -288,7 +288,7 @@ public:
      *   single operation is used.
      * @param key Key.
      * @param value Value.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
     IGNITE_API void remove_async(
@@ -316,7 +316,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param keys Keys.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   records from @c keys that did not exist.
      */
     IGNITE_API void remove_all_async(
@@ -344,7 +344,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param pairs Pairs to remove.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   records from @c records that did not exist.
      */
     IGNITE_API void remove_all_async(
@@ -371,7 +371,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param key Key.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a removed record or @c std::nullopt if it did not exist.
      */
     IGNITE_API void get_and_remove_async(
