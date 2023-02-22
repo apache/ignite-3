@@ -22,32 +22,88 @@ Creates a new distribution zone.
 
 [source,sql]
 ----
-CREATE ZONE
-    { database_name.schema_name.distribution_zone_name | schema_name.distribution_zone_name | distribution_zone_name }
+CREATE ZONE [IF NOT EXISTS] qualified_zone_name
     [WITH
         [
-            <data_nodes_auto_adjust> |
-            (<data_nodes_auto_adjust>, DATA_NODES_FILTER = filter)
-        ],
-        [PARTITIONS = partitions],
-        [REPLICAS = replicas],
-        [AFFINITY_FUNCTION = function]
+            ([DATA_NODES_AUTO_ADJUST = adjust_value],
+            [DATA_NODES_AUTO_ADJUST_SCALE_UP = adjust_value],
+            [DATA_NODES_AUTO_ADJUST_SCALE_DOWN = adjust_value],
+            [DATA_NODES_FILTER = filter_name])
+        ]
     ]
 [;]
 ----
 
+
+* `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
+* `IF NOT EXISTS` - create a zone only if a different zone with the same name does not exist.
+* `WITH` - accepts the following additional parameters:
+- `DATA_NODES_AUTO_ADJUST` - the delay in seconds between any topology changes and the start of data zone adjustment.
+- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
+- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
+- `DATA_NODES_FILTER` - a list of node names or node attributes. Only the nodes with these attributes are included in the distribution zone.
+
+Examples:
+
+Creates an `exampleZone` distribution zone:
+
+----
+CREATE ZONE IF NOT EXISTS exampleZone
+----
+
+
+Creates an `exampleZone` distribution zone that will only use nodes with SSD attribute and adjust 300 seconds after cluster topology changes:
+
+----
+CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER='SSD', DATA_NODES_AUTO_ADJUST=300
+----
+
+
+== ALTER ZONE
+
+Modifies an existing distribution zone.
+
+----
+ALTER ZONE IF EXISTS { 'qualified_zone_name' }
+    [RENAME TO {new_qualified_zone_name}] [;]
+    [WITH
+        [
+            ([DATA_NODES_AUTO_ADJUST = adjust_value],
+            [DATA_NODES_AUTO_ADJUST_SCALE_UP = adjust_value],
+            [DATA_NODES_AUTO_ADJUST_SCALE_DOWN = adjust_value],
+            [DATA_NODES_FILTER = filter_name])
+        ]
+    ]
+----
+
+* `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
+* `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
+* `WITH` - accepts the following additional parameters:
+- `DATA_NODES_AUTO_ADJUST` - the delay in seconds between any topology changes and the start of data zone adjustment.
+- `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
+- `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
+- `DATA_NODES_FILTER` - a list of node names or node attributes. Only the nodes with these attributes are included in the distribution zone.
+
+== DROP ZONE
+
+The `DROP ZONE` command drops an existing distribution zone.
+
+----
+DROP ZONE IF EXISTS qualified_zone_name
+----
+
 Parameters:
 
-* `DATA_NODES_FILTER` -
-* `PARTITIONS` -
-* `REPLICAS` -
-* `AFFINITY_FUNCTION` -
+- `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
+- `qualified_zone_name` - the name of the distribution zone. Can be schema-qualified.
 
+Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
+Examples:
+
+Drop Person table if the one exists:
 
 [source,sql]
 ----
-DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value |
-DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value |
-(DATA_NODES_AUTO_ADJUST_SCALE_UP = scale_up_value & DATA_NODES_AUTO_ADJUST_SCALE_DOWN = scale_down_value) | DATA_NODES_AUTO_ADJUST  = auto_adjust_value
+DROP ZONE IF EXISTS exampleZone
 ----
