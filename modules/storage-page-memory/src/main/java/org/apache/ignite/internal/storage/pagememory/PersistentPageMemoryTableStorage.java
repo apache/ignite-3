@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -108,8 +107,6 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     @Override
     public PersistentPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        waitPartitionToBeDestroyed(partitionId);
-
         TableView tableView = tableCfg.value();
 
         GroupPartitionId groupPartitionId = createGroupPartitionId(partitionId);
@@ -551,26 +548,5 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         FilePageStore filePageStore = ensurePartitionFilePageStoreExists(tableView, groupPartitionId);
 
         return getOrCreatePartitionMeta(groupPartitionId, filePageStore);
-    }
-
-    // TODO: IGNITE-18565 вот тут надо будет удалить, после интеграции с уничтожением партиции
-    private void waitPartitionToBeDestroyed(int partitionId) {
-        CompletableFuture<Void> partitionDestroyFuture = destroyFutureByPartitionId.get(partitionId);
-
-        if (partitionDestroyFuture != null) {
-            try {
-                // TODO: IGNITE-18565 We need to return a CompletableFuture
-                partitionDestroyFuture.get(10, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new StorageException(
-                        IgniteStringFormatter.format(
-                                "Error waiting for the destruction of the previous version of the partition: [table={}, partitionId={}]",
-                                getTableName(),
-                                partitionId
-                        ),
-                        e
-                );
-            }
-        }
     }
 }

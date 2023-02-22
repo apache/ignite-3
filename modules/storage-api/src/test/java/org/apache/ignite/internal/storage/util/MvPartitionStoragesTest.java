@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -54,7 +56,7 @@ public class MvPartitionStoragesTest {
     @InjectConfiguration
     private TableConfiguration tableConfig;
 
-    private MvPartitionStorages mvPartitionStorages;
+    private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
 
     @BeforeEach
     void setUp() {
@@ -127,7 +129,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishDestroyMvStorageFuture = new CompletableFuture<>();
 
         CompletableFuture<?> destroyMvStorageFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.destroy(0, partId -> {
+                assertThat(mvPartitionStorages.destroy(0, mvStorage1 -> {
                     startDestroyMvStorageFuture.complete(null);
 
                     return finishDestroyMvStorageFuture;
@@ -163,7 +165,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishErrorDestroyMvStorageFuture = new CompletableFuture<>();
 
         CompletableFuture<?> errorDestroyMvStorageFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.destroy(0, partId -> {
+                assertThat(mvPartitionStorages.destroy(0, mvStorage1 -> {
                     startErrorDestroyMvStorageFuture.complete(null);
 
                     return finishErrorDestroyMvStorageFuture;
@@ -179,7 +181,7 @@ public class MvPartitionStoragesTest {
         assertThat(errorDestroyMvStorageFuture, willFailFast(RuntimeException.class));
         assertThat(errorReCreateMvStorageFuture, willFailFast(RuntimeException.class));
 
-        assertSame(mvStorage, getMvStorage(0));
+        assertNull(getMvStorage(0));
     }
 
     @Test
@@ -203,7 +205,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishDestroyMvStorageFuture = new CompletableFuture<>();
 
         CompletableFuture<?> destroyMvStorageFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.destroy(0, partId -> {
+                assertThat(mvPartitionStorages.destroy(0, mvStorage -> {
                     startDestroyMvStorageFuture.complete(null);
 
                     return finishDestroyMvStorageFuture;
@@ -212,15 +214,12 @@ public class MvPartitionStoragesTest {
 
         assertThat(startDestroyMvStorageFuture, willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage is already in process of being destroyed");
-        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage is already in process of being destroyed");
+        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
+        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage does not exist");
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0),
-                "Storage is already in process of being destroyed");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0),
-                "Storage is already in process of being destroyed");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0),
-                "Storage is already in process of being destroyed");
+        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0), "Storage does not exist");
+        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Storage does not exist");
+        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0), "Storage does not exist");
 
         finishDestroyMvStorageFuture.complete(null);
 
@@ -242,11 +241,11 @@ public class MvPartitionStoragesTest {
         // What if there is an error during the operation?
 
         assertThat(
-                mvPartitionStorages.destroy(0, partId -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.destroy(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
-        assertNotNull(getMvStorage(0));
+        assertNull(getMvStorage(0));
     }
 
     @Test
@@ -259,7 +258,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishCleanupMvStorageFuture = new CompletableFuture<>();
 
         CompletableFuture<?> cleanupMvStorageFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.clear(0, partId -> {
+                assertThat(mvPartitionStorages.clear(0, mvStorage1 -> {
                     startCleanupMvStorageFuture.complete(null);
 
                     return finishCleanupMvStorageFuture;
@@ -296,7 +295,7 @@ public class MvPartitionStoragesTest {
         // What if there is an error during the operation?
 
         assertThat(
-                mvPartitionStorages.clear(0, partId -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.clear(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -311,7 +310,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishStartRebalanceMvStorage = new CompletableFuture<>();
 
         CompletableFuture<?> startRebalanceFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.startRebalace(0, partId -> {
+                assertThat(mvPartitionStorages.startRebalace(0, mvStorage -> {
                     startStartRebalanceMvStorage.complete(null);
 
                     return finishStartRebalanceMvStorage;
@@ -353,7 +352,7 @@ public class MvPartitionStoragesTest {
         // What if there is an error during the operation?
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, partId -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -377,7 +376,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishAbortRebalanceFuture = new CompletableFuture<>();
 
         CompletableFuture<?> abortRebalanceFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.abortRebalance(0, partId -> {
+                assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
                     startAbortRebalanceFuture.complete(null);
 
                     return finishAbortRebalanceFuture;
@@ -406,7 +405,7 @@ public class MvPartitionStoragesTest {
 
         AtomicBoolean invokeAbortFunction = new AtomicBoolean();
 
-        assertThat(mvPartitionStorages.abortRebalance(0, partId -> {
+        assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
             invokeAbortFunction.set(true);
 
             return completedFuture(null);
@@ -419,11 +418,11 @@ public class MvPartitionStoragesTest {
         invokeAbortFunction.set(false);
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, partId -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
-        assertThat(mvPartitionStorages.abortRebalance(0, partId -> {
+        assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
             invokeAbortFunction.set(true);
 
             return completedFuture(null);
@@ -445,7 +444,7 @@ public class MvPartitionStoragesTest {
         // What if there is an error during the operation?
 
         assertThat(
-                mvPartitionStorages.abortRebalance(0, partId -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.abortRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
     }
@@ -460,7 +459,7 @@ public class MvPartitionStoragesTest {
         CompletableFuture<Void> finishFinishRebalanceFuture = new CompletableFuture<>();
 
         CompletableFuture<?> finishRebalanceFuture = runAsync(() ->
-                assertThat(mvPartitionStorages.finishRebalance(0, partId -> {
+                assertThat(mvPartitionStorages.finishRebalance(0, mvStorage -> {
                     startFinishRebalanceFuture.complete(null);
 
                     return finishFinishRebalanceFuture;
@@ -501,7 +500,7 @@ public class MvPartitionStoragesTest {
         // What if there is an error during the operation?
 
         assertThat(
-                mvPartitionStorages.finishRebalance(0, partId -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.finishRebalance(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
@@ -510,11 +509,57 @@ public class MvPartitionStoragesTest {
         assertThat(abortRebalanceMvStorage(0), willCompleteSuccessfully());
 
         assertThat(
-                mvPartitionStorages.startRebalace(0, partId -> failedFuture(new RuntimeException("from test"))),
+                mvPartitionStorages.startRebalace(0, mvStorage -> failedFuture(new RuntimeException("from test"))),
                 willFailFast(RuntimeException.class)
         );
 
         assertThat(finishRebalanceMvStorage(0), willFailFast(RuntimeException.class));
+    }
+
+    @Test
+    void testGetAllForClose() {
+        MvPartitionStorage storage0 = mock(MvPartitionStorage.class);
+        MvPartitionStorage storage1 = mock(MvPartitionStorage.class);
+
+        assertThat(mvPartitionStorages.create(0, partId -> storage0), willCompleteSuccessfully());
+        assertThat(mvPartitionStorages.create(1, partId -> storage1), willCompleteSuccessfully());
+
+        assertThat(mvPartitionStorages.getAllForClose(), contains(storage0, storage1));
+    }
+
+    @Test
+    void testDestroyAll() {
+        MvPartitionStorage storage0 = mock(MvPartitionStorage.class);
+        MvPartitionStorage storage1 = mock(MvPartitionStorage.class);
+
+        assertThat(mvPartitionStorages.create(0, partId -> storage0), willCompleteSuccessfully());
+        assertThat(mvPartitionStorages.create(1, partId -> storage1), willCompleteSuccessfully());
+
+        CompletableFuture<Void> startDestroyMvStorage0Future = new CompletableFuture<>();
+        CompletableFuture<Void> finishDestroyMvStorage0Future = new CompletableFuture<>();
+
+        CompletableFuture<?> destroyMvStorage0Future = runAsync(() ->
+                assertThat(mvPartitionStorages.destroy(0, mvStorage -> {
+                    startDestroyMvStorage0Future.complete(null);
+
+                    return finishDestroyMvStorage0Future;
+                }), willCompleteSuccessfully())
+        );
+
+        assertThat(startDestroyMvStorage0Future, willCompleteSuccessfully());
+
+        CompletableFuture<Void> destroyAllMvStoragesFuture = mvPartitionStorages.destroyAll(mvStorage -> {
+            assertSame(mvStorage, storage1);
+
+            return completedFuture(null);
+        });
+
+        assertThat(destroyAllMvStoragesFuture, willFailFast(TimeoutException.class));
+
+        finishDestroyMvStorage0Future.complete(null);
+
+        assertThat(destroyMvStorage0Future, willCompleteSuccessfully());
+        assertThat(destroyAllMvStoragesFuture, willCompleteSuccessfully());
     }
 
     private MvPartitionStorage getMvStorage(int partitionId) {
@@ -526,23 +571,23 @@ public class MvPartitionStoragesTest {
     }
 
     private CompletableFuture<Void> destroyMvStorage(int partitionId) {
-        return mvPartitionStorages.destroy(partitionId, partId -> completedFuture(null));
+        return mvPartitionStorages.destroy(partitionId, mvStorage -> completedFuture(null));
     }
 
     private CompletableFuture<Void> clearMvStorage(int partitionId) {
-        return mvPartitionStorages.clear(partitionId, partId -> completedFuture(null));
+        return mvPartitionStorages.clear(partitionId, mvStorage -> completedFuture(null));
     }
 
     private CompletableFuture<Void> startRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.startRebalace(partitionId, partId -> completedFuture(null));
+        return mvPartitionStorages.startRebalace(partitionId, mvStorage -> completedFuture(null));
     }
 
     private CompletableFuture<Void> abortRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.abortRebalance(partitionId, partId -> completedFuture(null));
+        return mvPartitionStorages.abortRebalance(partitionId, mvStorage -> completedFuture(null));
     }
 
     private CompletableFuture<Void> finishRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.finishRebalance(partitionId, partId -> completedFuture(null));
+        return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> completedFuture(null));
     }
 
     private int getPartitionIdOutOfConfig() {

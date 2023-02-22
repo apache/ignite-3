@@ -19,12 +19,18 @@ package org.apache.ignite.internal.storage.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -41,10 +47,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class for storing stores and performing operations on them.
  */
-public class MvPartitionStorages {
+public class MvPartitionStorages<T extends MvPartitionStorage> {
     private final TableView tableView;
 
-    private final AtomicReferenceArray<MvPartitionStorage> storageByPartitionId;
+    private final AtomicReferenceArray<T> storageByPartitionId;
 
     private final ConcurrentMap<Integer, StorageOperation> operationByPartitionId = new ConcurrentHashMap<>();
 
@@ -66,7 +72,7 @@ public class MvPartitionStorages {
      *
      * @throws IllegalArgumentException If partition ID is out of configured bounds.
      */
-    public @Nullable MvPartitionStorage get(int partitionId) {
+    public @Nullable T get(int partitionId) {
         checkPartitionId(partitionId);
 
         return storageByPartitionId.get(partitionId);
@@ -83,7 +89,7 @@ public class MvPartitionStorages {
      * @throws StorageException If the storage already exists or another operation is already in progress.
      * @throws StorageException If the creation of the storage after its destruction is already planned.
      */
-    public CompletableFuture<MvPartitionStorage> create(int partitionId, IntFunction<MvPartitionStorage> createStorageFunction) {
+    public CompletableFuture<MvPartitionStorage> create(int partitionId, IntFunction<T> createStorageFunction) {
         StorageOperation storageOperation = operationByPartitionId.compute(partitionId, (partId, operation) -> {
             if (operation instanceof DestroyStorageOperation) {
                 if (!((DestroyStorageOperation) operation).setCreationOperation(new CreateStorageOperation())) {
@@ -109,13 +115,13 @@ public class MvPartitionStorages {
                 : completedFuture(null);
 
         return destroyStorageFuture.thenApply(unused -> {
-            MvPartitionStorage newStorage = createStorageFunction.apply(partitionId);
+            T newStorage = createStorageFunction.apply(partitionId);
 
             boolean set = storageByPartitionId.compareAndSet(partitionId, null, newStorage);
 
             assert set : createStorageInfo(partitionId);
 
-            return newStorage;
+            return (MvPartitionStorage) newStorage;
         }).whenComplete((storage, throwable) -> operationByPartitionId.compute(partitionId, (partId, operation) -> {
             assert operation instanceof CreateStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
@@ -127,13 +133,13 @@ public class MvPartitionStorages {
      * Destroys a multi-versioned partition storage.
      *
      * @param partitionId Partition ID.
-     * @param destroyStorageFunction Partition destruction function, the argument is the partition ID.
+     * @param destroyStorageFunction Partition destruction function.
      * @return Future of multi-versioned partition storage destruction.
      * @throws IllegalArgumentException If partition ID is out of configured bounds.
      * @throws StorageException If the storage does not exist or another operation is already in progress.
      * @throws StorageRebalanceException If the storage is in the process of rebalancing.
      */
-    public CompletableFuture<Void> destroy(int partitionId, IntFunction<CompletableFuture<Void>> destroyStorageFunction) {
+    public CompletableFuture<Void> destroy(int partitionId, Function<T, CompletableFuture<Void>> destroyStorageFunction) {
         DestroyStorageOperation destroyOp = (DestroyStorageOperation) operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExists(partitionId);
 
@@ -143,8 +149,7 @@ public class MvPartitionStorages {
         });
 
         return completedFuture(null)
-                .thenCompose(unused -> destroyStorageFunction.apply(partitionId))
-                .thenAccept(unused -> storageByPartitionId.set(partitionId, null))
+                .thenCompose(unused -> destroyStorageFunction.apply(storageByPartitionId.getAndSet(partitionId, null)))
                 .whenComplete((unused, throwable) -> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
@@ -166,13 +171,13 @@ public class MvPartitionStorages {
      * Clears a multi-versioned partition storage.
      *
      * @param partitionId Partition ID.
-     * @param clearStorageFunction Partition clean up function, the argument is the partition ID.
+     * @param clearStorageFunction Partition clean up function.
      * @return Future of cleaning a multi-versioned partition storage.
      * @throws IllegalArgumentException If partition ID is out of configured bounds.
      * @throws StorageException If the storage does not exist or another operation is already in progress.
      * @throws StorageRebalanceException If the storage is in the process of rebalancing.
      */
-    public CompletableFuture<Void> clear(int partitionId, IntFunction<CompletableFuture<Void>> clearStorageFunction) {
+    public CompletableFuture<Void> clear(int partitionId, Function<T, CompletableFuture<Void>> clearStorageFunction) {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExists(partitionId);
 
@@ -182,7 +187,7 @@ public class MvPartitionStorages {
         });
 
         return completedFuture(null)
-                .thenCompose(unused -> clearStorageFunction.apply(partitionId))
+                .thenCompose(unused -> clearStorageFunction.apply(get(partitionId)))
                 .whenComplete((unused, throwable) ->
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
                             assert operation instanceof CleanupStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
@@ -196,13 +201,13 @@ public class MvPartitionStorages {
      * Starts a multi-versioned partition storage rebalance.
      *
      * @param partitionId Partition ID.
-     * @param startRebalanceStorageFunction Partition start rebalance function, the argument is the partition ID.
+     * @param startRebalanceStorageFunction Partition start rebalance function.
      * @return Future of starting rebalance a multi-versioned partition storage.
      * @throws IllegalArgumentException If partition ID is out of configured bounds.
      * @throws StorageRebalanceException If the storage does not exist or another operation is already in progress.
      * @throws StorageRebalanceException If rebalancing is already in progress.
      */
-    public CompletableFuture<Void> startRebalace(int partitionId, IntFunction<CompletableFuture<Void>> startRebalanceStorageFunction) {
+    public CompletableFuture<Void> startRebalace(int partitionId, Function<T, CompletableFuture<Void>> startRebalanceStorageFunction) {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
@@ -217,7 +222,7 @@ public class MvPartitionStorages {
 
         return completedFuture(null)
                 .thenCompose(unused -> {
-                    CompletableFuture<Void> startRebalanceFuture = startRebalanceStorageFunction.apply(partitionId);
+                    CompletableFuture<Void> startRebalanceFuture = startRebalanceStorageFunction.apply(get(partitionId));
 
                     CompletableFuture<Void> old = rebalaceFutureByPartitionId.put(partitionId, startRebalanceFuture);
 
@@ -238,12 +243,12 @@ public class MvPartitionStorages {
      * Aborts a multi-versioned partition storage rebalance if started (successful or not).
      *
      * @param partitionId Partition ID.
-     * @param abortRebalanceStorageFunction Partition abort rebalance function, the argument is the partition ID.
+     * @param abortRebalanceStorageFunction Partition abort rebalance function.
      * @return Future of aborting rebalance a multi-versioned partition storage.
      * @throws IllegalArgumentException If partition ID is out of configured bounds.
      * @throws StorageRebalanceException If the storage does not exist or another operation is already in progress.
      */
-    public CompletableFuture<Void> abortRebalance(int partitionId, IntFunction<CompletableFuture<Void>> abortRebalanceStorageFunction) {
+    public CompletableFuture<Void> abortRebalance(int partitionId, Function<T, CompletableFuture<Void>> abortRebalanceStorageFunction) {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
@@ -261,7 +266,7 @@ public class MvPartitionStorages {
                     }
 
                     return rebalanceFuture
-                            .handle((unused1, throwable) -> abortRebalanceStorageFunction.apply(partitionId))
+                            .handle((unused1, throwable) -> abortRebalanceStorageFunction.apply(get(partitionId)))
                             .thenCompose(identity());
                 }).whenComplete((unused, throwable) ->
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
@@ -283,7 +288,7 @@ public class MvPartitionStorages {
      * @throws StorageRebalanceException If the storage does not exist or another operation is already in progress.
      * @throws StorageRebalanceException If storage rebalancing has not started.
      */
-    public CompletableFuture<Void> finishRebalance(int partitionId, IntFunction<CompletableFuture<Void>> finishRebalanceStorageFunction) {
+    public CompletableFuture<Void> finishRebalance(int partitionId, Function<T, CompletableFuture<Void>> finishRebalanceStorageFunction) {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
@@ -302,7 +307,7 @@ public class MvPartitionStorages {
 
                     assert rebalanceFuture != null : createStorageInfo(partitionId);
 
-                    return rebalanceFuture.thenCompose(unused1 -> finishRebalanceStorageFunction.apply(partitionId));
+                    return rebalanceFuture.thenCompose(unused1 -> finishRebalanceStorageFunction.apply(get(partitionId)));
                 }).whenComplete((unused, throwable) ->
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
                             assert operation instanceof FinishRebalanceStorageOperation :
@@ -311,6 +316,44 @@ public class MvPartitionStorages {
                             return null;
                         })
                 );
+    }
+
+    /**
+     * Collects all multi-versioned partition storages to close.
+     */
+    // TODO: IGNITE-18529 We need to wait for all current operations and disable new ones
+    public List<T> getAllForClose() {
+        return IntStream.range(0, storageByPartitionId.length())
+                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
+                .filter(Objects::nonNull)
+                .collect(toList());
+    }
+
+    /**
+     * Destroys all created multi-versioned partition storages.
+     *
+     * @param destroyStorageFunction Partition destruction function.
+     * @return Future destruction of all created multi-versioned partition storages.
+     */
+    // TODO: IGNITE-18529 We need to deal with parallel operations
+    public CompletableFuture<Void> destroyAll(Function<T, CompletableFuture<Void>> destroyStorageFunction) {
+        List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
+
+        for (int partitionId = 0; partitionId < storageByPartitionId.length(); partitionId++) {
+            StorageOperation storageOperation = operationByPartitionId.get(partitionId);
+
+            if (storageOperation instanceof DestroyStorageOperation) {
+                destroyFutures.add(((DestroyStorageOperation) storageOperation).getDestroyFuture());
+            } else {
+                T storage = storageByPartitionId.getAndSet(partitionId, null);
+
+                if (storage != null) {
+                    destroyFutures.add(destroyStorageFunction.apply(storage));
+                }
+            }
+        }
+
+        return CompletableFuture.allOf(destroyFutures.toArray(CompletableFuture[]::new));
     }
 
     /**

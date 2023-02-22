@@ -813,7 +813,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     public String createStorageInfo() {
-        return tableStorage.createStorageInfo(partitionId);
+        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
     }
 
     /**
