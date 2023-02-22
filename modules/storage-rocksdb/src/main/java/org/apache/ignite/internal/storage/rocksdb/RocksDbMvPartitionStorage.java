@@ -72,6 +72,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.ColumnFamilyHandle;
@@ -1429,7 +1430,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     String createStorageInfo() {
-        return tableStorage.createStorageInfo(partitionId);
+        return IgniteStringFormatter.format("table={}, partitionId={}", tableStorage.getTableName(), partitionId);
     }
 
     /**
