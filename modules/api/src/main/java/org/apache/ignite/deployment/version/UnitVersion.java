@@ -17,9 +17,6 @@
 
 package org.apache.ignite.deployment.version;
 
-import java.util.Objects;
-import org.jetbrains.annotations.NotNull;
-
 /**
  * Implementation of {@link Version} interface based on the three numbers format,
  * like x.x.x. where x is short number.
@@ -72,22 +69,24 @@ public class UnitVersion implements Version {
     }
 
     @Override
-    public int compareTo(@NotNull Version o) {
+    public int compareTo(Version o) {
         if (o == LATEST) {
             return -1;
         }
 
         UnitVersion version = (UnitVersion) o;
 
-        if (version.major != major) {
-            return major - version.major;
+        int majorCompare = Short.compare(major, version.major);
+        if (majorCompare != 0) {
+            return majorCompare;
         }
 
-        if (version.minor != minor) {
-            return minor - version.minor;
+        int minorCompare = Short.compare(minor, version.minor);
+        if (minorCompare != 0) {
+            return minorCompare;
         }
 
-        return patch - version.patch;
+        return Short.compare(patch, version.patch);
     }
 
     @Override
@@ -98,13 +97,24 @@ public class UnitVersion implements Version {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         UnitVersion version = (UnitVersion) o;
-        return major == version.major && minor == version.minor && patch == version.patch;
+
+        if (major != version.major) {
+            return false;
+        }
+        if (minor != version.minor) {
+            return false;
+        }
+        return patch == version.patch;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(major, minor, patch);
+        int result = major;
+        result = 31 * result + minor;
+        result = 31 * result + patch;
+        return result;
     }
 
     @Override

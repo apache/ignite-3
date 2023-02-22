@@ -17,54 +17,56 @@
 
 package org.apache.ignite.deployment;
 
+import static org.apache.ignite.internal.deployunit.UnitMetaSerializer.deserialize;
+import static org.apache.ignite.internal.deployunit.UnitMetaSerializer.serialize;
+import static org.hamcrest.Matchers.is;
+
 import java.util.Arrays;
 import java.util.Collections;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.UnitMeta;
 import org.apache.ignite.internal.deployunit.UnitMetaSerializer;
 import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for {@link UnitMetaSerializer}.
  */
 public class UnitMetaSerializerTest {
-
     @Test
     public void testSerializeDeserializeLatest() {
         UnitMeta meta = new UnitMeta("id", Version.LATEST, "unitName", Arrays.asList("id1", "id2"));
 
-        byte[] serialize = UnitMetaSerializer.serialize(meta);
+        byte[] serialize = serialize(meta);
 
-        MatcherAssert.assertThat(UnitMetaSerializer.deserialize(serialize), Matchers.is(meta));
+        MatcherAssert.assertThat(deserialize(serialize), is(meta));
     }
 
     @Test
     public void testSerializeDeserializeUnit() {
         UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", Arrays.asList("id1", "id2"));
 
-        byte[] serialize = UnitMetaSerializer.serialize(meta);
+        byte[] serialize = serialize(meta);
 
-        MatcherAssert.assertThat(UnitMetaSerializer.deserialize(serialize), Matchers.is(meta));
+        MatcherAssert.assertThat(deserialize(serialize), is(meta));
     }
 
     @Test
     public void testSerializeDeserializeUnitIncompleteVersion() {
         UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0"), "unitName", Arrays.asList("id1", "id2"));
 
-        byte[] serialize = UnitMetaSerializer.serialize(meta);
+        byte[] serialize = serialize(meta);
 
-        MatcherAssert.assertThat(UnitMetaSerializer.deserialize(serialize), Matchers.is(meta));
+        MatcherAssert.assertThat(deserialize(serialize), is(meta));
     }
 
     @Test
     public void testSerializeDeserializeUnitEmptyConsistentId() {
         UnitMeta meta = new UnitMeta("id", Version.parseVersion("3.0.0"), "unitName", Collections.emptyList());
 
-        byte[] serialize = UnitMetaSerializer.serialize(meta);
+        byte[] serialize = serialize(meta);
 
-        UnitMeta deserialize = UnitMetaSerializer.deserialize(serialize);
-        MatcherAssert.assertThat(deserialize, Matchers.is(meta));
+        UnitMeta deserialize = deserialize(serialize);
+        MatcherAssert.assertThat(deserialize, is(meta));
     }
 }

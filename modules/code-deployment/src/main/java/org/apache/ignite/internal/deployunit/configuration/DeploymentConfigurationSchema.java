@@ -28,6 +28,9 @@ import org.apache.ignite.configuration.annotation.Value;
 @ConfigurationRoot(rootName = "deployment", type = ConfigurationType.LOCAL)
 public class DeploymentConfigurationSchema {
 
+    /**
+     * Relative path to folder in node working directory where will store all deployment units content.
+     */
     @Value(hasDefault = true)
     public final String deploymentLocation = "deployment";
 }

@@ -37,7 +37,6 @@ public class UnitMetaSerializer {
 
     }
 
-
     /**
      * Serialize unit meta.
      *

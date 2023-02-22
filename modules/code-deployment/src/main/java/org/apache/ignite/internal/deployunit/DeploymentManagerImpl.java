@@ -82,6 +82,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagerImpl.class);
 
+    private static final String TMP_SUFFIX = ".tmp";
+
     private static final String DEPLOY_UNIT_PREFIX = "deploy-unit.";
 
     private static final String UNITS_PREFIX = DEPLOY_UNIT_PREFIX + "units.";
@@ -140,7 +142,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     @Override
     public CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
         if (id == null || id.isBlank() || version == null) {
-            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+            return CompletableFuture.failedFuture(
+                    new DeploymentUnitIdentifierException("Empty identifier or version detected"));
         }
 
         ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version.render());
@@ -181,31 +184,35 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     private void startDeployAsyncToCmg(DeployUnitRequest request) {
         cmgManager.cmgNodes()
-                .thenApply(nodes -> nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node)).collect(
-                        Collectors.toList()))
-                .thenAccept(clusterNodes -> {
-                    for (ClusterNode clusterNode : clusterNodes) {
-                        inFlightFutures.registerFuture(
-                                clusterService.messagingService()
-                                        .invoke(clusterNode, request, Long.MAX_VALUE)
-                                        .thenCompose(message -> {
-                                            Throwable error = ((DeployUnitResponse) message).error();
-                                            if (error != null) {
-                                                LOG.error("Failed to deploy unit " + request.id() + ":" + request.version()
-                                                        + " to node " + clusterNode, error);
-                                                return CompletableFuture.failedFuture(error);
-                                            }
-                                            return CompletableFuture.completedFuture(true);
-                                        })
-                        );
+                .thenAccept(nodes -> {
+                    for (String node : nodes) {
+                        ClusterNode clusterNode = clusterService.topologyService().getByConsistentId(node);
+                        if (clusterNode != null) {
+                            inFlightFutures.registerFuture(requestDeploy(clusterNode, request));
+                        }
                     }
+                });
+    }
+
+    private CompletableFuture<Boolean> requestDeploy(ClusterNode clusterNode, DeployUnitRequest request) {
+        return clusterService.messagingService()
+                .invoke(clusterNode, request, Long.MAX_VALUE)
+                .thenCompose(message -> {
+                    Throwable error = ((DeployUnitResponse) message).error();
+                    if (error != null) {
+                        LOG.error("Failed to deploy unit " + request.id() + ":" + request.version()
+                                + " to node " + clusterNode, error);
+                        return CompletableFuture.failedFuture(error);
+                    }
+                    return CompletableFuture.completedFuture(true);
                 });
     }
 
     @Override
     public CompletableFuture<Void> undeployAsync(String id, Version version) {
         if (id == null || id.isBlank() || version == null) {
-            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+            return CompletableFuture.failedFuture(
+                    new DeploymentUnitIdentifierException("Empty identifier or version detected"));
         }
 
         ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version);
@@ -231,7 +238,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     }
 
     @Override
-    public CompletableFuture<List<UnitStatus>> listAsync() {
+    public CompletableFuture<List<UnitStatus>> unitsAsync() {
         CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
         Map<String, UnitStatusBuilder> map = new HashMap<>();
         metaStorage.prefix(new ByteArray(UNITS_PREFIX))
@@ -264,12 +271,12 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     @Override
     public CompletableFuture<List<Version>> versionsAsync(String id) {
         if (id == null || id.isBlank()) {
-            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException("Empty identifier detected"));
         }
         CompletableFuture<List<Version>> result = new CompletableFuture<>();
         metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
                 .subscribe(new Subscriber<>() {
-                    private final List<Version> set = new ArrayList<>();
+                    private final List<Version> list = new ArrayList<>();
 
                     @Override
                     public void onSubscribe(Subscription subscription) {
@@ -279,7 +286,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     @Override
                     public void onNext(Entry item) {
                         UnitMeta deserialize = UnitMetaSerializer.deserialize(item.value());
-                        set.add(deserialize.getVersion());
+                        list.add(deserialize.getVersion());
                     }
 
                     @Override
@@ -289,7 +296,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
                     @Override
                     public void onComplete() {
-                        result.complete(set);
+                        result.complete(list);
                     }
                 });
         return result;
@@ -298,7 +305,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     @Override
     public CompletableFuture<UnitStatus> statusAsync(String id) {
         if (id == null || id.isBlank()) {
-            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException("Empty identifier detected"));
         }
         CompletableFuture<UnitStatus> result = new CompletableFuture<>();
         metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
@@ -330,7 +337,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                             result.complete(builder.build());
                         } else {
                             result.completeExceptionally(
-                                    new DeploymentUnitNotExistException("Unit with " + id + "not exist."));
+                                    new DeploymentUnitNotExistException("Unit with " + id + " doesn't exist."));
                         }
                     }
                 });
@@ -387,8 +394,11 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     .resolve(executeRequest.id())
                     .resolve(executeRequest.version())
                     .resolve(executeRequest.unitName());
-            Path unitPathTmp = unitPath.resolveSibling(unitPath.getFileName() + ".tmp");
+
+            Path unitPathTmp = unitPath.resolveSibling(unitPath.getFileName() + TMP_SUFFIX);
+
             Files.createDirectories(unitPathTmp.getParent());
+
             Files.write(unitPathTmp, executeRequest.unitContent(), CREATE, SYNC, TRUNCATE_EXISTING);
             Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
         } catch (IOException e) {

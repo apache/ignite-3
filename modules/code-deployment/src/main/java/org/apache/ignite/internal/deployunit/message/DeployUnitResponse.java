@@ -26,7 +26,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(DeployUnitMessageTypes.DEPLOY_UNIT_RESPONSE)
 public interface DeployUnitResponse extends NetworkMessage {
-
     /**
      * Returns error which happens on deploy process.
      *
@@ -34,5 +33,4 @@ public interface DeployUnitResponse extends NetworkMessage {
      */
     @Marshallable
     Throwable error();
-
 }

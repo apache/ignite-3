@@ -70,14 +70,14 @@ public interface IgniteDeployment {
     CompletableFuture<Void> undeployAsync(String id, Version version);
 
     /**
-     * List of all deployed units identifiers.
+     * Lists all deployed units.
      *
      * @return Future with result.
      */
-    CompletableFuture<List<UnitStatus>> listAsync();
+    CompletableFuture<List<UnitStatus>> unitsAsync();
 
     /**
-     * List with all deployed versions of required unit identifiers.
+     * List all deployed versions of the specified unit.
      *
      * @param id Unit identifier. Not empty and not null.
      * @return Future with list of all available version of unit.

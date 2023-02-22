@@ -19,7 +19,6 @@ package org.apache.ignite.internal.deployunit;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.deployment.version.Version;
 
 /**
@@ -65,22 +64,47 @@ public class UnitMeta {
         this(id, Version.LATEST, unitName, consistentIdLocation);
     }
 
+    /**
+     * Returns identifier of deployment unit.
+     *
+     * @return Identifier of deployment unit.
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * Returns version of deployment unit.
+     *
+     * @return Version of deployment unit.
+     */
     public Version getVersion() {
         return version;
     }
 
+    /**
+     * Returns name of deployment unit.
+     *
+     * @return name of deployment unit.
+     */
     public String getUnitName() {
         return unitName;
     }
 
+    /**
+     * Returns list of nodes consistent id where deployment unit deployed.
+     *
+     * @return List of nodes consistent id where deployment unit deployed.
+     */
     public List<String> getConsistentIdLocation() {
         return consistentIdLocation;
     }
 
+    /**
+     * Register node as deployment unit holder.
+     *
+     * @param id Consistent identifier of node.
+     */
     public void addConsistentId(String id) {
         consistentIdLocation.add(id);
     }
@@ -93,13 +117,27 @@ public class UnitMeta {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         UnitMeta meta = (UnitMeta) o;
-        return Objects.equals(id, meta.id) && Objects.equals(version, meta.version) && Objects.equals(unitName,
-                meta.unitName) && Objects.equals(consistentIdLocation, meta.consistentIdLocation);
+
+        if (id != null ? !id.equals(meta.id) : meta.id != null) {
+            return false;
+        }
+        if (version != null ? !version.equals(meta.version) : meta.version != null) {
+            return false;
+        }
+        if (unitName != null ? !unitName.equals(meta.unitName) : meta.unitName != null) {
+            return false;
+        }
+        return consistentIdLocation.equals(meta.consistentIdLocation);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, version, unitName, consistentIdLocation);
+        int result = id != null ? id.hashCode() : 0;
+        result = 31 * result + (version != null ? version.hashCode() : 0);
+        result = 31 * result + (unitName != null ? unitName.hashCode() : 0);
+        result = 31 * result + consistentIdLocation.hashCode();
+        return result;
     }
 }

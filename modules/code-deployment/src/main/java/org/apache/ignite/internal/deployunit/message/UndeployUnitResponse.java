@@ -26,7 +26,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_RESPONSE)
 public interface UndeployUnitResponse extends NetworkMessage {
-
     /**
      * Returns error which happens on undeploy process.
      *

@@ -36,16 +36,16 @@ public class UnitStatus {
     private final String id;
 
     /**
-     * Map from existed unit version to list of nodes consistent ids where unit deployed.
+     * Map from existing unit version to list of nodes consistent ids where unit deployed.
      */
     private final Map<Version, List<String>> versionToConsistentIds;
 
-    public UnitStatus(String id, Map<Version, List<String>> versionToConsistentIds) {
+    private UnitStatus(String id, Map<Version, List<String>> versionToConsistentIds) {
         this.id = id;
         this.versionToConsistentIds = Collections.unmodifiableMap(versionToConsistentIds);
     }
 
-    public String getId() {
+    public String id() {
         return id;
     }
 
@@ -57,7 +57,15 @@ public class UnitStatus {
         return Collections.unmodifiableList(versionToConsistentIds.get(version));
     }
 
+    /**
+     * Builder provider.
+     *
+     * @param id Identifier of unit. Not null and not blank.
+     * @return Instance of {@link UnitStatusBuilder}.
+     */
     public static UnitStatusBuilder builder(String id) {
+        Objects.requireNonNull(id);
+
         return new UnitStatusBuilder(id);
     }
 

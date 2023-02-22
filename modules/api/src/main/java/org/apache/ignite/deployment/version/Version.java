@@ -29,6 +29,11 @@ public interface Version extends Comparable<Version> {
      */
     String render();
 
+    /**
+     * Implementation of {@link Version} interface with special latest logic.
+     * This version have special unique representation. Moreover by convention
+     * this implementation should be oldest version of any another independent of implementation.
+     */
     Version LATEST = new Version() {
         @Override
         public String render() {
@@ -41,16 +46,6 @@ public interface Version extends Comparable<Version> {
                 return 0;
             }
             return 1;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            return this == LATEST;
-        }
-
-        @Override
-        public int hashCode() {
-            return super.hashCode();
         }
     };
 
@@ -68,7 +63,7 @@ public interface Version extends Comparable<Version> {
         }
 
         if (!"latest".equals(s)) {
-            throw new VersionParseException();
+            throw new VersionParseException("Cannot parse `" + s + "` as version.");
         }
         return LATEST;
     }

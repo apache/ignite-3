@@ -17,10 +17,16 @@
 
 package org.apache.ignite.internal.deployunit.exception;
 
+import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_INVALID_IDENTIFIER_ERR;
+
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * Throws when deployment unit have invalid identifier or version.
  */
 public class DeploymentUnitIdentifierException extends IgniteException {
+
+    public DeploymentUnitIdentifierException(String msg) {
+        super(UNIT_INVALID_IDENTIFIER_ERR, msg);
+    }
 }

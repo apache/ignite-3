@@ -22,6 +22,7 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -49,7 +50,6 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link org.apache.ignite.deployment.IgniteDeployment}.
  */
 public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
-
     private static final long REPLICA_TIMEOUT = 10;
     private static final long SIZE_IN_BYTES = 1024L;
 
@@ -59,7 +59,7 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
     public void generateDummy() throws IOException {
         dummyFile = workDir.resolve("dummy.txt");
 
-        if (!dummyFile.toFile().exists()) {
+        if (!Files.exists(dummyFile)) {
             try (SeekableByteChannel channel = Files.newByteChannel(dummyFile, WRITE, CREATE)) {
                 channel.position(SIZE_IN_BYTES);
 
@@ -74,11 +74,10 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
     public void testDeploy() throws Exception {
         Unit unit = deployAndVerify("test", Version.parseVersion("1.1.0"), 1);
 
-
         IgniteImpl cmg = cluster.node(0);
         waitUnitReplica(cmg, unit);
 
-        CompletableFuture<List<UnitStatus>> list = node(2).deployment().listAsync();
+        CompletableFuture<List<UnitStatus>> list = node(2).deployment().unitsAsync();
         UnitStatusBuilder builder = UnitStatus.builder(unit.id).append(unit.version, List.of(unit.deployedNode.name(), cmg.name()));
         assertThat(list, willBe(List.of(builder.build())));
     }
@@ -88,7 +87,7 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
         Unit unit = deployAndVerify("test", Version.parseVersion("1.1.0"), 1);
         unit.undeploy();
 
-        CompletableFuture<List<UnitStatus>> list = node(2).deployment().listAsync();
+        CompletableFuture<List<UnitStatus>> list = node(2).deployment().unitsAsync();
         assertThat(list, willBe(Collections.emptyList()));
     }
 
@@ -140,15 +139,13 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
         CompletableFuture<Boolean> deploy = entryNode.deployment()
                 .deployAsync(id, version, fromPath(dummyFile));
 
-        assertThat(deploy.get(), is(true));
+        assertThat(deploy, willBe(true));
 
         Unit unit = new Unit(entryNode, id, version);
-
         assertThat(getNodeUnitFile(unit).toFile().exists(), is(true));
 
         return unit;
     }
-
 
     private Path getNodeUnitFile(Unit unit) {
         return getNodeUnitFile(unit.deployedNode, unit.id, unit.version);
@@ -164,7 +161,6 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
                 .resolve(dummyFile.getFileName());
     }
 
-
     private void waitUnitReplica(IgniteImpl ignite, Unit unit) throws InterruptedException {
         Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version);
         IgniteTestUtils.waitForCondition(() -> unitPath.toFile().getTotalSpace() == SIZE_IN_BYTES, REPLICA_TIMEOUT);
@@ -172,7 +168,7 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
 
     private void waitUnitClean(IgniteImpl ignite, Unit unit) throws InterruptedException {
         Path unitPath = getNodeUnitFile(ignite, unit.id, unit.version);
-        IgniteTestUtils.waitForCondition(() -> !unitPath.toFile().exists(), REPLICA_TIMEOUT);
+        assertTrue(IgniteTestUtils.waitForCondition(() -> !Files.exists(unitPath), REPLICA_TIMEOUT));
     }
 
     class Unit {

@@ -425,5 +425,10 @@ public class ErrorGroups {
          */
         public static final int UNIT_META_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(5);
 
+        /**
+         * Deployment unit invalid identifier error.
+         */
+        public static final int UNIT_INVALID_IDENTIFIER_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(6);
+
     }
 }

@@ -25,7 +25,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(DeployUnitMessageTypes.UNDEPLOY_UNIT_REQUEST)
 public interface UndeployUnitRequest extends NetworkMessage {
-
     /**
      * Returns id of deployment unit.
      *

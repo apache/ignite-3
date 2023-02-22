@@ -25,24 +25,23 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 @MessageGroup(groupType = 10, groupName = "DeploymentUnit")
 public class DeployUnitMessageTypes {
-
     /**
-     * Message for {@link DeployUnitRequest}.
+     * Message type for {@link DeployUnitRequest}.
      */
     public static final short DEPLOY_UNIT_REQUEST = 0;
 
     /**
-     * Message for {@link DeployUnitResponse}.
+     * Message type for {@link DeployUnitResponse}.
      */
     public static final short DEPLOY_UNIT_RESPONSE = 1;
 
     /**
-     * Message for {@link UndeployUnitRequest}.
+     * Message type for {@link UndeployUnitRequest}.
      */
     public static final short UNDEPLOY_UNIT_REQUEST = 2;
 
     /**
-     * Message for {@link UndeployUnitResponse}.
+     * Message type for {@link UndeployUnitResponse}.
      */
     public static final short UNDEPLOY_UNIT_RESPONSE = 3;
 }
