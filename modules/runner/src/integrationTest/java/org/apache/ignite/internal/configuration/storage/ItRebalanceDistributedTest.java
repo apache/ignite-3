@@ -116,12 +116,12 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -671,7 +671,7 @@ public class ItRebalanceDistributedTest {
 
             clusterCfgMgr = new ConfigurationManager(
                     List.of(
-                            RocksDbStorageEngineConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY
                     ),
@@ -682,7 +682,7 @@ public class ItRebalanceDistributedTest {
                             UnknownDataStorageConfigurationSchema.class,
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
                             UnsafeMemoryAllocatorConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class,
+                            PersistentPageMemoryDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class,
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
@@ -691,15 +691,13 @@ public class ItRebalanceDistributedTest {
                     )
             );
 
-            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) -> {
-                clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(
-                        newStorageRevision -> function.apply(newStorageRevision));
-            };
+            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) ->
+                    clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(function::apply);
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                    new RocksDbDataStorageModule(),
+                    new PersistentPageMemoryDataStorageModule(),
                     new VolatilePageMemoryDataStorageModule(),
                     new TestDataStorageModule()
             ));

@@ -101,20 +101,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long persistedIndex();
 
     /**
-     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * Byte representation of the committed replication protocol group configuration corresponding to the write command with the highest
+     * index applied to the storage.
      * {@code null} if it was never saved.
      */
-    @Nullable
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    RaftGroupConfiguration committedGroupConfiguration();
+    byte @Nullable [] committedGroupConfiguration();
 
     /**
      * Updates RAFT group configuration.
      *
-     * @param config Configuration to save.
+     * @param config Byte representation of the configuration to save.
      */
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    void committedGroupConfiguration(RaftGroupConfiguration config);
+    void committedGroupConfiguration(byte[] config);
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
@@ -145,7 +143,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
      *
      * @param rowId Row id.
-     * @param row Table row to update. Key only row means value removal.
+     * @param row Table row to update. {@code null} means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.

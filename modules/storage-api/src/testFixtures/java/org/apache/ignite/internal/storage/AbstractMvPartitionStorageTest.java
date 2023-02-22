@@ -1005,10 +1005,16 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId = new RowId(PARTITION_ID, 100, 0);
 
         // Populate storage with several versions for the same row id.
-        List<TestValue> values = new ArrayList<>(List.of(value, value2));
+        List<TestValue> values = new ArrayList<>();
+
+        values.add(value);
+        values.add(value2);
+        values.add(null); // A tombstone.
 
         for (TestValue value : values) {
-            addWrite(rowId, binaryRow(key, value), newTransactionId());
+            BinaryRow row = value == null ? null : binaryRow(key, value);
+
+            addWrite(rowId, row, newTransactionId());
 
             commitWrite(rowId, clock.now());
         }
@@ -1033,9 +1039,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         for (int i = 0; i < list.size(); i++) {
             IgniteBiTuple<TestKey, TestValue> kv = list.get(i);
 
-            assertEquals(key, kv.getKey());
+            if (kv == null) {
+                assertThat(values.get(i), is(nullValue()));
+            } else {
+                assertThat(key, is(kv.getKey()));
 
-            assertEquals(values.get(i), kv.getValue());
+                assertThat(values.get(i), is(kv.getValue()));
+            }
         }
     }
 
@@ -1286,12 +1296,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
     @Test
     void groupConfigurationIsSaved() {
-        RaftGroupConfiguration configToSave = new RaftGroupConfiguration(
-                List.of("peer1", "peer2"),
-                List.of("learner1", "learner2"),
-                List.of("old-peer1", "old-peer2"),
-                List.of("old-learner1", "old-learner2")
-        );
+        byte[] configToSave = {1, 2, 3};
 
         storage.runConsistently(() -> {
             storage.committedGroupConfiguration(configToSave);
@@ -1299,7 +1304,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             return null;
         });
 
-        RaftGroupConfiguration returnedConfig = storage.committedGroupConfiguration();
+        byte[] returnedConfig = storage.committedGroupConfiguration();
 
         assertThat(returnedConfig, is(notNullValue()));
         assertThat(returnedConfig, is(equalTo(configToSave)));
@@ -1307,12 +1312,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
     @Test
     void groupConfigurationIsUpdated() {
-        RaftGroupConfiguration firstConfig = new RaftGroupConfiguration(
-                List.of("peer1", "peer2"),
-                List.of("learner1", "learner2"),
-                List.of("old-peer1", "old-peer2"),
-                List.of("old-learner1", "old-learner2")
-        );
+        byte[] firstConfig = {1, 2, 3};
 
         storage.runConsistently(() -> {
             storage.committedGroupConfiguration(firstConfig);
@@ -1320,12 +1320,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             return null;
         });
 
-        RaftGroupConfiguration secondConfig = new RaftGroupConfiguration(
-                List.of("peer3", "peer4"),
-                List.of("learner3", "learner4"),
-                List.of("old-peer3", "old-peer4"),
-                List.of("old-learner3", "old-learner4")
-        );
+        byte[] secondConfig = {3, 2, 1};
 
         storage.runConsistently(() -> {
             storage.committedGroupConfiguration(secondConfig);
@@ -1333,7 +1328,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             return null;
         });
 
-        RaftGroupConfiguration returnedConfig = storage.committedGroupConfiguration();
+        byte[] returnedConfig = storage.committedGroupConfiguration();
 
         assertThat(returnedConfig, is(notNullValue()));
         assertThat(returnedConfig, is(equalTo(secondConfig)));

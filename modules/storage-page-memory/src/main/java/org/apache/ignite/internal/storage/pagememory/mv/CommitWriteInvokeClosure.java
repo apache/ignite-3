@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -29,14 +33,13 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
  *
- * <p>Synchronization between reading and updating the version chain occurs due to the locks (read and write) of the page of the tree on
- * which the version chain is located.
- *
- * <p>Synchronization between update operations for the version chain must be external (by {@link RowId row ID}).
+ * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
  * <p>Operation may throw {@link StorageException} which will cause form {@link BplusTree#invoke(Object, Object, InvokeClosure)}.
  */
 class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
+    private final RowId rowId;
+
     private final HybridTimestamp timestamp;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
@@ -45,9 +48,20 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable VersionChain newRow;
 
-    private @Nullable Long updateTimestampLink;
+    private long updateTimestampLink = NULL_LINK;
 
-    CommitWriteInvokeClosure(HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+    private @Nullable RowVersion toRemove;
+
+    /**
+     * Row version that will be added to the garbage collection queue when the {@link #afterCompletion() closure completes}.
+     *
+     * <p>Row version must be committed. It will be a {@link PageIdUtils#NULL_LINK} if the current and the previous row versions are
+     * tombstones or have only one row version in the version chain.
+     */
+    private long rowLinkForAddToGcQueue = NULL_LINK;
+
+    CommitWriteInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+        this.rowId = rowId;
         this.timestamp = timestamp;
         this.storage = storage;
     }
@@ -61,11 +75,25 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             return;
         }
 
-        updateTimestampLink = oldRow.headLink();
-
         operationType = OperationType.PUT;
 
-        newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
+        RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
+        RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
+
+        // If the previous and current version are tombstones, then delete the current version.
+        if (next != null && current.isTombstone() && next.isTombstone()) {
+            toRemove = current;
+
+            newRow = VersionChain.createCommitted(oldRow.rowId(), next.link(), next.nextLink());
+        } else {
+            updateTimestampLink = oldRow.headLink();
+
+            newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
+
+            if (oldRow.hasNextLink()) {
+                rowLinkForAddToGcQueue = oldRow.headLink();
+            }
+        }
     }
 
     @Override
@@ -84,10 +112,10 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     @Override
     public void onUpdate() {
-        assert operationType == OperationType.PUT ? updateTimestampLink != null : updateTimestampLink == null :
+        assert operationType == OperationType.PUT || updateTimestampLink == NULL_LINK :
                 "link=" + updateTimestampLink + ", op=" + operationType;
 
-        if (updateTimestampLink != null) {
+        if (updateTimestampLink != NULL_LINK) {
             try {
                 storage.rowVersionFreeList.updateTimestamp(updateTimestampLink, timestamp);
             } catch (IgniteInternalCheckedException e) {
@@ -96,6 +124,21 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
                         e,
                         updateTimestampLink, timestamp, storage.createStorageInfo());
             }
+        }
+    }
+
+    /**
+     * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
+     */
+    void afterCompletion() {
+        assert operationType == OperationType.PUT || toRemove == null : "toRemove=" + toRemove + ", op=" + operationType;
+
+        if (toRemove != null) {
+            storage.removeRowVersion(toRemove);
+        }
+
+        if (rowLinkForAddToGcQueue != NULL_LINK) {
+            storage.gcQueue.add(rowId, timestamp, rowLinkForAddToGcQueue);
         }
     }
 }

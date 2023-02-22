@@ -25,12 +25,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,6 +42,8 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     private final MvPartitionStorage partitionStorage;
 
     private final Lock partitionSnapshotsLock = new ReentrantLock();
+
+    private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
     public TestPartitionDataStorage(MvPartitionStorage partitionStorage) {
         this.partitionStorage = partitionStorage;
@@ -83,13 +86,8 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return partitionStorage.committedGroupConfiguration();
-    }
-
-    @Override
     public void committedGroupConfiguration(RaftGroupConfiguration config) {
-        partitionStorage.committedGroupConfiguration(config);
+        partitionStorage.committedGroupConfiguration(configurationConverter.toBytes(config));
     }
 
     @Override
