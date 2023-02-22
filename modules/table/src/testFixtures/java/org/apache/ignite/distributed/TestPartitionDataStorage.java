@@ -23,6 +23,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -109,6 +110,11 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return partitionStorage.scanVersions(rowId);
+    }
+
+    @Override
+    public BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        return partitionStorage.pollForVacuum(lowWatermark);
     }
 
     @Override

@@ -28,9 +28,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -252,10 +254,34 @@ public class StorageUpdateHandler {
         }
     }
 
-    private void removeFromIndex(BinaryRow row, RowId rowId) {
-        for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
-            index.remove(row, rowId);
-        }
+    /**
+     * Tries removing partition's oldest stale entry and its indexes.
+     *
+     * @param lowWatermark Low watermark for the vacuum.
+     */
+    public boolean vacuum(HybridTimestamp lowWatermark) {
+        return storage.runConsistently(() -> {
+            BinaryRowAndRowId vacuumed = storage.pollForVacuum(lowWatermark);
+
+            if (vacuumed == null) {
+                // Nothing was garbage collected.
+                return false;
+            }
+
+            BinaryRow binaryRow = vacuumed.binaryRow();
+
+            assert binaryRow != null;
+
+            RowId rowId = vacuumed.rowId();
+
+            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+                assert cursor.hasNext();
+
+                tryRemoveFromIndexes(binaryRow, rowId, cursor);
+            }
+
+            return true;
+        });
     }
 
     private void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {

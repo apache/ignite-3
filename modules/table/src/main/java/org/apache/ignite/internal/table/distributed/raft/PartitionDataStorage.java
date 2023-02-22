@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -164,6 +165,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
      */
     Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
+
+    /**
+     * Tries to garbage collect the oldest stale entry of the partition.
+     *
+     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
+     */
+    @Nullable
+    BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark);
 
     /**
      * Returns the underlying {@link MvPartitionStorage}. Only for tests!

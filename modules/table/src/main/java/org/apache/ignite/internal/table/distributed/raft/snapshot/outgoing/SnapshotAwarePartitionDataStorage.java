@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -134,6 +135,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         handleSnapshotInterference(rowId);
 
         return partitionStorage.scanVersions(rowId);
+    }
+
+    @Override
+    public BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        return partitionStorage.pollForVacuum(lowWatermark);
     }
 
     private void handleSnapshotInterference(RowId rowId) {
