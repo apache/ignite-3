@@ -22,7 +22,10 @@ import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -45,7 +48,7 @@ public class RequestBalancingTest {
     private TestServer server3;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         FakeIgnite ignite = new FakeIgnite();
         server1 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s1");
         server2 = AbstractClientTest.startServer(10900, 10, 0, ignite, "s2");
@@ -61,15 +64,18 @@ public class RequestBalancingTest {
     public void testRequestsAreRoundRobinBalanced() throws Exception {
         try (var client = getClient(server1, server2, server3)) {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
-            Set<ClusterNode> clusterNodes = getClusterNodes("s1", "s2", "s3");
 
-            String res1 = client.compute().<String>execute(clusterNodes, "job").join();
-            String res2 = client.compute().<String>execute(clusterNodes, "job").join();
-            String res3 = client.compute().<String>execute(clusterNodes, "job").join();
+            // Execute on unknown node to fall back to balancing.
+            List<String> res = IntStream.range(0, 5)
+                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), "job").join())
+                    .collect(Collectors.toList());
 
-            assertEquals("s1", res1);
-            assertEquals("s2", res2);
-            assertEquals("s3", res3);
+            assertEquals(5, res.size());
+            assertEquals("s2", res.get(0));
+            assertEquals("s1", res.get(1));
+            assertEquals("s3", res.get(2));
+            assertEquals("s2", res.get(3));
+            assertEquals("s1", res.get(4));
         }
     }
 }
