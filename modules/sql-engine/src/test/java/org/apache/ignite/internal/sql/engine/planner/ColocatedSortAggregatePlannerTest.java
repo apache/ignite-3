@@ -34,8 +34,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * AggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Test to verify ColocatedSortAggregateConverterRule usage by a planner.
  */
 public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     private final String[] disableRules = {

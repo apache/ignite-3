@@ -34,8 +34,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * AggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Test to verify MapReduceHashAggregateConverterRule usage by a planner.
  */
 public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerTest {
     private final String[] disableRules = {
@@ -213,7 +212,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                 .and(not(hasAggregate()))
                                 .and(hasGroups())
-                                // TODO: Why don't utilize the index?
                                 .and(input(isTableScan("TEST")))
                         ))
                 )
@@ -230,7 +228,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
-                                        // TODO: Why don't utilize the index?
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))

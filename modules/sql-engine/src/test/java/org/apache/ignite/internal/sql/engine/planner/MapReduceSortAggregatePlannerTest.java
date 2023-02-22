@@ -35,8 +35,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * AggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Test to verify MapReduceHashAggregateConverterRule usage by a planner.
  */
 public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerTest {
     private final String[] disableRules = {

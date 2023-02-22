@@ -46,7 +46,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,37 +55,54 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     private static final Predicate<AggregateCall> NON_NULL_PREDICATE = Objects::nonNull;
 
+    /**
+     * Validates a plan for simple query with aggregate.
+     */
     @Test
     public void simpleAggregate() throws Exception {
         checkTestCase1("SELECT AVG(val0) FROM test", schema(single()));
         checkTestCase2("SELECT AVG(val0) FROM test", schema(hash()));
     }
 
+    /**
+     * Validates a plan for a query with aggregate and groups.
+     */
     @Test
     public void groupNoIndex() throws Exception {
         checkTestCase3("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single()));
-        checkTestCase3("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single()));
-
         checkTestCase4("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash()));
+
+        checkTestCase3("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single()));
         checkTestCase4("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash()));
     }
 
+    /**
+     * Validates a plan uses an index for a query with aggregate and group by first index column.
+     */
     @Test
     public void groupWithIndex() throws Exception {
         checkTestCase5("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single(), index("grp0_grp1", 3, 4)));
         checkTestCase6("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash(), index("grp0_grp1", 3, 4)));
     }
 
+    /**
+     * Validates a plan uses an index for a query with aggregate and group by index columns in different order.
+     */
     @Test
     public void groupWithIndexCollationPermute() throws Exception {
+        checkTestCase5("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema(single(), index("grp0_grp1", 3, 4)));
         checkTestCase5("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single(), index("grp0_grp1", 3, 4)));
 
-        //TODO: Create a ticket. ColocatedSortAggregate rule don't use index. But 'GROUP BY grp0,grp1' works fine.
-        Assumptions.assumeFalse(this instanceof ColocatedSortAggregatePlannerTest, "wrong plan");
+        checkTestCase6("SELECT AVG(val0) FROM test GROUP BY grp0, grp0", schema(hash(), index("grp0_grp1", 3, 4)));
 
+        //TODO:https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used here.
+        // Assumptions.assumeFalse(this instanceof ColocatedSortAggregatePlannerTest, "wrong plan");
         checkTestCase6("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash(), index("grp0_grp1", 3, 4)));
     }
 
+    /**
+     * Validates a plan for simple query with DISTINCT aggregates.
+     */
     @Test
     public void distinctAggregate() throws Exception {
         IgniteSchema schema = schema(single());
@@ -95,7 +111,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         checkTestCase7("SELECT AVG(DISTINCT val0) FROM test", schema);
         checkTestCase7("SELECT SUM(DISTINCT val0) FROM test", schema);
 
-        // DISTINCT make no sense for MIN and MAX aggregates
+        // DISTINCT is ignored for MIN and MAX aggregates.
         checkTestCase1("SELECT MIN(DISTINCT val0) FROM test", schema);
         checkTestCase1("SELECT MAX(DISTINCT val0) FROM test", schema);
 
@@ -105,23 +121,32 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         checkTestCase8("SELECT AVG(DISTINCT val0) FROM test", schema);
         checkTestCase8("SELECT SUM(DISTINCT val0) FROM test", schema);
 
-        // DISTINCT make no sense for MIN and MAX aggregates
+        // DISTINCT is ignored for MIN and MAX aggregates.
         checkTestCase2("SELECT MIN(DISTINCT val0) FROM test", schema);
         checkTestCase2("SELECT MAX(DISTINCT val0) FROM test", schema);
     }
 
+    /**
+     * Validates a plan for a query with DISTINCT and without aggregate functions.
+     */
     @Test
     public void groupWithoutAggregate() throws Exception {
         checkTestCase9("SELECT DISTINCT val0, val1 FROM test", schema(single(), index("val0", 1)));
         checkTestCase10("SELECT DISTINCT val0, val1 FROM test", schema(hash(), index("val0", 1)));
     }
 
+    /**
+     * Validates a plan uses index for a query with DISTINCT and without functions.
+     */
     @Test
     public void groupWithoutAggregateFunctionWithIndex() throws Exception {
         checkTestCase11("SELECT DISTINCT grp0, grp1 FROM test", schema(single(), index("grp0_grp1", 3, 4)));
         checkTestCase12("SELECT DISTINCT grp0, grp1 FROM test", schema(hash(), index("grp0_grp1", 3, 4)));
     }
 
+    /**
+     * Validates a plan for a query with DISTINCT aggregates and groups.
+     */
     @Test
     public void distinctAggregateWithGroups() throws Exception {
         IgniteSchema schema = schema(single());
@@ -131,7 +156,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         checkTestCase13("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", schema);
         checkTestCase13("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", schema);
 
-        // DISTINCT make no sense for MIN and MAX aggregates
+        // DISTINCT is ignored for MIN and MAX aggregates.
         checkTestCase3("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
         checkTestCase3("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
 
@@ -142,23 +167,32 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         checkTestCase14("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", schema);
         checkTestCase14("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", schema);
 
-        // DISTINCT make no sense for MIN and MAX aggregates
+        // DISTINCT is ignored for MIN and MAX aggregates.
         checkTestCase4("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
         checkTestCase4("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
     }
 
-    @Test
-    public void groupWithoutAggregateFunctionInWhereClause() throws Exception {
-        checkTestCase9("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(single()));
-        checkTestCase25("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(hash()));
-    }
-
+    /**
+     * Validates a plan for a query with aggregate in WHERE clause.
+     */
     @Test
     public void aggregateInWhereClause() throws Exception {
         checkTestCase1("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(single()));
         checkTestCase2("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(hash()));
     }
 
+    /**
+     * Validates a plan for a query with DISTINCT aggregate in WHERE clause.
+     */
+    @Test
+    public void distinctAggregateInWhereClause() throws Exception {
+        checkTestCase9("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(single()));
+        checkTestCase25("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(hash()));
+    }
+
+    /**
+     * Validates a plan with merge-sort utilizes index if collation fits.
+     */
     @Test
     public void noSortAppendingWithCorrectCollation() throws Exception {
         checkTestCase15(
@@ -174,6 +208,9 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         );
     }
 
+    /**
+     * Validates SUM aggregate has a correct return type for any numeric column type.
+     */
     @Test
     public void sumAggregateTypes() throws Exception {
         checkSumAggretageTypes(single());
@@ -181,6 +218,9 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     //TODO: should we add test with indexes?
+    /**
+     * Validates a plan for a query with aggregate and with grouping and sorting by the same column set.
+     */
     @Test
     public void groupsWithOrderByGroupColumns() throws Exception {
         // Sort order equals to grouping set.
@@ -194,7 +234,13 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 TraitUtils.createCollation(List.of(1, 0)));
         checkTestCase18("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0", schema(hash()),
                 TraitUtils.createCollation(List.of(1, 0)));
+    }
 
+    /**
+     * Validates a plan for a query with aggregate and with sorting by subset of group columns.
+     */
+    @Test
+    public void groupsWithOrderBySubsetOfGroupColumns() throws Exception {
         // Sort order is a subset of grouping set.
         checkTestCase17("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(single()),
                 TraitUtils.createCollation(List.of(0, 1)));
@@ -208,8 +254,11 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 TraitUtils.createCollation(List.of(1, 0)));
     }
 
+    /**
+     * Validates a plan for a query with aggregate, sorting and grouping, when additional sort is required.
+     */
     @Test
-    public void groupWithOrder() throws Exception {
+    public void groupWithOrderByDifferentColumns() throws Exception {
         // Sort order is a superset of grouping set (additional sorting required).
         checkTestCase19("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt", schema(single()),
                 TraitUtils.createCollation(List.of(0, 1, 2)));
@@ -219,6 +268,9 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 TraitUtils.createCollation(List.of(2, 1)));
     }
 
+    /**
+     * Validates a plan for a query with aggregate, sorting and grouping, when additional sort is required.
+     */
     @Test
     public void emptyCollationPassThroughLimit() throws Exception {
         checkTestCase21("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single()));

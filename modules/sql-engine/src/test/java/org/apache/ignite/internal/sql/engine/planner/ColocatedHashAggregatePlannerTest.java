@@ -33,8 +33,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * AggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Test to verify ColocatedHashAggregateConverterRule usage by a planner.
  */
 public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
@@ -171,7 +170,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                        // TODO: Why don't utilize the index?
                         .and(input(isTableScan("TEST")))
                 )
         );
@@ -184,7 +182,6 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                // TODO: Why don't utilize the index?
                                 .and(input(isTableScan("TEST")))
                         ))
                 )
