@@ -65,8 +65,26 @@ interface StorageOperation {
     }
 
     /**
-     * Storage rebalancing operation.
+     * Storage rebalancing start operation.
      */
-    class RebalanceStorageOperation implements StorageOperation {
+    class StartRebalanceStorageOperation implements StorageOperation {
+    }
+
+    /**
+     * Storage rebalancing abort operation.
+     */
+    class AbortRebalanceStorageOperation implements StorageOperation {
+    }
+
+    /**
+     * Storage rebalancing finish operation.
+     */
+    class FinishRebalanceStorageOperation implements StorageOperation {
+    }
+
+    /**
+     * Storage cleanup operation.
+     */
+    class CleanupStorageOperation implements StorageOperation {
     }
 }
