@@ -145,7 +145,7 @@ TEST_F(key_value_binary_view_test, get_empty_tuple_throws) {
             try {
                 (void) kv_view.get(nullptr, {});
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Tuple can not be empty", e.what());
+                EXPECT_STREQ("Key tuple can not be empty", e.what());
                 throw;
             }
         },
@@ -557,7 +557,7 @@ TEST_F(key_value_binary_view_test, replace_exact_empty_throws) {
             try {
                 kv_view.replace(nullptr, get_tuple(1), {}, get_tuple("bar"));
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Old value tuple can not be empty", e.what());
+                EXPECT_STREQ("Value tuple can not be empty", e.what());
                 throw;
             }
         },
@@ -568,7 +568,7 @@ TEST_F(key_value_binary_view_test, replace_exact_empty_throws) {
             try {
                 kv_view.replace(nullptr, get_tuple(1), get_tuple("foo"), {});
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("New value tuple can not be empty", e.what());
+                EXPECT_STREQ("Value tuple can not be empty", e.what());
                 throw;
             }
         },
@@ -699,7 +699,7 @@ TEST_F(key_value_binary_view_test, remove_empty_throws) {
             try {
                 kv_view.remove(nullptr, ignite_tuple{});
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Tuple can not be empty", e.what());
+                EXPECT_STREQ("Key tuple can not be empty", e.what());
                 throw;
             }
         },
@@ -826,7 +826,7 @@ TEST_F(key_value_binary_view_test, get_and_remove_empty_throws) {
             try {
                 (void) kv_view.get_and_remove(nullptr, {});
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Tuple can not be empty", e.what());
+                EXPECT_STREQ("Key tuple can not be empty", e.what());
                 throw;
             }
         },
