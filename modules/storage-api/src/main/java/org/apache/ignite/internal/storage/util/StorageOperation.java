@@ -50,7 +50,7 @@ interface StorageOperation {
         }
 
         /**
-         * Returns {@link #setCreationOperation(CreateStorageOperation) set} a storage creation operation,
+         * Returns {@link #setCreationOperation(CreateStorageOperation) set} a storage creation operation.
          */
         public @Nullable CreateStorageOperation getCreateStorageOperation() {
             return createStorageOperationReference.get();

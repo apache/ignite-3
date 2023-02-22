@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.function.Function;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
