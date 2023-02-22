@@ -632,12 +632,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
 
+                byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
+
+                List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
                 for (int i = 0; i < partCnt; i++) {
                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
                             baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
-                            replicasCtx.storageRevision(), metaStorageMgr, i);
+                            replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
                 }
 
                 return allOf(futures);
@@ -983,13 +987,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return;
         }
 
+        busyLock.block();
+
         metaStorageMgr.unregisterWatch(distributionZonesDataNodesListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
-
-        busyLock.block();
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
@@ -1863,19 +1867,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
 
+                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
+
+                            List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
                             for (int part = 0; part < tableView.partitions(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
                                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
+                                int replicas = tableView.replicas();
+
                                 int partId = part;
 
                                 updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, dataNodes, tableView.replicas(),
-                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part
+                                        tableView.name(), replicaGrpId, dataNodes, replicas,
+                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part, tableAssignments.get(part)
                                 ).exceptionally(e -> {
                                     LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(), partId
+                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                            partId
                                     );
 
                                     return null;

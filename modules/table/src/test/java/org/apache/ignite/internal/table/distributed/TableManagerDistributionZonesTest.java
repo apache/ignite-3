@@ -88,6 +88,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -228,6 +229,15 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
                 null,
                 mock(OutgoingSnapshotsManager.class)
         );
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        clusterCfgMgr.stop();
+
+        keyValueStorage.close();
+
+        tableManager.stop();
     }
 
     @Test
@@ -428,6 +438,18 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         ConfigurationValue valueId = mock(ConfigurationValue.class);
         when(valueId.value()).thenReturn(new UUID(0, tableNum));
         when(tableCfg.id()).thenReturn(valueId);
+
+        List<Set<Assignment>> tableAssignments = new ArrayList<>();
+
+        for (int i = 0; i < partNum; i++) {
+            tableAssignments.add(Set.of(Assignment.forPeer("fakeAssignment")));
+        }
+
+        ConfigurationValue assignmentValue = mock(ConfigurationValue.class);
+
+        when(assignmentValue.value()).thenReturn(toBytes(tableAssignments));
+
+        when(tableCfg.assignments()).thenReturn(assignmentValue);
 
         return new IgniteBiTuple<>(tableView, tableCfg);
 
