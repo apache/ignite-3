@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import java.util.HashMap;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
@@ -27,6 +28,8 @@ public class ClientHandlerMetricSource implements MetricSource {
     /** Source name. */
     private static final String SOURCE_NAME = "client-handler";
 
+    private final LongAdderMetric sessionsTotal = new LongAdderMetric("sessions.total", "Total initiated client sessions");
+
     private boolean enabled;
 
     @Override
@@ -34,9 +37,15 @@ public class ClientHandlerMetricSource implements MetricSource {
         return SOURCE_NAME;
     }
 
+    public LongAdderMetric sessionsTotal() {
+        return sessionsTotal;
+    }
+
     @Override
     public synchronized @Nullable MetricSet enable() {
         var metrics = new HashMap<String, Metric>();
+
+        metrics.put("sessions.total", sessionsTotal);
 
         enabled = true;
 
