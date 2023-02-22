@@ -23,16 +23,16 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.UnitStatus;
@@ -42,7 +42,6 @@ import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -139,7 +138,7 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
         IgniteImpl entryNode = node(nodeIndex);
 
         CompletableFuture<Boolean> deploy = entryNode.deployment()
-                .deployAsync(id, version, DeploymentUnit.fromPath(dummyFile));
+                .deployAsync(id, version, fromPath(dummyFile));
 
         assertThat(deploy.get(), is(true));
 
@@ -193,5 +192,25 @@ public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
             deployedNode.deployment().undeployAsync(id, version);
             waitUnitClean(deployedNode, this);
         }
+    }
+
+    static DeploymentUnit fromPath(Path path) {
+        Objects.requireNonNull(path);
+        return new DeploymentUnit() {
+
+            @Override
+            public String name() {
+                return path.getFileName().toString();
+            }
+
+            @Override
+            public InputStream content() {
+                try {
+                    return new FileInputStream(path.toFile());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
     }
 }

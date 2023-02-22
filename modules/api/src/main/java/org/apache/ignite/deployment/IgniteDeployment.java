@@ -27,9 +27,10 @@ import org.apache.ignite.deployment.version.Version;
 public interface IgniteDeployment {
     /**
      * Deploy provided unit to current node with latest version.
+     *
      * @param id Unit identifier. Not empty and not null.
      * @param deploymentUnit Unit content.
-     * @return Future with sucess or not result.
+     * @return Future with success or not result.
      */
     default CompletableFuture<Boolean> deployAsync(String id, DeploymentUnit deploymentUnit) {
         return deployAsync(id, Version.LATEST, deploymentUnit);
@@ -51,7 +52,7 @@ public interface IgniteDeployment {
      *
      * @param id Unit identifier. Not empty and not null.
      * @return Future completed when unit will be undeployed.
-     * In case when specified unit not exist future will be failed.
+     *      In case when specified unit not exist future will be failed.
      */
     default CompletableFuture<Void> undeployAsync(String id) {
         return undeployAsync(id, Version.LATEST);
@@ -64,7 +65,7 @@ public interface IgniteDeployment {
      * @param id Unit identifier.
      * @param version Unit version.
      * @return Future completed when unit will be undeployed.
-     * In case when specified unit not exist future will be failed.
+     *      In case when specified unit not exist future will be failed.
      */
     CompletableFuture<Void> undeployAsync(String id, Version version);
 
@@ -80,7 +81,7 @@ public interface IgniteDeployment {
      *
      * @param id Unit identifier. Not empty and not null.
      * @return Future with list of all available version of unit.
-     * In case when unit with specified identifier not exist future list will be empty.
+     *      In case when unit with specified identifier not exist future list will be empty.
      */
     CompletableFuture<List<Version>> versionsAsync(String id);
 
@@ -89,7 +90,7 @@ public interface IgniteDeployment {
      *
      * @param id Unit identifier. Not empty and not null.
      * @return Future with unit status.
-     * Future will be failed if unit with specified identifier not exist.
+     *      Future will be failed if unit with specified identifier not exist.
      */
     CompletableFuture<UnitStatus> statusAsync(String id);
 }

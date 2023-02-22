@@ -17,11 +17,7 @@
 
 package org.apache.ignite.deployment;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Path;
-import java.util.Objects;
 
 /**
  * Deployment unit interface.
@@ -41,31 +37,4 @@ public interface DeploymentUnit {
      * @return input stream with deployment unit content.
      */
     InputStream content();
-
-
-    /**
-     * Create deployment unit from local path.
-     *
-     * @param path Path to local file.
-     * @return Deployment unit based on local file.
-     */
-    static DeploymentUnit fromPath(Path path) {
-        Objects.requireNonNull(path);
-        return new DeploymentUnit() {
-
-            @Override
-            public String name() {
-                return path.getFileName().toString();
-            }
-
-            @Override
-            public InputStream content() {
-                try {
-                    return new FileInputStream(path.toFile());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        };
-    }
 }

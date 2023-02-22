@@ -519,6 +519,12 @@ public class IgniteUtils {
         }
     }
 
+    /**
+     * Deletes a file or a directory with all sub-directories and files.
+     *
+     * @param path File or directory to delete.
+     * @throws IOException if an I/O error is thrown by a visitor method
+     */
     public static void deleteIfExistsThrowable(Path path) throws IOException {
         Files.walkFileTree(path, new SimpleFileVisitor<>() {
             @Override
