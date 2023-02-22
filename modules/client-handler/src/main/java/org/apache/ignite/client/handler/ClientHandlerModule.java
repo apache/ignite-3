@@ -73,6 +73,9 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Cluster ID supplier. */
     private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
 
+    /** Metrics. */
+    private final ClientHandlerMetricSource metrics;
+
     /** Cluster ID. */
     private UUID clusterId;
 
@@ -132,6 +135,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.bootstrapFactory = bootstrapFactory;
         this.sql = sql;
         this.clusterIdSupplier = clusterIdSupplier;
+        this.metrics = clientHandlerMetricSource;
     }
 
     /** {@inheritDoc} */
@@ -219,6 +223,8 @@ public class ClientHandlerModule implements IgniteComponent {
                                         clusterService,
                                         sql,
                                         clusterId));
+
+                        metrics.sessionsTotal().increment();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

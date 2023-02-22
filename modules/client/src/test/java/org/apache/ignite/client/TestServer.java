@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
@@ -151,7 +152,7 @@ public class TestServer implements AutoCloseable {
                         bootstrapFactory,
                         ignite.sql(),
                         () -> CompletableFuture.completedFuture(clusterId),
-                        clientHandlerMetricSource);
+                        new ClientHandlerMetricSource());
 
         module.start();
     }
