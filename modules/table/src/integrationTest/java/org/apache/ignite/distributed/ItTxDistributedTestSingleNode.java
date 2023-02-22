@@ -616,7 +616,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /**
      * Check the storage of partition is the same across all nodes.
      * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
-     * TODO: IGNITE-18869 The method is required to update when a procedure is based on comparison of all storage entries will appear.
+     * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
      *
      * @param table The table.
      * @param partId Partition id.
