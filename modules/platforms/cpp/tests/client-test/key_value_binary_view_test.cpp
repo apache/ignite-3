@@ -84,12 +84,11 @@ TEST_F(key_value_binary_view_test, put_get_async) {
         kv_view.get_async(nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
-    auto expected_res_tuple = key_tuple + val_tuple;
     auto res_tuple = all_done->get_future().get();
     ASSERT_TRUE(res_tuple.has_value());
-    EXPECT_EQ(expected_res_tuple.column_count(), res_tuple->column_count());
-    EXPECT_EQ(expected_res_tuple.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
-    EXPECT_EQ(expected_res_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
+    EXPECT_EQ(2, res_tuple->column_count());
+    EXPECT_EQ(key_tuple.get<int64_t>("key"), res_tuple->get<int64_t>("key"));
+    EXPECT_EQ(val_tuple.get<std::string>("val"), res_tuple->get<std::string>("val"));
 }
 
 TEST_F(key_value_binary_view_test, put_overrides_value) {
@@ -946,7 +945,7 @@ TEST_F(key_value_binary_view_test, types_test) {
     auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
     kv_view = table->key_value_binary_view();
 
-    ignite_tuple inserted{
+    ignite_tuple inserted {
         {"str", "test"},
         {"int8", std::int8_t(1)},
         {"int16", std::int16_t(2)},
@@ -967,16 +966,16 @@ TEST_F(key_value_binary_view_test, types_test) {
         {"decimal", big_decimal(123456789098765)},
     };
 
-    ignite_tuple expected = get_tuple(42) + inserted;
-
     kv_view.put(nullptr, get_tuple(42), inserted);
     auto res = kv_view.get(nullptr, get_tuple(42));
 
     ASSERT_TRUE(res.has_value());
     ASSERT_EQ(res->column_count(), inserted.column_count() + 1);
 
-    for (int i = 0; i < res->column_count(); ++i) {
-        const auto &column = expected.column_name(i);
+    EXPECT_EQ(42, res->get<std::int64_t>("key"));
+
+    for (int i = 0; i < inserted.column_count(); ++i) {
+        const auto &column = inserted.column_name(i);
 
         if (column == "time2") {
             EXPECT_EQ(res->get(column), primitive{ignite_time(17, 4, 12)});
@@ -985,7 +984,7 @@ TEST_F(key_value_binary_view_test, types_test) {
         } else if (column == "timestamp2") {
             EXPECT_EQ(res->get(column), primitive{ignite_timestamp(3875238472, 248700000)});
         } else {
-            EXPECT_EQ(res->get(column), expected.get(column));
+            EXPECT_EQ(res->get(column), inserted.get(column));
         }
     }
 }

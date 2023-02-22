@@ -26,12 +26,12 @@ namespace ignite {
  *
  * @param pairs Pairs.
  */
-std::vector<ignite_tuple> unite_records(const std::vector<std::pair<ignite_tuple, ignite_tuple>>& pairs) {
+std::vector<ignite_tuple> concat_records(const std::vector<std::pair<ignite_tuple, ignite_tuple>>& pairs) {
     // TODO: IGNITE-18855 eliminate unnecessary tuple transformation;
     std::vector<ignite_tuple> records;
     records.reserve(pairs.size());
     for (const auto& pair : pairs)
-        records.emplace_back(pair.first + pair.second);
+        records.emplace_back(detail::concat(pair.first, pair.second));
 
     return records;
 }
@@ -52,7 +52,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::put_async(
     if (0 == value.column_count())
         throw ignite_error("Value tuple can not be empty");
 
-    m_impl->upsert_async(tx, key + value, std::move(callback));
+    m_impl->upsert_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_all_async(
@@ -80,7 +80,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::put_all_async(
         return;
     }
 
-    m_impl->upsert_all_async(tx, unite_records(pairs), std::move(callback));
+    m_impl->upsert_all_async(tx, concat_records(pairs), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_and_put_async(
@@ -91,7 +91,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::get_and_put_async(
     if (0 == value.column_count())
         throw ignite_error("Value tuple can not be empty");
 
-    m_impl->get_and_upsert_async(tx, key + value, std::move(callback));
+    m_impl->get_and_upsert_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::put_if_absent_async(
@@ -102,7 +102,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::put_if_absent_async(
     if (0 == value.column_count())
         throw ignite_error("Value tuple can not be empty");
 
-    m_impl->insert_async(tx, key + value, std::move(callback));
+    m_impl->insert_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::remove_async(
@@ -121,7 +121,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::remove_async(
     if (0 == value.column_count())
         throw ignite_error("Value tuple can not be empty");
 
-    m_impl->remove_exact_async(tx, key + value, std::move(callback));
+    m_impl->remove_exact_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::remove_all_async(
@@ -141,7 +141,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::remove_all_async(
         return;
     }
 
-    m_impl->remove_all_exact_async(tx, unite_records(pairs), std::move(callback));
+    m_impl->remove_all_exact_async(tx, concat_records(pairs), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_and_remove_async(
@@ -160,7 +160,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::replace_async(
     if (0 == value.column_count())
         throw ignite_error("Value tuple can not be empty");
 
-    m_impl->replace_async(tx, key + value, std::move(callback));
+    m_impl->replace_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::replace_async(
@@ -174,7 +174,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::replace_async(
     if (0 == new_value.column_count())
         throw ignite_error("New value tuple can not be empty");
 
-    m_impl->replace_async(tx, key + old_value, key + new_value, std::move(callback));
+    m_impl->replace_async(tx, detail::concat(key, old_value), detail::concat(key, new_value), std::move(callback));
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::get_and_replace_async(
@@ -185,7 +185,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::get_and_replace_async(
     if (0 == value.column_count())
         throw ignite_error("Value tuple can not be empty");
 
-    m_impl->get_and_replace_async(tx, key + value, std::move(callback));
+    m_impl->get_and_replace_async(tx, detail::concat(key, value), std::move(callback));
 }
 
 } // namespace ignite

@@ -27,11 +27,18 @@
 #include <vector>
 
 namespace ignite {
+// Forward declaration.
+class ignite_tuple;
+
+namespace detail {
+    ignite_tuple concat(const ignite_tuple& left, const ignite_tuple& right);
+}
 
 /**
  * Ignite tuple.
  */
 class ignite_tuple {
+    friend ignite_tuple detail::concat(const ignite_tuple& left, const ignite_tuple& right);
 public:
     // Default
     ignite_tuple() = default;
@@ -181,28 +188,6 @@ public:
         if (it == m_indices.end())
             return -1;
         return std::int32_t(it->second);
-    }
-
-    /**
-     * Concatenation operator.
-     *
-     * @param left Left hand value.
-     * @param right Right hand value.
-     * @return Resulting tuple.
-     */
-    friend ignite_tuple operator+(const ignite_tuple& left, const ignite_tuple& right) {
-        // TODO: IGNITE-18855 eliminate unnecessary tuple transformation;
-
-        ignite_tuple res(left.column_count() + right.column_count());
-        res.m_pairs.assign(left.m_pairs.begin(), left.m_pairs.end());
-        res.m_indices.insert(left.m_indices.begin(), left.m_indices.end());
-
-        for (const auto &pair : right.m_pairs) {
-            res.m_pairs.emplace_back(pair);
-            res.m_indices.emplace(parse_name(pair.first), res.m_pairs.size() - 1);
-        }
-
-        return res;
     }
 
 private:
