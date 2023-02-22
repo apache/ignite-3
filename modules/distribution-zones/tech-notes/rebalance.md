@@ -83,6 +83,13 @@ After that we can prepare the following logic:
 - On every PrimaryReplica reelection by PD it must send the new `RebalanceRequest`/`CancelRebalanceRequest` to PrimaryReplica, if pending/cancel (cancel always wins, if filled) key is not empty. 
 - On every leader reelection (for the leader oriented protocols) inside the replication group - leader sends leaderElected event to PrimaryReplica, which forces PrimaryReplica to send RebalanceRequest/CancelRebalanceRequest to the replication group leader again.
 
+More over: 
+- `RebalanceRequest`/`CancelRebalanceRequest` must include the revision of its' trigger. 
+- PrimaryReplica must persist the last seen revision locally.
+- When new PrimaryReplica elected, PlacementDriver must initialize the last seen revision of PrimaryReplica to the current revision-1. So, after that PlacementDriver must send the *Request with current actual revision.
+- PrimaryReplica must skip any requests, if their revision < lastSeenRevision.
+These actions protect PrimaryReplica from processing the messages from inactive PlacementDriver.
+
 ## Cancel an ongoing rebalance process if needed
 Sometimes we must cancel the ongoing rebalance:
 - We can receive an unrecoverable error from replication group during the current rebalance
