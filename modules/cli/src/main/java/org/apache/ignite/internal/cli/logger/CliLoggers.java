@@ -19,11 +19,13 @@ package org.apache.ignite.internal.cli.logger;
 
 import java.io.PrintWriter;
 import java.lang.System.Logger;
+import java.util.HashSet;
 import java.util.ResourceBundle;
+import java.util.Set;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.LoggerFactory;
-import org.apache.ignite.rest.client.invoker.Configuration;
+import org.apache.ignite.rest.client.invoker.ApiClient;
 
 /**
  * This class is used when verbose output for command is needed. Instances of loggers created by the {@link CliLoggers#forClass(Class)} and
@@ -34,8 +36,8 @@ public class CliLoggers {
 
     private static boolean isVerbose;
 
-    /** Http logger for the default REST API client. */
-    private static final HttpLogging httpLogger = new HttpLogging(Configuration.getDefaultApiClient());
+    /** Http loggers for the REST API clients. */
+    private static final Set<HttpLogging> httpLoggers = new HashSet<>();
 
     private static final LoggerFactory loggerFactory = name -> new CliLogger(System.getLogger(name));
 
@@ -59,6 +61,10 @@ public class CliLoggers {
         return Loggers.forName(name, loggerFactory);
     }
 
+    public static void addApiClient(ApiClient client) {
+        httpLoggers.add(new HttpLogging(client));
+    }
+
     /**
      * Starts redirecting output from loggers and from REST API client to the specified print writer.
      *
@@ -67,7 +73,7 @@ public class CliLoggers {
     public static void startOutputRedirect(PrintWriter out) {
         output = out;
         isVerbose = true;
-        httpLogger.startHttpLogging(out);
+        httpLoggers.forEach(logger -> logger.startHttpLogging(out));
     }
 
     /**
@@ -76,7 +82,7 @@ public class CliLoggers {
     public static void stopOutputRedirect() {
         output = null;
         isVerbose = false;
-        httpLogger.stopHttpLogging();
+        httpLoggers.forEach(HttpLogging::stopHttpLogging);
     }
 
     /**

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.call.cluster.status;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus.ClusterStatusBuilder;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -27,7 +28,6 @@ import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.ClusterState;
 
 /**
@@ -38,8 +38,11 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterStatus> {
 
     private final PhysicalTopologyCall physicalTopologyCall;
 
-    public ClusterStatusCall(PhysicalTopologyCall physicalTopologyCall) {
+    private final ApiClientFactory clientFactory;
+
+    public ClusterStatusCall(PhysicalTopologyCall physicalTopologyCall, ApiClientFactory clientFactory) {
         this.physicalTopologyCall = physicalTopologyCall;
+        this.clientFactory = clientFactory;
     }
 
     @Override
@@ -72,6 +75,6 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterStatus> {
     }
 
     private ClusterState fetchClusterState(String url) throws ApiException {
-        return new ClusterManagementApi(Configuration.getDefaultApiClient().setBasePath(url)).clusterState();
+        return new ClusterManagementApi(clientFactory.getClient(url)).clusterState();
     }
 }
