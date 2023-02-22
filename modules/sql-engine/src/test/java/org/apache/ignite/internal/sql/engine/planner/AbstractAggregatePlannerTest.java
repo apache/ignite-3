@@ -277,6 +277,9 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         checkTestCase22("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash()));
     }
 
+    /**
+     * Validates a plan for a query with EXPAND_DISTINCT_AGG hint.
+     */
     @Test
     public void expandDistinctAggregates() throws Exception {
         checkTestCase23("SELECT /*+ EXPAND_DISTINCT_AGG */ SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0",
@@ -380,6 +383,11 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     protected abstract void checkTestCase25(String sql, IgniteSchema schema) throws Exception;
 
+    /**
+     * Rules to disable.
+     *
+     * @return Rules.
+     */
     protected abstract String[] disabledRules();
 
     protected <T extends RelNode> void assertPlan(

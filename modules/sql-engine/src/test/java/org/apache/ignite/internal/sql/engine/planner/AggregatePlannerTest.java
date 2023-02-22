@@ -34,11 +34,10 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * AggregatePlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Test that verifies plans for queries with aggregates.
+ * The test should not disable any rules and validates the best query plans.
  */
 public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
@@ -228,15 +227,16 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
     @Override
     protected void checkTestCase15(String sql, IgniteSchema schema, String... additionalRules) throws Exception {
+        // Ignore given additionalRules to check what is the best plan.
         assertPlan(sql, schema,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(input(isIndexScan("TEST", "val0")))
-                ),
-                ArrayUtils.concat(disabledRules(), additionalRules));
+                ));
     }
 
     @Override
     protected void checkTestCase16(String sql, IgniteSchema schema, String... additionalRules) throws Exception {
+        // Ignore given additionalRules to check what is the best plan.
         assertPlan(sql, schema,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
@@ -244,8 +244,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                                         .and(input(isIndexScan("TEST", "val0")))
                                 ))
                         ))
-                ),
-                ArrayUtils.concat(disabledRules(), additionalRules));
+                ));
     }
 
     @Override
