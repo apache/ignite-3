@@ -46,11 +46,11 @@ void inline check_value_argument(const ignite_tuple &value) {
  *
  * @param pairs Pairs.
  */
-std::vector<ignite_tuple> concat_records(const std::vector<std::pair<ignite_tuple, ignite_tuple>>& pairs) {
+std::vector<ignite_tuple> concat_records(const std::vector<std::pair<ignite_tuple, ignite_tuple>> &pairs) {
     // TODO: IGNITE-18855 eliminate unnecessary tuple transformation;
     std::vector<ignite_tuple> records;
     records.reserve(pairs.size());
-    for (const auto& pair : pairs)
+    for (const auto &pair : pairs)
         records.emplace_back(detail::concat(pair.first, pair.second));
 
     return records;
@@ -89,7 +89,7 @@ void key_value_view<ignite_tuple, ignite_tuple>::contains_async(
 }
 
 void key_value_view<ignite_tuple, ignite_tuple>::put_all_async(
-    transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs, ignite_callback<void> callback) {
+    transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs, ignite_callback<void> callback) {
     if (pairs.empty()) {
         callback({});
         return;
@@ -98,8 +98,8 @@ void key_value_view<ignite_tuple, ignite_tuple>::put_all_async(
     m_impl->upsert_all_async(tx, concat_records(pairs), std::move(callback));
 }
 
-void key_value_view<ignite_tuple, ignite_tuple>::get_and_put_async(
-    transaction *tx, const key_type &key, const value_type &value, ignite_callback<std::optional<value_type>> callback) {
+void key_value_view<ignite_tuple, ignite_tuple>::get_and_put_async(transaction *tx, const key_type &key,
+    const value_type &value, ignite_callback<std::optional<value_type>> callback) {
     check_key_argument(key);
     check_value_argument(value);
 
@@ -139,8 +139,8 @@ void key_value_view<ignite_tuple, ignite_tuple>::remove_all_async(
     m_impl->remove_all_async(tx, std::move(keys), std::move(callback));
 }
 
-void key_value_view<ignite_tuple, ignite_tuple>::remove_all_async(
-    transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs, ignite_callback<std::vector<value_type>> callback) {
+void key_value_view<ignite_tuple, ignite_tuple>::remove_all_async(transaction *tx,
+    const std::vector<std::pair<key_type, value_type>> &pairs, ignite_callback<std::vector<value_type>> callback) {
     if (pairs.empty()) {
         callback(std::vector<value_type>{});
         return;
@@ -164,8 +164,8 @@ void key_value_view<ignite_tuple, ignite_tuple>::replace_async(
     m_impl->replace_async(tx, detail::concat(key, value), std::move(callback));
 }
 
-void key_value_view<ignite_tuple, ignite_tuple>::replace_async(
-    transaction *tx, const key_type &key, const value_type &old_value, const value_type &new_value, ignite_callback<bool> callback) {
+void key_value_view<ignite_tuple, ignite_tuple>::replace_async(transaction *tx, const key_type &key,
+    const value_type &old_value, const value_type &new_value, ignite_callback<bool> callback) {
     check_key_argument(key);
     check_value_argument(old_value);
     check_value_argument(new_value);
@@ -173,8 +173,8 @@ void key_value_view<ignite_tuple, ignite_tuple>::replace_async(
     m_impl->replace_async(tx, detail::concat(key, old_value), detail::concat(key, new_value), std::move(callback));
 }
 
-void key_value_view<ignite_tuple, ignite_tuple>::get_and_replace_async(
-    transaction *tx, const key_type &key, const value_type &value, ignite_callback<std::optional<value_type>> callback) {
+void key_value_view<ignite_tuple, ignite_tuple>::get_and_replace_async(transaction *tx, const key_type &key,
+    const value_type &value, ignite_callback<std::optional<value_type>> callback) {
     check_key_argument(key);
     check_value_argument(value);
 

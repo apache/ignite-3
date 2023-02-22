@@ -69,6 +69,6 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
  * @param right Right hand value.
  * @return Resulting tuple.
  */
-[[nodiscard]] ignite_tuple concat(const ignite_tuple& left, const ignite_tuple& right);
+[[nodiscard]] ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right);
 
 } // namespace ignite::detail

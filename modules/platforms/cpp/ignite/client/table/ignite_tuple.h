@@ -31,14 +31,15 @@ namespace ignite {
 class ignite_tuple;
 
 namespace detail {
-    ignite_tuple concat(const ignite_tuple& left, const ignite_tuple& right);
+ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right);
 }
 
 /**
  * Ignite tuple.
  */
 class ignite_tuple {
-    friend ignite_tuple detail::concat(const ignite_tuple& left, const ignite_tuple& right);
+    friend ignite_tuple detail::concat(const ignite_tuple &left, const ignite_tuple &right);
+
 public:
     // Default
     ignite_tuple() = default;

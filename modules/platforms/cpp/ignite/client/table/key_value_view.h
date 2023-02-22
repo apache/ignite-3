@@ -114,8 +114,8 @@ public:
      *   does not exist, the resulting element of the corresponding order is
      *   @c std::nullopt.
      */
-    IGNITE_API void get_all_async(transaction *tx, std::vector<key_type> keys,
-        ignite_callback<std::vector<std::optional<value_type>>> callback);
+    IGNITE_API void get_all_async(
+        transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<std::optional<value_type>>> callback);
 
     /**
      * Gets multiple records by keys.
@@ -167,7 +167,8 @@ public:
      * @param value Value.
      * @param callback Callback.
      */
-    IGNITE_API void put_async(transaction *tx, const key_type &key, const value_type &value, ignite_callback<void> callback);
+    IGNITE_API void put_async(
+        transaction *tx, const key_type &key, const value_type &value, ignite_callback<void> callback);
 
     /**
      * Puts a value with a given key.
@@ -190,7 +191,7 @@ public:
      * @param callback Callback that is called on operation completion.
      */
     IGNITE_API void put_all_async(
-        transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs, ignite_callback<void> callback);
+        transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs, ignite_callback<void> callback);
 
     /**
      * Puts multiple key-value pairs.
@@ -199,7 +200,7 @@ public:
      *   single operation is used.
      * @param pairs Pairs to put.
      */
-    IGNITE_API void put_all(transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs) {
+    IGNITE_API void put_all(transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs) {
         sync<void>([this, tx, pairs](auto callback) mutable { put_all_async(tx, pairs, std::move(callback)); });
     }
 
@@ -213,8 +214,8 @@ public:
      * @param callback Callback. Called with a value which contains replaced
      *   value or @c std::nullopt if it did not exist.
      */
-    IGNITE_API void get_and_put_async(
-        transaction *tx, const key_type &key, const value_type &value, ignite_callback<std::optional<value_type>> callback);
+    IGNITE_API void get_and_put_async(transaction *tx, const key_type &key, const value_type &value,
+        ignite_callback<std::optional<value_type>> callback);
 
     /**
      * Puts a value with a given key and returns previous value for the key.
@@ -347,8 +348,8 @@ public:
      * @param callback Callback that is called on operation completion. Called with
      *   records from @c records that did not exist.
      */
-    IGNITE_API void remove_all_async(
-        transaction *tx, const std::vector<std::pair<key_type, value_type>>& pairs, ignite_callback<std::vector<value_type>> callback);
+    IGNITE_API void remove_all_async(transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs,
+        ignite_callback<std::vector<value_type>> callback);
 
     /**
      * Removes records with given keys and values from the table. If one or more
@@ -432,8 +433,8 @@ public:
      * @param callback Callback. Called with a value indicating whether a
      *   specified record was replaced.
      */
-    IGNITE_API void replace_async(
-        transaction *tx, const key_type &key, const value_type &old_value, const value_type &new_value, ignite_callback<bool> callback);
+    IGNITE_API void replace_async(transaction *tx, const key_type &key, const value_type &old_value,
+        const value_type &new_value, ignite_callback<bool> callback);
 
     /**
      * Replaces a value with a @c new_value one only if existing value equals
@@ -448,9 +449,8 @@ public:
      */
     IGNITE_API bool replace(
         transaction *tx, const key_type &key, const value_type &old_value, const value_type &new_value) {
-        return sync<bool>([this, tx, &key, &old_value, &new_value] (auto callback) {
-            replace_async(tx, key, old_value, new_value, std::move(callback));
-        });
+        return sync<bool>([this, tx, &key, &old_value, &new_value](
+                              auto callback) { replace_async(tx, key, old_value, new_value, std::move(callback)); });
     }
 
     /**
@@ -464,8 +464,8 @@ public:
      * @param callback Callback. Called with a previous value for the given key,
      *   or @c std::nullopt if it did not exist.
      */
-    IGNITE_API void get_and_replace_async(
-        transaction *tx, const key_type &key, const value_type &value, ignite_callback<std::optional<value_type>> callback);
+    IGNITE_API void get_and_replace_async(transaction *tx, const key_type &key, const value_type &value,
+        ignite_callback<std::optional<value_type>> callback);
 
     /**
      * Replaces a record with the given key if it exists returning previous

@@ -344,8 +344,7 @@ TEST_F(key_value_binary_view_test, put_if_absent_existing_record_async) {
             if (res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
 
-            kv_view.get_async(
-                nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            kv_view.get_async(nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -432,8 +431,7 @@ TEST_F(key_value_binary_view_test, replace_existing_async) {
             if (!res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
 
-            kv_view.get_async(
-                nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            kv_view.get_async(nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -528,8 +526,7 @@ TEST_F(key_value_binary_view_test, replace_exact_existing_right_async) {
             if (!res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
 
-            kv_view.get_async(
-                nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            kv_view.get_async(nullptr, key_tuple, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -685,8 +682,7 @@ TEST_F(key_value_binary_view_test, remove_existing_async) {
         if (!res.value())
             all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 
-        kv_view.remove_async(
-            nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        kv_view.remove_async(nullptr, get_tuple(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res_tuple = all_done->get_future().get();
@@ -849,9 +845,7 @@ TEST_F(key_value_binary_view_test, remove_all_nonexisting_keys_return_all) {
 
 TEST_F(key_value_binary_view_test, remove_all_only_existing) {
     std::vector<std::pair<ignite_tuple, ignite_tuple>> to_insert = {
-        {get_tuple(1), get_tuple("foo")},
-        {get_tuple(2), get_tuple("bar")}
-    };
+        {get_tuple(1), get_tuple("foo")}, {get_tuple(2), get_tuple("bar")}};
     kv_view.put_all(nullptr, to_insert);
 
     auto res = kv_view.remove_all(nullptr, {get_tuple(1), get_tuple(2)});
@@ -891,22 +885,16 @@ TEST_F(key_value_binary_view_test, remove_all_empty) {
 }
 
 TEST_F(key_value_binary_view_test, remove_all_exact_nonexisting) {
-    auto res = kv_view.remove_all(nullptr,
-        {{get_tuple(1), get_tuple("foo")},
-         {get_tuple(2), get_tuple("bar")}});
+    auto res = kv_view.remove_all(nullptr, {{get_tuple(1), get_tuple("foo")}, {get_tuple(2), get_tuple("bar")}});
 
     // TODO: Key order should be preserved by the server (IGNITE-16004).
     ASSERT_EQ(2, res.size());
 }
 
 TEST_F(key_value_binary_view_test, remove_all_exact_overlapped) {
-    kv_view.put_all(nullptr,
-        {{get_tuple(1), get_tuple("foo")},
-         {get_tuple(2), get_tuple("bar")}});
+    kv_view.put_all(nullptr, {{get_tuple(1), get_tuple("foo")}, {get_tuple(2), get_tuple("bar")}});
 
-    auto res = kv_view.remove_all(nullptr,
-        {{get_tuple(1), get_tuple("baz")},
-         {get_tuple(2), get_tuple("bar")}});
+    auto res = kv_view.remove_all(nullptr, {{get_tuple(1), get_tuple("baz")}, {get_tuple(2), get_tuple("bar")}});
 
     EXPECT_EQ(res.size(), 1);
     EXPECT_EQ(2, res.front().column_count());
@@ -945,7 +933,7 @@ TEST_F(key_value_binary_view_test, types_test) {
     auto table = m_client.get_tables().get_table(TABLE_NAME_ALL_COLUMNS);
     kv_view = table->key_value_binary_view();
 
-    ignite_tuple inserted {
+    ignite_tuple inserted{
         {"str", "test"},
         {"int8", std::int8_t(1)},
         {"int16", std::int16_t(2)},
