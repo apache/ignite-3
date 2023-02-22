@@ -21,6 +21,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.Objects;
 
 /**
  * Deployment unit interface.
@@ -28,11 +29,11 @@ import java.nio.file.Path;
 public interface DeploymentUnit {
 
     /**
-     * Unit content.
+     * Unit name.
      *
      * @return Name of deployment unit.
      */
-    String unitName();
+    String name();
 
     /**
      * Input stream with deployment unit content.
@@ -49,10 +50,11 @@ public interface DeploymentUnit {
      * @return Deployment unit based on local file.
      */
     static DeploymentUnit fromPath(Path path) {
+        Objects.requireNonNull(path);
         return new DeploymentUnit() {
 
             @Override
-            public String unitName() {
+            public String name() {
                 return path.getFileName().toString();
             }
 

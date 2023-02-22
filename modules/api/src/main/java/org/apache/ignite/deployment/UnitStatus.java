@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Deployment unit status.
@@ -75,6 +76,11 @@ public class UnitStatus {
     @Override
     public int hashCode() {
         return Objects.hash(id, versionToConsistentIds);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 
     /**

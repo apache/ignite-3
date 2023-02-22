@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.SYNC;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -30,9 +35,11 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +54,8 @@ import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.exception.DeployUnitWriteMetaException;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitIdentifierException;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotExistException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.exception.UndeployNotExistedDeploymentUnitException;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
@@ -67,10 +76,12 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
+//TODO: rework metastorage keys IGNITE-18870
 /**
  * Deployment manager implementation.
  */
@@ -134,14 +145,16 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     }
 
     @Override
-    public CompletableFuture<Boolean> deploy(String id, Version version, DeploymentUnit deploymentUnit) {
-        Set<Operation> operations = new HashSet<>();
+    public CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
+        if (id == null || id.isBlank() || version == null) {
+            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+        }
 
         ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version.render());
 
-        UnitMeta meta = new UnitMeta(id, version, deploymentUnit.unitName(), Collections.emptyList());
+        UnitMeta meta = new UnitMeta(id, version, deploymentUnit.name(), Collections.emptyList());
 
-        operations.add(put(key, UnitMetaSerializer.serialize(meta)));
+        Operation put = put(key, UnitMetaSerializer.serialize(meta));
 
         DeployUnitRequestBuilder builder = DeployUnitRequestImpl.builder();
 
@@ -152,13 +165,12 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
             return CompletableFuture.failedFuture(new DeploymentUnitReadException(e));
         }
         DeployUnitRequest request = builder
-                .unitName(deploymentUnit.unitName())
+                .unitName(deploymentUnit.name())
                 .id(id)
                 .version(version.render())
                 .build();
 
-        return metaStorage.invoke(notExists(key),
-                        operations, Set.of(Operations.noop()))
+        return metaStorage.invoke(notExists(key), put, Operations.noop())
                 .thenCompose(success -> {
                     if (success) {
                         return doDeploy(request);
@@ -198,7 +210,11 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     }
 
     @Override
-    public CompletableFuture<Void> undeploy(String id, Version version) {
+    public CompletableFuture<Void> undeployAsync(String id, Version version) {
+        if (id == null || id.isBlank() || version == null) {
+            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+        }
+
         ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version);
 
         return metaStorage.invoke(exists(key), Operations.remove(key), Operations.noop())
@@ -206,8 +222,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     if (success) {
                         return cmgManager.logicalTopology();
                     }
-                    throw new UndeployNotExistedDeploymentUnitException("Unit " + id + " with version "
-                            + version + " doesn't exist.");
+                    return CompletableFuture.failedFuture(new UndeployNotExistedDeploymentUnitException(
+                            "Unit " + id + " with version " + version + " doesn't exist."));
                 }).thenApply(logicalTopologySnapshot -> {
                     for (ClusterNode node : logicalTopologySnapshot.nodes()) {
                         clusterService.messagingService()
@@ -222,8 +238,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     }
 
     @Override
-    public CompletableFuture<Set<UnitStatus>> list() {
-        CompletableFuture<Set<UnitStatus>> result = new CompletableFuture<>();
+    public CompletableFuture<List<UnitStatus>> listAsync() {
+        CompletableFuture<List<UnitStatus>> result = new CompletableFuture<>();
         Map<String, UnitStatusBuilder> map = new HashMap<>();
         metaStorage.prefix(new ByteArray(UNITS_PREFIX))
                 .subscribe(new Subscriber<>() {
@@ -246,18 +262,21 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
                     @Override
                     public void onComplete() {
-                        result.complete(map.values().stream().map(UnitStatusBuilder::build).collect(Collectors.toSet()));
+                        result.complete(map.values().stream().map(UnitStatusBuilder::build).collect(Collectors.toList()));
                     }
                 });
         return result;
     }
 
     @Override
-    public CompletableFuture<Set<Version>> versions(String unitId) {
-        CompletableFuture<Set<Version>> result = new CompletableFuture<>();
-        metaStorage.prefix(new ByteArray(UNITS_PREFIX + unitId))
+    public CompletableFuture<List<Version>> versionsAsync(String id) {
+        if (id == null || id.isBlank()) {
+            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+        }
+        CompletableFuture<List<Version>> result = new CompletableFuture<>();
+        metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
                 .subscribe(new Subscriber<>() {
-                    private final Set<Version> set = new HashSet<>();
+                    private final List<Version> set = new ArrayList<>();
 
                     @Override
                     public void onSubscribe(Subscription subscription) {
@@ -284,12 +303,14 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     }
 
     @Override
-    public CompletableFuture<UnitStatus> status(String id) {
+    public CompletableFuture<UnitStatus> statusAsync(String id) {
+        if (id == null || id.isBlank()) {
+            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException());
+        }
         CompletableFuture<UnitStatus> result = new CompletableFuture<>();
         metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
                 .subscribe(new Subscriber<>() {
-                    private final UnitStatusBuilder builder = UnitStatus.builder(id);
-                    private final Set<Version> set = new HashSet<>();
+                    private UnitStatusBuilder builder;
 
                     @Override
                     public void onSubscribe(Subscription subscription) {
@@ -298,6 +319,9 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
                     @Override
                     public void onNext(Entry item) {
+                        if (builder == null) {
+                            builder = UnitStatus.builder(id);
+                        }
                         UnitMeta deserialize = UnitMetaSerializer.deserialize(item.value());
                         builder.append(deserialize.getVersion(), deserialize.getConsistentIdLocation());
                     }
@@ -309,7 +333,12 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
                     @Override
                     public void onComplete() {
-                        result.complete(builder.build());
+                        if (builder != null) {
+                            result.complete(builder.build());
+                        } else {
+                            result.completeExceptionally(
+                                    new DeploymentUnitNotExistException("Unit with " + id + "not exist."));
+                        }
                     }
                 });
         return result;
@@ -320,7 +349,6 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
         unitsFolder = unitsFolder.resolve(configuration.deploymentLocation().value());
         clusterService.messagingService().addMessageHandler(DeployUnitMessageTypes.class,
                 (message, senderConsistentId, correlationId) -> {
-
                     if (message instanceof DeployUnitRequest) {
                         processDeployRequest((DeployUnitRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof UndeployUnitRequest) {
@@ -346,19 +374,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     .resolve(executeRequest.id())
                     .resolve(executeRequest.version());
 
-            Files.walkFileTree(unitPath, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.delete(file);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    Files.delete(dir);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
+            IgniteUtils.deleteIfExistsThrowable(unitPath);
         } catch (IOException e) {
             LOG.error("Failed to undeploy unit " + executeRequest.id() + ":" + executeRequest.version(), e);
             clusterService.messagingService()
@@ -380,10 +396,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     .resolve(executeRequest.unitName());
             Path unitPathTmp = unitPath.resolveSibling(unitPath.getFileName() + ".tmp");
             Files.createDirectories(unitPathTmp.getParent());
-            Files.write(unitPathTmp, executeRequest.unitContent(),
-                    StandardOpenOption.CREATE, StandardOpenOption.SYNC, StandardOpenOption.TRUNCATE_EXISTING);
-            Files.move(unitPathTmp, unitPath,
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            Files.write(unitPathTmp, executeRequest.unitContent(), CREATE, SYNC, TRUNCATE_EXISTING);
+            Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
         } catch (IOException e) {
             LOG.error("Failed to deploy unit " + executeRequest.id() + ":" + executeRequest.version(), e);
             return CompletableFuture.failedFuture(e);

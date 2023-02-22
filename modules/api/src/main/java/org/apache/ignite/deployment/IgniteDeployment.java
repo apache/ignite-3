@@ -17,7 +17,7 @@
 
 package org.apache.ignite.deployment;
 
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.version.Version;
 
@@ -25,24 +25,36 @@ import org.apache.ignite.deployment.version.Version;
  * Provides access to the Deployment Unit functionality.
  */
 public interface IgniteDeployment {
-
-    default CompletableFuture<Boolean> deploy(String id, DeploymentUnit deploymentUnit) {
-        return deploy(id, Version.latest(), deploymentUnit);
+    /**
+     * Deploy provided unit to current node with latest version.
+     * @param id Unit identifier. Not empty and not null.
+     * @param deploymentUnit Unit content.
+     * @return Future with sucess or not result.
+     */
+    default CompletableFuture<Boolean> deployAsync(String id, DeploymentUnit deploymentUnit) {
+        return deployAsync(id, Version.LATEST, deploymentUnit);
     }
 
     /**
      * Deploy provided unit to current node.
      * After deploy finished, this deployment unit will be place to CMG group asynchronously.
      *
-     * @param id Unit identifier.
+     * @param id Unit identifier. Not empty and not null.
      * @param version Unit version.
      * @param deploymentUnit Unit content.
      * @return Future with success or not result.
      */
-    CompletableFuture<Boolean> deploy(String id, Version version, DeploymentUnit deploymentUnit);
+    CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit);
 
-    default CompletableFuture<Void> undeploy(String id) {
-        return undeploy(id, Version.latest());
+    /**
+     * Undeploy latest version of unit with corresponding identifier.
+     *
+     * @param id Unit identifier. Not empty and not null.
+     * @return Future completed when unit will be undeployed.
+     * In case when specified unit not exist future will be failed.
+     */
+    default CompletableFuture<Void> undeployAsync(String id) {
+        return undeployAsync(id, Version.LATEST);
     }
 
     /**
@@ -52,23 +64,32 @@ public interface IgniteDeployment {
      * @param id Unit identifier.
      * @param version Unit version.
      * @return Future completed when unit will be undeployed.
+     * In case when specified unit not exist future will be failed.
      */
-    CompletableFuture<Void> undeploy(String id, Version version);
+    CompletableFuture<Void> undeployAsync(String id, Version version);
 
     /**
      * List of all deployed units identifiers.
      *
      * @return Future with result.
      */
-    CompletableFuture<Set<UnitStatus>> list();
+    CompletableFuture<List<UnitStatus>> listAsync();
 
     /**
      * List with all deployed versions of required unit identifiers.
      *
-     * @param unitId unit identifier.
-     * @return Future with result.
+     * @param id Unit identifier. Not empty and not null.
+     * @return Future with list of all available version of unit.
+     * In case when unit with specified identifier not exist future list will be empty.
      */
-    CompletableFuture<Set<Version>> versions(String unitId);
+    CompletableFuture<List<Version>> versionsAsync(String id);
 
-    CompletableFuture<UnitStatus> status(String id);
+    /**
+     * Return status of unit with provided identifier.
+     *
+     * @param id Unit identifier. Not empty and not null.
+     * @return Future with unit status.
+     * Future will be failed if unit with specified identifier not exist.
+     */
+    CompletableFuture<UnitStatus> statusAsync(String id);
 }

@@ -26,7 +26,6 @@ import org.apache.ignite.deployment.version.Version;
  * Unit meta data class.
  */
 public class UnitMeta {
-
     /**
      * Unit id.
      */
@@ -63,7 +62,7 @@ public class UnitMeta {
     }
 
     public UnitMeta(String id, String unitName, List<String> consistentIdLocation) {
-        this(id, Version.latest(), unitName, consistentIdLocation);
+        this(id, Version.LATEST, unitName, consistentIdLocation);
     }
 
     public String getId() {

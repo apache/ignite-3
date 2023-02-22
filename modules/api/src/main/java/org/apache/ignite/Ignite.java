@@ -68,6 +68,11 @@ public interface Ignite extends AutoCloseable {
      */
     IgniteCompute compute();
 
+    /**
+     * Returns {@link IgniteDeployment} which can be used to deploy units.
+     *
+     * @return Deployment management object.
+     */
     IgniteDeployment deployment();
 
     /**

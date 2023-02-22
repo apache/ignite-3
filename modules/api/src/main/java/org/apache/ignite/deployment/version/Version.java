@@ -22,17 +22,12 @@ package org.apache.ignite.deployment.version;
  * Unit version interface. Version implementations should be comparable.
  */
 public interface Version extends Comparable<Version> {
-
     /**
      * Render version representation in String format.
      *
      * @return version string representation.
      */
     String render();
-
-    static Version latest() {
-        return LATEST;
-    }
 
     Version LATEST = new Version() {
         @Override
@@ -75,6 +70,6 @@ public interface Version extends Comparable<Version> {
         if (!"latest".equals(s)) {
             throw new VersionParseException();
         }
-        return latest();
+        return LATEST;
     }
 }
