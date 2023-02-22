@@ -18,14 +18,17 @@
 package org.apache.ignite.internal.client.tx;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Client transaction.
@@ -120,6 +123,23 @@ public class ClientTransaction implements Transaction {
     @Override
     public HybridTimestamp readTimestamp() {
         // TODO: IGNITE-17929 Add read-only support to ClientTransactions
-        return null;
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is
+     * not an instance of {@link ClientTransaction}.
+     *
+     * @param tx Public transaction.
+     * @return Internal transaction.
+     */
+    public static ClientTransaction get(@NotNull Transaction tx) {
+        if (!(tx instanceof ClientTransaction)) {
+            throw new IgniteException(UNEXPECTED_ERR, "Unsupported transaction implementation: '"
+                    + tx.getClass()
+                    + "'. Use IgniteClient.transactions() to start transactions.");
+        }
+
+        return (ClientTransaction) tx;
     }
 }

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -48,6 +49,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Thin client SQL integration test.
  */
+@SuppressWarnings("resource")
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteAsyncSimpleSelect() {
@@ -96,11 +98,12 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testTxCorrectness() {
+    void testTxCorrectness() throws InterruptedException {
         Session ses = client().sql().createSession();
 
         // Create table.
         ses.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+        waitForTableOnAllNodes("testExecuteDdlDml");
 
         // Async
         Transaction tx = client().transactions().begin();
@@ -161,7 +164,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testExecuteAsyncDdlDml() {
+    void testExecuteAsyncDdlDml() throws InterruptedException {
         Session session = client().sql().createSession();
 
         // Create table.
@@ -174,6 +177,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertTrue(createRes.wasApplied());
         assertEquals(-1, createRes.affectedRows());
         assertThrows(NoRowSetExpectedException.class, createRes::currentPageSize);
+
+        waitForTableOnAllNodes("testExecuteAsyncDdlDml");
 
         // Insert data.
         for (int i = 0; i < 10; i++) {
@@ -231,13 +236,15 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @SuppressWarnings("ConstantConditions")
     @Test
-    void testExecuteDdlDml() {
+    void testExecuteDdlDml() throws InterruptedException {
         Session session = client().sql().createSession();
 
         // Create table.
         ResultSet createRes = session.execute(
                 null,
                 "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+
+        waitForTableOnAllNodes("testExecuteDdlDml");
 
         assertFalse(createRes.hasRowSet());
         assertNull(createRes.metadata());
@@ -312,10 +319,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testFetchNextPage() {
+    void testFetchNextPage() throws InterruptedException {
         Session session = client().sql().createSession();
 
         session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT)").join();
+        waitForTableOnAllNodes("testFetchNextPage");
 
         for (int i = 0; i < 10; i++) {
             session.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (?, ?)", i, i).join();
@@ -354,10 +362,12 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testTransactionRollbackRevertsSqlUpdate() {
+    void testTransactionRollbackRevertsSqlUpdate() throws InterruptedException {
         Session session = client().sql().createSession();
 
         session.executeAsync(null, "CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT)").join();
+        waitForTableOnAllNodes("testTx");
+
         session.executeAsync(null, "INSERT INTO testTx VALUES (1, 1)").join();
 
         Transaction tx = client().transactions().begin();
@@ -415,6 +425,25 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         assertEquals(0, row.num);
         assertNull(row.str);
+    }
+
+    private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
+        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
+        // Currently newly created table is not immediately available on all nodes.
+        boolean res = IgniteTestUtils.waitForCondition(() -> {
+            var nodeCount = client().clusterNodes().size();
+
+            // Do N checks - they will go to different nodes becase of request balancing.
+            for (int i = 0; i < nodeCount; i++) {
+                if (client().tables().table(tableName) == null) {
+                    return false;
+                }
+            }
+
+            return true;
+        }, 3000);
+
+        assertTrue(res);
     }
 
     private static class Pojo {
