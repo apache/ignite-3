@@ -47,6 +47,7 @@ Examples:
 
 Creates an `exampleZone` distribution zone:
 
+[source,sql]
 ----
 CREATE ZONE IF NOT EXISTS exampleZone
 ----
@@ -54,6 +55,7 @@ CREATE ZONE IF NOT EXISTS exampleZone
 
 Creates an `exampleZone` distribution zone that will only use nodes with SSD attribute and adjust 300 seconds after cluster topology changes:
 
+[source,sql]
 ----
 CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER='SSD', DATA_NODES_AUTO_ADJUST=300
 ----
