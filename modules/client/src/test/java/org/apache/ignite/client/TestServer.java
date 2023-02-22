@@ -150,8 +150,8 @@ public class TestServer implements AutoCloseable {
                         clusterService,
                         bootstrapFactory,
                         ignite.sql(),
-                        () -> CompletableFuture.completedFuture(clusterId)
-                );
+                        () -> CompletableFuture.completedFuture(clusterId),
+                        clientHandlerMetricSource);
 
         module.start();
     }

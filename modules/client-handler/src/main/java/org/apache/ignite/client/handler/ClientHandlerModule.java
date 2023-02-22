@@ -94,13 +94,14 @@ public class ClientHandlerModule implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param queryProcessor     Sql query processor.
-     * @param igniteTables       Ignite.
+     * @param queryProcessor Sql query processor.
+     * @param igniteTables Ignite.
      * @param igniteTransactions Transactions.
-     * @param registry           Configuration registry.
-     * @param igniteCompute      Compute.
-     * @param clusterService     Cluster.
-     * @param bootstrapFactory   Bootstrap factory.
+     * @param registry Configuration registry.
+     * @param igniteCompute Compute.
+     * @param clusterService Cluster.
+     * @param bootstrapFactory Bootstrap factory.
+     * @param clientHandlerMetricSource Metric source.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -111,7 +112,8 @@ public class ClientHandlerModule implements IgniteComponent {
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
             IgniteSql sql,
-            Supplier<CompletableFuture<UUID>> clusterIdSupplier) {
+            Supplier<CompletableFuture<UUID>> clusterIdSupplier,
+            ClientHandlerMetricSource clientHandlerMetricSource) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
