@@ -76,7 +76,7 @@ Here we need to:
 - Update the replication protocol clients (RaftGroupService, for example) on each Replica.
 
 ## Failover logic
-The main idea of failover process: every rebalance request PlacementDriver->PrimaryReplica or PrimaryReplica->ReplicationGroup must be idempotent. So, redundant request in the worst case should be just answered by positive answer (just like rebalance is already done).
+The main idea of failover process: every rebalance request and cancel rebalance request PlacementDriver->PrimaryReplica or PrimaryReplica->ReplicationGroup must be idempotent. So, redundant request in the worst case should be just answered by positive answer (just like rebalance is already done).
 
 After that we can prepare the following logic:
 - On every new PD leader elected - it must check the direct value (not the locally cached one) of `zoneId.assignment.pending`/`zondeId.assignment.cancel` (the last one always wins, if exists) keys and send `RebalanceRequest`/`CancelRebalanceRequest` to needed PrimaryReplicas and then listen updates from the last revision of this key.
@@ -86,7 +86,7 @@ After that we can prepare the following logic:
 More over: 
 - `RebalanceRequest`/`CancelRebalanceRequest` must include the revision of its' trigger. 
 - PrimaryReplica must persist the last seen revision locally.
-- When new PrimaryReplica elected, PlacementDriver must initialize the last seen revision of PrimaryReplica to the current revision-1. So, after that PlacementDriver must send the *Request with current actual revision.
+- When new PrimaryReplica elected, PlacementDriver must initialize the last seen revision of PrimaryReplica to the `currentRevision-1`. So, after that PlacementDriver must send the *Request with current actual revision.
 - PrimaryReplica must skip any requests, if their revision < lastSeenRevision.
 These actions protect PrimaryReplica from processing the messages from inactive PlacementDriver.
 
