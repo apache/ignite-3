@@ -69,4 +69,14 @@ public class UnitMetaSerializerTest {
         UnitMeta deserialize = deserialize(serialize);
         MatcherAssert.assertThat(deserialize, is(meta));
     }
+
+    @Test
+    public void testSerializeDeserializeWithSeparatorCharInIdName() {
+        UnitMeta meta = new UnitMeta("id;", Version.parseVersion("3.0.0"), "unitName;", Collections.emptyList());
+
+        byte[] serialize = serialize(meta);
+
+        UnitMeta deserialize = deserialize(serialize);
+        MatcherAssert.assertThat(deserialize, is(meta));
+    }
 }

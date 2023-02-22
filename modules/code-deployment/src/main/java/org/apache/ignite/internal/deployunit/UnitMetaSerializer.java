@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Base64.Decoder;
+import java.util.Base64.Encoder;
 import java.util.List;
 import org.apache.ignite.deployment.version.Version;
 
@@ -28,7 +31,6 @@ import org.apache.ignite.deployment.version.Version;
  */
 public class UnitMetaSerializer {
     private static final String SEPARATOR = ";";
-    private static final String LIST_SEPARATOR = ":";
 
     /**
      * Constructor.
@@ -46,16 +48,20 @@ public class UnitMetaSerializer {
     public static byte[] serialize(UnitMeta meta) {
         StringBuilder sb = new StringBuilder();
 
-        sb.append(meta.getId()).append(SEPARATOR)
-                .append(meta.getVersion().render()).append(SEPARATOR)
-                .append(meta.getUnitName()).append(SEPARATOR);
+        appendWithEncoding(sb, meta.getId());
+        appendWithEncoding(sb, meta.getVersion().render());
+        appendWithEncoding(sb, meta.getUnitName());
 
         for (String id : meta.getConsistentIdLocation()) {
-            sb.append(id).append(LIST_SEPARATOR);
+            appendWithEncoding(sb, id);
         }
-        sb.append(SEPARATOR);
 
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        return sb.toString().getBytes(UTF_8);
+    }
+
+    private static void appendWithEncoding(StringBuilder sb, String content) {
+        Encoder encoder = Base64.getEncoder();
+        sb.append(new String(encoder.encode(content.getBytes(UTF_8)), UTF_8)).append(SEPARATOR);
     }
 
     /**
@@ -65,20 +71,22 @@ public class UnitMetaSerializer {
      * @return Unit meta.
      */
     public static UnitMeta deserialize(byte[] bytes) {
-        String s = new String(bytes, StandardCharsets.UTF_8);
+        String s = new String(bytes, UTF_8);
 
         String[] split = s.split(SEPARATOR);
 
-        String id = split[0];
+        Decoder decoder = Base64.getDecoder();
 
-        String version = split[1];
+        String id = new String(decoder.decode(split[0]), UTF_8);
 
-        String unitName = split[2];
+        String version = new String(decoder.decode(split[1]), UTF_8);
 
-        String consistentIds = split.length > 3 ? split[3] : "";
+        String unitName = new String(decoder.decode(split[2]));
 
-        String[] split1 = consistentIds.isEmpty() ? new String[0] : consistentIds.split(LIST_SEPARATOR);
-        List<String> ids = split1.length == 0 ? Collections.emptyList() : Arrays.asList(split1);
+        List<String> ids = new ArrayList<>();
+        for (int i = 3; i < split.length; i++) {
+            ids.add(new String(decoder.decode(split[i]), UTF_8));
+        }
 
         return new UnitMeta(id, Version.parseVersion(version), unitName, ids);
     }
