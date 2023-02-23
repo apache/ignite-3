@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.cluster.management.rest;
 
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
-import io.micronaut.http.hateoas.AbstractResource;
-import io.micronaut.http.hateoas.GenericResource;
-import io.micronaut.http.hateoas.JsonError;
 import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
