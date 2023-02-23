@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -131,11 +132,21 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
     @Override
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
-        handleSnapshotInterference(rowId);
-
         return partitionStorage.scanVersions(rowId);
     }
 
+    @Override
+    public @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+        return partitionStorage.pollForVacuum(lowWatermark);
+    }
+
+    /**
+     * Handles the situation when snapshots are running concurrently with write operations.
+     * In case if a row that is going to be changed was not yet sent in an ongoing snapshot,
+     * schedule an out-of-order sending of said row.
+     *
+     * @param rowId Row id.
+     */
     private void handleSnapshotInterference(RowId rowId) {
         PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
@@ -144,13 +155,16 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
 
             try {
                 if (snapshot.alreadyPassed(rowId)) {
+                    // Row already sent.
                     continue;
                 }
 
                 if (!snapshot.addRowIdToSkip(rowId)) {
+                    // Already scheduled.
                     continue;
                 }
 
+                // Collect all versions of row and schedule the send operation.
                 snapshot.enqueueForSending(rowId);
             } finally {
                 snapshot.releaseMvLock();
