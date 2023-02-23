@@ -24,7 +24,6 @@ import org.apache.ignite.configuration.annotation.Value;
 /**
  * Configuration schema for Compute functionality.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
 @ConfigurationRoot(rootName = "deployment", type = ConfigurationType.LOCAL)
 public class DeploymentConfigurationSchema {
 
