@@ -112,7 +112,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getErrorMessage(thrown), containsString("Providers list must not be empty"));
+        assertThat(getProblem(thrown).detail(), containsString("Providers list must not be empty"));
     }
 
     @Test
@@ -142,7 +142,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getErrorMessage(thrown), containsString("Login must not be empty"));
+        assertThat(getProblem(thrown).detail(), containsString("Login must not be empty"));
     }
 
     @Test
@@ -172,7 +172,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getErrorMessage(thrown), containsString("Password must not be empty"));
+        assertThat(getProblem(thrown).detail(), containsString("Password must not be empty"));
     }
 
     @Test
@@ -202,7 +202,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getErrorMessage(thrown), containsString("missing type id property"));
+        assertThat(getProblem(thrown).detail(), containsString("missing type id property"));
     }
 
     @Test
@@ -232,7 +232,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
 
         // Then
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-        assertThat(getErrorMessage(thrown), containsString("Name must not be empty"));
+        assertThat(getProblem(thrown).detail(), containsString("Name must not be empty"));
     }
 
     @Test

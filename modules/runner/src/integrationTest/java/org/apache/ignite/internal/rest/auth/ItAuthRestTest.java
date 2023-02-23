@@ -128,6 +128,7 @@ public class ItAuthRestTest {
         String initClusterBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
                 + msNodes
+//                + "        \"" + metaStorageNode.name() + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
