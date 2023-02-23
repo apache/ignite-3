@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.commands.sql;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cli.sql.SchemaProvider;
 import org.jline.reader.Candidate;
 import org.jline.reader.Completer;
@@ -71,5 +72,10 @@ class SqlCompleter implements Completer {
     private static void addCandidate(String string, List<Candidate> candidates) {
         candidates.add(new Candidate(string));
         candidates.add(new Candidate(string.toLowerCase()));
+    }
+
+    public void initStateAsync() {
+        // trigger schema loading in background
+        CompletableFuture.supplyAsync(schemaProvider::getSchema);
     }
 }

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.cli.sql;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * SQL schema provider.
@@ -30,9 +32,9 @@ public class SqlSchemaProvider implements SchemaProvider {
 
     private final int schemaUpdateTimeout;
 
-    private SqlSchema schema;
+    private final AtomicReference<SqlSchema> schema = new AtomicReference<>(null);
 
-    private Instant lastUpdate;
+    private final AtomicReference<Instant> lastUpdate = new AtomicReference<>(null);
 
     public SqlSchemaProvider(MetadataSupplier metadataSupplier) {
         this(metadataSupplier, SCHEMA_UPDATE_TIMEOUT);
@@ -45,11 +47,18 @@ public class SqlSchemaProvider implements SchemaProvider {
 
     @Override
     public SqlSchema getSchema() {
-        if (schema == null || Duration.between(lastUpdate, Instant.now()).toSeconds() >= schemaUpdateTimeout) {
-            schema = sqlSchemaLoader.loadSchema();
-            lastUpdate = Instant.now();
+        if (schema.compareAndSet(null, sqlSchemaLoader.loadSchema())) {
+            lastUpdate.set(Instant.now());
+            return schema.get();
+        } else if (Duration.between(lastUpdate.get(), Instant.now()).toSeconds() >= schemaUpdateTimeout) {
+            CompletableFuture.supplyAsync(() -> {
+                schema.set(sqlSchemaLoader.loadSchema());
+                lastUpdate.set(Instant.now());
+                return schema.get();
+            });
         }
-        return schema;
+
+        return schema.get();
     }
 
 }
