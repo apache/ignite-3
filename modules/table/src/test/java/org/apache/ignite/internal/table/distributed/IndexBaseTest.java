@@ -84,8 +84,8 @@ public abstract class IndexBaseTest {
     private static final BinaryRowConverter USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
     /** Key-value marshaller for tests. */
-    private static final KvMarshaller<TestKey, TestValue> KV_MARSHALLER
-            = MARSHALLER_FACTORY.create(SCHEMA_DESCRIPTOR, TestKey.class, TestValue.class);
+    private static final KvMarshaller<TestKey, TestValue> KV_MARSHALLER =
+            MARSHALLER_FACTORY.create(SCHEMA_DESCRIPTOR, TestKey.class, TestValue.class);
 
     private static final UUID TX_ID = UUID.randomUUID();
 
