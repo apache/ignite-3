@@ -105,7 +105,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                 throw new StorageException("Storage already exists: [" + createStorageInfo(partitionId) + ']');
             }
 
-            throwExceptionDependingOnOperation(operation, partitionId);
+            if (operation != null) {
+                throwExceptionDependingOnOperation(operation, partitionId);
+            }
 
             return new CreateStorageOperation();
         });
@@ -143,7 +145,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         DestroyStorageOperation destroyOp = (DestroyStorageOperation) operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExists(partitionId);
 
-            throwExceptionDependingOnOperation(operation, partitionId);
+            if (operation != null) {
+                throwExceptionDependingOnOperation(operation, partitionId);
+            }
 
             return new DestroyStorageOperation();
         });
@@ -181,7 +185,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExists(partitionId);
 
-            throwExceptionDependingOnOperation(operation, partitionId);
+            if (operation != null) {
+                throwExceptionDependingOnOperation(operation, partitionId);
+            }
 
             return new CleanupStorageOperation();
         });
@@ -211,7 +217,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
-            throwExceptionDependingOnOperationForRebalance(operation, partitionId);
+            if (operation != null) {
+                throwExceptionDependingOnOperationForRebalance(operation, partitionId);
+            }
 
             if (rebalaceFutureByPartitionId.containsKey(partitionId)) {
                 throw new StorageRebalanceException(createStorageInProgressOfRebalanceErrorMessage(partitionId));
@@ -252,7 +260,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
-            throwExceptionDependingOnOperationForRebalance(operation, partitionId);
+            if (operation != null) {
+                throwExceptionDependingOnOperationForRebalance(operation, partitionId);
+            }
 
             return new AbortRebalanceStorageOperation();
         });
@@ -292,7 +302,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         operationByPartitionId.compute(partitionId, (partId, operation) -> {
             checkStorageExistsForRebalance(partitionId);
 
-            throwExceptionDependingOnOperationForRebalance(operation, partitionId);
+            if (operation != null) {
+                throwExceptionDependingOnOperationForRebalance(operation, partitionId);
+            }
 
             if (!rebalaceFutureByPartitionId.containsKey(partitionId)) {
                 throw new StorageRebalanceException("Storage rebalancing did not start: [" + createStorageInfo(partitionId) + ']');
@@ -418,9 +430,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     private void throwExceptionDependingOnOperation(StorageOperation operation, int partitionId) {
-        if (operation == null) {
-            return;
-        } else if (operation instanceof CreateStorageOperation) {
+        if (operation instanceof CreateStorageOperation) {
             throw new StorageException(createStorageInProgressOfCreationErrorMessage(partitionId));
         } else if (operation instanceof DestroyStorageOperation) {
             throw new StorageException(createStorageInProgressOfDestructionErrorMessage(partitionId));
@@ -438,9 +448,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     private void throwExceptionDependingOnOperationForRebalance(StorageOperation operation, int partitionId) {
-        if (operation == null) {
-            return;
-        } else if (operation instanceof CreateStorageOperation) {
+        if (operation instanceof CreateStorageOperation) {
             throw new StorageRebalanceException(createStorageInProgressOfCreationErrorMessage(partitionId));
         } else if (operation instanceof DestroyStorageOperation) {
             throw new StorageRebalanceException(createStorageInProgressOfDestructionErrorMessage(partitionId));

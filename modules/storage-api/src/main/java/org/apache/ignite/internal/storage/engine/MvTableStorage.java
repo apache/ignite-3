@@ -48,7 +48,7 @@ public interface MvTableStorage extends ManuallyCloseable {
     /**
      * Creates a partition for the current table.
      *
-     * <p>If the partition has already been created or is in the process of being created, an {@link StorageException} will be thrown.
+     * <p>If the partition has already been created or is in the process of being created, a {@link StorageException} will be thrown.
      *
      * <p>If the partition is in the process of being destroyed, it will be re-created after the destruction is completed.
      *
