@@ -18,26 +18,19 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.singletonMap;
+import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
-import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
-import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
+import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -56,40 +49,23 @@ import org.junit.jupiter.api.BeforeEach;
  * Base test for indexes. Sets up a table with (int, string) key and (int, string) value and
  * three indexes: primary key, hash index over value columns and sorted index over value columns.
  */
-public abstract class IndexBaseTest {
-    /** Default reflection marshaller factory. */
-    private static final MarshallerFactory MARSHALLER_FACTORY = new ReflectionMarshallerFactory();
+public abstract class IndexBaseTest extends BaseMvStoragesTest {
+    private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
-    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(1, new Column[]{
-            new Column("INTKEY", NativeTypes.INT32, false),
-            new Column("STRKEY", NativeTypes.STRING, false),
-    }, new Column[]{
-            new Column("INTVAL", NativeTypes.INT32, false),
-            new Column("STRVAL", NativeTypes.STRING, false),
-    });
-
-    private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(SCHEMA_DESCRIPTOR);
-
-    private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(SCHEMA_DESCRIPTOR);
+    private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(schemaDescriptor);
 
     private static final BinaryRowConverter PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
 
     private static final int[] USER_INDEX_COLS = {
-            SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
-            SCHEMA_DESCRIPTOR.column("STRVAL").schemaIndex()
+            schemaDescriptor.column("INTVAL").schemaIndex(),
+            schemaDescriptor.column("STRVAL").schemaIndex()
     };
 
-    private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
+    private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(schemaDescriptor, USER_INDEX_COLS);
 
     private static final BinaryRowConverter USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
-    /** Key-value marshaller for tests. */
-    private static final KvMarshaller<TestKey, TestValue> KV_MARSHALLER =
-            MARSHALLER_FACTORY.create(SCHEMA_DESCRIPTOR, TestKey.class, TestValue.class);
-
     private static final UUID TX_ID = UUID.randomUUID();
-
-    private static final HybridClock CLOCK = new HybridClockImpl();
 
     TestHashIndexStorage pkInnerStorage;
     TestSortedIndexStorage sortedInnerStorage;
@@ -146,7 +122,7 @@ public abstract class IndexBaseTest {
 
     List<ReadResult> getRowVersions(RowId rowId) {
         try (Cursor<ReadResult> readResults = storage.scanVersions(rowId)) {
-            return readResults.stream().collect(Collectors.toList());
+            return readResults.stream().collect(toList());
         }
     }
 
@@ -162,14 +138,6 @@ public abstract class IndexBaseTest {
         );
     }
 
-    static BinaryRow binaryRow(TestKey key, TestValue value) {
-        try {
-            return KV_MARSHALLER.marshal(key, value);
-        } catch (MarshallerException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     static BinaryRow defaultRow() {
         var key = new TestKey(1, "foo");
         var value = new TestValue(2, "bar");
@@ -177,7 +145,15 @@ public abstract class IndexBaseTest {
         return binaryRow(key, value);
     }
 
-    boolean inIndex(BinaryRow row) {
+    boolean inAllIndexes(BinaryRow row) {
+        return inIndexes(row, true, true);
+    }
+
+    boolean notInAnyIndex(BinaryRow row) {
+        return inIndexes(row, false, false);
+    }
+
+    boolean inIndexes(BinaryRow row, boolean mustBeInPk, boolean mustBeInUser) {
         BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
         BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
 
@@ -185,62 +161,32 @@ public abstract class IndexBaseTest {
         assert userIndexValue != null;
 
         try (Cursor<RowId> pkCursor = pkInnerStorage.get(pkIndexValue)) {
-            if (!pkCursor.hasNext()) {
+            if (pkCursor.hasNext() != mustBeInPk) {
                 return false;
             }
         }
 
         try (Cursor<RowId> sortedIdxCursor = sortedInnerStorage.get(userIndexValue)) {
-            if (!sortedIdxCursor.hasNext()) {
+            if (sortedIdxCursor.hasNext() != mustBeInUser) {
                 return false;
             }
         }
 
         try (Cursor<RowId> hashIdxCursor = hashInnerStorage.get(userIndexValue)) {
-            return hashIdxCursor.hasNext();
+            return hashIdxCursor.hasNext() == mustBeInUser;
         }
     }
 
-    static HybridTimestamp now() {
-        return CLOCK.now();
+    HybridTimestamp now() {
+        return clock.now();
     }
 
-    HybridTimestamp commitWrite(RowId rowId) {
-        return storage.runConsistently(() -> {
-            HybridTimestamp commitTimestamp = CLOCK.now();
+    void commitWrite(RowId rowId) {
+        storage.runConsistently(() -> {
+            storage.commitWrite(rowId, now());
 
-            storage.commitWrite(rowId, commitTimestamp);
-
-            return commitTimestamp;
+            return null;
         });
-    }
-
-    static class TestKey {
-        int intKey;
-
-        String strKey;
-
-        TestKey() {
-        }
-
-        TestKey(int intKey, String strKey) {
-            this.intKey = intKey;
-            this.strKey = strKey;
-        }
-    }
-
-    static class TestValue {
-        Integer intVal;
-
-        String strVal;
-
-        TestValue() {
-        }
-
-        TestValue(Integer intVal, String strVal) {
-            this.intVal = intVal;
-            this.strVal = strVal;
-        }
     }
 
     /** Enum that encapsulates update API. */

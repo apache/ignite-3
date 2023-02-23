@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -259,6 +260,7 @@ public class StorageUpdateHandler {
      *
      * @param lowWatermark Low watermark for the vacuum.
      * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
+     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
      */
     public boolean vacuum(HybridTimestamp lowWatermark) {
         return storage.runConsistently(() -> {
@@ -271,11 +273,7 @@ public class StorageUpdateHandler {
 
             BinaryRow binaryRow = vacuumed.binaryRow();
 
-            if (binaryRow == null) {
-                // That was a tombstone. This can only happen if the oldest version of row is a tombstone, because
-                // consecutive tombstones are removed along with non-tombstone values.
-                return true;
-            }
+            assert binaryRow != null;
 
             RowId rowId = vacuumed.rowId();
 

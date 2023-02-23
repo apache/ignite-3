@@ -141,8 +141,8 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     /**
-     * Handles the situation when a snapshot is running concurrently with write operations.
-     * In case if a row that is going to be changed was not yet sent in the current snapshot,
+     * Handles the situation when snapshots are running concurrently with write operations.
+     * In case if a row that is going to be changed was not yet sent in an ongoing snapshot,
      * schedule an out-of-order sending of said row.
      *
      * @param rowId Row id.

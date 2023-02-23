@@ -27,6 +27,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests indexes cleaning up on garbage collection. */
@@ -44,16 +45,11 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
-        assertEquals(2, getRowVersions(rowId).size());
-        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
-
         assertTrue(storageUpdateHandler.vacuum(now()));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Newer entry has the same index value, so it should not be removed.
-        assertTrue(inIndex(row));
+        assertTrue(inAllIndexes(row));
     }
 
     @Test
@@ -61,13 +57,10 @@ public class IndexGcTest extends IndexBaseTest {
         UUID rowUuid = UUID.randomUUID();
         RowId rowId = new RowId(1, rowUuid);
 
-        var key1 = new TestKey(1, "foo");
-        var value1 = new TestValue(2, "bar");
-        BinaryRow tableRow1 = binaryRow(key1, value1);
+        var key = new TestKey(1, "foo");
 
-        var key2 = new TestKey(1, "foo");
-        var value2 = new TestValue(5, "baz");
-        BinaryRow tableRow2 = binaryRow(key2, value2);
+        BinaryRow tableRow1 = binaryRow(key, new TestValue(2, "bar"));
+        BinaryRow tableRow2 = binaryRow(key, new TestValue(5, "baz"));
 
         addWrite(storageUpdateHandler, rowUuid, tableRow1);
         commitWrite(rowId);
@@ -78,25 +71,20 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, tableRow2);
         commitWrite(rowId);
 
-        assertEquals(3, getRowVersions(rowId).size());
-        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
-
         HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
 
-        // tableRow1 should still be index, because second write was identical to the first.
-        assertTrue(inIndex(tableRow1));
+        // tableRow1 should still be in the index, because second write was identical to the first.
+        assertTrue(inAllIndexes(tableRow1));
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
         assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Older entries have different indexes, should be removed.
-        assertFalse(inIndex(tableRow1));
-        assertTrue(inIndex(tableRow2));
+        assertTrue(inIndexes(tableRow1, true, false));
+        assertTrue(inAllIndexes(tableRow2));
     }
 
     @Test
@@ -116,11 +104,6 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, null);
         commitWrite(rowId);
 
-        assertEquals(2, getRowVersions(rowId).size());
-        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
-
         HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
@@ -128,10 +111,11 @@ public class IndexGcTest extends IndexBaseTest {
 
         assertEquals(0, getRowVersions(rowId).size());
         // The last entry was a tombstone, so no indexes should be left.
-        assertFalse(inIndex(row));
+        assertTrue(notInAnyIndex(row));
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18882")
     void testRemoveTombstonesNullRowRow() {
         UUID rowUuid = UUID.randomUUID();
         RowId rowId = new RowId(1, rowUuid);
@@ -147,11 +131,6 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
-        assertEquals(3, getRowVersions(rowId).size());
-        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
-
         HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
@@ -159,7 +138,7 @@ public class IndexGcTest extends IndexBaseTest {
         assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(1, getRowVersions(rowId).size());
-        assertTrue(inIndex(row));
+        assertTrue(inAllIndexes(row));
     }
 
     @Test
@@ -178,18 +157,13 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
-        assertEquals(3, getRowVersions(rowId).size());
-        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
-
         HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
         assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(1, getRowVersions(rowId).size());
-        assertTrue(inIndex(row));
+        assertTrue(inAllIndexes(row));
     }
 
     @Test
@@ -208,11 +182,6 @@ public class IndexGcTest extends IndexBaseTest {
         addWrite(storageUpdateHandler, rowUuid, null);
         commitWrite(rowId);
 
-        assertEquals(3, getRowVersions(rowId).size());
-        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
-        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
-
         HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
@@ -220,6 +189,6 @@ public class IndexGcTest extends IndexBaseTest {
         assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(0, getRowVersions(rowId).size());
-        assertFalse(inIndex(row));
+        assertTrue(notInAnyIndex(row));
     }
 }

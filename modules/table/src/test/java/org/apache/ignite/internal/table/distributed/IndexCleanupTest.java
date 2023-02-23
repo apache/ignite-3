@@ -139,6 +139,30 @@ public class IndexCleanupTest extends IndexBaseTest {
 
     @ParameterizedTest
     @EnumSource(AddWrite.class)
+    void testAbortConsecutiveTxWithMatchingIndexesSameRow(AddWrite writer) {
+        UUID rowUuid = UUID.randomUUID();
+        RowId rowId = new RowId(1, rowUuid);
+
+        var key = new TestKey(1, "foo");
+
+        BinaryRow row1 = binaryRow(key, new TestValue(2, "bar"));
+        BinaryRow row2 = binaryRow(key, new TestValue(3, "baz"));
+
+        writer.addWrite(storageUpdateHandler, rowUuid, row1);
+        commitWrite(rowId);
+
+        writer.addWrite(storageUpdateHandler, rowUuid, row2);
+
+        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+
+        assertEquals(1, storage.rowsCount());
+
+        assertTrue(inAllIndexes(row1));
+        assertTrue(inIndexes(row2, true, false));
+    }
+
+    @ParameterizedTest
+    @EnumSource(AddWrite.class)
     void testIndexNotRemovedOnTombstone(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
         RowId rowId = new RowId(1, rowUuid);
