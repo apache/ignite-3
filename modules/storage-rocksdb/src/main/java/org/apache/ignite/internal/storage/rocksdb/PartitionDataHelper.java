@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.Slice;
@@ -91,6 +92,8 @@ class PartitionDataHelper implements ManuallyCloseable {
 
     /** Read options for total order scans. */
     final ReadOptions scanReadOpts;
+
+    final ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
 
     PartitionDataHelper(int partitionId, ColumnFamilyHandle partCf) {
         this.partitionId = partitionId;

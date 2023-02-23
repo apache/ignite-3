@@ -223,21 +223,23 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     pendingAppliedTerm = lastAppliedTerm;
                     pendingGroupConfig = lastGroupConfig;
 
-                    V res = closure.execute();
-
                     try {
+                        V res = closure.execute();
+
                         if (writeBatch.count() > 0) {
                             db.write(writeOpts, writeBatch);
                         }
+
+                        lastAppliedIndex = pendingAppliedIndex;
+                        lastAppliedTerm = pendingAppliedTerm;
+                        lastGroupConfig = pendingGroupConfig;
+
+                        return res;
                     } catch (RocksDBException e) {
                         throw new StorageException("Unable to apply a write batch to RocksDB instance.", e);
+                    } finally {
+                        helper.lockByRowId.releaseAllLockByCurrentThread();
                     }
-
-                    lastAppliedIndex = pendingAppliedIndex;
-                    lastAppliedTerm = pendingAppliedTerm;
-                    lastGroupConfig = pendingGroupConfig;
-
-                    return res;
                 } finally {
                     threadLocalWriteBatch.set(null);
                 }

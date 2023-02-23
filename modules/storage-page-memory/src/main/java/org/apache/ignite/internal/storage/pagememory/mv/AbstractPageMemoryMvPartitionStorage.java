@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -71,6 +70,7 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTre
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
+import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -130,7 +130,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Version chain update lock by row ID. */
-    private final ConcurrentMap<RowId, LockHolder<ReentrantLock>> updateVersionChainLockByRowId = new ConcurrentHashMap<>();
+    protected final ReentrantLockByRowId updateVersionChainLockByRowId = new ReentrantLockByRowId();
 
     /**
      * Constructor.
@@ -941,29 +941,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Organizes external synchronization of update operations for the same version chain.
      */
     protected <T> T inUpdateVersionChainLock(RowId rowId, Supplier<T> supplier) {
-        LockHolder<ReentrantLock> lockHolder = updateVersionChainLockByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
-            if (reentrantLockLockHolder == null) {
-                reentrantLockLockHolder = new LockHolder<>(new ReentrantLock());
-            }
-
-            reentrantLockLockHolder.incrementHolders();
-
-            return reentrantLockLockHolder;
-        });
-
-        lockHolder.getLock().lock();
-
-        try {
-            return supplier.get();
-        } finally {
-            lockHolder.getLock().unlock();
-
-            updateVersionChainLockByRowId.compute(rowId, (rowId1, reentrantLockLockHolder) -> {
-                assert reentrantLockLockHolder != null;
-
-                return reentrantLockLockHolder.decrementHolders() ? null : reentrantLockLockHolder;
-            });
-        }
+        return updateVersionChainLockByRowId.inLock(rowId, supplier);
     }
 
     @Override
@@ -971,33 +949,39 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            GcRowVersion first = gcQueue.getFirst();
+            while (true) {
+                // TODO: IGNITE-18867 Get and delete in one call
+                GcRowVersion head = gcQueue.getFirst();
 
-            // Garbage collection queue is empty.
-            if (first == null) {
-                return null;
-            }
-
-            HybridTimestamp rowTimestamp = first.getTimestamp();
-
-            // There are no versions in the garbage collection queue before watermark.
-            if (rowTimestamp.compareTo(lowWatermark) > 0) {
-                return null;
-            }
-
-            RowId rowId = first.getRowId();
-
-            return inUpdateVersionChainLock(rowId, () -> {
-                // Someone processed the element in parallel.
-                // TODO: IGNITE-18843 Should try to get the RowVersion again
-                if (!gcQueue.remove(rowId, rowTimestamp, first.getLink())) {
+                // Garbage collection queue is empty.
+                if (head == null) {
                     return null;
                 }
 
-                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, first.getLink());
+                HybridTimestamp rowTimestamp = head.getTimestamp();
+
+                // There are no versions in the garbage collection queue before watermark.
+                if (rowTimestamp.compareTo(lowWatermark) > 0) {
+                    return null;
+                }
+
+                RowId rowId = head.getRowId();
+
+                // If no one has processed the head of the gc queue in parallel, then we must release the lock after executing
+                // WriteClosure#execute in MvPartitionStorage#runConsistently so that the indexes can be deleted consistently.
+                updateVersionChainLockByRowId.acquireLock(rowId);
+
+                // Someone processed the element in parallel.
+                if (!gcQueue.remove(rowId, rowTimestamp, head.getLink())) {
+                    updateVersionChainLockByRowId.releaseLock(rowId);
+
+                    continue;
+                }
+
+                RowVersion removedRowVersion = removeWriteOnGc(rowId, rowTimestamp, head.getLink());
 
                 return new BinaryRowAndRowId(rowVersionToBinaryRow(removedRowVersion), rowId);
-            });
+            }
         });
     }
 

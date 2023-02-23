@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.internal.storage.util;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.locks.Lock;
+import org.apache.ignite.internal.storage.util.LockHolder;
 import org.junit.jupiter.api.Test;
 
 /**

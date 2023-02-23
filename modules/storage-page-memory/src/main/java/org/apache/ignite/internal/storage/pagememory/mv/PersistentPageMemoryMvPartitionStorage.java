@@ -145,6 +145,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             try {
                 return closure.execute();
             } finally {
+                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+
                 checkpointTimeoutLock.checkpointReadUnlock();
             }
         });

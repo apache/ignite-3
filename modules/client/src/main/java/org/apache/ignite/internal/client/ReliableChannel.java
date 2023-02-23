@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -67,8 +68,11 @@ public final class ReliableChannel implements AutoCloseable {
     /** Client channel holders for each configured address. */
     private volatile List<ClientChannelHolder> channels;
 
-    /** Index of the current channel. */
-    private volatile int curChIdx = -1;
+    /** Index of the default channel. */
+    private volatile int defaultChIdx = -1;
+
+    /** Index of the current channel (for round-robin balancing). */
+    private final AtomicInteger curChIdx = new AtomicInteger();
 
     /** Client configuration. */
     private final IgniteClientConfiguration clientCfg;
@@ -232,6 +236,7 @@ public final class ReliableChannel implements AutoCloseable {
     private CompletableFuture<ClientChannel> getChannelAsync(@Nullable String preferredNodeName, @Nullable String preferredNodeId) {
         ClientChannelHolder holder = null;
 
+        // 1. Preferred node connection.
         if (preferredNodeName != null) {
             holder = nodeChannelsByName.get(preferredNodeName);
         } else if (preferredNodeId != null) {
@@ -248,6 +253,14 @@ public final class ReliableChannel implements AutoCloseable {
             });
         }
 
+        // 2. Round-robin connection.
+        ClientChannel nextCh = getNextChannelWithoutReconnect();
+
+        if (nextCh != null) {
+            return CompletableFuture.completedFuture(nextCh);
+        }
+
+        // 3. Default connection (with reconnect if necessary).
         return getDefaultChannelAsync();
     }
 
@@ -289,7 +302,7 @@ public final class ReliableChannel implements AutoCloseable {
         curChannelsGuard.writeLock().lock();
 
         try {
-            int idx = curChIdx;
+            int idx = defaultChIdx;
             List<ClientChannelHolder> holders = channels;
 
             ClientChannelHolder dfltHld = holders.get(idx);
@@ -298,9 +311,9 @@ public final class ReliableChannel implements AutoCloseable {
                 idx += 1;
 
                 if (idx >= holders.size()) {
-                    curChIdx = 0;
+                    defaultChIdx = 0;
                 } else {
-                    curChIdx = idx;
+                    defaultChIdx = idx;
                 }
             }
         } finally {
@@ -312,10 +325,10 @@ public final class ReliableChannel implements AutoCloseable {
      * On current channel failure.
      */
     private void onChannelFailure(ClientChannel ch) {
-        // There is nothing wrong if curChIdx was concurrently changed, since channel was closed by another thread
+        // There is nothing wrong if defaultChIdx was concurrently changed, since channel was closed by another thread
         // when current index was changed and no other wrong channel will be closed by current thread because
         // onChannelFailure checks channel binded to the holder before closing it.
-        onChannelFailure(channels.get(curChIdx), ch);
+        onChannelFailure(channels.get(defaultChIdx), ch);
     }
 
     /**
@@ -401,7 +414,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         ClientChannelHolder currDfltHolder = null;
 
-        int idx = curChIdx;
+        int idx = defaultChIdx;
 
         if (idx != -1) {
             currDfltHolder = holders.get(idx);
@@ -450,7 +463,7 @@ public final class ReliableChannel implements AutoCloseable {
 
         try {
             channels = reinitHolders;
-            curChIdx = dfltChannelIdx;
+            defaultChIdx = dfltChannelIdx;
         } finally {
             curChannelsGuard.writeLock().unlock();
         }
@@ -476,6 +489,29 @@ public final class ReliableChannel implements AutoCloseable {
         return fut;
     }
 
+    private @Nullable ClientChannel getNextChannelWithoutReconnect() {
+        curChannelsGuard.readLock().lock();
+
+        try {
+            int startIdx = curChIdx.incrementAndGet();
+
+            for (int i = 0; i < channels.size(); i++) {
+                int nextIdx = Math.abs(startIdx + i) % channels.size();
+
+                ClientChannelHolder hld = channels.get(nextIdx);
+                ClientChannel ch = hld == null ? null : hld.getNow();
+
+                if (ch != null) {
+                    return ch;
+                }
+            }
+        } finally {
+            curChannelsGuard.readLock().unlock();
+        }
+
+        return null;
+    }
+
     /**
      * Gets the default channel, reconnecting if necessary.
      */
@@ -487,7 +523,7 @@ public final class ReliableChannel implements AutoCloseable {
                     ClientChannelHolder hld;
 
                     try {
-                        hld = channels.get(curChIdx);
+                        hld = channels.get(defaultChIdx);
                     } finally {
                         curChannelsGuard.readLock().unlock();
                     }
@@ -506,7 +542,7 @@ public final class ReliableChannel implements AutoCloseable {
         curChannelsGuard.readLock().lock();
 
         try {
-            var hld = channels.get(curChIdx);
+            var hld = channels.get(defaultChIdx);
 
             if (hld == null) {
                 return CompletableFuture.completedFuture(null);
@@ -597,7 +633,7 @@ public final class ReliableChannel implements AutoCloseable {
         // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
         // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
         // channel, heartbeat messages will trigger updates.
-        CompletableFuture<ClientChannel> ch = channels.get(curChIdx).chFut;
+        CompletableFuture<ClientChannel> ch = channels.get(defaultChIdx).chFut;
 
         if (ch != null && clientChannel == ClientFutureUtils.getNowSafe(ch)) {
             assignmentVersion.incrementAndGet();
@@ -772,6 +808,29 @@ public final class ReliableChannel implements AutoCloseable {
         }
 
         /**
+         * Get channel if connected, or null otherwise.
+         */
+        private @Nullable ClientChannel getNow() {
+            if (close) {
+                return null;
+            }
+
+            var f = chFut;
+
+            if (f == null) {
+                return null;
+            }
+
+            var ch = ClientFutureUtils.getNowSafe(f);
+
+            if (ch == null || ch.closed()) {
+                return null;
+            }
+
+            return ch;
+        }
+
+        /**
          * Close channel.
          */
         private synchronized void closeChannel() {
@@ -822,7 +881,7 @@ public final class ReliableChannel implements AutoCloseable {
                 return true;
             }
 
-            var ch = f.getNow(null);
+            var ch = ClientFutureUtils.getNowSafe(f);
 
             return ch != null && !ch.closed();
         }
