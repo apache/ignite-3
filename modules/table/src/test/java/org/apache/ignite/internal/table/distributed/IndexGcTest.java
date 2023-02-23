@@ -86,6 +86,10 @@ public class IndexGcTest extends IndexBaseTest {
         HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
+
+        // tableRow1 should still be index, because second write was identical to the first.
+        assertTrue(inIndex(tableRow1));
+
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
         assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
