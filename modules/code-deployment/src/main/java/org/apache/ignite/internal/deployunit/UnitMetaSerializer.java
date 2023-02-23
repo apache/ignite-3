@@ -19,6 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Base64.Decoder;
@@ -81,7 +82,7 @@ public class UnitMetaSerializer {
 
         String version = new String(decoder.decode(split[1]), UTF_8);
 
-        String unitName = new String(decoder.decode(split[2]));
+        String unitName = new String(decoder.decode(split[2]), UTF_8);
 
         List<String> ids = new ArrayList<>();
         for (int i = 3; i < split.length; i++) {
