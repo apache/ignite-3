@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
+import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
+
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -84,9 +85,14 @@ public class ClusterManagementController implements ClusterManagementApi {
             LOG.info("Received init command [metaStorageNodes={}, cmgNodes={}]", initCommand.metaStorageNodes(),
                     initCommand.cmgNodes());
         }
-        RestAuthConfig restAuthConfig = authConfigDtoToRestAuthConfig(initCommand.authConfig());
-        return clusterInitializer.initCluster(initCommand.metaStorageNodes(), initCommand.cmgNodes(), initCommand.clusterName(),
-                        restAuthConfig)
+        AuthConfigDto authConfigDto = initCommand.authConfig();
+        RestAuthConfig restAuthConfig = authConfigDto == null ? disabledAuth() : authConfigDtoToRestAuthConfig(authConfigDto);
+        return clusterInitializer.initCluster(
+                        initCommand.metaStorageNodes(),
+                        initCommand.cmgNodes(),
+                        initCommand.clusterName(),
+                        restAuthConfig
+                )
                 .exceptionally(ex -> {
                     throw mapException(ex);
                 });
@@ -130,7 +136,6 @@ public class ClusterManagementController implements ClusterManagementApi {
         } else {
             return providers.stream()
                     .map(this::authProviderConfigDtoToAuthProviderConfig)
-                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         }
     }
@@ -145,7 +150,7 @@ public class ClusterManagementController implements ClusterManagementApi {
                     basicAuthProviderConfigDto.password()
             );
         } else {
-            return null;
+            throw new IllegalArgumentException("Unexpected auth type: " + type);
         }
     }
 }

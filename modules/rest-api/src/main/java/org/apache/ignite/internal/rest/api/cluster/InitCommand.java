@@ -74,10 +74,6 @@ public class InitCommand {
             throw new IllegalArgumentException("Cluster name must not be empty");
         }
 
-        if (authConfig == null) {
-            throw new IllegalArgumentException("AuthConfig must not be null");
-        }
-
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = cmgNodes == null ? List.of() : List.copyOf(cmgNodes);
         this.clusterName = clusterName;
