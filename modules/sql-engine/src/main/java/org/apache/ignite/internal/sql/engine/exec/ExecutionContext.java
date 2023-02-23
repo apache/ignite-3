@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -248,6 +249,13 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         }
 
         return params.get(name);
+    }
+
+    /** Gets dynamic paremeters by name. */
+    public Object getParameter(String name, Type storageType) {
+        assert name.startsWith("?") : name;
+
+        return TypeUtils.toInternal(this, params.get(name), storageType);
     }
 
     /**

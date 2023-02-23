@@ -73,6 +73,7 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidFunctions;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
@@ -1261,10 +1262,14 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
         final Type storageType = currentStorageType != null
                 ? currentStorageType : typeFactory.getJavaClass(dynamicParam.getType());
-        final Expression valueExpression = ConverterUtils.convert(
-                Expressions.call(root, BuiltInMethod.DATA_CONTEXT_GET.method,
-                        Expressions.constant("?" + dynamicParam.getIndex())),
-                storageType);
+        final Type paramType = ((IgniteTypeFactory) typeFactory).getResultClass(dynamicParam.getType());
+
+        final Expression ctxGet = Expressions.call(root, IgniteMethod.CONTEXT_GET_PARAMETER_VALUE.method(),
+                Expressions.constant("?" + dynamicParam.getIndex()), Expressions.constant(paramType));
+
+        final Expression valueExpression = SqlTypeUtil.isDecimal(dynamicParam.getType())
+                ? ConverterUtils.convertToDecimal(ctxGet, dynamicParam.getType())
+                : ConverterUtils.convert(ctxGet, storageType);
         final ParameterExpression valueVariable =
                 Expressions.parameter(valueExpression.getType(), list.newName("value_dynamic_param"));
         list.add(Expressions.declare(Modifier.FINAL, valueVariable, valueExpression));
