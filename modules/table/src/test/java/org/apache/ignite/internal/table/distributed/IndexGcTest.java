@@ -25,7 +25,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests indexes cleaning up on garbage collection. */
@@ -57,32 +56,32 @@ public class IndexGcTest extends IndexBaseTest {
 
         var key = new TestKey(1, "foo");
 
-        BinaryRow tableRow1 = binaryRow(key, new TestValue(2, "bar"));
-        BinaryRow tableRow2 = binaryRow(key, new TestValue(5, "baz"));
+        BinaryRow row1 = binaryRow(key, new TestValue(2, "bar"));
+        BinaryRow row2 = binaryRow(key, new TestValue(5, "baz"));
 
-        addWrite(storageUpdateHandler, rowUuid, tableRow1);
+        addWrite(storageUpdateHandler, rowUuid, row1);
         commitWrite(rowId);
 
-        addWrite(storageUpdateHandler, rowUuid, tableRow1);
+        addWrite(storageUpdateHandler, rowUuid, row1);
         commitWrite(rowId);
 
-        addWrite(storageUpdateHandler, rowUuid, tableRow2);
+        addWrite(storageUpdateHandler, rowUuid, row2);
         commitWrite(rowId);
 
         HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
 
-        // tableRow1 should still be in the index, because second write was identical to the first.
-        assertTrue(inAllIndexes(tableRow1));
+        // row1 should still be in the index, because second write was identical to the first.
+        assertTrue(inAllIndexes(row1));
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
         assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Older entries have different indexes, should be removed.
-        assertTrue(inIndexes(tableRow1, true, false));
-        assertTrue(inAllIndexes(tableRow2));
+        assertTrue(inIndexes(row1, true, false));
+        assertTrue(inAllIndexes(row2));
     }
 
     @Test
@@ -110,33 +109,6 @@ public class IndexGcTest extends IndexBaseTest {
         assertEquals(0, getRowVersions(rowId).size());
         // The last entry was a tombstone, so no indexes should be left.
         assertTrue(notInAnyIndex(row));
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18882")
-    void testRemoveTombstonesNullRowRow() {
-        UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(1, rowUuid);
-
-        BinaryRow row = defaultRow();
-
-        addWrite(storageUpdateHandler, rowUuid, null);
-        commitWrite(rowId);
-
-        addWrite(storageUpdateHandler, rowUuid, row);
-        commitWrite(rowId);
-
-        addWrite(storageUpdateHandler, rowUuid, row);
-        commitWrite(rowId);
-
-        HybridTimestamp afterCommits = now();
-
-        assertTrue(storageUpdateHandler.vacuum(afterCommits));
-        assertTrue(storageUpdateHandler.vacuum(afterCommits));
-        assertFalse(storageUpdateHandler.vacuum(afterCommits));
-
-        assertEquals(1, getRowVersions(rowId).size());
-        assertTrue(inAllIndexes(row));
     }
 
     @Test
