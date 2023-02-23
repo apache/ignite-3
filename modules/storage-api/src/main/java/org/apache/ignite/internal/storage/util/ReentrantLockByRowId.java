@@ -65,7 +65,7 @@ public class ReentrantLockByRowId {
 
         if (lockedRowIds == null) {
             this.lockedRowIds.set(rowId);
-        } else if (lockedRowIds.getClass() == RowId.class) {
+        } else if (lockedRowIds instanceof RowId) {
             RowId lockedRowId = (RowId) lockedRowIds;
 
             if (!lockedRowId.equals(rowId)) {
@@ -101,12 +101,12 @@ public class ReentrantLockByRowId {
 
         assert lockedRowIds != null : rowId;
 
-        if (lockedRowIds.getClass() == RowId.class) {
+        if (lockedRowIds instanceof RowId) {
             RowId lockedRowId = (RowId) lockedRowIds;
 
             assert lockedRowId.equals(rowId) : "rowId=" + rowId + ", lockedRowId=" + lockedRowId;
 
-            this.lockedRowIds.remove();
+            this.lockedRowIds.set(null);
         } else {
             Set<RowId> rowIds = ((Set<RowId>) lockedRowIds);
 
@@ -115,7 +115,7 @@ public class ReentrantLockByRowId {
             assert remove : "rowId=" + rowId + ", lockedRowIds=" + rowIds;
 
             if (rowIds.isEmpty()) {
-                this.lockedRowIds.remove();
+                this.lockedRowIds.set(null);
             }
         }
     }
@@ -128,14 +128,16 @@ public class ReentrantLockByRowId {
     public void releaseAllLockByCurrentThread() {
         Object lockedRowIds = this.lockedRowIds.get();
 
-        this.lockedRowIds.remove();
+        this.lockedRowIds.set(null);
 
         if (lockedRowIds == null) {
             return;
-        } else if (lockedRowIds.getClass() == RowId.class) {
+        } else if (lockedRowIds instanceof RowId) {
             releaseLock0(((RowId) lockedRowIds), true);
         } else {
-            ((Set<RowId>) lockedRowIds).forEach(rowId -> releaseLock0(rowId, true));
+            for (RowId rowId : ((Set<RowId>) lockedRowIds)) {
+                releaseLock0(rowId, true);
+            }
         }
     }
 
@@ -153,7 +155,7 @@ public class ReentrantLockByRowId {
         lockHolder.getLock().lock();
     }
 
-    private void releaseLock0(RowId rowId, boolean untilHoldByCurrentThread) {
+    private void releaseLock0(RowId rowId, boolean allReentries) {
         LockHolder<ReentrantLock> lockHolder = lockHolderByRowId.get(rowId);
 
         if (lockHolder == null) {
@@ -170,6 +172,6 @@ public class ReentrantLockByRowId {
 
                 return reentrantLockLockHolder.decrementHolders() ? null : reentrantLockLockHolder;
             });
-        } while (untilHoldByCurrentThread && lock.getHoldCount() > 0);
+        } while (allReentries && lock.isHeldByCurrentThread());
     }
 }

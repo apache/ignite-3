@@ -19,13 +19,12 @@ package org.apache.ignite.internal.storage.util;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.storage.RowId;
 import org.junit.jupiter.api.Test;
 
@@ -93,11 +92,11 @@ public class ReentrantLockByRowIdTest {
             lockByRowId.releaseLock(rowId);
         });
 
-        assertThat(acquireLockFuture, willFailFast(TimeoutException.class));
+        assertThat(acquireLockFuture, willTimeoutFast());
 
         lockByRowId.releaseLock(rowId);
 
-        assertThat(acquireLockFuture, willFailFast(TimeoutException.class));
+        assertThat(acquireLockFuture, willTimeoutFast());
 
         lockByRowId.releaseLock(rowId);
 
@@ -117,11 +116,11 @@ public class ReentrantLockByRowIdTest {
 
         CompletableFuture<?> acquireLockFuture = runAsync(() -> lockByRowId.inLock(rowId, () -> 1));
 
-        assertThat(acquireLockFuture, willFailFast(TimeoutException.class));
+        assertThat(acquireLockFuture, willTimeoutFast());
 
         lockByRowId.releaseLock(rowId);
 
-        assertThat(acquireLockFuture, willFailFast(TimeoutException.class));
+        assertThat(acquireLockFuture, willTimeoutFast());
 
         lockByRowId.releaseLock(rowId);
 
@@ -147,7 +146,7 @@ public class ReentrantLockByRowIdTest {
             lockByRowId.acquireLock(rowId1);
         });
 
-        assertThat(acquireLockFuture, willFailFast(TimeoutException.class));
+        assertThat(acquireLockFuture, willTimeoutFast());
 
         lockByRowId.releaseAllLockByCurrentThread();
 

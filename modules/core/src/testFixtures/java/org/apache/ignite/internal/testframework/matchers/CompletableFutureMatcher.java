@@ -175,6 +175,26 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     }
 
     /**
+     * Creates a matcher that matches a future that <strong>not</strong> completes decently fast.
+     *
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willTimeoutFast() {
+        return willTimeoutIn(1, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a matcher that matches a future that <strong>not</strong> completes within the given timeout.
+     *
+     * @param time Timeout.
+     * @param timeUnit Time unit for timeout.
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willTimeoutIn(int time, TimeUnit timeUnit) {
+        return new CompletableFutureMatcher<>(anything(), time, timeUnit, TimeoutException.class);
+    }
+
+    /**
      * Creates a matcher that matches a future that will be cancelled and decently fast.
      *
      * @return matcher.

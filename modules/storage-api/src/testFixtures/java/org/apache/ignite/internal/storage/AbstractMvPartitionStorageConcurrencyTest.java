@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Arrays;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Stream;
@@ -206,11 +206,13 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             addAndCommit.perform(this, null);
 
-            Collection<byte[]> rows = toRowBytes(TABLE_ROW, TABLE_ROW2);
+            Collection<ByteBuffer> rows = Stream.of(TABLE_ROW, TABLE_ROW2)
+                    .map(BinaryRow::byteBuffer)
+                    .collect(toCollection(ConcurrentLinkedQueue::new));
 
             runRace(
-                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().bytes(), rows),
-                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().bytes(), rows)
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().byteBuffer(), rows),
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().byteBuffer(), rows)
             );
 
             assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
@@ -221,18 +223,10 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         }
     }
 
-    private void assertRemoveRow(byte[] rowBytes, Collection<byte[]> rows) {
+    private void assertRemoveRow(ByteBuffer rowBytes, Collection<ByteBuffer> rows) {
         assertNotNull(rowBytes);
 
-        byte[] found = rows.stream().filter(bytes -> Arrays.equals(bytes, rowBytes)).findFirst().orElseGet(null);
-
-        assertNotNull(found, Arrays.toString(rowBytes));
-
-        assertTrue(rows.remove(found), Arrays.toString(rowBytes));
-    }
-
-    private ConcurrentLinkedQueue<byte[]> toRowBytes(BinaryRow... binaryRows) {
-        return Stream.of(binaryRows).map(BinaryRow::bytes).collect(toCollection(ConcurrentLinkedQueue::new));
+        assertTrue(rows.remove(rowBytes), rowBytes.toString());
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
