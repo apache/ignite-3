@@ -80,7 +80,7 @@ public class ClientArchTest {
         }
 
         @Override
-        public Set<Location> get(Class<?> aClass) {
+        public Set<Location> get(Class<?> clazz) {
             // Running this test in IDE is not supported.
             // The cpFile is not set up properly, and the test skips.
             assumeTrue(CLASS_PATH_DIR != null);
