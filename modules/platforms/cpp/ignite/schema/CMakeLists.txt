@@ -41,10 +41,12 @@ target_link_libraries(${TARGET} ignite-common)
 
 ignite_test(tuple_test tuple_test.cpp LIBS ${TARGET})
 
-install(TARGETS ${TARGET}
-    RUNTIME DESTINATION bin/
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-)
+if (${INSTALL_IGNITE_FILES})
+    install(TARGETS ${TARGET}
+        RUNTIME DESTINATION bin/
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+    )
 
-ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/schema)
+    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/schema)
+endif()

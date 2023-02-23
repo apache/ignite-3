@@ -21,11 +21,11 @@ import java.util.Collection;
 import java.util.function.Predicate;
 
 /**
- * A list implementation based on segments.Only supports removing elements from start or end. The list keep the elements
+ * A list implementation based on segments. Only supports removing elements from start or end. The list keep the elements
  * in a segment list, every segment contains at most 128 elements.
  *
  * [segment, segment, segment ...] /                 |                    \ segment             segment
- * segment [0, 1 ...  127]    [128, 129 ... 255]    [256, 1 ... 383]
+ * segment [0, 1 ... 127]    [128, 129 ... 255]    [256, 257 ... 383]
  */
 public class SegmentList<T> {
     private static final int SEGMENT_SHIFT = 7;

@@ -99,7 +99,8 @@ public class DataStorageManager implements IgniteComponent {
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
         return tableDataStorageChange -> {
             if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
-                assert engines.containsKey(defaultDataStorageView) : defaultDataStorageView;
+                assert engines.containsKey(defaultDataStorageView)
+                        : "Default Storage Engine \"" + defaultDataStorageView + "\" is missing from configuration";
 
                 tableDataStorageChange.convert(defaultDataStorageView);
             } else if (engines.size() == 1) {

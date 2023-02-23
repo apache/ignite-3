@@ -77,6 +77,9 @@ enum class client_operation {
     /** Get and delete tuple. */
     TUPLE_GET_AND_DELETE = 32,
 
+    /** Contains tuple. */
+    TUPLE_CONTAINS_KEY = 33,
+
     /** Begin transaction. */
     TX_BEGIN = 43,
 

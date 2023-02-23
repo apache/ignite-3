@@ -176,12 +176,12 @@ namespace Apache.Ignite.Internal
 
                 return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
 
-                throw;
+                throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Failed to connect to endpoint: " + endPoint, e);
             }
         }
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_BLOB_FRAGMENT_IO;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -70,7 +71,7 @@ class BlobStorageTest {
     void createStorage() {
         PageIoRegistry pageIoRegistry = new PageIoRegistry() {
             {
-                ioVersions[BlobFragmentIo.T_BLOB_FRAGMENT_IO] = BlobFragmentIo.VERSIONS;
+                ioVersions[T_BLOB_FRAGMENT_IO] = BlobFragmentIo.VERSIONS;
             }
         };
 

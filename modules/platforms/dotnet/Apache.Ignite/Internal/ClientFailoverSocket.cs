@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.IO;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -52,15 +53,15 @@ namespace Apache.Ignite.Internal
         /** Cluster node id to endpoint map. */
         private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsById = new();
 
-        /** <see cref="_socket"/> lock. */
+        /** Socket connection lock. */
         [SuppressMessage(
             "Microsoft.Design",
             "CA2213:DisposableFieldsShouldBeDisposed",
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
 
-        /** Primary socket. Guarded by <see cref="_socketLock"/>. */
-        private ClientSocket? _socket;
+        /** Last connected socket. Used to track partition assignment updates. */
+        private volatile ClientSocket? _lastConnectedSocket;
 
         /** Disposed flag. */
         private volatile bool _disposed;
@@ -113,15 +114,19 @@ namespace Apache.Ignite.Internal
         {
             var socket = new ClientFailoverSocket(configuration);
 
-            await socket.GetSocketAsync().ConfigureAwait(false);
+            await socket.GetNextSocketAsync().ConfigureAwait(false);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Secondary connections are established in the background.
-            // TODO IGNITE-18808 Do this periodically.
             _ = socket.ConnectAllSockets();
 
             return socket;
         }
+
+        /// <summary>
+        /// Resets global endpoint index. For testing purposes only (to make behavior deterministic).
+        /// </summary>
+        public static void ResetGlobalEndpointIndex() => _globalEndPointIndex = 0;
 
         /// <summary>
         /// Performs an in-out operation.
@@ -221,14 +226,23 @@ namespace Apache.Ignite.Internal
         /// Gets active connections.
         /// </summary>
         /// <returns>Active connections.</returns>
-        public IEnumerable<ConnectionContext> GetConnections() =>
-            _endpoints
-                .Select(e => e.Socket?.ConnectionContext)
-                .Where(ctx => ctx != null)
-                .ToList()!;
+        public IEnumerable<ConnectionContext> GetConnections()
+        {
+            var res = new List<ConnectionContext>(_endpoints.Count);
+
+            foreach (var endpoint in _endpoints)
+            {
+                if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
+                {
+                    res.Add(ctx);
+                }
+            }
+
+            return res;
+        }
 
         /// <summary>
-        /// Gets the primary socket. Reconnects if necessary.
+        /// Gets a socket. Reconnects if necessary.
         /// </summary>
         /// <param name="preferredNode">Preferred node.</param>
         /// <returns>Client socket.</returns>
@@ -238,54 +252,35 @@ namespace Apache.Ignite.Internal
             Justification = "Any connection exception should be handled.")]
         private async ValueTask<ClientSocket> GetSocketAsync(PreferredNode preferredNode = default)
         {
-            await _socketLock.WaitAsync().ConfigureAwait(false);
+            ThrowIfDisposed();
 
-            try
+            // 1. Preferred node connection.
+            if (preferredNode != default)
             {
-                ThrowIfDisposed();
+                var key = preferredNode.Id ?? preferredNode.Name;
+                var map = preferredNode.Id != null ? _endpointsById : _endpointsByName;
 
-                // 1. Preferred node connection.
-                if (preferredNode != default)
+                if (map.TryGetValue(key!, out var endpoint))
                 {
-                    var key = preferredNode.Id ?? preferredNode.Name;
-                    var map = preferredNode.Id != null ? _endpointsById : _endpointsByName;
-
-                    if (map.TryGetValue(key!, out var endpoint))
+                    try
                     {
-                        try
-                        {
-                            return await ConnectAsync(endpoint).ConfigureAwait(false);
-                        }
-                        catch (Exception e)
-                        {
-                            _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
-                        }
+                        return await ConnectAsync(endpoint).ConfigureAwait(false);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger?.Warn(e, $"Failed to connect to preferred node {preferredNode}: {e.Message}");
                     }
                 }
-
-                // 2. Round-robin connection.
-                if (GetNextSocketWithoutReconnect() is { } nextSocket)
-                {
-                    return nextSocket;
-                }
-
-                // 3. Default connection.
-                if (_socket == null || _socket.IsDisposed)
-                {
-                    if (_socket?.IsDisposed == true)
-                    {
-                        _logger?.Info("Primary socket connection lost, reconnecting.");
-                    }
-
-                    _socket = await GetNextSocketAsync().ConfigureAwait(false);
-                }
-
-                return _socket;
             }
-            finally
+
+            // 2. Round-robin connection.
+            if (GetNextSocketWithoutReconnect() is { } nextSocket)
             {
-                _socketLock.Release();
+                return nextSocket;
             }
+
+            // 3. Default connection.
+            return await GetNextSocketAsync().ConfigureAwait(false);
         }
 
         [SuppressMessage(
@@ -294,38 +289,38 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            if (_endpoints.Count == 1)
-            {
-                return;
-            }
-
-            await _socketLock.WaitAsync().ConfigureAwait(false);
-
             var tasks = new List<Task>(_endpoints.Count);
 
-            _logger?.Debug("Establishing secondary connections...");
-
-            try
+            while (!_disposed)
             {
-                foreach (var endpoint in _endpoints)
+                try
                 {
-                    if (endpoint.Socket?.IsDisposed == false)
+                    tasks.Clear();
+
+                    foreach (var endpoint in _endpoints)
                     {
-                        continue;
+                        if (endpoint.Socket?.IsDisposed == false)
+                        {
+                            continue;
+                        }
+
+                        tasks.Add(ConnectAsync(endpoint).AsTask());
                     }
 
-                    tasks.Add(ConnectAsync(endpoint).AsTask());
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
                 }
 
-                await Task.WhenAll(tasks).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
-            }
-            finally
-            {
-                _socketLock.Release();
+                if (Configuration.ReconnectInterval <= TimeSpan.Zero)
+                {
+                    // Interval is zero - periodic reconnect is disabled.
+                    return;
+                }
+
+                await Task.Delay(Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
 
@@ -347,11 +342,11 @@ namespace Apache.Ignite.Internal
         private async ValueTask<ClientSocket> GetNextSocketAsync()
         {
             List<Exception>? errors = null;
-            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+            var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
 
             for (var i = 0; i < _endpoints.Count; i++)
             {
-                var idx = (startIdx + i) % _endpoints.Count;
+                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
                 var endPoint = _endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
@@ -363,7 +358,7 @@ namespace Apache.Ignite.Internal
                 {
                     return await ConnectAsync(endPoint).ConfigureAwait(false);
                 }
-                catch (SocketException e)
+                catch (IgniteClientConnectionException e) when (e.GetBaseException() is SocketException or IOException)
                 {
                     errors ??= new List<Exception>();
 
@@ -380,11 +375,11 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private ClientSocket? GetNextSocketWithoutReconnect()
         {
-            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+            var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
 
             for (var i = 0; i < _endpoints.Count; i++)
             {
-                var idx = (startIdx + i) % _endpoints.Count;
+                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
                 var endPoint = _endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
@@ -406,28 +401,37 @@ namespace Apache.Ignite.Internal
                 return endpoint.Socket;
             }
 
-            var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+            await _socketLock.WaitAsync().ConfigureAwait(false);
 
-            // We are under _socketLock here.
-            if (_clusterId == null)
+            try
             {
-                _clusterId = socket.ConnectionContext.ClusterId;
+                var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+
+                if (_clusterId == null)
+                {
+                    _clusterId = socket.ConnectionContext.ClusterId;
+                }
+                else if (_clusterId != socket.ConnectionContext.ClusterId)
+                {
+                    socket.Dispose();
+
+                    throw new IgniteClientConnectionException(
+                        ErrorGroups.Client.ClusterIdMismatch,
+                        $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterId}");
+                }
+
+                endpoint.Socket = socket;
+
+                _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
+                _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
+                _lastConnectedSocket = socket;
+
+                return socket;
             }
-            else if (_clusterId != socket.ConnectionContext.ClusterId)
+            finally
             {
-                socket.Dispose();
-
-                throw new IgniteClientConnectionException(
-                    ErrorGroups.Client.ClusterIdMismatch,
-                    $"Cluster ID mismatch: expected={_clusterId}, actual={socket.ConnectionContext.ClusterId}");
+                _socketLock.Release();
             }
-
-            endpoint.Socket = socket;
-
-            _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
-            _endpointsById[socket.ConnectionContext.ClusterNode.Id] = endpoint;
-
-            return socket;
         }
 
         /// <summary>
@@ -438,9 +442,9 @@ namespace Apache.Ignite.Internal
         {
             // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
             // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-            // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
+            // So we only react to updates from the last known good channel. When no user-initiated operations are performed on that
             // channel, heartbeat messages will trigger updates.
-            if (clientSocket == _socket)
+            if (clientSocket == _lastConnectedSocket)
             {
                 Interlocked.Increment(ref _assignmentVersion);
             }

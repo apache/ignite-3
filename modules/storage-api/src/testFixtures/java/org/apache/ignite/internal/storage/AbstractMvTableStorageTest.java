@@ -34,6 +34,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -74,6 +74,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteTuple3;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -434,7 +435,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Error because reblance has not yet started for the partition.
         assertThrows(
                 StorageRebalanceException.class,
-                () -> tableStorage.finishRebalancePartition(PARTITION_ID, 100, 500, mock(RaftGroupConfiguration.class))
+                () -> tableStorage.finishRebalancePartition(PARTITION_ID, 100, 500, new byte[0])
         );
 
         List<IgniteTuple3<RowId, BinaryRow, HybridTimestamp>> rowsBeforeRebalanceStart = List.of(
@@ -466,16 +467,16 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Partition is out of configuration range.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> tableStorage.finishRebalancePartition(getPartitionIdOutOfRange(), 100, 500, mock(RaftGroupConfiguration.class))
+                () -> tableStorage.finishRebalancePartition(getPartitionIdOutOfRange(), 100, 500, new byte[0])
         );
 
         // Partition does not exist.
         assertThrows(
                 StorageRebalanceException.class,
-                () -> tableStorage.finishRebalancePartition(1, 100, 500, mock(RaftGroupConfiguration.class))
+                () -> tableStorage.finishRebalancePartition(1, 100, 500, new byte[0])
         );
 
-        RaftGroupConfiguration raftGroupConfig = createRandomRaftGroupConfiguration();
+        byte[] raftGroupConfig = createRandomRaftGroupConfiguration();
 
         assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 10, 20, raftGroupConfig), willCompleteSuccessfully());
 
@@ -666,7 +667,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 new IgniteTuple3<>(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")), clock.now())
         );
 
-        RaftGroupConfiguration raftGroupConfig = createRandomRaftGroupConfiguration();
+        byte[] raftGroupConfig = createRandomRaftGroupConfiguration();
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
@@ -857,11 +858,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         storage.runConsistently(() -> {
             assertThrows(StorageRebalanceException.class, () -> storage.lastApplied(100, 500));
-            assertThrows(StorageRebalanceException.class, () -> storage.committedGroupConfiguration(mock(RaftGroupConfiguration.class)));
+            assertThrows(StorageRebalanceException.class, () -> storage.committedGroupConfiguration(new byte[0]));
 
             assertThrows(
                     StorageRebalanceException.class,
-                    () -> storage.committedGroupConfiguration(mock(RaftGroupConfiguration.class))
+                    () -> storage.committedGroupConfiguration(new byte[0])
             );
 
             RowId rowId = new RowId(PARTITION_ID);
@@ -873,11 +874,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
             assertThrows(StorageRebalanceException.class, storage::rowsCount);
 
-            // TODO: IGNITE-18020 Add check
-            // TODO: IGNITE-18023 Add check
-            if (storage instanceof TestMvPartitionStorage) {
-                assertThrows(StorageRebalanceException.class, () -> storage.pollForVacuum(clock.now()));
-            }
+            assertThrows(StorageRebalanceException.class, () -> storage.pollForVacuum(clock.now()));
 
             return null;
         });
@@ -1001,25 +998,20 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         }
     }
 
-    private static RaftGroupConfiguration createRandomRaftGroupConfiguration() {
+    private static byte[] createRandomRaftGroupConfiguration() {
         Random random = new Random(System.currentTimeMillis());
 
-        return new RaftGroupConfiguration(
-                random.ints(random.nextInt(10)).mapToObj(i -> "peer" + i).collect(toList()),
-                random.ints(random.nextInt(10)).mapToObj(i -> "lerner" + i).collect(toList()),
-                random.ints(random.nextInt(10)).mapToObj(i -> "oldPeer" + i).collect(toList()),
-                random.ints(random.nextInt(10)).mapToObj(i -> "oldLerner" + i).collect(toList())
-        );
+        byte[] bytes = new byte[100];
+
+        random.nextBytes(bytes);
+
+        return bytes;
     }
 
-    private static void checkRaftGroupConfigs(RaftGroupConfiguration exp, RaftGroupConfiguration act) {
+    private static void checkRaftGroupConfigs(byte @Nullable [] exp, byte @Nullable [] act) {
         assertNotNull(exp);
         assertNotNull(act);
 
-        assertThat(act.peers(), equalTo(exp.peers()));
-        assertThat(act.learners(), equalTo(exp.learners()));
-
-        assertThat(act.oldPeers(), equalTo(exp.oldPeers()));
-        assertThat(act.oldLearners(), equalTo(exp.oldLearners()));
+        assertArrayEquals(exp, act);
     }
 }

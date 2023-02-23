@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.api;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,29 +31,38 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implements application/problem+json schema defined in <a href="https://www.rfc-editor.org/rfc/rfc7807.html">RFC-7807</a>.
  */
+@Schema(description = "Extended description of the problem with the request.")
 public class Problem {
     /** Short, human-readable summary of the problem type. */
+    @Schema(description = "Short summary of the issue.")
     private final String title;
 
     /** HTTP status code. */
+    @Schema(description = "Returned HTTP status code.")
     private final int status;
 
     /** Ignite 3 error code. */
+    @Schema(description = "Ignite 3 error code.")
     private final String code;
 
     /** URI to the error documentation (optional). */
+    @Schema(description = "URI to documentation regarding the issue.")
     private final String type;
 
     /** Human-readable explanation of the problem (optional). */
+    @Schema(description = "Extended explanation of the issue.")
     private final String detail;
 
     /** Ignite 3 node name (optional). */
+    @Schema(description = "Name of the node the issue happened on.")
     private final String node;
 
     /** Unique identifier that will help to trace the error in the log (optional). */
+    @Schema(description = "Unique issue identifier. Thid identifier can be used to find logs related to the issue")
     private final UUID traceId;
 
-    /** List of parameter that did not pass the validation (optional). */
+    /** List of parameters that did not pass the validation (optional). */
+    @Schema(description = "Parameters that did not pass validation.")
     private final Collection<InvalidParam> invalidParams;
 
     /** Constructor. */
