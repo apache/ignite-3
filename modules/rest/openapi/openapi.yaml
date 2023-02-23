@@ -319,6 +319,209 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units:
+    get:
+      tags:
+      - deployment
+      description: All units statutes.
+      operationId: units
+      parameters: []
+      responses:
+        "200":
+          description: All statutes returned successful.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UnitStatus'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    post:
+      tags:
+      - deployment
+      description: Deploy provided unit to node.
+      operationId: deployUnit
+      parameters: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - unitContent
+              - unitId
+              type: object
+              properties:
+                unitId:
+                  required:
+                  - "true"
+                  type: string
+                unitVersion:
+                  type: string
+                unitContent:
+                  required:
+                  - "true"
+                  type: string
+                  format: binary
+        required: true
+      responses:
+        "200":
+          description: Unit deployed successfully.
+          content:
+            application/json:
+              schema:
+                type: boolean
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}:
+    delete:
+      tags:
+      - deployment
+      description: Undeploy latest unit with provided unitId.
+      operationId: undeployLatestUnit
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Unit undeployed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "404":
+          description: Unit with provided identifier and version doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}/status:
+    get:
+      tags:
+      - deployment
+      description: Status of unit with provided identifier.
+      operationId: status
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Status returned successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitStatus'
+        "404":
+          description: Unit with provided identifier doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}/versions:
+    get:
+      tags:
+      - deployment
+      description: All versions of unit with provided unit identifier.
+      operationId: versions
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Versions returned successful.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "404":
+          description: Unit with provided identifier doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/deployment/units/{unitId}/{unitVersion}:
+    delete:
+      tags:
+      - deployment
+      description: Undeploy unit with provided unitId and unitVersion.
+      operationId: undeployUnit
+      parameters:
+      - name: unitId
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      - name: unitVersion
+        in: path
+        required: true
+        schema:
+          required:
+          - "true"
+          type: string
+      responses:
+        "200":
+          description: Unit undeployed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
+        "404":
+          description: Unit with provided identifier and version doesn't exist.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
   /management/v1/metric/node:
     get:
       tags:
@@ -612,5 +815,20 @@ components:
       - STARTING
       - STARTED
       - STOPPING
+    UnitStatus:
+      required:
+      - id
+      - versionToConsistentIds
+      type: object
+      properties:
+        id:
+          type: string
+        versionToConsistentIds:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+      description: Unit status.
     Void:
       type: object

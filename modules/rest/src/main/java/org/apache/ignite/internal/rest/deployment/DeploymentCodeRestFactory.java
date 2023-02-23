@@ -15,30 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.constants;
+package org.apache.ignite.internal.rest.deployment;
+
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
+import org.apache.ignite.deployment.IgniteDeployment;
+import org.apache.ignite.internal.rest.RestFactory;
 
 /**
- * REST API media types.
+ * Factory of {@link DeploymentManagementController}.
  */
-public final class MediaType {
-    private MediaType() {}
+@Factory
+public class DeploymentCodeRestFactory implements RestFactory {
+    private final IgniteDeployment igniteDeployment;
 
-    /**
-     * application/json media type.
-     */
-    public static final String APPLICATION_JSON = "application/json";
+    public DeploymentCodeRestFactory(IgniteDeployment igniteDeployment) {
+        this.igniteDeployment = igniteDeployment;
+    }
 
-    /**
-     * application/problem+json media type.
-     */
-    public static final String PROBLEM_JSON = "application/problem+json";
-
-    /**
-     * text/plain media type.
-     */
-    public static final String TEXT_PLAIN = "text/plain";
-
-    public static final String OCTET_STREAM = "application/octet-stream";
-
-    public static final String FORM_DATA = "multipart/form-data";
+    @Bean
+    @Singleton
+    public IgniteDeployment deployment() {
+        return igniteDeployment;
+    }
 }

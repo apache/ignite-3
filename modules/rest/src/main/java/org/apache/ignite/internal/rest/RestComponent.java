@@ -45,6 +45,7 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
 import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
 import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
+import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricApi;
 import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -73,7 +74,8 @@ import org.jetbrains.annotations.Nullable;
         ClusterManagementApi.class,
         NodeManagementApi.class,
         NodeMetricApi.class,
-        TopologyApi.class
+        TopologyApi.class,
+        DeploymentCodeApi.class
 })
 public class RestComponent implements IgniteComponent {
 

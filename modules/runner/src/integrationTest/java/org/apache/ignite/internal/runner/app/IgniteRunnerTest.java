@@ -20,15 +20,21 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -66,5 +72,27 @@ public class IgniteRunnerTest extends IgniteIntegrationTest {
         IgnitionManager.init(initParameters);
 
         assertThat(ign, willCompleteSuccessfully());
+    }
+
+    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+            + "  network: {\n"
+            + "    port:{},\n"
+            + "    portRange: 5,\n"
+            + "    nodeFinder:{\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+
+
+    public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
+        String connectNodeAddr = "\"localhost:" + 3344 + '\"';
+        String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, 3344, connectNodeAddr);
+
+        while (true) {
+            IgnitionManager.start("test", config, Files.createTempDirectory("test"));
+            System.out.println("s");
+            IgnitionManager.stop("test");
+        }
     }
 }
