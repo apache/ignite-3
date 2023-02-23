@@ -19,7 +19,6 @@ package org.apache.ignite.internal.deployunit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Base64.Decoder;
