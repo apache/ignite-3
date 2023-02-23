@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.cli.core;
 
 import jakarta.inject.Singleton;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 
@@ -28,7 +28,7 @@ import org.apache.ignite.rest.client.invoker.ApiClient;
  */
 @Singleton
 public class ApiClientFactory {
-    private final Map<String, ApiClient> clients = new HashMap<>();
+    private final Map<String, ApiClient> clients = new ConcurrentHashMap<>();
 
     /**
      * Gets {@link ApiClient} for the base path.
@@ -37,12 +37,8 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        ApiClient apiClient = clients.get(path);
-        if (apiClient == null) {
-            apiClient = new ApiClient().setBasePath(path);
-            clients.put(path, apiClient);
-            CliLoggers.addApiClient(apiClient);
-        }
+        ApiClient apiClient = clients.computeIfAbsent(path, s -> new ApiClient().setBasePath(s));
+        CliLoggers.addApiClient(apiClient);
         return apiClient;
     }
 }

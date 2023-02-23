@@ -19,9 +19,9 @@ package org.apache.ignite.internal.cli.logger;
 
 import java.io.PrintWriter;
 import java.lang.System.Logger;
-import java.util.HashSet;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.LoggerFactory;
@@ -37,7 +37,7 @@ public class CliLoggers {
     private static boolean isVerbose;
 
     /** Http loggers for the REST API clients. */
-    private static final Set<HttpLogging> httpLoggers = new HashSet<>();
+    private static final Set<HttpLogging> httpLoggers = ConcurrentHashMap.newKeySet();
 
     private static final LoggerFactory loggerFactory = name -> new CliLogger(System.getLogger(name));
 
