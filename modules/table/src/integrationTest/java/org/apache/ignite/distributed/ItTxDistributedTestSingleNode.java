@@ -613,10 +613,18 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return manager;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Check the storage of partition is the same across all nodes.
+     * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
+     * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
+     *
+     * @param table The table.
+     * @param partId Partition id.
+     * @return True if {@link MvPartitionStorage#lastAppliedIndex()} is equivalent across all nodes, false otherwise.
+     */
     @Override
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
-        int hash = 0;
+        long storageIdx = 0;
 
         for (Map.Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza svc = entry.getValue();
@@ -635,9 +643,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             MvPartitionStorage storage = listener.getMvStorage();
 
-            if (hash == 0) {
-                hash = storage.hashCode();
-            } else if (hash != storage.hashCode()) {
+            if (storageIdx == 0) {
+                storageIdx = storage.lastAppliedIndex();
+            } else if (storageIdx != storage.lastAppliedIndex()) {
                 return false;
             }
         }

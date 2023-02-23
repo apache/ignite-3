@@ -173,7 +173,9 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             // Wait for heartbeat message to receive change notification flag.
             Thread.sleep(500);
         } else {
-            // Perform one request on the default channel to receive change notification flag.
+            // Perform a request on the default channel to receive change notification flag.
+            // Use two requests because of round-robin.
+            client2.tables().tables();
             client2.tables().tables();
         }
 

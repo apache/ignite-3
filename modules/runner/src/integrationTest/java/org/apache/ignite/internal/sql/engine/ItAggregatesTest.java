@@ -331,6 +331,23 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    public void testEverySomeAggregate() throws Exception {
+        sql("CREATE TABLE t(c0 INT PRIMARY KEY, c1 INT, c2 INT)");
+        sql("INSERT INTO t VALUES (1, null, 0)");
+        sql("INSERT INTO t VALUES (2, 0, null)");
+        sql("INSERT INTO t VALUES (3, null, null)");
+        sql("INSERT INTO t VALUES (4, 0, 1)");
+        sql("INSERT INTO t VALUES (5, 1, 1)");
+        sql("INSERT INTO t VALUES (6, 1, 2)");
+        sql("INSERT INTO t VALUES (7, 2, 2)");
+
+        assertQuery("SELECT EVERY(c1 < c2) FROM t").returns(false).check();
+        assertQuery("SELECT SOME(c1 < c2) FROM t").returns(true).check();
+        assertQuery("SELECT EVERY(c1 <= c2) FROM t").returns(true).check();
+        assertQuery("SELECT SOME(c1 > c2) FROM t").returns(false).check();
+    }
+
+    @Test
     public void distinctAggregateWithoutAggregateFunction() {
         var sql = "select distinct name from person";
 

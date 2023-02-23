@@ -22,7 +22,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -141,11 +140,18 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
                 .returns(1, UUID_1)
                 .returns(2, UUID_2)
                 .check();
+    }
 
-        // UUID can be used by several aggregate functions
-        for (var func : Arrays.asList("COUNT", "ANY_VALUE")) {
-            sql(format("SELECT {}(uuid_key) FROM t", func));
-        }
+    @Test
+    public void testBasicAggregates() {
+        sql(format("INSERT INTO t VALUES (1, CAST('{}' as UUID))", UUID_1));
+        sql(format("INSERT INTO t VALUES (2, CAST('{}' as UUID))", UUID_2));
+
+        assertQuery("SELECT COUNT(uuid_key) FROM t").returns(2L).check();
+        assertQuery("SELECT ANY_VALUE(uuid_key) FROM t").check();
+
+        assertQuery("SELECT MIN(uuid_key) FROM t").returns(UUID_2).check();
+        assertQuery("SELECT MAX(uuid_key) FROM t").returns(UUID_1).check();
     }
 
     @Test

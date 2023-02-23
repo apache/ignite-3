@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.util.Objects;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
@@ -54,6 +55,9 @@ public enum IgniteMethod {
 
     /** See {@link ExecutionContext#nullBound()}. */
     CONTEXT_NULL_BOUND(ExecutionContext.class, "nullBound"),
+
+    /** See {@link ExecutionContext#getParameter(String, Type)}. */
+    CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
 
     /** See {@link SingleScalar#execute(ExecutionContext, Object, Object)}. */
     SCALAR_EXECUTE(SingleScalar.class, "execute", ExecutionContext.class, Object.class, Object.class),
