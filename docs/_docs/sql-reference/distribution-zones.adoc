@@ -28,11 +28,12 @@ CREATE ZONE [IF NOT EXISTS] qualified_zone_name
             ([DATA_NODES_AUTO_ADJUST = adjust_value],
             [DATA_NODES_AUTO_ADJUST_SCALE_UP = adjust_value],
             [DATA_NODES_AUTO_ADJUST_SCALE_DOWN = adjust_value],
-            [DATA_NODES_FILTER = filter_name])
         ]
     ]
 [;]
 ----
+
+Parameters:
 
 
 * `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
@@ -41,7 +42,6 @@ CREATE ZONE [IF NOT EXISTS] qualified_zone_name
 - `DATA_NODES_AUTO_ADJUST` - the delay in seconds between any topology changes and the start of data zone adjustment.
 - `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
 - `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
-- `DATA_NODES_FILTER` - a list of node names or node attributes. Only the nodes with these attributes are included in the distribution zone.
 
 Examples:
 
@@ -57,7 +57,7 @@ Creates an `exampleZone` distribution zone that will only use nodes with SSD att
 
 [source,sql]
 ----
-CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER='SSD', DATA_NODES_AUTO_ADJUST=300
+CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_AUTO_ADJUST=300
 ----
 
 
@@ -65,9 +65,9 @@ CREATE ZONE IF NOT EXISTS exampleZone WITH DATA_NODES_FILTER='SSD', DATA_NODES_A
 
 Modifies an existing distribution zone.
 
+[source,sql]
 ----
 ALTER ZONE IF EXISTS { 'qualified_zone_name' }
-    [RENAME TO {new_qualified_zone_name}] [;]
     [WITH
         [
             ([DATA_NODES_AUTO_ADJUST = adjust_value],
@@ -76,7 +76,10 @@ ALTER ZONE IF EXISTS { 'qualified_zone_name' }
             [DATA_NODES_FILTER = filter_name])
         ]
     ]
+[;]
 ----
+
+Parameters:
 
 * `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
 * `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
@@ -85,6 +88,20 @@ ALTER ZONE IF EXISTS { 'qualified_zone_name' }
 - `DATA_NODES_AUTO_ADJUST_SCALE_UP` - the delay in seconds between the new node joining and the start of data zone adjustment.
 - `DATA_NODES_AUTO_ADJUST_SCALE_DOWN` - the delay in seconds between the node leaving the cluster and the start of data zone adjustment.
 - `DATA_NODES_FILTER` - a list of node names or node attributes. Only the nodes with these attributes are included in the distribution zone.
+
+== ALTER ZONE RENAME
+
+Renames a distribution zone.
+
+[source,sql]
+----
+ALTER ZONE IF EXISTS { 'qualified_zone_name' } [RENAME TO {new_qualified_zone_name}] [;]
+----
+
+Parameters:
+
+* `qualified_zone_name` - name of the distribution zone. Can be schema-qualified.
+* `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
 
 == DROP ZONE
 
@@ -99,7 +116,6 @@ Parameters:
 - `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
 - `qualified_zone_name` - the name of the distribution zone. Can be schema-qualified.
 
-Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
 Examples:
 
