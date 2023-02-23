@@ -173,26 +173,51 @@ class GarbageCollector {
                 return null;
             }
 
-            ByteBuffer gcKeyBuffer = GC_KEY_BUFFER.get();
-            gcKeyBuffer.clear();
+            ByteBuffer gcKeyBuffer = readGcKey(gcIt);
 
-            gcIt.key(gcKeyBuffer);
+            GcRowVersion gcRowVersion = toGcRowVersion(gcKeyBuffer);
 
-            HybridTimestamp gcElementTimestamp = readTimestampNatural(gcKeyBuffer, GC_KEY_TS_OFFSET);
+            while (true) {
+                if (gcRowVersion.getRowTimestamp().compareTo(lowWatermark) > 0) {
+                    // No elements to garbage collect.
+                    return null;
+                }
 
-            if (gcElementTimestamp.compareTo(lowWatermark) > 0) {
-                // No elements to garbage collect.
-                return null;
+                // If no one has processed the head of the gc queue in parallel, then we must release the lock after write batch in
+                // WriteClosure#execute of MvPartitionStorage#runConsistently so that the indexes can be deleted consistently.
+                helper.lockByRowId.acquireLock(gcRowVersion.getRowId());
+
+                // We must refresh the iterator to try to read the head of the gc queue again and if someone deleted it in parallel,
+                // then read the new head of the queue.
+                refreshGcIterator(gcIt, gcKeyBuffer);
+
+                if (invalid(gcIt)) {
+                    // GC queue is empty.
+                    return null;
+                }
+
+                gcKeyBuffer = readGcKey(gcIt);
+
+                GcRowVersion oldGcRowVersion = gcRowVersion;
+
+                gcRowVersion = toGcRowVersion(gcKeyBuffer);
+
+                // Someone has processed the element in parallel, so we need to take a new head of the queue.
+                if (!gcRowVersion.equals(oldGcRowVersion)) {
+                    helper.lockByRowId.releaseLock(gcRowVersion.getRowId());
+
+                    continue;
+                }
+
+                break;
             }
-
-            RowId gcElementRowId = helper.getRowId(gcKeyBuffer, GC_KEY_ROW_ID_OFFSET);
 
             // Delete element from the GC queue.
             batch.delete(gcQueueCf, gcKeyBuffer);
 
             try (RocksIterator it = db.newIterator(partCf, helper.upperBoundReadOpts)) {
                 // Process the element in data cf that triggered the addition to the GC queue.
-                boolean proceed = checkHasNewerRowAndRemoveTombstone(it, batch, gcElementRowId, gcElementTimestamp);
+                boolean proceed = checkHasNewerRowAndRemoveTombstone(it, batch, gcRowVersion);
 
                 if (!proceed) {
                     // No further processing required.
@@ -200,9 +225,8 @@ class GarbageCollector {
                 }
 
                 // Find the row that should be garbage collected.
-                ByteBuffer dataKey = getRowForGcKey(it, gcElementRowId);
+                ByteBuffer dataKey = getRowForGcKey(it, gcRowVersion.getRowId());
 
-                // TODO: IGNITE-18843 Should try to get the RowVersion again
                 if (dataKey == null) {
                     // No row for GC.
                     return null;
@@ -212,7 +236,7 @@ class GarbageCollector {
                 byte[] valueBytes = it.value();
 
                 var row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
-                BinaryRowAndRowId retVal = new BinaryRowAndRowId(row, gcElementRowId);
+                BinaryRowAndRowId retVal = new BinaryRowAndRowId(row, gcRowVersion.getRowId());
 
                 // Delete the row from the data cf.
                 batch.delete(partCf, dataKey);
@@ -231,18 +255,21 @@ class GarbageCollector {
      *
      * @param it RocksDB data column family iterator.
      * @param batch Write batch.
-     * @param gcElementRowId Row id of the element from the GC queue/
+     * @param gcRowVersion Row version from the GC queue.
      * @return {@code true} if further processing by garbage collector is needed.
      */
-    private boolean checkHasNewerRowAndRemoveTombstone(RocksIterator it, WriteBatchWithIndex batch, RowId gcElementRowId,
-            HybridTimestamp gcElementTimestamp) throws RocksDBException {
+    private boolean checkHasNewerRowAndRemoveTombstone(
+            RocksIterator it,
+            WriteBatchWithIndex batch,
+            GcRowVersion gcRowVersion
+    ) throws RocksDBException {
         ByteBuffer dataKeyBuffer = MV_KEY_BUFFER.get();
         dataKeyBuffer.clear();
 
         ColumnFamilyHandle partCf = helper.partCf;
 
         // Set up the data key.
-        helper.putDataKey(dataKeyBuffer, gcElementRowId, gcElementTimestamp);
+        helper.putDataKey(dataKeyBuffer, gcRowVersion.getRowId(), gcRowVersion.getRowTimestamp());
 
         // Seek to the row id and timestamp from the GC queue.
         // Note that it doesn't mean that the element in this iterator has matching row id or even partition id.
@@ -256,7 +283,7 @@ class GarbageCollector {
 
             it.key(dataKeyBuffer);
 
-            if (!helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET).equals(gcElementRowId)) {
+            if (!helper.getRowId(dataKeyBuffer, ROW_ID_OFFSET).equals(gcRowVersion.getRowId())) {
                 // There is no row for the GC queue element.
                 return false;
             }
@@ -317,5 +344,32 @@ class GarbageCollector {
      */
     void deleteQueue(WriteBatch writeBatch) throws RocksDBException {
         writeBatch.deleteRange(gcQueueCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
+    }
+
+    private ByteBuffer readGcKey(RocksIterator gcIt) {
+        ByteBuffer gcKeyBuffer = GC_KEY_BUFFER.get();
+        gcKeyBuffer.clear();
+
+        gcIt.key(gcKeyBuffer);
+
+        return gcKeyBuffer;
+    }
+
+    private GcRowVersion toGcRowVersion(ByteBuffer gcKeyBuffer) {
+        return new GcRowVersion(
+                helper.getRowId(gcKeyBuffer, GC_KEY_ROW_ID_OFFSET),
+                readTimestampNatural(gcKeyBuffer, GC_KEY_TS_OFFSET)
+        );
+    }
+
+    private void refreshGcIterator(RocksIterator gcIt, ByteBuffer gcKeyBuffer) throws RocksDBException {
+        gcIt.refresh();
+
+        gcIt.seekForPrev(gcKeyBuffer);
+
+        // Row version was removed from the gc queue by someone, back to the head of gc queue.
+        if (invalid(gcIt)) {
+            gcIt.seek(helper.partitionStartPrefix());
+        }
     }
 }

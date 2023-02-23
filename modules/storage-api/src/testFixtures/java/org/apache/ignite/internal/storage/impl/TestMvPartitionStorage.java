@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,6 +65,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     private volatile boolean closed;
 
     private volatile boolean rebalance;
+
+    final ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -108,7 +111,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         checkStorageClosed();
 
-        return closure.execute();
+        try {
+            return closure.execute();
+        } finally {
+            lockByRowId.releaseAllLockByCurrentThread();
+        }
     }
 
     @Override
@@ -496,6 +503,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         RowId rowId = dequeuedVersionChain.rowId;
+
+        // We must release the lock after executing WriteClosure#execute in MvPartitionStorage#runConsistently so that the indexes can be
+        // deleted consistently.
+        lockByRowId.acquireLock(rowId);
 
         VersionChain versionChainToRemove = dequeuedVersionChain.next;
         assert versionChainToRemove != null;
