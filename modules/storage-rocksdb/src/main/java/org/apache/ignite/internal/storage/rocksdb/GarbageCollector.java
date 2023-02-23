@@ -211,7 +211,7 @@ class GarbageCollector {
                 // At this point there's definitely a value that needs to be garbage collected in the iterator.
                 byte[] valueBytes = it.value();
 
-                var row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
+                var row = valueBytes.length == 0 ? null : new ByteBufferRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
                 BinaryRowAndRowId retVal = new BinaryRowAndRowId(row, gcElementRowId);
 
                 // Delete the row from the data cf.

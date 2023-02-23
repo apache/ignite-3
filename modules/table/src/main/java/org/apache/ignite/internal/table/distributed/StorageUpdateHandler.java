@@ -271,7 +271,11 @@ public class StorageUpdateHandler {
 
             BinaryRow binaryRow = vacuumed.binaryRow();
 
-            assert binaryRow != null;
+            if (binaryRow == null) {
+                // That was a tombstone. This can only happen if the oldest version of row is a tombstone, because
+                // consecutive tombstones are removed along with non-tombstone values.
+                return true;
+            }
 
             RowId rowId = vacuumed.rowId();
 

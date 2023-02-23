@@ -23,142 +23,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import org.apache.ignite.distributed.TestPartitionDataStorage;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
-import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
-import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexDescriptor.HashIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.SortedIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
-import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
-import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Tests indexes cleaning up on garbage collection. */
-public class IndexGcTest {
-    /** Default reflection marshaller factory. */
-    private static final MarshallerFactory MARSHALLER_FACTORY = new ReflectionMarshallerFactory();
-
-    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(1, new Column[]{
-            new Column("INTKEY", NativeTypes.INT32, false),
-            new Column("STRKEY", NativeTypes.STRING, false),
-    }, new Column[]{
-            new Column("INTVAL", NativeTypes.INT32, false),
-            new Column("STRVAL", NativeTypes.STRING, false),
-    });
-
-    private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(SCHEMA_DESCRIPTOR);
-
-    private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(SCHEMA_DESCRIPTOR);
-
-    private static final BinaryRowConverter PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
-
-    private static final int[] USER_INDEX_COLS = {
-            SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
-            SCHEMA_DESCRIPTOR.column("STRVAL").schemaIndex()
-    };
-
-    private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
-
-    private static final BinaryRowConverter USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
-
-    /** Key-value marshaller for tests. */
-    private static final KvMarshaller<TestKey, TestValue> KV_MARSHALLER
-            = MARSHALLER_FACTORY.create(SCHEMA_DESCRIPTOR, TestKey.class, TestValue.class);
-
-    private static final UUID TX_ID = UUID.randomUUID();
-
-    private static final HybridClock CLOCK = new HybridClockImpl();
-
-    private TestHashIndexStorage pkInnerStorage;
-    private TestSortedIndexStorage sortedInnerStorage;
-    private TestHashIndexStorage hashInnerStorage;
-    private TestMvPartitionStorage storage;
-    private StorageUpdateHandler storageUpdateHandler;
-
-    @BeforeEach
-    void setUp() {
-        UUID pkIndexId = UUID.randomUUID();
-        UUID sortedIndexId = UUID.randomUUID();
-        UUID hashIndexId = UUID.randomUUID();
-
-        pkInnerStorage = new TestHashIndexStorage(null);
-
-        TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
-                pkIndexId,
-                pkInnerStorage,
-                PK_INDEX_BINARY_TUPLE_CONVERTER::toTuple
-        );
-
-        sortedInnerStorage = new TestSortedIndexStorage(new SortedIndexDescriptor(sortedIndexId, List.of(
-                new SortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                new SortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
-        )));
-
-        TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
-                sortedIndexId,
-                sortedInnerStorage,
-                USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
-        );
-
-        hashInnerStorage = new TestHashIndexStorage(new HashIndexDescriptor(hashIndexId, List.of(
-                new HashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
-                new HashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
-        )));
-
-        TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
-                hashIndexId,
-                hashInnerStorage,
-                USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
-        );
-
-        storage = new TestMvPartitionStorage(1);
-
-        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage),
-                () -> Map.of(
-                        pkIndexId, pkStorage,
-                        sortedIndexId, sortedIndexStorage,
-                        hashIndexId, hashIndexStorage
-                )
-        );
-    }
-
+public class IndexGcTest extends IndexBaseTest {
     @Test
     void testRemoveStaleEntryWithSameIndex() {
         UUID rowUuid = UUID.randomUUID();
         RowId rowId = new RowId(1, rowUuid);
 
-        var key = new TestKey(1, "foo");
-        var value = new TestValue(2, "bar");
-        BinaryRow tableRow = binaryRow(key, value);
+        BinaryRow row = defaultRow();
 
-        addWrite(storageUpdateHandler, rowUuid, tableRow);
+        addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
-        addWrite(storageUpdateHandler, rowUuid, tableRow);
+        addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
         assertEquals(2, getRowVersions(rowId).size());
@@ -166,11 +49,11 @@ public class IndexGcTest {
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
 
-        assertTrue(storageUpdateHandler.vacuum(CLOCK.now()));
+        assertTrue(storageUpdateHandler.vacuum(now()));
 
         assertEquals(1, getRowVersions(rowId).size());
         // Newer entry has the same index value, so it should not be removed.
-        assertTrue(inIndex(tableRow));
+        assertTrue(inIndex(row));
     }
 
     @Test
@@ -200,7 +83,7 @@ public class IndexGcTest {
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
 
-        HybridTimestamp afterCommits = CLOCK.now();
+        HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
@@ -213,19 +96,13 @@ public class IndexGcTest {
     }
 
     @Test
-    void testRemoveTombstones() {
+    void testRemoveTombstonesRowNullNull() {
         UUID rowUuid = UUID.randomUUID();
         RowId rowId = new RowId(1, rowUuid);
 
-        var key1 = new TestKey(1, "foo");
-        var value1 = new TestValue(2, "bar");
-        BinaryRow tableRow1 = binaryRow(key1, value1);
+        BinaryRow row = defaultRow();
 
-        var key2 = new TestKey(1, "foo");
-        var value2 = new TestValue(5, "baz");
-        BinaryRow tableRow2 = binaryRow(key2, value2);
-
-        addWrite(storageUpdateHandler, rowUuid, tableRow1);
+        addWrite(storageUpdateHandler, rowUuid, row);
         commitWrite(rowId);
 
         addWrite(storageUpdateHandler, rowUuid, null);
@@ -240,101 +117,105 @@ public class IndexGcTest {
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
 
-        HybridTimestamp afterCommits = CLOCK.now();
+        HybridTimestamp afterCommits = now();
 
         assertTrue(storageUpdateHandler.vacuum(afterCommits));
         assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
         assertEquals(0, getRowVersions(rowId).size());
-        // Older entries have different indexes, should be removed.
-        assertFalse(inIndex(tableRow1));
+        // The last entry was a tombstone, so no indexes should be left.
+        assertFalse(inIndex(row));
     }
 
-    private boolean inIndex(BinaryRow row) {
-        BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
-        BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
+    @Test
+    void testRemoveTombstonesNullRowRow() {
+        UUID rowUuid = UUID.randomUUID();
+        RowId rowId = new RowId(1, rowUuid);
 
-        assert pkIndexValue != null;
-        assert userIndexValue != null;
+        BinaryRow row = defaultRow();
 
-        try (Cursor<RowId> pkCursor = pkInnerStorage.get(pkIndexValue)) {
-            if (!pkCursor.hasNext()) {
-                return false;
-            }
-        }
+        addWrite(storageUpdateHandler, rowUuid, null);
+        commitWrite(rowId);
 
-        try (Cursor<RowId> sortedIdxCursor = sortedInnerStorage.get(userIndexValue)) {
-            if (!sortedIdxCursor.hasNext()) {
-                return false;
-            }
-        }
+        addWrite(storageUpdateHandler, rowUuid, row);
+        commitWrite(rowId);
 
-        try (Cursor<RowId> hashIdxCursor = hashInnerStorage.get(userIndexValue)) {
-            return hashIdxCursor.hasNext();
-        }
+        addWrite(storageUpdateHandler, rowUuid, row);
+        commitWrite(rowId);
+
+        assertEquals(3, getRowVersions(rowId).size());
+        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
+
+        HybridTimestamp afterCommits = now();
+
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
+
+        assertEquals(1, getRowVersions(rowId).size());
+        assertTrue(inIndex(row));
     }
 
-    private List<ReadResult> getRowVersions(RowId rowId) {
-        try (Cursor<ReadResult> readResults = storage.scanVersions(rowId)) {
-            return readResults.stream().collect(Collectors.toList());
-        }
+    @Test
+    void testRemoveTombstonesRowNullRow() {
+        UUID rowUuid = UUID.randomUUID();
+        RowId rowId = new RowId(1, rowUuid);
+
+        BinaryRow row = defaultRow();
+
+        addWrite(storageUpdateHandler, rowUuid, row);
+        commitWrite(rowId);
+
+        addWrite(storageUpdateHandler, rowUuid, null);
+        commitWrite(rowId);
+
+        addWrite(storageUpdateHandler, rowUuid, row);
+        commitWrite(rowId);
+
+        assertEquals(3, getRowVersions(rowId).size());
+        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
+
+        HybridTimestamp afterCommits = now();
+
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
+
+        assertEquals(1, getRowVersions(rowId).size());
+        assertTrue(inIndex(row));
     }
 
-    private static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-        TablePartitionId partitionId = new TablePartitionId(UUID.randomUUID(), 1);
+    @Test
+    void testRemoveTombstonesRowRowNull() {
+        UUID rowUuid = UUID.randomUUID();
+        RowId rowId = new RowId(1, rowUuid);
 
-        handler.handleUpdate(
-                TX_ID,
-                rowUuid,
-                partitionId,
-                row == null ? null : row.byteBuffer(),
-                (unused) -> {}
-        );
-    }
+        BinaryRow row = defaultRow();
 
-    private static BinaryRow binaryRow(TestKey key, TestValue value) {
-        try {
-            return KV_MARSHALLER.marshal(key, value);
-        } catch (MarshallerException e) {
-            throw new RuntimeException(e);
-        }
-    }
+        addWrite(storageUpdateHandler, rowUuid, row);
+        commitWrite(rowId);
 
-    private HybridTimestamp commitWrite(RowId rowId) {
-        return storage.runConsistently(() -> {
-            HybridTimestamp commitTimestamp = CLOCK.now();
+        addWrite(storageUpdateHandler, rowUuid, row);
+        commitWrite(rowId);
 
-            storage.commitWrite(rowId, commitTimestamp);
+        addWrite(storageUpdateHandler, rowUuid, null);
+        commitWrite(rowId);
 
-            return commitTimestamp;
-        });
-    }
+        assertEquals(3, getRowVersions(rowId).size());
+        assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
+        assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
 
-    private static class TestKey {
-        int intKey;
+        HybridTimestamp afterCommits = now();
 
-        String strKey;
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertTrue(storageUpdateHandler.vacuum(afterCommits));
+        assertFalse(storageUpdateHandler.vacuum(afterCommits));
 
-        TestKey() {
-        }
-
-        TestKey(int intKey, String strKey) {
-            this.intKey = intKey;
-            this.strKey = strKey;
-        }
-    }
-
-    private static class TestValue {
-        Integer intVal;
-
-        String strVal;
-
-        TestValue() {
-        }
-
-        TestValue(Integer intVal, String strVal) {
-            this.intVal = intVal;
-            this.strVal = strVal;
-        }
+        assertEquals(0, getRowVersions(rowId).size());
+        assertFalse(inIndex(row));
     }
 }

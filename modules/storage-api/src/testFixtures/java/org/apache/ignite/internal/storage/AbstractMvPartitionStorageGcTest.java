@@ -129,4 +129,17 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));
     }
+
+    @Test
+    void testTombstoneFirst() {
+        addAndCommit(null);
+
+        addAndCommit(TABLE_ROW);
+
+        addAndCommit(TABLE_ROW2);
+
+        BinaryRowAndRowId row = pollForVacuum(HybridTimestamp.MAX_VALUE);
+
+        assertNull(row.binaryRow());
+    }
 }
