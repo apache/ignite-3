@@ -148,6 +148,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.SINGLE_VALUE);
         register(SqlStdOperatorTable.FILTER);
 
+        register(SqlStdOperatorTable.EVERY);
+        register(SqlStdOperatorTable.SOME);
+
         // IS ... operator.
         register(SqlStdOperatorTable.IS_NULL);
         register(SqlStdOperatorTable.IS_NOT_NULL);

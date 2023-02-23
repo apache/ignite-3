@@ -22,6 +22,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
+import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
 import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
@@ -32,11 +33,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Accumulators.
@@ -80,8 +83,10 @@ public class Accumulators {
             case "$SUM0":
                 return sumEmptyIsZeroFactory(call);
             case "MIN":
+            case "EVERY":
                 return minMaxFactory(true, call);
             case "MAX":
+            case "SOME":
                 return minMaxFactory(false, call);
             case "SINGLE_VALUE":
                 return SingleVal.FACTORY;
@@ -164,6 +169,9 @@ public class Accumulators {
             case CHAR:
             case VARCHAR:
                 return min ? VarCharMinMax.MIN_FACTORY : VarCharMinMax.MAX_FACTORY;
+            case BINARY:
+            case VARBINARY:
+                return min ? VarBinaryMinMax.MIN_FACTORY : VarBinaryMinMax.MAX_FACTORY;
             default:
                 if (type instanceof IgniteCustomType) {
                     return MinMaxAccumulator.newAccumulator(min, typeFactory, type);
@@ -787,6 +795,78 @@ public class Accumulators {
                 // if there are no differences, then the shorter seq is first
                 return Integer.compare(s1.length(), s2.length());
             }
+        }
+    }
+
+    private static class VarBinaryMinMax implements Accumulator {
+
+        public static final Supplier<Accumulator> MIN_FACTORY = () -> new VarBinaryMinMax(true);
+
+
+        public static final Supplier<Accumulator> MAX_FACTORY = () -> new VarBinaryMinMax(false);
+
+
+        private final boolean min;
+
+
+        private ByteString val;
+
+
+        private boolean empty = true;
+
+
+        private VarBinaryMinMax(boolean min) {
+            this.min = min;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void add(Object... args) {
+            ByteString in = (ByteString) args[0];
+
+            if (in == null) {
+                return;
+            }
+
+            val = empty ? in : min
+                    ? (val.compareTo(in) < 0 ? val : in)
+                    : (val.compareTo(in) < 0 ? in : val);
+
+            empty = false;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void apply(Accumulator other) {
+            VarBinaryMinMax other0 = (VarBinaryMinMax) other;
+
+            if (other0.empty) {
+                return;
+            }
+
+            val = empty ? other0.val : min
+                    ? (val.compareTo(other0.val) < 0 ? val : other0.val)
+                    : (val.compareTo(other0.val) < 0 ? other0.val : val);
+
+            empty = false;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object end() {
+            return empty ? null : val;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return ArrayUtils.asList(typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARBINARY), true);
         }
     }
 
