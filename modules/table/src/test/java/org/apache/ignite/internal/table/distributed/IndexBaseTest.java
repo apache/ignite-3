@@ -215,7 +215,7 @@ public abstract class IndexBaseTest {
         });
     }
 
-    protected static class TestKey {
+    static class TestKey {
         int intKey;
 
         String strKey;
@@ -229,7 +229,7 @@ public abstract class IndexBaseTest {
         }
     }
 
-    protected static class TestValue {
+    static class TestValue {
         Integer intVal;
 
         String strVal;
