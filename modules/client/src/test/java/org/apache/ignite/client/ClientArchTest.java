@@ -18,20 +18,27 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.Location;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.junit.LocationProvider;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
 import com.tngtech.archunit.lang.syntax.elements.FieldsShouldConjunction;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
+import org.apache.ignite.client.ClientArchTest.ModuleAndDependenciesClassPathProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.Test;
 
 /**
  * This test ensures static logger is not used in the modules the client module relies on.
@@ -39,24 +46,15 @@ import org.junit.jupiter.api.Test;
  * <p>It's possible to specify a custom logger for an Ignite client, and that configured logger should be used everywhere throughout
  * a client, that's why we shouldn't use a static logger.
  */
+@AnalyzeClasses(locations = ModuleAndDependenciesClassPathProvider.class)
 public class ClientArchTest {
 
-    private static final Path CLASS_PATH_DIR = Path.of(System.getProperty("archtest.dir"));
+    private static final String CLASS_PATH_DIR = System.getProperty("archtest.dir");
 
-    private static JavaClasses clientModuleDependencies() {
-        File classpath = CLASS_PATH_DIR.toFile();
-        File[] classpathFiles = classpath.listFiles();
-        if (classpathFiles == null) {
-            fail("Failed to list files in " + classpath.getAbsolutePath());
-        }
-
-        return new ClassFileImporter().importJars(
-                Arrays.stream(classpathFiles)
-                        .filter(f -> f.getName().endsWith(".jar"))
-                        .map(ClientArchTest::jarFile)
-                        .collect(Collectors.toList())
-        );
-    }
+    @ArchTest
+    FieldsShouldConjunction noStaticIgniteLogger = ArchRuleDefinition.noFields()
+            .that().haveRawType(IgniteLogger.class)
+            .should().haveModifier(JavaModifier.STATIC);
 
     @NotNull
     private static JarFile jarFile(File f) {
@@ -71,13 +69,38 @@ public class ClientArchTest {
         return new ClassFileImporter().importPath(CLASS_PATH_DIR);
     }
 
-    @Test
-    void noStaticIgniteLoggerDefined() {
-        FieldsShouldConjunction noStaticIgniteLogger = ArchRuleDefinition.noFields()
-                .that().haveRawType(IgniteLogger.class)
-                .should().haveModifier(JavaModifier.STATIC);
+    static class ModuleAndDependenciesClassPathProvider implements LocationProvider {
 
-        noStaticIgniteLogger.check(clientModuleClasses());
-        noStaticIgniteLogger.check(clientModuleDependencies());
+        @NotNull
+        private static Set<Location> merge(Set<Location> moduleDependencies, Location moduleClasses) {
+            Set<Location> classPath = new HashSet<>(moduleDependencies.size() + 1);
+            classPath.add(moduleClasses);
+            classPath.addAll(moduleDependencies);
+            return classPath;
+        }
+
+        @Override
+        public Set<Location> get(Class<?> aClass) {
+            // Running this test in IDE is not supported.
+            // The cpFile is not set up properly, and the test skips.
+            assumeTrue(CLASS_PATH_DIR != null);
+
+            Path cp = Path.of(CLASS_PATH_DIR);
+            File cpFile = cp.toFile();
+            File[] cpFiles = cpFile.listFiles();
+            if (cpFiles == null) {
+                fail("Failed to list files in " + cpFile.getAbsolutePath());
+            }
+
+            Set<Location> moduleDependencies = Arrays.stream(cpFiles)
+                    .filter(f -> f.getName().endsWith(".jar"))
+                    .map(ClientArchTest::jarFile)
+                    .map(Location::of)
+                    .collect(Collectors.toSet());
+
+            Location moduleClasses = Location.of(cp);
+
+            return merge(moduleDependencies, moduleClasses);
+        }
     }
 }
