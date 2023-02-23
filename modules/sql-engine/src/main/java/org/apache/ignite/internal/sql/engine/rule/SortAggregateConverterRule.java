@@ -96,10 +96,8 @@ public class SortAggregateConverterRule {
 
         /** {@inheritDoc} */
         @Override
-        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
-                LogicalAggregate agg) {
-            // Applicable only for GROUP BY or SELECT DISTINCT
-            if (nullOrEmpty(agg.getGroupSet()) || agg.getGroupSets().size() > 1) {
+        protected @Nullable PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
+            if ((nullOrEmpty(agg.getGroupSet()) && agg.getGroupSets().isEmpty()) || agg.getGroupSets().size() > 1) {
                 return null;
             }
 
@@ -118,7 +116,7 @@ public class SortAggregateConverterRule {
             RelNode map = new IgniteMapSortAggregate(
                     cluster,
                     outTrait.replace(IgniteDistributions.random()),
-                    convert(input, inTrait),
+                    convert(input, inTrait.replace(IgniteDistributions.random())),
                     agg.getGroupSet(),
                     agg.getGroupSets(),
                     agg.getAggCallList(),

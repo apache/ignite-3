@@ -17,24 +17,19 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_CLOSING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.CURSOR_EXECUTION_ERR;
 
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -45,7 +40,6 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
-import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
@@ -56,9 +50,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -66,8 +58,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -99,6 +89,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private final ClusterManagementGroupManager cmgMgr;
 
+    private final LogicalTopologyService logicalTopologyService;
+
     /** Meta storage service. */
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
 
@@ -128,6 +120,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             VaultManager vaultMgr,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
+            LogicalTopologyService logicalTopologyService,
             RaftManager raftMgr,
             KeyValueStorage storage
     ) {
@@ -135,6 +128,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.cmgMgr = cmgMgr;
+        this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
     }
 
@@ -158,26 +152,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                         new RaftNodeId(MetastorageGroupId.INSTANCE, localPeer),
                         configuration,
                         new MetaStorageListener(storage),
-                        new RaftGroupEventsListener() {
-                            @Override
-                            public void onLeaderElected(long term) {
-                                // TODO: add listener to remove learners when they leave Logical Topology
-                                //  see https://issues.apache.org/jira/browse/IGNITE-18554
-
-                                registerTopologyEventListener();
-
-                                // Update the configuration immediately in case we missed some updates.
-                                addLearners(clusterService.topologyService().allMembers());
-                            }
-
-                            @Override
-                            public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
-                            }
-
-                            @Override
-                            public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
-                            }
-                        }
+                        new MetaStorageRaftGroupEventsListener(busyLock, clusterService, logicalTopologyService, metaStorageSvcFut)
                 );
             } else {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageNodes, Set.of(thisNodeName));
@@ -197,91 +172,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             return CompletableFuture.failedFuture(e);
         }
 
-        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(raftService, thisNode));
+        return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(raftService, busyLock, thisNode));
     }
 
-    private void registerTopologyEventListener() {
-        clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
-            @Override
-            public void onAppeared(ClusterNode member) {
-                addLearners(List.of(member));
-            }
-
-            @Override
-            public void onDisappeared(ClusterNode member) {
-                metaStorageSvcFut.thenAccept(service -> isCurrentNodeLeader(service.raftGroupService())
-                        .thenAccept(isLeader -> {
-                            if (isLeader) {
-                                service.closeCursors(member.id());
-                            }
-                        }));
-            }
-        });
-    }
-
-    private void addLearners(Collection<ClusterNode> nodes) {
-        if (!busyLock.enterBusy()) {
-            LOG.info("Skipping Meta Storage configuration update because the node is stopping");
-
-            return;
-        }
-
-        try {
-            metaStorageSvcFut
-                    .thenApply(MetaStorageServiceImpl::raftGroupService)
-                    .thenCompose(raftService -> isCurrentNodeLeader(raftService)
-                            .thenCompose(isLeader -> isLeader ? addLearners(raftService, nodes) : completedFuture(null)))
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            LOG.error("Unable to change peers on topology update", e);
-                        }
-                    });
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private CompletableFuture<Void> addLearners(RaftGroupService raftService, Collection<ClusterNode> nodes) {
-        if (!busyLock.enterBusy()) {
-            LOG.info("Skipping Meta Storage configuration update because the node is stopping");
-
-            return completedFuture(null);
-        }
-
-        try {
-            Set<String> peers = raftService.peers().stream()
-                    .map(Peer::consistentId)
-                    .collect(toSet());
-
-            Set<String> learners = nodes.stream()
-                    .map(ClusterNode::name)
-                    .filter(name -> !peers.contains(name))
-                    .collect(toSet());
-
-            if (learners.isEmpty()) {
-                return completedFuture(null);
-            }
-
-            if (LOG.isInfoEnabled()) {
-                LOG.info("New Meta Storage learners detected: " + learners);
-            }
-
-            PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(peers, learners);
-
-            return raftService.addLearners(newConfiguration.learners());
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private CompletableFuture<Boolean> isCurrentNodeLeader(RaftGroupService raftService) {
-        String name = clusterService.topologyService().localMember().name();
-
-        return raftService.refreshLeader()
-                .thenApply(v -> raftService.leader().consistentId().equals(name));
-    }
-
-    /** {@inheritDoc} */
     @Override
     public void start() {
         this.appliedRevision = readAppliedRevision().join();
@@ -309,7 +202,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                 });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         if (!isStopped.compareAndSet(false, true)) {
@@ -409,7 +301,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#getAll(Set, long)
      */
-    public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
+    public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -426,7 +318,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#put(ByteArray, byte[])
      */
-    public @NotNull CompletableFuture<Void> put(@NotNull ByteArray key, byte[] val) {
+    public CompletableFuture<Void> put(ByteArray key, byte[] val) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -443,7 +335,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#getAndPut(ByteArray, byte[])
      */
-    public @NotNull CompletableFuture<Entry> getAndPut(@NotNull ByteArray key, byte[] val) {
+    public CompletableFuture<Entry> getAndPut(ByteArray key, byte[] val) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -460,7 +352,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#putAll(Map)
      */
-    public @NotNull CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals) {
+    public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -477,7 +369,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#getAndPutAll(Map)
      */
-    public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(@NotNull Map<ByteArray, byte[]> vals) {
+    public CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -494,7 +386,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#remove(ByteArray)
      */
-    public @NotNull CompletableFuture<Void> remove(@NotNull ByteArray key) {
+    public CompletableFuture<Void> remove(ByteArray key) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -511,7 +403,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#getAndRemove(ByteArray)
      */
-    public @NotNull CompletableFuture<Entry> getAndRemove(@NotNull ByteArray key) {
+    public CompletableFuture<Entry> getAndRemove(ByteArray key) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -528,7 +420,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#removeAll(Set)
      */
-    public @NotNull CompletableFuture<Void> removeAll(@NotNull Set<ByteArray> keys) {
+    public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -545,7 +437,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#getAndRemoveAll(Set)
      */
-    public @NotNull CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(@NotNull Set<ByteArray> keys) {
+    public CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -602,20 +494,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#range(ByteArray, ByteArray, long)
      */
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) throws NodeStoppingException {
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            return new NodeStoppingPublisher<>();
         }
 
         try {
-            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, revUpperBound)));
+            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, revUpperBound)));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     @Override
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) throws NodeStoppingException {
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo) {
         return range(keyFrom, keyTo, false);
     }
 
@@ -624,13 +516,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#range(ByteArray, ByteArray, boolean)
      */
-    public Cursor<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) throws NodeStoppingException {
+    public Publisher<Entry> range(ByteArray keyFrom, @Nullable ByteArray keyTo, boolean includeTombstones) {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            return new NodeStoppingPublisher<>();
         }
 
         try {
-            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, includeTombstones)));
+            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, includeTombstones)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -648,32 +540,31 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @see ByteArray
      * @see Entry
      */
-    public @NotNull Cursor<Entry> rangeWithAppliedRevision(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo)
-            throws NodeStoppingException {
+    public Publisher<Entry> rangeWithAppliedRevision(ByteArray keyFrom, @Nullable ByteArray keyTo) {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            return new NodeStoppingPublisher<>();
         }
 
         try {
-            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision)));
+            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision)));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     @Override
-    public Cursor<Entry> prefix(ByteArray keyPrefix) throws NodeStoppingException {
+    public Publisher<Entry> prefix(ByteArray keyPrefix) {
         return prefix(keyPrefix, -1);
     }
 
     @Override
-    public Cursor<Entry> prefix(ByteArray keyPrefix, long revUpperBound) throws NodeStoppingException {
+    public Publisher<Entry> prefix(ByteArray keyPrefix, long revUpperBound) {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            return new NodeStoppingPublisher<>();
         }
 
         try {
-            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.prefix(keyPrefix, revUpperBound)));
+            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.prefix(keyPrefix, revUpperBound)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -684,7 +575,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      *
      * @see MetaStorageService#compact()
      */
-    public @NotNull CompletableFuture<Void> compact() {
+    public CompletableFuture<Void> compact() {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -731,71 +622,34 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
-
-    /** Cursor wrapper. */
-    private final class CursorWrapper<T> implements Cursor<T> {
-        /** Inner cursor future. */
-        private final CompletableFuture<Cursor<T>> innerCursorFut;
-
-        /**
-         * Constructor.
-         *
-         * @param innerCursorFut Inner cursor future.
-         */
-        CursorWrapper(CompletableFuture<Cursor<T>> innerCursorFut) {
-            this.innerCursorFut = innerCursorFut;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void close() {
-            get(innerCursorFut.thenAccept(Cursor::close), CURSOR_CLOSING_ERR);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean hasNext() {
-            if (!busyLock.enterBusy()) {
-                return false;
-            }
-
-            try {
-                return get(innerCursorFut.thenApply(Iterator::hasNext), CURSOR_EXECUTION_ERR);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public T next() {
-            if (!busyLock.enterBusy()) {
-                throw new NoSuchElementException("No such element because node is stopping.");
-            }
-
-            try {
-                return get(innerCursorFut.thenApply(Iterator::next), CURSOR_EXECUTION_ERR);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }
-
-        private <R> R get(CompletableFuture<R> future, int errorCode) {
-            try {
-                return future.get();
-            } catch (ExecutionException e) {
-                throw new MetaStorageException(errorCode, e);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-
-                throw new MetaStorageException(errorCode, e);
-            }
-        }
-    }
-
     @TestOnly
     CompletableFuture<MetaStorageServiceImpl> metaStorageServiceFuture() {
         return metaStorageSvcFut;
+    }
+
+    private static class CompletableFuturePublisher<T> implements Publisher<T> {
+        private final CompletableFuture<Publisher<T>> future;
+
+        CompletableFuturePublisher(CompletableFuture<Publisher<T>> future) {
+            this.future = future;
+        }
+
+        @Override
+        public void subscribe(Subscriber<? super T> subscriber) {
+            future.whenComplete((publisher, e) -> {
+                if (e != null) {
+                    subscriber.onError(e);
+                } else {
+                    publisher.subscribe(subscriber);
+                }
+            });
+        }
+    }
+
+    private static class NodeStoppingPublisher<T> implements Publisher<T> {
+        @Override
+        public void subscribe(Subscriber<? super T> subscriber) {
+            subscriber.onError(new NodeStoppingException());
+        }
     }
 }

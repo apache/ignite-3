@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -66,7 +67,6 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
-            NativeTypeSpec.UUID,
             NativeTypeSpec.BITMASK,
             NativeTypeSpec.DECIMAL,
             NativeTypeSpec.NUMBER,
@@ -97,7 +97,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
     @EnumSource(
             value = NativeTypeSpec.class,
-            names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
+            names = {"INT8", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
             mode = Mode.EXCLUDE
     )
     // @EnumSource(value = NativeTypeSpec.class, names = {"BYTES", "TIME", "DATETIME"}, mode = Mode.INCLUDE)
@@ -217,7 +217,7 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
         return res;
     }
 
-    private static Object generateValueByType(int i, NativeTypeSpec type) {
+    static Object generateValueByType(int i, NativeTypeSpec type) {
         switch (type) {
             case INT8:
                 return (byte) i;
@@ -240,20 +240,20 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             case BYTES:
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
             case BITMASK:
-                return new byte[]{(byte) i};
+                return BitSet.valueOf(new byte[]{(byte) i});
             case NUMBER:
                 return BigInteger.valueOf(i);
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(i);
             case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i);
+                return LocalTime.of(0, 00, 00).plusSeconds(i).plusNanos(i * 101L);
             case DATETIME:
                 return LocalDateTime.of(
                         (LocalDate) generateValueByType(i, NativeTypeSpec.DATE),
                         (LocalTime) generateValueByType(i, NativeTypeSpec.TIME)
                 );
             case TIMESTAMP:
-                return Instant.from((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME));
+                return Instant.ofEpochSecond(i * 201L, i * 101L);
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }

@@ -1,4 +1,4 @@
-# Apache Ignite LINQ provider
+# Apache Ignite LINQ provider - Development Notes
 
 Translates C# LINQ expressions into Ignite-specific SQL.
 

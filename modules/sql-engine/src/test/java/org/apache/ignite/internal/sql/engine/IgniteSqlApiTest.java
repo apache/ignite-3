@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -128,7 +129,7 @@ public class IgniteSqlApiTest {
         final Session sess = igniteSql.createSession();
 
         // Execute DDL.
-        ResultSet rs = sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
+        ResultSet<SqlRow> rs = sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
 
         assertTrue(rs.wasApplied());
         assertFalse(rs.hasRowSet());
@@ -178,7 +179,7 @@ public class IgniteSqlApiTest {
 
         igniteTx.runInTransaction(tx -> {
             // Execute DML in tx.
-            ResultSet rs = sess.execute(tx, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
+            ResultSet<SqlRow> rs = sess.execute(tx, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
 
             assertEquals(1, rs.affectedRows());
 
@@ -222,16 +223,16 @@ public class IgniteSqlApiTest {
 
         KeyValueView<Tuple, Tuple> tbl = getTable();
 
-        igniteTx.beginAsync().thenAccept(tx -> {
+        await(igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 2), Tuple.create().set("val", "str2"))
                     .thenAccept(r -> tx.commit());
-        }).join();
+        }));
 
         ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
         assertTrue(rs.hasNext());
 
-        igniteTx.beginAsync().thenAccept(tx -> {
+        await(igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 3), Tuple.create().set("val", "NewValue"))
                     .thenApply(f -> {
@@ -243,7 +244,7 @@ public class IgniteSqlApiTest {
                     .thenAccept(r -> tx.rollback());
 
             Mockito.verify(tx, Mockito.times(1)).rollback();
-        }).join();
+        }));
 
         rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 2);
         assertFalse(rs.hasNext());
@@ -282,7 +283,7 @@ public class IgniteSqlApiTest {
         KeyValueView<Tuple, Tuple> table = getTable();
 
         class AsyncPageProcessor implements
-                Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+                Function<AsyncResultSet<SqlRow>, CompletionStage<AsyncResultSet<SqlRow>>> {
             private final Transaction tx0;
 
             public AsyncPageProcessor(Transaction tx0) {
@@ -290,7 +291,7 @@ public class IgniteSqlApiTest {
             }
 
             @Override
-            public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+            public CompletionStage<AsyncResultSet<SqlRow>> apply(AsyncResultSet<SqlRow> rs) {
                 for (SqlRow row : rs.currentPage()) {
                     table.getAsync(tx0, Tuple.create().set("id", row.intValue(0)));
                 }
@@ -303,13 +304,12 @@ public class IgniteSqlApiTest {
             }
         }
 
-        igniteTx.beginAsync()
+        await(igniteTx.beginAsync()
                 .thenCompose(tx0 -> igniteSql.createSession()
                         .executeAsync(tx0, "SELECT id, val FROM tbl WHERE id > ?", 1)
                         .thenCompose(new AsyncPageProcessor(tx0))
                         .thenCompose(ignore -> tx0.commitAsync())
-                        .thenApply(ignore -> tx0))
-                .get();
+                        .thenApply(ignore -> tx0)));
 
         Mockito.verify(transaction).commitAsync();
         Mockito.verify(table, Mockito.times(4)).getAsync(Mockito.any(), Mockito.any());
@@ -329,7 +329,7 @@ public class IgniteSqlApiTest {
             assertTrue(row.stringValue("val").startsWith("str"));
         });
 
-        igniteTx.beginAsync().thenApply(tx -> {
+        await(igniteTx.beginAsync().thenApply(tx -> {
             final Session session = igniteSql.createSession();
 
             session.executeReactive(tx, "SELECT id, val FROM tbl WHERE id > ?", 1)
@@ -340,7 +340,7 @@ public class IgniteSqlApiTest {
 
                 return null;
             }).thenApply(ignore -> tx.commitAsync());
-        }).join();
+        }));
 
         Mockito.verify(transaction).commitAsync();
     }
@@ -348,7 +348,7 @@ public class IgniteSqlApiTest {
     @Disabled
     @Test
     public void testMetadata() {
-        ResultSet rs = igniteSql.createSession()
+        ResultSet<SqlRow> rs = igniteSql.createSession()
                 .execute(null, "SELECT id, val FROM tbl");
 
         SqlRow row = rs.next();

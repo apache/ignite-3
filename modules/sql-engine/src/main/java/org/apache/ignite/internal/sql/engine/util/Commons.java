@@ -43,7 +43,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,6 +65,7 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -89,30 +89,20 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NumberNativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.prepare.AbstractMultiStepPlan;
-import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
@@ -147,17 +137,13 @@ public final class Commons {
     public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
             ConventionTraitDef.INSTANCE,
             RelCollationTraitDef.INSTANCE,
-            DistributionTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE
     );
 
     @SuppressWarnings("rawtypes")
     public static final List<RelTraitDef> LOCAL_TRAITS_SET = List.of(
             ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            RewindabilityTraitDef.INSTANCE,
-            CorrelationTraitDef.INSTANCE
+            RelCollationTraitDef.INSTANCE
     );
 
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
@@ -195,59 +181,6 @@ public final class Commons {
             .build();
 
     private Commons() {
-    }
-
-    /**
-     * Create cursor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> SqlCursor<T> createCursor(Iterable<T> iterable, QueryPlan plan) {
-        return createCursor(iterable.iterator(), plan);
-    }
-
-    /**
-     * Create cursor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static <T> SqlCursor<T> createCursor(Iterator<T> iter, QueryPlan plan) {
-        return new SqlCursor<>() {
-            @Override
-            public SqlQueryType queryType() {
-                return SqlQueryType.mapPlanTypeToSqlType(plan.type());
-            }
-
-            @Override
-            public ResultSetMetadata metadata() {
-                return plan instanceof AbstractMultiStepPlan ? ((MultiStepPlan) plan).metadata()
-                        : ((ExplainPlan) plan).metadata();
-            }
-
-            @Override
-            public void remove() {
-                iter.remove();
-            }
-
-            @Override
-            public boolean hasNext() {
-                return iter.hasNext();
-            }
-
-            @Override
-            public T next() {
-                return iter.next();
-            }
-
-            @Override
-            public void close() {
-                if (iter instanceof AutoCloseable) {
-                    try {
-                        ((AutoCloseable) iter).close();
-                    } catch (Exception e) {
-                        throw new IgniteInternalException(e);
-                    }
-                }
-            }
-        };
     }
 
     /**
@@ -350,6 +283,11 @@ public final class Commons {
         return typeFactory(cluster());
     }
 
+    /** Row-expression builder. **/
+    public static RexBuilder rexBuilder() {
+        return cluster().getRexBuilder();
+    }
+
     /**
      * Extracts query context.
      */
@@ -427,14 +365,6 @@ public final class Commons {
             }
         }
     }
-    //
-    //    /**
-    //     * @param o Object to close.
-    //     */
-    //    public static void closeQuiet(Object o) {
-    //        if (o instanceof AutoCloseable)
-    //            U.closeQuiet((AutoCloseable) o);
-    //    }
 
     /**
      * Flat.
@@ -442,42 +372,6 @@ public final class Commons {
      */
     public static <T> List<T> flat(List<List<? extends T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
-    }
-
-    /**
-     * Max.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static int max(ImmutableIntList list) {
-        if (list.isEmpty()) {
-            throw new UnsupportedOperationException();
-        }
-
-        int res = list.getInt(0);
-
-        for (int i = 1; i < list.size(); i++) {
-            res = Math.max(res, list.getInt(i));
-        }
-
-        return res;
-    }
-
-    /**
-     * Min.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static int min(ImmutableIntList list) {
-        if (list.isEmpty()) {
-            throw new UnsupportedOperationException();
-        }
-
-        int res = list.getInt(0);
-
-        for (int i = 1; i < list.size(); i++) {
-            res = Math.min(res, list.getInt(i));
-        }
-
-        return res;
     }
 
     /**

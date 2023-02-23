@@ -28,7 +28,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -41,7 +45,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +60,10 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -94,6 +102,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -197,7 +206,7 @@ public class ItMetaStorageServiceTest {
 
             ClusterNode node = clusterService.topologyService().localMember();
 
-            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, node);
+            metaStorageService = new MetaStorageServiceImpl(metaStorageRaftService, new IgniteSpinBusyLock(), node);
         }
 
         String name() {
@@ -568,7 +577,7 @@ public class ItMetaStorageServiceTest {
      *
      */
     @Test
-    public void testRangeWitKeyToAndUpperBound() {
+    public void testRangeWithKeyToAndUpperBound() {
         Node node = startNodes(1).get(0);
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
@@ -579,7 +588,9 @@ public class ItMetaStorageServiceTest {
 
         when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound, false)).thenReturn(mock(Cursor.class));
 
-        node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).close();
+        node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(mock(Subscriber.class));
+
+        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound, false);
     }
 
     /**
@@ -587,7 +598,7 @@ public class ItMetaStorageServiceTest {
      *
      */
     @Test
-    public void testRangeWitKeyTo() {
+    public void testRangeWithKeyTo() {
         Node node = startNodes(1).get(0);
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
@@ -596,7 +607,9 @@ public class ItMetaStorageServiceTest {
 
         when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), false)).thenReturn(mock(Cursor.class));
 
-        node.metaStorageService.range(expKeyFrom, expKeyTo).close();
+        node.metaStorageService.range(expKeyFrom, expKeyTo, false).subscribe(mock(Subscriber.class));
+
+        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), expKeyTo.bytes(), false);
     }
 
     /**
@@ -604,36 +617,16 @@ public class ItMetaStorageServiceTest {
      *
      */
     @Test
-    public void testRangeWitNullAsKeyTo() {
+    public void testRangeWithNullAsKeyTo() {
         Node node = startNodes(1).get(0);
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(mock(Cursor.class));
 
-        node.metaStorageService.range(expKeyFrom, null).close();
-    }
+        node.metaStorageService.range(expKeyFrom, null, false).subscribe(mock(Subscriber.class));
 
-    /**
-     * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} hasNext.
-     */
-    @Test
-    public void testRangeHasNext() {
-        Node node = startNodes(1).get(0);
-
-        ByteArray expKeyFrom = new ByteArray(new byte[]{1});
-
-        when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenAnswer(invocation -> {
-            var cursor = mock(Cursor.class);
-
-            when(cursor.hasNext()).thenReturn(true);
-
-            return cursor;
-        });
-
-        Cursor<Entry> cursor = node.metaStorageService.range(expKeyFrom, null);
-
-        assertTrue(cursor.iterator().hasNext());
+        verify(node.mockStorage, timeout(10_000)).range(expKeyFrom.bytes(), null, false);
     }
 
     /**
@@ -652,9 +645,10 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        Cursor<Entry> cursor = node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        CompletableFuture<Entry> expectedEntriesFuture =
+                subscribeToValue(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
 
-        assertEquals(EXPECTED_RESULT_ENTRY, cursor.iterator().next());
+        assertThat(expectedEntriesFuture, willBe(EXPECTED_RESULT_ENTRY));
     }
 
     /**
@@ -673,9 +667,10 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        Cursor<Entry> cursor = node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        CompletableFuture<List<Entry>> future =
+                subscribeToList(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
 
-        assertThrows(NoSuchElementException.class, () -> cursor.iterator().next());
+        assertThat(future, willFailFast(NoSuchElementException.class));
     }
 
     /**
@@ -692,11 +687,26 @@ public class ItMetaStorageServiceTest {
 
         when(node.mockStorage.range(expKeyFrom.bytes(), null, false)).thenReturn(cursorMock);
 
-        Cursor<Entry> cursor = node.metaStorageService.range(expKeyFrom, null);
+        node.metaStorageService.range(expKeyFrom, null).subscribe(new Subscriber<>() {
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                subscription.cancel();
+            }
 
-        cursor.close();
+            @Override
+            public void onNext(Entry item) {
+            }
 
-        verify(cursorMock, times(1)).close();
+            @Override
+            public void onError(Throwable throwable) {
+            }
+
+            @Override
+            public void onComplete() {
+            }
+        });
+
+        verify(cursorMock, timeout(10_000)).close();
     }
 
     @Test
@@ -846,11 +856,9 @@ public class ItMetaStorageServiceTest {
 
     /**
      * Tests {@link MetaStorageService#closeCursors(String)}.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    public void testCursorsCleanup() throws Exception {
+    public void testCursorsCleanup() throws InterruptedException {
         startNodes(2);
 
         Node leader = nodes.get(0);
@@ -865,25 +873,65 @@ public class ItMetaStorageServiceTest {
             return cursor;
         });
 
-        Cursor<Entry> cursorNode0 = leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+        var subscriptionLatch = new CountDownLatch(3);
+        var closeCursorLatch = new CountDownLatch(1);
 
-        assertTrue(cursorNode0.hasNext());
+        class MockSubscriber implements Subscriber<Entry> {
+            private final CompletableFuture<Entry> result = new CompletableFuture<>();
 
-        Cursor<Entry> cursor2Node0 = leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+            @Override
+            public void onSubscribe(Subscription subscription) {
+                subscriptionLatch.countDown();
 
-        assertTrue(cursor2Node0.hasNext());
+                try {
+                    assertTrue(closeCursorLatch.await(10, TimeUnit.SECONDS));
+                } catch (Throwable e) {
+                    onError(e);
+                }
 
-        Cursor<Entry> cursorNode1 = learner.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null);
+                subscription.request(1);
+            }
 
-        assertTrue(cursorNode1.hasNext());
+            @Override
+            public void onNext(Entry item) {
+                result.complete(item);
+            }
 
-        leader.metaStorageService.closeCursors(leader.clusterService.topologyService().localMember().id()).get();
+            @Override
+            public void onError(Throwable throwable) {
+                result.completeExceptionally(throwable);
+            }
 
-        assertThrows(NoSuchElementException.class, () -> cursorNode0.iterator().next());
+            @Override
+            public void onComplete() {
+                result.completeExceptionally(new AssertionError("No items produced"));
+            }
+        }
 
-        assertThrows(NoSuchElementException.class, () -> cursor2Node0.iterator().next());
+        var node0Subscriber0 = new MockSubscriber();
+        var node0Subscriber1 = new MockSubscriber();
 
-        assertEquals(EXPECTED_RESULT_ENTRY, cursorNode1.iterator().next());
+        leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node0Subscriber0);
+        leader.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node0Subscriber1);
+
+        var node1Subscriber0 = new MockSubscriber();
+
+        learner.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null).subscribe(node1Subscriber0);
+
+        // Wait for all cursors to be registered on the server side.
+        assertTrue(subscriptionLatch.await(10, TimeUnit.SECONDS));
+
+        String leaderId = leader.clusterService.topologyService().localMember().id();
+
+        CompletableFuture<Void> closeCursorsFuture = leader.metaStorageService.closeCursors(leaderId);
+
+        assertThat(closeCursorsFuture, willCompleteSuccessfully());
+
+        closeCursorLatch.countDown();
+
+        assertThat(node0Subscriber0.result, willFailFast(NoSuchElementException.class));
+        assertThat(node0Subscriber1.result, willFailFast(NoSuchElementException.class));
+        assertThat(node1Subscriber0.result, willBe(EXPECTED_RESULT_ENTRY));
     }
 
     /**

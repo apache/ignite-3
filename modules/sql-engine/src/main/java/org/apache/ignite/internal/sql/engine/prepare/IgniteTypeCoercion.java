@@ -22,6 +22,9 @@ import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
@@ -30,21 +33,29 @@ import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Implicit type cast implementation. */
 public class IgniteTypeCoercion extends TypeCoercionImpl {
+
+    // We are using thread local here b/c TypeCoercion is expected to be stateless.
+    private static final ThreadLocal<ContextStack> contextStack = ThreadLocal.withInitial(ContextStack::new);
+
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
         super(typeFactory, validator);
     }
@@ -100,6 +111,32 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
     /** {@inheritDoc} */
     @Override
+    public boolean caseWhenCoercion(SqlCallBinding callBinding) {
+        ContextStack ctxStack = contextStack.get();
+        Context ctx = ctxStack.push(ContextType.CASE_EXPR);
+        try {
+            return super.caseWhenCoercion(callBinding);
+        } finally {
+            ctxStack.pop(ctx);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable RelDataType getWiderTypeFor(List<RelDataType> typeList, boolean stringPromotion) {
+        ContextStack ctxStack = contextStack.get();
+        ContextType ctxType = ctxStack.currentContext();
+        // Disable string promotion for case expression operands
+        // to comply with 9.5 clause of the SQL standard (Result of data type combinations).
+        if (ctxType == ContextType.CASE_EXPR) {
+            return super.getWiderTypeFor(typeList, false);
+        } else {
+            return super.getWiderTypeFor(typeList, stringPromotion);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         if (SqlTypeUtil.isInterval(toType)) {
             RelDataType fromType = validator.deriveType(scope, node);
@@ -116,6 +153,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             }
 
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
+                return true;
+            }
+        } else if (toType.getSqlTypeName() == SqlTypeName.ANY) {
+            RelDataType fromType = validator.deriveType(scope, node);
+            // IgniteCustomType: whether we need implicit cast from one type to another.
+            if (fromType instanceof IgniteCustomType && toType instanceof IgniteCustomType) {
+                IgniteCustomType from = (IgniteCustomType) fromType;
+                IgniteCustomType to = (IgniteCustomType) toType;
+                return !Objects.equals(from.getCustomTypeName(), to.getCustomTypeName());
+            } else if (SqlTypeUtil.isCharacter(fromType) && toType instanceof UuidType) {
+                // IgniteCustomType: implicit casts from character types to UUID
                 return true;
             }
         }
@@ -242,7 +290,63 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     }
 
     private static SqlNode castTo(SqlNode node, RelDataType type) {
-        return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node,
-                SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable()));
+        SqlDataTypeSpec targetDataType;
+        if (type instanceof IgniteCustomType) {
+            var customType = (IgniteCustomType) type;
+            var nameSpec = customType.createTypeNameSpec();
+
+            targetDataType = new SqlDataTypeSpec(nameSpec, SqlParserPos.ZERO);
+        } else {
+            targetDataType = SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable());
+        }
+
+        return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node, targetDataType);
+    }
+
+    /**
+     * A context in which {@link IgniteTypeCoercion#getWiderTypeFor(List, boolean)} is being called.
+     */
+    enum ContextType {
+        /**
+         * Corresponds to {@link IgniteTypeCoercion#caseWhenCoercion(SqlCallBinding)}.
+         */
+        CASE_EXPR,
+        /**
+         * Unspecified context.
+         */
+        UNSPECIFIED
+    }
+
+    private static class Context {
+        final ContextType type;
+
+        private Context(ContextType type) {
+            this.type = requireNonNull(type, "type");
+        }
+    }
+
+    /**
+     * We need a stack of type coercion "contexts" to distinguish between possibly
+     * nested calls for {@link #getWiderTypeFor(List, boolean)}.
+     */
+    private static final class ContextStack {
+        private final LinkedList<Context> stack = new LinkedList<>();
+
+        Context push(ContextType contextType) {
+            Context scope = new Context(contextType);
+            stack.push(scope);
+            return scope;
+        }
+
+        void pop(Context current) {
+            if (Objects.equals(stack.peek(), current)) {
+                stack.pop();
+            }
+        }
+
+        ContextType currentContext() {
+            Context current = stack.peek();
+            return current != null ? current.type : ContextType.UNSPECIFIED;
+        }
     }
 }

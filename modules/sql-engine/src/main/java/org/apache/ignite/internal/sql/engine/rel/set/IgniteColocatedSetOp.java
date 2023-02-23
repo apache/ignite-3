@@ -19,17 +19,12 @@ package org.apache.ignite.internal.sql.engine.rel.set;
 
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -37,24 +32,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Physical node for set op (MINUS, INTERSECT) operator which inputs are colocated.
  */
 public interface IgniteColocatedSetOp extends IgniteSetOp {
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveRewindability(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits
-    ) {
-        boolean rewindable = inputTraits.stream()
-                .map(TraitUtils::rewindability)
-                .allMatch(RewindabilityTrait::rewindable);
-
-        if (rewindable) {
-            return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.REWINDABLE), inputTraits));
-        }
-
-        return List.of(Pair.of(nodeTraits.replace(RewindabilityTrait.ONE_WAY),
-                Commons.transform(inputTraits, t -> t.replace(RewindabilityTrait.ONE_WAY))));
-    }
-
     /** {@inheritDoc} */
     @Override
     public default Pair<RelTraitSet, List<RelTraitSet>> passThroughDistribution(RelTraitSet nodeTraits,
@@ -112,21 +89,6 @@ public interface IgniteColocatedSetOp extends IgniteSetOp {
         } else {
             return ImmutableList.of(Pair.of(nodeTraits.replace(IgniteDistributions.broadcast()), inputTraits));
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public default List<Pair<RelTraitSet, List<RelTraitSet>>> deriveCorrelation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inTraits
-    ) {
-        Set<CorrelationId> correlationIds = inTraits.stream()
-                .map(TraitUtils::correlation)
-                .flatMap(corrTr -> corrTr.correlationIds().stream())
-                .collect(Collectors.toSet());
-
-        return List.of(Pair.of(nodeTraits.replace(CorrelationTrait.correlations(correlationIds)),
-                inTraits));
     }
 
     /** {@inheritDoc} */

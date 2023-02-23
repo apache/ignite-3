@@ -60,7 +60,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(value = ColumnType.class,
-            //    https://issues.apache.org/jira/browse/IGNITE-18258
+            //    https://issues.apache.org/jira/browse/IGNITE-18789
             //    https://issues.apache.org/jira/browse/IGNITE-18414
             //    https://issues.apache.org/jira/browse/IGNITE-18415
             //    https://issues.apache.org/jira/browse/IGNITE-18345
@@ -76,10 +76,12 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testDynamicParameters() {
-        assertQuery("SELECT COALESCE(?, ?)").withParams("a", 10).returns("a").check();
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
+        assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
+        assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
+        assertQuery("SELECT ? % ?").withParams(11, 10).returns(BigDecimal.valueOf(1)).check();
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
         assertQuery("SELECT LOWER(?), ? + ? ").withParams("TeSt", 2, 2).returns("test", 4).check();
 
@@ -89,17 +91,7 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
         assertQuery("SELECT id FROM person WHERE name LIKE ? ORDER BY id LIMIT ?").withParams("I%", 1).returns(0).check();
         assertQuery("SELECT id FROM person WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?").withParams("I%", 1, 1).returns(2).check();
-    }
-
-    // After fix the mute reason need to merge the test with above testDynamicParameters
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18258")
-    @Test
-    public void testDynamicParameters2() {
-        assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8).check();
-        assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
-        assertQuery("SELECT ? % ?").withParams(11, 10).returns(BigDecimal.valueOf(1)).check();
-
-        assertQuery("SELECT id from person where salary<? and id>?").withParams(15, 1).returns(2).check();
+        assertQuery("SELECT id from person WHERE salary<? and id<?").withParams(15, 3).returns(0).check();
     }
 
     // After fix the mute reason need to merge the test with above testDynamicParameters
@@ -118,20 +110,22 @@ public class ItDynamicParameterTest extends AbstractBasicIntegrationTest {
 
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, null).returns(null).check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, 13).returns(13).check();
-        assertQuery("SELECT COALESCE(?, ?)").withParams("a", 10).returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams("a", "b").returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(22, 33).returns(22).check();
 
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1).returns("INTEGER").check();
         assertQuery("SELECT UPPER(TYPEOF(?))").withParams(1d).returns("DOUBLE").check();
+
+        assertQuery("SELECT ?::INTEGER = '8'").withParams(8).returns(true).check();
     }
 
-    // After fix the mute reason need to merge the test with above testWithDifferentParametersTypes
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18369")
+    /**
+     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
+     */
     @Test
-    public void testWithDifferentParametersTypes2() {
-        assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check();
-        assertQuery("SELECT COALESCE(?, ?)").withParams(12, "b").returns(12).check();
+    public void testWithDifferentParametersTypesMismatch() {
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").returns(12.2).check());
+        assertThrows(CalciteContextException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").returns(12.2).check());
     }
 
     @Test

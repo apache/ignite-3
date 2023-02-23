@@ -36,11 +36,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -55,9 +55,11 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -78,7 +80,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -209,7 +210,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         mockMetastore();
 
         revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
-            function.apply(0L).join();
+            await(function.apply(0L));
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
                 log.info("Notify about revision: {}", newStorageRevision);
@@ -270,12 +271,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     /** Dummy metastore activity mock. */
-    private void mockMetastore() throws Exception {
-        Cursor cursorMocked = mock(Cursor.class);
-        Iterator itMock = mock(Iterator.class);
-        when(itMock.hasNext()).thenReturn(false);
-        when(msm.prefix(any())).thenReturn(cursorMocked);
-        when(cursorMocked.iterator()).thenReturn(itMock);
+    private void mockMetastore() {
+        when(msm.prefix(any())).thenReturn(subscriber -> {
+            subscriber.onSubscribe(mock(Subscription.class));
+
+            subscriber.onComplete();
+        });
+
+        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(null));
     }
 
     /**
@@ -304,7 +307,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertThrows(TableAlreadyExistsException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC", finalNewTblSql2)));
 
-        // todo: correct exception need to be thrown https://issues.apache.org/jira/browse/IGNITE-16084
         assertThrows(SqlException.class, () -> readFirst(finalQueryProc.queryAsync("PUBLIC",
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,replicas=1,primary_zone='zone123'")));
 
@@ -552,7 +554,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 tblsCfg,
                 cs,
                 rm,
-                null,
+                mock(ReplicaManager.class),
                 null,
                 null,
                 bm,

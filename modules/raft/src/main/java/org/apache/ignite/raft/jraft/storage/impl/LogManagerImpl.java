@@ -510,9 +510,13 @@ public class LogManagerImpl implements LogManager {
                 this.lastId = this.ab.flush();
                 setDiskId(this.lastId);
                 LogManagerImpl.this.shutDownLatch.countDown();
+                event.reset();
                 return;
             }
             final StableClosure done = event.done;
+            final EventType eventType = event.type;
+
+            event.reset();
 
             if (done.getEntries() != null && !done.getEntries().isEmpty()) {
                 this.ab.append(done);
@@ -520,7 +524,7 @@ public class LogManagerImpl implements LogManager {
             else {
                 this.lastId = this.ab.flush();
                 boolean ret = true;
-                switch (event.type) {
+                switch (eventType) {
                     case LAST_LOG_ID:
                         ((LastLogIdClosure) done).setLastLogId(this.lastId.copy());
                         break;

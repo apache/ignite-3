@@ -29,19 +29,19 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Synchronous wrapper over {@link org.apache.ignite.sql.async.AsyncResultSet}.
  */
-class SyncResultSetAdapter implements ResultSet {
+class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** Wrapped async result set. */
-    private final AsyncResultSet ars;
+    private final AsyncResultSet<T> ars;
 
     /** Iterator. */
-    private final IteratorImpl it;
+    private final IteratorImpl<T> it;
 
     /**
      * Constructor.
      *
      * @param ars Asynchronous result set.
      */
-    SyncResultSetAdapter(AsyncResultSet ars) {
+    SyncResultSetAdapter(AsyncResultSet<T> ars) {
         assert ars != null;
 
         this.ars = ars;
@@ -94,7 +94,7 @@ class SyncResultSetAdapter implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public SqlRow next() {
+    public T next() {
         if (it == null) {
             throw new NoRowSetExpectedException();
         }
@@ -102,14 +102,14 @@ class SyncResultSetAdapter implements ResultSet {
         return it.next();
     }
 
-    private static class IteratorImpl implements Iterator<SqlRow> {
-        private AsyncResultSet curRes;
+    private static class IteratorImpl<T> implements Iterator<T> {
+        private AsyncResultSet<T> curRes;
 
-        private CompletionStage<? extends AsyncResultSet> nextPageStage;
+        private CompletionStage<? extends AsyncResultSet<T>> nextPageStage;
 
-        private Iterator<SqlRow> curPage;
+        private Iterator<T> curPage;
 
-        IteratorImpl(AsyncResultSet ars) {
+        IteratorImpl(AsyncResultSet<T> ars) {
             curRes = ars;
 
             advance();
@@ -145,7 +145,7 @@ class SyncResultSetAdapter implements ResultSet {
         }
 
         @Override
-        public SqlRow next() {
+        public T next() {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }

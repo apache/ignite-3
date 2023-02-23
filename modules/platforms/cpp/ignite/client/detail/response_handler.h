@@ -89,8 +89,14 @@ public:
         if (!callback)
             return {};
 
-        auto res = result_of_operation<T>([&]() { return m_read_func(std::move(channel), msg); });
-        return result_of_operation<void>([&]() { callback(std::move(res)); });
+        auto read_res = result_of_operation<T>([&]() { return m_read_func(std::move(channel), msg); });
+        bool read_error = read_res.has_error();
+
+        auto handle_res = result_of_operation<void>([&]() { callback(std::move(read_res)); });
+        if (!read_error && handle_res.has_error()) {
+            handle_res = result_of_operation<void>([&]() { callback(std::move(handle_res.error())); });
+        }
+        return handle_res;
     }
 
     /**
@@ -160,8 +166,14 @@ public:
             return {};
 
         protocol::reader reader(msg);
-        auto res = result_of_operation<T>([&]() { return m_read_func(reader); });
-        return result_of_operation<void>([&]() { callback(std::move(res)); });
+        auto read_res = result_of_operation<T>([&]() { return m_read_func(reader); });
+        bool read_error = read_res.has_error();
+
+        auto handle_res = result_of_operation<void>([&]() { callback(std::move(read_res)); });
+        if (!read_error && handle_res.has_error()) {
+            handle_res = result_of_operation<void>([&]() { callback(std::move(handle_res.error())); });
+        }
+        return handle_res;
     }
 
     /**
@@ -232,8 +244,14 @@ public:
             return {};
 
         protocol::reader reader(msg);
-        auto res = result_of_operation<T>([&]() { return m_read_func(reader, conn); });
-        return result_of_operation<void>([&]() { callback(std::move(res)); });
+        auto read_res = result_of_operation<T>([&]() { return m_read_func(reader, conn); });
+        bool read_error = read_res.has_error();
+
+        auto handle_res = result_of_operation<void>([&]() { callback(std::move(read_res)); });
+        if (!read_error && handle_res.has_error()) {
+            handle_res = result_of_operation<void>([&]() { callback(std::move(handle_res.error())); });
+        }
+        return handle_res;
     }
 
     /**

@@ -12,6 +12,7 @@ paths:
     post:
       tags:
       - clusterManagement
+      description: Initializes a new cluster.
       operationId: init
       parameters: []
       requestBody:
@@ -22,19 +23,19 @@ paths:
         required: true
       responses:
         "200":
-          description: Cluster initialized
+          description: Cluster initialized.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Void'
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "400":
-          description: Incorrect configuration
+          description: Incorrect configuration.
           content:
             application/problem+json:
               schema:
@@ -43,24 +44,24 @@ paths:
     get:
       tags:
       - clusterManagement
+      description: Returns current cluster status.
       operationId: clusterState
       parameters: []
       responses:
         "200":
-          description: Return cluster state
+          description: Cluster status returned.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterState'
         "404":
-          description: "Cluster state not found, it means that the cluster is not\
-            \ initialized"
+          description: "Cluster state not found. Most likely, the cluster is not initialized."
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
@@ -69,11 +70,12 @@ paths:
     get:
       tags:
       - topology
+      description: Gets information about logical cluster topology.
       operationId: logical
       parameters: []
       responses:
         "200":
-          description: Logical topology returned
+          description: Logical topology returned.
           content:
             application/json:
               schema:
@@ -81,8 +83,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/ClusterNode'
         "404":
-          description: "Logical topology not found, it means that the cluster is not\
-            \ initialized"
+          description: "Logical topology not found. Most likely, the cluster is not\
+            \ initialized."
           content:
             application/problem+json:
               schema:
@@ -97,11 +99,12 @@ paths:
     get:
       tags:
       - topology
+      description: Gets information about physical cluster topology.
       operationId: physical
       parameters: []
       responses:
         "200":
-          description: Physical topology returned
+          description: Physical topology returned.
           content:
             application/json:
               schema:
@@ -109,7 +112,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/ClusterNode'
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
@@ -118,6 +121,7 @@ paths:
     get:
       tags:
       - clusterConfiguration
+      description: Gets the current configuration of the cluster.
       operationId: getClusterConfiguration
       parameters: []
       responses:
@@ -128,20 +132,19 @@ paths:
               schema:
                 type: string
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "400":
-          description: Incorrect configuration
+          description: Incorrect configuration.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "404":
-          description: "Configuration not found, it means that the cluster is not\
-            \ initialized"
+          description: "Configuration not found. Most likely, the cluster is not initialized."
           content:
             application/problem+json:
               schema:
@@ -149,6 +152,8 @@ paths:
     patch:
       tags:
       - clusterConfiguration
+      description: Updates cluster configuration. New configuration should be provided
+        in HOCON format.
       operationId: updateClusterConfiguration
       parameters: []
       requestBody:
@@ -159,26 +164,25 @@ paths:
         required: true
       responses:
         "200":
-          description: Configuration updated
+          description: Configuration updated.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Void'
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "400":
-          description: Incorrect configuration
+          description: Incorrect configuration.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "404":
-          description: "Configuration not found, it means that the cluster is not\
-            \ initialized"
+          description: "Configuration not found. Most likely, the cluster is not initialized."
           content:
             application/problem+json:
               schema:
@@ -187,35 +191,37 @@ paths:
     get:
       tags:
       - clusterConfiguration
+      description: Gets the configuration on the specific path. Configuration is in
+        HOCON format
       operationId: getClusterConfigurationByPath
       parameters:
       - name: path
         in: path
+        description: "Configuration tree address. For example: `element.subelement`."
         required: true
         schema:
           type: string
       responses:
         "200":
-          description: Configuration represented by path
+          description: Configuration of the cluster on the specified path.
           content:
             text/plain:
               schema:
                 type: string
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "400":
-          description: Incorrect configuration
+          description: Incorrect configuration.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "404":
-          description: "Configuration not found, it means that the cluster is not\
-            \ initialized"
+          description: "Configuration not found. Most likely, the cluster is not initialized."
           content:
             application/problem+json:
               schema:
@@ -224,23 +230,24 @@ paths:
     get:
       tags:
       - nodeConfiguration
+      description: Gets node configuration in HOCON format.
       operationId: getNodeConfiguration
       parameters: []
       responses:
         "200":
-          description: Whole node configuration
+          description: Whole node configuration.
           content:
             text/plain:
               schema:
                 type: string
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "400":
-          description: Incorrect configuration
+          description: Incorrect configuration.
           content:
             application/problem+json:
               schema:
@@ -248,6 +255,8 @@ paths:
     patch:
       tags:
       - nodeConfiguration
+      description: Updates node configuration. New configuration should be provided
+        in HOCON format.
       operationId: updateNodeConfiguration
       parameters: []
       requestBody:
@@ -258,19 +267,19 @@ paths:
         required: true
       responses:
         "200":
-          description: Configuration updated
+          description: Configuration successfully updated.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Void'
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "400":
-          description: Incorrect configuration
+          description: Incorrect configuration.
           content:
             application/problem+json:
               schema:
@@ -279,28 +288,30 @@ paths:
     get:
       tags:
       - nodeConfiguration
+      description: "Gets a configuration of a specific node, in HOCON format."
       operationId: getNodeConfigurationByPath
       parameters:
       - name: path
         in: path
+        description: "Configuration tree address. For example: `element.subelement`."
         required: true
         schema:
           type: string
       responses:
         "200":
-          description: Configuration represented by path
+          description: Returned node configuration.
           content:
             text/plain:
               schema:
                 type: string
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "400":
-          description: Incorrect configuration
+          description: Incorrect configuration.
           content:
             application/problem+json:
               schema:
@@ -309,11 +320,12 @@ paths:
     get:
       tags:
       - nodeMetric
+      description: Provides a list of all available metric sources.
       operationId: listNodeMetrics
       parameters: []
       responses:
         "200":
-          description: Metric sources returned
+          description: Returned a list of metric sources.
           content:
             application/json:
               schema:
@@ -321,7 +333,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/MetricSource'
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
@@ -330,6 +342,7 @@ paths:
     post:
       tags:
       - nodeMetric
+      description: Disables a specific metric source.
       operationId: disableNodeMetric
       parameters: []
       requestBody:
@@ -340,15 +353,15 @@ paths:
         required: true
       responses:
         "200":
-          description: Metric source disabled
+          description: Metric source disabled.
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "404":
-          description: Metric source not found
+          description: Metric source not found.
           content:
             application/problem+json:
               schema:
@@ -357,6 +370,7 @@ paths:
     post:
       tags:
       - nodeMetric
+      description: Enables a specific metric source.
       operationId: enableNodeMetric
       parameters: []
       requestBody:
@@ -367,15 +381,15 @@ paths:
         required: true
       responses:
         "200":
-          description: Metric source enabled
+          description: Metric source enabled.
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
         "404":
-          description: Metric source not found
+          description: Metric source not found.
           content:
             application/problem+json:
               schema:
@@ -384,17 +398,18 @@ paths:
     get:
       tags:
       - nodeManagement
+      description: Gets current network status.
       operationId: nodeState
       parameters: []
       responses:
         "200":
-          description: Return node state
+          description: Current node status.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/NodeState'
         "500":
-          description: Internal error
+          description: Internal error.
           content:
             application/problem+json:
               schema:
@@ -403,11 +418,12 @@ paths:
     get:
       tags:
       - nodeManagement
+      description: Gets the version of Apache Ignite the node uses.
       operationId: nodeVersion
       parameters: []
       responses:
         "200":
-          description: Return node version
+          description: Node version.
           content:
             text/plain:
               schema:
@@ -421,149 +437,159 @@ paths:
 components:
   schemas:
     ClusterNode:
-      required:
-      - address
-      - id
-      - metadata
-      - name
       type: object
       properties:
         id:
           type: string
+          description: Node ID.
         name:
           type: string
+          description: Unique cluster name.
         address:
           $ref: '#/components/schemas/NetworkAddress'
         metadata:
           $ref: '#/components/schemas/NodeMetadata'
+      description: Information about the cluster node.
     ClusterState:
-      required:
-      - clusterTag
-      - cmgNodes
-      - igniteVersion
-      - msNodes
       type: object
       properties:
         cmgNodes:
           type: array
+          description: List of cluster management group nodes. These nodes are responsible
+            for maintaining RAFT cluster topology.
           items:
             type: string
         msNodes:
           type: array
+          description: List of metastorage nodes. These nodes are responsible for
+            storing RAFT cluster metadata.
           items:
             type: string
         igniteVersion:
           type: string
+          description: Version of Apache Ignite that the cluster was created on.
         clusterTag:
           $ref: '#/components/schemas/ClusterTag'
+      description: Information about current cluster state.
     ClusterTag:
-      required:
-      - clusterId
-      - clusterName
       type: object
       properties:
         clusterId:
           type: string
+          description: Unique cluster UUID. Generated automatically.
           format: uuid
         clusterName:
           type: string
+          description: Unique cluster name.
+      description: Unique tag that identifies the cluster.
     InitCommand:
-      required:
-      - clusterName
-      - metaStorageNodes
       type: object
       properties:
         metaStorageNodes:
           type: array
+          description: A list of RAFT metastorage nodes.
           items:
             type: string
         cmgNodes:
           type: array
+          description: A list of RAFT cluster management nodes.
           items:
             type: string
         clusterName:
           type: string
+          description: The name of the cluster.
     InvalidParam:
-      required:
-      - name
-      - reason
       type: object
       properties:
         name:
           type: string
+          description: Parameter name.
         reason:
           type: string
+          description: The issue with the parameter.
+      description: Information about invalid request parameter.
     MetricSource:
-      required:
-      - enabled
-      - name
       type: object
       properties:
         name:
           type: string
+          description: Metric source name.
         enabled:
           type: boolean
+          description: "If True, the metric is tracked. Otherwise, the metric is not\
+            \ tracked."
+      description: Metric sources provided by modules.
     NetworkAddress:
-      required:
-      - host
-      - port
       type: object
       properties:
         host:
           type: string
+          description: Name of the host node is on.
         port:
           type: integer
+          description: Port the node runs on.
           format: int32
+      description: Node network address information.
     NodeMetadata:
-      required:
-      - restHost
-      - restPort
       type: object
       properties:
         restHost:
           type: string
-        restPort:
+          description: The host exposed to REST API.
+        httpPort:
           type: integer
+          description: The HTTP port exposed to REST API.
           format: int32
+        httpsPort:
+          type: integer
+          description: The HTTPS port exposed to REST API.
+          format: int32
+      description: Node metadata information.
     NodeState:
-      required:
-      - name
-      - state
       type: object
       properties:
         name:
           type: string
+          description: Unique node name.
         state:
           $ref: '#/components/schemas/State'
+      description: Node state.
     Problem:
-      required:
-      - code
-      - status
-      - title
       type: object
       properties:
         title:
           type: string
+          description: Short summary of the issue.
         status:
           type: integer
+          description: Returned HTTP status code.
           format: int32
         code:
           type: string
+          description: Ignite 3 error code.
         type:
           type: string
+          description: URI to documentation regarding the issue.
         detail:
           type: string
+          description: Extended explanation of the issue.
         node:
           type: string
+          description: Name of the node the issue happened on.
         traceId:
           type: string
+          description: Unique issue identifier. Thid identifier can be used to find
+            logs related to the issue
           format: uuid
         invalidParams:
           type: array
+          description: Parameters that did not pass validation.
           items:
             $ref: '#/components/schemas/InvalidParam'
+      description: Extended description of the problem with the request.
     State:
       type: string
+      description: Possible node statuses.
       enum:
       - STARTING
       - STARTED

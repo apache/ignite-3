@@ -40,17 +40,19 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
@@ -70,8 +72,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @param <T> Type of the raft group listener.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener> {
+@ExtendWith(ConfigurationExtension.class)
+public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener> extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItAbstractListenerSnapshotTest.class);
 
     /** Starting server port. */
@@ -83,11 +85,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    @WorkDirectory
-    private Path workDir;
-
     /** Initial Raft configuration. */
-    private PeersAndLearners initialConf;
+    private PeersAndLearners initialMemberConf;
 
     /** Cluster. */
     private final List<ClusterService> cluster = new ArrayList<>();
@@ -101,6 +100,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
+
     /**
      * Create executor for raft group services.
      */
@@ -108,7 +110,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     public void beforeTest(TestInfo testInfo) {
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
 
-        initialConf = IntStream.rangeClosed(0, 2)
+        initialMemberConf = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
     }
@@ -133,6 +135,15 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         IgniteUtils.closeAll(
                 Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop, nodeStop).flatMap(Function.identity())
         );
+    }
+
+    /**
+     * Nodes count.
+     *
+     * @return Nodes count.
+     */
+    protected int nodes() {
+        return 3;
     }
 
     /**
@@ -234,7 +245,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
 
-        afterFollowerStop(service, toStop);
+        afterFollowerStop(service, toStop, stopIdx);
 
         // Create another raft snapshot
         service.snapshot(service.leader()).get();
@@ -278,9 +289,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      *
      * @param service Raft group service.
      * @param server Raft server that has been stopped.
+     * @param stoppedNodeIndex index of the stopped node.
      * @throws Exception If failed.
      */
-    public abstract void afterFollowerStop(RaftGroupService service, RaftServer server) throws Exception;
+    public abstract void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception;
 
     /**
      * Interacts with a raft group after the leader has captured a snapshot.
@@ -314,9 +326,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      *
      * @param service                 The cluster service.
      * @param listenerPersistencePath Path to storage persistent data.
+     * @param index                   Index of node for which the listener is created.
      * @return Raft group listener.
      */
-    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath);
+    public abstract RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath, int index);
 
     /**
      * Returns raft group id for tests.
@@ -411,9 +424,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         servers.add(server);
 
         server.startRaftNode(
-                new RaftNodeId(raftGroupId(), initialConf.peer(service.topologyService().localMember().name())),
-                initialConf,
-                createListener(service, listenerPersistencePath),
+                new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
+                initialMemberConf,
+                createListener(service, listenerPersistencePath, idx),
                 defaults()
         );
 
@@ -426,7 +439,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return Raft group service instance.
      */
     private RaftGroupService prepareRaftGroup(TestInfo testInfo) throws Exception {
-        for (int i = 0; i < initialConf.peers().size(); i++) {
+        for (int i = 0; i < initialMemberConf.peers().size(); i++) {
             startServer(testInfo, i);
         }
 
@@ -441,7 +454,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      * @return The client service.
      */
     protected ClusterService clientService() {
-        return cluster.get(initialConf.peers().size());
+        return cluster.get(initialMemberConf.peers().size());
     }
 
     /**
@@ -453,7 +466,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
         CompletableFuture<RaftGroupService> clientFuture = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, 10_000, 10_000, initialConf, true, 200, executor);
+                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, true, executor);
 
         assertThat(clientFuture, willCompleteSuccessfully());
 

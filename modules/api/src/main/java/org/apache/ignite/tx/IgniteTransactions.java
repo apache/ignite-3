@@ -20,10 +20,12 @@ package org.apache.ignite.tx;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite Transactions facade that allows to perform distributed transactions when working with tables.
@@ -62,34 +64,38 @@ import org.apache.ignite.table.Table;
  */
 public interface IgniteTransactions {
     /**
-     * Returns a facade with new default timeout.
-     *
-     * @param timeout The timeout in milliseconds.
-     *
-     * @return A facade using a new timeout.
-     */
-    IgniteTransactions withTimeout(long timeout);
-
-    /**
-     * Returns a decorated {@code IgniteTransactions} instance that will start read-only transactions.
-     *
-     * @return Decorated {@code IgniteTransactions} instance that will start read-only transactions.
-     */
-    IgniteTransactions readOnly();
-
-    /**
      * Begins a transaction.
      *
      * @return The started transaction.
      */
-    Transaction begin();
+    default Transaction begin() {
+        return begin(null);
+    }
+
+    /**
+     * Begins a transaction.
+     *
+     * @param options Transaction options.
+     * @return The started transaction.
+     */
+    Transaction begin(@Nullable TransactionOptions options);
 
     /**
      * Begins an async transaction.
      *
      * @return The future holding the started transaction.
      */
-    CompletableFuture<Transaction> beginAsync();
+    default CompletableFuture<Transaction> beginAsync() {
+        return beginAsync(null);
+    }
+
+    /**
+     * Begins an async transaction.
+     *
+     * @param options Transaction options.
+     * @return The future holding the started transaction.
+     */
+    CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options);
 
     /**
      * Executes a closure within a transaction.
@@ -126,10 +132,51 @@ public interface IgniteTransactions {
      * @throws TransactionException If a transaction can't be finished successfully.
      */
     default void runInTransaction(Consumer<Transaction> clo) throws TransactionException {
+        runInTransaction(clo, null);
+    }
+
+    /**
+     * Executes a closure within a transaction.
+     *
+     * <p>This method expects that all transaction operations are completed before the closure returns. The safest way to achieve that is
+     * to use synchronous table API.
+     *
+     * <p>Take care then using the asynchronous operations inside the closure. For example, the following snippet is <b>incorrect</b>,
+     * because the last operation goes out of the scope of the closure unfinished:
+     * <pre>
+     * {@code
+     * igniteTransactions.runInTransaction(tx -> {
+     *     var key = Tuple.create().set("accountId", 1);
+     *     Tuple acc = view.get(tx, key);
+     *     view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100));
+     * });
+     * }
+     * </pre>
+     *
+     * <p>The correct variant will be:
+     * <pre>
+     * {@code
+     * igniteTransactions.runInTransaction(tx -> {
+     *     view.getAsync(tx, Tuple.create().set("accountId", 1)).thenCompose(acc ->
+     *         view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))).join();
+     * });
+     * }
+     * </pre>
+     *
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     *
+     * @param options Transaction options.
+     * @param clo The closure.
+     *
+     * @throws TransactionException If a transaction can't be finished successfully.
+     */
+    default void runInTransaction(Consumer<Transaction> clo, @Nullable TransactionOptions options) throws TransactionException {
+        Objects.requireNonNull(clo);
+
         runInTransaction(tx -> {
             clo.accept(tx);
             return null;
-        });
+        }, options);
     }
 
     /**
@@ -169,7 +216,50 @@ public interface IgniteTransactions {
      * @throws TransactionException If a transaction can't be finished successfully.
      */
     default <T> T runInTransaction(Function<Transaction, T> clo) throws TransactionException {
-        Transaction tx = begin();
+        return runInTransaction(clo, null);
+    }
+
+    /**
+     * Executes a closure within a transaction and returns a result.
+     *
+     * <p>This method expects that all transaction operations are completed before the closure returns. The safest way to achieve that is
+     * to use synchronous table API.
+     *
+     * <p>Take care then using the asynchronous operations inside the closure. For example, the following snippet is <b>incorrect</b>,
+     * because the last operation goes out of the scope of the closure unfinished:
+     * <pre>
+     * {@code
+     * igniteTransactions.runInTransaction(tx -> {
+     *     var key = Tuple.create().set("accountId", 1);
+     *     Tuple acc = view.get(tx, key);
+     *     view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100));
+     * });
+     * }
+     * </pre>
+     *
+     * <p>The correct variant will be:
+     * <pre>
+     * {@code
+     * igniteTransactions.runInTransaction(tx -> {
+     *     view.getAsync(tx, Tuple.create().set("accountId", 1)).thenCompose(acc ->
+     *         view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))).join();
+     * });
+     * }
+     * </pre>
+     *
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     *
+     * @param clo The closure.
+     * @param options Transaction options.
+     * @param <T> Closure result type.
+     * @return The result.
+     *
+     * @throws TransactionException If a transaction can't be finished successfully.
+     */
+    default <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
+        Objects.requireNonNull(clo);
+
+        Transaction tx = begin(options);
 
         try {
             T ret = clo.apply(tx);
@@ -210,8 +300,37 @@ public interface IgniteTransactions {
      * @return The result.
      */
     default <T> CompletableFuture<T> runInTransactionAsync(Function<Transaction, CompletableFuture<T>> clo) {
+        return runInTransactionAsync(clo, null);
+    }
+
+    /**
+     * Executes a closure within a transaction asynchronously.
+     *
+     * <p>A returned future must be the last in the asynchronous chain. This means all transaction operations happen before the future
+     * is completed.
+     *
+     * <p>Consider the example:
+     * <pre>
+     * {@code
+     *     igniteTransactions.runInTransactionAsync(tx -> view.getAsync(tx, Tuple.create().set("accountId", 1)).thenCompose(
+     *         acc -> view.upsertAsync(tx, Tuple.create().set("accountId", 1).set("balance", acc.longValue("balance") + 100))));
+     * }
+     * </pre>
+     *
+     * <p>If the asynchronous chain resulted in no exception, the commitAsync will be automatically called.
+     *
+     * @param clo The closure.
+     * @param options Transaction options.
+     * @param <T> Closure result type.
+     * @return The result.
+     */
+    default <T> CompletableFuture<T> runInTransactionAsync(
+            Function<Transaction, CompletableFuture<T>> clo,
+            @Nullable TransactionOptions options) {
+        Objects.requireNonNull(clo);
+
         // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-17838 Implement auto retries
-        return beginAsync().thenCompose(tx -> {
+        return beginAsync(options).thenCompose(tx -> {
             try {
                 return clo.apply(tx).handle((res, e) -> {
                     if (e != null) {

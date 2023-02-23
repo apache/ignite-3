@@ -45,6 +45,11 @@ namespace Apache.Ignite
         public static readonly TimeSpan DefaultHeartbeatInterval = TimeSpan.FromSeconds(30);
 
         /// <summary>
+        /// Default reconnect interval.
+        /// </summary>
+        public static readonly TimeSpan DefaultReconnectInterval = TimeSpan.FromSeconds(30);
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
         /// </summary>
         public IgniteClientConfiguration()
@@ -80,6 +85,7 @@ namespace Apache.Ignite
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
             HeartbeatInterval = other.HeartbeatInterval;
+            ReconnectInterval = other.ReconnectInterval;
         }
 
         /// <summary>
@@ -101,6 +107,11 @@ namespace Apache.Ignite
 
         /// <summary>
         /// Gets endpoints to connect to.
+        /// <para />
+        /// Providing addresses of multiple nodes in the cluster will improve performance:
+        /// Ignite will balance requests across all connections, and use partition awareness to send key-based requests
+        /// directly to the primary node.
+        /// <para />
         /// Examples of supported formats:
         ///  * 192.168.1.25 (default port is used, see <see cref="DefaultPort"/>).
         ///  * 192.168.1.25:780 (custom port)
@@ -130,10 +141,23 @@ namespace Apache.Ignite
         /// When server-side idle timeout is not zero, effective heartbeat
         /// interval is set to <c>Min(HeartbeatInterval, IdleTimeout / 3)</c>.
         /// <para />
-        /// When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+        /// When client connection is idle (no operations are performed), heartbeat messages are sent periodically
         /// to keep the connection alive and detect potential half-open state.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan HeartbeatInterval { get; set; } = DefaultHeartbeatInterval;
+
+        /// <summary>
+        /// Gets or sets the background reconnect interval.
+        /// <para />
+        /// Default is <see cref="DefaultReconnectInterval"/>. Set to <see cref="TimeSpan.Zero"/> to disable periodic reconnect.
+        /// <para />
+        /// Ignite balances requests across all healthy connections (when multiple endpoints are configured).
+        /// Ignite also repairs connections on demand (when a request is made).
+        /// However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
+        /// client will check all configured endpoints and try to reconnect them in case of failure.
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
     }
 }

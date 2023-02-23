@@ -31,13 +31,11 @@ import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Contexts;
-import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
-import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.Metadata;
 import org.apache.calcite.rel.metadata.MetadataDef;
@@ -49,14 +47,11 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
-import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -108,9 +103,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
         }
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
-        TYPE_FACTORY = new IgniteTypeFactory(typeSys);
+        TYPE_FACTORY = createTypeFactory(typeSys);
 
-        DFLT_REX_BUILDER = new RexBuilder(TYPE_FACTORY);
+        DFLT_REX_BUILDER = createRexBuilder(TYPE_FACTORY);
 
         RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
 
@@ -162,8 +157,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final InternalTransaction tx;
 
-    private final HybridTimestamp txTs;
-
     private CalciteCatalogReader catalogReader;
 
     private long plannerTimeout;
@@ -178,7 +171,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
             Object[] parameters,
             IgniteLogger log,
             InternalTransaction tx,
-            HybridTimestamp txTs,
             long plannerTimeout
     ) {
         super(Contexts.chain(cfg.getContext()));
@@ -191,14 +183,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.cancel = cancel;
         this.parameters = parameters;
         this.tx = tx;
-        this.txTs = txTs;
         this.plannerTimeout = plannerTimeout;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
-        typeFactory = new IgniteTypeFactory(typeSys);
+        typeFactory = createTypeFactory(typeSys);
 
-        rexBuilder = new RexBuilder(typeFactory);
+        rexBuilder = createRexBuilder(typeFactory);
     }
 
     public static Builder builder() {
@@ -245,10 +236,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return tx;
     }
 
-    public HybridTimestamp transactionTime() {
-        return txTs;
-    }
-
     public long plannerTimeout() {
         return plannerTimeout;
     }
@@ -290,8 +277,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
                 .logger(log)
                 .cancel(cancel)
                 .parameters(parameters)
-                .transaction(tx)
-                .transactionTime(txTs);
+                .transaction(tx);
     }
 
     /**
@@ -302,13 +288,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         private static final FrameworkConfig EMPTY_CONFIG =
                 Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(createRootSchema(false))
-                        .traitDefs(new RelTraitDef<?>[] {
-                                ConventionTraitDef.INSTANCE,
-                                RelCollationTraitDef.INSTANCE,
-                                DistributionTraitDef.INSTANCE,
-                                RewindabilityTraitDef.INSTANCE,
-                                CorrelationTraitDef.INSTANCE,
-                        })
+                        .traitDefs(Commons.DISTRIBUTED_TRAITS_SET)
                         .build();
 
         private FrameworkConfig frameworkCfg = EMPTY_CONFIG;
@@ -322,8 +302,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         private InternalTransaction tx;
-
-        private HybridTimestamp txTs;
 
         private long plannerTimeout;
 
@@ -357,18 +335,21 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder transactionTime(HybridTimestamp txTs) {
-            this.txTs = txTs;
-            return this;
-        }
-
         public Builder plannerTimeout(long plannerTimeout) {
             this.plannerTimeout = plannerTimeout;
             return this;
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, txTs, plannerTimeout);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log, tx, plannerTimeout);
         }
+    }
+
+    private static IgniteTypeFactory createTypeFactory(RelDataTypeSystem typeSystem) {
+        return new IgniteTypeFactory(typeSystem);
+    }
+
+    private static IgniteRexBuilder createRexBuilder(IgniteTypeFactory typeFactory) {
+        return new IgniteRexBuilder(typeFactory);
     }
 }

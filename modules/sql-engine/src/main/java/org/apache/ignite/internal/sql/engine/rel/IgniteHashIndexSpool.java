@@ -30,6 +30,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -38,7 +39,7 @@ import org.apache.ignite.internal.sql.engine.util.RexUtils;
 /**
  * Relational operator that returns the hashed contents of a table and allow to lookup rows by specified keys.
  */
-public class IgniteHashIndexSpool extends AbstractIgniteSpool implements InternalIgniteRel {
+public class IgniteHashIndexSpool extends AbstractIgniteSpool {
     /** Search row. */
     private final List<RexNode> searchRow;
 
@@ -93,6 +94,14 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        shuttle.apply(cond);
+
+        return super.accept(shuttle);
     }
 
     @Override

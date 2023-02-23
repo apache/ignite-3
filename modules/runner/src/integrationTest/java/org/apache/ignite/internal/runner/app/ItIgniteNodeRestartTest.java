@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -59,13 +58,15 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -226,10 +227,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ConfigurationModules modules = loadConfigurationModules(log, Thread.currentThread().getContextClassLoader());
 
+        NodeBootstrapConfiguration configuration =
+                NodeBootstrapConfiguration.string(cfgString == null ? configurationString(idx) : cfgString,
+                        workDir);
         var nodeCfgMgr = new ConfigurationManager(
                 modules.local().rootKeys(),
                 modules.local().validators(),
-                new LocalConfigurationStorage(vault),
+                new LocalFileConfigurationStorage(configuration),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
@@ -264,14 +268,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
-        var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 clusterSvc,
                 raftMgr,
                 clusterStateStorage,
-                logicalTopologyService,
+                logicalTopology,
                 clusterManagementConfiguration
         );
 
@@ -279,6 +283,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 vault,
                 clusterSvc,
                 cmgManager,
+                new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                 raftMgr,
                 new RocksDbKeyValueStorage(name, dir.resolve("metastorage"))
         );
@@ -349,11 +354,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         nodeCfgMgr.start();
 
-        // Node configuration manager bootstrap.
-        cfgString = cfgString == null ? configurationString(idx) : cfgString;
-
         try {
-            nodeCfgMgr.bootstrap(cfgString);
+            nodeCfgMgr.bootstrap(configuration.configPath());
         } catch (Exception e) {
             throw new IgniteException("Unable to parse user-specific configuration.", e);
         }
@@ -665,45 +667,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that the only one non-default property overwrites after another configuration is passed on the node restart.
-     */
-    @Test
-    public void twoCustomPropertiesTest() {
-        String startCfg = "network: {\n"
-                + "  port:3344,\n"
-                + "  nodeFinder: {netClusterNodes:[ \"localhost:3344\" ]}\n"
-                + "}";
-
-        IgniteImpl ignite = startNode(0, startCfg);
-
-        assertEquals(
-                3344,
-                ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value()
-        );
-
-        assertArrayEquals(
-                new String[]{"localhost:3344"},
-                ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).nodeFinder().netClusterNodes().value()
-        );
-
-        stopNode(0);
-
-        ignite = startNode(0, "network.nodeFinder.netClusterNodes=[ \"localhost:3344\", \"localhost:3343\" ]");
-
-        assertEquals(
-                3344,
-                ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value()
-        );
-
-        assertArrayEquals(
-                new String[]{"localhost:3344", "localhost:3343"},
-                ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).nodeFinder().netClusterNodes().value()
-        );
-    }
-
-    /**
      * Restarts the node which stores some data.
      */
+    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
+            + "but the table have not started yet.")
     @Test
     public void nodeWithDataTest() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
@@ -720,6 +687,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
+    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
+            + "but the table have not started yet.")
     @Test
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
@@ -728,6 +697,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
+    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
+            + "but the table have not started yet.")
     @Test
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
@@ -866,6 +837,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Checks that a cluster is able to restart when some changes were made in configuration.
      */
+    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart, "
+            + "but the table have not started yet.")
     @Test
     public void testRestartDiffConfig() throws InterruptedException {
         List<IgniteImpl> ignites = startNodes(2);

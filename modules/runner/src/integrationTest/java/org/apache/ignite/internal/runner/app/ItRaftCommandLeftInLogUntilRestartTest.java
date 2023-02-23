@@ -36,6 +36,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -56,6 +57,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The class has tests of cluster recovery when no all committed RAFT commands applied to the state machine.
  */
+@Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
+        + "but the table have not started yet.")
 public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegrationTest {
 
     private final Object[][] dataSet = {
@@ -90,8 +93,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
      *
      * @throws Exception If fail.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
-            + "but the table have not started yet.")
+    @Test
     public void testUpdateAllCommand() throws Exception {
         restartClusterWithNotAppliedCommands(
                 tx -> {
@@ -127,8 +129,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
      *
      * @throws Exception If fail.
      */
-    @Disabled("IGNITE-18203 The test goes to deadlock in cluster restart, because indexes are required to apply RAFT commands on restart , "
-            + "but the table have not started yet.")
+    @Test
     public void testUpdateCommandKeyValueView() throws Exception {
         restartClusterWithNotAppliedCommands(
                 tx -> {
@@ -152,7 +153,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
      * @param checkAction An action to check data after restart.
      * @throws Exception If fail.
      */
-    public void restartClusterWithNotAppliedCommands(
+    private void restartClusterWithNotAppliedCommands(
             Consumer<Transaction> beforeBlock,
             Consumer<Transaction> afterBlock,
             Consumer<IgniteImpl> checkAction
@@ -246,9 +247,11 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
                         return;
                     }
 
+                    long idx = event.committedIndex;
+
                     handler.onEvent(event, sequence, endOfBatch);
 
-                    appliedIndex.set(event.committedIndex);
+                    appliedIndex.set(idx);
                 }, exceptionHandler);
             }
         });
@@ -274,10 +277,9 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends AbstractBasicIntegra
 
                 BinaryRow readOnlyRow = table.internalTable().get(testKey, new HybridClockImpl().now(), ignite.node()).get();
 
-                //TODO: IGNITE-18497 Readonly check is possible only when the readonly read will be fixed.
-                //assertNotNull(readOnlyRow);
-                //assertEquals(row[1], new Row(table.schemaView().schema(), readOnlyRow).stringValue(2));
-                //assertEquals(row[2], new Row(table.schemaView().schema(), readOnlyRow).doubleValue(1));
+                assertNotNull(readOnlyRow);
+                assertEquals(row[1], new Row(table.schemaView().schema(), readOnlyRow).stringValue(2));
+                assertEquals(row[2], new Row(table.schemaView().schema(), readOnlyRow).doubleValue(1));
             } catch (Exception e) {
                 new RuntimeException(IgniteStringFormatter.format("Cannot check a row {}", row), e);
             }

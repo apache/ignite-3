@@ -21,6 +21,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,6 +58,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final LoggerFactory loggerFactory;
 
+    private final SslConfiguration sslConfiguration;
+
     /**
      * Constructor.
      *
@@ -81,7 +84,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long heartbeatInterval,
             long heartbeatTimeout,
             @Nullable RetryPolicy retryPolicy,
-            @Nullable LoggerFactory loggerFactory
+            @Nullable LoggerFactory loggerFactory,
+            @Nullable SslConfiguration sslConfiguration
     ) {
         this.addressFinder = addressFinder;
 
@@ -96,6 +100,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.heartbeatTimeout = heartbeatTimeout;
         this.retryPolicy = retryPolicy;
         this.loggerFactory = loggerFactory;
+        this.sslConfiguration = sslConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -156,5 +161,11 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable RetryPolicy retryPolicy() {
         return retryPolicy;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable SslConfiguration ssl() {
+        return sslConfiguration;
     }
 }

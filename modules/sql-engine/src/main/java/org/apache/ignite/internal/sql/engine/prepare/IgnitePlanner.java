@@ -74,6 +74,7 @@ import org.apache.calcite.tools.RuleSets;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.FastTimestamps;
@@ -137,7 +138,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         rexExecutor = frameworkCfg.getExecutor();
         traitDefs = frameworkCfg.getTraitDefs();
 
-        rexBuilder = new RexBuilder(typeFactory);
+        rexBuilder = new IgniteRexBuilder(typeFactory);
     }
 
     /** {@inheritDoc} */
@@ -299,7 +300,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return w.toString();
     }
 
-    private SqlValidator validator() {
+    /** Returns the validator. **/
+    public SqlValidator validator() {
         if (validator == null) {
             validator = new IgniteSqlValidator(operatorTbl, catalogReader, typeFactory, validatorCfg, ctx.parameters());
         }

@@ -72,7 +72,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task<bool> ContainsAsync(ITransaction? transaction, TK key) =>
-        await _recordView.ContainsKey(transaction, ToKv(key)).ConfigureAwait(false);
+        await _recordView.ContainsKeyAsync(transaction, ToKv(key)).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task PutAsync(ITransaction? transaction, TK key, TV val) =>
@@ -150,7 +150,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
     {
-        var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options);
+        var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options, _recordView.Table.Socket.Configuration);
         var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _recordView.Table.Name);
 
         return new IgniteQueryable<KeyValuePair<TK, TV>>(provider);

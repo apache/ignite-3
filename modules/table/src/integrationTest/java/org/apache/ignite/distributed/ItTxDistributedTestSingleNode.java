@@ -63,12 +63,10 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.BinaryConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TableRowConverter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -108,6 +106,7 @@ import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -371,7 +370,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     private Int2ObjectOpenHashMap<RaftGroupService> startTable(UUID tblId, SchemaDescriptor schemaDescriptor) throws Exception {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
-                cluster.stream().map(node -> node.topologyService().localMember()).collect(toList()),
+                cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
                 replicas()
         );
@@ -406,22 +405,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 UUID indexId = UUID.randomUUID();
 
-                BinaryTupleSchema tupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-                BinaryTupleSchema indexSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
-
-                BinaryConverter binaryRowConverter = BinaryConverter.forKey(schemaDescriptor);
-                Function<BinaryRow, BinaryTuple> binaryRow2Tuple = binaryRowConverter::toTuple;
-
-                var rowConverter = new TableRowConverter(tupleSchema, indexSchema);
+                Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
                         new TestHashIndexStorage(null),
-                        binaryRow2Tuple,
-                        rowConverter::toTuple
+                        row2Tuple
                 ));
 
-                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), binaryRow2Tuple);
+                IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
@@ -477,11 +469,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 partitionReadyFutures.add(partitionReadyFuture);
             }
 
-            PeersAndLearners conf = PeersAndLearners.fromConsistentIds(partAssignments);
+            PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
 
             if (startClient()) {
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, client, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, client, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, service);
@@ -490,7 +482,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 ClusterService tmpSvc = cluster.get(0);
 
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, tmpSvc, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, tmpSvc, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 Peer leader = service.leader();
@@ -503,7 +495,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         .orElseThrow();
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv, FACTORY, 10_000, 10_000, conf, true, 200, executor)
+                        .start(grpId, leaderSrv, FACTORY, raftConfiguration, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);
@@ -621,10 +613,18 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return manager;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Check the storage of partition is the same across all nodes.
+     * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
+     * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
+     *
+     * @param table The table.
+     * @param partId Partition id.
+     * @return True if {@link MvPartitionStorage#lastAppliedIndex()} is equivalent across all nodes, false otherwise.
+     */
     @Override
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
-        int hash = 0;
+        long storageIdx = 0;
 
         for (Map.Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza svc = entry.getValue();
@@ -643,9 +643,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             MvPartitionStorage storage = listener.getMvStorage();
 
-            if (hash == 0) {
-                hash = storage.hashCode();
-            } else if (hash != storage.hashCode()) {
+            if (storageIdx == 0) {
+                storageIdx = storage.lastAppliedIndex();
+            } else if (storageIdx != storage.lastAppliedIndex()) {
                 return false;
             }
         }
@@ -659,13 +659,13 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         assertFalse(readWriteTx.isReadOnly());
         assertNull(readWriteTx.readTimestamp());
 
-        Transaction readOnlyTx = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertTrue(readOnlyTx.isReadOnly());
         assertNotNull(readOnlyTx.readTimestamp());
 
         readWriteTx.commit();
 
-        Transaction readOnlyTx2 = igniteTransactions.readOnly().begin();
+        Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         readOnlyTx2.rollback();
     }
 }

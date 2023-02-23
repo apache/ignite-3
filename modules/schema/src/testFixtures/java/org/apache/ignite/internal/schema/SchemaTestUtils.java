@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MAX_YEAR;
-import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.MIN_YEAR;
-import static org.apache.ignite.internal.schema.row.TemporalTypesHelper.normalizeNanos;
+import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -37,6 +35,12 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
  * Test utility class.
  */
 public final class SchemaTestUtils {
+    /** Min year boundary. */
+    private static final int MIN_YEAR = -(1 << 14);
+
+    /** Max year boundary. */
+    private static final int MAX_YEAR = (1 << 14) - 1;
+
     /** All types for tests. */
     public static List<NativeType> ALL_TYPES = List.of(
             NativeTypes.INT8,

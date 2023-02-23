@@ -62,8 +62,9 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteReduceHashAggregate(RelInput input) {
         super(input);

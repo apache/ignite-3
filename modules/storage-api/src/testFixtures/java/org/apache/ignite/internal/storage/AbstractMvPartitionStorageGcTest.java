@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,14 +30,14 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionStorageTest {
     @Test
     void testEmptyStorage() {
-        assertNull(storage.pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(clock.now()));
     }
 
     @Test
     void testSingleValueStorage() {
         addAndCommit(TABLE_ROW);
 
-        assertNull(storage.pollForVacuum(clock.now()));
+        assertNull(pollForVacuum(clock.now()));
     }
 
     @Test
@@ -48,17 +49,17 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         HybridTimestamp secondCommitTs = addAndCommit(TABLE_ROW2);
 
         // Data is still visible for older timestamps.
-        assertNull(storage.pollForVacuum(firstCommitTs));
+        assertNull(pollForVacuum(firstCommitTs));
 
-        assertNull(storage.pollForVacuum(tsBetweenCommits));
+        assertNull(pollForVacuum(tsBetweenCommits));
 
         // Once a low watermark value becomes equal to second commit timestamp, previous value
         // becomes completely inaccessible and should be purged.
-        TableRowAndRowId gcedRow = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId gcedRow = pollForVacuum(secondCommitTs);
 
         assertNotNull(gcedRow);
 
-        assertRowMatches(gcedRow.tableRow(), TABLE_ROW);
+        assertRowMatches(gcedRow.binaryRow(), TABLE_ROW);
 
         // Read from the old timestamp should return null.
         assertNull(read(ROW_ID, firstCommitTs));
@@ -72,14 +73,17 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(TABLE_ROW);
         HybridTimestamp secondCommitTs = addAndCommit(null);
 
-        TableRowAndRowId row = storage.pollForVacuum(secondCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(secondCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, secondCommitTs));
 
         // Check that tombstone is also deleted from the partition. It must be empty at this point.
+        assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
+
+        // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
     }
 
@@ -89,14 +93,17 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         addAndCommit(null);
         HybridTimestamp lastCommitTs = addAndCommit(null);
 
-        TableRowAndRowId row = storage.pollForVacuum(lastCommitTs);
+        BinaryRowAndRowId row = pollForVacuum(lastCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         assertNull(read(ROW_ID, lastCommitTs));
 
         // Check that all tombstones are deleted from the partition. It must be empty at this point.
+        assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
+
+        // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
     }
 
@@ -109,18 +116,32 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         HybridTimestamp lowWatermark = addAndCommit(null);
 
         // Poll the oldest row.
-        TableRowAndRowId row = pollForVacuum(lowWatermark);
+        BinaryRowAndRowId row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW);
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
 
         // Poll the next oldest row.
         row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.tableRow(), TABLE_ROW2);
+        assertRowMatches(row.binaryRow(), TABLE_ROW2);
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18882")
+    void testVacuumsSecondRowIfTombstoneIsFirst() {
+        addAndCommit(null);
+
+        addAndCommit(TABLE_ROW);
+
+        addAndCommit(TABLE_ROW2);
+
+        BinaryRowAndRowId row = pollForVacuum(HybridTimestamp.MAX_VALUE);
+
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
     }
 }

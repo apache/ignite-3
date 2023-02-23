@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,8 +71,8 @@ class RaftStorageManager {
     /**
      * Returns {@code true} if a given node has been previously validated or {@code false} otherwise.
      */
-    boolean isNodeValidated(String nodeId) {
-        byte[] value = storage.get(validatedNodeKey(nodeId));
+    boolean isNodeValidated(ClusterNode node) {
+        byte[] value = storage.get(validatedNodeKey(node.id()));
 
         return value != null;
     }
@@ -80,15 +80,15 @@ class RaftStorageManager {
     /**
      * Marks the given node as validated.
      */
-    void putValidatedNode(String nodeId) {
-        storage.put(validatedNodeKey(nodeId), BYTE_EMPTY_ARRAY);
+    void putValidatedNode(ClusterNode node) {
+        storage.put(validatedNodeKey(node.id()), toBytes(node));
     }
 
     /**
      * Removes the given node from the validated node set.
      */
-    void removeValidatedNode(String nodeId) {
-        storage.remove(validatedNodeKey(nodeId));
+    void removeValidatedNode(ClusterNode node) {
+        storage.remove(validatedNodeKey(node.id()));
     }
 
     private static byte[] validatedNodeKey(String nodeId) {
@@ -101,16 +101,13 @@ class RaftStorageManager {
     }
 
     /**
-     * Returns a collection of node IDs that passed the validation but have not yet joined the logical topology.
+     * Returns a collection of nodes that passed the validation but have not yet joined the logical topology.
      */
-    Collection<String> getValidatedNodeIds() {
-        Cursor<String> cursor = storage.getWithPrefix(
-                VALIDATED_NODE_PREFIX,
-                (k, v) -> new String(k, VALIDATED_NODE_PREFIX.length, k.length - VALIDATED_NODE_PREFIX.length, UTF_8)
-        );
+    Set<ClusterNode> getValidatedNodes() {
+        Cursor<ClusterNode> cursor = storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> fromBytes(v));
 
         try (cursor) {
-            return cursor.stream().collect(toList());
+            return cursor.stream().collect(toSet());
         }
     }
 

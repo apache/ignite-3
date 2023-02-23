@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
-import static org.mockito.Mockito.mock;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayList;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -94,6 +92,17 @@ public class TestBuilders {
          * @return An instance of table builder.
          */
         ClusterTableBuilder addTable();
+
+        /**
+         * When specified the given factory is used to create instances of
+         * {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data providers} for tables
+         * that have no {@link ClusterTableBuilder#defaultDataProvider(DataProvider) default data provider} set.
+         *
+         * <p>Note: when a table has default data provider this method has no effect.
+         *
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory);
 
         /**
          * Builds the cluster object.
@@ -159,7 +168,7 @@ public class TestBuilders {
     }
 
     private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
-        private FragmentDescription description = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
+        private FragmentDescription description = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;
@@ -208,14 +217,14 @@ public class TestBuilders {
                     node.name(),
                     description,
                     ArrayRowHandler.INSTANCE,
-                    Map.of(),
-                    mock(InternalTransaction.class)
+                    Map.of()
             );
         }
     }
 
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
+        private DataProviderFactory dataProviderFactory;
         private List<String> nodeNames;
 
         /** {@inheritDoc} */
@@ -233,6 +242,13 @@ public class TestBuilders {
         @Override
         public ClusterTableBuilder addTable() {
             return new ClusterTableBuilderImpl(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder defaultDataProviderFactory(DataProviderFactory dataProviderFactory) {
+            this.dataProviderFactory = dataProviderFactory;
+            return this;
         }
 
         /** {@inheritDoc} */
@@ -271,7 +287,11 @@ public class TestBuilders {
 
         private void injectDataProvidersIfNeeded(ClusterTableBuilderImpl tableBuilder) {
             if (tableBuilder.defaultDataProvider == null) {
-                return;
+                if (dataProviderFactory != null) {
+                    tableBuilder.defaultDataProvider = dataProviderFactory.createDataProvider(tableBuilder.name, tableBuilder.columns);
+                } else {
+                    return;
+                }
             }
 
             Set<String> nodesWithoutDataProvider = new HashSet<>(nodeNames);
@@ -336,6 +356,23 @@ public class TestBuilders {
                     new TableDescriptorImpl(columns, distribution), name, dataProviders, size
             );
         }
+    }
+
+    /**
+     * A factory that creates {@link DataProvider data providers}.
+     */
+    @FunctionalInterface
+    public interface DataProviderFactory {
+
+        /**
+         * Creates a {@link DataProvider} for the given table.
+         *
+         * @param tableName  a table name.
+         * @param columns  a list of columns.
+         *
+         * @return  an instance of {@link DataProvider}.
+         */
+        DataProvider<Object[]> createDataProvider(String tableName, List<ColumnDescriptor> columns);
     }
 
     private abstract static class AbstractTableBuilderImpl<ChildT> implements TableBuilderBase<ChildT> {

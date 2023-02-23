@@ -5,6 +5,8 @@
 statement ok
 PRAGMA enable_verification
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18655
 statement error
 CREATE TABLE decimals_without_params(d DECIMAL);
 

@@ -25,8 +25,17 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.proto.ClientColumnTypeConverter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.table.ClientColumn;
+import org.apache.ignite.internal.client.table.ClientSchema;
+import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.lang.ErrorGroups.Client;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -34,12 +43,13 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client async result set.
  */
-class ClientAsyncResultSet implements AsyncResultSet {
+class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     /** Channel. */
     private final ClientChannel ch;
 
@@ -58,8 +68,16 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** Metadata. */
     private final ResultSetMetadata metadata;
 
+    /** Marshaller. Not null when object mapping is used. */
+    @Nullable
+    private final Marshaller marshaller;
+
+    /** Mapper. */
+    @Nullable
+    private final Mapper<T> mapper;
+
     /** Rows. */
-    private volatile List<SqlRow> rows;
+    private volatile List<T> rows;
 
     /** More pages flag. */
     private volatile boolean hasMorePages;
@@ -72,8 +90,9 @@ class ClientAsyncResultSet implements AsyncResultSet {
      *
      * @param ch Channel.
      * @param in Unpacker.
+     * @param mapper Mapper.
      */
-    public ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in) {
+    ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
         this.ch = ch;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
@@ -82,6 +101,11 @@ class ClientAsyncResultSet implements AsyncResultSet {
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
         metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
+
+        this.mapper = mapper;
+        marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
+                ? marshaller(metadata, mapper)
+                : null;
 
         if (hasRowSet) {
             readRows(in);
@@ -115,7 +139,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     @Override
-    public Iterable<SqlRow> currentPage() {
+    public Iterable<T> currentPage() {
         requireResultSet();
 
         return rows;
@@ -131,7 +155,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<? extends AsyncResultSet> fetchNextPage() {
+    public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
         if (closed) {
@@ -187,18 +211,35 @@ class ClientAsyncResultSet implements AsyncResultSet {
         int size = in.unpackArrayHeader();
         int rowSize = metadata.columns().size();
 
-        var res = new ArrayList<SqlRow>(size);
+        var res = new ArrayList<T>(size);
 
-        for (int i = 0; i < size; i++) {
-            var row = new ArrayList<>(rowSize);
-            var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
+        if (marshaller == null) {
+            for (int i = 0; i < size; i++) {
+                var row = new ArrayList<>(rowSize);
+                var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
 
-            for (int j = 0; j < rowSize; j++) {
-                var col = metadata.columns().get(j);
-                row.add(readValue(tupleReader, j, col));
+                for (int j = 0; j < rowSize; j++) {
+                    var col = metadata.columns().get(j);
+                    row.add(readValue(tupleReader, j, col));
+                }
+
+                res.add((T) new ClientSqlRow(row, metadata));
             }
+        } else {
+            try {
+                for (int i = 0; i < size; i++) {
+                    var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
+                    var reader = new ClientMarshallerReader(tupleReader);
 
-            res.add(new ClientSqlRow(row, metadata));
+                    res.add((T) marshaller.readObject(reader, null));
+                }
+            } catch (MarshallerException e) {
+                assert mapper != null;
+                throw new IgniteException(
+                        Client.CONFIGURATION_ERR,
+                        "Failed to map SQL result set to type '" + mapper.targetType() + "': " + e.getMessage(),
+                        e);
+            }
         }
 
         rows = Collections.unmodifiableList(res);
@@ -270,5 +311,29 @@ class ClientAsyncResultSet implements AsyncResultSet {
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + col.type());
         }
+    }
+
+    private static <T> Marshaller marshaller(ResultSetMetadata metadata, Mapper<T> mapper) {
+        var schemaColumns = new ClientColumn[metadata.columns().size()];
+        List<ColumnMetadata> columns = metadata.columns();
+
+        for (int i = 0; i < columns.size(); i++) {
+            ColumnMetadata metaColumn = columns.get(i);
+
+            var schemaColumn = new ClientColumn(
+                    metaColumn.name(),
+                    ClientColumnTypeConverter.columnTypeToOrdinal(metaColumn.type()),
+                    metaColumn.nullable(),
+                    true,
+                    false,
+                    i,
+                    metaColumn.scale(),
+                    metaColumn.precision());
+
+            schemaColumns[i] = schemaColumn;
+        }
+
+        var schema = new ClientSchema(0, schemaColumns);
+        return schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
     }
 }

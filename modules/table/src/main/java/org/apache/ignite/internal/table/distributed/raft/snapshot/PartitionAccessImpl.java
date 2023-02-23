@@ -22,13 +22,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -48,6 +49,8 @@ public class PartitionAccessImpl implements PartitionAccess {
     private final TxStateTableStorage txStateTableStorage;
 
     private final Supplier<Collection<TableSchemaAwareIndexStorage>> indexes;
+
+    private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
     /**
      * Constructor.
@@ -104,11 +107,13 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
-        return getMvPartitionStorage(partitionId()).committedGroupConfiguration();
+        byte[] configBytes = getMvPartitionStorage(partitionId()).committedGroupConfiguration();
+
+        return raftGroupConfigurationConverter.fromBytes(configBytes);
     }
 
     @Override
-    public void addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
+    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {
@@ -121,7 +126,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) {
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         mvPartitionStorage.runConsistently(() -> {
@@ -192,8 +197,10 @@ public class PartitionAccessImpl implements PartitionAccess {
     public CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
         TxStateStorage txStateStorage = getTxStateStorage(partitionId());
 
+        byte[] configBytes = raftGroupConfigurationConverter.toBytes(raftGroupConfig);
+
         return CompletableFuture.allOf(
-                mvTableStorage.finishRebalancePartition(partitionId(), lastAppliedIndex, lastAppliedTerm, raftGroupConfig),
+                mvTableStorage.finishRebalancePartition(partitionId(), lastAppliedIndex, lastAppliedTerm, configBytes),
                 txStateStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm)
         );
     }
@@ -214,11 +221,11 @@ public class PartitionAccessImpl implements PartitionAccess {
         return txStateStorage;
     }
 
-    private void addToIndexes(@Nullable TableRow tableRow, RowId rowId) {
-        if (tableRow == null) {
+    private void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
+        if (binaryRow == null) {
             return;
         }
 
-        indexes.get().forEach(index -> index.put(tableRow, rowId));
+        indexes.get().forEach(index -> index.put(binaryRow, rowId));
     }
 }

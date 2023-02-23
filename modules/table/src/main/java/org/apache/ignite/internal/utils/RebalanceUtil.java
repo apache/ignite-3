@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.utils;
 
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -41,12 +42,12 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -70,27 +71,39 @@ public class RebalanceUtil {
     /** Return code of metastore multi-invoke which identifies,
      * that planned key was removed, because current rebalance is already have the same target.
      */
-    private static final int PLANNED_KEY_REMOVED = 2;
+    private static final int PLANNED_KEY_REMOVED_EQUALS_PENDING = 2;
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that planned key was removed, because current assignment is empty.
+     */
+    private static final int PLANNED_KEY_REMOVED_EMPTY_PENDING = 3;
+
+    /** Return code of metastore multi-invoke which identifies,
+     * that assignments do not need to be updated.
+     */
+    private static final int ASSIGNMENT_NOT_UPDATED = 4;
 
     /** Return code of metastore multi-invoke which identifies,
      * that this trigger event was already processed by another node and must be skipped.
      */
-    private static final int OUTDATED_UPDATE_RECEIVED = 3;
+    private static final int OUTDATED_UPDATE_RECEIVED = 5;
 
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
      * @param tableName Table name.
      * @param partId Unique identifier of a partition.
-     * @param baselineNodes Nodes in baseline.
+     * @param dataNodes Data nodes.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
+     * @param partNum Partition id.
+     * @param tableCfgPartAssignments Table configuration assignments.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            String tableName, TablePartitionId partId, Collection<ClusterNode> baselineNodes,
-            int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
+            String tableName, TablePartitionId partId, Collection<String> dataNodes,
+            int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum, Set<Assignment> tableCfgPartAssignments) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
@@ -99,34 +112,61 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+        Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
+
+        boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
         byte[] partAssignmentsBytes = ByteUtils.toBytes(partAssignments);
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
-        //        if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
+        //        if empty(partition.assignments.pending)
+        //              && ((isNewAssignments && empty(partition.assignments.stable))
+        //                  || (partition.assignments.stable != calcPartAssighments() && !empty(partition.assignments.stable))):
         //            partition.assignments.pending = calcPartAssignments()
         //            partition.change.trigger.revision = event.revision
         //        else:
-        //            if partition.assignments.pending != calcPartAssignments
+        //            if partition.assignments.pending != calcPartAssignments && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
         //                partition.change.trigger.revision = event.revision
-        //            else
+        //            else if partition.assignments.pending == calcPartAssignments
         //                remove(partition.assignments.planned)
+        //                message after the metastorage invoke:
+        //                "Remove planned key because current pending key has the same value."
+        //            else if empty(partition.assignments.pending)
+        //                remove(partition.assignments.planned)
+        //                message after the metastorage invoke:
+        //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
         //        skip
+
+        Condition newAssignmentsCondition;
+
+        if (isNewAssignments) {
+            newAssignmentsCondition = or(
+                    notExists(partAssignmentsStableKey),
+                    and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey))
+            );
+        } else {
+            newAssignmentsCondition = and(value(partAssignmentsStableKey).ne(partAssignmentsBytes), exists(partAssignmentsStableKey));
+        }
+
         var iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
-                iif(and(notExists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
+                iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
                         ).yield(PENDING_KEY_UPDATED),
-                        iif(value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
+                        iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
                                         put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
                                 ).yield(PLANNED_KEY_UPDATED),
-                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED))),
+                                iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
+                                        ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING),
+                                        iif(notExists(partAssignmentsPendingKey),
+                                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING),
+                                                ops().yield(ASSIGNMENT_NOT_UPDATED))
+                                ))),
                 ops().yield(OUTDATED_UPDATE_RECEIVED));
 
         return metaStorageMgr.invoke(iif).thenAccept(sr -> {
@@ -144,9 +184,22 @@ public class RebalanceUtil {
                             partAssignmentsPlannedKey, partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
-                case PLANNED_KEY_REMOVED:
+                case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+
+                    break;
+                case PLANNED_KEY_REMOVED_EMPTY_PENDING:
+                    LOG.info(
+                            "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
+                                    + "[key={}, partition={}, table={}, val={}]",
+                            partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
+
+                    break;
+                case ASSIGNMENT_NOT_UPDATED:
+                    LOG.debug(
+                            "Assignments are not updated [key={}, partition={}, table={}, val={}]",
                             partAssignmentsPlannedKey.toString(), partNum, tableName, ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
@@ -341,14 +394,14 @@ public class RebalanceUtil {
      * If there is rebalancing in progress, then new assignments will be applied when rebalance finishes.
      *
      * @param metaStorageMgr MetaStorage manager.
-     * @param baselineNodes Baseline nodes.
+     * @param dataNodes Data nodes.
      * @param replicas Replicas count.
      * @param partNum Number of the partition.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<ClusterNode> baselineNodes,
+    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
             int replicas, int partNum, TablePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
@@ -359,7 +412,7 @@ public class RebalanceUtil {
             return CompletableFuture.completedFuture(null);
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(baselineNodes, partNum, replicas);
+        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

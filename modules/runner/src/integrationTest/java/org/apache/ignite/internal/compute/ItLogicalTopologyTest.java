@@ -17,43 +17,59 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.Cluster.NodeKnockout;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration tests for functionality of logical topology events subscription.
  */
 @SuppressWarnings("resource")
 class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
-    private final List<Event> events = new CopyOnWriteArrayList<>();
+    private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
         @Override
-        public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
-            events.add(new Event(true, appearedNode, newTopology.version()));
+        public void onNodeValidated(ClusterNode validatedNode) {
+            events.add(new Event(EventType.VALIDATED, validatedNode, -1));
         }
 
         @Override
-        public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
-            events.add(new Event(false, disappearedNode, newTopology.version()));
+        public void onNodeInvalidated(ClusterNode invalidatedNode) {
+            events.add(new Event(EventType.INVALIDATED, invalidatedNode, -1));
+        }
+
+        @Override
+        public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+            events.add(new Event(EventType.JOINED, joinedNode, newTopology.version()));
+        }
+
+        @Override
+        public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+            events.add(new Event(EventType.LEFT, leftNode, newTopology.version()));
         }
     };
 
@@ -64,7 +80,7 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return FAST_SWIM_NODE_BOOTSTRAP_CFG_TEMPLATE;
+        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
     @Test
@@ -76,28 +92,32 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
         // Checking that onAppeared() is received.
         Ignite secondIgnite = startNode(1);
 
-        assertTrue(waitForCondition(() -> !events.isEmpty(), 10_000));
+        Event event = events.poll(10, TimeUnit.SECONDS);
 
-        assertThat(events, hasSize(1));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.VALIDATED));
+        assertThat(event.node.name(), is(secondIgnite.name()));
 
-        Event firstEvent = events.get(0);
+        event = events.poll(10, TimeUnit.SECONDS);
 
-        assertTrue(firstEvent.appeared);
-        assertThat(firstEvent.node.name(), is(secondIgnite.name()));
-        assertThat(firstEvent.topologyVersion, is(2L));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.JOINED));
+        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.topologyVersion, is(2L));
+
+        assertThat(events, is(empty()));
 
         // Checking that onDisappeared() is received.
         stopNode(1);
 
-        assertTrue(waitForCondition(() -> events.size() > 1, 10_000));
+        event = events.poll(10, TimeUnit.SECONDS);
 
-        assertThat(events, hasSize(2));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.LEFT));
+        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.topologyVersion, is(3L));
 
-        Event secondEvent = events.get(1);
-
-        assertFalse(secondEvent.appeared);
-        assertThat(secondEvent.node.name(), is(secondIgnite.name()));
-        assertThat(secondEvent.topologyVersion, is(3L));
+        assertThat(events, is(empty()));
     }
 
     @Test
@@ -110,21 +130,27 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
         restartNode(1);
 
-        waitForCondition(() -> events.size() >= 2, 10_000);
+        Event event = events.poll(10, TimeUnit.SECONDS);
 
-        assertThat(events, hasSize(2));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.LEFT));
+        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.topologyVersion, is(3L));
 
-        Event leaveEvent = events.get(0);
+        event = events.poll(10, TimeUnit.SECONDS);
 
-        assertFalse(leaveEvent.appeared);
-        assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
-        assertThat(leaveEvent.topologyVersion, is(3L));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.VALIDATED));
+        assertThat(event.node.name(), is(secondIgnite.name()));
 
-        Event joinEvent = events.get(1);
+        event = events.poll(10, TimeUnit.SECONDS);
 
-        assertTrue(joinEvent.appeared);
-        assertThat(joinEvent.node.name(), is(secondIgnite.name()));
-        assertThat(joinEvent.topologyVersion, is(4L));
+        assertThat(event, is(notNullValue()));
+        assertThat(event.eventType, is(EventType.JOINED));
+        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.topologyVersion, is(4L));
+
+        assertThat(events, is(empty()));
     }
 
     @Test
@@ -139,11 +165,10 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
         entryNode.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onAppeared(ClusterNode appearedNode, LogicalTopologySnapshot newTopology) {
-                if (appearedNode.name().equals(secondIgnite.name())) {
+            public void onNodeJoined(ClusterNode joinedNode, LogicalTopologySnapshot newTopology) {
+                if (joinedNode.name().equals(secondIgnite.name())) {
                     secondIgniteAppeared.countDown();
                 }
-
             }
         });
 
@@ -157,8 +182,8 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
 
         firstIgnite.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
             @Override
-            public void onDisappeared(ClusterNode disappearedNode, LogicalTopologySnapshot newTopology) {
-                if (disappearedNode.name().equals(secondIgnite.name())) {
+            public void onNodeLeft(ClusterNode leftNode, LogicalTopologySnapshot newTopology) {
+                if (leftNode.name().equals(secondIgnite.name())) {
                     secondIgniteDisappeared.countDown();
                 }
             }
@@ -170,13 +195,85 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
         assertTrue(secondIgniteDisappeared.await(10, TimeUnit.SECONDS), "Did not see second node leaving in time");
     }
 
+    @Test
+    void nodeDoesNotLeaveLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        setInfiniteClusterFailoverTimeout(entryNode);
+
+        startNode(1);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        // Knock the node out without allowing it to say good bye.
+        cluster.knockOutNode(1, NodeKnockout.PARTITION_NETWORK);
+
+        // 1 second is usually insufficient on my machine to get an event, even if it's produced. On the CI we
+        // should probably account for spurious delays due to other processes, hence 2 seconds.
+        Event event = events.poll(2, TimeUnit.SECONDS);
+
+        assertThat(event, is(nullValue()));
+    }
+
+    @Test
+    void nodeThatCouldNotJoinShouldBeInvalidated(TestInfo testInfo) throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        entryNode.logicalTopologyService().addEventListener(listener);
+
+        // Disable messaging to the second node as soon as it is validated. This will emulate a situation when a node leaves after
+        // validation, but before joining the cluster.
+        entryNode.logicalTopologyService().addEventListener(new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeValidated(ClusterNode validatedNode) {
+                entryNode.dropMessages((recipientConsistentId, message) -> validatedNode.name().equals(recipientConsistentId));
+            }
+        });
+
+        // Disable the failover timeout so that the CMG Raft group is immediately notified of a node leaving Physical Topology.
+        setZeroClusterFailoverTimeout(entryNode);
+
+        cluster.startClusterNode(1);
+
+        try {
+            Event event = events.poll(10, TimeUnit.SECONDS);
+
+            assertThat(event, is(notNullValue()));
+            assertThat(event.eventType, is(EventType.VALIDATED));
+            assertThat(event.node.name(), is(not(entryNode.name())));
+
+            event = events.poll(10, TimeUnit.SECONDS);
+
+            assertThat(event, is(notNullValue()));
+            assertThat(event.eventType, is(EventType.INVALIDATED));
+            assertThat(event.node.name(), is(not(entryNode.name())));
+        } finally {
+            // Stop the second node manually, because it couldn't start successfully.
+            IgnitionManager.stop(testNodeName(testInfo, 1));
+        }
+    }
+
+    private static void setInfiniteClusterFailoverTimeout(IgniteImpl node) throws Exception {
+        node.nodeConfiguration().getConfiguration(ClusterManagementConfiguration.KEY)
+                .failoverTimeout()
+                .update(Long.MAX_VALUE)
+                .get(10, TimeUnit.SECONDS);
+    }
+
+    private static void setZeroClusterFailoverTimeout(IgniteImpl node) throws Exception {
+        node.nodeConfiguration().getConfiguration(ClusterManagementConfiguration.KEY)
+                .failoverTimeout()
+                .update(0L)
+                .get(10, TimeUnit.SECONDS);
+    }
+
     private static class Event {
-        private final boolean appeared;
+        private final EventType eventType;
         private final ClusterNode node;
         private final long topologyVersion;
 
-        private Event(boolean appeared, ClusterNode node, long topologyVersion) {
-            this.appeared = appeared;
+        private Event(EventType eventType, ClusterNode node, long topologyVersion) {
+            this.eventType = eventType;
             this.node = node;
             this.topologyVersion = topologyVersion;
         }
@@ -185,5 +282,9 @@ class ItLogicalTopologyTest extends AbstractClusterIntegrationTest {
         public String toString() {
             return S.toString(this);
         }
+    }
+
+    private enum EventType {
+        JOINED, LEFT, VALIDATED, INVALIDATED
     }
 }

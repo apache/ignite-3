@@ -18,18 +18,13 @@
 package org.apache.ignite.internal.cluster.management;
 
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -62,6 +57,10 @@ public class MockNode {
 
     private final Path workDir;
 
+    private final RaftConfiguration raftConfiguration;
+
+    private final ClusterManagementConfiguration cmgConfiguration;
+
     private final List<IgniteComponent> components = new ArrayList<>();
 
     private CompletableFuture<Void> startFuture;
@@ -69,12 +68,25 @@ public class MockNode {
     /**
      * Fake node constructor.
      */
-    public MockNode(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) throws IOException {
+    public MockNode(
+            TestInfo testInfo,
+            NetworkAddress addr,
+            NodeFinder nodeFinder,
+            Path workDir,
+            RaftConfiguration raftConfiguration,
+            ClusterManagementConfiguration cmgConfiguration
+    ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
         this.workDir = workDir;
+        this.raftConfiguration = raftConfiguration;
+        this.cmgConfiguration = cmgConfiguration;
 
-        init(addr.port());
+        try {
+            init(addr.port());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void init(int port) throws IOException {
@@ -83,27 +95,6 @@ public class MockNode {
         var vaultManager = new VaultManager(new PersistentVaultService(Files.createDirectories(vaultDir)));
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
-
-        RaftConfiguration raftConfiguration = mock(RaftConfiguration.class);
-        ConfigurationValue<Integer> rpcInstallSnapshotTimeoutValue = mock(ConfigurationValue.class);
-
-        when(raftConfiguration.rpcInstallSnapshotTimeout()).thenReturn(rpcInstallSnapshotTimeoutValue);
-        when(rpcInstallSnapshotTimeoutValue.value()).thenReturn(10);
-
-        ClusterManagementConfiguration clusterManagementConfiguration = mock(ClusterManagementConfiguration.class);
-        ConfigurationValue<Long> failoverTimeoutValue = mock(ConfigurationValue.class);
-        ConfigurationValue<Long> networkInvokeTimeoutValue = mock(ConfigurationValue.class);
-        ConfigurationValue<Long> incompleteJoinTimeoutValue = mock(ConfigurationValue.class);
-
-        when(clusterManagementConfiguration.failoverTimeout())
-                .thenReturn(failoverTimeoutValue);
-        when(failoverTimeoutValue.value()).thenReturn(0L);
-
-        when(clusterManagementConfiguration.networkInvokeTimeout()).thenReturn(networkInvokeTimeoutValue);
-        when(networkInvokeTimeoutValue.value()).thenReturn(500L);
-
-        when(clusterManagementConfiguration.incompleteJoinTimeout()).thenReturn(incompleteJoinTimeoutValue);
-        when(incompleteJoinTimeoutValue.value()).thenReturn(TimeUnit.HOURS.toMillis(1));
 
         Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
@@ -117,7 +108,7 @@ public class MockNode {
                 raftManager,
                 clusterStateStorage,
                 logicalTopologyService,
-                clusterManagementConfiguration
+                cmgConfiguration
         );
 
         components.add(vaultManager);
@@ -203,7 +194,11 @@ public class MockNode {
         return clusterService;
     }
 
-    CompletableFuture<Collection<ClusterNode>> logicalTopologyNodes() {
+    CompletableFuture<Set<ClusterNode>> logicalTopologyNodes() {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
+    }
+
+    CompletableFuture<Set<ClusterNode>> validatedNodes() {
+        return clusterManager().validatedNodes();
     }
 }

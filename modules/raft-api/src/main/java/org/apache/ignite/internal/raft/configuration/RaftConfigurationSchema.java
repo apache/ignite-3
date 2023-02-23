@@ -41,4 +41,22 @@ public class RaftConfigurationSchema {
     // TODO: IGNITE-16647 - Volatile RAFT configuration should be moved elsewhere
     @ConfigValue
     public VolatileRaftConfigurationSchema volatileRaft;
+
+    /**
+     * Timeout value (in milliseconds) for which the Raft client will try to receive a successful response from a remote peer.
+     */
+    @Value(hasDefault = true)
+    public long retryTimeout = 10_000;
+
+    /**
+     * Delay (in milliseconds) used by the Raft client between re-sending a failed request.
+     */
+    @Value(hasDefault = true)
+    public long retryDelay = 200;
+
+    /**
+     * Timeout value (in milliseconds) for which the Raft client will try to receive a response from a remote peer.
+     */
+    @Value(hasDefault = true)
+    public long responseTimeout = 3_000;
 }

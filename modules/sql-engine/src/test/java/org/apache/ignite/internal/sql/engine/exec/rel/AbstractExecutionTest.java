@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -43,12 +40,12 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -64,9 +61,8 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     public static final Object[][] EMPTY = new Object[0][];
 
     private Throwable lastE;
-    private List<UUID> nodes;
 
-    protected QueryTaskExecutorImpl taskExecutor;
+    private QueryTaskExecutorImpl taskExecutor;
 
     @BeforeEach
     public void beforeTest() {
@@ -101,13 +97,11 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
-        FragmentDescription fragmentDesc = new FragmentDescription(0, null, null, Long2ObjectMaps.emptyMap());
-
-        InternalTransaction tx = mock(InternalTransaction.class);
-        when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
+        FragmentDescription fragmentDesc = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
 
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
+                        .transaction(new LocalTxAttributesHolder(UUID.randomUUID(), null))
                         .logger(log)
                         .build(),
                 taskExecutor,
@@ -116,8 +110,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 "fake-test-node",
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
-                Map.of(),
-                tx
+                Map.of()
         );
     }
 

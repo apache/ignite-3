@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.benchmarks;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 
 import java.util.Random;
@@ -107,7 +108,7 @@ public class TupleMarshallerFixlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schema) {
+        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schema) {
             @Override
             public SchemaDescriptor schema() {
                 return schema;

@@ -48,7 +48,6 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-storage-page-memory')
-    testImplementation project(':ignite-storage-rocksdb')
     testImplementation project(':ignite-network')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-raft')
@@ -59,6 +58,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
+    testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit
@@ -80,6 +80,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
     testFixturesImplementation(testFixtures(project(':ignite-transactions')))
+    testFixturesImplementation(testFixtures(project(':ignite-cluster-management')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -88,6 +89,7 @@ dependencies {
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
@@ -96,6 +98,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-raft')))
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
+    integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
     integrationTestImplementation libs.fastutil.core
 }
 

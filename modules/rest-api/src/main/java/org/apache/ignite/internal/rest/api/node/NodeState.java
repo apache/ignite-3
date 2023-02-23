@@ -20,14 +20,18 @@ package org.apache.ignite.internal.rest.api.node;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * Node state that is returned by REST.
  */
+@Schema(description = "Node state.")
 public class NodeState {
 
+    @Schema(description = "Unique node name.")
     private String name;
 
+    @Schema(description = "Node status.")
     private State state;
 
     @JsonCreator

@@ -74,8 +74,7 @@ public:
     template<typename T>
     void with_latest_schema_async(
         ignite_callback<T> handler, std::function<void(const schema &, ignite_callback<T>)> callback) {
-        get_latest_schema_async([this, handler = std::move(handler), callback = std::move(callback)](
-                                    ignite_result<std::shared_ptr<schema>> &&res) mutable {
+        auto func = [this, handler = std::move(handler), callback = std::move(callback)](auto &&res) mutable {
             if (res.has_error()) {
                 handler(ignite_error{res.error()});
                 return;
@@ -87,8 +86,10 @@ public:
                 return;
             }
 
-            callback(*schema, std::move(handler));
-        });
+            callback(*schema, handler);
+        };
+
+        get_latest_schema_async(std::move(func));
     }
 
     /**
@@ -102,12 +103,22 @@ public:
     void get_async(transaction *tx, const ignite_tuple &key, ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
+     * Asynchronously determines if the table contains an entry for the specified key.
+     *
+     * @param tx Optional transaction. If nullptr implicit transaction for this
+     *  single operation is used.
+     * @param key Key.
+     * @param callback Callback.
+     */
+    void contains_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback);
+
+    /**
      * Gets multiple records by keys asynchronously.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param keys Keys.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   resulting records with all columns filled from the table. The order of
      *   elements is guaranteed to be the same as the order of keys. If a record
      *   does not exist, the resulting element of the corresponding order is
@@ -132,7 +143,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param records Records to upsert.
-     * @param callback Callback that called on operation completion.
+     * @param callback Callback that is called on operation completion.
      */
     void upsert_all_async(transaction *tx, std::vector<ignite_tuple> records, ignite_callback<void> callback);
 
@@ -167,7 +178,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param records Records to upsert.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   skipped records.
      */
     void insert_all_async(
@@ -218,7 +229,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param key A record with key columns set..
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
     void remove_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback);
@@ -230,7 +241,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param record A record with all columns set.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
     void remove_exact_async(transaction *tx, const ignite_tuple &record, ignite_callback<bool> callback);
@@ -241,7 +252,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param key A record with key columns set.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   a deleted record or @c std::nullopt if it did not exist.
      */
     void get_and_remove_async(
@@ -254,7 +265,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param keys Record keys to delete.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   records from @c keys that did not exist.
      */
     void remove_all_async(
@@ -267,7 +278,7 @@ public:
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
      * @param records Records to delete.
-     * @param callback Callback that called on operation completion. Called with
+     * @param callback Callback that is called on operation completion. Called with
      *   records from @c records that did not exist.
      */
     void remove_all_exact_async(

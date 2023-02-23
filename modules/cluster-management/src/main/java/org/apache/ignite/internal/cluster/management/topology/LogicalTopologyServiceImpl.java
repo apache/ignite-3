@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * {@link LogicalTopologyService} implementation.
@@ -49,5 +51,10 @@ public class LogicalTopologyServiceImpl implements LogicalTopologyService {
     @Override
     public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
         return clusterManagementGroupManager.logicalTopology();
+    }
+
+    @Override
+    public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+        return clusterManagementGroupManager.validatedNodes();
     }
 }

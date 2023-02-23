@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/primitive.h"
+#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
 #include "ignite/schema/binary_tuple_builder.h"
 #include "ignite/schema/binary_tuple_parser.h"
@@ -46,17 +47,28 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
  *
  * @param parser Binary tuple parser.
  * @param typ Column type.
+ * @param scale Column scale.
  * @return Column value.
  */
-[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ);
+[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale);
 
 /**
  * Read column value from binary tuple.
  *
  * @param parser Binary tuple parser.
  * @param typ Column type.
+ * @param scale Column scale.
  * @return Column value.
  */
-[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, column_type typ);
+[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, column_type typ, std::int32_t scale);
+
+/**
+ * Tuple concatenation function.
+ *
+ * @param left Left hand value.
+ * @param right Right hand value.
+ * @return Resulting tuple.
+ */
+[[nodiscard]] ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right);
 
 } // namespace ignite::detail

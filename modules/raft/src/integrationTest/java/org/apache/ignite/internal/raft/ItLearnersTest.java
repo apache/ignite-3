@@ -387,33 +387,26 @@ public class ItLearnersTest extends IgniteAbstractTest {
         );
     }
 
-    private List<Peer> nodesToPeers(PeersAndLearners configuration, Collection<RaftNode> peers, Collection<RaftNode> learners) {
+    private List<Peer> nodesToPeers(PeersAndLearners memberConfiguration, Collection<RaftNode> peers, Collection<RaftNode> learners) {
         return Stream.concat(
-                peers.stream().map(peer -> configuration.peer(peer.consistentId())),
-                learners.stream().map(learner -> configuration.learner(learner.consistentId()))
+                peers.stream().map(peer -> memberConfiguration.peer(peer.consistentId())),
+                learners.stream().map(learner -> memberConfiguration.learner(learner.consistentId()))
         ).collect(toList());
     }
 
     private CompletableFuture<RaftGroupService> startRaftGroup(
             RaftNode node,
             Peer serverPeer,
-            PeersAndLearners configuration,
+            PeersAndLearners memberConfiguration,
             RaftGroupListener listener
     ) {
         try {
-            CompletableFuture<RaftGroupService> future = node.loza.startRaftGroupNode(
+            return node.loza.startRaftGroupNode(
                     new RaftNodeId(RAFT_GROUP_ID, serverPeer),
-                    configuration,
+                    memberConfiguration,
                     listener,
                     RaftGroupEventsListener.noopLsnr
             );
-
-            return future.thenApply(s -> {
-                // Decrease the default timeout to make tests faster.
-                s.timeout(100);
-
-                return s;
-            });
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }

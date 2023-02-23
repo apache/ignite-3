@@ -42,6 +42,7 @@ import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -307,7 +308,7 @@ public class NamedListNodeTest {
     /** Tests exceptions described in methods signatures. */
     @Test
     public void errors() throws Exception {
-        var b = new NamedListNode<>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var b = new NamedListNode<>("name", NamedListNodeTest::instantiateChildNode, null);
 
         b.create("X", x -> {
         }).create("Y", y -> {
@@ -364,7 +365,7 @@ public class NamedListNodeTest {
      */
     @Test
     public void testUpdate() {
-        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var list = new NamedListNode<SecondChange>("name", NamedListNodeTest::instantiateChildNode, null);
 
         list.create("foo", ch -> ch.changeStr("bar"));
 
@@ -382,7 +383,7 @@ public class NamedListNodeTest {
 
     @Test
     public void testUpdateErrors() {
-        var list = new NamedListNode<SecondChange>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var list = new NamedListNode<SecondChange>("name", NamedListNodeTest::instantiateChildNode, null);
 
         assertThrows(NullPointerException.class, () -> list.update(null, ch -> {}));
         assertThrows(NullPointerException.class, () -> list.update("foo", null));
@@ -393,7 +394,7 @@ public class NamedListNodeTest {
 
     @Test
     void testCreateAfterErrors() {
-        var list = new NamedListNode<>("name", () -> cgen.instantiateNode(SecondConfigurationSchema.class), null);
+        var list = new NamedListNode<>("name", NamedListNodeTest::instantiateChildNode, null);
 
         list
                 .create("X", x -> {})
@@ -413,5 +414,33 @@ public class NamedListNodeTest {
 
         // inserting after a removed key should throw
         assertThrows(IllegalArgumentException.class, () -> list.delete("X").createAfter("X", "foo", foo -> {}));
+    }
+
+    @Test
+    public void makeImmutable() {
+        var list = new NamedListNode<>("name", NamedListNodeTest::instantiateChildNode, null);
+
+        list.makeImmutable();
+
+        assertThrows(AssertionError.class, () -> list.construct("elem", ConfigurationUtil.EMPTY_CFG_SRC, true));
+
+        assertThrows(AssertionError.class, () -> list.setInternalId("elem", UUID.randomUUID()));
+
+        assertThrows(AssertionError.class, () -> list.reorderKeys(List.of()));
+
+        assertThrows(AssertionError.class, () -> list.create("elem", elem -> {}));
+        assertThrows(AssertionError.class, () -> list.create(0, "elem", elem -> {}));
+        assertThrows(AssertionError.class, () -> list.createAfter("foo", "elem", elem -> {}));
+        assertThrows(AssertionError.class, () -> list.createOrUpdate("elem", elem -> {}));
+
+        assertThrows(AssertionError.class, () -> list.delete("elem"));
+        assertThrows(AssertionError.class, () -> list.forceDelete("elem"));
+
+        // Copy is always mutable.
+        list.copy().create("elem", elem -> {});
+    }
+
+    private static InnerNode instantiateChildNode() {
+        return cgen.instantiateNode(SecondConfigurationSchema.class);
     }
 }

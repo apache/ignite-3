@@ -65,6 +65,7 @@ import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
@@ -147,7 +148,38 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         private StorageRoots(SuperRoot roots, long version) {
             this.roots = roots;
             this.version = version;
+
+            makeImmutable(roots);
         }
+    }
+
+    /**
+     * Makes the node immutable by calling {@link ConstructableTreeNode#makeImmutable()} on each sub-node recursively.
+     */
+    private static void makeImmutable(InnerNode node) {
+        if (!node.makeImmutable()) {
+            return;
+        }
+
+        node.traverseChildren(new ConfigurationVisitor<>() {
+            @Override
+            public @Nullable Object visitInnerNode(String key, InnerNode node) {
+                makeImmutable(node);
+
+                return null;
+            }
+
+            @Override
+            public @Nullable Object visitNamedListNode(String key, NamedListNode<?> node) {
+                if (node.makeImmutable()) {
+                    for (String namedListKey : node.namedListKeys()) {
+                        makeImmutable(node.getInnerNode(namedListKey));
+                    }
+                }
+
+                return null;
+            }
+        }, true);
     }
 
     /**

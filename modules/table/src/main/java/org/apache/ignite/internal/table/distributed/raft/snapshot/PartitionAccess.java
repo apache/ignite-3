@@ -20,14 +20,14 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -97,7 +97,7 @@ public interface PartitionAccess {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId);
+    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
@@ -109,7 +109,7 @@ public interface PartitionAccess {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data.
      */
-    void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp);
+    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp);
 
     /**
      * Returns the minimum applied index of the partition storages.
@@ -146,8 +146,8 @@ public interface PartitionAccess {
      *         <li>{@link #maxLastAppliedTerm()};</li>
      *         <li>{@link #committedGroupConfiguration()};</li>
      *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
-     *         <li>{@link #addWrite(RowId, TableRow, UUID, UUID, int)};</li>
-     *         <li>{@link #addWriteCommitted(RowId, TableRow, HybridTimestamp)}.</li>
+     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, UUID, int)};</li>
+     *         <li>{@link #addWriteCommitted(RowId, BinaryRow, HybridTimestamp)}.</li>
      *     </ul></li>
      * </ul>
      *

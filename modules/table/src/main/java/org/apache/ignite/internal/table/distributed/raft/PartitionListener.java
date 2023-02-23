@@ -45,7 +45,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -197,8 +196,13 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         TxMeta txMeta = txStateStorage.get(cmd.txId());
+
         if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.lastApplied(commandIndex, commandTerm);
+            storage.runConsistently(() -> {
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return null;
+            });
 
             return;
         }
@@ -227,9 +231,11 @@ public class PartitionListener implements RaftGroupListener {
 
         TxMeta txMeta = txStateStorage.get(cmd.txId());
         if (txMeta != null && (txMeta.txState() == COMMITED || txMeta.txState() == ABORTED)) {
-            storage.lastApplied(commandIndex, commandTerm);
+            storage.runConsistently(() -> {
+                storage.lastApplied(commandIndex, commandTerm);
 
-            return;
+                return null;
+            });
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
@@ -313,23 +319,28 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storage.runConsistently(() -> {
-            UUID txId = cmd.txId();
+        UUID txId = cmd.txId();
 
-            Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
+        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, Collections.emptySet());
 
-            if (cmd.commit()) {
+        if (cmd.commit()) {
+            storage.runConsistently(() -> {
                 pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp().asHybridTimestamp()));
-            } else {
-                pendingRowIds.forEach(storage::abortWrite);
-            }
 
-            txsPendingRowIds.remove(txId);
+                txsPendingRowIds.remove(txId);
 
-            storage.lastApplied(commandIndex, commandTerm);
+                storage.lastApplied(commandIndex, commandTerm);
 
-            return null;
-        });
+                return null;
+            });
+        } else {
+            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
+                // on replication callback
+                txsPendingRowIds.remove(txId);
+
+                storage.lastApplied(commandIndex, commandTerm);
+            });
+        }
     }
 
     /**
@@ -416,12 +427,6 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
-        // TODO: IGNITE-17958 - probably, we should not close the storage here as PartitionListener did not create the storage.
-        try {
-            storage.close();
-        } catch (RuntimeException e) {
-            throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
-        }
     }
 
     /**

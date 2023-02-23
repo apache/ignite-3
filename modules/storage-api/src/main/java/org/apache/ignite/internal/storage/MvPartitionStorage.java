@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -101,20 +101,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long persistedIndex();
 
     /**
-     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
+     * Byte representation of the committed replication protocol group configuration corresponding to the write command with the highest
+     * index applied to the storage.
      * {@code null} if it was never saved.
      */
-    @Nullable
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    RaftGroupConfiguration committedGroupConfiguration();
+    byte @Nullable [] committedGroupConfiguration();
 
     /**
      * Updates RAFT group configuration.
      *
-     * @param config Configuration to save.
+     * @param config Byte representation of the configuration to save.
      */
-    // TODO: IGNITE-18408 - store bytes in the storage, not a configuration object
-    void committedGroupConfiguration(RaftGroupConfiguration config);
+    void committedGroupConfiguration(byte[] config);
 
     /**
      * Reads the value from the storage as it was at the given timestamp.
@@ -145,7 +143,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
      *
      * @param rowId Row id.
-     * @param row Table row to update. Key only row means value removal.
+     * @param row Table row to update. {@code null} means value removal.
      * @param txId Transaction id.
      * @param commitTableId Commit table id.
      * @param commitPartitionId Commit partitionId.
@@ -154,7 +152,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable TableRow addWrite(RowId rowId, @Nullable TableRow row, UUID txId, UUID commitTableId, int commitPartitionId)
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, UUID commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
     /**
@@ -164,7 +162,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable TableRow abortWrite(RowId rowId) throws StorageException;
+    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
@@ -187,7 +185,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, @Nullable TableRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
 
     /**
      * Scans all versions of a single row.
@@ -222,11 +220,13 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Polls the oldest row in the partition, removing it at the same time.
      *
-     * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
+     * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
+     *      can be removed.
      * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
      *      {@code null} if there's no such value.
+     * @throws StorageException If failed to poll element for vacuum.
      */
-    default @Nullable TableRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
+    default @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark) {
         throw new UnsupportedOperationException("pollForVacuum");
     }
 

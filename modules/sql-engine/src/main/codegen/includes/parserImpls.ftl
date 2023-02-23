@@ -80,6 +80,18 @@ SqlDataTypeSpec IntervalType() :
     }
 }
 
+SqlTypeNameSpec SqlParseUuidType(Span s) :
+{
+    final SqlIdentifier typeName;
+}
+{
+    <UUID> { s = span(); typeName = new SqlIdentifier(UuidType.NAME, s.pos()); }
+    {
+        return new IgniteSqlTypeNameSpec(typeName, s.end(this));
+    }
+}
+
+
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;

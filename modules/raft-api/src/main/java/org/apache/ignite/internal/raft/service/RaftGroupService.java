@@ -24,6 +24,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
@@ -38,10 +39,10 @@ import org.jetbrains.annotations.TestOnly;
  * <p>If a leader has been changed while the operation in progress, the operation will be transparently retried until timeout is reached.
  * The current leader will be refreshed automatically (maybe several times) in the process.
  *
- * <p>Each asynchronous method (returning a future) uses a default timeout to finish, see {@link #timeout()}. If a result is not available
- * within the timeout, the future will be completed with a {@link TimeoutException}
+ * <p>Each asynchronous method (returning a future) uses a default timeout to finish, see {@link RaftConfiguration#retryTimeout()}.
+ * If a result is not available within the timeout, the future will be completed with a {@link TimeoutException}
  *
- * <p>If an error is occured during operation execution, the future will be completed with the corresponding IgniteException having an
+ * <p>If an error is occurred during operation execution, the future will be completed with the corresponding IgniteException having an
  * error code and a related message.
  *
  * <p>All async operations provided by the service are not cancellable.
@@ -51,18 +52,6 @@ public interface RaftGroupService {
      * Returns group id.
      */
     ReplicationGroupId groupId();
-
-    /**
-     * Returns default timeout for the operations in milliseconds.
-     */
-    long timeout();
-
-    /**
-     * Changes default timeout value for all subsequent operations.
-     *
-     * @param newTimeout New timeout value.
-     */
-    void timeout(long newTimeout);
 
     /**
      * Returns current leader id or {@code null} if it has not been yet initialized.
@@ -192,10 +181,10 @@ public interface RaftGroupService {
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param learners List of learners.
+     * @param learners Collection of learners.
      * @return A future.
      */
-    CompletableFuture<Void> removeLearners(List<Peer> learners);
+    CompletableFuture<Void> removeLearners(Collection<Peer> learners);
 
     /**
      * Set learners of the raft group to needed list of learners.
@@ -205,10 +194,10 @@ public interface RaftGroupService {
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param learners List of learners.
+     * @param learners Collection of learners.
      * @return A future.
      */
-    CompletableFuture<Void> resetLearners(List<Peer> learners);
+    CompletableFuture<Void> resetLearners(Collection<Peer> learners);
 
     /**
      * Takes a state machine snapshot on a given group peer.

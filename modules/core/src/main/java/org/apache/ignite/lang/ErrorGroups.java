@@ -39,6 +39,9 @@ public class ErrorGroups {
         /** Illegal argument or argument in a wrong format has been passed. */
         public static final int ILLEGAL_ARGUMENT_ERR = COMMON_ERR_GROUP.registerErrorCode(4);
 
+        /** SSL can not be configured error. */
+        public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode(5);
+
         /** Unknown error. */
         @Deprecated
         public static final int UNKNOWN_ERR = COMMON_ERR_GROUP.registerErrorCode(0xFFFF);
@@ -93,6 +96,9 @@ public class ErrorGroups {
 
         /** Cluster ID mismatch error. */
         public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode(8);
+
+        /** Client SSL configuration error. */
+        public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode(9);
     }
 
     /** SQL error group. */
@@ -358,5 +364,30 @@ public class ErrorGroups {
 
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode(1);
+    }
+
+    /**
+     * Node configuration error group.
+     */
+    public static class NodeConfiguration {
+        /**
+         * Node configuration error group.
+         */
+        public static final ErrorGroup NODE_CONFIGURATION_ERR_GROUP = ErrorGroup.newGroup("NODECFG", 12);
+
+        /**
+         * Config read error.
+         */
+        public static final int CONFIG_READ_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(1);
+
+        /**
+         * Config file creation error.
+         */
+        public static final int CONFIG_FILE_CREATE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(2);
+
+        /**
+         * Config write error.
+         */
+        public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
     }
 }

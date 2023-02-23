@@ -26,21 +26,30 @@ import org.apache.ignite.network.NodeMetadata;
 /**
  * REST representation of {@link NodeMetadata}.
  */
-@Schema(name = "NodeMetadata")
+@Schema(name = "NodeMetadata", description = "Node metadata information.")
 public class NodeMetadataDto {
+    @Schema(description = "The host exposed to REST API.")
     private final String restHost;
-    private final int restPort;
+    @Schema(description = "The HTTP port exposed to REST API.")
+    private final int httpPort;
+    @Schema(description = "The HTTPS port exposed to REST API.")
+    private final int httpsPort;
 
     /**
      * Constructor.
      *
      * @param restHost REST host of a node.
-     * @param restPort REST port of a node.
+     * @param httpPort HTTP port of a node.
+     * @param httpsPort HTTPS port of a node.
      */
     @JsonCreator
-    public NodeMetadataDto(@JsonProperty("restHost") String restHost, @JsonProperty("restPort") int restPort) {
+    public NodeMetadataDto(
+            @JsonProperty("restHost") String restHost,
+            @JsonProperty("httpPort") int httpPort,
+            @JsonProperty("httpsPort") int httpsPort) {
         this.restHost = restHost;
-        this.restPort = restPort;
+        this.httpPort = httpPort;
+        this.httpsPort = httpsPort;
     }
 
     /**
@@ -54,12 +63,22 @@ public class NodeMetadataDto {
     }
 
     /**
-     * Returns this node's REST port.
+     * Returns this node's HTTP port.
      *
-     * @return REST port.
+     * @return HTTP port.
      */
-    @JsonGetter("restPort")
-    public int restPort() {
-        return restPort;
+    @JsonGetter("httpPort")
+    public int httpPort() {
+        return httpPort;
+    }
+
+    /**
+     * Returns this node's HTTPS port.
+     *
+     * @return HTTPS port.
+     */
+    @JsonGetter("httpsPort")
+    public int httpsPort() {
+        return httpsPort;
     }
 }

@@ -20,8 +20,8 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,12 +36,10 @@ import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -58,9 +56,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Command;
@@ -257,11 +253,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
             GetCommand getCommand = commandsFactory.getCommand().key(key.bytes()).build();
 
-            return metaStorageService.run(getCommand).thenApply(bi -> {
-                SingleEntryResponse resp = (SingleEntryResponse) bi;
-
-                return new EntryImpl(resp.key(), resp.value(), resp.revision(), resp.updateCounter());
-            });
+            return metaStorageService.run(getCommand);
         }).when(metaStorageManager).get(any());
 
         return distributionZoneManager;
@@ -292,7 +284,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertLogicalTopVer(1L);
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
     }
 
     @Test
@@ -311,7 +303,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertLogicalTopVer(2L);
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
     }
 
     @Test
@@ -330,7 +322,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertLogicalTopVer(2L);
 
-        assertLogicalTopology(null);
+        assertLogicalTopology(null, keyValueStorage);
     }
 
     @Test
@@ -349,7 +341,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertLogicalTopVer(3L);
 
-        assertLogicalTopology(null);
+        assertLogicalTopology(null, keyValueStorage);
     }
 
     @Test
@@ -372,7 +364,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         var clusterNodes2 = Set.of(node1, node2);
 
-        assertLogicalTopology(clusterNodes2);
+        assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         assertLogicalTopVer(2L);
     }
@@ -399,7 +391,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         assertEquals(2L, topology.getLogicalTopology().version());
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
 
         assertLogicalTopVer(4L);
     }
@@ -422,13 +414,13 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
 
         topology.removeNodes(Set.of(node2));
 
         var clusterNodes2 = Set.of(node1);
 
-        assertLogicalTopology(clusterNodes2);
+        assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         assertLogicalTopVer(3L);
     }
@@ -457,7 +449,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         topology.removeNodes(Set.of(node2));
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
 
         assertLogicalTopVer(4L);
     }
@@ -478,7 +470,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
 
         var clusterNodes2 = Set.of(node1, node2);
 
@@ -486,7 +478,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         topology.fireTopologyLeap();
 
-        assertLogicalTopology(clusterNodes2);
+        assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         assertLogicalTopVer(10L);
     }
@@ -507,7 +499,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         distributionZoneManager1.start();
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
 
         var clusterNodes2 = Set.of(node1, node2);
 
@@ -517,7 +509,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
 
         topology.fireTopologyLeap();
 
-        assertLogicalTopology(clusterNodes);
+        assertLogicalTopology(clusterNodes, keyValueStorage);
 
         assertLogicalTopVer(11L);
     }
@@ -536,13 +528,5 @@ public class DistributionZoneManagerLogicalTopologyEventsTest {
                         () -> ByteUtils.bytesToLong(keyValueStorage.get(zonesLogicalTopologyVersionKey().bytes()).value()) == topVer, 1000
                 )
         );
-    }
-
-    private void assertLogicalTopology(@Nullable Set<ClusterNode> clusterNodes) throws InterruptedException {
-        byte[] nodes = clusterNodes == null
-                ? null
-                : ByteUtils.toBytes(clusterNodes.stream().map(ClusterNode::name).collect(Collectors.toSet()));
-
-        assertTrue(waitForCondition(() -> Arrays.equals(keyValueStorage.get(zonesLogicalTopologyKey().bytes()).value(), nodes), 1000));
     }
 }

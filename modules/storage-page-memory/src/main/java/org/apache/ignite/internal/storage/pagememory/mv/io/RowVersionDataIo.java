@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
+import static org.apache.ignite.internal.storage.pagememory.mv.MvPageTypes.T_ROW_VERSION_DATA_IO;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -36,9 +37,6 @@ import org.jetbrains.annotations.Nullable;
  * Data pages IO for {@link RowVersion}.
  */
 public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
-    /** Page IO type. */
-    public static final short T_ROW_VERSION_DATA_IO = 12;
-
     /** I/O versions. */
     public static final IoVersions<RowVersionDataIo> VERSIONS = new IoVersions<>(new RowVersionDataIo(1));
 
@@ -51,7 +49,6 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         super(T_ROW_VERSION_DATA_IO, ver);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeRowData(long pageAddr, int dataOff, int payloadSize, RowVersion row, boolean newRow) {
         assertPageType(pageAddr);
@@ -71,7 +68,6 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         putByteBuffer(addr, 0, row.value());
     }
 
-    /** {@inheritDoc} */
     @Override
     protected void writeFragmentData(RowVersion row, ByteBuffer pageBuf, int rowOff, int payloadSize) {
         assertPageType(pageBuf);
@@ -110,7 +106,20 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Updates next link leaving the rest untouched.
+     *
+     * @param pageAddr Page address.
+     * @param itemId Item ID of the slot where row version (or its first fragment) is stored in this page.
+     * @param pageSize Size of the page.
+     * @param nextLink Next link to store.
+     */
+    public void updateNextLink(long pageAddr, int itemId, int pageSize, long nextLink) {
+        int payloadOffset = getPayloadOffset(pageAddr, itemId, pageSize, 0);
+
+        writePartitionless(pageAddr + payloadOffset + RowVersion.NEXT_LINK_OFFSET, nextLink);
+    }
+
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("RowVersionDataIo [\n");

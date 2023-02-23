@@ -25,12 +25,11 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.TableRow;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -186,9 +185,9 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     {@link Cursor#next()} will throw {@link StorageRebalanceException};</li>
      *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
      *     {@link StorageRebalanceException} except:<ul>
-     *         <li>{@link MvPartitionStorage#addWrite(RowId, TableRow, UUID, UUID, int)};</li>
+     *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, UUID, int)};</li>
      *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
-     *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, TableRow, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
      *         <li>{@link MvPartitionStorage#persistedIndex()};</li>
@@ -202,7 +201,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      * to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalancePartition(int)} ()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalancePartition(int, long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.
+     *     <li>{@link #finishRebalancePartition(int, long, long, byte[])} - in case of successful completion of rebalance.
      *     </li>
      * </ul>
      *
@@ -247,7 +246,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
-     * @param raftGroupConfig RAFT group configuration.
+     * @param groupConfig Replication protocol group configuration (byte representation).
      * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageRebalanceException If there is an error when completing rebalance.
@@ -256,7 +255,7 @@ public interface MvTableStorage extends ManuallyCloseable {
             int partitionId,
             long lastAppliedIndex,
             long lastAppliedTerm,
-            RaftGroupConfiguration raftGroupConfig
+            byte[] groupConfig
     );
 
     /**

@@ -37,7 +37,6 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -65,7 +64,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      */
     @Test
     void testDropPartition() throws Exception {
-        var testData = tableRow(new TestKey(1, "1"), new TestValue(10, "10"));
+        var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
 
@@ -87,9 +86,9 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         ((RocksDbTableStorage) tableStorage).awaitFlush(true);
 
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
-        assertThat(tableStorage.getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, HybridTimestamp.MAX_VALUE).tableRow(),
+        assertThat(tableStorage.getOrCreateMvPartition(PARTITION_ID_0).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow(),
                 is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID_1).read(rowId1, HybridTimestamp.MAX_VALUE).tableRow()),
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID_1).read(rowId1, HybridTimestamp.MAX_VALUE).binaryRow()),
                 is(equalTo(unwrap(testData))));
     }
 
@@ -98,7 +97,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
      */
     @Test
     void testRestart() {
-        var testData = tableRow(new TestKey(1, "1"), new TestValue(10, "10"));
+        var testData = binaryRow(new TestKey(1, "1"), new TestValue(10, "10"));
 
         UUID txId = UUID.randomUUID();
 
@@ -117,19 +116,12 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
         assertThat(tableStorage.getMvPartition(PARTITION_ID), is(notNullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_0), is(nullValue()));
         assertThat(tableStorage.getMvPartition(PARTITION_ID_1), is(nullValue()));
-        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).tableRow()),
+        assertThat(unwrap(tableStorage.getMvPartition(PARTITION_ID).read(rowId0, HybridTimestamp.MAX_VALUE).binaryRow()),
                 is(equalTo(unwrap(testData))));
     }
 
     @Test
     void storageAdvertisesItIsPersistent() {
         assertThat(tableStorage.isVolatile(), is(false));
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18523")
-    @Override
-    public void testDestroyTableStorage() throws Exception {
-        super.testDestroyTableStorage();
     }
 }

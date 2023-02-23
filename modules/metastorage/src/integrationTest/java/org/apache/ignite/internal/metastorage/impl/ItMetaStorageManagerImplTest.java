@@ -20,6 +20,8 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBeCancelledFast;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
@@ -31,12 +33,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -50,9 +52,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -71,9 +71,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Integration tests for {@link MetaStorageManagerImpl}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetaStorageManagerImplTest {
+public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     private VaultManager vaultManager;
 
     private ClusterService clusterService;
@@ -85,8 +84,7 @@ public class ItMetaStorageManagerImplTest {
     private MetaStorageManagerImpl metaStorageManager;
 
     @BeforeEach
-    void setUp(TestInfo testInfo, @WorkDirectory Path workDir, @InjectConfiguration RaftConfiguration raftConfiguration)
-            throws NodeStoppingException {
+    void setUp(TestInfo testInfo, @InjectConfiguration RaftConfiguration raftConfiguration) throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
@@ -106,6 +104,7 @@ public class ItMetaStorageManagerImplTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );
@@ -132,7 +131,7 @@ public class ItMetaStorageManagerImplTest {
      * Tests a corner case when a prefix request contains a max unsigned byte value.
      */
     @Test
-    void testPrefixOverflow() throws NodeStoppingException {
+    void testPrefixOverflow() {
         byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
         var key1 = new ByteArray(new byte[]{1, (byte) 0xFF, 0});
@@ -157,11 +156,11 @@ public class ItMetaStorageManagerImplTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        try (Cursor<Entry> cursor = metaStorageManager.prefix(new ByteArray(new byte[]{1, (byte) 0xFF}))) {
-            List<byte[]> keys = cursor.stream().map(Entry::key).collect(toList());
+        CompletableFuture<List<byte[]>> actualKeysFuture =
+                subscribeToList(metaStorageManager.prefix(new ByteArray(new byte[]{1, (byte) 0xFF})))
+                        .thenApply(entries -> entries.stream().map(Entry::key).collect(toList()));
 
-            assertThat(keys, contains(key1.bytes(), key2.bytes(), key3.bytes()));
-        }
+        assertThat(actualKeysFuture, will(contains(key1.bytes(), key2.bytes(), key3.bytes())));
     }
 
     /**
@@ -265,6 +264,7 @@ public class ItMetaStorageManagerImplTest {
                 vaultManager,
                 clusterService,
                 cmgManager,
+                mock(LogicalTopologyService.class),
                 raftManager,
                 storage
         );

@@ -97,6 +97,9 @@ public class ConnectionManager {
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
 
+    /** Network Configuration. */
+    private final NetworkView networkConfiguration;
+
     /**
      * Constructor.
      *
@@ -145,6 +148,7 @@ public class ConnectionManager {
         this.launchId = launchId;
         this.consistentId = consistentId;
         this.clientHandhakeManagerFactory = clientHandhakeManagerFactory;
+        this.networkConfiguration = networkConfiguration;
 
         this.server = new NettyServer(
                 networkConfiguration,
@@ -267,7 +271,8 @@ public class ConnectionManager {
                 address,
                 serializationService,
                 createClientHandshakeManager(connectionId),
-                this::onMessage
+                this::onMessage,
+                this.networkConfiguration.ssl()
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {

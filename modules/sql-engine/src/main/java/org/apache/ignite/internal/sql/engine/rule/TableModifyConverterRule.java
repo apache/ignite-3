@@ -29,7 +29,6 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 
 /**
  * TableModifyConverterRule.
@@ -51,7 +50,6 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
                 .replace(IgniteDistributions.single())
-                .replace(RewindabilityTrait.ONE_WAY)
                 .replace(RelCollations.EMPTY);
         RelNode input = convert(rel.getInput(), traits);
 

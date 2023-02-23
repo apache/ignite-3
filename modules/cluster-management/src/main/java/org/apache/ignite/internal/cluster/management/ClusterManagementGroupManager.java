@@ -35,6 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
@@ -58,10 +59,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -134,10 +133,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * to make sure a node joins the cluster when it's fully ready.
      *
      * <p>We need this flag to make sure we handle automatic rejoins correctly. If a short network hiccup happens, CMG leader
-     * might lose our node of sight, hence the node will be removed from physical and then from logical topologies. When
-     * the network connectivity is restored, the node will appear in the physical topology, after which it will try to
-     * rejoin the cluster. If such 'rejoin' was carried out unconditionally, it could happen before the first join during
-     * startup, so a not-yet-ready node could join the cluster.
+     * might lose our node of sight, hence the node will be removed from physical and then from logical topologies. When the network
+     * connectivity is restored, the node will appear in the physical topology, after which it will try to rejoin the cluster. If such
+     * 'rejoin' was carried out unconditionally, it could happen before the first join during startup, so a not-yet-ready node could join
+     * the cluster.
      */
     private volatile boolean attemptedCompleteJoinOnStart = false;
 
@@ -386,6 +385,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
+                    // TODO: IGNITE-18681 - respect removal timeout.
                     return nodesToRemove.isEmpty() ? completedFuture(null) : service.removeFromCluster(nodesToRemove);
                 })
                 .thenApply(v -> service);
@@ -520,8 +520,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     .startRaftGroupNode(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             raftConfiguration,
-                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, configuration, this::onLogicalTopologyChanged),
-                            createCmgRaftGroupEventsListener()
+                            new CmgRaftGroupListener(clusterStateStorage, logicalTopology, this::onLogicalTopologyChanged),
+                            this::onElectedAsLeader
                     )
                     .thenApply(service -> new CmgRaftService(service, clusterService, logicalTopology));
         } catch (Exception e) {
@@ -546,25 +546,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 return service.updateLearners(term);
             }));
         }
-    }
-
-    private RaftGroupEventsListener createCmgRaftGroupEventsListener() {
-        return new RaftGroupEventsListener() {
-            @Override
-            public void onLeaderElected(long term) {
-                ClusterManagementGroupManager.this.onElectedAsLeader(term);
-            }
-
-            @Override
-            public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
-                // No-op.
-            }
-
-            @Override
-            public void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {
-                // No-op.
-            }
-        };
     }
 
     /**
@@ -614,21 +595,33 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void sendClusterState(CmgRaftService raftService, Collection<ClusterNode> nodes) {
-        raftService.readClusterState()
-                .thenAccept(state -> {
-                    // Raft state might not have been initialized in case of leader failure during cluster init
-                    // TODO: properly handle this case, see https://issues.apache.org/jira/browse/IGNITE-16819
-                    if (state == null) {
-                        throw new IllegalStateException("Cluster state is empty");
+        raftService.logicalTopology()
+                .thenCompose(topology -> {
+                    // Only send the ClusterStateMessage to nodes not already present in the Logical Topology.
+                    Collection<ClusterNode> recipients = nodes.stream()
+                            .filter(node -> !topology.nodes().contains(node))
+                            .collect(Collectors.toList());
+
+                    if (recipients.isEmpty()) {
+                        return completedFuture(null);
                     }
 
-                    NetworkMessage msg = msgFactory.clusterStateMessage()
-                            .clusterState(state)
-                            .build();
+                    return raftService.readClusterState()
+                            .thenAccept(state -> {
+                                // Raft state might not have been initialized in case of leader failure during cluster init
+                                // TODO: properly handle this case, see https://issues.apache.org/jira/browse/IGNITE-16819
+                                if (state == null) {
+                                    throw new IllegalStateException("Cluster state is empty");
+                                }
 
-                    for (ClusterNode node : nodes) {
-                        sendWithRetry(node, msg);
-                    }
+                                NetworkMessage msg = msgFactory.clusterStateMessage()
+                                        .clusterState(state)
+                                        .build();
+
+                                for (ClusterNode node : recipients) {
+                                    sendWithRetry(node, msg);
+                                }
+                            });
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -733,6 +726,22 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         try {
             return raftServiceAfterJoin().thenCompose(CmgRaftService::logicalTopology);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
+     * Logical Topology as well as nodes that only have passed the validation step.
+     */
+    public CompletableFuture<Set<ClusterNode>> validatedNodes() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin().thenCompose(CmgRaftService::validatedNodes);
         } finally {
             busyLock.leaveBusy();
         }

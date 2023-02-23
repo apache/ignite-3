@@ -39,7 +39,9 @@ class ignite_runner_suite : public ::testing::Test {
 public:
     static constexpr std::initializer_list<std::string_view> SINGLE_NODE_ADDR = {"127.0.0.1:10942"sv};
     static constexpr std::initializer_list<std::string_view> NODE_ADDRS = {"127.0.0.1:10942"sv, "127.0.0.1:10943"sv};
+
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
 
     static constexpr const char *KEY_COLUMN = "key";
     static constexpr const char *VAL_COLUMN = "val";
@@ -81,6 +83,14 @@ public:
      * @return Ignite tuple instance.
      */
     static ignite_tuple get_tuple(int64_t id) { return {{KEY_COLUMN, id}}; }
+
+    /**
+     * Get tuple for specified column values.
+     *
+     * @param val Value.
+     * @return Ignite tuple instance.
+     */
+    static ignite_tuple get_tuple(std::string val) { return {{VAL_COLUMN, std::move(val)}}; }
 
     /**
      * Clear table @c TABLE_1.

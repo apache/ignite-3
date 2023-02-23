@@ -27,6 +27,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
 
 /**
  * Colocation hash utilities.
@@ -106,15 +107,15 @@ public class ColocationUtils {
                 return;
 
             case TIME:
-                calc.appendTime((LocalTime) v);
+                calc.appendTime((LocalTime) v, ((TemporalNativeType) type).precision());
                 return;
 
             case DATETIME:
-                calc.appendDateTime((LocalDateTime) v);
+                calc.appendDateTime((LocalDateTime) v, ((TemporalNativeType) type).precision());
                 return;
 
             case TIMESTAMP:
-                calc.appendTimestamp((Instant) v);
+                calc.appendTimestamp((Instant) v, ((TemporalNativeType) type).precision());
                 return;
 
             default:

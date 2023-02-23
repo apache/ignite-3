@@ -21,23 +21,29 @@ import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -48,13 +54,14 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterService;
@@ -77,9 +84,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Meta storage client tests.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
-public class ItMetaStorageRaftGroupTest {
+@ExtendWith(ConfigurationExtension.class)
+public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItMetaStorageRaftGroupTest.class);
 
@@ -92,20 +99,20 @@ public class ItMetaStorageRaftGroupTest {
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    /**  Expected server result entry. */
+    /** Expected server result entry. */
     private static final EntryImpl EXPECTED_RESULT_ENTRY1 =
             new EntryImpl(
-                    new byte[] {1},
-                    new byte[] {2},
+                    new byte[]{1},
+                    new byte[]{2},
                     10,
                     2
             );
 
-    /**  Expected server result entry. */
+    /** Expected server result entry. */
     private static final EntryImpl EXPECTED_RESULT_ENTRY2 =
             new EntryImpl(
-                    new byte[] {3},
-                    new byte[] {4},
+                    new byte[]{3},
+                    new byte[]{4},
                     11,
                     3
             );
@@ -135,11 +142,11 @@ public class ItMetaStorageRaftGroupTest {
     @Mock
     private KeyValueStorage mockStorage;
 
-    @WorkDirectory
-    private Path dataPath;
-
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
+
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     /**
      * Run {@code NODES} cluster nodes.
@@ -200,8 +207,7 @@ public class ItMetaStorageRaftGroupTest {
 
 
     /**
-     * Tests that {@link MetaStorageService#range(ByteArray, ByteArray, long)}} next command works correctly
-     * after leader changing.
+     * Tests that {@link MetaStorageService#range(ByteArray, ByteArray, long)}} next command works correctly after leader changing.
      *
      * @throws Exception If failed.
      */
@@ -242,45 +248,93 @@ public class ItMetaStorageRaftGroupTest {
                 .value;
 
         MetaStorageService metaStorageSvc = new MetaStorageServiceImpl(
-                raftGroupServiceOfLiveServer, liveServer.clusterService().topologyService().localMember());
+                raftGroupServiceOfLiveServer, new IgniteSpinBusyLock(), liveServer.clusterService().topologyService().localMember());
 
-        try (Cursor<Entry> cursor = metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY1.key()), new ByteArray(new byte[]{4}))) {
+        var resultFuture = new CompletableFuture<Void>();
 
-            assertTrue(waitForCondition(
-                    () -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
+        metaStorageSvc.range(new ByteArray(EXPECTED_RESULT_ENTRY1.key()), new ByteArray(new byte[]{4}))
+                .subscribe(new Subscriber<>() {
+                    private Subscription subscription;
 
-            assertTrue(cursor.hasNext());
+                    private int state = 0;
 
-            assertEquals(EXPECTED_RESULT_ENTRY1, (cursor.iterator().next()));
+                    @Override
+                    public void onSubscribe(Subscription subscription) {
+                        this.subscription = subscription;
 
-            // Ensure that leader has not been changed.
-            // In a stable topology unexpected leader election shouldn't happen.
-            assertTrue(waitForCondition(
-                    () -> replicatorStartedCounter.get() == 2, 5_000), replicatorStartedCounter.get() + "");
+                        try {
+                            assertTrue(
+                                    waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
+                                    String.valueOf(replicatorStartedCounter.get())
+                            );
 
-            //stop leader
-            oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            oldLeaderServer.stop();
-            cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().orElseThrow().stop();
+                            subscription.request(1);
+                        } catch (InterruptedException e) {
+                            resultFuture.completeExceptionally(e);
+                        }
+                    }
 
-            raftGroupServiceOfLiveServer.refreshLeader().get();
+                    @Override
+                    public void onNext(Entry item) {
+                        try {
+                            if (state == 0) {
+                                assertEquals(EXPECTED_RESULT_ENTRY1, item);
 
-            assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
+                                // Ensure that leader has not been changed.
+                                // In a stable topology unexpected leader election shouldn't happen.
+                                assertTrue(
+                                        waitForCondition(() -> replicatorStartedCounter.get() == 2, 5_000),
+                                        String.valueOf(replicatorStartedCounter.get())
+                                );
 
-            // ensure that leader has been changed only once
-            assertTrue(waitForCondition(
-                    () -> replicatorStartedCounter.get() == 4, 5_000), replicatorStartedCounter.get() + "");
-            assertTrue(waitForCondition(
-                    () -> replicatorStoppedCounter.get() == 2, 5_000), replicatorStoppedCounter.get() + "");
+                                //stop leader
+                                oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
+                                oldLeaderServer.stop();
+                                cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().orElseThrow().stop();
 
-            assertTrue(cursor.hasNext());
-            assertEquals(EXPECTED_RESULT_ENTRY2, (cursor.iterator().next()));
-        }
+                                raftGroupServiceOfLiveServer.refreshLeader().get();
+
+                                assertNotSame(oldLeaderId, raftGroupServiceOfLiveServer.leader().consistentId());
+
+                                // ensure that leader has been changed only once
+                                assertTrue(
+                                        waitForCondition(() -> replicatorStartedCounter.get() == 4, 5_000),
+                                        String.valueOf(replicatorStartedCounter.get())
+                                );
+                                assertTrue(
+                                        waitForCondition(() -> replicatorStoppedCounter.get() == 2, 5_000),
+                                        String.valueOf(replicatorStoppedCounter.get())
+                                );
+
+                            } else if (state == 1) {
+                                assertEquals(EXPECTED_RESULT_ENTRY2, item);
+                            }
+
+                            state++;
+
+                            subscription.request(1);
+                        } catch (Exception e) {
+                            resultFuture.completeExceptionally(e);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                        resultFuture.completeExceptionally(throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        resultFuture.complete(null);
+                    }
+                });
+
+        assertThat(resultFuture, willCompleteSuccessfully());
     }
 
     private List<Pair<RaftServer, RaftGroupService>> prepareJraftMetaStorages(AtomicInteger replicatorStartedCounter,
             AtomicInteger replicatorStoppedCounter) throws InterruptedException, ExecutionException {
-        PeersAndLearners configuration = cluster.stream()
+        PeersAndLearners membersConfiguration = cluster.stream()
                 .map(ItMetaStorageRaftGroupTest::localMemberName)
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
 
@@ -298,11 +352,11 @@ public class ItMetaStorageRaftGroupTest {
         opt3.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
 
-        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), dataPath.resolve("node1"), opt1);
+        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), workDir.resolve("node1"), opt1);
 
-        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), dataPath.resolve("node2"), opt2);
+        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), workDir.resolve("node2"), opt2);
 
-        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), dataPath.resolve("node3"), opt3);
+        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), workDir.resolve("node3"), opt3);
 
         metaStorageRaftSrv1.start();
 
@@ -310,27 +364,25 @@ public class ItMetaStorageRaftGroupTest {
 
         metaStorageRaftSrv3.start();
 
-        var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, configuration.peer(localMemberName(cluster.get(0))));
+        var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 
-        metaStorageRaftSrv1.startRaftNode(raftNodeId1, configuration, new MetaStorageListener(mockStorage), defaults());
+        metaStorageRaftSrv1.startRaftNode(raftNodeId1, membersConfiguration, new MetaStorageListener(mockStorage), defaults());
 
-        var raftNodeId2 = new RaftNodeId(MetastorageGroupId.INSTANCE, configuration.peer(localMemberName(cluster.get(1))));
+        var raftNodeId2 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(1))));
 
-        metaStorageRaftSrv2.startRaftNode(raftNodeId2, configuration, new MetaStorageListener(mockStorage), defaults());
+        metaStorageRaftSrv2.startRaftNode(raftNodeId2, membersConfiguration, new MetaStorageListener(mockStorage), defaults());
 
-        var raftNodeId3 = new RaftNodeId(MetastorageGroupId.INSTANCE, configuration.peer(localMemberName(cluster.get(2))));
+        var raftNodeId3 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(2))));
 
-        metaStorageRaftSrv3.startRaftNode(raftNodeId3, configuration, new MetaStorageListener(mockStorage), defaults());
+        metaStorageRaftSrv3.startRaftNode(raftNodeId3, membersConfiguration, new MetaStorageListener(mockStorage), defaults());
 
         metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(0),
                 FACTORY,
-                10_000,
-                10_000,
-                configuration,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                200,
                 executor
         ).get();
 
@@ -338,11 +390,9 @@ public class ItMetaStorageRaftGroupTest {
                 MetastorageGroupId.INSTANCE,
                 cluster.get(1),
                 FACTORY,
-                10_000,
-                10_000,
-                configuration,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                200,
                 executor
         ).get();
 
@@ -350,16 +400,14 @@ public class ItMetaStorageRaftGroupTest {
                 MetastorageGroupId.INSTANCE,
                 cluster.get(2),
                 FACTORY,
-                10_000,
-                10_000,
-                configuration,
+                raftConfiguration,
+                membersConfiguration,
                 true,
-                200,
                 executor
         ).get();
 
         assertTrue(waitForCondition(
-                                () -> sameLeaders(metaStorageRaftGrpSvc1, metaStorageRaftGrpSvc2, metaStorageRaftGrpSvc3), 10_000),
+                        () -> sameLeaders(metaStorageRaftGrpSvc1, metaStorageRaftGrpSvc2, metaStorageRaftGrpSvc3), 10_000),
                 "Leaders: " + metaStorageRaftGrpSvc1.leader() + " " + metaStorageRaftGrpSvc2.leader() + " " + metaStorageRaftGrpSvc3
                         .leader());
 
