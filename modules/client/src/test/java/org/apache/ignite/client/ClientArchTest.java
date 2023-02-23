@@ -17,8 +17,7 @@
 
 package org.apache.ignite.client;
 
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -29,16 +28,16 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.junit.LocationProvider;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
 import com.tngtech.archunit.lang.syntax.elements.FieldsShouldConjunction;
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.jar.JarFile;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.client.ClientArchTest.ModuleAndDependenciesClassPathProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
 
 /**
  * This test ensures static logger is not used in the modules the client module relies on.
@@ -56,51 +55,31 @@ public class ClientArchTest {
             .that().haveRawType(IgniteLogger.class)
             .should().haveModifier(JavaModifier.STATIC);
 
-    @NotNull
-    private static JarFile jarFile(File f) {
-        try {
-            return new JarFile(f);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private static JavaClasses clientModuleClasses() {
         return new ClassFileImporter().importPath(CLASS_PATH_DIR);
     }
 
     static class ModuleAndDependenciesClassPathProvider implements LocationProvider {
 
-        @NotNull
-        private static Set<Location> merge(Set<Location> moduleDependencies, Location moduleClasses) {
-            Set<Location> classPath = new HashSet<>(moduleDependencies.size() + 1);
-            classPath.add(moduleClasses);
-            classPath.addAll(moduleDependencies);
-            return classPath;
-        }
-
         @Override
         public Set<Location> get(Class<?> clazz) {
             // Running this test in IDE is not supported.
             // The cpFile is not set up properly, and the test skips.
-            assumeTrue(CLASS_PATH_DIR != null);
+            assertNotNull(CLASS_PATH_DIR);
 
             Path cp = Path.of(CLASS_PATH_DIR);
-            File cpFile = cp.toFile();
-            File[] cpFiles = cpFile.listFiles();
-            if (cpFiles == null) {
-                fail("Failed to list files in " + cpFile.getAbsolutePath());
+
+            Set<Location> result = new HashSet<>();
+            result.add(Location.of(cp));
+
+            try (Stream<Path> walk = Files.walk(cp)) {
+                walk.filter(path -> path.endsWith(".jar"))
+                        .map(Location::of)
+                        .collect(Collectors.toCollection(() -> result));
+            } catch (IOException e) {
+                Assertions.fail("Failed " + e);
             }
-
-            Set<Location> moduleDependencies = Arrays.stream(cpFiles)
-                    .filter(f -> f.getName().endsWith(".jar"))
-                    .map(ClientArchTest::jarFile)
-                    .map(Location::of)
-                    .collect(Collectors.toSet());
-
-            Location moduleClasses = Location.of(cp);
-
-            return merge(moduleDependencies, moduleClasses);
+            return result;
         }
     }
 }
