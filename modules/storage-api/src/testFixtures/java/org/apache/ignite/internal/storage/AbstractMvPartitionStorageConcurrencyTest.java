@@ -17,9 +17,18 @@
 
 package org.apache.ignite.internal.storage;
 
+import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
@@ -193,17 +202,31 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
+            addAndCommit.perform(this, TABLE_ROW2);
+
             addAndCommit.perform(this, null);
 
+            Collection<ByteBuffer> rows = Stream.of(TABLE_ROW, TABLE_ROW2)
+                    .map(BinaryRow::byteBuffer)
+                    .collect(toCollection(ConcurrentLinkedQueue::new));
+
             runRace(
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE)
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().byteBuffer(), rows),
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().byteBuffer(), rows)
             );
 
+            assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
+
             assertNull(storage.closestRowId(ROW_ID));
+
+            assertThat(rows, empty());
         }
+    }
+
+    private void assertRemoveRow(ByteBuffer rowBytes, Collection<ByteBuffer> rows) {
+        assertNotNull(rowBytes);
+
+        assertTrue(rows.remove(rowBytes), rowBytes.toString());
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
