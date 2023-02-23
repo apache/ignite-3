@@ -78,8 +78,10 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -292,17 +294,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             String storageEngine,
             Consumer<Cluster> doOnClusterAfterInit
     ) throws InterruptedException {
-        cluster.startAndInit(3);
-
-        doOnClusterAfterInit.accept(cluster);
-
-        createTestTableWith3Replicas(storageEngine);
-
-        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
-
-        transferLeadershipOnSolePartitionTo(0);
-
-        cluster.knockOutNode(2, knockout);
+        prepareCluster(knockout, storageEngine, doOnClusterAfterInit);
 
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session);
@@ -310,6 +302,49 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader();
+    }
+
+    /**
+     * Prepares the cluster for the test.
+     *
+     * <ul>
+     *     <li>Creates a cluster of 3 nodes;</li>
+     *     <li>Creates a table with 1 partition and 3 replicas;</li>
+     *     <li>Makes node with index 0 the leader of the raft group;</li>
+     *     <li>Kick out the node with index 2.</li>
+     * </ul>
+     *
+     * @param knockout The knock-out strategy that should be used to knock-out node 2.
+     * @param storageEngine Storage engine for the TEST table.
+     * @param doOnClusterAfterInit Action executed just after the cluster is started and initialized.
+     */
+    private void prepareCluster(
+            NodeKnockout knockout,
+            String storageEngine,
+            @Nullable Consumer<Cluster> doOnClusterAfterInit
+    ) throws InterruptedException {
+        cluster.startAndInit(3);
+
+        if (doOnClusterAfterInit != null) {
+            doOnClusterAfterInit.accept(cluster);
+        }
+
+        createTestTableWith3Replicas(storageEngine);
+
+        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
+        transferLeadershipOnSolePartitionTo(0);
+
+        cluster.knockOutNode(2, knockout);
+    }
+
+    /**
+     * Performs an insert into the TEST table in the session.
+     *
+     * @param key Key.
+     * @param session Session on which to execute.
+     */
+    private static void executeInsert(int key, Session session) {
+        executeUpdate("insert into test(key, value) values (" + key + ", 'extra')", session);
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
@@ -731,5 +766,18 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         } finally {
             snapshotExecutorLogger.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
         }
+    }
+
+    @Test
+    void testChangeLeaderThatInstallSnapshotAgain() throws Exception {
+        prepareCluster(NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE, null);
+
+        cluster.doInSession(0, session -> {
+            executeInsert(0, session);
+            executeInsert(1, session);
+            executeInsert(2, session);
+        });
+
+        // TODO: IGNITE-18863 продолжить
     }
 }
