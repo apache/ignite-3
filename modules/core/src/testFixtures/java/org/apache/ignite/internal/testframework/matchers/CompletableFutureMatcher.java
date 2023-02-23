@@ -180,7 +180,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      * @return matcher.
      */
     public static CompletableFutureMatcher<Object> willTimeoutFast() {
-        return willTimeoutIn(1, TimeUnit.SECONDS);
+        return willTimeoutIn(250, TimeUnit.MILLISECONDS);
     }
 
     /**

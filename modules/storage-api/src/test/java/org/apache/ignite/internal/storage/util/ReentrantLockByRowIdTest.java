@@ -26,16 +26,28 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.storage.RowId;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Class for testing {@link ReentrantLockByRowId}.
  */
 public class ReentrantLockByRowIdTest {
+    private ReentrantLockByRowId lockByRowId;
+
+    @BeforeEach
+    void setUp() {
+        lockByRowId = new ReentrantLockByRowId();
+    }
+
+    @AfterEach
+    void tearDown() {
+        lockByRowId.releaseAllLockByCurrentThread();
+    }
+
     @Test
     void testSimple() {
-        ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
-
         RowId rowId = new RowId(0);
 
         lockByRowId.acquireLock(rowId);
@@ -46,8 +58,6 @@ public class ReentrantLockByRowIdTest {
 
     @Test
     void testSimpleReEnter() {
-        ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
-
         RowId rowId = new RowId(0);
 
         lockByRowId.acquireLock(rowId);
@@ -67,8 +77,6 @@ public class ReentrantLockByRowIdTest {
 
     @Test
     void testReleaseError() {
-        ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
-
         assertThrows(IllegalStateException.class, () -> lockByRowId.releaseLock(new RowId(0)));
 
         RowId rowId = new RowId(0);
@@ -80,8 +88,6 @@ public class ReentrantLockByRowIdTest {
 
     @Test
     void testBlockSimple() {
-        ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
-
         RowId rowId = new RowId(0);
 
         lockByRowId.acquireLock(rowId);
@@ -107,8 +113,6 @@ public class ReentrantLockByRowIdTest {
 
     @Test
     void testBlockSupplier() {
-        ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
-
         RowId rowId = new RowId(0);
 
         lockByRowId.acquireLock(rowId);
@@ -131,8 +135,6 @@ public class ReentrantLockByRowIdTest {
 
     @Test
     void testReleaseAllLocksByCurrentThread() {
-        ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
-
         RowId rowId0 = new RowId(0);
         RowId rowId1 = new RowId(0);
 
@@ -144,6 +146,8 @@ public class ReentrantLockByRowIdTest {
         CompletableFuture<?> acquireLockFuture = runAsync(() -> {
             lockByRowId.acquireLock(rowId0);
             lockByRowId.acquireLock(rowId1);
+
+            lockByRowId.releaseAllLockByCurrentThread();
         });
 
         assertThat(acquireLockFuture, willTimeoutFast());
