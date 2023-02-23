@@ -77,14 +77,4 @@ public class RestTestBase extends BaseItClusterManagementTest {
     static Problem getProblem(HttpClientResponseException exception) {
         return exception.getResponse().getBody(Problem.class).orElseThrow();
     }
-
-    static String getErrorMessage(HttpClientResponseException exception) {
-        return exception.getResponse().getBody(JsonError.class)
-                .map(AbstractResource::getEmbedded)
-                .flatMap(it -> it.getFirst("errors"))
-                .map(GenericResource.class::cast)
-                .map(it -> it.getAdditionalProperties().get("message"))
-                .map(String.class::cast)
-                .orElseThrow();
-    }
 }

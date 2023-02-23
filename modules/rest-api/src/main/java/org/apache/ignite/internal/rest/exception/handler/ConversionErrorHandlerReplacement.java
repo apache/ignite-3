@@ -28,6 +28,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
+import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
  * Replacement for {@link ConversionErrorHandlerReplacement}. Returns {@link HttpProblemResponse}.
@@ -36,18 +37,12 @@ import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 @Replaces(ConversionErrorHandler.class)
 @Requires(classes = {Exception.class, ExceptionHandler.class})
 public class ConversionErrorHandlerReplacement implements ExceptionHandler<ConversionErrorException, HttpResponse<? extends Problem>> {
+
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, ConversionErrorException exception) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.BAD_REQUEST)
-                        .detail(findRootCause(exception).getMessage())
+                        .detail(ExceptionUtils.getCause(exception).getMessage())
         );
-    }
-
-    private static Throwable findRootCause(Throwable throwable) {
-        while (throwable.getCause() != null) {
-            throwable = throwable.getCause();
-        }
-        return throwable;
     }
 }

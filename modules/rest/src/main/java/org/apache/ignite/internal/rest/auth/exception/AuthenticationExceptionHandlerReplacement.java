@@ -37,6 +37,7 @@ import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 @Requires(classes = {Exception.class, ExceptionHandler.class})
 public class AuthenticationExceptionHandlerReplacement implements
         ExceptionHandler<AuthenticationException, HttpResponse<? extends Problem>> {
+
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, AuthenticationException exception) {
         return HttpProblemResponse.from(
