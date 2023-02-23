@@ -38,7 +38,7 @@ public class ApiClientFactory {
      */
     public ApiClient getClient(String path) {
         ApiClient apiClient = clients.computeIfAbsent(path, s -> new ApiClient().setBasePath(s));
-        CliLoggers.addApiClient(apiClient);
+        CliLoggers.addApiClient(path, apiClient);
         return apiClient;
     }
 }

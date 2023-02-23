@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cli.logger;
 
 import java.io.PrintWriter;
 import java.lang.System.Logger;
+import java.util.Map;
 import java.util.ResourceBundle;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -37,7 +37,7 @@ public class CliLoggers {
     private static boolean isVerbose;
 
     /** Http loggers for the REST API clients. */
-    private static final Set<HttpLogging> httpLoggers = ConcurrentHashMap.newKeySet();
+    private static final Map<String, HttpLogging> httpLoggers = new ConcurrentHashMap<>();
 
     private static final LoggerFactory loggerFactory = name -> new CliLogger(System.getLogger(name));
 
@@ -61,8 +61,8 @@ public class CliLoggers {
         return Loggers.forName(name, loggerFactory);
     }
 
-    public static void addApiClient(ApiClient client) {
-        httpLoggers.add(new HttpLogging(client));
+    public static void addApiClient(String path, ApiClient client) {
+        httpLoggers.computeIfAbsent(path, s -> new HttpLogging(client));
     }
 
     /**
@@ -73,7 +73,7 @@ public class CliLoggers {
     public static void startOutputRedirect(PrintWriter out) {
         output = out;
         isVerbose = true;
-        httpLoggers.forEach(logger -> logger.startHttpLogging(out));
+        httpLoggers.values().forEach(logger -> logger.startHttpLogging(out));
     }
 
     /**
@@ -82,7 +82,7 @@ public class CliLoggers {
     public static void stopOutputRedirect() {
         output = null;
         isVerbose = false;
-        httpLoggers.forEach(HttpLogging::stopHttpLogging);
+        httpLoggers.values().forEach(HttpLogging::stopHttpLogging);
     }
 
     /**
