@@ -43,6 +43,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
@@ -78,7 +79,6 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -133,14 +133,24 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
     private Cluster cluster;
 
+    private Logger replicatorLogger;
+
+    private @Nullable Handler replicaLoggerHandler;
+
     @BeforeEach
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
+
+        replicatorLogger = Logger.getLogger(Replicator.class.getName());
     }
 
     @AfterEach
     @Timeout(60)
     void shutdownCluster() {
+        if (replicaLoggerHandler != null) {
+            replicatorLogger.removeHandler(replicaLoggerHandler);
+        }
+
         cluster.shutdown();
     }
 
@@ -294,7 +304,17 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             String storageEngine,
             Consumer<Cluster> doOnClusterAfterInit
     ) throws InterruptedException {
-        prepareCluster(knockout, storageEngine, doOnClusterAfterInit);
+        cluster.startAndInit(3);
+
+        doOnClusterAfterInit.accept(cluster);
+
+        createTestTableWith3Replicas(storageEngine);
+
+        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
+
+        transferLeadershipOnSolePartitionTo(0);
+
+        cluster.knockOutNode(2, knockout);
 
         cluster.doInSession(0, session -> {
             executeUpdate("insert into test(key, value) values (1, 'one')", session);
@@ -302,49 +322,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader();
-    }
-
-    /**
-     * Prepares the cluster for the test.
-     *
-     * <ul>
-     *     <li>Creates a cluster of 3 nodes;</li>
-     *     <li>Creates a table with 1 partition and 3 replicas;</li>
-     *     <li>Makes node with index 0 the leader of the raft group;</li>
-     *     <li>Kick out the node with index 2.</li>
-     * </ul>
-     *
-     * @param knockout The knock-out strategy that should be used to knock-out node 2.
-     * @param storageEngine Storage engine for the TEST table.
-     * @param doOnClusterAfterInit Action executed just after the cluster is started and initialized.
-     */
-    private void prepareCluster(
-            NodeKnockout knockout,
-            String storageEngine,
-            @Nullable Consumer<Cluster> doOnClusterAfterInit
-    ) throws InterruptedException {
-        cluster.startAndInit(3);
-
-        if (doOnClusterAfterInit != null) {
-            doOnClusterAfterInit.accept(cluster);
-        }
-
-        createTestTableWith3Replicas(storageEngine);
-
-        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
-        transferLeadershipOnSolePartitionTo(0);
-
-        cluster.knockOutNode(2, knockout);
-    }
-
-    /**
-     * Performs an insert into the TEST table in the session.
-     *
-     * @param key Key.
-     * @param session Session on which to execute.
-     */
-    private static void executeInsert(int key, Session session) {
-        executeUpdate("insert into test(key, value) values (" + key + ", 'extra')", session);
     }
 
     private void createTestTableWith3Replicas(String storageEngine) throws InterruptedException {
@@ -449,8 +426,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      */
     private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex, NodeKnockout knockout) throws InterruptedException {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
-
-        Logger replicatorLogger = Logger.getLogger(Replicator.class.getName());
 
         var handler = new NoOpHandler() {
             @Override
@@ -701,14 +676,26 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse() {
         AtomicBoolean sentSnapshotMetaResponse = new AtomicBoolean(false);
 
-        return dropFirstSnapshotMetaResponse(
-                sentSnapshotMetaResponse);
+        return dropFirstSnapshotMetaResponse(sentSnapshotMetaResponse);
     }
 
     private BiPredicate<String, NetworkMessage> dropFirstSnapshotMetaResponse(AtomicBoolean sentSnapshotMetaResponse) {
         return (targetConsistentId, message) -> {
             if (Objects.equals(targetConsistentId, cluster.node(2).name()) && message instanceof SnapshotMetaResponse) {
                 return sentSnapshotMetaResponse.compareAndSet(false, true);
+            } else {
+                return false;
+            }
+        };
+    }
+
+    private BiPredicate<String, NetworkMessage> dropSnapshotMetaResponse(CompletableFuture<Void> sentFirstSnapshotMetaResponse) {
+        return (targetConsistentId, message) -> {
+            if (Objects.equals(targetConsistentId, cluster.node(2).name()) && message instanceof SnapshotMetaResponse) {
+                sentFirstSnapshotMetaResponse.complete(null);
+
+                // Always drop.
+                return true;
             } else {
                 return false;
             }
@@ -769,15 +756,63 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testChangeLeaderThatInstallSnapshotAgain() throws Exception {
-        prepareCluster(NodeKnockout.STOP, DEFAULT_STORAGE_ENGINE, null);
+    void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
+        CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
-        cluster.doInSession(0, session -> {
-            executeInsert(0, session);
-            executeInsert(1, session);
-            executeInsert(2, session);
+        prepareClusterForInstallingSnapshotToNode2(NodeKnockout.PARTITION_NETWORK, DEFAULT_STORAGE_ENGINE, cluster -> {
+            // Let's hang the InstallSnapshot in the "middle" from the leader with index 1.
+            cluster.node(1).dropMessages(dropSnapshotMetaResponse(sentSnapshotMetaResponseFormNode1Future));
         });
 
-        // TODO: IGNITE-18863 продолжить
+        // Change the leader and truncate its log so that InstallSnapshot occurs instead of AppendEntries.
+        transferLeadershipOnSolePartitionTo(1);
+
+        causeLogTruncationOnSolePartitionLeader();
+
+        CompletableFuture<Void> installSnapshotSuccessfulFuture = new CompletableFuture<>();
+
+        listenForSnapshotInstalledSuccessFromLogger(0, 2, installSnapshotSuccessfulFuture);
+
+        // Return node 2.
+        cluster.reanimateNode(2, NodeKnockout.PARTITION_NETWORK);
+
+        // Waiting for the InstallSnapshot from node 2 to hang in the "middle".
+        assertThat(sentSnapshotMetaResponseFormNode1Future, willSucceedIn(1, TimeUnit.MINUTES));
+
+        // Change the leader to node 0.
+        transferLeadershipOnSolePartitionTo(0);
+
+        // Waiting for the InstallSnapshot successfully from node 0 to node 2.
+        assertThat(installSnapshotSuccessfulFuture, willSucceedIn(1, TimeUnit.MINUTES));
+
+        // Make sure the rebalancing is complete.
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test", ItTableRaftSnapshotsTest::readRows);
+
+        assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"))));
+    }
+
+    /**
+     * Adds a listener for the {@link #replicatorLogger} to hear the success of the snapshot installation.
+     */
+    private void listenForSnapshotInstalledSuccessFromLogger(
+            int nodeIndexFrom,
+            int nodeIndexTo,
+            CompletableFuture<Void> snapshotInstallSuccessfullyFuture
+    ) {
+        String regexp = "Node .+" + nodeIndexFrom + " received InstallSnapshotResponse from .+_" + nodeIndexTo + " .+ success=true";
+
+        replicaLoggerHandler = new NoOpHandler() {
+            @Override
+            public void publish(LogRecord record) {
+                if (record.getMessage().matches(regexp)) {
+                    snapshotInstallSuccessfullyFuture.complete(null);
+
+                    replicatorLogger.removeHandler(this);
+                    replicaLoggerHandler = null;
+                }
+            }
+        };
+
+        replicatorLogger.addHandler(replicaLoggerHandler);
     }
 }
