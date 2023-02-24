@@ -45,7 +45,6 @@ import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
-import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Properties;
@@ -1001,22 +1000,5 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             checkConnectionClosed(() -> conn.setNetworkTimeout(executor, timeout));
         }
-    }
-
-    /**
-     * Returns savepoint.
-     */
-    private Savepoint getFakeSavepoint() {
-        return new Savepoint() {
-            @Override
-            public int getSavepointId() throws SQLException {
-                return 100;
-            }
-
-            @Override
-            public String getSavepointName() {
-                return "savepoint";
-            }
-        };
     }
 }
