@@ -142,10 +142,13 @@ public class ClientTableCommon {
             packer.packInt(schema.version());
         }
 
-        BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
-        if (binaryTuple != null) {
-            packer.packBinaryTuple(binaryTuple);
-            return;
+        // TODO: Handle VAL - slice the tuple somehow.
+        if (part != TuplePart.VAL) {
+            BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
+            if (binaryTuple != null) {
+                packer.packBinaryTuple(binaryTuple);
+                return;
+            }
         }
 
         var builder = new BinaryTupleBuilder(columnCount(schema, part), true);
