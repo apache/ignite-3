@@ -73,33 +73,40 @@ public class RestNode {
         return new RestNodeBuilder();
     }
 
+    /** Starts the node. */
     public CompletableFuture<Ignite> start() {
         igniteNodeFuture = IgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
         return igniteNodeFuture;
     }
 
+    /** Restarts the node. */
     public CompletableFuture<Ignite> restart() {
         stop();
         igniteNodeFuture = IgnitionManager.start(name, null, workDir.resolve(name));
         return igniteNodeFuture;
     }
 
+    /** Stops the node. */
     public void stop() {
         IgnitionManager.stop(name);
     }
 
+    /** Returns the node name. */
     public String name() {
         return name;
     }
 
+    /** Returns HTTP address of the node. Uses the port that was used in the config. */
     public String httpAddress() {
         return "http://localhost:" + httpPort;
     }
 
+    /** Returns HTTPS address of the node. Uses the port that was used in the config. */
     public String httpsAddress() {
         return "https://localhost:" + httpsPort;
     }
 
+    /** Returns future of the node. */
     public CompletableFuture<Ignite> igniteNodeFuture() {
         return igniteNodeFuture;
     }

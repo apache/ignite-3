@@ -57,6 +57,8 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to change auth configuration", e);
+                    } else {
+                        LOG.info("REST configuration updated successfully");
                     }
                 });
     }
