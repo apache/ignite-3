@@ -19,8 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -28,15 +26,46 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.UpdateableTable;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexImpTable;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * ModifyNode.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * The node that can perform data modification operation on tables implementing {@link UpdateableTable} interface.
+ *
+ * <p>This node covers all currently supported DML operations: INSERT, UPDATE, DELETE, and MERGE.
+ *
+ * <p>Depending on the type of operation, rows passed to this node can have one of the following formats: <ol>
+ *     <li>[insert row type] if the operation is INSERT or MERGE with WHEN NOT MATCHED clause only</li>
+ *     <li>[delete row type] if the operation is DELETE</li>
+ *     <li>[full row type] + [columns to update] if the operation is UPDATE or MERGE with WHEN MATCHED clause only</li>
+ *     <li>[insert row type] + [full row type] + [columns to update] if the operation is MERGE with both WHEN MATCHED
+ *         and WHEN NOT MATCHED clauses</li>
+ * </ol>
+ * , where <ul>
+ *     <li>[insert row type] is the same as [full row type], but may contain
+ *         {@link RexImpTable#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s which have to be resolved</li>
+ *     <li>[delete row type] is the type of the row defined by {@link TableDescriptor#deleteRowType(IgniteTypeFactory)}</li>
+ *     <li>[columns to update] is the projection of [full row type] having only columns enumerated in
+ *         {@link #updateColumns} (with respect to the order of the enumeration)</li>
+ * </ul>
+ *
+ * <p>Depending on the type of operation, different preparatory steps must be taken: <ul>
+ *     <li>Before any insertion, all {@link RexImpTable#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s must be resolved</li>
+ *     <li>Before any update, new value must be inlined into the old row: rows for update contains actual row
+ *         read from a table followed by new values with respect to {@link #updateColumns}</li>
+ *     <li>For MERGE operation, the rows need to be split on two group: rows to insert and rows to update</li>
+ *     <li>In case of MERGE with both WHEN MATCHED and WHEN NOT MATCHED clauses, rows to update apart inlining
+ *         are need to be shifted on size_of([insert row type]). And here is why: for complex MERGE the rows passed
+ *         to node started with the size_of([insert row type]) representing the new row for NOT MATCHED handler
+ *         (this part is never empty); then next size_of([full row type]) columns represent the old row
+ *         (this part is empty for NOT MATCHED handler, and is not empty for MATCHED handler),
+ *         followed by size_of([columns to update]) new values.</li>
+ * </ul>
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final TableModify.Operation modifyOp;
@@ -65,21 +94,21 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * @param ctx An execution context.
      * @param table A table to update.
      * @param op A type of the update operation.
-     * @param updateColumn Enumeration of columns to update if applicable.
+     * @param updateColumns Enumeration of columns to update if applicable.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             UpdateableTable table,
             TableModify.Operation op,
-            @Nullable List<String> updateColumn
+            @Nullable List<String> updateColumns
     ) {
         super(ctx);
 
         this.table = table;
         this.modifyOp = op;
-        this.updateColumns = updateColumn;
+        this.updateColumns = updateColumns;
 
-        this.mapping = mapping(table.descriptor(), updateColumn);
+        this.mapping = mapping(table.descriptor(), updateColumns);
     }
 
     /** {@inheritDoc} */
@@ -184,6 +213,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         switch (modifyOp) {
             case INSERT:
+                injectDefaults(table.descriptor(), context().rowHandler(), rows);
+
                 table.insertAll(context(), rows).join();
 
                 break;
@@ -194,6 +225,9 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 break;
             case MERGE:
+                // we split the rows because upsert will silently update the row if it's exists,
+                // but constraint violation error must to be raised if conflict row is inserted during
+                // WHEN NOT MATCHED handling
                 Pair<List<RowT>, List<RowT>> split = splitMerge(rows);
 
                 List<CompletableFuture<?>> mergeParts = new ArrayList<>(2);
@@ -225,6 +259,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     /** See {@link #mapping(TableDescriptor, List)}. */
     private void inlineUpdates(int offset, List<RowT> rows) {
         if (mapping == null) {
+            // the node inserts or deletes rows only
             return;
         }
 
@@ -232,16 +267,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         RowHandler<RowT> handler = context().rowHandler();
 
-        int rowSize = handler.columnCount(rows.get(0));
-        int updateColumnOffset = hasUpsertSemantic(rowSize) ? rowSize - (mapping.length + updateColumns.size()) : 0;
-
         for (RowT row : rows) {
             for (int i = 0; i < mapping.length; i++) {
                 if (offset == 0 && i == mapping[i]) {
                     continue;
                 }
 
-                handler.set(i, row, handler.get(mapping[i] + updateColumnOffset, row));
+                handler.set(i, row, handler.get(mapping[i] + offset, row));
             }
         }
     }
@@ -254,8 +286,12 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      *     element is list of rows to update (or null if there is no such rows).
      */
     private Pair<List<RowT>, List<RowT>> splitMerge(List<RowT> rows) {
+        RowHandler<RowT> handler = context().rowHandler();
+
         if (nullOrEmpty(updateColumns)) {
             // WHEN NOT MATCHED clause only
+            injectDefaults(table.descriptor(), handler, rows);
+
             return new Pair<>(rows, null);
         }
 
@@ -264,9 +300,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         List<RowT> rowsToInsert = null;
         List<RowT> rowsToUpdate = null;
 
-        RowHandler<RowT> handler = context().rowHandler();
         int rowSize = handler.columnCount(rows.get(0));
 
+        // we already handled WHEN NOT MATCHED clause only, thus the possible formats of rows
+        // are [full row type] + [columns to update] and [insert row type] + [full row type] + [columns to update].
+        // Size of the mapping always matches the size of full row, so in any case we will get
+        // an offset of the first column of the update part
+        // see javadoc of ModifyNode for details on possible formats of rows passed to the node
         int updateColumnOffset = rowSize - (mapping.length + updateColumns.size());
 
         if (!hasUpsertSemantic(rowSize)) {
@@ -300,22 +340,22 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             inlineUpdates(updateColumnOffset, rowsToUpdate);
         }
 
+        if (rowsToInsert != null) {
+            injectDefaults(table.descriptor(), handler, rowsToInsert);
+        }
+
         return new Pair<>(rowsToInsert, rowsToUpdate);
     }
 
     /**
      * Returns {@code true} if this ModifyNode is MERGE operator that has both WHEN MATCHED and WHEN NOT MATCHED
-     * clauses, thus has na UPSERT semantic.
+     * clauses, thus has an UPSERT semantic.
      *
-     * <p>The rows passed to the node have one of the possible format: <ol>
-     *     <li>[insert row type] -- the node is INSERT or MERGE with WHEN NOT MATCHED clause only</li>
-     *     <li>[delete row type] -- the node is DELETE</li>
-     *     <li>[full row type] + [columns to update] -- the node is UPDATE or MERGE with WHEN MATCHED clause only</li>
-     *     <li>[insert row type] + [full row type] + [columns to update] -- the node is MERGE with both handlers, has UPSERT semantic</li>
-     * </ol>
+     * <p>See {@link ModifyNode} for details on possible formats of rows passed to the node.
      *
      * @param rowSize The size of the row passed to the node.
      * @return {@code true} if the node is MERGE with UPSERT semantic.
+     * @see ModifyNode
      */
     private boolean hasUpsertSemantic(int rowSize) {
         return mapping != null && updateColumns != null && rowSize > mapping.length + updateColumns.size();
@@ -358,19 +398,50 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         int[] mapping = new int[columnCount];
 
-        Object2IntMap<String> updateColumnIndexes = new Object2IntOpenHashMap<>(updateColumns.size());
-
-        for (int i = 0; i < updateColumns.size(); i++) {
-            updateColumnIndexes.put(updateColumns.get(i), i + columnCount);
+        for (int i = 0; i < columnCount; i++) {
+            mapping[i] = i;
         }
 
-        for (int i = 0; i < columnCount; i++) {
-            ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(i);
+        for (int i = 0; i < updateColumns.size(); i++) {
+            String columnName = updateColumns.get(i);
+            ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(columnName);
 
-            mapping[i] = updateColumnIndexes.getOrDefault(columnDescriptor.name(), i);
+            mapping[columnDescriptor.logicalIndex()] = columnCount + i;
         }
 
         return mapping;
+    }
+
+    private static <RowT> void injectDefaults(
+            TableDescriptor tableDescriptor,
+            RowHandler<RowT> handler,
+            List<RowT> rows
+    ) {
+        for (RowT row : rows) {
+            for (int i = 0; i < tableDescriptor.columnsCount(); i++) {
+                ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(i);
+
+                Object oldValue = handler.get(columnDescriptor.logicalIndex(), row);
+
+                Object newValue;
+                if (columnDescriptor.key()
+                        && Commons.implicitPkEnabled()
+                        && Commons.IMPLICIT_PK_COL_NAME.equals(columnDescriptor.name())
+                ) {
+                    newValue = columnDescriptor.defaultValue();
+                } else {
+                    newValue = replaceDefaultValuePlaceholder(oldValue, columnDescriptor);
+                }
+
+                if (oldValue != newValue) {
+                    handler.set(columnDescriptor.logicalIndex(), row, newValue);
+                }
+            }
+        }
+    }
+
+    private static @Nullable Object replaceDefaultValuePlaceholder(@Nullable Object val, ColumnDescriptor desc) {
+        return val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
     }
 
     private enum State {
@@ -380,5 +451,4 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         END
     }
-
 }

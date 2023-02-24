@@ -72,7 +72,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory.RowHashFunction;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -399,8 +398,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
 
         RowHandler<RowT> handler = ectx.rowHandler();
 
-        injectDefaults(desc, handler, rows);
-
         UUID tableId = table.tableId();
         RowHashFunction<RowT> hashFunction = ectx.hashFunction(tableId, upsertRowHashFields);
 
@@ -553,10 +550,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         return ColocationGroup.forAssignments(assignments);
     }
 
-    private static @Nullable Object replaceDefaultValuePlaceholder(@Nullable Object val, ColumnDescriptor desc) {
-        return val == RexImpTable.DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
-    }
-
     private class StatisticsImpl implements Statistic {
         private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
 
@@ -632,34 +625,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         }
 
         return projection;
-    }
-
-    private static <RowT> void injectDefaults(
-            TableDescriptor tableDescriptor,
-            RowHandler<RowT> handler,
-            List<RowT> rows
-    ) {
-        for (RowT row : rows) {
-            for (int i = 0; i < tableDescriptor.columnsCount(); i++) {
-                ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(i);
-
-                Object oldValue = handler.get(columnDescriptor.logicalIndex(), row);
-
-                Object newValue;
-                if (columnDescriptor.key()
-                        && Commons.implicitPkEnabled()
-                        && Commons.IMPLICIT_PK_COL_NAME.equals(columnDescriptor.name())
-                ) {
-                    newValue = columnDescriptor.defaultValue();
-                } else {
-                    newValue = replaceDefaultValuePlaceholder(handler.get(columnDescriptor.logicalIndex(), row), columnDescriptor);
-                }
-
-                if (oldValue != newValue) {
-                    handler.set(columnDescriptor.logicalIndex(), row, newValue);
-                }
-            }
-        }
     }
 
     private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(

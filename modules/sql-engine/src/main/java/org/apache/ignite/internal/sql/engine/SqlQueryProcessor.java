@@ -495,9 +495,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         for (SqlNode sqlNode : nodes) {
-            boolean isRw = SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind());
             // Only rw transactions for now.
-            InternalTransaction implicitTx = txManager.begin(!isRw);
+            InternalTransaction implicitTx = txManager.begin(false);
 
             final BaseQueryContext ctx = BaseQueryContext.builder()
                     .cancel(new QueryCancel())

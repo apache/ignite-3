@@ -221,7 +221,21 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         return localNode;
     }
 
-    /** Returns the function to compute colocation hash for specified table. */
+    /**
+     * Returns the function to compute colocation hash for specified table.
+     *
+     * @param tableId An identifier of a table. This identifier will be used to acquire expected types
+     *     of the colocation fields.
+     * @param fields Indexes of the fields representing colocation columns. This is a projection of
+     *     the colocation fields of specified table on actual row. For example, type of the row to insert
+     *     equals to the type of table's row, thus passed fields should match the colocation columns of the table.
+     *     But row for delete may contain the primary fields only, thus we need to project colocation fields
+     *     on this trimmed row.
+     * @return A hash function.
+     */
+    // this is more like workaround to limit scope of the refactoring,
+    // but it definitely need to be fixed
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-18900
     public RowHashFunction<RowT> hashFunction(UUID tableId, int[] fields) {
         return hashFunctionCache.computeIfAbsent(
                 new HashFunctionCacheKey(tableId, fields),
@@ -271,7 +285,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         return params.get(name);
     }
 
-    /** Gets dynamic paremeters by name. */
+    /** Gets dynamic parameters by name. */
     public Object getParameter(String name, Type storageType) {
         assert name.startsWith("?") : name;
 
