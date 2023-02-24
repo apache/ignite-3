@@ -150,6 +150,9 @@ public class ClientTableCommon {
                 int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
                 packer.packBinaryTuple(binaryTuple, elementCount);
                 return;
+            } else {
+                // TODO: Remove me. Temporary check to find out why we have a tuple that is not a binary tuple.
+                throw new RuntimeException("WHY1");
             }
         }
 
