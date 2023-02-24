@@ -618,7 +618,7 @@ public class ClientMessagePacker implements AutoCloseable {
         int len = buf.limit() - buf.position();
 
         if (elementCount > -1) {
-            binaryTupleReader.seek(elementCount);
+            binaryTupleReader.seek(elementCount - 1);
             len = binaryTupleReader.end();
             buf.limit(len + buf.position());
         }
