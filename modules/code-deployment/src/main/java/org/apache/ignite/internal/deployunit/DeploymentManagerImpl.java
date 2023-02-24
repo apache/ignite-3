@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -46,11 +47,9 @@ import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
-import org.apache.ignite.internal.deployunit.exception.DeployUnitWriteMetaException;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitIdentifierException;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotExistException;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitAlreadyExistsException;
+import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.apache.ignite.internal.deployunit.exception.UndeployNotExistedDeploymentUnitException;
 import org.apache.ignite.internal.deployunit.message.DeployUnitMessageTypes;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequest;
 import org.apache.ignite.internal.deployunit.message.DeployUnitRequestBuilder;
@@ -142,10 +141,9 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     @Override
     public CompletableFuture<Boolean> deployAsync(String id, Version version, DeploymentUnit deploymentUnit) {
-        if (id == null || id.isBlank() || version == null) {
-            return CompletableFuture.failedFuture(
-                    new DeploymentUnitIdentifierException("Empty identifier or version detected"));
-        }
+        checkId(id);
+        Objects.requireNonNull(version);
+        Objects.requireNonNull(deploymentUnit);
 
         ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version.render());
 
@@ -173,7 +171,9 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                         return doDeploy(request);
                     }
                     LOG.error("Failed to deploy meta of unit " + id + ":" + version);
-                    return CompletableFuture.failedFuture(new DeployUnitWriteMetaException());
+                    return CompletableFuture.failedFuture(
+                            new DeploymentUnitAlreadyExistsException(id,
+                                    "Unit " + id + ":" + version + " already exists"));
                 })
                 .thenApply(completed -> {
                     if (completed) {
@@ -211,10 +211,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     @Override
     public CompletableFuture<Void> undeployAsync(String id, Version version) {
-        if (id == null || id.isBlank() || version == null) {
-            return CompletableFuture.failedFuture(
-                    new DeploymentUnitIdentifierException("Empty identifier or version detected"));
-        }
+        checkId(id);
+        Objects.requireNonNull(version);
 
         ByteArray key = new ByteArray(UNITS_PREFIX + id + ":" + version);
 
@@ -223,8 +221,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     if (success) {
                         return cmgManager.logicalTopology();
                     }
-                    return CompletableFuture.failedFuture(new UndeployNotExistedDeploymentUnitException(
-                            "Unit " + id + " with version " + version + " doesn't exist."));
+                    return CompletableFuture.failedFuture(new DeploymentUnitNotFoundException(
+                            "Unit " + id + " with version " + version + " doesn't exist"));
                 }).thenApply(logicalTopologySnapshot -> {
                     for (ClusterNode node : logicalTopologySnapshot.nodes()) {
                         clusterService.messagingService()
@@ -259,8 +257,8 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     @Override
                     public void onNext(Entry item) {
                         UnitMeta meta = UnitMetaSerializer.deserialize(item.value());
-                        map.computeIfAbsent(meta.getId(), UnitStatus::builder)
-                                .append(meta.getVersion(), meta.getConsistentIdLocation());
+                        map.computeIfAbsent(meta.id(), UnitStatus::builder)
+                                .append(meta.version(), meta.consistentIdLocation());
                     }
 
                     @Override
@@ -278,9 +276,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     @Override
     public CompletableFuture<List<Version>> versionsAsync(String id) {
-        if (id == null || id.isBlank()) {
-            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException("Empty identifier detected"));
-        }
+        checkId(id);
         CompletableFuture<List<Version>> result = new CompletableFuture<>();
         metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
                 .subscribe(new Subscriber<>() {
@@ -294,7 +290,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                     @Override
                     public void onNext(Entry item) {
                         UnitMeta deserialize = UnitMetaSerializer.deserialize(item.value());
-                        list.add(deserialize.getVersion());
+                        list.add(deserialize.version());
                     }
 
                     @Override
@@ -312,9 +308,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
     @Override
     public CompletableFuture<UnitStatus> statusAsync(String id) {
-        if (id == null || id.isBlank()) {
-            return CompletableFuture.failedFuture(new DeploymentUnitIdentifierException("Empty identifier detected"));
-        }
+        checkId(id);
         CompletableFuture<UnitStatus> result = new CompletableFuture<>();
         metaStorage.prefix(new ByteArray(UNITS_PREFIX + id))
                 .subscribe(new Subscriber<>() {
@@ -331,7 +325,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                             builder = UnitStatus.builder(id);
                         }
                         UnitMeta deserialize = UnitMetaSerializer.deserialize(item.value());
-                        builder.append(deserialize.getVersion(), deserialize.getConsistentIdLocation());
+                        builder.append(deserialize.version(), deserialize.consistentIdLocation());
                     }
 
                     @Override
@@ -345,7 +339,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
                             result.complete(builder.build());
                         } else {
                             result.completeExceptionally(
-                                    new DeploymentUnitNotExistException("Unit with " + id + " doesn't exist."));
+                                    new DeploymentUnitNotFoundException("Unit with " + id + " doesn't exist."));
                         }
                     }
                 });
@@ -431,5 +425,13 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
     @Override
     public void stop() throws Exception {
         inFlightFutures.cancelInFlightFutures();
+    }
+
+    private static void checkId(String id) {
+        Objects.requireNonNull(id);
+
+        if (id.isBlank()) {
+            throw new IllegalArgumentException("Id is blank");
+        }
     }
 }

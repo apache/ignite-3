@@ -38,7 +38,7 @@ public class UnitMeta {
     /**
      * Unit name.
      */
-    private final String unitName;
+    private final String name;
 
     /**
      * Consistent ids of nodes with.
@@ -50,18 +50,18 @@ public class UnitMeta {
      *
      * @param id Unit identifier.
      * @param version Unit version.
-     * @param unitName Unit name.
+     * @param name Unit name.
      * @param consistentIdLocation Consistent ids of nodes where unit deployed.
      */
-    public UnitMeta(String id, Version version, String unitName, List<String> consistentIdLocation) {
+    public UnitMeta(String id, Version version, String name, List<String> consistentIdLocation) {
         this.id = id;
         this.version = version;
-        this.unitName = unitName;
+        this.name = name;
         this.consistentIdLocation.addAll(consistentIdLocation);
     }
 
-    public UnitMeta(String id, String unitName, List<String> consistentIdLocation) {
-        this(id, Version.LATEST, unitName, consistentIdLocation);
+    public UnitMeta(String id, String name, List<String> consistentIdLocation) {
+        this(id, Version.LATEST, name, consistentIdLocation);
     }
 
     /**
@@ -69,7 +69,7 @@ public class UnitMeta {
      *
      * @return Identifier of deployment unit.
      */
-    public String getId() {
+    public String id() {
         return id;
     }
 
@@ -78,7 +78,7 @@ public class UnitMeta {
      *
      * @return Version of deployment unit.
      */
-    public Version getVersion() {
+    public Version version() {
         return version;
     }
 
@@ -87,8 +87,8 @@ public class UnitMeta {
      *
      * @return name of deployment unit.
      */
-    public String getUnitName() {
-        return unitName;
+    public String name() {
+        return name;
     }
 
     /**
@@ -96,7 +96,7 @@ public class UnitMeta {
      *
      * @return List of nodes consistent id where deployment unit deployed.
      */
-    public List<String> getConsistentIdLocation() {
+    public List<String> consistentIdLocation() {
         return consistentIdLocation;
     }
 
@@ -126,7 +126,7 @@ public class UnitMeta {
         if (version != null ? !version.equals(meta.version) : meta.version != null) {
             return false;
         }
-        if (unitName != null ? !unitName.equals(meta.unitName) : meta.unitName != null) {
+        if (name != null ? !name.equals(meta.name) : meta.name != null) {
             return false;
         }
         return consistentIdLocation.equals(meta.consistentIdLocation);
@@ -136,7 +136,7 @@ public class UnitMeta {
     public int hashCode() {
         int result = id != null ? id.hashCode() : 0;
         result = 31 * result + (version != null ? version.hashCode() : 0);
-        result = 31 * result + (unitName != null ? unitName.hashCode() : 0);
+        result = 31 * result + (name != null ? name.hashCode() : 0);
         result = 31 * result + consistentIdLocation.hashCode();
         return result;
     }

@@ -401,33 +401,18 @@ public class ErrorGroups {
         public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = ErrorGroup.newGroup("CODEDEPLOY", 13);
 
         /**
-         * Config read error.
+         * Access to not existed deployment unit.
          */
-        public static final int UNDEPLOY_NOT_EXISTED_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(1);
+        public static final int UNIT_NOT_FOUND_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(1);
 
         /**
          * Unit duplicate error.
          */
-        public static final int DUPLICATE_DEPLOY_UNIT_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(2);
-
-        /**
-         * Access to not existed deployment unit.
-         */
-        public static final int NOT_EXISTED_UNIT_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
+        public static final int UNIT_ALREADY_EXISTS_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(2);
 
         /**
          * Deployment unit content read error.
          */
-        public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(4);
-
-        /**
-         * Deployment unit meta data write error.
-         */
-        public static final int UNIT_META_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(5);
-
-        /**
-         * Deployment unit invalid identifier error.
-         */
-        public static final int UNIT_INVALID_IDENTIFIER_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(6);
+        public static final int UNIT_CONTENT_READ_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(3);
     }
 }

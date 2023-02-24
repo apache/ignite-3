@@ -48,11 +48,11 @@ public class UnitMetaSerializer {
     public static byte[] serialize(UnitMeta meta) {
         StringBuilder sb = new StringBuilder();
 
-        appendWithEncoding(sb, meta.getId());
-        appendWithEncoding(sb, meta.getVersion().render());
-        appendWithEncoding(sb, meta.getUnitName());
+        appendWithEncoding(sb, meta.id());
+        appendWithEncoding(sb, meta.version().render());
+        appendWithEncoding(sb, meta.name());
 
-        for (String id : meta.getConsistentIdLocation()) {
+        for (String id : meta.consistentIdLocation()) {
             appendWithEncoding(sb, id);
         }
 

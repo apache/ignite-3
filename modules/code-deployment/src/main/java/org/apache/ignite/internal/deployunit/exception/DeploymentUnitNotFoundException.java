@@ -21,13 +21,15 @@ import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Throws when unit meta information failed to write.
+ * Throws when trying to access information about unit which doesn't exist.
  */
-public class DeployUnitWriteMetaException extends IgniteException {
+public class DeploymentUnitNotFoundException extends IgniteException {
     /**
      * Constructor.
+     *
+     * @param message error message.
      */
-    public DeployUnitWriteMetaException() {
-        super(CodeDeployment.UNIT_META_WRITE_ERR);
+    public DeploymentUnitNotFoundException(String message) {
+        super(CodeDeployment.UNIT_NOT_FOUND_ERR, message);
     }
 }

@@ -17,15 +17,32 @@
 
 package org.apache.ignite.internal.deployunit.exception;
 
-import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_INVALID_IDENTIFIER_ERR;
-
+import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Throws when deployment unit have invalid identifier or version.
+ * Throws when trying to deploy unit which already exist.
  */
-public class DeploymentUnitIdentifierException extends IgniteException {
-    public DeploymentUnitIdentifierException(String msg) {
-        super(UNIT_INVALID_IDENTIFIER_ERR, msg);
+public class DeploymentUnitAlreadyExistsException extends IgniteException {
+
+    /**
+     * Unit identifier.
+     */
+    private final String id;
+
+    /**
+     * Constructor.
+     *
+     * @param id Unit identifier.
+     * @param message Error message.
+     */
+    public DeploymentUnitAlreadyExistsException(String id, String message) {
+        super(CodeDeployment.UNIT_ALREADY_EXISTS_ERR, message);
+        this.id = id;
     }
+
+    public String id() {
+        return id;
+    }
+
 }

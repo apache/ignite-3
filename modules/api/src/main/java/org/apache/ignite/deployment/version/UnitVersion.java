@@ -17,6 +17,8 @@
 
 package org.apache.ignite.deployment.version;
 
+import java.util.Objects;
+
 /**
  * Implementation of {@link Version} interface based on the three numbers format,
  * like x.x.x. where x is short number.
@@ -52,6 +54,7 @@ public class UnitVersion implements Version {
      * @throws VersionParseException in case when string is not required {@link UnitVersion} format.
      */
     public static UnitVersion parse(String s) {
+        Objects.requireNonNull(s);
         try {
             String[] split = s.split("\\.", -1);
             if (split.length > 3 || split.length == 0) {
