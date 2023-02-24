@@ -1,7 +1,6 @@
 # name: test/sql/types/blob/test_blob_operator.test
 # description: Test BLOBs with various SQL operators
 # group: [blob]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-15123
 
 statement ok
 PRAGMA enable_verification
@@ -11,7 +10,16 @@ CREATE TABLE blobs (b varbinary, g INTEGER);
 
 # strings: hello -> \x68656C6C6F, r -> \x72
 statement ok
-INSERT INTO blobs VALUES ('hello', 0), (x'00' || 'whatisgoingon'::varbinary, 1), (NULL, 0), (x'FFFEFB', 1)
+INSERT INTO blobs VALUES ('hello', 0)
+
+statement ok
+INSERT INTO blobs VALUES (x'00' || 'whatisgoingon'::varbinary, 1)
+
+statement ok
+INSERT INTO blobs VALUES (NULL, 0)
+
+statement ok
+INSERT INTO blobs VALUES (x'FFFEFB', 1)
 
 # simple aggregates only
 query IITT
@@ -23,29 +31,47 @@ SELECT COUNT(*), COUNT(b), MIN(b), MAX(b) FROM blobs
 query TI
 SELECT * FROM blobs ORDER BY b
 ----
-NULL	0
 00776861746973676f696e676f6e	1
 68656c6c6f	0
 fffefb	1
+NULL	0
 
 # GROUP BY
 statement ok
-INSERT INTO blobs VALUES ('hello', 3), (x'00' || 'whatisgoingon'::varbinary, 9), (NULL, 0), (x'FFFEFB', 19)
+INSERT INTO blobs VALUES ('hello', 3)
+
+statement ok
+INSERT INTO blobs VALUES (x'00' || 'whatisgoingon'::varbinary, 9)
+
+statement ok
+INSERT INTO blobs VALUES (NULL, 0)
+
+statement ok
+INSERT INTO blobs VALUES (x'FFFEFB', 19)
 
 query II
 SELECT b, SUM(g) FROM blobs GROUP BY b ORDER BY b
 ----
-NULL	0
 00776861746973676f696e676f6e	10
 68656c6c6f	3
 fffefb	20
+NULL	0
 
 # JOIN
 statement ok
 CREATE TABLE blobs2 (b VARBINARY, g INTEGER);
 
 statement ok
-INSERT INTO blobs2 VALUES ('hello', 0), (x'00' || 'whatisgoingon'::varbinary, 100), (NULL, 0), (x'FFFEFB', 200)
+INSERT INTO blobs2 VALUES ('hello', 0)
+
+statement ok
+INSERT INTO blobs2 VALUES (x'00' || 'whatisgoingon'::varbinary, 100)
+
+statement ok
+INSERT INTO blobs2 VALUES (NULL, 0)
+
+statement ok
+INSERT INTO blobs2 VALUES (x'FFFEFB', 200)
 
 # group by blobs.b, explicit JOIN
 query TR
@@ -62,4 +88,3 @@ SELECT R.b, SUM(R.g) FROM blobs as L, blobs2 AS R WHERE L.b=R.b GROUP BY R.b ORD
 00776861746973676f696e676f6e	200.000000
 68656c6c6f	0.000000
 fffefb	400.000000
-

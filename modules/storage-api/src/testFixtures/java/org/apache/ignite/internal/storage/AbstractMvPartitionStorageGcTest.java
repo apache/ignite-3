@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -128,5 +129,19 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18882")
+    void testVacuumsSecondRowIfTombstoneIsFirst() {
+        addAndCommit(null);
+
+        addAndCommit(TABLE_ROW);
+
+        addAndCommit(TABLE_ROW2);
+
+        BinaryRowAndRowId row = pollForVacuum(HybridTimestamp.MAX_VALUE);
+
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
     }
 }

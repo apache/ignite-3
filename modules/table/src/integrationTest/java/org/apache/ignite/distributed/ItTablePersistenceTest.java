@@ -20,8 +20,10 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -35,6 +37,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -363,7 +366,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     mvTableStorages.put(index, mvTableStorage);
                     closeables.add(mvTableStorage::close);
 
-                    MvPartitionStorage mvPartitionStorage = mvTableStorage.getOrCreateMvPartition(0);
+                    MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(mvTableStorage, 0);
                     mvPartitionStorages.put(index, mvPartitionStorage);
                     closeables.add(mvPartitionStorage::close);
 
@@ -405,5 +408,19 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         rowBuilder.appendLong(value);
 
         return new Row(SCHEMA, rowBuilder.build());
+    }
+
+    private static MvPartitionStorage getOrCreateMvPartition(MvTableStorage tableStorage, int partitionId) {
+        MvPartitionStorage mvPartition = tableStorage.getMvPartition(partitionId);
+
+        if (mvPartition != null) {
+            return mvPartition;
+        }
+
+        CompletableFuture<MvPartitionStorage> createMvPartitionFuture = tableStorage.createMvPartition(0);
+
+        assertThat(createMvPartitionFuture, willCompleteSuccessfully());
+
+        return createMvPartitionFuture.join();
     }
 }

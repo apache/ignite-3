@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.call.node.metric;
 
 import jakarta.inject.Singleton;
 import java.util.List;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -26,12 +27,17 @@ import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.MetricSource;
 
 /** Lists node metric sources. */
 @Singleton
 public class NodeMetricListCall implements Call<StringCallInput, List<MetricSource>> {
+    private final ApiClientFactory clientFactory;
+
+    public NodeMetricListCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CallOutput<List<MetricSource>> execute(StringCallInput input) {
@@ -43,7 +49,7 @@ public class NodeMetricListCall implements Call<StringCallInput, List<MetricSour
         }
     }
 
-    private static List<MetricSource> listNodeMetrics(StringCallInput input) throws ApiException {
-        return new NodeMetricApi(Configuration.getDefaultApiClient().setBasePath(input.getString())).listNodeMetrics();
+    private List<MetricSource> listNodeMetrics(StringCallInput input) throws ApiException {
+        return new NodeMetricApi(clientFactory.getClient(input.getString())).listNodeMetrics();
     }
 }

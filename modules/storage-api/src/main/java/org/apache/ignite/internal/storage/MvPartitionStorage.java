@@ -220,7 +220,8 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Polls the oldest row in the partition, removing it at the same time.
      *
-     * @param lowWatermark A time threshold for the row. Rows younger then the watermark value will not be removed.
+     * @param lowWatermark A time threshold for the row. Only rows that have versions with timestamp higher or equal to the watermark
+     *      can be removed.
      * @return A pair of table row and row id, where a timestamp of the row is less than or equal to {@code lowWatermark}.
      *      {@code null} if there's no such value.
      * @throws StorageException If failed to poll element for vacuum.
