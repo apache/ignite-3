@@ -48,16 +48,14 @@ public class StopAllIgnitesAfterTests implements AfterAllCallback {
 
     @Override
     public void afterAll(ExtensionContext context) throws Exception {
-        String testInstanceName = context.getTestClass().map(Class::getName).orElse("<unknown>");
-
-        LOG.info("StopAllIgnitesAfterTests entered: {}", testInstanceName);
-
         // Try to stop all Ignite nodes via reflection to make sure that this extension does not break anything
         // even in modules where IgnitionManager is not available (so even for unit tests).
 
         Class<?> ignitionManagerClass = findClassByName(IGNITION_MANAGER_CLASS_NAME);
 
         if (ignitionManagerClass != null && isIgnitionImplAvailable()) {
+            String testInstanceName = context.getTestClass().map(Class::getName).orElse("<unknown>");
+
             LOG.info("Trying to stop all Ignites in {}", testInstanceName);
 
             Method stopAllMethod = ignitionManagerClass.getMethod("stopAll");
