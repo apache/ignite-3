@@ -37,6 +37,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -109,7 +110,7 @@ public class ItRestAuthenticationTest {
     }
 
     @Test
-    public void basicAuthentication(TestInfo testInfo) throws InterruptedException {
+    public void changeCredentials(TestInfo testInfo) throws InterruptedException {
         // when
         RestNode metaStorageNode = nodes.get(0);
 
@@ -184,6 +185,70 @@ public class ItRestAuthenticationTest {
         // REST is available with new credentials
         for (RestNode node : nodes) {
             assertTrue(isRestAvailable(node.httpAddress(), "admin", "new-password"));
+        }
+    }
+
+    @Test
+    public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws InterruptedException {
+        // when
+        RestNode metaStorageNode = nodes.get(0);
+
+        String msNodeNames = nodes.stream()
+                .map(RestNode::name)
+                .map(name -> "\"" + name + "\"")
+                .collect(Collectors.joining(","));
+
+        String initClusterBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + msNodeNames
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"authenticationConfig\": {\n"
+                + "      \"enabled\": true,\n"
+                + "      \"providers\": [\n"
+                + "        {\n"
+                + "          \"name\": \"basic\",\n"
+                + "          \"type\": \"basic\",\n"
+                + "          \"login\": \"admin\",\n"
+                + "          \"password\": \"password\"\n"
+                + "        }\n"
+                + "      ]\n"
+                + "    }\n"
+                + "  }";
+
+        initCluster(metaStorageNode.httpAddress(), initClusterBody);
+
+        // then
+        // authentication is enabled
+        for (RestNode node : nodes) {
+            assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
+                    Duration.ofSeconds(5).toMillis()));
+        }
+
+        // REST is available with valid credentials
+        for (RestNode node : nodes) {
+            assertTrue(isRestAvailable(node.httpAddress(), "admin", "password"));
+        }
+
+        // REST is not available with invalid credentials
+        for (RestNode node : nodes) {
+            assertFalse(isRestAvailable(node.httpAddress(), "admin", "wrong-password"));
+        }
+
+        // restart one of the nodes
+        RestNode nodeToRestart = nodes.get(2);
+        nodeToRestart.restart();
+        waitForAllNodesStarted(Collections.singletonList(nodeToRestart));
+
+        // REST is available with valid credentials
+        for (RestNode node : nodes) {
+            assertTrue(isRestAvailable(node.httpAddress(), "admin", "password"));
+        }
+
+        // REST is not available with invalid credentials
+        for (RestNode node : nodes) {
+            assertFalse(isRestAvailable(node.httpAddress(), "admin", "wrong-password"));
         }
     }
 

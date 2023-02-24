@@ -78,6 +78,12 @@ public class RestNode {
         return igniteNodeFuture;
     }
 
+    public CompletableFuture<Ignite> restart() {
+        stop();
+        igniteNodeFuture = IgnitionManager.start(name, null, workDir.resolve(name));
+        return igniteNodeFuture;
+    }
+
     public void stop() {
         IgnitionManager.stop(name);
     }
