@@ -147,7 +147,8 @@ public class ClientTableCommon {
         if (part != TuplePart.VAL) {
             BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
             if (binaryTuple != null) {
-                packer.packBinaryTuple(binaryTuple);
+                int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
+                packer.packBinaryTuple(binaryTuple, elementCount);
                 return;
             }
         }
