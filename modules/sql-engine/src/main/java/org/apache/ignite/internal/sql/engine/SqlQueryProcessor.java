@@ -90,7 +90,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * SqlQueryProcessor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ *  SqlQueryProcessor.
+ *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
