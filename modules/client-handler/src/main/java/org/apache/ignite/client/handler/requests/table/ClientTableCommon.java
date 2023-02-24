@@ -39,6 +39,8 @@ import org.apache.ignite.internal.client.proto.ClientDataType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -135,11 +137,17 @@ public class ClientTableCommon {
     ) {
         assert tuple != null;
 
+        // TODO: Schema must come from the same tuple, and it does up the stack, but it is better to get it here.
         if (!skipHeader) {
             packer.packInt(schema.version());
         }
 
-        // TODO IGNITE-17636 Avoid conversion, copy BinaryTuple from storage to client.
+        BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
+        if (binaryTuple != null) {
+            packer.packBinaryTuple(binaryTuple);
+            return;
+        }
+
         var builder = new BinaryTupleBuilder(columnCount(schema, part), true);
 
         if (part != TuplePart.VAL) {
@@ -559,5 +567,11 @@ public class ClientTableCommon {
             case VAL: return schema.valueColumns().length();
             default: return schema.length();
         }
+    }
+
+    private static @Nullable BinaryTuple tryGetBinaryTuple(Tuple tuple) {
+        return tuple instanceof BinaryTupleContainer
+                ? ((BinaryTupleContainer) tuple).binaryTuple()
+                : null;
     }
 }
