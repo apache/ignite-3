@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import java.io.PrintWriter;
@@ -490,23 +491,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
             List<RelOptRule> newSet = new ArrayList<>();
 
             for (RelOptRule r : rulesSet) {
-                if (!disabledRuleNames.contains(shortRuleName(r.toString()))) {
+                if (!disabledRuleNames.contains(shortRuleName(r))) {
                     newSet.add(r);
                 }
             }
 
             return RuleSets.ofList(newSet);
         });
-    }
-
-    private static String shortRuleName(String ruleDesc) {
-        int pos = ruleDesc.indexOf('(');
-
-        if (pos == -1) {
-            return ruleDesc;
-        }
-
-        return ruleDesc.substring(0, pos);
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {
