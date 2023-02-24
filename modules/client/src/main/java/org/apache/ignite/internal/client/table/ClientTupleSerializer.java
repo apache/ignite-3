@@ -237,6 +237,7 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+        // TODO IGNITE-18899 wrap BinaryTuple similar to MutableRowTupleAdapter
         var tuple = new ClientTuple(schema);
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;

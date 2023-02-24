@@ -143,6 +143,7 @@ public class ClientTableCommon {
         }
 
         // TODO: Handle VAL - slice the tuple somehow.
+        // OR simplify the protocol and send the entire tuple always?
         if (part != TuplePart.VAL) {
             BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
             if (binaryTuple != null) {
