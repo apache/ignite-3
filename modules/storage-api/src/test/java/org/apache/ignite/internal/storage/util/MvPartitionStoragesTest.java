@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
@@ -35,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -159,8 +159,6 @@ public class MvPartitionStoragesTest {
 
         // What if there is an error during the destroy?
 
-        MvPartitionStorage mvStorage = getMvStorage(0);
-
         CompletableFuture<Void> startErrorDestroyMvStorageFuture = new CompletableFuture<>();
         CompletableFuture<Void> finishErrorDestroyMvStorageFuture = new CompletableFuture<>();
 
@@ -246,6 +244,8 @@ public class MvPartitionStoragesTest {
         );
 
         assertNull(getMvStorage(0));
+
+        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
     }
 
     @Test
@@ -282,6 +282,8 @@ public class MvPartitionStoragesTest {
         assertThat(cleanupMvStorageFuture, willCompleteSuccessfully());
 
         assertSame(mvStorage, getMvStorage(0));
+
+        assertThat(clearMvStorage(0), willCompleteSuccessfully());
     }
 
     @Test
@@ -359,6 +361,7 @@ public class MvPartitionStoragesTest {
         assertNotNull(getMvStorage(0));
 
         // What if we restart the rebalance?
+
         assertThat(abortRebalanceMvStorage(0), willCompleteSuccessfully());
 
         assertThat(startRebalanceMvStorage(0), willCompleteSuccessfully());
@@ -554,7 +557,7 @@ public class MvPartitionStoragesTest {
             return completedFuture(null);
         });
 
-        assertThat(destroyAllMvStoragesFuture, willFailFast(TimeoutException.class));
+        assertThat(destroyAllMvStoragesFuture, willTimeoutFast());
 
         finishDestroyMvStorage0Future.complete(null);
 
