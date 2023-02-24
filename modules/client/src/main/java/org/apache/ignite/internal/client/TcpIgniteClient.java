@@ -140,6 +140,7 @@ public class TcpIgniteClient implements IgniteClient {
         return compute;
     }
 
+    /** {@inheritDoc} */
     @Override
     public IgniteDeployment deployment() {
         throw new UnsupportedOperationException("Deployment management not implemented yet.");

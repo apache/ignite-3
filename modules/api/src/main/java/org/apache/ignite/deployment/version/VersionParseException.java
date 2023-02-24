@@ -21,7 +21,6 @@ package org.apache.ignite.deployment.version;
  * Throws when {@link Version} of deployment unit not parsable.
  */
 public class VersionParseException extends RuntimeException {
-
     /**
      * Constructor.
      */

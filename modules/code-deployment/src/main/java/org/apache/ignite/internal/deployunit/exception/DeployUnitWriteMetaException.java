@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteException;
  * Throws when unit meta information failed to write.
  */
 public class DeployUnitWriteMetaException extends IgniteException {
-
     /**
      * Constructor.
      */

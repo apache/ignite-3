@@ -25,7 +25,6 @@ import org.apache.ignite.lang.IgniteException;
  * Throws when deployment unit have invalid identifier or version.
  */
 public class DeploymentUnitIdentifierException extends IgniteException {
-
     public DeploymentUnitIdentifierException(String msg) {
         super(UNIT_INVALID_IDENTIFIER_ERR, msg);
     }

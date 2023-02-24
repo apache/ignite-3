@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
  * Unit tests for {@link Version}.
  */
 public class VersionUnitTest {
-
     @Test
     public void testParseCorrect() {
         assertThat(Version.parseVersion("1.1.0"), is(new UnitVersion((short) 1, (short) 1, (short) 0)));
