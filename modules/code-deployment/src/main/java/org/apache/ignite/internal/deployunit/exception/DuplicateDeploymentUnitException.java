@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteException;
  * Throws when trying to deploy unit which already exist.
  */
 public class DuplicateDeploymentUnitException extends IgniteException {
-
     /**
      * Constructor.
      *

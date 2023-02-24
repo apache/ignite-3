@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteException;
  * Throws when trying to undeploy not existed unit.
  */
 public class UndeployNotExistedDeploymentUnitException extends IgniteException {
-
     /**
      * Constructor.
      *

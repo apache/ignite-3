@@ -429,6 +429,5 @@ public class ErrorGroups {
          * Deployment unit invalid identifier error.
          */
         public static final int UNIT_INVALID_IDENTIFIER_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(6);
-
     }
 }

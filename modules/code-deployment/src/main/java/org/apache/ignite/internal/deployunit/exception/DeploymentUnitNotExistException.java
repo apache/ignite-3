@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteException;
  * Throws when trying to access information about unit which doesn't exist.
  */
 public class DeploymentUnitNotExistException extends IgniteException {
-
     /**
      * Constructor.
      *

@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteException;
  * Throws when deployment unit content failed to read.
  */
 public class DeploymentUnitReadException extends IgniteException {
-
     /**
      * Constructor.
      */

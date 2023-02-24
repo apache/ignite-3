@@ -40,19 +40,42 @@ public class UnitStatus {
      */
     private final Map<Version, List<String>> versionToConsistentIds;
 
+    /**
+     * Constructor.
+     *
+     * @param id Unit identifier.
+     * @param versionToConsistentIds Map from existing unit version to list
+     *      of nodes consistent ids where unit deployed.
+     */
     private UnitStatus(String id, Map<Version, List<String>> versionToConsistentIds) {
         this.id = id;
         this.versionToConsistentIds = Collections.unmodifiableMap(versionToConsistentIds);
     }
 
+    /**
+     * Returns unit identifier.
+     *
+     * @return unit identifier.
+     */
     public String id() {
         return id;
     }
 
+    /**
+     * Returns unit version.
+     *
+     * @return unit version.
+     */
     public Set<Version> versions() {
         return Collections.unmodifiableSet(versionToConsistentIds.keySet());
     }
 
+    /**
+     * Returns consistent ids of nodes for provided version.
+     *
+     * @param version Unit version.
+     * @return consistent ids of nodes for provided version.
+     */
     public List<String> consistentIds(Version version) {
         return Collections.unmodifiableList(versionToConsistentIds.get(version));
     }
@@ -69,6 +92,7 @@ public class UnitStatus {
         return new UnitStatusBuilder(id);
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -81,11 +105,13 @@ public class UnitStatus {
         return Objects.equals(id, that.id) && Objects.equals(versionToConsistentIds, that.versionToConsistentIds);
     }
 
+    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return Objects.hash(id, versionToConsistentIds);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
@@ -99,15 +125,32 @@ public class UnitStatus {
         private final String id;
         private final Map<Version, List<String>> versionToConsistentIds = new HashMap<>();
 
+        /**
+         * Constructor.
+         *
+         * @param id unit identifier.
+         */
         public UnitStatusBuilder(String id) {
             this.id = id;
         }
 
+        /**
+         * Append node consistent ids with provided version.
+         *
+         * @param version Unit version.
+         * @param consistentIds Node consistent ids.
+         * @return {@code this} builder for use in a chained invocation.
+         */
         public UnitStatusBuilder append(Version version, List<String> consistentIds) {
             versionToConsistentIds.put(version, consistentIds);
             return this;
         }
 
+        /**
+         * Builder status method.
+         *
+         * @return {@link UnitStatus} instance.
+         */
         public UnitStatus build() {
             return new UnitStatus(id, versionToConsistentIds);
         }

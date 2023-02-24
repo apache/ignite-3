@@ -23,7 +23,6 @@ import java.io.InputStream;
  * Deployment unit interface.
  */
 public interface DeploymentUnit {
-
     /**
      * Unit name.
      *
