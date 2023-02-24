@@ -88,7 +88,7 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
 
         writeWithGc(writer, clock.now());
 
-        assertEquals(5, getRowVersions(rowId).size());
+        assertEquals(WRITES_COUNT - StorageUpdateHandler.GC_BATCH_SIZE, getRowVersions(rowId).size());
     }
 
     private List<ReadResult> getRowVersions(RowId rowId) {

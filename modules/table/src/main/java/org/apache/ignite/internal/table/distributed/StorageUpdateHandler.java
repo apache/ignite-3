@@ -47,6 +47,9 @@ import org.jetbrains.annotations.Nullable;
  * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
  */
 public class StorageUpdateHandler {
+    /** Garbage collection batch size. */
+    public static final int GC_BATCH_SIZE = 5;
+
     /** Partition id. */
     private final int partitionId;
 
@@ -213,7 +216,7 @@ public class StorageUpdateHandler {
                 // Iff the lwm we have is the new lwm.
                 // Otherwise our newLwm is either was smaller than last recorded lwm or last recorded lwm has changed
                 // concurrently and it become greater. If that's the case, another thread will perform the GC.
-                vacuumBatch(curLwm, 5);
+                vacuumBatch(curLwm, GC_BATCH_SIZE);
             }
         }
     }
