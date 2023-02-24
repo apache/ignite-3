@@ -29,6 +29,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transaction.
@@ -47,6 +48,7 @@ public class ClientTransaction implements Transaction {
     private final boolean isReadOnly;
 
     /** Read timestamp. */
+    @Nullable
     private final HybridTimestamp readTs;
 
     /**
@@ -55,7 +57,7 @@ public class ClientTransaction implements Transaction {
      * @param ch Channel that the transaction belongs to.
      * @param id Transaction id.
      */
-    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, HybridTimestamp readTs) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, @Nullable HybridTimestamp readTs) {
         this.ch = ch;
         this.id = id;
         this.isReadOnly = isReadOnly;
