@@ -61,18 +61,19 @@ public class ClientTransactions implements IgniteTransactions {
             throw new UnsupportedOperationException("Timeouts are not supported yet");
         }
 
+        boolean readOnly = options != null && options.readOnly();
+
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
-                w -> w.out().packBoolean(options != null && options.readOnly()),
-                ClientTransactions::readTx);
+                w -> w.out().packBoolean(readOnly),
+                r -> readTx(r, readOnly));
     }
 
     @NotNull
-    private static ClientTransaction readTx(PayloadInputChannel r) {
+    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
-        boolean isReadOnly = in.unpackBoolean();
         HybridTimestamp readTs = in.tryUnpackNil() ? null : new HybridTimestamp(in.unpackLong(), in.unpackInt());
 
         return new ClientTransaction(r.clientChannel(), id, isReadOnly, readTs);
