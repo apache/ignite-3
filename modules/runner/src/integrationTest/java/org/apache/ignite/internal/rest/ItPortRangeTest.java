@@ -60,7 +60,7 @@ public class ItPortRangeTest {
     private static final String trustStorePath = "ssl/truststore.jks";
 
     /** Trust store password. */
-    private static final String trustStorePassword = "changeIt";
+    private static final String trustStorePassword = "changeit";
 
     /** Path to the working directory. */
     @WorkDirectory
@@ -99,6 +99,7 @@ public class ItPortRangeTest {
                         10300,
                         10400,
                         true,
+                        false,
                         true
                 ))
                 .collect(Collectors.toList());

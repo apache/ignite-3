@@ -453,7 +453,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSort rel) {
         RelCollation collation = rel.getCollation();
 
-        SortNode<RowT> node = new SortNode<>(ctx, expressionFactory.comparator(collation));
+        Supplier<Integer> offset = (rel.offset == null) ? null : expressionFactory.execute(rel.offset);
+        Supplier<Integer> fetch = (rel.fetch == null) ? null : expressionFactory.execute(rel.fetch);
+
+        SortNode<RowT> node = new SortNode<>(ctx, expressionFactory.comparator(collation), offset,
+                fetch);
 
         Node<RowT> input = visit(rel.getInput());
 

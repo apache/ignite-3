@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -47,6 +48,8 @@ public class ClientUtils {
             throw IgniteException.wrap(e);
         } catch (ExecutionException e) {
             throw IgniteException.wrap(e);
+        } catch (CompletionException e) {
+            throw IgniteException.wrap(e.getCause());
         }
     }
 

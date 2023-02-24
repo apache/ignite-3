@@ -18,12 +18,12 @@
 namespace Apache.Ignite.Benchmarks;
 
 using BenchmarkDotNet.Running;
-using Sql;
+using Table;
 
 internal static class Program
 {
     private static void Main()
     {
-        BenchmarkRunner.Run<ResultSetBenchmarks>();
+        BenchmarkRunner.Run<TableGetMultiThreadedBenchmarks>();
     }
 }

@@ -664,7 +664,6 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public BinaryRow build() {
-        //TODO reuse buffer https://issues.apache.org/jira/browse/IGNITE-18697
         boolean hasValue = flush();
 
         ByteBuffer tupleBuffer = builder.build();

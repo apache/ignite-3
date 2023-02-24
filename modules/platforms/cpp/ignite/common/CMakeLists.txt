@@ -47,7 +47,9 @@ target_include_directories(${TARGET} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>)
 
-ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common)
+if (${INSTALL_IGNITE_FILES})
+    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common)
+endif()
 
 ignite_test(bits_test bits_test.cpp LIBS ${TARGET})
 ignite_test(bytes_test bytes_test.cpp LIBS ${TARGET})

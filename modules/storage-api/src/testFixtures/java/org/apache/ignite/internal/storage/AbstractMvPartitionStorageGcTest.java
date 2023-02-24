@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -80,6 +81,9 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         assertNull(read(ROW_ID, secondCommitTs));
 
         // Check that tombstone is also deleted from the partition. It must be empty at this point.
+        assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
+
+        // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
     }
 
@@ -97,6 +101,9 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         assertNull(read(ROW_ID, lastCommitTs));
 
         // Check that all tombstones are deleted from the partition. It must be empty at this point.
+        assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
+
+        // Let's check that the storage is empty.
         assertNull(storage.closestRowId(ROW_ID));
     }
 
@@ -122,5 +129,19 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18882")
+    void testVacuumsSecondRowIfTombstoneIsFirst() {
+        addAndCommit(null);
+
+        addAndCommit(TABLE_ROW);
+
+        addAndCommit(TABLE_ROW2);
+
+        BinaryRowAndRowId row = pollForVacuum(HybridTimestamp.MAX_VALUE);
+
+        assertRowMatches(row.binaryRow(), TABLE_ROW);
     }
 }

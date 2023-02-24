@@ -88,6 +88,17 @@ public interface CliService extends Lifecycle<CliOptions> {
     Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
 
     /**
+     * Converts the specified learner to follower of |conf|.
+     * return OK status when success.
+     *
+     * @param groupId  the raft group id
+     * @param conf     current configuration
+     * @param learner  learner peer
+     * @return operation status
+     */
+    Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner);
+
+    /**
      * Update learners set in the replicating group which consists of |conf|. return OK status when success.
      *
      * @param groupId the raft group id

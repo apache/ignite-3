@@ -632,12 +632,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
 
+                byte[] assignmentsBytes = ((ExtendedTableConfiguration) tblCfg).assignments().value();
+
+                List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
                 for (int i = 0; i < partCnt; i++) {
                     TablePartitionId replicaGrpId = new TablePartitionId(((ExtendedTableConfiguration) tblCfg).id().value(), i);
 
                     futures[i] = updatePendingAssignmentsKeys(tblCfg.name().value(), replicaGrpId,
                             baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()), newReplicas,
-                            replicasCtx.storageRevision(), metaStorageMgr, i);
+                            replicasCtx.storageRevision(), metaStorageMgr, i, tableAssignments.get(i));
                 }
 
                 return allOf(futures);
@@ -729,7 +733,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId).collect(toList()));
 
-                PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
+                PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
                 CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
@@ -983,13 +987,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return;
         }
 
+        busyLock.block();
+
         metaStorageMgr.unregisterWatch(distributionZonesDataNodesListener);
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
         metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
-
-        busyLock.block();
 
         Map<UUID, TableImpl> tables = tablesByIdVv.latest();
 
@@ -1863,19 +1867,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (zoneId == tableZoneId) {
                             TableConfiguration tableCfg = tables.get(tableView.name());
 
+                            byte[] assignmentsBytes = ((ExtendedTableConfiguration) tableCfg).assignments().value();
+
+                            List<Set<Assignment>> tableAssignments = ByteUtils.fromBytes(assignmentsBytes);
+
                             for (int part = 0; part < tableView.partitions(); part++) {
                                 UUID tableId = ((ExtendedTableConfiguration) tableCfg).id().value();
 
                                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, part);
 
+                                int replicas = tableView.replicas();
+
                                 int partId = part;
 
                                 updatePendingAssignmentsKeys(
-                                        tableView.name(), replicaGrpId, dataNodes, tableView.replicas(),
-                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part
+                                        tableView.name(), replicaGrpId, dataNodes, replicas,
+                                        evt.entryEvent().newEntry().revision(), metaStorageMgr, part, tableAssignments.get(part)
                                 ).exceptionally(e -> {
                                     LOG.error(
-                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(), partId
+                                            "Exception on updating assignments for [table={}, partition={}]", e, tableView.name(),
+                                            partId
                                     );
 
                                     return null;
@@ -1959,7 +1970,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                             .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
-                    PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(clock.now());
+                    PendingComparableValuesTracker<HybridTimestamp> safeTime =
+                            new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
                     InternalTable internalTable = tbl.internalTable();
 
@@ -2169,22 +2181,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
-        return CompletableFuture
-                .supplyAsync(() -> {
-                    MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getOrCreateMvPartition(partitionId);
-                    TxStateStorage txStateStorage = table.internalTable().txStateStorage().getOrCreateTxStateStorage(partitionId);
+        InternalTable internalTable = table.internalTable();
+
+        MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+
+        return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
+                .thenComposeAsync(mvPartitionStorage -> {
+                    TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
 
                     if (mvPartitionStorage.persistedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
                             || txStateStorage.persistedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
                         return allOf(
-                                table.internalTable().storage().clearPartition(partitionId),
+                                internalTable.storage().clearPartition(partitionId),
                                 txStateStorage.clear()
                         ).thenApply(unused -> new PartitionStorages(mvPartitionStorage, txStateStorage));
                     } else {
                         return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
                     }
-                }, ioExecutor)
-                .thenCompose(Function.identity());
+                }, ioExecutor);
     }
 
     /**

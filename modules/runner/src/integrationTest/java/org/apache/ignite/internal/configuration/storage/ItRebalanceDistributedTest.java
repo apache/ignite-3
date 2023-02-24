@@ -69,7 +69,9 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -114,12 +116,12 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -603,12 +605,14 @@ public class ItRebalanceDistributedTest {
 
             vaultManager = createVault(dir);
 
+            NodeBootstrapConfiguration configuration =
+                    NodeBootstrapConfiguration.directFile(workDir.resolve(testInfo.getDisplayName()));
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
                             RestConfiguration.KEY,
                             ClientConnectorConfiguration.KEY),
                     Set.of(),
-                    new LocalConfigurationStorage(vaultManager),
+                    new LocalFileConfigurationStorage(configuration),
                     List.of(),
                     List.of()
             );
@@ -639,14 +643,14 @@ public class ItRebalanceDistributedTest {
             txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock);
 
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
                     clusterStateStorage,
-                    logicalTopologyService,
+                    logicalTopology,
                     clusterManagementConfiguration
             );
 
@@ -656,6 +660,7 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     clusterService,
                     cmgManager,
+                    new LogicalTopologyServiceImpl(logicalTopology, cmgManager),
                     raftManager,
                     testInfo.getTestMethod().get().isAnnotationPresent(UseRocksMetaStorage.class)
                             ? new RocksDbKeyValueStorage(nodeName, resolveDir(dir, "metaStorage"))
@@ -666,7 +671,7 @@ public class ItRebalanceDistributedTest {
 
             clusterCfgMgr = new ConfigurationManager(
                     List.of(
-                            RocksDbStorageEngineConfiguration.KEY,
+                            PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY
                     ),
@@ -677,7 +682,7 @@ public class ItRebalanceDistributedTest {
                             UnknownDataStorageConfigurationSchema.class,
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
                             UnsafeMemoryAllocatorConfigurationSchema.class,
-                            RocksDbDataStorageConfigurationSchema.class,
+                            PersistentPageMemoryDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class,
                             ConstantValueDefaultConfigurationSchema.class,
                             FunctionCallDefaultConfigurationSchema.class,
@@ -686,15 +691,13 @@ public class ItRebalanceDistributedTest {
                     )
             );
 
-            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) -> {
-                clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(
-                        newStorageRevision -> function.apply(newStorageRevision));
-            };
+            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) ->
+                    clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(function::apply);
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                    new RocksDbDataStorageModule(),
+                    new PersistentPageMemoryDataStorageModule(),
                     new VolatilePageMemoryDataStorageModule(),
                     new TestDataStorageModule()
             ));

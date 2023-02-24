@@ -61,7 +61,6 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     public static final Object[][] EMPTY = new Object[0][];
 
     private Throwable lastE;
-    private List<UUID> nodes;
 
     private QueryTaskExecutorImpl taskExecutor;
 

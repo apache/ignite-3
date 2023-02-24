@@ -106,6 +106,7 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -1330,6 +1331,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         public Publisher<BinaryRow> lookup(int partId, HybridTimestamp timestamp, ClusterNode recipient, BinaryTuple key, BitSet columns) {
             throw new AssertionError("Should not be called");
         }
+    }
+
+    Predicate<SearchBounds> exact(Object val) {
+        return b -> b instanceof ExactBounds && matchValue(val, ((ExactBounds) b).bound());
     }
 
     void assertBounds(String sql, List<Object> params, IgniteSchema schema, Predicate<SearchBounds>... predicates) throws Exception {

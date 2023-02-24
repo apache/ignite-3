@@ -23,6 +23,7 @@ set(SOURCES
     ignite_client.cpp
     sql/sql.cpp
     sql/result_set.cpp
+    table/key_value_view.cpp
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
@@ -42,6 +43,7 @@ set(PUBLIC_HEADERS
     ignite_logger.h
     sql/sql.h
     table/ignite_tuple.h
+    table/key_value_view.h
     table/record_view.h
     table/table.h
     table/tables.h
@@ -59,12 +61,14 @@ endif()
 
 target_link_libraries(${TARGET} ignite-common ignite-schema ignite-network ignite-protocol)
 
-install(TARGETS ${TARGET}
-    RUNTIME DESTINATION bin
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-)
+if (${INSTALL_IGNITE_FILES})
+    install(TARGETS ${TARGET}
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+    )
 
-ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
+    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
+endif()
 
 ignite_test(primitive_test primitive_test.cpp LIBS ${TARGET})

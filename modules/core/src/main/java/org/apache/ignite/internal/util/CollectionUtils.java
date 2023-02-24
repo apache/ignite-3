@@ -83,6 +83,16 @@ public final class CollectionUtils {
     }
 
     /**
+     * Tests if the given iterator is either {@code null} or empty.
+     *
+     * @param iter Iterator.
+     * @return Whether or not the given iterator is {@code null} or empty.
+     */
+    public static boolean nullOrEmpty(@Nullable Iterator<?> iter) {
+        return iter == null || !iter.hasNext();
+    }
+
+    /**
      * Gets first element from given list or returns {@code null} if list is empty.
      *
      * @param list List to retrieve the first element.

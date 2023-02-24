@@ -24,12 +24,7 @@ import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyT
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-18023")
-@ExtendWith(WorkDirectoryExtension.class)
 class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
     @InjectConfiguration
     private VolatilePageMemoryStorageEngineConfiguration engineConfig;

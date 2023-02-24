@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
@@ -32,13 +33,13 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -60,8 +61,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     private volatile long lastAppliedTerm;
 
     /** Last group configuration. */
-    @Nullable
-    private volatile RaftGroupConfiguration groupConfig;
+    private volatile byte @Nullable [] groupConfig;
 
     /**
      * Constructor.
@@ -71,12 +71,14 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param destructionExecutor Executor used to destruct partitions.
+     * @param gcQueue Garbage collection queue.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
             int partitionId,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
+            GcQueue gcQueue,
             GradualTaskExecutor destructionExecutor
     ) {
         super(
@@ -85,7 +87,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 tableStorage.dataRegion().rowVersionFreeList(),
                 tableStorage.dataRegion().indexColumnsFreeList(),
                 versionChainTree,
-                indexMetaTree
+                indexMetaTree,
+                gcQueue
         );
 
         this.destructionExecutor = destructionExecutor;
@@ -96,7 +99,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            return closure.execute();
+            try {
+                return closure.execute();
+            } finally {
+                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+            }
         });
     }
 
@@ -149,20 +156,21 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public @Nullable RaftGroupConfiguration committedGroupConfiguration() {
+    public byte @Nullable [] committedGroupConfiguration() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            return groupConfig;
+            byte[] currentConfig = groupConfig;
+            return currentConfig == null ? null : Arrays.copyOf(currentConfig, currentConfig.length);
         });
     }
 
     @Override
-    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+    public void committedGroupConfiguration(byte[] config) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            groupConfig = config;
+            groupConfig = Arrays.copyOf(config, config.length);
 
             return null;
         });
@@ -214,6 +222,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     private void destroyStructures(boolean removeIndexDescriptors) {
         startMvDataDestruction();
         startIndexMetaTreeDestruction();
+        startGarbageCollectionTreeDestruction();
 
         hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
         sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
@@ -276,9 +285,23 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         }
     }
 
+    private void startGarbageCollectionTreeDestruction() {
+        try {
+            destructionExecutor.execute(
+                    gcQueue.startGradualDestruction(null, false)
+            ).whenComplete((res, ex) -> {
+                if (ex != null) {
+                    LOG.error("Garbage collection tree destruction failed in group={}, partition={}", ex, groupId, partitionId);
+                }
+            });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot destroy garbage collection tree in group=" + groupId + ", partition=" + partitionId, e);
+        }
+    }
+
     @Override
     List<AutoCloseable> getResourcesToCloseOnCleanup() {
-        return List.of(versionChainTree::close, indexMetaTree::close);
+        return List.of(versionChainTree::close, indexMetaTree::close, gcQueue::close);
     }
 
     /**
@@ -286,16 +309,19 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      *
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
+     * @param gcQueue Garbage collection queue.
      * @throws StorageException If failed.
      */
     public void updateDataStructures(
             VersionChainTree versionChainTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            GcQueue gcQueue
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
+        this.gcQueue = gcQueue;
 
         for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
             indexStorage.updateDataStructures(
@@ -313,7 +339,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config) throws StorageException {
+    public void committedGroupConfigurationOnRebalance(byte[] config) throws StorageException {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.groupConfig = config;

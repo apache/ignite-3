@@ -113,10 +113,19 @@ public final class StorageOptionsFactory {
         // If true, missing column families will be automatically created.
         opts.setCreateMissingColumnFamilies(true);
 
-        // Number of open files that can be used by the DB.  You may need to increase
+        // Number of open files that can be used by the DB. You may need to increase
         // this if your database has a large working set. Value -1 means files opened
         // are always kept open.
         opts.setMaxOpenFiles(-1);
+
+        // To limit the num of LOG. Once LOG exceed this num, RocksDB will delete old LOG
+        // automatically.
+        opts.setKeepLogFileNum(100);
+
+        // To limit the size of WALs. Once WALs exceed this size, RocksDB will start
+        // forcing the flush of column families to allow deletion of some oldest WALs.
+        // We make it 1G as default.
+        opts.setMaxTotalWalSize(1 << 30);
 
         // The maximum number of concurrent background compactions. The default is 1,
         // but to fully utilize your CPU and storage you might want to increase this

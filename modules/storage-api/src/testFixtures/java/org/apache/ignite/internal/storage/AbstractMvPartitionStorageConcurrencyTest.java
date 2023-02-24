@@ -17,9 +17,18 @@
 
 package org.apache.ignite.internal.storage;
 
+import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
@@ -43,7 +52,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             runRace(
                     () -> abortWrite(ROW_ID),
                     () -> read(ROW_ID, clock.now()),
-                    () -> scanFirstEntry(clock.now())
+                    () -> scanFirstEntry(clock.now()),
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertNull(read(ROW_ID, clock.now()));
@@ -58,7 +69,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             runRace(
                     () -> commitWrite(ROW_ID, clock.now()),
                     () -> read(ROW_ID, clock.now()),
-                    () -> scanFirstEntry(clock.now())
+                    () -> scanFirstEntry(clock.now()),
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW);
@@ -73,7 +86,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             runRace(
                     () -> addWrite(ROW_ID, TABLE_ROW2, TX_ID),
                     () -> read(ROW_ID, clock.now()),
-                    () -> scanFirstEntry(clock.now())
+                    () -> scanFirstEntry(clock.now()),
+                    () -> scanFirstEntry(HybridTimestamp.MAX_VALUE),
+                    () -> scanFirstVersion(ROW_ID)
             );
 
             assertRowMatches(read(ROW_ID, clock.now()), TABLE_ROW2);
@@ -187,22 +202,43 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         for (int i = 0; i < REPEATS; i++) {
             addAndCommit.perform(this, TABLE_ROW);
 
+            addAndCommit.perform(this, TABLE_ROW2);
+
             addAndCommit.perform(this, null);
 
+            Collection<ByteBuffer> rows = Stream.of(TABLE_ROW, TABLE_ROW2)
+                    .map(BinaryRow::byteBuffer)
+                    .collect(toCollection(ConcurrentLinkedQueue::new));
+
             runRace(
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> pollForVacuum(HybridTimestamp.MAX_VALUE)
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().byteBuffer(), rows),
+                    () -> assertRemoveRow(pollForVacuum(HybridTimestamp.MAX_VALUE).binaryRow().byteBuffer(), rows)
             );
 
+            assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
+
             assertNull(storage.closestRowId(ROW_ID));
+
+            assertThat(rows, empty());
         }
+    }
+
+    private void assertRemoveRow(ByteBuffer rowBytes, Collection<ByteBuffer> rows) {
+        assertNotNull(rowBytes);
+
+        assertTrue(rows.remove(rowBytes), rowBytes.toString());
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private void scanFirstEntry(HybridTimestamp firstCommitTs) {
         try (var cursor = scan(firstCommitTs)) {
+            cursor.hasNext();
+        }
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private void scanFirstVersion(RowId rowId) {
+        try (var cursor = scan(rowId)) {
             cursor.hasNext();
         }
     }
@@ -220,7 +256,10 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
         } while (row != null);
     }
 
-    private enum AddAndCommit {
+    /**
+     * Performing add write.
+     */
+    protected enum AddAndCommit {
         ATOMIC {
             @Override
             HybridTimestamp perform(AbstractMvPartitionStorageConcurrencyTest test, @Nullable BinaryRow binaryRow) {

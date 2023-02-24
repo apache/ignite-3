@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.impl;
 
 import static java.util.Comparator.comparing;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NavigableSet;
 import java.util.NoSuchElementException;
@@ -32,13 +33,13 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.util.ReentrantLockByRowId;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,14 +58,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
-    @Nullable
-    private volatile RaftGroupConfiguration groupConfig;
+    private volatile byte @Nullable [] groupConfig;
 
-    private final int partitionId;
+    final int partitionId;
 
     private volatile boolean closed;
 
     private volatile boolean rebalance;
+
+    final ReentrantLockByRowId lockByRowId = new ReentrantLockByRowId();
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
@@ -109,7 +111,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         checkStorageClosed();
 
-        return closure.execute();
+        try {
+            return closure.execute();
+        } finally {
+            lockByRowId.releaseAllLockByCurrentThread();
+        }
     }
 
     @Override
@@ -149,18 +155,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    @Nullable
-    public RaftGroupConfiguration committedGroupConfiguration() {
+    public byte @Nullable [] committedGroupConfiguration() {
         checkStorageClosed();
 
-        return groupConfig;
+        byte[] currentConfig = groupConfig;
+        return currentConfig == null ? null : Arrays.copyOf(currentConfig, currentConfig.length);
     }
 
     @Override
-    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+    public void committedGroupConfiguration(byte[] config) {
         checkStorageClosedOrInProcessOfRebalance();
 
-        this.groupConfig = config;
+        this.groupConfig = Arrays.copyOf(config, config.length);
     }
 
     @Override
@@ -498,6 +504,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         RowId rowId = dequeuedVersionChain.rowId;
 
+        // We must release the lock after executing WriteClosure#execute in MvPartitionStorage#runConsistently so that the indexes can be
+        // deleted consistently.
+        lockByRowId.acquireLock(rowId);
+
         VersionChain versionChainToRemove = dequeuedVersionChain.next;
         assert versionChainToRemove != null;
         assert versionChainToRemove.next == null;
@@ -570,6 +580,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    private void checkStorageClosedForRebalance() {
+        if (closed) {
+            throw new StorageRebalanceException();
+        }
+    }
+
     private void checkStorageInProcessOfRebalance() {
         if (rebalance) {
             throw new StorageRebalanceException();
@@ -582,7 +598,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     void startRebalance() {
-        checkStorageClosed();
+        checkStorageClosedForRebalance();
 
         rebalance = true;
 
@@ -595,7 +611,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     void abortRebalance() {
-        checkStorageClosed();
+        checkStorageClosedForRebalance();
 
         if (!rebalance) {
             return;
@@ -611,8 +627,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         groupConfig = null;
     }
 
-    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig) {
-        checkStorageClosed();
+    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
+        checkStorageClosedForRebalance();
 
         assert rebalance;
 
@@ -620,7 +636,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-        this.groupConfig = raftGroupConfig;
+        this.groupConfig = Arrays.copyOf(groupConfig, groupConfig.length);
     }
 
     boolean closed() {

@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -93,13 +94,24 @@ public class CliServiceImpl implements CliService {
         this.cliClientService = null;
     }
 
-    @Override
-    public Status addPeer(final String groupId, final Configuration conf, final PeerId peer) {
-        Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
-        Requires.requireNonNull(conf, "Null configuration");
-        Requires.requireNonNull(peer, "Null peer");
+    private void recordConfigurationChange(final String groupId, final Collection<String> oldPeersList,
+                                           final Collection<String> newPeersList) {
+        final Configuration oldConf = new Configuration();
+        for (final String peerIdStr : oldPeersList) {
+            final PeerId oldPeer = new PeerId();
+            oldPeer.parse(peerIdStr);
+            oldConf.addPeer(oldPeer);
+        }
+        final Configuration newConf = new Configuration();
+        for (final String peerIdStr : newPeersList) {
+            final PeerId newPeer = new PeerId();
+            newPeer.parse(peerIdStr);
+            newConf.addPeer(newPeer);
+        }
+        LOG.info("Configuration of replication group {} changed from {} to {}.", groupId, oldConf, newConf);
+    }
 
-        final PeerId leaderId = new PeerId();
+    private Status checkLeaderAndConnect(final String groupId, final Configuration conf, final PeerId leaderId) {
         final Status st = getLeader(groupId, conf, leaderId);
         if (!st.isOk()) {
             return st;
@@ -107,6 +119,21 @@ public class CliServiceImpl implements CliService {
 
         if (!this.cliClientService.connect(leaderId)) {
             return new Status(-1, "Fail to init channel to leader %s", leaderId);
+        }
+
+        return Status.OK();
+    }
+
+    @Override
+    public Status addPeer(final String groupId, final Configuration conf, final PeerId peer) {
+        Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
+        Requires.requireNonNull(conf, "Null configuration");
+        Requires.requireNonNull(peer, "Null peer");
+
+        final PeerId leaderId = new PeerId();
+        final Status st = checkLeaderAndConnect(groupId, conf, leaderId);
+        if (!st.isOk()) {
+            return st;
         }
 
         AddPeerRequest req = cliOptions.getRaftMessagesFactory()
@@ -120,20 +147,7 @@ public class CliServiceImpl implements CliService {
             final Message result = this.cliClientService.addPeer(leaderId, req, null).get();
             if (result instanceof AddPeerResponse) {
                 final AddPeerResponse resp = (AddPeerResponse) result;
-                final Configuration oldConf = new Configuration();
-                for (final String peerIdStr : resp.oldPeersList()) {
-                    final PeerId oldPeer = new PeerId();
-                    oldPeer.parse(peerIdStr);
-                    oldConf.addPeer(oldPeer);
-                }
-                final Configuration newConf = new Configuration();
-                for (final String peerIdStr : resp.newPeersList()) {
-                    final PeerId newPeer = new PeerId();
-                    newPeer.parse(peerIdStr);
-                    newConf.addPeer(newPeer);
-                }
-
-                LOG.info("Configuration of replication group {} changed from {} to {}.", groupId, oldConf, newConf);
+                recordConfigurationChange(groupId, resp.oldPeersList(), resp.newPeersList());
                 return Status.OK();
             }
             else {
@@ -159,13 +173,9 @@ public class CliServiceImpl implements CliService {
         Requires.requireTrue(!peer.isEmpty(), "Removing peer is blank");
 
         final PeerId leaderId = new PeerId();
-        final Status st = getLeader(groupId, conf, leaderId);
+        final Status st = checkLeaderAndConnect(groupId, conf, leaderId);
         if (!st.isOk()) {
             return st;
-        }
-
-        if (!this.cliClientService.connect(leaderId)) {
-            return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
         RemovePeerRequest req = cliOptions.getRaftMessagesFactory()
@@ -179,20 +189,7 @@ public class CliServiceImpl implements CliService {
             final Message result = this.cliClientService.removePeer(leaderId, req, null).get();
             if (result instanceof RemovePeerResponse) {
                 final RemovePeerResponse resp = (RemovePeerResponse) result;
-                final Configuration oldConf = new Configuration();
-                for (final String peerIdStr : resp.oldPeersList()) {
-                    final PeerId oldPeer = new PeerId();
-                    oldPeer.parse(peerIdStr);
-                    oldConf.addPeer(oldPeer);
-                }
-                final Configuration newConf = new Configuration();
-                for (final String peerIdStr : resp.newPeersList()) {
-                    final PeerId newPeer = new PeerId();
-                    newPeer.parse(peerIdStr);
-                    newConf.addPeer(newPeer);
-                }
-
-                LOG.info("Configuration of replication group {} changed from {} to {}", groupId, oldConf, newConf);
+                recordConfigurationChange(groupId, resp.oldPeersList(), resp.newPeersList());
                 return Status.OK();
             }
             else {
@@ -213,13 +210,9 @@ public class CliServiceImpl implements CliService {
         Requires.requireNonNull(newPeers, "Null new peers");
 
         final PeerId leaderId = new PeerId();
-        final Status st = getLeader(groupId, conf, leaderId);
+        final Status st = checkLeaderAndConnect(groupId, conf, leaderId);
         if (!st.isOk()) {
             return st;
-        }
-
-        if (!this.cliClientService.connect(leaderId)) {
-            return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
         ChangePeersRequest req = cliOptions.getRaftMessagesFactory()
@@ -233,20 +226,7 @@ public class CliServiceImpl implements CliService {
             final Message result = this.cliClientService.changePeers(leaderId, req, null).get();
             if (result instanceof ChangePeersResponse) {
                 final ChangePeersResponse resp = (ChangePeersResponse) result;
-                final Configuration oldConf = new Configuration();
-                for (final String peerIdStr : resp.oldPeersList()) {
-                    final PeerId oldPeer = new PeerId();
-                    oldPeer.parse(peerIdStr);
-                    oldConf.addPeer(oldPeer);
-                }
-                final Configuration newConf = new Configuration();
-                for (final String peerIdStr : resp.newPeersList()) {
-                    final PeerId newPeer = new PeerId();
-                    newPeer.parse(peerIdStr);
-                    newConf.addPeer(newPeer);
-                }
-
-                LOG.info("Configuration of replication group {} changed from {} to {}", groupId, oldConf, newConf);
+                recordConfigurationChange(groupId, resp.oldPeersList(), resp.newPeersList());
                 return Status.OK();
             }
             else {
@@ -387,6 +367,15 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
+    public Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner) {
+        Status status = removeLearners(groupId, conf, Arrays.asList(learner));
+        if (status.isOk()) {
+            status = addPeer(groupId, conf, new PeerId(learner.getConsistentId()));
+        }
+        return status;
+    }
+
+    @Override
     public Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners) {
         checkLearnersOpParams(groupId, conf, learners);
 
@@ -424,13 +413,9 @@ public class CliServiceImpl implements CliService {
         Requires.requireNonNull(peer, "Null peer");
 
         final PeerId leaderId = new PeerId();
-        final Status st = getLeader(groupId, conf, leaderId);
+        final Status st = checkLeaderAndConnect(groupId, conf, leaderId);
         if (!st.isOk()) {
             return st;
-        }
-
-        if (!this.cliClientService.connect(leaderId)) {
-            return new Status(-1, "Fail to init channel to leader %s", leaderId);
         }
 
         TransferLeaderRequest rb = cliOptions.getRaftMessagesFactory()

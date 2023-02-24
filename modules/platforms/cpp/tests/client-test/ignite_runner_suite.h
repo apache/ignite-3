@@ -85,6 +85,14 @@ public:
     static ignite_tuple get_tuple(int64_t id) { return {{KEY_COLUMN, id}}; }
 
     /**
+     * Get tuple for specified column values.
+     *
+     * @param val Value.
+     * @return Ignite tuple instance.
+     */
+    static ignite_tuple get_tuple(std::string val) { return {{VAL_COLUMN, std::move(val)}}; }
+
+    /**
      * Clear table @c TABLE_1.
      */
     static void clear_table1() {
