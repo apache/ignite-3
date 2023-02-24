@@ -43,12 +43,12 @@ public class ClusterRestConfigurationModule implements ConfigurationModule {
 
     @Override
     public Set<Validator<?, ?>> validators() {
-        return Set.of(AuthConfigurationValidatorImpl.INSTANCE, AuthProvidersValidatorImpl.INSTANCE);
+        return Set.of(AuthenticationConfigurationValidatorImpl.INSTANCE, AuthenticationProvidersValidatorImpl.INSTANCE);
     }
 
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return Collections.singleton(BasicAuthProviderConfigurationSchema.class);
+        return Collections.singleton(BasicAuthenticationProviderConfigurationSchema.class);
     }
 
 }

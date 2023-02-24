@@ -22,9 +22,9 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
-import static org.apache.ignite.internal.cluster.management.RestAuthConverter.toRestAuthConfig;
+import static org.apache.ignite.internal.cluster.management.RestAuthConverter.toRestAuthenticationConfig;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
-import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
+import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
 
 import java.util.Collection;
 import java.util.List;
@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
+import org.apache.ignite.internal.cluster.management.network.auth.RestAuthentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
@@ -74,7 +75,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.rest.RestAuthConfig;
+import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -177,7 +178,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             Collection<String> cmgNodeNames,
             String clusterName
     ) throws NodeStoppingException {
-        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, disabledAuth());
+        initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, disabled());
     }
 
     /**
@@ -186,20 +187,20 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
      * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
      * @param clusterName Human-readable name of the cluster.
-     * @param restAuthConfig REST authentication configuration.
+     * @param restAuthenticationConfig REST authentication configuration.
      */
     public void initCluster(
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
-            RestAuthConfig restAuthConfig
+            RestAuthenticationConfig restAuthenticationConfig
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, restAuthConfig).get();
+            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, restAuthenticationConfig).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -391,35 +392,46 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     }
                 });
 
-        raftServiceAfterJoin().thenCompose(service -> service.readClusterState()
+        raftServiceAfterJoin().thenCompose(this::pushAuthenticationConfigToCluster);
+
+    }
+
+    private CompletableFuture<Void> pushAuthenticationConfigToCluster(CmgRaftService service) {
+        return service.readClusterState()
                 .thenCompose(state -> {
                     if (state == null) {
                         LOG.info("No CMG state found in the Raft storage");
                         return completedFuture(null);
                     } else if (state.restAuthToApply() == null) {
+                        // auth config has already been successfully pushed to the distributed configuration
                         LOG.info("No REST auth configuration found in the Raft storage");
                         return completedFuture(null);
                     } else {
                         LOG.info("REST auth configuration found in the Raft storage, going to apply it");
-                        return distributedConfigurationUpdater.updateRestAuthConfiguration(toRestAuthConfig(state.restAuthToApply()))
-                                .thenCompose(unused -> {
-                                    ClusterState clusterState = ClusterState.clusterState(
-                                            msgFactory,
-                                            state.cmgNodes(),
-                                            state.metaStorageNodes(),
-                                            state.igniteVersion(),
-                                            state.clusterTag()
-                                    );
-                                    return service.updateClusterState(clusterState);
-                                })
-                                .whenComplete((v, e) -> {
-                                    if (e != null) {
-                                        LOG.warn("Error when updating REST auth configuration", e);
-                                    }
-                                });
+                        RestAuthentication restAuthToApply = state.restAuthToApply();
+                        return distributedConfigurationUpdater.updateRestAuthConfiguration(toRestAuthenticationConfig(restAuthToApply))
+                                .thenCompose(unused -> removeAuthConfigFromClusterState(service));
                     }
-                }));
+                });
+    }
 
+    private CompletableFuture<Void> removeAuthConfigFromClusterState(CmgRaftService service) {
+        return service.readClusterState()
+                .thenCompose(state -> {
+                    ClusterState clusterState = ClusterState.clusterState(
+                            msgFactory,
+                            state.cmgNodes(),
+                            state.metaStorageNodes(),
+                            state.igniteVersion(),
+                            state.clusterTag()
+                    );
+                    return service.updateClusterState(clusterState);
+                })
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.warn("Error when removing REST auth configuration", e);
+                    }
+                });
     }
 
     /**

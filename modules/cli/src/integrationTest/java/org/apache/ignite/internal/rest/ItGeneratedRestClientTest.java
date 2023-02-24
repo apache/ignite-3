@@ -20,7 +20,7 @@ package org.apache.ignite.internal.rest;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
+import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -122,7 +122,7 @@ public class ItGeneratedRestClientTest {
 
         String metaStorageNode = testNodeName(testInfo, BASE_PORT);
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster", disabledAuth());
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster", disabled());
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

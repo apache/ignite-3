@@ -37,26 +37,26 @@ class ClusterRestConfigurationModuleTest {
     }
 
     @Test
-    void hasNoConfigurationRoots() {
+    void hasConfigurationRoots() {
         assertThat(module.rootKeys(), contains(ClusterRestConfiguration.KEY));
     }
 
     @Test
-    void providesNoValidators() {
+    void providesValidators() {
         assertThat(module.validators(),
                 hasItems(
-                        instanceOf(AuthConfigurationValidatorImpl.class),
-                        instanceOf(AuthProvidersValidatorImpl.class))
+                        instanceOf(AuthenticationConfigurationValidatorImpl.class),
+                        instanceOf(AuthenticationProvidersValidatorImpl.class))
         );
     }
 
     @Test
-    void providesExternalTableConfigurationSchemaAsInternalExtension() {
+    void providesNoInternalSchemaExtensions() {
         assertThat(module.internalSchemaExtensions(), is(empty()));
     }
 
     @Test
-    void providesNoPolymorphicSchemaExtensions() {
-        assertThat(module.polymorphicSchemaExtensions(), contains(BasicAuthProviderConfigurationSchema.class));
+    void providesPolymorphicSchemaExtensions() {
+        assertThat(module.polymorphicSchemaExtensions(), contains(BasicAuthenticationProviderConfigurationSchema.class));
     }
 }

@@ -20,19 +20,21 @@ package org.apache.ignite.internal.cluster.management;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.rest.configuration.AuthConfiguration;
-import org.apache.ignite.internal.rest.configuration.AuthProviderChange;
-import org.apache.ignite.internal.rest.configuration.BasicAuthProviderChange;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.rest.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.rest.configuration.AuthenticationProviderChange;
+import org.apache.ignite.internal.rest.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
-import org.apache.ignite.rest.AuthProviderConfig;
-import org.apache.ignite.rest.AuthType;
-import org.apache.ignite.rest.BasicAuthProviderConfig;
-import org.apache.ignite.rest.RestAuthConfig;
+import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.rest.AuthenticationType;
+import org.apache.ignite.rest.AuthenticationProviderConfig;
+import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
+import org.apache.ignite.rest.RestAuthenticationConfig;
 
 /**
  * Updater is responsible for applying changes to the cluster configuration when it's ready.
  */
-public class DistributedConfigurationUpdater {
+public class DistributedConfigurationUpdater implements IgniteComponent {
 
     private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationUpdater.class);
 
@@ -42,15 +44,16 @@ public class DistributedConfigurationUpdater {
         clusterRestConfigurationFuture.complete(clusterRestConfiguration);
     }
 
-    /** Applies changes to the {@link AuthConfiguration}
-     * when {@link DistributedConfigurationUpdater#clusterRestConfigurationFuture} is complete.
+    /**
+     * Applies changes to the {@link AuthenticationConfiguration} when
+     * {@link DistributedConfigurationUpdater#clusterRestConfigurationFuture} is complete.
      *
-     * @param restAuthConfig {@link AuthConfiguration} that should be applied.
-     * @return Future that will be completed when {@link AuthConfiguration} is applied.
-     * */
-    public CompletableFuture<Void> updateRestAuthConfiguration(RestAuthConfig restAuthConfig) {
-        return clusterRestConfigurationFuture.thenApply(ClusterRestConfiguration::authConfiguration)
-                .thenCompose(authConfiguration -> changeAuthConfiguration(authConfiguration, restAuthConfig))
+     * @param restAuthenticationConfig {@link AuthenticationConfiguration} that should be applied.
+     * @return Future that will be completed when {@link AuthenticationConfiguration} is applied.
+     */
+    public CompletableFuture<Void> updateRestAuthConfiguration(RestAuthenticationConfig restAuthenticationConfig) {
+        return clusterRestConfigurationFuture.thenApply(ClusterRestConfiguration::authentication)
+                .thenCompose(configuration -> changeAuthConfiguration(configuration, restAuthenticationConfig))
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to change auth configuration", e);
@@ -58,26 +61,37 @@ public class DistributedConfigurationUpdater {
                 });
     }
 
-    private static CompletableFuture<Void> changeAuthConfiguration(AuthConfiguration authConfiguration, RestAuthConfig restAuthConfig) {
+    private static CompletableFuture<Void> changeAuthConfiguration(AuthenticationConfiguration authConfiguration,
+            RestAuthenticationConfig config) {
         return authConfiguration.change(authChange -> {
             authChange.changeProviders(providers -> {
-                restAuthConfig.providers().forEach(provider -> {
+                config.providers().forEach(provider -> {
                     providers.create(provider.name(), cfg -> applyProviderChange(cfg, provider));
                 });
             });
-            authChange.changeEnabled(restAuthConfig.enabled());
+            authChange.changeEnabled(config.enabled());
         });
     }
 
-    private static void applyProviderChange(AuthProviderChange change, AuthProviderConfig provider) {
-        if (provider.type() == AuthType.BASIC) {
-            BasicAuthProviderConfig basicAuthProvider = (BasicAuthProviderConfig) provider;
-            change.convert(BasicAuthProviderChange.class)
+    private static void applyProviderChange(AuthenticationProviderChange change, AuthenticationProviderConfig provider) {
+        if (provider.type() == AuthenticationType.BASIC) {
+            BasicAuthenticationProviderConfig basicAuthProvider = (BasicAuthenticationProviderConfig) provider;
+            change.convert(BasicAuthenticationProviderChange.class)
                     .changeLogin(basicAuthProvider.login())
                     .changePassword(basicAuthProvider.password())
                     .changeName(provider.name());
         } else {
             LOG.error("Couldn't make configuration change for type: ", provider.type());
         }
+    }
+
+    @Override
+    public void start() {
+
+    }
+
+    @Override
+    public void stop() throws Exception {
+        clusterRestConfigurationFuture.completeExceptionally(new NodeStoppingException("Component is stopped."));
     }
 }

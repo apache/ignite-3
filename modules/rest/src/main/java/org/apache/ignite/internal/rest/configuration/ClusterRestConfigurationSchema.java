@@ -26,5 +26,5 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 public class ClusterRestConfigurationSchema {
 
     @ConfigValue
-    public AuthConfigurationSchema authConfiguration;
+    public AuthenticationConfigurationSchema authentication;
 }

@@ -1,0 +1,56 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.rest;
+
+import java.util.Collections;
+import java.util.List;
+
+/** Configuration of REST authentication. */
+public class RestAuthenticationConfig {
+    private final boolean enabled;
+
+    private final List<AuthenticationProviderConfig> providers;
+
+    /** Constructor. */
+    public RestAuthenticationConfig(boolean enabled, List<AuthenticationProviderConfig> providers) {
+        if (providers == null) {
+            throw new IllegalArgumentException("providers cannot be null");
+        }
+
+        if (enabled && providers.isEmpty()) {
+            throw new IllegalArgumentException("providers cannot be empty, if authentication is enabled");
+        }
+
+        this.enabled = enabled;
+        this.providers = List.copyOf(providers);
+    }
+
+    public static RestAuthenticationConfig disabled() {
+        return new RestAuthenticationConfig(false, Collections.emptyList());
+    }
+
+    /** Authentication is enabled. */
+    public boolean enabled() {
+        return enabled;
+    }
+
+    /** List of authentication provider configs. */
+    public List<AuthenticationProviderConfig> providers() {
+        return providers;
+    }
+}

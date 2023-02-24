@@ -18,7 +18,7 @@
 package org.apache.ignite.example;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
+import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
@@ -55,7 +55,7 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
                 null
         );
 
-        IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME), "cluster", disabledAuth());
+        IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME), "cluster", disabled());
 
         assertThat(igniteFuture, willCompleteSuccessfully());
 

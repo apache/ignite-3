@@ -36,7 +36,7 @@ import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.runner.app.IgniteRunnerTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.rest.RestAuthConfig;
+import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,7 +68,7 @@ public class ItRestAddressReportTest {
                 "--node-name", NODE_NAME
         );
         // And init cluster
-        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster", RestAuthConfig.disabledAuth());
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster", RestAuthenticationConfig.disabled());
 
         // Then node is started
         assertThat(ign, willCompleteSuccessfully());

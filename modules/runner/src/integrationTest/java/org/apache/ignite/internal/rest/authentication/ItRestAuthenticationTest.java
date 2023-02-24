@@ -1,0 +1,256 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.rest.authentication;
+
+
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Base64;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.rest.RestNode;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+
+/** Tests for the REST authentication configuration. */
+@ExtendWith(WorkDirectoryExtension.class)
+public class ItRestAuthenticationTest {
+
+    /** HTTP client that is expected to be defined in subclasses. */
+    private HttpClient client;
+
+    private List<RestNode> nodes;
+
+    @WorkDirectory
+    private Path workDir;
+
+    @BeforeEach
+    void setUp(TestInfo testInfo) {
+        client = HttpClient.newBuilder()
+                .build();
+
+        nodes = IntStream.range(0, 3)
+                .mapToObj(id -> {
+                    return RestNode.builder()
+                            .setWorkDir(workDir)
+                            .setName(testNodeName(testInfo, id))
+                            .setNetworkPort(3344 + id)
+                            .setHttpPort(10300 + id)
+                            .setHttpsPort(10400 + id)
+                            .setSslEnabled(false)
+                            .setDualProtocol(false)
+                            .build();
+                })
+                .collect(toList());
+
+        nodes.forEach(RestNode::start);
+    }
+
+    @Test
+    public void disabledAuthentication(TestInfo testInfo) {
+        RestNode metaStorageNode = nodes.get(0);
+
+        // when
+        String initClusterBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + metaStorageNode.name() + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"authenticationConfig\": {\n"
+                + "        \"enabled\": false\n"
+                + "    }\n"
+                + "}";
+
+        initCluster(metaStorageNode.httpAddress(), initClusterBody);
+
+        // then
+        for (RestNode node : nodes) {
+            assertTrue(isRestAvailable(node.httpAddress(), "", ""));
+        }
+    }
+
+    @Test
+    public void basicAuthentication(TestInfo testInfo) throws InterruptedException {
+        // when
+        RestNode metaStorageNode = nodes.get(0);
+
+        String msNodeNames = nodes.stream()
+                .map(RestNode::name)
+                .map(name -> "\"" + name + "\"")
+                .collect(Collectors.joining(","));
+
+        String initClusterBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + msNodeNames
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\",\n"
+                + "    \"authenticationConfig\": {\n"
+                + "      \"enabled\": true,\n"
+                + "      \"providers\": [\n"
+                + "        {\n"
+                + "          \"name\": \"basic\",\n"
+                + "          \"type\": \"basic\",\n"
+                + "          \"login\": \"admin\",\n"
+                + "          \"password\": \"password\"\n"
+                + "        }\n"
+                + "      ]\n"
+                + "    }\n"
+                + "  }";
+
+        initCluster(metaStorageNode.httpAddress(), initClusterBody);
+
+        // then
+        // authentication is enabled
+        for (RestNode node : nodes) {
+            assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "", ""),
+                    Duration.ofSeconds(5).toMillis()));
+        }
+
+        // REST is available with valid credentials
+        for (RestNode node : nodes) {
+            assertTrue(isRestAvailable(node.httpAddress(), "admin", "password"));
+        }
+
+        // REST is not available with invalid credentials
+        for (RestNode node : nodes) {
+            assertFalse(isRestAvailable(node.httpAddress(), "admin", "wrong-password"));
+        }
+
+        // change password
+        String updateRestAuthConfigBody = "{\n"
+                + "    \"rest\": {\n"
+                + "        \"authentication\": {\n"
+                + "            \"enabled\": true,\n"
+                + "            \"providers\": [\n"
+                + "                {\n"
+                + "                    \"name\": \"basic\",\n"
+                + "                    \"type\": \"basic\",\n"
+                + "                    \"login\": \"admin\",\n"
+                + "                    \"password\": \"new-password\"\n"
+                + "                }\n"
+                + "            ]\n"
+                + "        }\n"
+                + "    }\n"
+                + "}";
+
+        updateClusterConfiguration(metaStorageNode.httpAddress(), "admin", "password", updateRestAuthConfigBody);
+
+        // REST is not available with old credentials
+        for (RestNode node : nodes) {
+            assertTrue(waitForCondition(() -> isRestNotAvailable(node.httpAddress(), "admin", "password"),
+                    Duration.ofSeconds(5).toMillis()));
+        }
+
+        // REST is available with new credentials
+        for (RestNode node : nodes) {
+            assertTrue(isRestAvailable(node.httpAddress(), "admin", "new-password"));
+        }
+    }
+
+    private void initCluster(String baseUrl, String initClusterBody) {
+        URI clusterInitUri = URI.create(baseUrl + "/management/v1/cluster/init");
+        HttpRequest initRequest = HttpRequest.newBuilder(clusterInitUri)
+                .header("content-type", "application/json")
+                .POST(BodyPublishers.ofString(initClusterBody))
+                .build();
+
+        HttpResponse<String> response = sendRequest(client, initRequest);
+        assertThat(response.statusCode(), is(200));
+        waitForAllNodesStarted(nodes);
+    }
+
+    private void updateClusterConfiguration(String baseUrl, String login, String password, String configToApply) {
+        URI updateClusterConfigUri = URI.create(baseUrl + "/management/v1/configuration/cluster/");
+        HttpRequest updateClusterConfigRequest = HttpRequest.newBuilder(updateClusterConfigUri)
+                .header("content-type", "text/plain")
+                .header("Authorization", basicAuthenticationHeader(login, password))
+                .method("PATCH", BodyPublishers.ofString(configToApply))
+                .build();
+
+        HttpResponse<String> updateClusterConfigResponse = sendRequest(client, updateClusterConfigRequest);
+        assertThat(updateClusterConfigResponse.statusCode(), is(200));
+    }
+
+    private boolean isRestNotAvailable(String baseUrl, String login, String password) {
+        return !isRestAvailable(baseUrl, login, password);
+    }
+
+    private boolean isRestAvailable(String baseUrl, String login, String password) {
+        URI clusterConfigUri = URI.create(baseUrl + "/management/v1/configuration/cluster/");
+        HttpRequest clusterConfigRequest = HttpRequest.newBuilder(clusterConfigUri)
+                .header("Authorization", basicAuthenticationHeader(login, password))
+                .build();
+        int code = sendRequest(client, clusterConfigRequest).statusCode();
+        if (code == 200) {
+            return true;
+        } else if (code == 401) {
+            return false;
+        } else {
+            throw new IllegalStateException("Unexpected response code: " + code);
+        }
+    }
+
+    private static HttpResponse<String> sendRequest(HttpClient client, HttpRequest request) {
+        try {
+            return client.send(request, BodyHandlers.ofString());
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @AfterEach
+    void tearDown() {
+        nodes.forEach(RestNode::stop);
+    }
+
+    private static void waitForAllNodesStarted(List<RestNode> nodes) {
+        nodes.stream()
+                .map(RestNode::igniteNodeFuture)
+                .forEach(future -> assertThat(future, willCompleteSuccessfully()));
+    }
+
+    private static String basicAuthenticationHeader(String username, String password) {
+        String valueToEncode = username + ":" + password;
+        return "Basic " + Base64.getEncoder().encodeToString(valueToEncode.getBytes());
+    }
+}

@@ -42,8 +42,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
-import org.apache.ignite.internal.rest.auth.AuthProviderFactory;
-import org.apache.ignite.internal.rest.configuration.AuthConfiguration;
+import org.apache.ignite.internal.rest.authentication.AuthProviderFactory;
+import org.apache.ignite.internal.rest.configuration.AuthenticationConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -58,7 +58,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     private HttpClient client;
 
     @InjectConfiguration
-    AuthConfiguration authConfiguration;
+    AuthenticationConfiguration authenticationConfiguration;
 
     @Test
     void testControllerLoaded() {
@@ -73,10 +73,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "        \"nodename\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
-                + "        \"enabled\": false\n"
-                + "    }\n"
+                + "    \"clusterName\": \"cluster\""
                 + "}";
         // When
         var thrown = assertThrows(
@@ -100,7 +97,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
+                + "    \"authenticationConfig\": {\n"
                 + "        \"enabled\": true\n"
                 + "    }\n"
                 + "}";
@@ -123,7 +120,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
+                + "    \"authenticationConfig\": {\n"
                 + "      \"enabled\": true,\n"
                 + "      \"providers\": [\n"
                 + "        {\n"
@@ -153,7 +150,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
+                + "    \"authenticationConfig\": {\n"
                 + "      \"enabled\": true,\n"
                 + "      \"providers\": [\n"
                 + "        {\n"
@@ -183,7 +180,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
+                + "    \"authenticationConfig\": {\n"
                 + "      \"enabled\": true,\n"
                 + "      \"providers\": [\n"
                 + "        {\n"
@@ -213,7 +210,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
+                + "    \"authenticationConfig\": {\n"
                 + "      \"enabled\": true,\n"
                 + "      \"providers\": [\n"
                 + "        {\n"
@@ -255,7 +252,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
+                + "    \"authenticationConfig\": {\n"
                 + "        \"enabled\": false\n"
                 + "    }\n"
                 + "}";
@@ -284,7 +281,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
-                + "    \"authConfig\": {\n"
+                + "    \"authenticationConfig\": {\n"
                 + "        \"enabled\": false\n"
                 + "    }\n"
                 + "}";
@@ -313,6 +310,6 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     @Bean
     @Replaces(AuthProviderFactory.class)
     public AuthProviderFactory authProviderFactory() {
-        return new AuthProviderFactory(authConfiguration);
+        return new AuthProviderFactory(authenticationConfiguration);
     }
 }

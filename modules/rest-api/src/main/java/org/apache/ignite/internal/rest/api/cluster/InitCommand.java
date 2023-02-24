@@ -25,7 +25,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.rest.api.cluster.auth.AuthConfigDto;
+import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfigDto;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +43,7 @@ public class InitCommand {
     private final String clusterName;
 
     @Schema(description = "Authentication configuration.")
-    private final AuthConfigDto authConfig;
+    private final AuthenticationConfigDto authenticationConfig;
 
     /**
      * Constructor.
@@ -53,7 +53,7 @@ public class InitCommand {
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
             @JsonProperty("cmgNodes") @Nullable Collection<String> cmgNodes,
             @JsonProperty("clusterName") String clusterName,
-            @JsonProperty("authConfig") AuthConfigDto authConfig
+            @JsonProperty("authenticationConfig") AuthenticationConfigDto authenticationConfig
     ) {
         Objects.requireNonNull(metaStorageNodes);
         Objects.requireNonNull(clusterName);
@@ -77,7 +77,7 @@ public class InitCommand {
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = cmgNodes == null ? List.of() : List.copyOf(cmgNodes);
         this.clusterName = clusterName;
-        this.authConfig = authConfig;
+        this.authenticationConfig = authenticationConfig;
     }
 
     @JsonProperty
@@ -96,8 +96,8 @@ public class InitCommand {
     }
 
     @JsonProperty
-    public AuthConfigDto authConfig() {
-        return authConfig;
+    public AuthenticationConfigDto authenticationConfig() {
+        return authenticationConfig;
     }
 
     @Override
@@ -106,7 +106,7 @@ public class InitCommand {
                 + "metaStorageNodes=" + metaStorageNodes
                 + ", cmgNodes=" + cmgNodes
                 + ", clusterName='" + clusterName + '\''
-                + ", authConfig='" + authConfig + '\''
+                + ", authenticationConfig='" + authenticationConfig + '\''
                 + '}';
     }
 }

@@ -19,46 +19,39 @@ package org.apache.ignite.internal.cluster.management;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cluster.management.network.auth.AuthProvider;
-import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthProvider;
-import org.apache.ignite.internal.cluster.management.network.auth.RestAuth;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.rest.AuthProviderConfig;
-import org.apache.ignite.rest.AuthType;
-import org.apache.ignite.rest.BasicAuthProviderConfig;
-import org.apache.ignite.rest.RestAuthConfig;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.cluster.management.network.auth.AuthenticationProvider;
+import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthenticationProvider;
+import org.apache.ignite.internal.cluster.management.network.auth.RestAuthentication;
+import org.apache.ignite.rest.AuthenticationType;
+import org.apache.ignite.rest.AuthenticationProviderConfig;
+import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
+import org.apache.ignite.rest.RestAuthenticationConfig;
 
-/** Converter for {@link RestAuth}. */
-public class RestAuthConverter {
-
-    private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationUpdater.class);
+/** Converter for {@link RestAuthentication}. */
+class RestAuthConverter {
 
     /**
-     * Converts {@link RestAuth} to {@link RestAuthConfig}.
+     * Converts {@link RestAuthentication} to {@link RestAuthenticationConfig}.
      *
-     * @param restAuth Rest auth.
+     * @param restAuthentication Rest auth.
      * @return Rest auth config.
      */
-    public static RestAuthConfig toRestAuthConfig(RestAuth restAuth) {
-        List<AuthProviderConfig> providerConfigs = restAuth.providers()
+    static RestAuthenticationConfig toRestAuthenticationConfig(RestAuthentication restAuthentication) {
+        List<AuthenticationProviderConfig> providerConfigs = restAuthentication.providers()
                 .stream()
-                .map(RestAuthConverter::toAuthProviderConfig)
+                .map(RestAuthConverter::toAuthenticationProviderConfig)
                 .collect(Collectors.toList());
 
-        return new RestAuthConfig(restAuth.enabled(), providerConfigs);
+        return new RestAuthenticationConfig(restAuthentication.enabled(), providerConfigs);
     }
 
-    @Nullable
-    private static AuthProviderConfig toAuthProviderConfig(AuthProvider authProvider) {
-        AuthType type = AuthType.parse(authProvider.type());
-        if (type == AuthType.BASIC) {
-            BasicAuthProvider basicAuthProvider = (BasicAuthProvider) authProvider;
-            return new BasicAuthProviderConfig(basicAuthProvider.name(), basicAuthProvider.login(), basicAuthProvider.password());
+    private static AuthenticationProviderConfig toAuthenticationProviderConfig(AuthenticationProvider provider) {
+        AuthenticationType type = AuthenticationType.parse(provider.type());
+        if (type == AuthenticationType.BASIC) {
+            BasicAuthenticationProvider basicAuthProvider = (BasicAuthenticationProvider) provider;
+            return new BasicAuthenticationProviderConfig(basicAuthProvider.name(), basicAuthProvider.login(), basicAuthProvider.password());
         } else {
-            LOG.error("Unsupported authentication type: " + authProvider.type());
-            return null;
+            throw new IllegalArgumentException("Unsupported authentication type: " + type);
         }
     }
 }

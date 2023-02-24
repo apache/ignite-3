@@ -47,7 +47,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.rest.RestAuthConfig;
+import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -118,7 +118,7 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthConfig.disabledAuth());
+            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthenticationConfig.disabled());
         }
 
         assertThat(future, willCompleteSuccessfully());

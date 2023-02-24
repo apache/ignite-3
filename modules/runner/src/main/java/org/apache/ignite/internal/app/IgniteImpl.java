@@ -95,8 +95,8 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.internal.rest.auth.AuthProviderFactory;
-import org.apache.ignite.internal.rest.configuration.AuthConfiguration;
+import org.apache.ignite.internal.rest.authentication.AuthProviderFactory;
+import org.apache.ignite.internal.rest.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -138,7 +138,7 @@ import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
-import org.apache.ignite.rest.RestAuthConfig;
+import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -268,7 +268,6 @@ public class IgniteImpl implements Ignite {
 
     private final ScheduledExecutorService raftExecutorService;
 
-    /** CompletableFuture of {@link ClusterRestConfiguration} that will be resolved after the cluster initialization. */
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
     /**
@@ -508,9 +507,9 @@ public class IgniteImpl implements Ignite {
     }
 
     private RestComponent createRestComponent(String name) {
-        AuthConfiguration authConfiguration = clusterCfgMgr.configurationRegistry()
+        AuthenticationConfiguration authConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(ClusterRestConfiguration.KEY)
-                .authConfiguration();
+                .authentication();
         RestFactory presentationsFactory = new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
         RestFactory clusterManagementRestFactory = new ClusterManagementRestFactory(clusterSvc, cmgMgr);
         RestFactory nodeManagementRestFactory = new NodeManagementRestFactory(lifecycleManager, () -> name);
@@ -640,7 +639,8 @@ public class IgniteImpl implements Ignite {
                                     distributedTblMgr,
                                     indexManager,
                                     qryEngine,
-                                    clientHandlerModule
+                                    clientHandlerModule,
+                                    distributedConfigurationUpdater
                             );
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
@@ -670,6 +670,7 @@ public class IgniteImpl implements Ignite {
                     .thenRunAsync(() -> {
                         ClusterRestConfiguration restConfiguration = clusterCfgMgr.configurationRegistry()
                                 .getConfiguration(ClusterRestConfiguration.KEY);
+
                         distributedConfigurationUpdater.setClusterRestConfiguration(restConfiguration);
                     }, startupExecutor)
                     // Signal that local recovery is complete and the node is ready to join the cluster.
@@ -859,9 +860,9 @@ public class IgniteImpl implements Ignite {
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
-            RestAuthConfig restAuthConfig
+            RestAuthenticationConfig restAuthenticationConfig
     ) throws NodeStoppingException {
-        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, restAuthConfig);
+        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName, restAuthenticationConfig);
     }
 
     /**

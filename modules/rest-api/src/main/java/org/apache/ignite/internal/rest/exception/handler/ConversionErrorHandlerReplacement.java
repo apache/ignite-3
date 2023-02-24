@@ -31,7 +31,7 @@ import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
- * Replacement for {@link ConversionErrorHandlerReplacement}. Returns {@link HttpProblemResponse}.
+ * Replacement for {@link ConversionErrorHandler}. Returns {@link HttpProblemResponse}.
  */
 @Singleton
 @Replaces(ConversionErrorHandler.class)

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.commands;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
+import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,7 +55,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabledAuth());
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabled());
 
         assertThat(future, willCompleteSuccessfully());
 

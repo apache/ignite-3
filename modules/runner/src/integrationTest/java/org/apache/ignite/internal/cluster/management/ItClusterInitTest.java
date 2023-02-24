@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
+import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,18 +59,18 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
         String nodeName = nodeNames.get(0);
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabledAuth());
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabled());
 
         // init is idempotent
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabledAuth());
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabled());
 
         // init should fail if the list of nodes is different
-        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, nodeNames, "cluster", disabledAuth()));
+        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, nodeNames, "cluster", disabled()));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: CMG node names do not match."));
 
         // init should fail if cluster names are different
-        e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, List.of(nodeName), "new name", disabledAuth()));
+        e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, List.of(nodeName), "new name", disabled()));
 
         assertThat(e.getMessage(), containsString("Init CMG request denied, reason: Cluster names do not match."));
     }

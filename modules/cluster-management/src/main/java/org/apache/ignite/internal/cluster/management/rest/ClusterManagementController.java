@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
-import static org.apache.ignite.rest.RestAuthConfig.disabledAuth;
+import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -36,16 +36,16 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
 import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTagDto;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
-import org.apache.ignite.internal.rest.api.cluster.auth.AuthConfigDto;
-import org.apache.ignite.internal.rest.api.cluster.auth.AuthProviderConfigDto;
-import org.apache.ignite.internal.rest.api.cluster.auth.BasicAuthProviderConfigDto;
+import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationConfigDto;
+import org.apache.ignite.internal.rest.api.cluster.authentication.AuthenticationProviderConfigDto;
+import org.apache.ignite.internal.rest.api.cluster.authentication.BasicAuthenticationProviderConfigDto;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.rest.AuthProviderConfig;
-import org.apache.ignite.rest.AuthType;
-import org.apache.ignite.rest.BasicAuthProviderConfig;
-import org.apache.ignite.rest.RestAuthConfig;
+import org.apache.ignite.rest.AuthenticationType;
+import org.apache.ignite.rest.AuthenticationProviderConfig;
+import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
+import org.apache.ignite.rest.RestAuthenticationConfig;
 
 /**
  * Cluster management controller implementation.
@@ -85,13 +85,17 @@ public class ClusterManagementController implements ClusterManagementApi {
             LOG.info("Received init command [metaStorageNodes={}, cmgNodes={}]", initCommand.metaStorageNodes(),
                     initCommand.cmgNodes());
         }
-        AuthConfigDto authConfigDto = initCommand.authConfig();
-        RestAuthConfig restAuthConfig = authConfigDto == null ? disabledAuth() : authConfigDtoToRestAuthConfig(authConfigDto);
+
+        AuthenticationConfigDto authenticationConfigDto = initCommand.authenticationConfig();
+        RestAuthenticationConfig restAuthenticationConfig = authenticationConfigDto == null
+                ? disabled()
+                : authnConfigDtoToRestAuthnConfig(authenticationConfigDto);
+
         return clusterInitializer.initCluster(
                         initCommand.metaStorageNodes(),
                         initCommand.cmgNodes(),
                         initCommand.clusterName(),
-                        restAuthConfig
+                        restAuthenticationConfig
                 )
                 .exceptionally(ex -> {
                     throw mapException(ex);
@@ -126,28 +130,28 @@ public class ClusterManagementController implements ClusterManagementApi {
         return new IgniteException(ex);
     }
 
-    private RestAuthConfig authConfigDtoToRestAuthConfig(AuthConfigDto configDto) {
-        return new RestAuthConfig(configDto.enabled(), authProviders(configDto.providers()));
+    private RestAuthenticationConfig authnConfigDtoToRestAuthnConfig(AuthenticationConfigDto configDto) {
+        return new RestAuthenticationConfig(configDto.enabled(), authnProviders(configDto.providers()));
     }
 
-    private List<AuthProviderConfig> authProviders(List<AuthProviderConfigDto> providers) {
+    private List<AuthenticationProviderConfig> authnProviders(List<AuthenticationProviderConfigDto> providers) {
         if (providers == null) {
             return Collections.emptyList();
         } else {
             return providers.stream()
-                    .map(this::authProviderConfigDtoToAuthProviderConfig)
+                    .map(this::authnProviderConfigDtoToAuthnProviderConfig)
                     .collect(Collectors.toList());
         }
     }
 
-    private AuthProviderConfig authProviderConfigDtoToAuthProviderConfig(AuthProviderConfigDto configDto) {
-        AuthType type = configDto.type();
-        if (type == AuthType.BASIC) {
-            BasicAuthProviderConfigDto basicAuthProviderConfigDto = (BasicAuthProviderConfigDto) configDto;
-            return new BasicAuthProviderConfig(
-                    basicAuthProviderConfigDto.name(),
-                    basicAuthProviderConfigDto.login(),
-                    basicAuthProviderConfigDto.password()
+    private AuthenticationProviderConfig authnProviderConfigDtoToAuthnProviderConfig(AuthenticationProviderConfigDto configDto) {
+        AuthenticationType type = configDto.type();
+        if (type == AuthenticationType.BASIC) {
+            BasicAuthenticationProviderConfigDto basicAuthenticationProviderConfigDto = (BasicAuthenticationProviderConfigDto) configDto;
+            return new BasicAuthenticationProviderConfig(
+                    basicAuthenticationProviderConfigDto.name(),
+                    basicAuthenticationProviderConfigDto.login(),
+                    basicAuthenticationProviderConfigDto.password()
             );
         } else {
             throw new IllegalArgumentException("Unexpected auth type: " + type);
