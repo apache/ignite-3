@@ -204,19 +204,20 @@ public class StorageUpdateHandler {
 
     private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
         if (newLwm != null) {
-            HybridTimestamp curLwm = lastRecordedLwm.updateAndGet(prevLwm -> {
-                if (prevLwm == null) {
-                    return newLwm;
+            @Nullable HybridTimestamp oldLwm;
+            do {
+                oldLwm = lastRecordedLwm.get();
+
+                if (oldLwm != null && newLwm.compareTo(oldLwm) <= 0) {
+                    break;
                 }
+            } while (!lastRecordedLwm.compareAndSet(oldLwm, newLwm));
 
-                return newLwm.compareTo(prevLwm) > 0 ? newLwm : prevLwm;
-            });
-
-            if (curLwm == newLwm) {
+            if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
                 // Iff the lwm we have is the new lwm.
                 // Otherwise our newLwm is either was smaller than last recorded lwm or last recorded lwm has changed
                 // concurrently and it become greater. If that's the case, another thread will perform the GC.
-                vacuumBatch(curLwm, GC_BATCH_SIZE);
+                vacuumBatch(newLwm, GC_BATCH_SIZE);
             }
         }
     }
