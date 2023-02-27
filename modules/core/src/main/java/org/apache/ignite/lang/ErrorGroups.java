@@ -390,4 +390,15 @@ public class ErrorGroups {
          */
         public static final int CONFIG_WRITE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode(3);
     }
+
+    /**
+     * Garbage collector error group.
+     */
+    public static class Gc {
+        /** Garbage collector error group. */
+        private static final ErrorGroup GC_ERROR_GROUP = ErrorGroup.newGroup("GC", 13);
+
+        /** Garbage collector closed error. */
+        public static final int CLOSED_ERR = GC_ERROR_GROUP.registerErrorCode(1);
+    }
 }
