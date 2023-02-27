@@ -89,6 +89,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -972,6 +973,24 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         checkTableWithData(newNode, "t1");
         checkTableWithData(newNode, "t2");
+    }
+
+    /**
+     * The test for updating cluster configuration with the default value.
+     * Check that new nodes will be able to synchronize the local cluster configuration.
+     */
+    @Test
+    public void updateClusterCfgWithDefaultValue() {
+        IgniteImpl ignite = startNode(0);
+
+        RocksDbStorageEngineConfiguration dbStorageEngineConfiguration = ignite.clusterConfiguration()
+                .getConfiguration(RocksDbStorageEngineConfiguration.KEY);
+        int defaultValue = dbStorageEngineConfiguration.flushDelayMillis().value();
+        dbStorageEngineConfiguration.flushDelayMillis().update(defaultValue).join();
+
+        stopNode(0);
+
+        startNodes(3);
     }
 
     /**
