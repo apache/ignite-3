@@ -136,12 +136,14 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
      */
     @ParameterizedTest
     @ValueSource(strings = {
-            "trash",
-            "10a",
-            "a10"
+            "DECIMAL 'trash'",
+            "DECIMAL '10a'",
+            "DECIMAL 'a10'",
+            "DECIMAL x'1'",
+            "DECIMAL '1\n1000'",
     })
     public void testParserRejectsInvalidValues(String value) {
-        var query = format("SELECT DECIMAL '{}'", value);
+        var query = format("SELECT {}", value);
         assertThrows(SqlException.class, () -> Commons.parse(query, Commons.PARSER_CONFIG));
     }
 

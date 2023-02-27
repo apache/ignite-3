@@ -644,14 +644,20 @@ SqlLiteral AlterZoneStringOptionKey() :
 SqlLiteral ParseDecimalLiteral():
 {
     final Span s;
-    final SqlNode node;
+    final String value;
 }
 {
-  <DECIMAL> { s = span(); } node = StringLiteral()
+  <DECIMAL> { s = span(); } value = ParseQuotedString()
   {
-    SqlLiteral literal = (SqlLiteral) node;
-    String litValue = literal.getValueAs(String.class);
-
     return IgniteSqlDecimalLiteral.create(litValue, s.end(this));
+  }
+}
+
+String ParseQuotedString():
+{
+}
+{
+  <QUOTED_STRING> {
+      return SqlParserUtil.parseString(token.image);
   }
 }
