@@ -32,7 +32,7 @@ public class IgniteSqlParserUtil {
 
     }
 
-    /** Parses decimal from decimal literal value (a string in single quotes). */
+    /** Parses decimal from a decimal literal value (a string in single quotes). */
     public static BigDecimal parseDecimal(String value, SqlParserPos pos) {
         assert value.startsWith("'") && value.endsWith("'") : "input must be quoted: " + value;
 
