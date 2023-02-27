@@ -24,13 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.util.stream.Stream;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
@@ -48,7 +45,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
 
     /**
-     * Tests type.
+     * Tests literal type type.
      */
     @Test
     public void testValueAndType() {
