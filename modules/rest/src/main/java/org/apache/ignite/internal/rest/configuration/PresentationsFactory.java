@@ -22,9 +22,8 @@ import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.internal.configuration.rest.presentation.hocon.HoconPresentation;
 import org.apache.ignite.internal.rest.RestFactory;
+import org.apache.ignite.internal.rest.configuration.hocon.HoconPresentation;
 
 /**
  * Factory that defines beans required for the rest module.

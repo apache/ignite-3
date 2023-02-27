@@ -22,7 +22,6 @@ import io.micronaut.http.annotation.Controller;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.ComponentNotStartedException;
-import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.configuration.ClusterConfigurationApi;
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.internal.rest.exception.handler.IgniteExceptionHandler;

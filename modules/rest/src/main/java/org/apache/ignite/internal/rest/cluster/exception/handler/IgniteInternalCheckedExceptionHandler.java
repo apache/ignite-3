@@ -15,30 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest.exception.handler;
+package org.apache.ignite.internal.rest.cluster.exception.handler;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Handles {@link InvalidArgumentClusterInitializationException} and represents it as a rest response.
+ * Handles {@link IgniteInternalCheckedException} and represents it as a rest response.
  */
 @Singleton
-@Requires(classes = {InvalidArgumentClusterInitializationException.class, ExceptionHandler.class})
-public class InvalidArgumentClusterInitializationExceptionHandler implements
-        ExceptionHandler<InvalidArgumentClusterInitializationException, HttpResponse<? extends Problem>> {
+@Requires(classes = {IgniteInternalCheckedException.class, ExceptionHandler.class})
+public class IgniteInternalCheckedExceptionHandler
+        implements ExceptionHandler<IgniteInternalCheckedException, HttpResponse<? extends Problem>> {
 
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, InvalidArgumentClusterInitializationException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalCheckedException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.BAD_REQUEST).detail(exception.getCause().getMessage())
+                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
+                        .traceId(exception.traceId())
+                        .code(exception.codeAsString())
+                        .detail(exception.getMessage())
         );
     }
 }

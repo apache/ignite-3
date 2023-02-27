@@ -30,7 +30,6 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.rest.presentation.TestRootConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 
 /**

@@ -16,7 +16,7 @@
  */
 
 /**
- * Contains a base interface that provides the ability to convert representation to other formats.
+ * This package contains classes related to HOCON representation.
  */
 
-package org.apache.ignite.internal.configuration.rest.presentation;
+package org.apache.ignite.internal.rest.configuration.hocon;

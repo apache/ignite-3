@@ -25,8 +25,7 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.internal.configuration.rest.presentation.hocon.HoconPresentation;
+import org.apache.ignite.internal.rest.configuration.hocon.HoconPresentation;
 
 /**
  * Functional test for {@link ClusterConfigurationController}.

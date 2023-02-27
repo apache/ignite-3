@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.rest.presentation;
+package org.apache.ignite.internal.rest.configuration;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;

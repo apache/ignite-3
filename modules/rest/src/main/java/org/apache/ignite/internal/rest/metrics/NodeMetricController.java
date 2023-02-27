@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.rest;
+package org.apache.ignite.internal.rest.metrics;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.rest.exception.MetricNotFoundException;
 import org.apache.ignite.internal.rest.api.metric.MetricSourceDto;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricApi;
+import org.apache.ignite.internal.rest.metrics.exception.MetricNotFoundException;
 
 /** Node metric controller. */
 @Controller("/management/v1/metric/node")

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest.exception.handler;
+package org.apache.ignite.internal.rest.cluster.exception.handler;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
@@ -25,18 +25,17 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Handles {@link IgniteInternalCheckedException} and represents it as a rest response.
+ * Handles {@link IgniteInternalException} and represents it as a rest response.
  */
 @Singleton
-@Requires(classes = {IgniteInternalCheckedException.class, ExceptionHandler.class})
-public class IgniteInternalCheckedExceptionHandler
-        implements ExceptionHandler<IgniteInternalCheckedException, HttpResponse<? extends Problem>> {
+@Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
+public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<? extends Problem>> {
 
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalCheckedException exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
                         .traceId(exception.traceId())

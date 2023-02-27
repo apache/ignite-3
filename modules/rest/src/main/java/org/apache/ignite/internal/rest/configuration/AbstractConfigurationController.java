@@ -20,7 +20,6 @@ package org.apache.ignite.internal.rest.configuration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.lang.IgniteException;
 
 /**

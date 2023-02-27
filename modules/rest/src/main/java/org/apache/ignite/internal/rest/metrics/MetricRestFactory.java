@@ -15,8 +15,28 @@
  * limitations under the License.
  */
 
-/**
- * This package contains classes related to HOCON representation.
- */
+package org.apache.ignite.internal.rest.metrics;
 
-package org.apache.ignite.internal.configuration.rest.presentation.hocon;
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.rest.RestFactory;
+
+/**
+ * Factory that creates beans that are needed for {@link NodeMetricController}.
+ */
+@Factory
+public class MetricRestFactory implements RestFactory {
+    private final MetricManager metricManager;
+
+    public MetricRestFactory(MetricManager metricManager) {
+        this.metricManager = metricManager;
+    }
+
+    @Bean
+    @Singleton
+    public MetricManager metricManager() {
+        return metricManager;
+    }
+}

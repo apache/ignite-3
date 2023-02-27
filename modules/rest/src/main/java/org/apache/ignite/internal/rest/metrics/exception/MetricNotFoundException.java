@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.rest.exception;
+package org.apache.ignite.internal.rest.metrics.exception;
 
 /**
- * Exception that is thrown when the wrong arguments are passed to the init cluster method.
+ * Exception that is thrown when requested metric is not found in the registry.
  */
-public class InvalidArgumentClusterInitializationException extends RuntimeException {
-    public InvalidArgumentClusterInitializationException(Throwable cause) {
+public class MetricNotFoundException extends RuntimeException {
+    public MetricNotFoundException(Throwable cause) {
         super(cause);
     }
 }

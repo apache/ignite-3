@@ -15,28 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.rest;
-
-import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.rest.RestFactory;
+package org.apache.ignite.internal.rest.cluster.exception;
 
 /**
- * Factory that creates beans that are needed for {@link NodeMetricController}.
+ * Exception that is thrown when the wrong arguments are passed to the init cluster method.
  */
-@Factory
-public class MetricRestFactory implements RestFactory {
-    private final MetricManager metricManager;
-
-    public MetricRestFactory(MetricManager metricManager) {
-        this.metricManager = metricManager;
-    }
-
-    @Bean
-    @Singleton
-    public MetricManager metricManager() {
-        return metricManager;
+public class InvalidArgumentClusterInitializationException extends RuntimeException {
+    public InvalidArgumentClusterInitializationException(Throwable cause) {
+        super(cause);
     }
 }
