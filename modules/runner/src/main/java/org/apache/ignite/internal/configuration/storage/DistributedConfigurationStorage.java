@@ -264,7 +264,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         assert data.isEmpty() || cfgRevision > 0;
 
-        changeId.set(data.isEmpty() ? 0 : cfgRevision);
+        changeId.set(cfgRevision);
 
         return new Data(data, cfgRevision);
     }
