@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Gc;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Garbage collector for multi-versioned storages and their indexes in the background.
@@ -51,7 +51,7 @@ public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
 
     /** GC batch size for the storage. */
-    private static final int GC_BUTCH_SIZE = 5;
+    static final int GC_BUTCH_SIZE = 5;
 
     /** Garbage collection thread pool. */
     private final ExecutorService executor;
@@ -115,20 +115,27 @@ public class MvGc implements ManuallyCloseable {
      * <p>Should be called before rebalancing/closing/destroying the storage.
      *
      * @param tablePartitionId Table partition ID.
-     * @return If storage is in process of being garbage collected, return complete of garbage collection future for it otherwise
-     *      {@code null}.
+     * @return Storage garbage collection completion future.
      * @throws IgniteInternalException with {@link Gc#CLOSED_ERR} If the garbage collector is closed.
      */
-    public @Nullable CompletableFuture<Void> removeStorage(TablePartitionId tablePartitionId) {
+    public CompletableFuture<Void> removeStorage(TablePartitionId tablePartitionId) {
         return inBusyLock(() -> {
             GcStorageHandler removed = storageHandlerByPartitionId.remove(tablePartitionId);
 
-            return removed == null ? null : removed.gcInProgressFuture.get();
+            if (removed == null) {
+                return completedFuture(null);
+            }
+
+            CompletableFuture<Void> gcInProgressFuture = removed.gcInProgressFuture.get();
+
+            return gcInProgressFuture == null ? completedFuture(null) : gcInProgressFuture;
         });
     }
 
     /**
-     * Updates the new watermark only if it is larger than the current low watermark and initialize garbage collection for all storages.
+     * Updates the new watermark only if it is larger than the current low watermark.
+     *
+     * <p>If the update is successful, it will schedule a new garbage collection for all storages.
      *
      * @param newLwm New low watermark.
      * @throws IgniteInternalException with {@link Gc#CLOSED_ERR} If the garbage collector is closed.
@@ -230,7 +237,7 @@ public class MvGc implements ManuallyCloseable {
         try {
             return supplier.get();
         } finally {
-            busyLock.unblock();
+            busyLock.leaveBusy();
         }
     }
 

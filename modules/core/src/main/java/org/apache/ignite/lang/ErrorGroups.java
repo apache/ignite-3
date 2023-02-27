@@ -396,9 +396,9 @@ public class ErrorGroups {
      */
     public static class Gc {
         /** Garbage collector error group. */
-        private static final ErrorGroup GC_ERROR_GROUP = ErrorGroup.newGroup("GC", 13);
+        public static final ErrorGroup GC_ERR_GROUP = ErrorGroup.newGroup("GC", 13);
 
         /** Garbage collector closed error. */
-        public static final int CLOSED_ERR = GC_ERROR_GROUP.registerErrorCode(1);
+        public static final int CLOSED_ERR = GC_ERR_GROUP.registerErrorCode(1);
     }
 }
