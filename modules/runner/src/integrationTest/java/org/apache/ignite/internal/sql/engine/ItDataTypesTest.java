@@ -358,6 +358,8 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT DECIMAL '10.000' = '10.000'").returns(true).check();
         assertQuery("SELECT DECIMAL '10.000' = '10.001'").returns(false).check();
 
+        assertQuery("SELECT DECIMAL \"10\" FROM (SELECT 1 as decimal) tmp;").returns(1).check();
+
         assertQuery("SELECT CASE WHEN true THEN DECIMAL '1.00' ELSE DECIMAL '0' END")
                 .returns(new BigDecimal("1.00")).check();
 

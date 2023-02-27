@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
@@ -108,20 +111,51 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     }
 
     /**
-     * Test cases for invalid inputs.
+     * Test cases for invalid literal values.
      */
     @ParameterizedTest
     @ValueSource(strings = {
             "DECIMAL 'NAN'",
             "DECIMAL '10a'",
             "DECIMAL 'a10'",
-            "DECIMAL x'10'",
             "DECIMAL 'f1'",
             "DECIMAL '1\n1000'",
     })
     public void testParserRejectsInvalidValues(String value) {
         var query = format("SELECT {}", value);
-        SqlException x = assertThrows(SqlException.class, () -> Commons.parse(query, Commons.PARSER_CONFIG));
-        x.printStackTrace(System.out);
+        var err = assertThrows(SqlException.class, () -> parseQuery(query));
+
+        assertThat(err.getMessage(), containsString("Invalid decimal literal"));
+    }
+
+    /**
+     * Test cases for invalid literal expressions.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "DECIMAL x'00'",
+            "DECIMAL N\"10\"",
+            "DECIMAL 'a10'",
+            "DECIMAL '10",
+            "DECIMAL 10'",
+    })
+    public void testParserRejectInvalidForms(String value) {
+        var query = format("SELECT {}", value);
+
+        assertThrows(SqlException.class, () -> parseQuery(query));
+    }
+
+    /**
+     * Test case that ensures that {@code DECIMAL} in {@code DECIMAL "1"} is interpreted as an alias to a column named {@code DECIMAL}.
+     */
+    @Test
+    public void testDecimalAsAlias() {
+        SqlNodeList nodeList = parseQuery("SELECT DECIMAL \"10\"");
+
+        assertEquals("SELECT `DECIMAL` AS `10`", nodeList.get(0).toString());
+    }
+
+    private static SqlNodeList parseQuery(String qry) {
+        return Commons.parse(qry, Commons.PARSER_CONFIG);
     }
 }
