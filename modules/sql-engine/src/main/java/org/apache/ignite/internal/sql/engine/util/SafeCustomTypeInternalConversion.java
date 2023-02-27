@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -50,6 +51,11 @@ final class SafeCustomTypeInternalConversion {
         Class<?> internalType = internalTypes.get(storageType);
         if (internalType == null) {
             return null;
+        }
+
+        //TODO: This a quick fix of the issue https://issues.apache.org/jira/browse/IGNITE-18831 and should be reworked.
+        if (storageType == NativeTypeSpec.UUID && val instanceof String) {
+            return UUID.fromString((String) val);
         }
 
         assert internalType.isInstance(val) : storageTypeMismatch(val, internalType);
