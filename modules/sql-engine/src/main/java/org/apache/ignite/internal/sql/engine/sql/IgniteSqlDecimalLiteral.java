@@ -20,13 +20,15 @@ package org.apache.ignite.internal.sql.engine.sql;
 import java.math.BigDecimal;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNumericLiteral;
+import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.parser.Span;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
+import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,17 +51,12 @@ public final class IgniteSqlDecimalLiteral extends SqlNumericLiteral {
     /**
      * Creates a decimal literal.
      *
-     * @param literal  A decimal number literal.
+     * @param value  A decimal number literal.
      * @param pos  A position.
      * @return  A decimal literal.
      */
-    public static IgniteSqlDecimalLiteral create(String literal, SqlParserPos pos) {
-        var exactNumeric = SqlLiteral.createExactNumeric(literal, pos);
-        var value = exactNumeric.bigDecimalValue();
-
-        assert value != null : "No bigDecimalValue for exactNumeric literal: " + exactNumeric;
-
-        return new IgniteSqlDecimalLiteral(value, pos);
+    public static IgniteSqlDecimalLiteral create(BigDecimal value, SqlParserPos pos) {
+       return new IgniteSqlDecimalLiteral(value, pos);
     }
 
     /** {@inheritDoc} **/

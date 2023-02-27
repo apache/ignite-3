@@ -644,20 +644,13 @@ SqlLiteral AlterZoneStringOptionKey() :
 SqlLiteral ParseDecimalLiteral():
 {
     final Span s;
-    final String value;
+    final BigDecimal value;
 }
 {
-  <DECIMAL> { s = span(); } value = ParseQuotedString()
-  {
-    return IgniteSqlDecimalLiteral.create(litValue, s.end(this));
+  <DECIMAL> { s = span(); } <QUOTED_STRING> {
+    value = IgniteSqlParserUtil.parseDecimal(token.image, s.pos());
   }
-}
-
-String ParseQuotedString():
-{
-}
-{
-  <QUOTED_STRING> {
-      return SqlParserUtil.parseString(token.image);
+  {
+    return IgniteSqlDecimalLiteral.create(value, s.end(this));
   }
 }
