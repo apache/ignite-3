@@ -42,14 +42,12 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
  */
 public class StorageUpdateHandler {
-    /** Garbage collection batch size. */
-    public static final int GC_BATCH_SIZE = 5;
-
     /** Partition id. */
     private final int partitionId;
 
@@ -61,6 +59,9 @@ public class StorageUpdateHandler {
     /** Last recorded GC low watermark. */
     private final AtomicReference<HybridTimestamp> lastRecordedLwm = new AtomicReference<>();
 
+    /** The number of entries in the storage to be garbage collected during the storage update operation. */
+    private final int gcOnUpdateBatchSize;
+
     /**
      * The constructor.
      *
@@ -68,10 +69,29 @@ public class StorageUpdateHandler {
      * @param storage Partition data storage.
      * @param indexes Indexes supplier.
      */
+    @TestOnly
     public StorageUpdateHandler(int partitionId, PartitionDataStorage storage, Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes) {
+        this(partitionId, storage, indexes, 5);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param partitionId Partition id.
+     * @param storage Partition data storage.
+     * @param indexes Indexes supplier.
+     * @param gcOnUpdateBatchSize The number of entries in the storage to be garbage collected during the storage update operation.
+     */
+    public StorageUpdateHandler(
+            int partitionId,
+            PartitionDataStorage storage,
+            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes,
+            int gcOnUpdateBatchSize
+    ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexes = indexes;
+        this.gcOnUpdateBatchSize = gcOnUpdateBatchSize;
     }
 
     /**
@@ -219,7 +239,7 @@ public class StorageUpdateHandler {
                 // Iff the lwm we have is the new lwm.
                 // Otherwise our newLwm is either was smaller than last recorded lwm or last recorded lwm has changed
                 // concurrently and it become greater. If that's the case, another thread will perform the GC.
-                vacuumBatch(newLwm, GC_BATCH_SIZE);
+                vacuumBatch(newLwm, gcOnUpdateBatchSize);
             }
         }
     }

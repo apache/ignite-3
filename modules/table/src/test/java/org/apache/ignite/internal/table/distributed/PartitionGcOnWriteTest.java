@@ -41,6 +41,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 /** Tests for cooperative GC (GC that is executed on write). */
 public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
     private static final int WRITES_COUNT = 10;
+    private static final int GC_BATCH_SIZE = 5;
     private static final UUID TX_ID = UUID.randomUUID();
     private static final int PARTITION_ID = 1;
     private static final TablePartitionId TABLE_PARTITION_ID = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
@@ -52,7 +53,7 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
     void setUp() {
         storage = new TestMvPartitionStorage(1);
 
-        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage), Collections::emptyMap);
+        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage), Collections::emptyMap, GC_BATCH_SIZE);
     }
 
     @ParameterizedTest
@@ -88,7 +89,7 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
 
         writeWithGc(writer, clock.now());
 
-        assertEquals(WRITES_COUNT - StorageUpdateHandler.GC_BATCH_SIZE, getRowVersions(rowId).size());
+        assertEquals(WRITES_COUNT - GC_BATCH_SIZE, getRowVersions(rowId).size());
     }
 
     private List<ReadResult> getRowVersions(RowId rowId) {
