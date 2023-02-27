@@ -103,6 +103,7 @@ public class StorageUpdateHandler {
      * @param onReplication Callback on replication.
      * @param lowWatermark GC low watermark.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
@@ -162,6 +163,7 @@ public class StorageUpdateHandler {
      * @param onReplication On replication callback.
      * @param lowWatermark GC low watermark.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
     public void handleUpdateAll(
             UUID txId,
             Map<UUID, ByteBuffer> rowsToUpdate,
