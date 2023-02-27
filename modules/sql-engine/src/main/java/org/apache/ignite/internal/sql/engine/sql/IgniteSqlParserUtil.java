@@ -24,7 +24,7 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 
 /**
- * Utility function used by {@link IgniteSqlParserImpl ignite sql parser} implementation.
+ * Utility functions used by {@link IgniteSqlParserImpl ignite sql parser}.
  */
 public class IgniteSqlParserUtil {
 
