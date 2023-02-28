@@ -59,7 +59,7 @@ public class StorageUpdateHandler {
     /** Last recorded GC low watermark. */
     private final AtomicReference<HybridTimestamp> lastRecordedLwm = new AtomicReference<>();
 
-    /** The number of entries in the storage to be garbage collected during the storage update operation. */
+    /** The number of entries in the storage to be garbage collected during a storage update operation. */
     private final int gcOnUpdateBatchSize;
 
     /**
@@ -80,7 +80,7 @@ public class StorageUpdateHandler {
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param indexes Indexes supplier.
-     * @param gcOnUpdateBatchSize The number of entries in the storage to be garbage collected during the storage update operation.
+     * @param gcOnUpdateBatchSize The number of entries in the storage to be garbage collected during a storage update operation.
      */
     public StorageUpdateHandler(
             int partitionId,
@@ -237,7 +237,7 @@ public class StorageUpdateHandler {
 
             if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
                 // Iff the lwm we have is the new lwm.
-                // Otherwise our newLwm is either was smaller than last recorded lwm or last recorded lwm has changed
+                // Otherwise our newLwm is either smaller than last recorded lwm or last recorded lwm has changed
                 // concurrently and it become greater. If that's the case, another thread will perform the GC.
                 vacuumBatch(newLwm, gcOnUpdateBatchSize);
             }

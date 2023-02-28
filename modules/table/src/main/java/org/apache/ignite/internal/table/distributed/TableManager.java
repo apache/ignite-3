@@ -743,7 +743,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTbl, partId));
 
                 DataStorageConfiguration dsCfg = tblCfg.dataStorage();
-                Integer gcOnUpdateBatchSize = dsCfg.gcOnUpdateBatchSize().value();
+                int gcOnUpdateBatchSize = dsCfg.gcOnUpdateBatchSize().value();
 
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
                         .thenApply(storage -> new StorageUpdateHandler(
@@ -1995,7 +1995,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         DataStorageConfiguration dsCfg = tblCfg.dataStorage();
-                        Integer gcOnUpdateBatchSize = dsCfg.gcOnUpdateBatchSize().value();
+                        int gcOnUpdateBatchSize = dsCfg.gcOnUpdateBatchSize().value();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
                         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(

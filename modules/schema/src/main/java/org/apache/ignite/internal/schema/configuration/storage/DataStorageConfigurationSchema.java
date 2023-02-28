@@ -30,7 +30,7 @@ public class DataStorageConfigurationSchema {
     @PolymorphicId(hasDefault = true)
     public String name = UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
-    /** The number of entries in the storage to be garbage collected during the storage update operation. */
+    /** The number of entries in the storage to be garbage collected during a storage update operation. */
     @Value(hasDefault = true)
     public int gcOnUpdateBatchSize = 5;
 }
