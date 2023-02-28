@@ -898,6 +898,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * metastorage group starts again.
      */
     @Test
+    @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
     public void testMetastorageStop() throws InterruptedException {
         int cfgGap = 4;
