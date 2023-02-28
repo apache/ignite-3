@@ -169,15 +169,19 @@ public class ClientSchema {
 
     private Marshaller createMarshaller(Mapper mapper, TuplePart part) {
         int colCount = columns.length;
+        int firstColIdx = 0;
 
         if (part == TuplePart.KEY) {
             colCount = keyColumnCount;
+        } else if (part == TuplePart.VAL) {
+            colCount = columns.length - keyColumnCount;
+            firstColIdx = keyColumnCount;
         }
 
         MarshallerColumn[] cols = new MarshallerColumn[colCount];
 
         for (int i = 0; i < colCount; i++) {
-            var col = columns[i];
+            var col = columns[i  + firstColIdx];
 
             cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
         }

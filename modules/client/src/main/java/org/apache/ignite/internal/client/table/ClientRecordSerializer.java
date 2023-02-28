@@ -209,10 +209,35 @@ public class ClientRecordSerializer<R> {
         }
     }
 
+    R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
+        if (oneColumnMode) {
+            return keyRec;
+        }
+
+        Marshaller keyMarshaller = schema.getMarshaller(mapper, TuplePart.KEY);
+        Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.VAL);
+
+        var tupleReader = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), in.readBinaryUnsafe());
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
+
+        try {
+            var res = (R) valMarshaller.readObject(reader, null);
+
+            keyMarshaller.copyObject(keyRec, res);
+
+            return res;
+        } catch (MarshallerException e) {
+            throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
+        }
+    }
+
     private static int columnCount(ClientSchema schema, TuplePart part) {
         switch (part) {
             case KEY:
                 return schema.keyColumnCount();
+
+            case VAL:
+                return schema.columns().length - schema.keyColumnCount();
 
             case KEY_AND_VAL:
                 return schema.columns().length;
