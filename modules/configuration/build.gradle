@@ -26,30 +26,17 @@ dependencies {
     api project(':ignite-configuration-api')
     implementation project(':ignite-bytecode')
     implementation project(':ignite-api')
-    implementation project(':ignite-rest-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
-    implementation libs.asm.core
-    implementation libs.micronaut.http.core
-    implementation libs.micronaut.http.server.core
     implementation libs.typesafe.config
 
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor libs.micronaut.inject.annotation.processor
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
-    testAnnotationProcessor libs.micronaut.inject.annotation.processor
     testImplementation project(':ignite-core')
-    testImplementation project(':ignite-rest-api')
     testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
-    testImplementation libs.micronaut.test
-    testImplementation libs.micronaut.junit5
-    testImplementation libs.micronaut.http.client
-    testImplementation libs.micronaut.http.server.netty
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesImplementation project(':ignite-core')

@@ -339,6 +339,51 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
+    /**
+     * Test cases for decimal literals.
+     */
+    @Test
+    public void testDecimalLiteral() {
+        sql("CREATE TABLE tbl(id int PRIMARY KEY, val DECIMAL(32, 5))");
+
+        assertQuery("SELECT DECIMAL '-123.0'").returns(new BigDecimal(("-123.0"))).check();
+        assertQuery("SELECT DECIMAL '10'").returns(new BigDecimal(("10"))).check();
+        assertQuery("SELECT DECIMAL '10.000'").returns(new BigDecimal(("10.000"))).check();
+
+        assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();
+        assertQuery("SELECT DECIMAL '10.000' - DECIMAL '0.01'").returns(new BigDecimal(("9.990"))).check();
+        assertQuery("SELECT DECIMAL '10.000' * DECIMAL '0.01'").returns(new BigDecimal(("0.10000"))).check();
+        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0"))).check();
+
+        assertQuery("SELECT DECIMAL '10.000' = '10.000'").returns(true).check();
+        assertQuery("SELECT DECIMAL '10.000' = '10.001'").returns(false).check();
+
+        assertQuery("SELECT CASE WHEN true THEN DECIMAL '1.00' ELSE DECIMAL '0' END")
+                .returns(new BigDecimal("1.00")).check();
+
+        assertQuery("SELECT CASE WHEN false THEN DECIMAL '1.00' ELSE DECIMAL '0.0' END")
+                .returns(new BigDecimal("0.0")).check();
+
+        assertQuery("SELECT DECIMAL \"10\" FROM (SELECT 1 as decimal) tmp").returns(1).check();
+
+        assertQuery(
+                "SELECT DECIMAL '0.09'  BETWEEN DECIMAL '0.06' AND DECIMAL '0.07'")
+                .returns(false).check();
+
+        assertQuery("SELECT ROUND(DECIMAL '10.000', 2)").returns(new BigDecimal("10.00")).check();
+        assertQuery("SELECT CAST(DECIMAL '10.000' AS VARCHAR)").returns("10.000").check();
+        assertQuery("SELECT CAST(DECIMAL '10.000' AS INTEGER)").returns(10).check();
+
+        sql("INSERT INTO tbl VALUES(1, DECIMAL '10.01')");
+
+        assertQuery("SELECT val FROM tbl").returns(new BigDecimal("10.01000")).check();
+
+        assertQuery("SELECT id FROM tlb WHERE val = DECIMAL '10.0'").returns(1);
+
+        sql("UPDATE tbl SET val=DECIMAL '10.20' WHERE id = 1");
+        assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.20'").returns(1);
+    }
+
     private LocalDate sqlDate(String str) {
         return LocalDate.parse(str);
     }

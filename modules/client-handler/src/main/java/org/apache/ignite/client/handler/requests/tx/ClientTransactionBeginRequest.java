@@ -51,12 +51,21 @@ public class ClientTransactionBeginRequest {
             options = new TransactionOptions().readOnly(true);
         }
 
-        return transactions.beginAsync(options).thenAccept(t -> {
+        return transactions.beginAsync(options).thenAccept(tx -> {
             try {
-                long resourceId = resources.put(new ClientResource(t, t::rollbackAsync));
+                long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
                 out.packLong(resourceId);
+
+                var readTs = tx.readTimestamp();
+
+                if (readTs != null) {
+                    out.packLong(readTs.getPhysical());
+                    out.packInt(readTs.getLogical());
+                } else {
+                    out.packNil();
+                }
             } catch (IgniteInternalCheckedException e) {
-                t.rollback();
+                tx.rollback();
                 throw new IgniteInternalException(e.getMessage(), e);
             }
         });
