@@ -61,125 +61,155 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void simpleAggregate() throws Exception {
-        checkTestCase1("SELECT AVG(val0) FROM test", schema(single()));
-        checkTestCase2("SELECT AVG(val0) FROM test", schema(hash()));
+        checkTestCase1SingleDistribution("SELECT AVG(val0) FROM test", schema(single()));
+
+        checkTestCase1HashDistribution("SELECT AVG(val0) FROM test", schema(hash()));
     }
 
     /**
      * Validates a plan for a query with aggregate and groups.
      */
     @Test
-    public void groupNoIndex() throws Exception {
-        checkTestCase3("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single()));
-        checkTestCase4("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash()));
+    public void simpleAggregateWithGroupBy() throws Exception {
+        checkTestCase2SingleDistribution("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single()));
+        checkTestCase2SingleDistribution("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single()));
 
-        checkTestCase3("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single()));
-        checkTestCase4("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash()));
-    }
-
-    /**
-     * Validates a plan uses an index for a query with aggregate and group by first index column.
-     */
-    @Test
-    public void groupWithIndex() throws Exception {
-        checkTestCase5("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single(), index("grp0_grp1", 3, 4)));
-        checkTestCase6("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash(), index("grp0_grp1", 3, 4)));
-    }
-
-    /**
-     * Validates a plan uses an index for a query with aggregate and group by index columns in different order.
-     */
-    @Test
-    public void groupWithIndexCollationPermute() throws Exception {
-        checkTestCase5("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema(single(), index("grp0_grp1", 3, 4)));
-        checkTestCase5("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single(), index("grp0_grp1", 3, 4)));
-
-        checkTestCase6("SELECT AVG(val0) FROM test GROUP BY grp0, grp0", schema(hash(), index("grp0_grp1", 3, 4)));
-
-        //TODO:https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used here.
-        Assumptions.assumeFalse(this instanceof ColocatedSortAggregatePlannerTest, "wrong plan");
-        checkTestCase6("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash(), index("grp0_grp1", 3, 4)));
+        checkTestCase2HashDistribution("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash()));
+        checkTestCase2HashDistribution("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash()));
     }
 
     /**
      * Validates a plan for simple query with DISTINCT aggregates.
+     *
+     * @see #minMaxDistinctAggregate()
      */
     @Test
     public void distinctAggregate() throws Exception {
         IgniteSchema schema = schema(single());
 
-        checkTestCase7("SELECT COUNT(DISTINCT val0) FROM test", schema);
-        checkTestCase7("SELECT AVG(DISTINCT val0) FROM test", schema);
-        checkTestCase7("SELECT SUM(DISTINCT val0) FROM test", schema);
-
-        // DISTINCT is ignored for MIN and MAX aggregates.
-        checkTestCase1("SELECT MIN(DISTINCT val0) FROM test", schema);
-        checkTestCase1("SELECT MAX(DISTINCT val0) FROM test", schema);
+        checkTestCase3SingleDistribution("SELECT COUNT(DISTINCT val0) FROM test", schema);
+        checkTestCase3SingleDistribution("SELECT AVG(DISTINCT val0) FROM test", schema);
+        checkTestCase3SingleDistribution("SELECT SUM(DISTINCT val0) FROM test", schema);
 
         schema = schema(hash());
 
-        checkTestCase8("SELECT COUNT(DISTINCT val0) FROM test", schema);
-        checkTestCase8("SELECT AVG(DISTINCT val0) FROM test", schema);
-        checkTestCase8("SELECT SUM(DISTINCT val0) FROM test", schema);
-
-        // DISTINCT is ignored for MIN and MAX aggregates.
-        checkTestCase2("SELECT MIN(DISTINCT val0) FROM test", schema);
-        checkTestCase2("SELECT MAX(DISTINCT val0) FROM test", schema);
+        checkTestCase3HashDistribution("SELECT COUNT(DISTINCT val0) FROM test", schema);
+        checkTestCase3HashDistribution("SELECT AVG(DISTINCT val0) FROM test", schema);
+        checkTestCase3HashDistribution("SELECT SUM(DISTINCT val0) FROM test", schema);
     }
 
     /**
-     * Validates a plan for a query with DISTINCT and without aggregate functions.
+     * Validates a plan for a query with min/max distinct aggregate.
+     * <p>
+     * NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregate()}
      */
     @Test
-    public void groupWithoutAggregate() throws Exception {
-        checkTestCase9("SELECT DISTINCT val0, val1 FROM test", schema(single(), index("val0", 1)));
-        checkTestCase10("SELECT DISTINCT val0, val1 FROM test", schema(hash(), index("val0", 1)));
-    }
+    public void minMaxDistinctAggregate() throws Exception {
+        checkTestCase1SingleDistribution("SELECT MIN(DISTINCT val0) FROM test", schema(single()));
 
-    /**
-     * Validates a plan uses index for a query with DISTINCT and without functions.
-     */
-    @Test
-    public void groupWithoutAggregateFunctionWithIndex() throws Exception {
-        checkTestCase11("SELECT DISTINCT grp0, grp1 FROM test", schema(single(), index("grp0_grp1", 3, 4)));
-        checkTestCase12("SELECT DISTINCT grp0, grp1 FROM test", schema(hash(), index("grp0_grp1", 3, 4)));
+        checkTestCase1HashDistribution("SELECT MAX(DISTINCT val0) FROM test", schema(hash()));
     }
 
     /**
      * Validates a plan for a query with DISTINCT aggregates and groups.
+     *
+     * @see #minMaxDistinctAggregateWithGroupBy()
      */
     @Test
     public void distinctAggregateWithGroups() throws Exception {
         IgniteSchema schema = schema(single());
 
-        checkTestCase13("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1, grp0", schema);
-        checkTestCase13("SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1", schema);
-        checkTestCase13("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", schema);
-        checkTestCase13("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", schema);
-
-        // DISTINCT is ignored for MIN and MAX aggregates.
-        checkTestCase3("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
-        checkTestCase3("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
+        checkTestCase4SingleDistribution("SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0", schema);
+        checkTestCase4SingleDistribution("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema);
+        checkTestCase4SingleDistribution("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema);
+        checkTestCase4SingleDistribution("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema);
 
         schema = schema(hash());
 
-        checkTestCase14("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1, grp0", schema);
-        checkTestCase14("SELECT val1, COUNT(DISTINCT val0) as v1 FROM test GROUP BY val1", schema);
-        checkTestCase14("SELECT AVG(DISTINCT val0) FROM test GROUP BY val1", schema);
-        checkTestCase14("SELECT SUM(DISTINCT val0) FROM test GROUP BY val1", schema);
-
-        // DISTINCT is ignored for MIN and MAX aggregates.
-        checkTestCase4("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
-        checkTestCase4("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
+        checkTestCase4HashDistribution("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1, grp0", schema);
+        checkTestCase4HashDistribution("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema);
+        checkTestCase4HashDistribution("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema);
+        checkTestCase4HashDistribution("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema);
     }
 
     /**
-     * Validates a plan for a query with aggregate in WHERE clause.
+     * Validates a plan for a query with min/max distinct aggregates and groups.
+     * <p>
+     * NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregateWithGroupBy()}
      */
     @Test
-    public void aggregateInWhereClause() throws Exception {
-        checkTestCase1("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(single()));
-        checkTestCase2("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(hash()));
+    public void minMaxDistinctAggregateWithGroupBy() throws Exception {
+        IgniteSchema schema = schema(single());
+
+        checkTestCase2SingleDistribution("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
+        checkTestCase2SingleDistribution("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
+
+        schema = schema(hash());
+
+        checkTestCase2HashDistribution("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
+        checkTestCase2HashDistribution("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
+    }
+
+    /**
+     * Validates a plan uses an index for a query with aggregate if grouped by index prefix.
+     */
+    @Test
+    public void aggregateWithGroupByIndexPrefixColumns() throws Exception {
+        checkTestCase5SingleDistribution("SELECT AVG(val0) FROM test GROUP BY grp0",
+                schema(single(), index("grp0_grp1", 3, 4)));
+
+        checkTestCase5HashDistribution("SELECT AVG(val0) FROM test GROUP BY grp0",
+                schema(hash(), index("grp0_grp1", 3, 4)));
+    }
+
+    /**
+     * Validates a plan uses an index for a query with aggregate if group by matches index columns.
+     * <p>
+     * NB: GROUP BY columns order permutation shouldn't affect the plan.
+     */
+    @Test
+    public void aggregateWithGroupByColumnsMatchesIndexColumns() throws Exception {
+        IgniteSchema schema = schema(single(), index("grp0_grp1", 3, 4));
+
+        checkTestCase6SingleDistribution("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema);
+        checkTestCase6SingleDistribution("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema);
+
+        schema = schema(hash(), index("grp0_grp1", 3, 4));
+        checkTestCase6HashDistribution("SELECT AVG(val0) FROM test GROUP BY grp0, grp0", schema);
+
+        //TODO:https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used here.
+        Assumptions.assumeFalse(this instanceof ColocatedSortAggregatePlannerTest, "wrong plan");
+        checkTestCase6HashDistribution("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema);
+    }
+
+    /**
+     * Validates a plan for a query with DISTINCT and without aggregation function.
+     */
+    @Test
+    public void distinctWithoutAggregate() throws Exception {
+        checkTestCase7SingleDistribution("SELECT DISTINCT val0, val1 FROM test", schema(single(), index("val0", 1)));
+
+        checkTestCase7HashDistribution("SELECT DISTINCT val0, val1 FROM test", schema(hash(), index("val0", 1)));
+    }
+
+    /**
+     * Validates a plan uses index for a query with DISTINCT and without aggregation functions.
+     */
+    @Test
+    public void distinctWithoutAggregateUseIndex() throws Exception {
+        checkTestCase8SingleDistribution("SELECT DISTINCT grp0, grp1 FROM test", schema(single(), index("grp0_grp1", 3, 4)));
+
+        checkTestCase8HashDistribution("SELECT DISTINCT grp0, grp1 FROM test", schema(hash(), index("grp0_grp1", 3, 4)));
+    }
+
+    /**
+     * Validates a plan for a query which WHERE clause contains a sub-query with aggregate.
+     */
+    @Test
+    public void subquertWithAggregateInWhereClause() throws Exception {
+        checkTestCase9SingleDistribution("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(single()));
+
+        checkTestCase9HashDistribution("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(hash()));
     }
 
     /**
@@ -187,8 +217,9 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void distinctAggregateInWhereClause() throws Exception {
-        checkTestCase9("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(single()));
-        checkTestCase25("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(hash()));
+        checkTestCase10SingleDistribution("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(single()));
+
+        checkTestCase10HashDistribution("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(hash()));
     }
 
     /**
@@ -196,13 +227,13 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void noSortAppendingWithCorrectCollation() throws Exception {
-        checkTestCase15(
+        checkTestCase11SingleDistribution(
                 "SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)",
                 schema(single(), indexByVal0Desc()),
                 "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"
         );
 
-        checkTestCase16(
+        checkTestCase11HashDistribution(
                 "SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)",
                 schema(hash(), indexByVal0Desc()),
                 "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"
@@ -210,15 +241,14 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Validates SUM aggregate has a correct return type for any numeric column type.
+     * Validates a plan for a query with order and limit
      */
     @Test
-    public void sumAggregateTypes() throws Exception {
-        checkSumAggretageTypes(single());
-        checkSumAggretageTypes(hash());
-    }
+    public void emptyCollationPassThroughLimit() throws Exception {
+        checkTestCase12SingleDistribution("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single()));
 
-    //TODO: should we add test with indexes?
+        checkTestCase12HashDistribution("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash()));
+    }
 
     /**
      * Validates a plan for a query with aggregate and with grouping and sorting by the same column set.
@@ -242,7 +272,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      * Validates a plan for a query with aggregate and with sorting by subset of group columns.
      */
     @Test
-    public void groupsWithOrderBySubsetOfGroupColumns() throws Exception {
+    public void aggregateWithOrderBySubsetOfGroupColumns() throws Exception {
         // Sort order is a subset of grouping set.
         checkTestCase17("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(single()),
                 TraitUtils.createCollation(List.of(0, 1)));
@@ -260,7 +290,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      * Validates a plan for a query with aggregate, sorting and grouping, when additional sort is required.
      */
     @Test
-    public void groupWithOrderByDifferentColumns() throws Exception {
+    public void aggregateWithGroupByAndOrderByDifferentColumns() throws Exception {
         // Sort order is a superset of grouping set (additional sorting required).
         checkTestCase19("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt", schema(single()),
                 TraitUtils.createCollation(List.of(0, 1, 2)));
@@ -268,15 +298,6 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         // Sort order is not equals to grouping set (additional sorting required).
         checkTestCase20("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY cnt, val1", schema(hash()),
                 TraitUtils.createCollation(List.of(2, 1)));
-    }
-
-    /**
-     * Validates a plan for a query with aggregate, sorting and grouping, when additional sort is required.
-     */
-    @Test
-    public void emptyCollationPassThroughLimit() throws Exception {
-        checkTestCase21("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single()));
-        checkTestCase22("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash()));
     }
 
     /**
@@ -291,6 +312,19 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 schema(hash(), index("idx_val0", 3, 1), index("idx_val1", 3, 2)));
     }
 
+    /**
+     * Validates SUM aggregate has a correct return type for any numeric column type.
+     */
+    @Test
+    public void sumAggregateTypes() throws Exception {
+        checkSumAggretageTypes(single());
+
+        checkSumAggretageTypes(hash());
+    }
+
+    /**
+     * Check SUM aggregate has a correct return type for any numeric column type.
+     */
     private void checkSumAggretageTypes(IgniteDistribution distribution) throws Exception {
         org.apache.ignite.internal.sql.engine.framework.TestTable table = TestBuilders.table()
                 .name("TEST")
@@ -335,37 +369,125 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         );
     }
 
-    protected abstract void checkTestCase1(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with aggregate in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase1SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase2(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with aggregate in case of HASH distribution.
+     */
+    protected abstract void checkTestCase1HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase3(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Check a query with aggregate and groups in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase2SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase4(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Check a query with aggregate and groups in case of HASH distribution.
+     */
+    protected abstract void checkTestCase2HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase5(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with DISTINCT aggregates in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase3SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase6(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with DISTINCT aggregates in case of HASH distribution.
+     */
+    protected abstract void checkTestCase3HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase7(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Check a query with DISTINCT aggregates and groups in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase4SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase8(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Check a query with DISTINCT aggregates and groups in case of HASH distribution.
+     */
+    protected abstract void checkTestCase4HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase9(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with GROUP BY on first index columns can use index in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase5SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase10(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with GROUP BY on first index columns can use index in case of HASH distribution.
+     */
+    protected abstract void checkTestCase5HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase11(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with GROUP BY on all index columns can use index in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase6SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase12(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with GROUP BY on all index columns can use index in case of HASH distribution.
+     */
+    protected abstract void checkTestCase6HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase13(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with DISTINCT and without aggregation function in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase7SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase14(String sql, IgniteSchema schema) throws Exception;
+    /**
+     * Checks a query with DISTINCT and without aggregation function in case of HASH distribution.
+     */
+    protected abstract void checkTestCase7HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase15(String sql, IgniteSchema schema, String... additionalRules) throws Exception;
+    /**
+     * Checks a query with DISTINCT and without aggregation functions can use index in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase8SingleDistribution(String sql, IgniteSchema schema) throws Exception;
 
-    protected abstract void checkTestCase16(String sql, IgniteSchema schema, String... additionalRules) throws Exception;
+    /**
+     * Checks a query with DISTINCT and without aggregation functions can use index in case of HASH distribution.
+     */
+    protected abstract void checkTestCase8HashDistribution(String sql, IgniteSchema schema) throws Exception;
+
+    /**
+     * Checks a sub-query with aggregate in WHERE clause in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase9SingleDistribution(String sql, IgniteSchema schema) throws Exception;
+
+    /**
+     * Checks a sub-query with aggregate in WHERE clause in case of HASH distribution.
+     */
+    protected abstract void checkTestCase9HashDistribution(String sql, IgniteSchema schema) throws Exception;
+
+    /**
+     * Checks a query with DISTINCT aggregate in WHERE clause in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase10SingleDistribution(String sql, IgniteSchema schema) throws Exception;
+
+    /**
+     * Checks a query with DISTINCT aggregate in WHERE clause in case of HASH distribution.
+     */
+    protected abstract void checkTestCase10HashDistribution(String sql, IgniteSchema schema) throws Exception;
+
+    /**
+     * Checks merge-sort utilizes index if collation fits in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase11SingleDistribution(String sql, IgniteSchema schema, String... additionalRules) throws Exception;
+
+    /**
+     * Checks merge-sort utilizes index if collation fits in case of HASH distribution.
+     */
+    protected abstract void checkTestCase11HashDistribution(String sql, IgniteSchema schema, String... additionalRules) throws Exception;
+
+    /**
+     * Checks a query with order by and limit in case of SINGLE distribution.
+     */
+    protected abstract void checkTestCase12SingleDistribution(String sql, IgniteSchema schema) throws Exception;
+
+    /**
+     * Checks a query with order by and limit in case of HASH distribution.
+     */
+    protected abstract void checkTestCase12HashDistribution(String sql, IgniteSchema schema) throws Exception;
 
     protected abstract void checkTestCase17(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
 
@@ -375,15 +497,9 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     protected abstract void checkTestCase20(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
 
-    protected abstract void checkTestCase21(String sql, IgniteSchema schema) throws Exception;
-
-    protected abstract void checkTestCase22(String sql, IgniteSchema schema) throws Exception;
-
     protected abstract void checkTestCase23(String sql, IgniteSchema schema) throws Exception;
 
     protected abstract void checkTestCase24(String sql, IgniteSchema schema) throws Exception;
-
-    protected abstract void checkTestCase25(String sql, IgniteSchema schema) throws Exception;
 
     /**
      * Rules to disable.
