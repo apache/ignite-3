@@ -140,7 +140,9 @@ public class IgnitionImpl implements Ignition {
         });
     }
 
-    @Override
+    /**
+     * Stops all Ignite instances started in this JVM.
+     */
     @TestOnly
     public void stopAll() {
         List<String> nodeNames = new ArrayList<>(nodes.keySet());

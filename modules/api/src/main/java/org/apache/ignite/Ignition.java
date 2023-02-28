@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Entry point for handling the grid lifecycle.
@@ -130,12 +129,6 @@ public interface Ignition {
      * @param nodeName Node name to stop.
      */
     void stop(String nodeName);
-
-    /**
-     * Stops all Ignite instances started in this JVM.
-     */
-    @TestOnly
-    void stopAll();
 
     /**
      * Initializes the cluster that the given node is present in.
