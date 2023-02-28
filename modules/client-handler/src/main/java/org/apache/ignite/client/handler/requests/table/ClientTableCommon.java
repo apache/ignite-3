@@ -128,7 +128,7 @@ public class ClientTableCommon {
      * @param part       Which part of tuple to write.
      * @throws IgniteException on failed serialization.
      */
-    public static void writeTuple(
+    private static void writeTuple(
             ClientMessagePacker packer,
             Tuple tuple,
             SchemaDescriptor schema,
@@ -142,14 +142,14 @@ public class ClientTableCommon {
             packer.packInt(schema.version());
         }
 
-        BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
-        if (binaryTuple != null) {
-            int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
-            packer.packBinaryTuple(binaryTuple, elementCount);
-        } else {
-            // TODO: Remove me. Temporary check to find out why we have a tuple that is not a binary tuple.
-            throw new RuntimeException("WHY1");
-        }
+        assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
+
+        BinaryTuple binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
+
+        assert binaryTuple != null : "Binary tuple must not be null: " + tuple.getClass();
+
+        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
+        packer.packBinaryTuple(binaryTuple, elementCount);
     }
 
     /**
@@ -553,11 +553,5 @@ public class ClientTableCommon {
             case KEY: return schema.keyColumns().length();
             default: return schema.length();
         }
-    }
-
-    private static @Nullable BinaryTuple tryGetBinaryTuple(Tuple tuple) {
-        return tuple instanceof BinaryTupleContainer
-                ? ((BinaryTupleContainer) tuple).binaryTuple()
-                : null;
     }
 }
