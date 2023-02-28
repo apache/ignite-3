@@ -65,12 +65,12 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     {
         var columns = schema.Columns;
         var tuple = new IgniteTuple(columns.Count);
-        var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
+        var tupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Count);
 
         for (var i = schema.KeyColumnCount; i < columns.Count; i++)
         {
             var column = columns[i];
-            tuple[column.Name] = tupleReader.GetObject(i - schema.KeyColumnCount, column.Type, column.Scale);
+            tuple[column.Name] = tupleReader.GetObject(i, column.Type, column.Scale);
         }
 
         return key with { Val = tuple };

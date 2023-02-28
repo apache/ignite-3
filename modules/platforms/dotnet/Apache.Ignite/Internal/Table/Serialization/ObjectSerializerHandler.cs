@@ -39,8 +39,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
-        private readonly ConcurrentDictionary<int, ReadValuePartDelegate<T>> _valuePartReaders = new();
-
         [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, Span<byte> noValueSet, TV value);
 
@@ -67,16 +65,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public T ReadValuePart(ref MsgPackReader reader, Schema schema, T key)
-        {
-            var readDelegate = _valuePartReaders.TryGetValue(schema.Version, out var w)
-                ? w
-                : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
-
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
-
-            return readDelegate(ref binaryTupleReader, key);
-        }
+        public T ReadValuePart(ref MsgPackReader reader, Schema schema, T key) => Read(ref reader, schema, keyOnly: false);
 
         /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, int columnCount, Span<byte> noValueSet)
