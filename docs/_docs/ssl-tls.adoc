@@ -1,6 +1,6 @@
 = SSL/TLS
 
-This page explains how to configure SSL/TLS encryption between the cluster nodes (server and client) and the thin clients that connect to your cluster.
+This page explains how to configure SSL/TLS encryption between the cluster nodes (server and client) and the clients that connect to your cluster.
 
 == Considerations
 
@@ -10,7 +10,7 @@ All internal connections in the cluster context, as well as cluster's user inter
 * Between the user and the platform clients:
 
 ** CLI
-** Thin Client
+** Client
 
 * Between nodes: Network (Messaging, Scalecube)
 
@@ -44,9 +44,9 @@ To configure SSL in Micronaut, all the necessary properties must be defined in t
 }
 ----
 
-== Thin Clients and JDBC
+== Clients and JDBC
 
-Apache Ignite 3.x Thin Client implementation is based on the Netty framework, which supports configuration for security connections via SSLContextBuilder.
+Apache Ignite 3.x Client implementation is based on the Netty framework, which supports configuration for security connections via SSLContextBuilder.
 
 === Client-side Configuration
 
