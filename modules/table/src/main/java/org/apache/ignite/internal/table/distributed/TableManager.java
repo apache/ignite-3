@@ -80,7 +80,9 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.causality.VersionedValue;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -283,6 +285,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
+    private final ClusterManagementGroupManager cmgMgr;
+
+    private final DistributionZoneManager distributionZoneManager;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -344,7 +350,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             SchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
-            OutgoingSnapshotsManager outgoingSnapshotsManager
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            ClusterManagementGroupManager cmgMgr,
+            DistributionZoneManager distributionZoneManager
     ) {
         this.tablesCfg = tablesCfg;
         this.clusterService = clusterService;
@@ -361,6 +369,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
+        this.cmgMgr = cmgMgr;
+        this.distributionZoneManager = distributionZoneManager;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -1319,10 +1329,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        tableAsyncInternal(name).thenAccept(tbl -> {
-            if (tbl != null) {
-                tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
-            } else {
+        tableAsyncInternal(name)
+                .thenCompose(tbl -> {
+                    if (tbl != null) {
+                        tblFut.completeExceptionally(new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name));
+
+                        throw new IgniteException();
+                    } else {
+                        return completedFuture(null);
+                    }
+                })
+                .thenCompose(ignored -> {
+                    return cmgMgr.logicalTopology();
+                })
+                .thenCompose(cmgTopology -> {
+                    return distributionZoneManager.getDataNodes(DistributionZoneManager.DEFAULT_ZONE_ID, cmgTopology.version());
+                })
+                .thenAccept(dataNodes -> {
+
                 tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
                     if (tablesListChange.get(name) != null) {
                         throw new TableAlreadyExistsException(DEFAULT_SCHEMA_NAME, name);
@@ -1348,7 +1372,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
+                                dataNodes,
                                 tableChange.partitions(),
                                 tableChange.replicas())));
                     });
@@ -1367,7 +1391,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     return null;
                 });
-            }
         });
 
         return tblFut;

@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.startsWith;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
@@ -30,6 +33,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -46,12 +50,13 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,6 +93,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -159,6 +165,18 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private final Map<Integer, ZoneState> zonesState;
 
+    private final Object dataNodesMutex = new Object();
+
+    private long lastTopVer;
+
+    private final Map<Integer, DataNodes> dataNodes = new ConcurrentHashMap<>();
+
+    private final NavigableMap<Long, CompletableFuture<Void>> topVerFutures = new ConcurrentSkipListMap();
+
+    private final NavigableMap<Long, Long> topVerScaleUpAndRevision = new ConcurrentSkipListMap<>();
+
+    private final NavigableMap<Long, Long> topVerScaleDownAndRevision = new ConcurrentSkipListMap<>();
+
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
@@ -184,7 +202,59 @@ public class DistributionZoneManager implements IgniteComponent {
     private volatile Set<String> logicalTopology;
 
     /** Watch listener. Needed to unregister it on {@link DistributionZoneManager#stop()}. */
-    private final WatchListener watchListener;
+    private final WatchListener topologyWatchListener;
+
+    private final WatchListener dataNodesWatchListener;
+
+    private static class DataNodes {
+        private Set<String> nodes;
+
+        private long scaleUpRevision;
+
+        private long scaleDownRevision;
+
+        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures = new ConcurrentSkipListMap();
+
+        private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures = new ConcurrentSkipListMap();
+
+        public DataNodes(Set<String> nodes, long scaleUpRevision, long scaleDownRevision) {
+            this.nodes = nodes;
+            this.scaleUpRevision = scaleUpRevision;
+            this.scaleDownRevision = scaleDownRevision;
+        }
+
+        public Set<String> nodes() {
+            return nodes;
+        }
+
+        public void nodes(Set<String> nodes) {
+            this.nodes = nodes;
+        }
+
+        public long scaleUpRevision() {
+            return scaleUpRevision;
+        }
+
+        public void scaleUpRevision(long scaleUpRevision) {
+            this.scaleUpRevision = scaleUpRevision;
+        }
+
+        public long scaleDownRevision() {
+            return scaleDownRevision;
+        }
+
+        public void scaleDownRevision(long scaleDownRevision) {
+            this.scaleDownRevision = scaleDownRevision;
+        }
+
+        public NavigableMap<Long, CompletableFuture<Void>> getRevisionScaleUpFutures() {
+            return revisionScaleUpFutures;
+        }
+
+        public NavigableMap<Long, CompletableFuture<Void>> getRevisionScaleDownFutures() {
+            return revisionScaleDownFutures;
+        }
+    }
 
     /**
      * Creates a new distribution zone manager.
@@ -209,11 +279,13 @@ public class DistributionZoneManager implements IgniteComponent {
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
 
-        this.watchListener = createMetastorageListener();
+        this.topologyWatchListener = createMetastorageTopologyListener();
+
+        this.dataNodesWatchListener = createMetastorageDataNodesListener();
 
         zonesState = new ConcurrentHashMap<>();
 
-        logicalTopology = Collections.emptySet();
+        logicalTopology = emptySet();
 
         executor = new ScheduledThreadPoolExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
@@ -480,6 +552,119 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    public CompletableFuture<Set<String>> getDataNodes(int zoneId, long topVer) {
+        boolean immediateScaleUp0 = false;
+        boolean immediateScaleDown0 = false;
+
+        if (zoneId == DEFAULT_ZONE_ID) {
+            immediateScaleUp0 = zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().value() == 0;
+            immediateScaleDown0 = zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().value() == 0;
+        } else {
+            NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones = zonesConfiguration.distributionZones();
+
+            for (int i = 0; i < zones.value().size(); i++) {
+                DistributionZoneView zone = zones.value().get(i);
+
+                immediateScaleUp0 = zone.dataNodesAutoAdjustScaleUp() == 0;
+                immediateScaleDown0 = zone.dataNodesAutoAdjustScaleDown() == 0;
+            }
+        }
+
+        boolean immediateScaleUp = immediateScaleUp0;
+        boolean immediateScaleDown = immediateScaleDown0;
+
+        if (!immediateScaleUp && !immediateScaleDown) {
+
+            DataNodes dataNodes = this.dataNodes.get(zoneId);
+
+            Set<String> nodes;
+
+            if (dataNodes == null) {
+                nodes = emptySet();
+            } else {
+                nodes = this.dataNodes.get(zoneId).nodes();
+            }
+
+            return completedFuture(nodes);
+        }
+
+        CompletableFuture<Set<String>> dataNodesFut = new CompletableFuture<>();
+
+        CompletableFuture<Void> topVerFut;
+
+        synchronized (dataNodesMutex) {
+            if (topVer > lastTopVer) {
+                topVerFut = topVerFutures.get(topVer);
+
+                if (topVerFut == null) {
+                    topVerFut = new CompletableFuture<>();
+
+                    topVerFutures.put(topVer, topVerFut);
+                }
+            } else {
+                topVerFut = completedFuture(null);
+            }
+        }
+
+        topVerFut.thenAccept(ignored -> {
+            synchronized (dataNodesMutex) {
+                CompletableFuture<Void> topVerScaleUpFut;
+
+                if (immediateScaleUp) {
+                    Long scaleUpRevision = topVerScaleUpAndRevision.ceilingEntry(topVer).getValue();
+
+                    assert scaleUpRevision != null;
+
+                    if (dataNodes.get(zoneId).scaleUpRevision() >= scaleUpRevision) {
+                        topVerScaleUpFut = completedFuture(null);
+                    } else {
+                        topVerScaleUpFut = dataNodes.get(zoneId).getRevisionScaleUpFutures().ceilingEntry(scaleUpRevision).getValue();
+
+                        if (topVerScaleUpFut == null) {
+                            topVerScaleUpFut = new CompletableFuture<>();
+
+                            dataNodes.get(zoneId).getRevisionScaleDownFutures().put(scaleUpRevision, topVerScaleUpFut);
+                        }
+                    }
+                } else {
+                    topVerScaleUpFut = completedFuture(null);
+                }
+
+                topVerScaleUpFut.thenAccept(ignored0 -> {
+                    CompletableFuture<Void> topVerScaleDownFut;
+
+                    synchronized (dataNodesMutex) {
+                        if (immediateScaleDown) {
+                            Long scaleDownRevision = topVerScaleDownAndRevision.ceilingEntry(topVer).getValue();
+
+                            assert scaleDownRevision != null;
+
+                            if (dataNodes.get(zoneId).scaleDownRevision() >= scaleDownRevision) {
+                                topVerScaleDownFut = completedFuture(null);
+                            } else {
+                                topVerScaleDownFut = dataNodes.get(zoneId).getRevisionScaleDownFutures().ceilingEntry(scaleDownRevision).getValue();
+
+                                if (topVerScaleDownFut == null) {
+                                    topVerScaleDownFut = new CompletableFuture<>();
+
+                                    dataNodes.get(zoneId).revisionScaleDownFutures.put(scaleDownRevision, topVerScaleDownFut);
+                                }
+                            }
+                        } else {
+                            topVerScaleDownFut = completedFuture(null);
+                        }
+                    }
+
+                    topVerScaleDownFut.thenAccept(ignored1 -> {
+                        dataNodesFut.complete(dataNodes.get(zoneId).nodes());
+                    });
+                });
+            }
+        });
+
+        return dataNodesFut;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() {
@@ -510,7 +695,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
-            metaStorageManager.registerExactWatch(zonesLogicalTopologyKey(), watchListener);
+            metaStorageManager.registerExactWatch(zonesLogicalTopologyVersionKey(), topologyWatchListener);
+            metaStorageManager.registerExactWatch(zoneDataNodesPrefix(), dataNodesWatchListener);
 
             initDataNodesFromVaultManager();
 
@@ -607,7 +793,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         logicalTopologyService.removeEventListener(topologyEventListener);
 
-        metaStorageManager.unregisterWatch(watchListener);
+        metaStorageManager.unregisterWatch(topologyWatchListener);
+        metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
@@ -901,7 +1088,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
-    private WatchListener createMetastorageListener() {
+    private WatchListener createMetastorageTopologyListener() {
         return new WatchListener() {
             @Override
             public void onUpdate(WatchEvent evt) {
@@ -910,23 +1097,64 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
 
                 try {
-                    assert evt.single() : "Expected an event with one entry but was an event with several entries with keys: "
+                    assert evt.entryEvents().size() == 2 : "Expected an event with logical topology and logical topology version entries but was events with keys: "
                             + evt.entryEvents().stream().map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key())
                             .collect(toList());
 
-                    Entry newEntry = evt.entryEvent().newEntry();
+                    long topVer = 0;
 
-                    long revision = newEntry.revision();
+                    byte[] newLogicalTopologyBytes = null;
 
-                    byte[] newLogicalTopologyBytes = newEntry.value();
+                    Set<String> newLogicalTopology = null;
 
-                    Set<String> newLogicalTopology = fromBytes(newLogicalTopologyBytes);
+                    long revision = 0;
+
+                    for (EntryEvent event : evt.entryEvents()) {
+                        Entry e = event.newEntry();
+
+                        if (Arrays.equals(e.key(), zonesLogicalTopologyVersionKey().bytes())) {
+                            topVer = fromBytes(e.value());
+
+                            revision = e.revision();
+                        } if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
+                            newLogicalTopologyBytes = e.value();
+
+                            newLogicalTopology = fromBytes(newLogicalTopologyBytes);
+                        }
+                    }
+
+                    assert topVer > 0;
+                    assert newLogicalTopology != null;
+                    assert revision > 0;
+
+                    Set<String> newLogicalTopology0 = newLogicalTopology;
 
                     Set<String> removedNodes =
-                            logicalTopology.stream().filter(node -> !newLogicalTopology.contains(node)).collect(toSet());
+                            logicalTopology.stream().filter(node -> !newLogicalTopology0.contains(node)).collect(toSet());
 
                     Set<String> addedNodes =
                             newLogicalTopology.stream().filter(node -> !logicalTopology.contains(node)).collect(toSet());
+
+                    synchronized (dataNodesMutex) {
+                        lastTopVer = topVer;
+
+                        SortedMap<Long, CompletableFuture<Void>> topVerFuts = topVerFutures.headMap(topVer);
+
+                        topVerFuts.values().forEach(v -> v.complete(null));
+
+                        topVerFuts.clear();
+
+                        if (!addedNodes.isEmpty()) {
+                            topVerScaleUpAndRevision.put(topVer, revision);
+                        }
+
+                        if (!removedNodes.isEmpty()) {
+                            topVerScaleDownAndRevision.put(topVer, revision);
+                        }
+
+                        topVerScaleUpAndRevision.headMap(topVer).clear();
+                        topVerScaleDownAndRevision.headMap(topVer).clear();
+                    }
 
                     logicalTopology = newLogicalTopology;
 
@@ -942,6 +1170,88 @@ public class DistributionZoneManager implements IgniteComponent {
                     DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
 
                     scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LOG.warn("Unable to process logical topology event", e);
+            }
+        };
+    }
+
+    private WatchListener createMetastorageDataNodesListener() {
+        return new WatchListener() {
+            @Override
+            public void onUpdate(WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+                }
+
+                try {
+                    assert evt.entryEvents().size() == 2;
+
+                    int zoneId = 0;
+
+                    Set<String> newDataNodes = null;
+
+                    long scaleUpRevision = 0;
+
+                    long scaleDownRevision = 0;
+
+                    for (EntryEvent event : evt.entryEvents()) {
+                        Entry e = event.newEntry();
+
+                        if (startsWith(e.key(), zoneDataNodesPrefix().bytes())) {
+                            zoneId = extractZoneId(e.key());
+
+                            newDataNodes = fromBytes(e.value());
+                        } else if (startsWith(e.key(), zoneScaleUpChangeTriggerKey().bytes())) {
+                            scaleUpRevision = fromBytes(e.value());
+                        } else if (startsWith(e.key(), zoneScaleDownChangeTriggerKey().bytes())) {
+                            scaleDownRevision = fromBytes(e.value());
+                        }
+                    }
+
+                    assert zoneId > 0;
+                    assert newDataNodes != null;
+                    assert scaleUpRevision > 0 || scaleDownRevision > 0;
+
+                    synchronized (dataNodesMutex) {
+                        DataNodes oldDataNodes = dataNodes.get(zoneId);
+
+                        if (oldDataNodes != null) {
+                            oldDataNodes.nodes(newDataNodes);
+
+                            if (scaleUpRevision > 0) {
+                                oldDataNodes.scaleUpRevision(scaleUpRevision);
+                            }
+
+                            if (scaleDownRevision > 0) {
+                                oldDataNodes.scaleDownRevision(scaleDownRevision);
+                            }
+                        } else {
+                            dataNodes.put(zoneId, new DataNodes(newDataNodes, scaleUpRevision, scaleDownRevision));
+                        }
+
+                        if (scaleUpRevision > 0) {
+                            SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts = dataNodes.get(zoneId).getRevisionScaleUpFutures().headMap(scaleUpRevision);
+
+                            revisionScaleUpFuts.values().forEach(v -> v.complete(null));
+
+                            revisionScaleUpFuts.clear();
+                        }
+
+                        if (scaleDownRevision > 0) {
+                            SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts = dataNodes.get(zoneId).getRevisionScaleDownFutures().headMap(scaleDownRevision);
+
+                            revisionScaleDownFuts.values().forEach(v -> v.complete(null));
+
+                            revisionScaleDownFuts.clear();
+                        }
+                    }
                 } finally {
                     busyLock.leaveBusy();
                 }

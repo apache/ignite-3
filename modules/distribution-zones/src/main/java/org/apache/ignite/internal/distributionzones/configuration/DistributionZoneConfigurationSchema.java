@@ -44,15 +44,15 @@ public class DistributionZoneConfigurationSchema {
     /** Timeout in seconds between node added or node left topology event itself and data nodes switch. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int dataNodesAutoAdjust = INFINITE_TIMER_VALUE;
+    public int dataNodesAutoAdjust = 0;
 
     /** Timeout in seconds between node added topology event itself and data nodes switch. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int dataNodesAutoAdjustScaleUp = INFINITE_TIMER_VALUE;
+    public int dataNodesAutoAdjustScaleUp = 0;
 
     /** Timeout in seconds between node left topology event itself and data nodes switch. */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
+    public int dataNodesAutoAdjustScaleDown = 0;
 }
