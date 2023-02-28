@@ -26,14 +26,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -53,21 +56,34 @@ public class StorageUpdateHandler {
 
     private final Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes;
 
+    /** Last recorded GC low watermark. */
+    private final AtomicReference<HybridTimestamp> lastRecordedLwm = new AtomicReference<>();
+
+    /** Data storage configuration. */
+    private final DataStorageConfiguration dsCfg;
+
     /**
      * The constructor.
      *
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param indexes Indexes supplier.
+     * @param dsCfg Data storage configuration.
      */
-    public StorageUpdateHandler(int partitionId, PartitionDataStorage storage, Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes) {
+    public StorageUpdateHandler(
+            int partitionId,
+            PartitionDataStorage storage,
+            Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes,
+            DataStorageConfiguration dsCfg
+    ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexes = indexes;
+        this.dsCfg = dsCfg;
     }
 
     /**
-     * Handle single update.
+     * Handles single update.
      *
      * @param txId Transaction id.
      * @param rowUuid Row UUID.
@@ -82,7 +98,31 @@ public class StorageUpdateHandler {
             @Nullable ByteBuffer rowBuffer,
             @Nullable Consumer<RowId> onReplication
     ) {
+        handleUpdate(txId, rowUuid, commitPartitionId, rowBuffer, onReplication, null);
+    }
+
+    /**
+     * Handles single update.
+     *
+     * @param txId Transaction id.
+     * @param rowUuid Row UUID.
+     * @param commitPartitionId Commit partition id.
+     * @param rowBuffer Row buffer.
+     * @param onReplication Callback on replication.
+     * @param lowWatermark GC low watermark.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
+    public void handleUpdate(
+            UUID txId,
+            UUID rowUuid,
+            TablePartitionId commitPartitionId,
+            @Nullable ByteBuffer rowBuffer,
+            @Nullable Consumer<RowId> onReplication,
+            @Nullable HybridTimestamp lowWatermark
+    ) {
         storage.runConsistently(() -> {
+            executeBatchGc(lowWatermark);
+
             BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
             UUID commitTblId = commitPartitionId.tableId();
@@ -106,7 +146,7 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Handle multiple updates.
+     * Handles multiple updates.
      *
      * @param txId Transaction id.
      * @param rowsToUpdate Collection of rows to update.
@@ -119,7 +159,29 @@ public class StorageUpdateHandler {
             TablePartitionId commitPartitionId,
             @Nullable Consumer<Collection<RowId>> onReplication
     ) {
+        handleUpdateAll(txId, rowsToUpdate, commitPartitionId, onReplication, null);
+    }
+
+    /**
+     * Handle multiple updates.
+     *
+     * @param txId Transaction id.
+     * @param rowsToUpdate Collection of rows to update.
+     * @param commitPartitionId Commit partition id.
+     * @param onReplication On replication callback.
+     * @param lowWatermark GC low watermark.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-18909 Pass low watermark.
+    public void handleUpdateAll(
+            UUID txId,
+            Map<UUID, ByteBuffer> rowsToUpdate,
+            TablePartitionId commitPartitionId,
+            @Nullable Consumer<Collection<RowId>> onReplication,
+            @Nullable HybridTimestamp lowWatermark
+    ) {
         storage.runConsistently(() -> {
+            executeBatchGc(lowWatermark);
+
             UUID commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
 
@@ -148,6 +210,28 @@ public class StorageUpdateHandler {
 
             return null;
         });
+    }
+
+    private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
+        if (newLwm == null) {
+            return;
+        }
+
+        @Nullable HybridTimestamp oldLwm;
+        do {
+            oldLwm = lastRecordedLwm.get();
+
+            if (oldLwm != null && newLwm.compareTo(oldLwm) <= 0) {
+                break;
+            }
+        } while (!lastRecordedLwm.compareAndSet(oldLwm, newLwm));
+
+        if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
+            // Iff the lwm we have is the new lwm.
+            // Otherwise our newLwm is either smaller than last recorded lwm or last recorded lwm has changed
+            // concurrently and it become greater. If that's the case, another thread will perform the GC.
+            vacuumBatch(newLwm, dsCfg.gcOnUpdateBatchSize().value());
+        }
     }
 
     /**
@@ -263,26 +347,53 @@ public class StorageUpdateHandler {
      * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
      */
     public boolean vacuum(HybridTimestamp lowWatermark) {
-        return storage.runConsistently(() -> {
-            BinaryRowAndRowId vacuumed = storage.pollForVacuum(lowWatermark);
+        return storage.runConsistently(() -> internalVacuum(lowWatermark));
+    }
 
-            if (vacuumed == null) {
-                // Nothing was garbage collected.
-                return false;
+    /**
+     * Tries removing {@code count} oldest stale entries and their indexes.
+     * If there's less entries that can be removed, then exits prematurely.
+     *
+     * @param lowWatermark Low watermark for the vacuum.
+     * @param count Count of entries to GC.
+     */
+    private void vacuumBatch(HybridTimestamp lowWatermark, int count) {
+        storage.runConsistently(() -> {
+            for (int i = 0; i < count; i++) {
+                if (!internalVacuum(lowWatermark)) {
+                    break;
+                }
             }
 
-            BinaryRow binaryRow = vacuumed.binaryRow();
-
-            assert binaryRow != null;
-
-            RowId rowId = vacuumed.rowId();
-
-            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                tryRemoveFromIndexes(binaryRow, rowId, cursor);
-            }
-
-            return true;
+            return null;
         });
+    }
+
+    /**
+     * Executes garbage collection. Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.
+     *
+     * @param lowWatermark Low watermark for the vacuum.
+     * @return {@code true} if an entry was garbage collected, {@code false} if there was nothing to collect.
+     */
+    private boolean internalVacuum(HybridTimestamp lowWatermark) {
+        BinaryRowAndRowId vacuumed = storage.pollForVacuum(lowWatermark);
+
+        if (vacuumed == null) {
+            // Nothing was garbage collected.
+            return false;
+        }
+
+        BinaryRow binaryRow = vacuumed.binaryRow();
+
+        assert binaryRow != null;
+
+        RowId rowId = vacuumed.rowId();
+
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            tryRemoveFromIndexes(binaryRow, rowId, cursor);
+        }
+
+        return true;
     }
 
     private void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
