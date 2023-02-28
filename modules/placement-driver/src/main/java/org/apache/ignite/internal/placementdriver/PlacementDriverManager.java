@@ -377,7 +377,7 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     private void startUpdater() {
         //TODO: IGNITE-18879 Implement lease maintenance.
-        updater = new Thread(NamedThreadFactory.threadPrefix("", "lease-updater")) {
+        updater = new Thread(NamedThreadFactory.threadPrefix(clusterService.topologyService().localMember().name(), "lease-updater")) {
             @Override
             public void run() {
                 while (isActiveActor) {

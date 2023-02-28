@@ -30,6 +30,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceTest;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,7 +71,7 @@ public class ActiveActorTest extends TopologyAwareRaftGroupServiceTest {
     protected void afterNodeStart(String nodeName, ClusterService clusterService, Set<String> placementDriverNodesNames) {
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
                 msm,
-                null,
+                new VaultManager(new InMemoryVaultService()),
                 TestReplicationGroup.GROUP_ID,
                 clusterService,
                 raftConfiguration,
