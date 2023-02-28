@@ -80,7 +80,7 @@ SqlDataTypeSpec IntervalType() :
     }
 }
 
-SqlTypeNameSpec SqlParseUuidType(Span s) :
+SqlTypeNameSpec UuidType(Span s) :
 {
     final SqlIdentifier typeName;
 }
@@ -639,4 +639,15 @@ SqlLiteral AlterZoneStringOptionKey() :
 }
 {
     <DATA_NODES_FILTER> { return SqlLiteral.createSymbol(IgniteSqlZoneOptionEnum.DATA_NODES_FILTER, getPos()); }
+}
+
+SqlLiteral ParseDecimalLiteral():
+{
+    final BigDecimal value;
+}
+{
+  <DECIMAL> <QUOTED_STRING> {
+    value = IgniteSqlParserUtil.parseDecimal(token.image, getPos());
+    return IgniteSqlDecimalLiteral.create(value, getPos());
+  }
 }
