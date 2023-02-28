@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -25,7 +26,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -58,9 +60,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -70,7 +72,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -103,7 +104,6 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     private final TablesConfiguration tablesCfg;
     private final HybridClock clock;
-    private final Object leaseUpdaterLocker;
     private final ClusterService clusterService;
     private final ReplicationGroupId replicationGroupId;
     private final Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider;
@@ -119,12 +119,18 @@ public class PlacementDriverManager implements IgniteComponent {
     private final AssignmentWatchListener assignmentWatchListener = new AssignmentWatchListener();
     /** Topology metastorage watch listener. */
     private final LogicalTopologyEventListener topologyEventListener = new PlacementDriverLogicalTopologyEventListener();
+
+    /** Listener to update a leaseholder map. */
+    private final UpdateLeaseHolderWatchListener updateLeaseWatchListener = new UpdateLeaseHolderWatchListener();
     /**
      * Lease group cache.
      */
     private final Map<ReplicationGroupId, ReplicationGroup> replicationGroups;
     /** Logical topology snapshot. The property is updated when the snapshot saves in metastorage. */
-    private LogicalTopologySnapshot logicalTopologySnap;
+    private AtomicReference<LogicalTopologySnapshot> logicalTopologySnap;
+
+    /** Map replication group id to assignment nodes. */
+    private Map<ReplicationGroupId, Set<Assignment>> groupAssignments;
     /** Tread to update leases. */
     private Thread updater;
 
@@ -163,22 +169,27 @@ public class PlacementDriverManager implements IgniteComponent {
         this.raftClientExecutor = raftClientExecutor;
         this.tablesCfg = tablesCfg;
         this.clock = clock;
-        this.replicationGroups = new ConcurrentHashMap<>();
-        this.leaseUpdaterLocker = new Object();
 
-        raftClientFuture = new CompletableFuture<>();
+        this.replicationGroups = new ConcurrentHashMap<>();
+        this.groupAssignments = new ConcurrentHashMap<>();
+        this.logicalTopologySnap = new AtomicReference<>();
+        this.raftClientFuture = new CompletableFuture<>();
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        metaStorageManager.registerPrefixWatch(ByteArray.fromString(PLACEMENTDRIVER_PREFIX), new UpdateLeaseHolderWatchListener());
+        metaStorageManager.registerPrefixWatch(ByteArray.fromString(PLACEMENTDRIVER_PREFIX), updateLeaseWatchListener);
 
         placementDriverNodesNamesProvider.get()
                 .thenCompose(placementDriverNodes -> {
                     String thisNodeName = clusterService.topologyService().localMember().name();
 
                     if (placementDriverNodes.contains(thisNodeName)) {
+                        ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(assignmentCfgListener);
+                        metaStorageManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), assignmentWatchListener);
+                        logicalTopologyService.addEventListener(topologyEventListener);
+
                         return TopologyAwareRaftGroupService.start(
                                 replicationGroupId,
                                 clusterService,
@@ -205,12 +216,21 @@ public class PlacementDriverManager implements IgniteComponent {
                         raftClientFuture.completeExceptionally(ex);
                     }
                 });
+
+        restoreReplicationGroupMap();
     }
 
     /** {@inheritDoc} */
     @Override
     public void beforeNodeStop() {
-        withRaftClientIfPresent(c -> c.unsubscribeLeader().join());
+        withRaftClientIfPresent(c -> {
+            c.unsubscribeLeader().join();
+
+            logicalTopologyService.removeEventListener(topologyEventListener);
+            metaStorageManager.unregisterWatch(assignmentWatchListener);
+            ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().stopListen(assignmentCfgListener);
+        });
+        metaStorageManager.registerPrefixWatch(ByteArray.fromString(PLACEMENTDRIVER_PREFIX), updateLeaseWatchListener);
     }
 
     /** {@inheritDoc} */
@@ -247,12 +267,6 @@ public class PlacementDriverManager implements IgniteComponent {
     private void takeOverActiveActor() {
         isActiveActor = true;
 
-        ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(assignmentCfgListener);
-        metaStorageManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), assignmentWatchListener);
-        logicalTopologyService.addEventListener(topologyEventListener);
-
-        restoreReplicationGroupMap();
-
         startUpdater();
     }
 
@@ -261,36 +275,18 @@ public class PlacementDriverManager implements IgniteComponent {
      */
     private void restoreReplicationGroupMap() {
         logicalTopologyService.logicalTopologyOnLeader().thenAccept(topologySnap -> {
-            if (logicalTopologySnap == null || logicalTopologySnap.version() < topologySnap.version()) {
-                logicalTopologySnap = topologySnap;
+            LogicalTopologySnapshot logicalTopologySnap0;
 
-                LOG.debug("Logical topology initialized in placement driver [topologySnap={}]", topologySnap);
-            }
+            do {
+                logicalTopologySnap0 = logicalTopologySnap.get();
+
+                if (logicalTopologySnap0 != null && logicalTopologySnap0.version() >= topologySnap.version()) {
+                    break;
+                }
+            } while (!logicalTopologySnap.compareAndSet(logicalTopologySnap0, topologySnap));
+
+            LOG.info("Logical topology initialized in placement driver [topologySnap={}]", topologySnap);
         });
-
-        for (int i = 0; i < tablesCfg.tables().value().size(); i++) {
-            var tblView = (ExtendedTableView) tablesCfg.tables().value().get(i);
-
-            List<Set<Assignment>> tblAssignment = ByteUtils.fromBytes(tblView.assignments());
-
-            int part = 0;
-
-            for (Set<Assignment> assignments : tblAssignment) {
-                TablePartitionId grpId = new TablePartitionId(tblView.id(), part);
-
-                replicationGroups.compute(grpId, (groupId, replicationGroup) -> {
-                    if (replicationGroup == null) {
-                        replicationGroup = new ReplicationGroup();
-                    }
-
-                    replicationGroup.assignments = assignments;
-
-                    return replicationGroup;
-                });
-
-                part++;
-            }
-        }
 
         try (Cursor<VaultEntry> cursor = vaultManager.range(
                 ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX),
@@ -305,17 +301,11 @@ public class PlacementDriverManager implements IgniteComponent {
 
                 Set<Assignment> assignments = ByteUtils.fromBytes(entry.value());
 
-                replicationGroups.compute(grpId, (groupId, replicationGroup) -> {
-                    if (replicationGroup == null) {
-                        replicationGroup = new ReplicationGroup();
-                    }
-
-                    replicationGroup.assignments = assignments;
-
-                    return replicationGroup;
-                });
+                groupAssignments.put(grpId, assignments);
             }
         }
+
+        LOG.info("Assignment cache initialized in placement driver [groupAssignments={}]", groupAssignments);
 
         try (Cursor<VaultEntry> cursor = vaultManager.range(
                 ByteArray.fromString(PLACEMENTDRIVER_PREFIX),
@@ -345,45 +335,20 @@ public class PlacementDriverManager implements IgniteComponent {
                         replicationGroup = new ReplicationGroup();
                     }
 
-                    if (replicationGroup.stopLeas != null) {
-                        return replicationGroup;
+                    if (tsFinal != null) {
+                        replicationGroup.stopLeas = tsFinal;
                     }
 
-                    replicationGroup.stopLeas = tsFinal;
-                    replicationGroup.leaseHolder = leaseHolderFinal;
-
-                    if (replicationGroup.assignments == null) {
-                        VaultEntry vaultEntry = vaultManager.get(stablePartAssignmentsKey(grpId)).join();
-
-                        if (vaultEntry == null || vaultEntry.value() == null) {
-                            restoreAssignmentsFromCfg(grpId, replicationGroup);
-                        } else {
-                            replicationGroup.assignments = ByteUtils.fromBytes(vaultEntry.value());
-                        }
+                    if (leaseHolderFinal != null) {
+                        replicationGroup.leaseholder = leaseHolderFinal;
                     }
 
                     return replicationGroup;
                 });
             }
         }
-    }
 
-    /**
-     * Restores assignments from a table configuration.
-     *
-     * @param grpId Table replication group id.;
-     * @param replicationGroup Lease group context.
-     */
-    private void restoreAssignmentsFromCfg(TablePartitionId grpId, ReplicationGroup replicationGroup) {
-        var tables = tablesCfg.tables().value();
-
-        for (int i = 0; i < tables.size(); i++) {
-            var tblCfg = ((ExtendedTableConfiguration) tables.get(i));
-
-            if (grpId.tableId().equals(tblCfg.id().value())) {
-                replicationGroup.assignments = ByteUtils.fromBytes(tblCfg.assignments().value());
-            }
-        }
+        LOG.info("Leases map recovered [replicationGroups={}]", replicationGroups);
     }
 
     private static String incrementLastChar(String str) {
@@ -399,16 +364,7 @@ public class PlacementDriverManager implements IgniteComponent {
     private void stepDownActiveActor() {
         isActiveActor = false;
 
-        ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().stopListen(assignmentCfgListener);
-        metaStorageManager.unregisterWatch(assignmentWatchListener);
-        logicalTopologyService.removeEventListener(topologyEventListener);
-
-        if (updater != null) {
-            updater.interrupt();
-            updater = null;
-        }
-
-        replicationGroups.clear();
+        stopUpdater();
     }
 
     @TestOnly
@@ -420,12 +376,15 @@ public class PlacementDriverManager implements IgniteComponent {
      * Starts a dedicated thread to renew or assign leases.
      */
     private void startUpdater() {
-        updater = new Thread("lease-updater") {
+        //TODO: IGNITE-18879 Implement lease maintenance.
+        updater = new Thread(NamedThreadFactory.threadPrefix("", "lease-updater")) {
             @Override
             public void run() {
                 while (isActiveActor) {
-                    for (ReplicationGroupId grpId : replicationGroups.keySet()) {
-                        ReplicationGroup grp = replicationGroups.get(grpId);
+                    for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : groupAssignments.entrySet()) {
+                        ReplicationGroupId grpId = entry.getKey();
+
+                        ReplicationGroup grp = replicationGroups.getOrDefault(grpId, new ReplicationGroup());
 
                         HybridTimestamp now = clock.now();
 
@@ -435,26 +394,27 @@ public class PlacementDriverManager implements IgniteComponent {
 
                             var newTs = new HybridTimestamp(now.getPhysical() + LEASE_PERIOD, 0);
 
-                            ClusterNode holder = nextLeaseHolder(grp);
+                            ClusterNode holder = nextLeaseHolder(entry.getValue());
 
-                            metaStorageManager.invoke(
-                                    or(notExists(leaseStopKey), value(leaseStopKey).eq(ByteUtils.toBytes(grp.stopLeas))),
-                                    List.of(put(leaseStopKey, ByteUtils.toBytes(newTs)), put(leaseHolderKey, ByteUtils.toBytes(holder))),
-                                    List.of()
-                            ).thenAccept(applied -> {
-                                if (applied) {
-                                    updateHolderInternal(grp, newTs, holder);
-                                }
-                            });
+                            if (grp.leaseholder == null && holder != null
+                                    || grp.leaseholder != null && grp.leaseholder.equals(holder)
+                                    || holder != null && (grp.stopLeas == null || now.getPhysical() > grp.stopLeas.getPhysical())) {
+                                metaStorageManager.invoke(
+                                        or(notExists(leaseStopKey), value(leaseStopKey).eq(ByteUtils.toBytes(grp.stopLeas))),
+                                        List.of(
+                                                put(leaseStopKey, ByteUtils.toBytes(newTs)),
+                                                put(leaseHolderKey, ByteUtils.toBytes(holder))
+                                        ),
+                                        List.of()
+                                );
+                            }
                         }
                     }
 
-                    synchronized (leaseUpdaterLocker) {
-                        try {
-                            leaseUpdaterLocker.wait(UPDATE_LEASE_MS);
-                        } catch (InterruptedException e) {
-                            LOG.error("Lease updater is interrupted");
-                        }
+                    try {
+                        Thread.sleep(UPDATE_LEASE_MS);
+                    } catch (InterruptedException e) {
+                        LOG.error("Lease updater is interrupted");
                     }
                 }
             }
@@ -466,22 +426,12 @@ public class PlacementDriverManager implements IgniteComponent {
     /**
      * Finds a node that can be the leaseholder.
      *
-     * @param grp Replication group lease context.
+     * @param assignments Replication group assignment.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
-    @Nullable
-    private ClusterNode nextLeaseHolder(ReplicationGroup grp) {
-        ClusterNode curHolder = grp.leaseHolder;
-
-        if (curHolder != null
-                && hasNodeIsAssignment(grp.assignments, curHolder)
-                && hasNodeInCluster(curHolder)
-                && hasNodeInLogicalTopology(curHolder)) {
-            return curHolder;
-        }
-
+    private ClusterNode nextLeaseHolder(Set<Assignment> assignments) {
         //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
-        for (Assignment assignment : grp.assignments) {
+        for (Assignment assignment : assignments) {
             ClusterNode candidate = clusterService.topologyService().getByConsistentId(assignment.consistentId());
 
             if (candidate != null && hasNodeInLogicalTopology(candidate)) {
@@ -499,40 +449,60 @@ public class PlacementDriverManager implements IgniteComponent {
      * @return True if node is in the logical topology.
      */
     private boolean hasNodeInLogicalTopology(ClusterNode node) {
-        return logicalTopologySnap != null && logicalTopologySnap.nodes().stream().anyMatch(n -> n.name().equals(node.name()));
+        LogicalTopologySnapshot logicalTopologySnap0 = logicalTopologySnap.get();
+
+        return logicalTopologySnap0 != null && logicalTopologySnap0.nodes().stream().anyMatch(n -> n.name().equals(node.name()));
     }
 
     /**
-     * Checks a node to contains in the cluster topology.
-     *
-     * @param node Node to check.
-     * @return True if node is in the cluster topology.
+     * Stops a dedicated thread to renew or assign leases.
      */
-    private boolean hasNodeInCluster(ClusterNode node) {
-        return clusterService.topologyService().getByConsistentId(node.name()) != null;
+    private void stopUpdater() {
+        //TODO: IGNITE-18879 Implement lease maintenance.
+        if (updater != null) {
+            updater.interrupt();
+
+            updater = null;
+        }
     }
 
     /**
-     * Checks a node to contains in the replication group assignment.
+     * Removes a lease group info from metastorage.
      *
-     * @param assignments Replication group assignment.
-     * @param node Node to check.
-     * @return True if node is in the replication group assignment.
+     * @param replicationGrpId Replication group id.
      */
-    private static boolean hasNodeIsAssignment(Set<Assignment> assignments, ClusterNode node) {
-        return assignments.stream().anyMatch(assignment -> assignment.consistentId().equals(node.name()));
+    private void removeLeaseFormStorage(TablePartitionId replicationGrpId) {
+        var leaseStopKey = ByteArray.fromString(LEASE_STOP_KEY_PREFIX + replicationGrpId);
+        var leaseHolderKey = ByteArray.fromString(LEASE_HOLDER_KEY_PREFIX + replicationGrpId);
+
+        metaStorageManager.invoke(or(exists(leaseStopKey), exists(leaseHolderKey)),
+                List.of(remove(leaseStopKey), remove(leaseHolderKey)), List.of());
     }
 
     /**
-     * Updates lease holder.
+     * Adds a lease group info from metastorage.
      *
-     * @param grp Replication group state.
+     * @param replicationGrpId Replication group id.
      */
-    private void updateHolderInternal(ReplicationGroup grp, HybridTimestamp ts, ClusterNode leaseHolder) {
-        grp.stopLeas = ts;
-        grp.leaseHolder = leaseHolder;
+    private void addLeaseToStorage(TablePartitionId replicationGrpId) {
+        var leaseStopKey = ByteArray.fromString(LEASE_STOP_KEY_PREFIX + replicationGrpId);
+        var leaseHolderKey = ByteArray.fromString(LEASE_HOLDER_KEY_PREFIX + replicationGrpId);
 
-        //TODO: IGNITE-18742 Implement logic for a maintenance phase of group lease management.
+        metaStorageManager.invoke(and(notExists(leaseStopKey), notExists(leaseHolderKey)),
+                List.of(put(leaseStopKey, ByteUtils.toBytes(null)), put(leaseHolderKey, ByteUtils.toBytes(null))),
+                List.of()
+        );
+    }
+
+    /**
+     * Triggers to renew leases forcibly.
+     */
+    private void triggerToRenewLeases() {
+        if (!isActiveActor) {
+            return;
+        }
+
+        //TODO: IGNITE-18879 Implement lease maintenance.
     }
 
     /**
@@ -541,7 +511,57 @@ public class PlacementDriverManager implements IgniteComponent {
     private class UpdateLeaseHolderWatchListener implements WatchListener {
         @Override
         public void onUpdate(WatchEvent event) {
-            //TODO: IGNITE-18859 Update list of primary on each cluster node.
+            for (EntryEvent entry : event.entryEvents()) {
+                Entry msEntry = entry.newEntry();
+
+                String key = new ByteArray(msEntry.key()).toString();
+
+                if (key.startsWith(LEASE_STOP_KEY_PREFIX)) {
+                    key = key.replace(LEASE_STOP_KEY_PREFIX, "");
+
+                    TablePartitionId grpId = TablePartitionId.fromString(key);
+
+                    if (msEntry.empty()) {
+                        replicationGroups.remove(grpId);
+                    } else {
+                        HybridTimestamp ts = ByteUtils.fromBytes(msEntry.value());
+
+                        replicationGroups.compute(grpId, (groupId, replicationGroup) -> {
+                            if (replicationGroup == null) {
+                                replicationGroup = new ReplicationGroup();
+                            }
+
+                            replicationGroup.stopLeas = ts;
+
+                            return replicationGroup;
+                        });
+                    }
+                } else if (key.startsWith(LEASE_HOLDER_KEY_PREFIX)) {
+                    key = key.replace(LEASE_HOLDER_KEY_PREFIX, "");
+
+                    TablePartitionId grpId = TablePartitionId.fromString(key);
+
+                    if (msEntry.empty()) {
+                        replicationGroups.remove(grpId);
+                    } else {
+                        ClusterNode leaseholder = ByteUtils.fromBytes(msEntry.value());
+
+                        replicationGroups.compute(grpId, (groupId, replicationGroup) -> {
+                            if (replicationGroup == null) {
+                                replicationGroup = new ReplicationGroup();
+                            }
+
+                            replicationGroup.leaseholder = leaseholder;
+
+                            return replicationGroup;
+                        });
+                    }
+                }
+
+                if (msEntry.empty() || entry.oldEntry().empty()) {
+                    triggerToRenewLeases();
+                }
+            }
         }
 
         @Override
@@ -563,61 +583,21 @@ public class PlacementDriverManager implements IgniteComponent {
             LOG.debug("Table assignments configuration update for placement driver [revision={}, tblId={}]",
                     assignmentsCtx.storageRevision(), tblId);
 
-            if (assignmentsCtx.newValue() == null) {
-                assert assignmentsCtx.oldValue() != null : "Old assignments are empty";
+            List<Set<Assignment>> tableAssignments =
+                    assignmentsCtx.newValue() == null ? null : ByteUtils.fromBytes(assignmentsCtx.newValue());
 
-                List<Set<Assignment>> oldAssignments = ByteUtils.fromBytes(assignmentsCtx.oldValue());
+            for (int part = 0; part < tblCfg.partitions().value(); part++) {
+                var replicationGrpId = new TablePartitionId(tblId, part);
 
-                for (int part = 0; part < oldAssignments.size(); part++) {
-                    var replicationGrpId = new TablePartitionId(tblId, part);
-
-                    replicationGroups.remove(replicationGrpId);
-
-                    removeLeaseFormStorage(replicationGrpId);
+                if (tableAssignments == null) {
+                    groupAssignments.remove(replicationGrpId);
+                } else {
+                    groupAssignments.put(replicationGrpId, tableAssignments.get(part));
                 }
-            } else {
-                List<Set<Assignment>> assignments = ByteUtils.fromBytes(assignmentsCtx.newValue());
-
-                for (int part = 0; part < assignments.size(); part++) {
-                    Set<Assignment> partAssignments = assignments.get(part);
-
-                    var replicationGrpId = new TablePartitionId(tblId, part);
-
-                    replicationGroups.compute(replicationGrpId, (id, grp) -> {
-                        if (!isActiveActor) {
-                            return null;
-                        }
-
-                        if (grp == null) {
-                            grp = new ReplicationGroup();
-                        }
-
-                        grp.assignments = partAssignments;
-
-                        return grp;
-                    });
-                }
-            }
-
-            synchronized (leaseUpdaterLocker) {
-                leaseUpdaterLocker.notifyAll();
             }
 
             return completedFuture(null);
         }
-    }
-
-    /**
-     * Removes lease group info from storage.
-     *
-     * @param replicationGrpId Replication group id.
-     */
-    private void removeLeaseFormStorage(TablePartitionId replicationGrpId) {
-        var leaseStopKey = ByteArray.fromString(LEASE_STOP_KEY_PREFIX + replicationGrpId);
-        var leaseHolderKey = ByteArray.fromString(LEASE_HOLDER_KEY_PREFIX + replicationGrpId);
-
-        metaStorageManager.invoke(or(exists(leaseStopKey), exists(leaseHolderKey)),
-                List.of(remove(leaseStopKey), remove(leaseHolderKey)), List.of());
     }
 
     /**
@@ -640,15 +620,19 @@ public class PlacementDriverManager implements IgniteComponent {
          * @param topologySnap Topology snasphot.
          */
         public void onUpdate(LogicalTopologySnapshot topologySnap) {
-            if (logicalTopologySnap == null || logicalTopologySnap.version() < topologySnap.version()) {
-                logicalTopologySnap = topologySnap;
+            LogicalTopologySnapshot logicalTopologySnap0;
 
-                LOG.debug("Logical topology updated in placement driver [topologySnap={}]", topologySnap);
-            }
+            do {
+                logicalTopologySnap0 = logicalTopologySnap.get();
 
-            synchronized (leaseUpdaterLocker) {
-                leaseUpdaterLocker.notifyAll();
-            }
+                if (logicalTopologySnap0 != null && logicalTopologySnap0.version() >= topologySnap.version()) {
+                    break;
+                }
+            } while (!logicalTopologySnap.compareAndSet(logicalTopologySnap0, topologySnap));
+
+            LOG.debug("Logical topology updated in placement driver [topologySnap={}]", topologySnap);
+
+            triggerToRenewLeases();
         }
     }
 
@@ -668,30 +652,10 @@ public class PlacementDriverManager implements IgniteComponent {
                         new String(evt.newEntry().key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
 
                 if (evt.newEntry().empty()) {
-                    replicationGroups.remove(replicationGrpId);
-
-                    removeLeaseFormStorage(replicationGrpId);
+                    groupAssignments.remove(replicationGrpId);
                 } else {
-                    Set<Assignment> assignments = ByteUtils.fromBytes(evt.newEntry().value());
-
-                    replicationGroups.compute(replicationGrpId, (id, grp) -> {
-                        if (!isActiveActor) {
-                            return null;
-                        }
-
-                        if (grp == null) {
-                            grp = new ReplicationGroup();
-                        }
-
-                        grp.assignments = assignments;
-
-                        return grp;
-                    });
+                    groupAssignments.put(replicationGrpId, ByteUtils.fromBytes(evt.newEntry().value()));
                 }
-            }
-
-            synchronized (leaseUpdaterLocker) {
-                leaseUpdaterLocker.notifyAll();
             }
         }
 
@@ -704,16 +668,14 @@ public class PlacementDriverManager implements IgniteComponent {
      * Replica group holder.
      */
     private static class ReplicationGroup {
-        ClusterNode leaseHolder;
+        ClusterNode leaseholder;
         HybridTimestamp stopLeas;
-        Set<Assignment> assignments;
 
         @Override
         public String toString() {
             return "ReplicationGroup{"
-                    + "leaseHolder=" + leaseHolder
+                    + "leaseHolder=" + leaseholder
                     + ", stopLeas=" + stopLeas
-                    + ", assignments=" + assignments
                     + '}';
         }
     }

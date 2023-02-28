@@ -20,7 +20,6 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.LEASE_HOLDER_KEY_PREFIX;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.LEASE_STOP_KEY_PREFIX;
 import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_NAME;
@@ -74,7 +73,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -224,17 +222,15 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testLeaseRenew() throws Exception {
+    public void testLeaseCreate() throws Exception {
         TablePartitionId grpPart0 = createTableAssignment();
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 1);
+        checkLeaseCreated(grpPart0);
+    }
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
-
-        var snapshot = new LogicalTopologySnapshot(1,
-                Collections.singleton(new ClusterNode(nodeName, nodeName, new NetworkAddress("localhost", PORT))));
-
-        metaStorageManager.put(new ByteArray(LOGICAL_TOPOLOGY_KEY), ByteUtils.toBytes(snapshot));
+    @Test
+    public void testLeaseRenew() throws Exception {
+        TablePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0);
 
@@ -265,11 +261,11 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(LEASE_HOLDER_KEY_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(LEASE_STOP_KEY_PREFIX + grpPart0));
 
-            ClusterNode leaseholder = ByteUtils.fromBytes(fut.join().value());
+            HybridTimestamp ts = ByteUtils.fromBytes(fut.join().value());
 
-            return leaseholder == null;
+            return ts.compareTo(clock.now()) < 0;
 
         }, 10_000));
 
@@ -278,11 +274,11 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(LEASE_HOLDER_KEY_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(LEASE_STOP_KEY_PREFIX + grpPart0));
 
-            ClusterNode leaseholder = ByteUtils.fromBytes(fut.join().value());
+            HybridTimestamp ts = ByteUtils.fromBytes(fut.join().value());
 
-            return leaseholder != null && leaseholder.name().equals(nodeName);
+            return ts.compareTo(clock.now()) > 0;
 
         }, 10_000));
     }
