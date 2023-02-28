@@ -986,7 +986,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         RocksDbStorageEngineConfiguration dbStorageEngineConfiguration = ignite.clusterConfiguration()
                 .getConfiguration(RocksDbStorageEngineConfiguration.KEY);
         int defaultValue = dbStorageEngineConfiguration.flushDelayMillis().value();
-        dbStorageEngineConfiguration.flushDelayMillis().update(defaultValue).join();
+        CompletableFuture<Void> update = dbStorageEngineConfiguration.flushDelayMillis().update(defaultValue);
+        assertThat(update, willCompleteSuccessfully());
 
         stopNode(0);
 
