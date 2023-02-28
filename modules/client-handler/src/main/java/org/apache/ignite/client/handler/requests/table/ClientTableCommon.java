@@ -113,9 +113,7 @@ public class ClientTableCommon {
             return;
         }
 
-        var schema = ((SchemaAware) tuple).schema();
-
-        writeTuple(packer, tuple, schema, false, part);
+        writeTuple(packer, tuple, false, part);
     }
 
     /**
@@ -123,7 +121,6 @@ public class ClientTableCommon {
      *
      * @param packer     Packer.
      * @param tuple      Tuple.
-     * @param schema     Tuple schema.
      * @param skipHeader Whether to skip the tuple header.
      * @param part       Which part of tuple to write.
      * @throws IgniteException on failed serialization.
@@ -131,11 +128,15 @@ public class ClientTableCommon {
     private static void writeTuple(
             ClientMessagePacker packer,
             Tuple tuple,
-            SchemaDescriptor schema,
             boolean skipHeader,
             TuplePart part
     ) {
         assert tuple != null;
+        assert tuple instanceof SchemaAware : "Tuple must be a SchemaAware: " + tuple.getClass();
+
+        var schema = ((SchemaAware) tuple).schema();
+
+        assert schema != null : "Schema must not be null: " + tuple.getClass();
 
         // TODO: Schema must come from the same tuple, and it does up the stack, but it is better to get it here.
         if (!skipHeader) {
@@ -201,7 +202,7 @@ public class ClientTableCommon {
             assert tuple != null;
             assert schema.version() == ((SchemaAware) tuple).schema().version();
 
-            writeTuple(packer, tuple, schema, skipHeader, part);
+            writeTuple(packer, tuple, skipHeader, part);
         }
     }
 
@@ -242,7 +243,7 @@ public class ClientTableCommon {
             assert schema.version() == ((SchemaAware) tuple).schema().version();
 
             packer.packBoolean(true);
-            writeTuple(packer, tuple, schema, skipHeader, part);
+            writeTuple(packer, tuple, skipHeader, part);
         }
     }
 
