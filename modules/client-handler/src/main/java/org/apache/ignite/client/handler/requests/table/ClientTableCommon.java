@@ -256,6 +256,7 @@ public class ClientTableCommon {
      * @return Tuple.
      */
     public static Tuple readTuple(ClientMessageUnpacker unpacker, TableImpl table, boolean keyOnly) {
+        // TODO IGNITE-18925: Read BinaryTuple as Row, avoid unnecessary back and forth conversion.
         SchemaDescriptor schema = readSchema(unpacker, table);
 
         return readTuple(unpacker, keyOnly, schema);
