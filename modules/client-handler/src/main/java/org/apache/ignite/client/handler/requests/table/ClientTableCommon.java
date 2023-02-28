@@ -138,7 +138,6 @@ public class ClientTableCommon {
 
         assert schema != null : "Schema must not be null: " + tuple.getClass();
 
-        // TODO: Schema must come from the same tuple, and it does up the stack, but it is better to get it here.
         if (!skipHeader) {
             packer.packInt(schema.version());
         }
