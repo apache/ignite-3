@@ -122,7 +122,7 @@ public abstract class Marshaller {
      * @param target Target.
      * @throws MarshallerException If failed.
      */
-    public abstract void copyObject(Object source, Object target) throws MarshallerException;
+    public abstract void copyObject(Object source, Object target) throws MarshallerException; // TODO: Remove?
 
     /**
      * Write an object to a row.

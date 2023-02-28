@@ -214,18 +214,13 @@ public class ClientRecordSerializer<R> {
             return keyRec;
         }
 
-        Marshaller keyMarshaller = schema.getMarshaller(mapper, TuplePart.KEY);
-        Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.VAL);
+        Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
 
-        var tupleReader = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), in.readBinaryUnsafe());
+        var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
         ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader);
 
         try {
-            var res = (R) valMarshaller.readObject(reader, null);
-
-            keyMarshaller.copyObject(keyRec, res);
-
-            return res;
+            return (R) valMarshaller.readObject(reader, null);
         } catch (MarshallerException e) {
             throw new IgniteException(UNKNOWN_ERR, e.getMessage(), e);
         }
