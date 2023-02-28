@@ -20,8 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.LEASE_HOLDER_KEY_PREFIX;
-import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.LEASE_STOP_KEY_PREFIX;
+import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_PREFIX;
 import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_NAME;
 import static org.apache.ignite.internal.raft.Loza.CLIENT_POOL_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -56,11 +55,10 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.placementdriver.PlacementDriverManager.ReplicationGroupLease;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -234,18 +232,18 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
         checkLeaseCreated(grpPart0);
 
-        var leaseStopFut = metaStorageManager.get(fromString(LEASE_STOP_KEY_PREFIX + grpPart0));
+        var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-        HybridTimestamp ts = ByteUtils.fromBytes(leaseStopFut.join().value());
+        ReplicationGroupLease lease = ByteUtils.fromBytes(leaseFut.join().value());
 
-        assertNotNull(ts);
+        assertNotNull(lease);
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(LEASE_STOP_KEY_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            HybridTimestamp tsRenew = ByteUtils.fromBytes(fut.join().value());
+            ReplicationGroupLease leaseRenew = ByteUtils.fromBytes(fut.join().value());
 
-            return ts.compareTo(tsRenew) < 0;
+            return lease.stopLeas.compareTo(leaseRenew.stopLeas) < 0;
 
         }, 10_000));
     }
@@ -261,11 +259,11 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(LEASE_STOP_KEY_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            HybridTimestamp ts = ByteUtils.fromBytes(fut.join().value());
+            ReplicationGroupLease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return ts.compareTo(clock.now()) < 0;
+            return lease.stopLeas.compareTo(clock.now()) < 0;
 
         }, 10_000));
 
@@ -274,11 +272,11 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), ByteUtils.toBytes(assignments));
 
         assertTrue(waitForCondition(() -> {
-            var fut = metaStorageManager.get(fromString(LEASE_STOP_KEY_PREFIX + grpPart0));
+            var fut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPart0));
 
-            HybridTimestamp ts = ByteUtils.fromBytes(fut.join().value());
+            ReplicationGroupLease lease = ByteUtils.fromBytes(fut.join().value());
 
-            return ts.compareTo(clock.now()) > 0;
+            return lease.stopLeas.compareTo(clock.now()) > 0;
 
         }, 10_000));
     }
@@ -303,17 +301,11 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
      */
     private void checkLeaseCreated(TablePartitionId grpPartId) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            var leaseFut = metaStorageManager.getAll(Set.of(
-                    fromString(LEASE_STOP_KEY_PREFIX + grpPartId),
-                    fromString(LEASE_HOLDER_KEY_PREFIX + grpPartId)
-            ));
+            var leaseFut = metaStorageManager.get(fromString(PLACEMENTDRIVER_PREFIX + grpPartId));
 
-            var entries = leaseFut.join();
+            var leaseEntry = leaseFut.join();
 
-            Entry leaseStopMsEntry = entries.get(fromString(LEASE_STOP_KEY_PREFIX + grpPartId));
-            Entry leaseHolderMsEntry = entries.get(fromString(LEASE_HOLDER_KEY_PREFIX + grpPartId));
-
-            return leaseStopMsEntry != null && leaseHolderMsEntry != null && !leaseStopMsEntry.empty() && !leaseHolderMsEntry.empty();
+            return leaseEntry != null && !leaseEntry.empty();
         }, 10_000));
     }
 

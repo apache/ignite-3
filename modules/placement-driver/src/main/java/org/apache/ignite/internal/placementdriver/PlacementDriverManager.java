@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -80,9 +79,7 @@ import org.jetbrains.annotations.TestOnly;
  * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
-    public static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease";
-    public static final String LEASE_STOP_KEY_PREFIX = PLACEMENTDRIVER_PREFIX + ".stop.";
-    public static final String LEASE_HOLDER_KEY_PREFIX = PLACEMENTDRIVER_PREFIX + ".holder.";
+    public static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PlacementDriverManager.class);
     private static final long UPDATE_LEASE_MS = 200L;
@@ -125,7 +122,7 @@ public class PlacementDriverManager implements IgniteComponent {
     /**
      * Lease group cache.
      */
-    private final Map<ReplicationGroupId, ReplicationGroup> replicationGroups;
+    private final Map<ReplicationGroupId, ReplicationGroupLease> replicationGroups;
     /** Logical topology snapshot. The property is updated when the snapshot saves in metastorage. */
     private AtomicReference<LogicalTopologySnapshot> logicalTopologySnap;
 
@@ -314,37 +311,12 @@ public class PlacementDriverManager implements IgniteComponent {
             for (VaultEntry entry : cursor) {
                 String key = entry.key().toString();
 
-                HybridTimestamp ts = null;
-                ClusterNode leaseHolder = null;
-
-                if (key.startsWith(LEASE_STOP_KEY_PREFIX)) {
-                    key = key.replace(LEASE_STOP_KEY_PREFIX, "");
-                    ts = ByteUtils.fromBytes(entry.value());
-                } else if (key.startsWith(LEASE_HOLDER_KEY_PREFIX)) {
-                    key = key.replace(LEASE_HOLDER_KEY_PREFIX, "");
-                    leaseHolder = ByteUtils.fromBytes(entry.value());
-                }
+                key = key.replace(PLACEMENTDRIVER_PREFIX, "");
 
                 TablePartitionId grpId = TablePartitionId.fromString(key);
+                ReplicationGroupLease lease = ByteUtils.fromBytes(entry.value());
 
-                var tsFinal = ts;
-                var leaseHolderFinal = leaseHolder;
-
-                replicationGroups.compute(grpId, (groupId, replicationGroup) -> {
-                    if (replicationGroup == null) {
-                        replicationGroup = new ReplicationGroup();
-                    }
-
-                    if (tsFinal != null) {
-                        replicationGroup.stopLeas = tsFinal;
-                    }
-
-                    if (leaseHolderFinal != null) {
-                        replicationGroup.leaseholder = leaseHolderFinal;
-                    }
-
-                    return replicationGroup;
-                });
+                replicationGroups.put(grpId, lease);
             }
         }
 
@@ -384,28 +356,30 @@ public class PlacementDriverManager implements IgniteComponent {
                     for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : groupAssignments.entrySet()) {
                         ReplicationGroupId grpId = entry.getKey();
 
-                        ReplicationGroup grp = replicationGroups.getOrDefault(grpId, new ReplicationGroup());
+                        ReplicationGroupLease lease = replicationGroups.getOrDefault(grpId, new ReplicationGroupLease());
 
                         HybridTimestamp now = clock.now();
 
-                        if (grp.stopLeas == null || now.getPhysical() > (grp.stopLeas.getPhysical() - LEASE_PERIOD / 2)) {
-                            var leaseStopKey = ByteArray.fromString(LEASE_STOP_KEY_PREFIX + grpId);
-                            var leaseHolderKey = ByteArray.fromString(LEASE_HOLDER_KEY_PREFIX + grpId);
+                        if (lease.stopLeas == null || now.getPhysical() > (lease.stopLeas.getPhysical() - LEASE_PERIOD / 2)) {
+                            var leaseKey = ByteArray.fromString(PLACEMENTDRIVER_PREFIX + grpId);
 
                             var newTs = new HybridTimestamp(now.getPhysical() + LEASE_PERIOD, 0);
 
                             ClusterNode holder = nextLeaseHolder(entry.getValue());
 
-                            if (grp.leaseholder == null && holder != null
-                                    || grp.leaseholder != null && grp.leaseholder.equals(holder)
-                                    || holder != null && (grp.stopLeas == null || now.getPhysical() > grp.stopLeas.getPhysical())) {
+                            if (lease.leaseholder == null && holder != null
+                                    || lease.leaseholder != null && lease.leaseholder.equals(holder)
+                                    || holder != null && (lease.stopLeas == null || now.getPhysical() > lease.stopLeas.getPhysical())) {
+                                byte[] leaseRaw = ByteUtils.toBytes(lease);
+
+                                ReplicationGroupLease renewedLease = new ReplicationGroupLease();
+                                renewedLease.stopLeas = newTs;
+                                renewedLease.leaseholder = holder;
+
                                 metaStorageManager.invoke(
-                                        or(notExists(leaseStopKey), value(leaseStopKey).eq(ByteUtils.toBytes(grp.stopLeas))),
-                                        List.of(
-                                                put(leaseStopKey, ByteUtils.toBytes(newTs)),
-                                                put(leaseHolderKey, ByteUtils.toBytes(holder))
-                                        ),
-                                        List.of()
+                                        or(notExists(leaseKey), value(leaseKey).eq(leaseRaw)),
+                                        put(leaseKey, ByteUtils.toBytes(renewedLease)),
+                                        noop()
                                 );
                             }
                         }
@@ -467,34 +441,6 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     /**
-     * Removes a lease group info from metastorage.
-     *
-     * @param replicationGrpId Replication group id.
-     */
-    private void removeLeaseFormStorage(TablePartitionId replicationGrpId) {
-        var leaseStopKey = ByteArray.fromString(LEASE_STOP_KEY_PREFIX + replicationGrpId);
-        var leaseHolderKey = ByteArray.fromString(LEASE_HOLDER_KEY_PREFIX + replicationGrpId);
-
-        metaStorageManager.invoke(or(exists(leaseStopKey), exists(leaseHolderKey)),
-                List.of(remove(leaseStopKey), remove(leaseHolderKey)), List.of());
-    }
-
-    /**
-     * Adds a lease group info from metastorage.
-     *
-     * @param replicationGrpId Replication group id.
-     */
-    private void addLeaseToStorage(TablePartitionId replicationGrpId) {
-        var leaseStopKey = ByteArray.fromString(LEASE_STOP_KEY_PREFIX + replicationGrpId);
-        var leaseHolderKey = ByteArray.fromString(LEASE_HOLDER_KEY_PREFIX + replicationGrpId);
-
-        metaStorageManager.invoke(and(notExists(leaseStopKey), notExists(leaseHolderKey)),
-                List.of(put(leaseStopKey, ByteUtils.toBytes(null)), put(leaseHolderKey, ByteUtils.toBytes(null))),
-                List.of()
-        );
-    }
-
-    /**
      * Triggers to renew leases forcibly.
      */
     private void triggerToRenewLeases() {
@@ -516,46 +462,16 @@ public class PlacementDriverManager implements IgniteComponent {
 
                 String key = new ByteArray(msEntry.key()).toString();
 
-                if (key.startsWith(LEASE_STOP_KEY_PREFIX)) {
-                    key = key.replace(LEASE_STOP_KEY_PREFIX, "");
+                key = key.replace(PLACEMENTDRIVER_PREFIX, "");
 
-                    TablePartitionId grpId = TablePartitionId.fromString(key);
+                TablePartitionId grpId = TablePartitionId.fromString(key);
 
-                    if (msEntry.empty()) {
-                        replicationGroups.remove(grpId);
-                    } else {
-                        HybridTimestamp ts = ByteUtils.fromBytes(msEntry.value());
+                if (msEntry.empty()) {
+                    replicationGroups.remove(grpId);
+                } else {
+                    ReplicationGroupLease lease = ByteUtils.fromBytes(msEntry.value());
 
-                        replicationGroups.compute(grpId, (groupId, replicationGroup) -> {
-                            if (replicationGroup == null) {
-                                replicationGroup = new ReplicationGroup();
-                            }
-
-                            replicationGroup.stopLeas = ts;
-
-                            return replicationGroup;
-                        });
-                    }
-                } else if (key.startsWith(LEASE_HOLDER_KEY_PREFIX)) {
-                    key = key.replace(LEASE_HOLDER_KEY_PREFIX, "");
-
-                    TablePartitionId grpId = TablePartitionId.fromString(key);
-
-                    if (msEntry.empty()) {
-                        replicationGroups.remove(grpId);
-                    } else {
-                        ClusterNode leaseholder = ByteUtils.fromBytes(msEntry.value());
-
-                        replicationGroups.compute(grpId, (groupId, replicationGroup) -> {
-                            if (replicationGroup == null) {
-                                replicationGroup = new ReplicationGroup();
-                            }
-
-                            replicationGroup.leaseholder = leaseholder;
-
-                            return replicationGroup;
-                        });
-                    }
+                    replicationGroups.put(grpId, lease);
                 }
 
                 if (msEntry.empty() || entry.oldEntry().empty()) {
@@ -667,7 +583,7 @@ public class PlacementDriverManager implements IgniteComponent {
     /**
      * Replica group holder.
      */
-    private static class ReplicationGroup {
+    public static class ReplicationGroupLease implements Serializable {
         ClusterNode leaseholder;
         HybridTimestamp stopLeas;
 
