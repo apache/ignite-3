@@ -264,8 +264,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DataStorageConfiguration dsCfg = mock(DataStorageConfiguration.class);
         ConfigurationValue<Integer> gcBatchSizeValue = mock(ConfigurationValue.class);
-        when(gcBatchSizeValue.value()).thenReturn(5);
-        when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
+        lenient().when(gcBatchSizeValue.value()).thenReturn(5);
+        lenient().when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
+
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes, dsCfg);
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
