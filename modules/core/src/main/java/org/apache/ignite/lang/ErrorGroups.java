@@ -401,7 +401,7 @@ public class ErrorGroups {
         public static final ErrorGroup CODE_DEPLOYMENT_ERR_GROUP = ErrorGroup.newGroup("CODEDEPLOY", 13);
 
         /**
-         * Access to not existed deployment unit.
+         * Access to non-existing deployment unit.
          */
         public static final int UNIT_NOT_FOUND_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode(1);
 
