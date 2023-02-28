@@ -28,6 +28,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Colocation hash utilities.
@@ -47,7 +48,7 @@ public class ColocationUtils {
      * @param v Value to update hash.
      * @param type Value type.
      */
-    public static void append(HashCalculator calc, Object v, NativeType type) {
+    public static void append(HashCalculator calc, @Nullable Object v, NativeType type) {
         if (v == null) {
             calc.appendNull();
             return;

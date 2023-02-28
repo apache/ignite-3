@@ -26,12 +26,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -40,26 +38,23 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class TypeUtilsTest {
 
-    @Mock
-    private ExecutionContext<?> ectx;
-
     /**
      * Checks that conversions to and from internal types is consistent.
      *
-     * @see TypeUtils#toInternal(ExecutionContext, Object, Type) to internal.
-     * @see TypeUtils#fromInternal(ExecutionContext, Object, Type) from internal.
+     * @see TypeUtils#toInternal(Object, Type) to internal.
+     * @see TypeUtils#fromInternal(Object, Type) from internal.
      */
     @ParameterizedTest
     @MethodSource("valueAndType")
     public void testToFromInternalMatch(Object value, Class<?> type) {
-        Object internal = TypeUtils.toInternal(ectx, value, type);
+        Object internal = TypeUtils.toInternal(value, type);
         assertNotNull(internal, "Conversion to internal has produced null");
 
-        Object original = TypeUtils.fromInternal(ectx, internal, type);
+        Object original = TypeUtils.fromInternal(internal, type);
         assertEquals(value, original, "toInternal -> fromInternal");
         assertNotNull(original, "Conversion from internal has produced null");
 
-        Object internal2 = TypeUtils.toInternal(ectx, original);
+        Object internal2 = TypeUtils.toInternal(original);
         assertEquals(internal, internal2, "toInternal w/o type parameter");
     }
 

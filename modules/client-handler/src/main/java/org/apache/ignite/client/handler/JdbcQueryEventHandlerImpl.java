@@ -134,7 +134,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     .filter(Objects::nonNull)
                     .forEach(AsyncSqlCursor::closeAsync);
 
-
             StringWriter sw = getWriterWithStackTrace(t);
 
             return new JdbcQueryExecuteResult(Response.STATUS_FAILED,

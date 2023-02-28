@@ -192,7 +192,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         CompletableFuture<Object> invoke = replicaListener.invoke(invocationOnMock.getArgument(1));
                         return invoke;
                     }
-            ).when(replicaSvc).invoke(any(), any());
+            ).when(replicaSvc).invoke(any(ClusterNode.class), any());
         }
 
         AtomicLong raftIndex = new AtomicLong();
