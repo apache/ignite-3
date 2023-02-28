@@ -74,14 +74,9 @@ ignite_time load_time(bytes_view bytes) {
 } // namespace
 
 binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data)
-    : binary_tuple_parser::binary_tuple_parser(num_elements, data, 0) {
-    // No-op.
-}
-
-binary_tuple_parser::binary_tuple_parser(IntT num_elements, bytes_view data, IntT start_index)
     : binary_tuple(data)
     , element_count(num_elements)
-    , element_index(start_index)
+    , element_index(0)
     , has_nullmap(false) {
     assert(!data.empty());
 

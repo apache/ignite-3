@@ -261,10 +261,9 @@ void write_table_operation_header(protocol::writer &writer, uuid id, transaction
  *
  * @param reader Reader.
  * @param sch Schema.
- * @param key Key.
  * @return Tuple.
  */
-ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, const ignite_tuple &key) {
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch) {
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(sch->columns.size());
@@ -273,11 +272,7 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, const ignit
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto &column = sch->columns[i];
-        if (i < sch->key_column_count) {
-            res.set(column.name, key.get(column.name));
-        } else {
-            res.set(column.name, read_next_column(parser, column.type, column.scale));
-        }
+        res.set(column.name, read_next_column(parser, column.type, column.scale));
     }
     return res;
 }
@@ -410,7 +405,7 @@ void table_impl::get_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *key);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(
@@ -501,7 +496,7 @@ void table_impl::get_and_upsert_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_UPSERT,
@@ -597,7 +592,7 @@ void table_impl::get_and_replace_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_REPLACE,
@@ -653,7 +648,7 @@ void table_impl::get_and_remove_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_DELETE,
