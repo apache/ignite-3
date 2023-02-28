@@ -62,9 +62,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public T ReadValuePart(ref MsgPackReader reader, Schema schema, T key) => Read(ref reader, schema, keyOnly: false);
-
-        /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, int columnCount, Span<byte> noValueSet)
         {
             var cacheKey = (schema.Version, columnCount);

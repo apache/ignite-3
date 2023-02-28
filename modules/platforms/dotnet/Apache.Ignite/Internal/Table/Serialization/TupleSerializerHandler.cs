@@ -58,9 +58,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple ReadValuePart(ref MsgPackReader reader, Schema schema, IIgniteTuple key) => Read(ref reader, schema);
-
-        /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
         {
             for (var index = 0; index < columnCount; index++)

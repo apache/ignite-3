@@ -61,10 +61,6 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     }
 
     /// <inheritdoc/>
-    public KvPair<IIgniteTuple, IIgniteTuple> ReadValuePart(ref MsgPackReader reader, Schema schema, KvPair<IIgniteTuple, IIgniteTuple> key) =>
-        Read(ref reader, schema);
-
-    /// <inheritdoc/>
     public void Write(
         ref BinaryTupleBuilder tupleBuilder,
         KvPair<IIgniteTuple, IIgniteTuple> record,

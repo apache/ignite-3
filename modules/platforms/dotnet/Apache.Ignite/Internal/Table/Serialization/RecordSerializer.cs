@@ -71,7 +71,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var r = buf.GetReader();
             r.Skip();
 
-            return Option.Some(_handler.ReadValuePart(ref r, schema, key));
+            return Option.Some(_handler.Read(ref r, schema));
         }
 
         /// <summary>
