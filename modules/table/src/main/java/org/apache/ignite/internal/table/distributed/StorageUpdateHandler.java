@@ -33,6 +33,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
@@ -59,8 +59,8 @@ public class StorageUpdateHandler {
     /** Last recorded GC low watermark. */
     private final AtomicReference<HybridTimestamp> lastRecordedLwm = new AtomicReference<>();
 
-    /** The number of entries in the storage to be garbage collected during a storage update operation. */
-    private final int gcOnUpdateBatchSize;
+    /** Data storage configuration. */
+    private final DataStorageConfiguration dsCfg;
 
     /**
      * The constructor.
@@ -68,30 +68,18 @@ public class StorageUpdateHandler {
      * @param partitionId Partition id.
      * @param storage Partition data storage.
      * @param indexes Indexes supplier.
-     */
-    @TestOnly
-    public StorageUpdateHandler(int partitionId, PartitionDataStorage storage, Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes) {
-        this(partitionId, storage, indexes, 5);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param partitionId Partition id.
-     * @param storage Partition data storage.
-     * @param indexes Indexes supplier.
-     * @param gcOnUpdateBatchSize The number of entries in the storage to be garbage collected during a storage update operation.
+     * @param dsCfg Data storage configuration.
      */
     public StorageUpdateHandler(
             int partitionId,
             PartitionDataStorage storage,
             Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes,
-            int gcOnUpdateBatchSize
+            DataStorageConfiguration dsCfg
     ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexes = indexes;
-        this.gcOnUpdateBatchSize = gcOnUpdateBatchSize;
+        this.dsCfg = dsCfg;
     }
 
     /**
@@ -225,22 +213,24 @@ public class StorageUpdateHandler {
     }
 
     private void executeBatchGc(@Nullable HybridTimestamp newLwm) {
-        if (newLwm != null) {
-            @Nullable HybridTimestamp oldLwm;
-            do {
-                oldLwm = lastRecordedLwm.get();
+        if (newLwm == null) {
+            return;
+        }
 
-                if (oldLwm != null && newLwm.compareTo(oldLwm) <= 0) {
-                    break;
-                }
-            } while (!lastRecordedLwm.compareAndSet(oldLwm, newLwm));
+        @Nullable HybridTimestamp oldLwm;
+        do {
+            oldLwm = lastRecordedLwm.get();
 
-            if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
-                // Iff the lwm we have is the new lwm.
-                // Otherwise our newLwm is either smaller than last recorded lwm or last recorded lwm has changed
-                // concurrently and it become greater. If that's the case, another thread will perform the GC.
-                vacuumBatch(newLwm, gcOnUpdateBatchSize);
+            if (oldLwm != null && newLwm.compareTo(oldLwm) <= 0) {
+                break;
             }
+        } while (!lastRecordedLwm.compareAndSet(oldLwm, newLwm));
+
+        if (oldLwm == null || newLwm.compareTo(oldLwm) > 0) {
+            // Iff the lwm we have is the new lwm.
+            // Otherwise our newLwm is either smaller than last recorded lwm or last recorded lwm has changed
+            // concurrently and it become greater. If that's the case, another thread will perform the GC.
+            vacuumBatch(newLwm, dsCfg.gcOnUpdateBatchSize().value());
         }
     }
 
@@ -367,7 +357,7 @@ public class StorageUpdateHandler {
      * @param lowWatermark Low watermark for the vacuum.
      * @param count Count of entries to GC.
      */
-    public void vacuumBatch(HybridTimestamp lowWatermark, int count) {
+    private void vacuumBatch(HybridTimestamp lowWatermark, int count) {
         storage.runConsistently(() -> {
             for (int i = 0; i < count; i++) {
                 if (!internalVacuum(lowWatermark)) {

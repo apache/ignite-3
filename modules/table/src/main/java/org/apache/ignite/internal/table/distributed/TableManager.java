@@ -113,7 +113,6 @@ import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -742,15 +741,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
                                 internalTbl, partId));
 
-                DataStorageConfiguration dsCfg = tblCfg.dataStorage();
-                int gcOnUpdateBatchSize = dsCfg.gcOnUpdateBatchSize().value();
-
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
                         .thenApply(storage -> new StorageUpdateHandler(
                                 partId,
                                 storage,
                                 table.indexStorageAdapters(partId),
-                                gcOnUpdateBatchSize
+                                tblCfg.dataStorage()
                         ));
 
                 CompletableFuture<Void> startGroupFut;
@@ -1994,15 +1990,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
-                        DataStorageConfiguration dsCfg = tblCfg.dataStorage();
-                        int gcOnUpdateBatchSize = dsCfg.gcOnUpdateBatchSize().value();
-
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
                         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                                 partId,
                                 partitionDataStorage,
                                 tbl.indexStorageAdapters(partId),
-                                gcOnUpdateBatchSize
+                                tblCfg.dataStorage()
                         );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.impl;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
@@ -31,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.naming.OperationNotSupportedException;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -258,7 +261,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes);
+
+        DataStorageConfiguration dsCfg = mock(DataStorageConfiguration.class);
+        ConfigurationValue<Integer> gcBatchSizeValue = mock(ConfigurationValue.class);
+        when(gcBatchSizeValue.value()).thenReturn(5);
+        when(dsCfg.gcOnUpdateBatchSize()).thenReturn(gcBatchSizeValue);
+        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(PART_ID, partitionDataStorage, indexes, dsCfg);
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 

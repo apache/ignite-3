@@ -25,8 +25,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -35,13 +38,15 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /** Tests for cooperative GC (GC that is executed on write). */
+@ExtendWith(ConfigurationExtension.class)
 public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
     private static final int WRITES_COUNT = 10;
-    private static final int GC_BATCH_SIZE = 5;
+    private static final int GC_BATCH_SIZE = 7;
     private static final UUID TX_ID = UUID.randomUUID();
     private static final int PARTITION_ID = 1;
     private static final TablePartitionId TABLE_PARTITION_ID = new TablePartitionId(UUID.randomUUID(), PARTITION_ID);
@@ -50,10 +55,10 @@ public class PartitionGcOnWriteTest extends BaseMvStoragesTest {
     private StorageUpdateHandler storageUpdateHandler;
 
     @BeforeEach
-    void setUp() {
+    void setUp(@InjectConfiguration("mock.gcOnUpdateBatchSize=" + GC_BATCH_SIZE) DataStorageConfiguration dsCfg) {
         storage = new TestMvPartitionStorage(1);
 
-        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage), Collections::emptyMap, GC_BATCH_SIZE);
+        storageUpdateHandler = new StorageUpdateHandler(1, new TestPartitionDataStorage(storage), Collections::emptyMap, dsCfg);
     }
 
     @ParameterizedTest
