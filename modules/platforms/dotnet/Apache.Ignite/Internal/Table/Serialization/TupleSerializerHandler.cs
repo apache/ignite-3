@@ -60,9 +60,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public IIgniteTuple ReadValuePart(ref MsgPackReader reader, Schema schema, IIgniteTuple key)
         {
+            // TODO: Remove this method?
             var columns = schema.Columns;
             var tuple = new IgniteTuple(columns.Count);
-            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Count);
 
             for (var i = 0; i < columns.Count; i++)
             {
@@ -74,7 +75,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    tuple[column.Name] = tupleReader.GetObject(i - schema.KeyColumnCount, column.Type, column.Scale);
+                    tuple[column.Name] = tupleReader.GetObject(i, column.Type, column.Scale);
                 }
             }
 
