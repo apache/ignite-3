@@ -133,6 +133,7 @@ public class ClientTableCommon {
     ) {
         assert tuple != null;
         assert tuple instanceof SchemaAware : "Tuple must be a SchemaAware: " + tuple.getClass();
+        assert part != TuplePart.VAL : "TuplePart.VAL is not supported";
 
         var schema = ((SchemaAware) tuple).schema();
 
