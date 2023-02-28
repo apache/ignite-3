@@ -206,7 +206,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             return value;
         }));
         Config other = ConfigFactory.parseMap(map);
-        Config newConfig = parseConfigOptions().withFallback(other).resolve();
+        Config newConfig = other.withFallback(parseConfigOptions()).resolve();
         return newConfig.isEmpty()
                 ? ""
                 : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));

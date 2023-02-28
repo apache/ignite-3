@@ -58,6 +58,8 @@ public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest 
         assertThat(storage.write(data, 0), willBe(true));
 
         String contents = Files.readString(getConfigFile());
+
+        // \n instead of System.lineSeparator because Config library writes \n only
         assertThat(contents, is("foo1=bar1\n"
                 + "foo2=bar2\n"
                 + "map {\n"
@@ -66,6 +68,19 @@ public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest 
                 + "        val2\n"
                 + "    ]\n"
                 + "}\n"));
+    }
+
+    @Test
+    void testMergeHocon() throws IOException {
+        var data = Map.of("foo1", "bar");
+        assertThat(storage.write(data, 0), willBe(true));
+
+        var append = Map.of("foo1", "baz", "foo2", "bar");
+        assertThat(storage.write(append, 1), willBe(true));
+
+        String contents = Files.readString(getConfigFile());
+        assertThat(contents, is("foo1=baz\n"
+                + "foo2=bar\n"));
     }
 
     private Path getConfigFile() {
