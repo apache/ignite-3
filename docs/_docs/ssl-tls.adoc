@@ -7,24 +7,18 @@ This page explains how to configure SSL/TLS encryption between the cluster nodes
 All internal connections in the cluster context, as well as cluster's user interaction interfaces, are SSL-enabled. The communication categories are as follows: 
 
 * Between the user and the cluster (node): REST
-* Between the user and the platform clients:
-
-** CLI
-** Client
-
+* Between the user and the platform clients
 * Between nodes: Network (Messaging, Scalecube)
 
 All SSL configurations activities are performed at the node level.
 
-Due to Micronaut limitations, Apache Ignite does nopt support direct paths to SSL certificates. Instead, it utilizes PKCS12 and JKS keystore.
-//Need a link to Micronaut in general; if possible, to the limitation in particular 
+Apache Ignite does not support direct paths to SSL certificates. Instead, it utilizes PKCS12 and JKS keystore.
 
 == REST
 
-The standard implementation of SSL support for REST involves configuring a secure connection on a separate port. Apache Ignite also supports the DUAL protocol feature.
-//Need a link to a description of the DUAL protocol. 
+The standard implementation of SSL for REST involves configuring a secure connection on a separate port. Apache Ignite supports HTTP and HTTPS, arch on its own port. 
 
-To configure SSL in Micronaut, all the necessary properties must be defined in the Micronaut notation. Map the Apache Ignite 3.x REST security configuration to the Micronaut one:
+The Apache Ignite 3.x REST security configuration is as follows:
 
 [source,json]
 ----
@@ -46,7 +40,7 @@ To configure SSL in Micronaut, all the necessary properties must be defined in t
 
 == Clients and JDBC
 
-Apache Ignite 3.x Client implementation is based on the Netty framework, which supports configuration for security connections via SSLContextBuilder.
+Apache Ignite 3.x Client implementation is based on the Netty framework, which supports configuration for security connections via `SSLContextBuilder`.
 
 === Client-side Configuration
 
@@ -70,8 +64,6 @@ SslContextBuilder builder = SslContextBuilder.forServer(certChainInput, keyInput
 .trustManager(trustedCerts.toArray(new X509Certificate[0]))
     .clientAuth(serverSslConfig.getClientAuth());
 ----
-
-View the link:https://github.com/devsunny/netty-ssl-example/blob/master/src/main/java/com/asksunny/ssl/SecureSocketSslContextFactory.java[Netty SSL configuration].
 
 Introduce the client configuration on the Apache Ignite 3.x server side and map it to Netty Security Context: 
 
@@ -116,8 +108,7 @@ var cfg = new IgniteClientConfiguration { SslStreamFactory = new() }
 
 === C++
 
-TBD
-//Do we need to include this section and say that we expect the C++ client SSL to be done soon? Or just remove this section for now?
+This client configuration is under developement.
 
 == CLI Configuration
 
@@ -146,9 +137,9 @@ You can enable SSL on the CLI side using the `cli config set` command:
 
 [source,shell]
 ----
-cli.trust-store.type=
-cli.trust-store.path=
-cli.trust-store.password=
+cli config set cli.trust-store.type=<type>
+cli config set cli.trust-store.path=<path>
+cli config set cli.trust-store.password=<password>
 ----
 
 Store the CLI security configuration in a separate file with permission settings that protect it from unauthorized read/write operations. This configuration file must match profiles from the common configuration file.
@@ -156,8 +147,6 @@ Store the CLI security configuration in a separate file with permission settings
 == Network
 
 The node network is based on the Netty framework. The configuration is the same as described for the Apache Ignite Client part except for the part that addresses the Apache Ignite 3.x configuration:
-
-//What is "node network"?
 
 [source,json]
 ----
@@ -181,12 +170,11 @@ The node network is based on the Netty framework. The configuration is the same 
 
 == SSL Client Authentication (mTLS Support)
 
-All connection types you utilize must support the client authentication feature. Configute it separately for each connection on the server side.
+Optionally, the connections you utilize can support the client authentication feature. Configure it separately for each connection on the server side.
 
-Two-way authentication requires that both server and client have certificates they reciprocally trust. The client generates a private key, stores it in its keystore, and gets it signed by somebody the server's truststore trusts.
-//What is "sobebody" in the sentence above?
+Two-way authentication requires that both server and client have certificates they reciprocally trust. The client generates a private key, stores it in its keystore, and gets it signed by an entity the server's truststore trusts.
 
-To support client authentication, a conncetion must include the `clientAuth` property, which may have of the following values:
+To support client authentication, a connection must include the `clientAuth` property, which can have of the following values:
 
 * none
 * optional
