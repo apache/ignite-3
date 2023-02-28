@@ -1610,6 +1610,22 @@ public class ConfigurationListenerTest {
     }
 
     @Test
+    void testGenerateNotificationWhenUpdateWithCurrentValue() throws Exception {
+        long notificationCount = registry.notificationCount();
+
+        assertTrue(notificationCount >= 0);
+
+        String currentValue = config.child().str().value();
+        config.child().str().update(currentValue).get(1, SECONDS);
+
+        assertEquals(notificationCount + 1, registry.notificationCount());
+
+        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
+
+        assertEquals(notificationCount + 2, registry.notificationCount());
+    }
+
+    @Test
     void testNotifyListenersOnNextUpdateConfiguration() throws Exception {
         List<String> events = new ArrayList<>();
 
