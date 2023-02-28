@@ -58,29 +58,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public IIgniteTuple ReadValuePart(ref MsgPackReader reader, Schema schema, IIgniteTuple key)
-        {
-            // TODO: Remove this method?
-            var columns = schema.Columns;
-            var tuple = new IgniteTuple(columns.Count);
-            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), columns.Count);
-
-            for (var i = 0; i < columns.Count; i++)
-            {
-                var column = columns[i];
-
-                if (i < schema.KeyColumnCount)
-                {
-                    tuple[column.Name] = key[column.Name];
-                }
-                else
-                {
-                    tuple[column.Name] = tupleReader.GetObject(i, column.Type, column.Scale);
-                }
-            }
-
-            return tuple;
-        }
+        public IIgniteTuple ReadValuePart(ref MsgPackReader reader, Schema schema, IIgniteTuple key) => Read(ref reader, schema);
 
         /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
