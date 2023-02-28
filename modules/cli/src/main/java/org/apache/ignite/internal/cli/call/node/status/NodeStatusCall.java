@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.node.status;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -25,7 +26,6 @@ import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 import org.apache.ignite.rest.client.model.NodeState;
 
 /**
@@ -33,6 +33,12 @@ import org.apache.ignite.rest.client.model.NodeState;
  */
 @Singleton
 public class NodeStatusCall implements Call<UrlCallInput, NodeStatus> {
+
+    private final ApiClientFactory clientFactory;
+
+    public NodeStatusCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
 
     @Override
     public CallOutput<NodeStatus> execute(UrlCallInput input) {
@@ -51,6 +57,6 @@ public class NodeStatusCall implements Call<UrlCallInput, NodeStatus> {
     }
 
     private NodeState fetchNodeState(String url) throws ApiException {
-        return new NodeManagementApi(Configuration.getDefaultApiClient().setBasePath(url)).nodeState();
+        return new NodeManagementApi(clientFactory.getClient(url)).nodeState();
     }
 }

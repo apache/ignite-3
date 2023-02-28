@@ -164,7 +164,7 @@ public class FlowBuilderImpl<I, O> implements FlowBuilder<I, O> {
      */
     private Flowable<O> printResult(Flowable<O> input, Function<Class<O>, Decorator<O, TerminalOutput>> decoratorProvider) {
         if (input.hasResult()) {
-            // Workaround for the https://issues.apache.org/jira/browse/IGNITE-17346
+            // Workaround for the scroll truncation issue in windows terminal
             // This will turn the tailtips off before printing
             CommandLineContextProvider.print(() -> {
                 String out = decoratorProvider.apply(input.type()).decorate(input.value()).toTerminalString();

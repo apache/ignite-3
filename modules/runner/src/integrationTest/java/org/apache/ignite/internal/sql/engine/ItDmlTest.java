@@ -35,7 +35,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -62,16 +61,13 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         super.tearDownBase(testInfo);
     }
 
-    @BeforeAll
-    public static void beforeTestsStarted() {
-        // IMPLICIT_PK_ENABLED hashed sys property needs
-        sql("CREATE TABLE fake_tbl (id INT PRIMARY KEY, c1 INT NOT NULL)");
-    }
-
     @Test
     public void pkConstraintConsistencyTest() {
         sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
-        sql("INSERT INTO my VALUES (?, ?)", 0, 1);
+        assertQuery("INSERT INTO my VALUES (?, ?)")
+                .withParams(0, 1)
+                .returns(1L)
+                .check();
         assertQuery("SELECT val FROM my WHERE id = 0")
                 .returns(1)
                 .check();
@@ -82,9 +78,16 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
             assertEquals(ex.code(), Sql.DUPLICATE_KEYS_ERR);
         }
 
-        sql("DELETE FROM my WHERE id=?", 0);
+        assertQuery("DELETE FROM my WHERE id=?")
+                .withParams(0)
+                .returns(1L)
+                .check();
 
-        sql("INSERT INTO my VALUES (?, ?)", 0, 2);
+        assertQuery("INSERT INTO my VALUES (?, ?)")
+                .withParams(0, 2)
+                .returns(1L)
+                .check();
+
         assertQuery("SELECT val FROM my WHERE id = 0")
                 .returns(2)
                 .check();

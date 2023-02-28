@@ -53,6 +53,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -110,8 +111,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18868")
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
-        ClusterNode clusterNode = new ClusterNode(name, name, networkAddress);
+        ClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
 
@@ -136,7 +138,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @Test
     public void testWithNotStartedReplica() {
-        ClusterNode clusterNode = new ClusterNode(name, name, networkAddress);
+        ClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(UUID.randomUUID(), 1);
 

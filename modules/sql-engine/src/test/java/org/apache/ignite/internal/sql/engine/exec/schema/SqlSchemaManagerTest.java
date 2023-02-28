@@ -46,8 +46,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -57,7 +59,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -102,7 +103,13 @@ public class SqlSchemaManagerTest {
     private Index<IndexDescriptor> index;
 
     @Mock
-    SchemaRegistryImpl schemaRegistry;
+    private SchemaRegistryImpl schemaRegistry;
+
+    @Mock
+    private ReplicaService replicaService;
+
+    @Mock
+    private HybridClock clock;
 
     private SqlSchemaManagerImpl sqlSchemaManager;
 
@@ -112,7 +119,7 @@ public class SqlSchemaManagerTest {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     @BeforeEach
-    public void setup() throws NodeStoppingException {
+    public void setup() {
         Mockito.reset(tableManager);
 
         testRevisionRegister = new TestRevisionRegister();
@@ -120,6 +127,8 @@ public class SqlSchemaManagerTest {
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
                 schemaManager,
+                replicaService,
+                clock,
                 testRevisionRegister,
                 busyLock
         );
@@ -352,8 +361,8 @@ public class SqlSchemaManagerTest {
             assertNull(schema1.unwrap(IgniteSchema.class).index(indexId));
             assertNotNull(schema2.unwrap(IgniteSchema.class).index(indexId));
 
-            assertNull(((InternalIgniteTable) schema1.getTable("T")).getIndex(idxName));
-            assertNotNull(((InternalIgniteTable) schema2.getTable("T")).getIndex(idxName));
+            assertNull(((IgniteTable) schema1.getTable("T")).getIndex(idxName));
+            assertNotNull(((IgniteTable) schema2.getTable("T")).getIndex(idxName));
         }
         {
             sqlSchemaManager.onIndexDropped("PUBLIC", indexId, testRevisionRegister.actualToken() + 1);
@@ -369,8 +378,8 @@ public class SqlSchemaManagerTest {
             assertNotNull(schema1.unwrap(IgniteSchema.class).index(indexId));
             assertNull(schema2.unwrap(IgniteSchema.class).index(indexId));
 
-            assertNull(((InternalIgniteTable) schema2.getTable("T")).getIndex(idxName));
-            assertNotNull(((InternalIgniteTable) schema1.getTable("T")).getIndex(idxName));
+            assertNull(((IgniteTable) schema2.getTable("T")).getIndex(idxName));
+            assertNotNull(((IgniteTable) schema1.getTable("T")).getIndex(idxName));
         }
 
         verifyNoMoreInteractions(tableManager);

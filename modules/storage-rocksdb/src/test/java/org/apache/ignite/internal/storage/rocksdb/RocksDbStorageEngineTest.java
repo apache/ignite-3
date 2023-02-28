@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -76,7 +77,7 @@ public class RocksDbStorageEngineTest {
 
             assertThat(dataStorageConfig.dataRegion().value(), is(DEFAULT_DATA_REGION_NAME));
 
-            table.getOrCreateMvPartition(1);
+            getOrCreateMvPartition(table, 1);
         } finally {
             table.stop();
         }
@@ -105,7 +106,7 @@ public class RocksDbStorageEngineTest {
 
             assertThat(dataStorageConfig.dataRegion().value(), is(customRegionName));
 
-            table.getOrCreateMvPartition(1);
+            getOrCreateMvPartition(table, 1);
         } finally {
             table.stop();
         }

@@ -263,7 +263,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private void mockReadOnlyMultiRowRequest() {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
-        when(replicaService.invoke(any(), any(ReadOnlyMultiRowReplicaRequest.class))).thenAnswer(args -> {
+        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlyMultiRowReplicaRequest.class))).thenAnswer(args -> {
             List<BinaryRow> result = new ArrayList<>();
 
             for (BinaryRow row : rowStore) {
@@ -283,7 +283,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     private void mockReadOnlySingleRowRequest() {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
-        when(replicaService.invoke(any(), any(ReadOnlySingleRowReplicaRequest.class))).thenAnswer(args -> {
+        when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlySingleRowReplicaRequest.class))).thenAnswer(args -> {
             for (BinaryRow row : rowStore) {
                 BinaryRow searchRow = args.getArgument(1, ReadOnlySingleRowReplicaRequest.class).binaryRow();
 

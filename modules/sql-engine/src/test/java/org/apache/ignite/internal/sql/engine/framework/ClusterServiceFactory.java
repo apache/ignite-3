@@ -197,6 +197,12 @@ public class ClusterServiceFactory {
             throw new AssertionError("Not implemented yet");
         }
 
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<NetworkMessage> invoke(String recipientNodeId, NetworkMessage msg, long timeout) {
+            throw new AssertionError("Not implemented yet");
+        }
+
         private Collection<NetworkMessageHandler> messageHandlers(short groupType) {
             return getMessageHandlers(groupType);
         }

@@ -20,11 +20,15 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,9 +61,21 @@ public class ClientTransactions implements IgniteTransactions {
             throw new UnsupportedOperationException("Timeouts are not supported yet");
         }
 
+        boolean readOnly = options != null && options.readOnly();
+
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
-                w -> w.out().packBoolean(options != null && options.readOnly()),
-                r -> new ClientTransaction(r.clientChannel(), r.in().unpackLong()));
+                w -> w.out().packBoolean(readOnly),
+                r -> readTx(r, readOnly));
+    }
+
+    @NotNull
+    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {
+        ClientMessageUnpacker in = r.in();
+
+        long id = in.unpackLong();
+        HybridTimestamp readTs = in.tryUnpackNil() ? null : new HybridTimestamp(in.unpackLong(), in.unpackInt());
+
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly, readTs);
     }
 }
