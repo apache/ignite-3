@@ -269,7 +269,7 @@ ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, const ignit
 
     auto columns_cnt = std::int32_t(sch->columns.size());
     ignite_tuple res(columns_cnt);
-    binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
+    binary_tuple_parser parser(columns_cnt, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto &column = sch->columns[i];

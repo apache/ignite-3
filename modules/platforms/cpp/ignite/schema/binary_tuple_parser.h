@@ -67,6 +67,20 @@ public:
     explicit binary_tuple_parser(IntT num_elements, bytes_view data);
 
     /**
+     * @brief Constructs a new parser object.
+     *
+     * The @ref data buffer may contain more binary data than single binary tuple.
+     * The parser finds where the tuple ends and reads data only up to this point.
+     * The @ref get_tuple() and @ref get_size() methods let know the actual tuple
+     * size.
+     *
+     * @param num_elements Number of tuple elements.
+     * @param start_index Start index.
+     * @param data Binary tuple buffer.
+     */
+    explicit binary_tuple_parser(IntT num_elements, bytes_view data, IntT start_index);
+
+    /**
      * @brief Gets the original binary tuple.
      *
      * @return BytesView Binary tuple.
