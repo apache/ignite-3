@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -27,7 +28,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -55,8 +55,7 @@ public class LocalFileConfigurationStorageTest extends ConfigurationStorageTest 
         HashMap<String, ArrayList<String>> map = new HashMap<>(Map.of("list", new ArrayList<>(List.of("val1", "val2"))));
         var data = Map.of("foo1", "bar1", "foo2", "bar2", "map", map);
 
-        CompletableFuture<Boolean> future = storage.write(data, 0);
-        assertThat(future.join(), is(true));
+        assertThat(storage.write(data, 0), willBe(true));
 
         String contents = Files.readString(getConfigFile());
         assertThat(contents, is("foo1=bar1\n"
