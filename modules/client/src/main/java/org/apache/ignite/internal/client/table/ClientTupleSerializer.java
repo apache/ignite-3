@@ -252,24 +252,6 @@ public class ClientTupleSerializer {
         return tuple;
     }
 
-    static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
-        var tuple = new ClientTuple(schema);
-        var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
-
-        for (var i = 0; i < schema.columns().length; i++) {
-            ClientColumn col = schema.columns()[i];
-
-            // TODO: We don't need keyTuple here at all.
-            if (i < schema.keyColumnCount()) {
-                tuple.setInternal(i, keyTuple.value(col.name()));
-            } else {
-                ClientBinaryTupleUtils.readAndSetColumnValue(binTuple, i, tuple, col.name(), col.type(), col.scale());
-            }
-        }
-
-        return tuple;
-    }
-
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
