@@ -70,7 +70,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
-                (s, r) -> ser.readValRec(keyRec, s, r),
+                (s, r) -> ser.readRec(s, r, TuplePart.KEY_AND_VAL),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
@@ -152,7 +152,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readValRec(rec, s, r),
+                (s, r) -> ser.readRec(s, r, TuplePart.KEY_AND_VAL),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
@@ -249,7 +249,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readValRec(rec, s, r),
+                (s, r) -> ser.readRec(s, r, TuplePart.KEY_AND_VAL),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
@@ -304,7 +304,7 @@ public class ClientRecordView<R> implements RecordView<R> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
-                (s, r) -> ser.readValRec(keyRec, s, r),
+                (s, r) -> ser.readRec(s, r, TuplePart.KEY_AND_VAL),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }

@@ -27,11 +27,6 @@ public enum TuplePart {
     KEY,
 
     /**
-     * Value columns.
-     */
-    VAL,
-
-    /**
      * Key and value columns.
      */
     KEY_AND_VAL

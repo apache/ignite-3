@@ -142,35 +142,14 @@ public class ClientTableCommon {
             packer.packInt(schema.version());
         }
 
-        // TODO: Handle VAL - slice the tuple somehow.
-        // OR simplify the protocol and send the entire tuple always?
-        if (part != TuplePart.VAL) {
-            BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
-            if (binaryTuple != null) {
-                int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
-                packer.packBinaryTuple(binaryTuple, elementCount);
-                return;
-            } else {
-                // TODO: Remove me. Temporary check to find out why we have a tuple that is not a binary tuple.
-                throw new RuntimeException("WHY1");
-            }
+        BinaryTuple binaryTuple = tryGetBinaryTuple(tuple);
+        if (binaryTuple != null) {
+            int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : -1;
+            packer.packBinaryTuple(binaryTuple, elementCount);
+        } else {
+            // TODO: Remove me. Temporary check to find out why we have a tuple that is not a binary tuple.
+            throw new RuntimeException("WHY1");
         }
-
-        var builder = new BinaryTupleBuilder(columnCount(schema, part), true);
-
-        if (part != TuplePart.VAL) {
-            for (var col : schema.keyColumns().columns()) {
-                writeColumnValue(builder, tuple, col);
-            }
-        }
-
-        if (part != TuplePart.KEY) {
-            for (var col : schema.valueColumns().columns()) {
-                writeColumnValue(builder, tuple, col);
-            }
-        }
-
-        packer.packBinaryTuple(builder);
     }
 
     /**
@@ -572,7 +551,6 @@ public class ClientTableCommon {
     private static int columnCount(SchemaDescriptor schema, TuplePart part) {
         switch (part) {
             case KEY: return schema.keyColumns().length();
-            case VAL: return schema.valueColumns().length();
             default: return schema.length();
         }
     }
