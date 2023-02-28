@@ -19,6 +19,7 @@ package org.apache.ignite.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The transaction.
@@ -68,5 +69,5 @@ public interface Transaction {
      *
      * @return Read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
      */
-    HybridTimestamp readTimestamp();
+    @Nullable HybridTimestamp readTimestamp();
 }

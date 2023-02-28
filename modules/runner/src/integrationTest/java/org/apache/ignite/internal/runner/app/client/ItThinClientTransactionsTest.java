@@ -22,6 +22,8 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -324,6 +326,26 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         } else {
             tx.rollback();
         }
+    }
+
+    @Test
+    void testReadOnlyTxHasReadTimestamp() {
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+
+        assertTrue(tx.isReadOnly());
+        assertNotNull(tx.readTimestamp());
+
+        tx.rollback();
+    }
+
+    @Test
+    void testReadWriteTxHasNoReadTimestamp() {
+        Transaction tx = client().transactions().begin();
+
+        assertFalse(tx.isReadOnly());
+        assertNull(tx.readTimestamp());
+
+        tx.rollback();
     }
 
     private KeyValueView<Integer, String> kvView() {
