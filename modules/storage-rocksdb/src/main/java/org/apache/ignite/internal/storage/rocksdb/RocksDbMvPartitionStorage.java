@@ -67,7 +67,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.storage.rocksdb.GarbageCollector.Res;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Cursor;
