@@ -246,6 +246,10 @@ namespace Apache.Ignite.Tests.Transactions
 
         private class CustomTx : ITransaction
         {
+            public bool IsReadOnly => false;
+
+            public HybridTimestamp? ReadTimestamp => null;
+
             public ValueTask DisposeAsync()
             {
                 return new ValueTask(Task.CompletedTask);

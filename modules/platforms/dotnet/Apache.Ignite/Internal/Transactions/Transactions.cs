@@ -49,9 +49,18 @@ namespace Apache.Ignite.Internal.Transactions
 
             using (resBuf)
             {
-                var txId = resBuf.GetReader().ReadInt64();
+                return Read();
+            }
 
-                return new Transaction(txId, socket, _socket);
+            Transaction Read()
+            {
+                var reader = resBuf.GetReader();
+                var txId = reader.ReadInt64();
+                var readTs = options.ReadOnly
+                    ? new HybridTimestamp(reader.ReadInt64(), reader.ReadInt32())
+                    : null;
+
+                return new Transaction(txId, socket, _socket, options.ReadOnly, readTs);
             }
         }
     }
