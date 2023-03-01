@@ -20,24 +20,40 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.plan.Context;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * User query context.
  */
 public class QueryContext implements Context {
+
+    private static final QueryContext EMPTY = new QueryContext(Set.of(), ArrayUtils.OBJECT_EMPTY_ARRAY);
+
+    /** A set of types of SQL commands that can be executed within an operation this context is associated with. **/
+    private final Set<QueryPlan.Type> allowedQueries;
+
     /** Context params. */
     private final Object[] params;
 
     /**
      * Constructor.
      *
+     * @param allowedQueries  Allowed query types.
      * @param params Context params.
      */
-    private QueryContext(Object[] params) {
+    private QueryContext(Set<QueryPlan.Type> allowedQueries, Object[] params) {
         this.params = params;
+        this.allowedQueries = allowedQueries;
+    }
+
+    /** Returns a set of {@link QueryPlan.Type allowed query types}. **/
+    public Set<Type> allowedQueryTypes() {
+        return allowedQueries;
     }
 
     /** {@inheritDoc} */
@@ -50,34 +66,67 @@ public class QueryContext implements Context {
         return Arrays.stream(params).filter(cls::isInstance).findFirst().map(cls::cast).orElse(null);
     }
 
-    /**
-     * Creates a context from a list of parameters.
-     *
-     * @param params Context parameters.
-     * @return Query context.
-     */
-    public static QueryContext of(Object... params) {
-        return !ArrayUtils.nullOrEmpty(params) ? new QueryContext(build(null, params).toArray())
-                : new QueryContext(ArrayUtils.OBJECT_EMPTY_ARRAY);
+    /** Returns query context that contains no parameters and does not allow any query to execute. */
+    public static QueryContext empty() {
+        return EMPTY;
     }
 
-    private static List<Object> build(List<Object> dst, Object[] src) {
-        if (dst == null) {
-            dst = new ArrayList<>();
-        }
+    /**
+     * Creates a context that allows the given query types.
+     *
+     * @param allowedQueries  A set of allowed query types.
+     * @return Query context.
+     */
+    public static QueryContext create(Set<QueryPlan.Type> allowedQueries) {
+        return create(allowedQueries, null, ArrayUtils.OBJECT_EMPTY_ARRAY);
+    }
 
+    /**
+     * Creates a context that allows the given query types and includes an optional parameter.
+     *
+     * @param allowedQueries A set of allowed query types.
+     * @param param A context parameter.
+     * @return Query context.
+     */
+    public static QueryContext create(Set<Type> allowedQueries, @Nullable Object param) {
+        return create(allowedQueries, param, ArrayUtils.OBJECT_EMPTY_ARRAY);
+    }
+
+    /**
+     * Creates a context that allows the given query types and includes a list of parameters.
+     *
+     * @param allowedQueries A set of allowed query types.
+     * @param param An optional parameter.
+     * @param params Optional array of additional parameters.
+     * @return Query context.
+     */
+    public static QueryContext create(Set<QueryPlan.Type> allowedQueries, @Nullable Object param, Object... params) {
+        Object[] paramsArray = params == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : params;
+
+        if (param == null && paramsArray.length == 0) {
+            return new QueryContext(allowedQueries, ArrayUtils.OBJECT_EMPTY_ARRAY);
+        } else {
+            ArrayList<Object> dst = new ArrayList<>();
+            build(dst, param);
+            build(dst, paramsArray);
+            return new QueryContext(allowedQueries, dst.toArray());
+        }
+    }
+
+    private static void build(List<Object> dst, Object[] src) {
         for (Object obj : src) {
-            if (obj == null) {
-                continue;
-            }
-
-            if (obj.getClass() == QueryContext.class) {
-                build(dst, ((QueryContext) obj).params);
-            } else {
-                dst.add(obj);
-            }
+            build(dst, obj);
         }
+    }
 
-        return dst;
+    private static void build(List<Object> dst, @Nullable Object obj) {
+        if (obj == null) {
+            return;
+        }
+        if (obj.getClass() == QueryContext.class) {
+            build(dst, ((QueryContext) obj).params);
+        } else {
+            dst.add(obj);
+        }
     }
 }

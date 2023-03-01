@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -61,7 +62,6 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -76,10 +76,12 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlScriptNode;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Query planer.
@@ -165,7 +167,17 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
-        SqlNodeList sqlNodes = Commons.parse(reader, parserCfg);
+        IgniteSqlScriptNode sqlNodes = IgniteSqlParser.parse(reader, parserCfg);
+        Object[] parameters = ctx.parameters();
+
+        // Parse method is only used in tests.
+        if (parameters.length != sqlNodes.dynamicParamsCount()) {
+            var message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    parameters.length, sqlNodes.dynamicParamsCount()
+            );
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
 
         return sqlNodes.size() == 1 ? sqlNodes.get(0) : sqlNodes;
     }

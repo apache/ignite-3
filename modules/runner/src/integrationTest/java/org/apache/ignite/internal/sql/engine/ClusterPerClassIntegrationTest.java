@@ -48,6 +48,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -411,7 +412,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         ));
 
         try {
-            var context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+            var context =  QueryContext.create(QueryPlan.TOP_LEVEL_TYPES, tx);
 
             return getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, sql, args))

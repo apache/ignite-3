@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_SQL_OPERATION_KIND_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -40,7 +41,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -62,16 +62,20 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlScriptNode;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -305,7 +309,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
-        return queryAsync(QueryContext.of(), schemaName, qry, params);
+        QueryContext context = QueryContext.create(QueryPlan.TOP_LEVEL_TYPES);
+
+        return queryAsync(context, schemaName, qry, params);
     }
 
     /** {@inheritDoc} */
@@ -401,11 +407,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenApply(v -> {
-                    var nodes = Commons.parse(sql, Commons.PARSER_CONFIG);
+                    var nodes = IgniteSqlParser.parse(sql);
 
                     if (nodes.size() > 1) {
                         throw new SqlException(QUERY_INVALID_ERR, "Multiple statements aren't allowed.");
                     }
+
+                    validateParsedStatement(context, nodes, nodes.get(0), params);
 
                     return nodes.get(0);
                 })
@@ -426,9 +434,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return prepareSvc.prepareAsync(sqlNode, ctx)
                             .thenApply(plan -> {
-                                context.maybeUnwrap(QueryValidator.class)
-                                        .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
-
                                 boolean implicitTxRequired = outerTx == null;
 
                                 InternalTransaction tx = implicitTxRequired ? txManager.begin(!rwOp) : outerTx;
@@ -483,19 +488,31 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
-        SqlNodeList nodes = SqlNodeList.EMPTY;
-
-        var res = new ArrayList<CompletableFuture<AsyncSqlCursor<List<Object>>>>(nodes.size());
+        IgniteSqlScriptNode nodes;
+        List<CompletableFuture<AsyncSqlCursor<List<Object>>>> res;
 
         try {
-            nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+            nodes = IgniteSqlParser.parse(sql);
+            res = new ArrayList<>(nodes.size());
         } catch (Throwable th) {
             start.completeExceptionally(th);
 
-            res.add(CompletableFuture.completedFuture(failedCursor(th)));
+            nodes = IgniteSqlScriptNode.EMPTY;
+            res = Collections.singletonList(CompletableFuture.completedFuture(failedCursor(th)));
         }
 
+        IgniteSqlScriptNode script = nodes;
+
         for (SqlNode sqlNode : nodes) {
+            try {
+                validateParsedStatement(context, script, sqlNode, params);
+            } catch (Exception e) {
+                start.completeExceptionally(e);
+
+                res = Collections.singletonList(CompletableFuture.completedFuture(failedCursor(e)));
+                return res;
+            }
+
             // Only rw transactions for now.
             InternalTransaction implicitTx = txManager.begin(false);
 
@@ -512,11 +529,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .build();
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
+            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
+                    .thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
                     .thenApply(plan -> {
-                        context.maybeUnwrap(QueryValidator.class)
-                                .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
-
                         return new AsyncSqlCursorImpl<>(
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                 plan.metadata(),
@@ -663,5 +678,30 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Returns {@code true} if this is data modification operation. */
     private static boolean dataModificationOp(SqlNode sqlNode) {
         return SqlKind.DML.contains(sqlNode.getKind());
+    }
+
+    /** Performs additional validation of a parsed statement. **/
+    private static void validateParsedStatement(QueryContext context, IgniteSqlScriptNode nodes, SqlNode node, Object[] params) {
+        var allowedTypes = context.allowedQueryTypes();
+        var planType = Commons.getPlanType(node);
+
+        if (planType == null) {
+            throw new IgniteInternalException(UNSUPPORTED_SQL_OPERATION_KIND_ERR, "Unsupported operation ["
+                    + "sqlNodeKind=" + node.getKind() + "; "
+                    + "querySql=\"" + node + "\"]");
+        }
+
+        if (!allowedTypes.contains(planType)) {
+            var message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, planType);
+            throw new QueryValidationException(message);
+        }
+
+        if (nodes.dynamicParamsCount() != params.length) {
+            var message = format(
+                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
+                    params.length, nodes.dynamicParamsCount()
+            );
+            throw new SqlException(QUERY_INVALID_ERR, message);
+        }
     }
 }

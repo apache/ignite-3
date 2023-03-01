@@ -19,15 +19,11 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.ExceptionUtils.withCauseAndCode;
-import static org.apache.ignite.lang.ErrorGroup.extractCauseMessage;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXPRESSION_COMPILATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -53,7 +49,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
-import org.apache.calcite.config.Lex;
 import org.apache.calcite.config.NullCollation;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Context;
@@ -67,22 +62,19 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.parser.SqlParseException;
-import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.calcite.util.SourceStringReader;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.calcite.util.mapping.Mappings.TargetMapping;
-import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -97,7 +89,10 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -129,11 +124,6 @@ public final class Commons {
      */
     public static final int SORTED_IDX_PART_PREFETCH_SIZE = 100;
 
-    public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
-            .withParserFactory(IgniteSqlParserImpl.FACTORY)
-            .withLex(Lex.ORACLE)
-            .withConformance(IgniteSqlConformance.INSTANCE);
-
     @SuppressWarnings("rawtypes")
     public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
             ConventionTraitDef.INSTANCE,
@@ -159,7 +149,7 @@ public final class Commons {
                     )
             )
             .convertletTable(IgniteConvertletTable.INSTANCE)
-            .parserConfig(PARSER_CONFIG)
+            .parserConfig(IgniteSqlParser.PARSER_CONFIG)
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
@@ -738,39 +728,6 @@ public final class Commons {
         };
     }
 
-    /**
-     * Parses a SQL statement.
-     *
-     * @param qry Query string.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
-     */
-    public static SqlNodeList parse(String qry, SqlParser.Config parserCfg) {
-        try {
-            return parse(new SourceStringReader(qry), parserCfg);
-        } catch (SqlParseException e) {
-            throw withCauseAndCode(
-                    SqlException::new,
-                    QUERY_INVALID_ERR,
-                    "Failed to parse query: " + extractCauseMessage(e.getMessage()),
-                    e);
-        }
-    }
-
-    /**
-     * Parses a SQL statement.
-     *
-     * @param reader Source string reader.
-     * @param parserCfg Parser config.
-     * @return Parsed query.
-     * @throws org.apache.calcite.sql.parser.SqlParseException on parse error.
-     */
-    public static SqlNodeList parse(Reader reader, SqlParser.Config parserCfg) throws SqlParseException {
-        SqlParser parser = SqlParser.create(reader, parserCfg);
-
-        return parser.parseStmtList();
-    }
-
     public static RelOptCluster cluster() {
         return CLUSTER;
     }
@@ -804,5 +761,43 @@ public final class Commons {
         }
 
         return ruleDescription.substring(0, pos);
+    }
+
+    /**
+     * Returns a {@link QueryPlan.Type} for the given {@link SqlNode}.
+     * If the given node is neither {@code QUERY}, nor {@code DDL}, nor {@code DML}, this method returns {@code null}.
+     *
+     * @param sqlNode An SQL node.
+     * @return A query type.
+     */
+    @Nullable
+    public static QueryPlan.Type getPlanType(SqlNode sqlNode) {
+        SqlKind sqlKind = sqlNode.getKind();
+        if (SqlKind.DDL.contains(sqlKind)) {
+            return Type.DDL;
+        }
+
+        switch (sqlKind) {
+            case SELECT:
+            case ORDER_BY:
+            case WITH:
+            case VALUES:
+            case UNION:
+            case EXCEPT:
+            case INTERSECT:
+                return Type.QUERY;
+
+            case INSERT:
+            case DELETE:
+            case UPDATE:
+            case MERGE:
+                return Type.DML;
+
+            case EXPLAIN:
+                return Type.EXPLAIN;
+
+            default:
+                return null;
+        }
     }
 }

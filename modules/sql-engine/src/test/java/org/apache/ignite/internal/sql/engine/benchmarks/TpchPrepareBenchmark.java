@@ -22,7 +22,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -77,7 +77,7 @@ public class TpchPrepareBenchmark {
         testCluster.start();
         gatewayNode = testCluster.node("N1");
 
-        queryAst = Commons.parse(TpchQueries.getQuery(queryId), Commons.PARSER_CONFIG).get(0);
+        queryAst = IgniteSqlParser.parse(TpchQueries.getQuery(queryId)).get(0);
     }
 
     /** Stops the cluster. */

@@ -46,7 +46,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -79,10 +78,11 @@ import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlScriptNode;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
@@ -442,9 +442,10 @@ public class ExecutionServiceImplTest {
     }
 
     private QueryPlan prepare(String query, BaseQueryContext ctx) {
-        SqlNodeList nodes = Commons.parse(query, FRAMEWORK_CONFIG.getParserConfig());
+        IgniteSqlScriptNode nodes = IgniteSqlParser.parse(query, FRAMEWORK_CONFIG.getParserConfig());
 
         assertThat(nodes, hasSize(1));
+        assertEquals(ctx.parameters().length, nodes.dynamicParamsCount(), "Invalid number of dynamic parameters");
 
         return await(prepareService.prepareAsync(nodes.get(0), ctx));
     }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -68,7 +68,7 @@ public class TpchParseBenchmark {
      */
     @Benchmark
     public void parseQuery(Blackhole bh) {
-        bh.consume(Commons.parse(queryString, Commons.PARSER_CONFIG));
+        bh.consume(IgniteSqlParser.parse(queryString));
     }
 
     /**

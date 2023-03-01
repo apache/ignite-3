@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.EnumSet;
+import java.util.Set;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -28,6 +30,11 @@ public interface QueryPlan {
     enum Type {
         QUERY, FRAGMENT, DML, DDL, EXPLAIN
     }
+
+    /**
+     * All plan type except for {@code FRAGMENT}.
+     */
+    Set<Type> TOP_LEVEL_TYPES = EnumSet.of(Type.QUERY, Type.DDL, Type.DML, Type.EXPLAIN);
 
     /**
      * Get query type.

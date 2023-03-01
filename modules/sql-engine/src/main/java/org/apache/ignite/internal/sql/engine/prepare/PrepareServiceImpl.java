@@ -40,7 +40,6 @@ import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverte
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -146,28 +146,21 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         try {
             assert single(sqlNode);
 
+            var planType = Commons.getPlanType(sqlNode);
+            assert planType != null : "No plan type for query: " + sqlNode;
+
             var planningContext = PlanningContext.builder()
                     .parentContext(ctx)
                     .build();
 
-            if (SqlKind.DDL.contains(sqlNode.getKind())) {
-                return prepareDdl(sqlNode, planningContext);
-            }
-
-            switch (sqlNode.getKind()) {
-                case SELECT:
-                case ORDER_BY:
-                case WITH:
-                case VALUES:
-                case UNION:
-                case EXCEPT:
-                case INTERSECT:
+            switch (planType) {
+                case QUERY:
                     return prepareQuery(sqlNode, planningContext);
 
-                case INSERT:
-                case DELETE:
-                case UPDATE:
-                case MERGE:
+                case DDL:
+                    return prepareDdl(sqlNode, planningContext);
+
+                case DML:
                     return prepareDml(sqlNode, planningContext);
 
                 case EXPLAIN:

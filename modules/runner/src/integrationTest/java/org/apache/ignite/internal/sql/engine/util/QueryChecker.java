@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -420,7 +421,7 @@ public abstract class QueryChecker {
                 Map.of(QueryProperty.DEFAULT_SCHEMA, "PUBLIC")
         ));
 
-        QueryContext context = tx != null ? QueryContext.of(tx) : QueryContext.of();
+        QueryContext context = QueryContext.create(QueryPlan.TOP_LEVEL_TYPES, tx);
 
         String qry = originalQuery;
 

@@ -650,7 +650,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertThrowsWithCause(
                 () -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)),
                 SqlException.class,
-                "Unexpected number of query parameters. Provided 2 but there is only 0 dynamic parameter(s)"
+                "Invalid SQL statement type in the batch"
         );
 
         assertThrowsWithCause(

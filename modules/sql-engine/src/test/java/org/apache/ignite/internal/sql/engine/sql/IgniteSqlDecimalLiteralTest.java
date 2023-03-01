@@ -36,7 +36,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -156,6 +155,6 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
     }
 
     private static SqlNodeList parseQuery(String qry) {
-        return Commons.parse(qry, Commons.PARSER_CONFIG);
+        return IgniteSqlParser.parse(qry);
     }
 }
