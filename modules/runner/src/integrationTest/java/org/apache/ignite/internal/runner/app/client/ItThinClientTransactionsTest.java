@@ -250,11 +250,6 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             public boolean isReadOnly() {
                 return false;
             }
-
-            @Override
-            public HybridTimestamp readTimestamp() {
-                return null;
-            }
         };
 
         var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
@@ -329,21 +324,19 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testReadOnlyTxHasReadTimestamp() {
+    void testReadOnlyTxAttributes() {
         Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
 
         assertTrue(tx.isReadOnly());
-        assertNotNull(tx.readTimestamp());
 
         tx.rollback();
     }
 
     @Test
-    void testReadWriteTxHasNoReadTimestamp() {
+    void testReadWriteTxAttributes() {
         Transaction tx = client().transactions().begin();
 
         assertFalse(tx.isReadOnly());
-        assertNull(tx.readTimestamp());
 
         tx.rollback();
     }

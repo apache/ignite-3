@@ -74,8 +74,7 @@ public class ClientTransactions implements IgniteTransactions {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
-        HybridTimestamp readTs = in.tryUnpackNil() ? null : new HybridTimestamp(in.unpackLong(), in.unpackInt());
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly, readTs);
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly);
     }
 }

@@ -156,10 +156,4 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public boolean isReadOnly() {
         return false;
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public HybridTimestamp readTimestamp() {
-        return null;
-    }
 }

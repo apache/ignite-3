@@ -47,21 +47,16 @@ public class ClientTransaction implements Transaction {
     /** Read-only flag. */
     private final boolean isReadOnly;
 
-    /** Read timestamp. */
-    @Nullable
-    private final HybridTimestamp readTs;
-
     /**
      * Constructor.
      *
      * @param ch Channel that the transaction belongs to.
      * @param id Transaction id.
      */
-    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, @Nullable HybridTimestamp readTs) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly) {
         this.ch = ch;
         this.id = id;
         this.isReadOnly = isReadOnly;
-        this.readTs = readTs;
     }
 
     /**
@@ -126,12 +121,6 @@ public class ClientTransaction implements Transaction {
     @Override
     public boolean isReadOnly() {
         return isReadOnly;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public HybridTimestamp readTimestamp() {
-        return readTs;
     }
 
     /**
