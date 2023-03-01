@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Transactions
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading.Tasks;
 
     /// <summary>
@@ -27,6 +28,17 @@ namespace Apache.Ignite.Transactions
     /// </summary>
     public interface ITransaction : IAsyncDisposable
     {
+        /// <summary>
+        /// Gets a value indicating whether this transaction is read-only.
+        /// </summary>
+        [MemberNotNullWhen(true, nameof(ReadTimestamp))]
+        bool IsReadOnly { get; }
+
+        /// <summary>
+        /// Gets the read timestamp of a read-only transaction, or <c>null</c> if the transaction is not read-only.
+        /// </summary>
+        HybridTimestamp? ReadTimestamp { get; }
+
         /// <summary>
         /// Commits the transaction.
         /// </summary>
