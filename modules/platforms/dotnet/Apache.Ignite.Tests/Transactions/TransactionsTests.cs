@@ -256,6 +256,8 @@ namespace Apache.Ignite.Tests.Transactions
             TimeSpan diff = DateTime.UtcNow - tx.ReadTimestamp!.Physical.ToDateTimeUtc();
             Assert.Greater(diff, TimeSpan.Zero);
             Assert.Less(diff, TimeSpan.FromMinutes(1));
+
+            Assert.GreaterOrEqual(tx.ReadTimestamp.Logical, 0);
         }
 
         [Test]
