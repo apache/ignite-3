@@ -18,6 +18,7 @@
 package org.apache.ignite;
 
 import java.util.Collection;
+import java.util.Objects;
 import org.apache.ignite.rest.AuthenticationConfig;
 
 /** Initialization parameters. */
@@ -38,9 +39,23 @@ public class InitParameters {
     /** Authentication configuration, that will be applied after initialization. */
     private final AuthenticationConfig authenticationConfig;
 
-
+    /**
+     * Constructor.
+     *
+     * @param nodeName Name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage <b>and</b> the CMG.
+     * @param clusterName Human-readable name of the cluster.
+     * @param authenticationConfig REST authentication configuration.
+     */
     public InitParameters(String nodeName, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName,
             AuthenticationConfig authenticationConfig) {
+
+        Objects.requireNonNull(nodeName);
+        Objects.requireNonNull(metaStorageNodeNames);
+        Objects.requireNonNull(cmgNodeNames);
+        Objects.requireNonNull(clusterName);
+        Objects.requireNonNull(authenticationConfig);
+
         this.nodeName = nodeName;
         this.metaStorageNodeNames = metaStorageNodeNames;
         this.cmgNodeNames = cmgNodeNames;

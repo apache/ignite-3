@@ -55,6 +55,7 @@ public class InitParametersBuilder {
         return this;
     }
 
+    /** Builds {@link InitParameters}. */
     public InitParameters build() {
         cmgNodeNames = cmgNodeNames.isEmpty() ? metaStorageNodeNames : cmgNodeNames;
 
