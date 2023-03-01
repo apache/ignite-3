@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -202,8 +203,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
-    private final String nodeName;
-
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
@@ -312,7 +311,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Meta storage listener for switch reduce assignments. */
     private final WatchListener assignmentsSwitchRebalanceListener;
 
-    private volatile MvGc mvGc;
+    private final MvGc mvGc;
 
     /**
      * Creates a new table manager.
@@ -351,7 +350,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
-        this.nodeName = nodeName;
         this.tablesCfg = tablesCfg;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -457,12 +455,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
 
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
+
+        mvGc = new MvGc(nodeName, tablesCfg.gcThreads().value());
     }
 
     @Override
     public void start() {
-        mvGc = new MvGc(nodeName, tablesCfg.gcThreads().value());
-
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
@@ -1041,7 +1039,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<Runnable> stopping = new ArrayList<>();
 
-            AtomicReference<Exception> exception = new AtomicReference<>();
+            AtomicReference<Throwable> throwable = new AtomicReference<>();
 
             AtomicBoolean nodeStoppingEx = new AtomicBoolean();
 
@@ -1051,32 +1049,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 stopping.add(() -> {
                     try {
                         raftMgr.stopRaftNodes(replicationGroupId);
-                    } catch (Exception e) {
-                        if (!exception.compareAndSet(null, e)) {
-                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                                exception.get().addSuppressed(e);
-                            }
-                        }
-
-                        if (e instanceof NodeStoppingException) {
-                            nodeStoppingEx.set(true);
-                        }
+                    } catch (Throwable t) {
+                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
                 });
 
                 stopping.add(() -> {
                     try {
                         replicaMgr.stopReplica(replicationGroupId);
-                    } catch (Exception e) {
-                        if (!exception.compareAndSet(null, e)) {
-                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                                exception.get().addSuppressed(e);
-                            }
-                        }
-
-                        if (e instanceof NodeStoppingException) {
-                            nodeStoppingEx.set(true);
-                        }
+                    } catch (Throwable t) {
+                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
                 });
 
@@ -1086,16 +1068,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     try {
                         // Should be done fairly quickly.
                         removeFromGcFuture.join();
-                    } catch (Exception e) {
-                        if (!exception.compareAndSet(null, e)) {
-                            if (!(e.getCause() instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                                exception.get().addSuppressed(e);
-                            }
-                        }
-
-                        if (e.getCause() instanceof NodeStoppingException) {
-                            nodeStoppingEx.set(true);
-                        }
+                    } catch (Throwable t) {
+                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
                 });
             }
@@ -1108,14 +1082,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         table.internalTable().txStateStorage(),
                         table.internalTable()
                 );
-            } catch (Exception e) {
-                if (!exception.compareAndSet(null, e)) {
-                    exception.get().addSuppressed(e);
-                }
+            } catch (Throwable t) {
+                handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
             }
 
-            if (exception.get() != null) {
-                LOG.info("Unable to stop table [name={}, tableId={}]", exception.get(), table.name(), table.tableId());
+            if (throwable.get() != null) {
+                LOG.info("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
             }
         }
     }
@@ -2308,5 +2280,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         .join();
             }
         });
+    }
+
+    private static void handleExceptionOnCleanUpTablesResources(
+            Throwable t,
+            AtomicReference<Throwable> throwable,
+            AtomicBoolean nodeStoppingEx
+    ) {
+        if (t instanceof CompletionException || t instanceof ExecutionException) {
+            t = t.getCause();
+        }
+
+        if (!throwable.compareAndSet(null, t)) {
+            if (!(t instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                throwable.get().addSuppressed(t);
+            }
+        }
+
+        if (t instanceof NodeStoppingException) {
+            nodeStoppingEx.set(true);
+        }
     }
 }

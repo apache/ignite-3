@@ -419,7 +419,7 @@ public class ErrorGroups {
     /**
      * Garbage collector error group.
      */
-    public static class Gc {
+    public static class GarbageCollector {
         /** Garbage collector error group. */
         public static final ErrorGroup GC_ERR_GROUP = ErrorGroup.newGroup("GC", 14);
 

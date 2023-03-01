@@ -39,7 +39,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ErrorGroups.Gc;
+import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -51,7 +51,7 @@ public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
 
     /** GC batch size for the storage. */
-    static final int GC_BUTCH_SIZE = 5;
+    static final int GC_BATCH_SIZE = 5;
 
     /** Garbage collection thread pool. */
     private final ExecutorService executor;
@@ -92,7 +92,7 @@ public class MvGc implements ManuallyCloseable {
      *
      * @param tablePartitionId Table partition ID.
      * @param storageUpdateHandler Storage update handler.
-     * @throws IgniteInternalException with {@link Gc#CLOSED_ERR} If the garbage collector is closed.
+     * @throws IgniteInternalException with {@link GarbageCollector#CLOSED_ERR} If the garbage collector is closed.
      */
     public void addStorage(TablePartitionId tablePartitionId, StorageUpdateHandler storageUpdateHandler) {
         inBusyLock(() -> {
@@ -114,7 +114,7 @@ public class MvGc implements ManuallyCloseable {
      *
      * @param tablePartitionId Table partition ID.
      * @return Storage garbage collection completion future.
-     * @throws IgniteInternalException with {@link Gc#CLOSED_ERR} If the garbage collector is closed.
+     * @throws IgniteInternalException with {@link GarbageCollector#CLOSED_ERR} If the garbage collector is closed.
      */
     public CompletableFuture<Void> removeStorage(TablePartitionId tablePartitionId) {
         return inBusyLock(() -> {
@@ -136,7 +136,7 @@ public class MvGc implements ManuallyCloseable {
      * <p>If the update is successful, it will schedule a new garbage collection for all storages.
      *
      * @param newLwm New low watermark.
-     * @throws IgniteInternalException with {@link Gc#CLOSED_ERR} If the garbage collector is closed.
+     * @throws IgniteInternalException with {@link GarbageCollector#CLOSED_ERR} If the garbage collector is closed.
      */
     public void updateLowWatermark(HybridTimestamp newLwm) {
         inBusyLock(() -> {
@@ -178,7 +178,7 @@ public class MvGc implements ManuallyCloseable {
             GcStorageHandler storageHandler = storageHandlerByPartitionId.compute(tablePartitionId, (id, gcStorageHandler) -> {
                 if (gcStorageHandler == null) {
                     // Storage has been removed from garbage collection.
-                    return gcStorageHandler;
+                    return null;
                 }
 
                 boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(null, new CompletableFuture<>());
@@ -200,7 +200,7 @@ public class MvGc implements ManuallyCloseable {
             try {
                 boolean scheduleGcForStorageAgain = true;
 
-                for (int i = 0; i < GC_BUTCH_SIZE && scheduleGcForStorageAgain; i++) {
+                for (int i = 0; i < GC_BATCH_SIZE && scheduleGcForStorageAgain; i++) {
                     HybridTimestamp lowWatermark = lowWatermarkReference.get();
 
                     assert lowWatermark != null : tablePartitionId;
@@ -229,7 +229,7 @@ public class MvGc implements ManuallyCloseable {
 
     private <T> T inBusyLock(Supplier<T> supplier) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(Gc.CLOSED_ERR);
+            throw new IgniteInternalException(GarbageCollector.CLOSED_ERR);
         }
 
         try {

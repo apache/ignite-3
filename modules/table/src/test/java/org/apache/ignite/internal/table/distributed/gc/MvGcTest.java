@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.lang.ErrorGroups.Gc;
+import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -106,7 +106,6 @@ public class MvGcTest {
         assertThat(invokeVacuumMethodFuture1, willCompleteSuccessfully());
 
         // What happens if we increase low watermark ?
-
         CompletableFuture<Void> invokeVacuumMethodFuture2 = new CompletableFuture<>();
         CompletableFuture<Void> invokeVacuumMethodFuture3 = new CompletableFuture<>();
 
@@ -142,7 +141,6 @@ public class MvGcTest {
         assertThat(invokeVacuumMethodFuture1, willCompleteSuccessfully());
 
         // What happens if we try set same low watermark ?
-
         HybridTimestamp sameLowWatermark = new HybridTimestamp(2, 2);
 
         CompletableFuture<Void> invokeVacuumMethodFutureForSame0 = new CompletableFuture<>();
@@ -158,7 +156,6 @@ public class MvGcTest {
         assertThat(invokeVacuumMethodFutureForSame1, willTimeoutFast());
 
         // What happens if we try set same lower watermark ?
-
         HybridTimestamp lowerLowWatermark = new HybridTimestamp(1, 1);
 
         CompletableFuture<Void> invokeVacuumMethodFutureForLower0 = new CompletableFuture<>();
@@ -178,7 +175,7 @@ public class MvGcTest {
 
     @Test
     void testCountInvokeVacuum() throws Exception {
-        CountDownLatch latch = new CountDownLatch(MvGc.GC_BUTCH_SIZE + 2);
+        CountDownLatch latch = new CountDownLatch(MvGc.GC_BATCH_SIZE + 2);
 
         StorageUpdateHandler storageUpdateHandler = createWithCountDownOnVacuum(latch);
 
@@ -271,7 +268,6 @@ public class MvGcTest {
         assertThat(gc.removeStorage(tablePartitionId), willCompleteSuccessfully());
 
         // What happens if we update the low watermark?
-
         CompletableFuture<Void> invokeVacuumMethodFuture1 = new CompletableFuture<>();
 
         completeFutureOnVacuum(storageUpdateHandler, invokeVacuumMethodFuture1, null);
@@ -353,6 +349,6 @@ public class MvGcTest {
     private static void assertThrowsClosed(Executable executable) {
         IgniteInternalException exception = assertThrows(IgniteInternalException.class, executable);
 
-        assertEquals(Gc.CLOSED_ERR, exception.code());
+        assertEquals(GarbageCollector.CLOSED_ERR, exception.code());
     }
 }
