@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,15 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+package org.apache.ignite.internal.schema;
 
-using BenchmarkDotNet.Running;
-using Table;
+import org.jetbrains.annotations.Nullable;
 
-internal static class Program
-{
-    private static void Main()
-    {
-        BenchmarkRunner.Run<TupleGetBenchmarks>();
-    }
+/**
+ * An entity that stores underlying data in a {@link BinaryTuple}.
+ */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface BinaryTupleContainer {
+    /**
+     * Returns the underlying binary tuple, if present.
+     *
+     * @return Underlying binary tuple.
+     */
+    @Nullable BinaryTuple binaryTuple();
 }
