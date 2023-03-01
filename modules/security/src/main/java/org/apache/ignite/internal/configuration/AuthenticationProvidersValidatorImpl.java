@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static org.apache.commons.lang3.StringUtils.isBlank;
-
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.rest.AuthenticationType;
 
 /**
@@ -49,10 +48,10 @@ public class AuthenticationProvidersValidatorImpl implements
         } else {
             if (authenticationType == AuthenticationType.BASIC) {
                 BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-                if (isBlank(basicAuthProviderView.login())) {
+                if (StringUtils.nullOrBlank(basicAuthProviderView.login())) {
                     ctx.addIssue(new ValidationIssue(key, "Login must not be blank"));
                 }
-                if (isBlank(basicAuthProviderView.password())) {
+                if (StringUtils.nullOrBlank(basicAuthProviderView.password())) {
                     ctx.addIssue(new ValidationIssue(key, "Password must not be blank"));
                 }
             }

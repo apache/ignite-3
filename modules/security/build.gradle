@@ -27,34 +27,19 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 description = 'ignite-security'
 
 dependencies {
+    implementation project(path: ':ignite-core')
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor libs.micronaut.inject.annotation.processor
-    annotationProcessor libs.micronaut.openapi
 
     implementation project(':ignite-api')
-    implementation project(':ignite-configuration')
-    implementation project(':ignite-rest-api')
     implementation project(':ignite-core')
-    implementation project(':ignite-network')
+    implementation project(':ignite-configuration')
     implementation libs.jetbrains.annotations
-    implementation libs.micronaut.inject
-    implementation libs.micronaut.http.server.netty
-    implementation libs.micronaut.openapi
-    implementation libs.micronaut.security
-    implementation libs.micronaut.security.annotations
-    implementation libs.micronaut.reactor
-    implementation libs.micronaut.reactor.http.client
-    implementation libs.jackson.databind
     implementation libs.auto.service.annotations
 
     annotationProcessor libs.auto.service
 
-    testAnnotationProcessor libs.micronaut.inject.annotation.processor
-
     testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
