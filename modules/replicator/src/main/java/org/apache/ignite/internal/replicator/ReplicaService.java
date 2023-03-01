@@ -55,7 +55,7 @@ public class ReplicaService {
     private final HybridClock clock;
 
     /** Requests to retry. */
-    private final Map<ClusterNode, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
 
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
@@ -77,18 +77,18 @@ public class ReplicaService {
     /**
      * Sends request to the replica node.
      *
-     * @param node Cluster node which holds a replica.
+     * @param targetNodeConsistentId A consistent id of the replica node..
      * @param req  Replica request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
-    private <R> CompletableFuture<R> sendToReplica(ClusterNode node, ReplicaRequest req) {
+    private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
 
         AtomicReference<CompletableFuture<R>> res = new AtomicReference<>(new CompletableFuture<>());
 
         // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
-        messagingService.invoke(node, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
+        messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
             if (throwable != null) {
                 if (throwable instanceof CompletionException) {
                     throwable = throwable.getCause();
@@ -114,15 +114,15 @@ public class ReplicaService {
                     var errResp = (ErrorReplicaResponse) response;
 
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
-                        pendingInvokes.compute(node, (clusterNode, fut) -> {
+                        pendingInvokes.compute(targetNodeConsistentId, (clusterNode, fut) -> {
                             if (fut == null) {
                                 AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
                                         .groupId(req.groupId())
                                         .build();
 
-                                fut = messagingService.invoke(node, awaitReplicaReq, RPC_TIMEOUT)
+                                fut = messagingService.invoke(targetNodeConsistentId, awaitReplicaReq, RPC_TIMEOUT)
                                         .whenComplete((response0, throwable0) -> {
-                                            pendingInvokes.remove(node);
+                                            pendingInvokes.remove(targetNodeConsistentId);
                                         });
                             }
 
@@ -142,7 +142,7 @@ public class ReplicaService {
                                                 throwable0));
                                     }
                                 } else {
-                                    res.get().thenCompose(ignore -> sendToReplica(node, req));
+                                    res.get().thenCompose(ignore -> sendToReplica(targetNodeConsistentId, req));
 
                                     res.get().complete(null);
                                 }
@@ -175,7 +175,20 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
-        return sendToReplica(node, request);
+        return sendToReplica(node.name(), request);
+    }
+
+    /**
+     * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
+     *
+     * @param replicaConsistentId A consistent id of the replica node.
+     * @param request Request.
+     * @return Response future with either evaluation result or completed exceptionally.
+     * @see NodeStoppingException If either supplier or demander node is stopping.
+     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     */
+    public <R> CompletableFuture<R> invoke(String replicaConsistentId, ReplicaRequest request) {
+        return sendToReplica(replicaConsistentId, request);
     }
 
     /**
@@ -189,6 +202,6 @@ public class ReplicaService {
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
-        return sendToReplica(node, request);
+        return sendToReplica(node.name(), request);
     }
 }

@@ -160,7 +160,7 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
@@ -417,14 +417,14 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(tablesConfig.tables().get("foo"), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         CountDownLatch networkInvokeLatch = new CountDownLatch(1);
 
         MessagingService messagingService = mock(MessagingService.class);
 
-        when(messagingService.invoke(any(), any(), anyLong())).then(invocation -> {
+        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong())).then(invocation -> {
             networkInvokeLatch.countDown();
 
             return new CompletableFuture<>();
@@ -473,7 +473,7 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
@@ -541,7 +541,7 @@ public class IncomingSnapshotCopierTest {
         MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(getTableConfig(), tablesConfig));
         TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
-        incomingMvTableStorage.getOrCreateMvPartition(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
         incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,

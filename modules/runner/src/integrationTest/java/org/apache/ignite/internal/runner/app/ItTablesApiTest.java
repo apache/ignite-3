@@ -104,7 +104,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeEach
-    void beforeEach(TestInfo testInfo) throws Exception {
+    void beforeEach(TestInfo testInfo) {
         List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
         for (int i = 0; i < nodesBootstrapCfg.size(); i++) {
@@ -208,12 +208,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
     /**
      * Test scenario when we have lagged node, and tables with the same name are deleted and created again.
-     *
-     * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17775")
-    public void testGetTableFromLaggedNode() throws Exception {
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18379")
+    public void testGetTableFromLaggedNode() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = clusterNodes.get(0);

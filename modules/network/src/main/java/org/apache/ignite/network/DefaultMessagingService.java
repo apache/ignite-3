@@ -154,6 +154,20 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return invoke0(recipient, msg, timeout);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, NetworkMessage msg, long timeout) {
+        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+
+        if (recipient == null) {
+            return failedFuture(
+                    new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
+            );
+        }
+
+        return invoke0(recipient, msg, timeout);
+    }
+
     /**
      * Sends a message. If the target is the current node, then message will be delivered immediately.
      *

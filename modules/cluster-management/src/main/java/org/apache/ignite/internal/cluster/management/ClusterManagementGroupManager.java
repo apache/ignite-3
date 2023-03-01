@@ -780,6 +780,25 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     /**
+     * Returns a future that, when complete, resolves into a list of node names that host the CMG.
+     *
+     * @return Future that, when complete, resolves into a list of node names that host the CMG.
+     */
+    public CompletableFuture<Set<String>> cmgNodes() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenCompose(CmgRaftService::readClusterState)
+                    .thenApply(ClusterState::cmgNodes);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Returns a future that, when complete, resolves into a logical topology snapshot.
      *
      * @return Future that, when complete, resolves into a logical topology snapshot.

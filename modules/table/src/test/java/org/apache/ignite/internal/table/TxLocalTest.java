@@ -41,6 +41,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
@@ -79,7 +80,7 @@ public class TxLocalTest extends TxAbstractTest {
                     CompletableFuture<Object> invoke = replicaListener.invoke(request);
                     return invoke;
             }
-        ).when(replicaSvc).invoke(any(), any());
+        ).when(replicaSvc).invoke(any(ClusterNode.class), any());
 
         doAnswer(invocationOnMock -> {
             TxStateReplicaRequest request = invocationOnMock.getArgument(1);

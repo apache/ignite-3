@@ -27,7 +27,6 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -79,12 +78,6 @@ public class SortedIndexImpl implements SortedIndex {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<BinaryRow> lookup(int partId, @Nullable InternalTransaction tx, BinaryTuple key, @Nullable BitSet columns) {
-        return table.lookup(partId, tx, id, key, columns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
@@ -105,19 +98,6 @@ public class SortedIndexImpl implements SortedIndex {
             @Nullable BitSet columns
     ) {
         return table.lookup(partId, timestamp, recipientNode, id, key, columns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> scan(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @Nullable BinaryTuplePrefix leftBound,
-            @Nullable BinaryTuplePrefix rightBound,
-            int flags,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return table.scan(partId, tx, id, leftBound, rightBound, flags, columnsToInclude);
     }
 
     /** {@inheritDoc} */

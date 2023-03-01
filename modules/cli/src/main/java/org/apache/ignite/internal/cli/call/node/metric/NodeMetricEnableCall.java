@@ -18,17 +18,23 @@
 package org.apache.ignite.internal.cli.call.node.metric;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 
 /** Enables or disables metric source. */
 @Singleton
 public class NodeMetricEnableCall implements Call<NodeMetricEnableCallInput, String> {
+    private final ApiClientFactory clientFactory;
+
+    public NodeMetricEnableCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CallOutput<String> execute(NodeMetricEnableCallInput input) {
@@ -47,7 +53,7 @@ public class NodeMetricEnableCall implements Call<NodeMetricEnableCallInput, Str
         }
     }
 
-    private static NodeMetricApi createApiClient(NodeMetricEnableCallInput input) {
-        return new NodeMetricApi(Configuration.getDefaultApiClient().setBasePath(input.getEndpointUrl()));
+    private NodeMetricApi createApiClient(NodeMetricEnableCallInput input) {
+        return new NodeMetricApi(clientFactory.getClient(input.getEndpointUrl()));
     }
 }

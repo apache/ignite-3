@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -69,7 +72,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -147,6 +149,8 @@ public class StopCalciteModuleTest {
         when(clusterSrvc.messagingService()).thenReturn(msgSrvc);
         when(clusterSrvc.topologyService()).thenReturn(topologySrvc);
         when(topologySrvc.localMember()).thenReturn(localNode);
+        when(topologySrvc.allMembers()).thenReturn(List.of(localNode));
+        when(topologySrvc.getByConsistentId(any())).thenReturn(localNode);
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
                 1,
@@ -202,7 +206,7 @@ public class StopCalciteModuleTest {
 
                 s.onComplete();
             };
-        }).when(tbl).scan(anyInt(), any());
+        }).when(tbl).scan(anyInt(), any(), any());
 
         LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }
@@ -219,13 +223,14 @@ public class StopCalciteModuleTest {
                 txManager,
                 distributionZoneManager,
                 Map::of,
+                mock(ReplicaService.class),
                 clock
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
         when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
 
-        when(txManager.begin()).thenReturn(mock(InternalTransaction.class));
+        when(txManager.begin(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().configuration()).thenReturn(mock(TableConfiguration.class));
         when(tbl.storage().configuration().partitions()).thenReturn(mock(ConfigurationValue.class));
