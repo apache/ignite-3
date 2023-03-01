@@ -421,7 +421,7 @@ public class ErrorGroups {
      */
     public static class Gc {
         /** Garbage collector error group. */
-        public static final ErrorGroup GC_ERR_GROUP = ErrorGroup.newGroup("GC", 13);
+        public static final ErrorGroup GC_ERR_GROUP = ErrorGroup.newGroup("GC", 14);
 
         /** Garbage collector closed error. */
         public static final int CLOSED_ERR = GC_ERR_GROUP.registerErrorCode(1);
