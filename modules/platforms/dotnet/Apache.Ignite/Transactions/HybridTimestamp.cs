@@ -17,9 +17,11 @@
 
 namespace Apache.Ignite.Transactions;
 
+using NodaTime;
+
 /// <summary>
 /// A hybrid timestamp that combines physical clock and logical clock.
 /// </summary>
 /// <param name="Physical">Physical time.</param>
 /// <param name="Logical">Logical time.</param>
-public record HybridTimestamp(long Physical, int Logical); // TODO: Conversion to NodaTime types?
+public record HybridTimestamp(Instant Physical, int Logical);

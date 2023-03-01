@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Transactions
 {
     using System.Threading.Tasks;
     using Ignite.Transactions;
+    using NodaTime;
     using Proto;
 
     /// <summary>
@@ -56,8 +57,9 @@ namespace Apache.Ignite.Internal.Transactions
             {
                 var reader = resBuf.GetReader();
                 var txId = reader.ReadInt64();
+
                 var readTs = options.ReadOnly
-                    ? new HybridTimestamp(reader.ReadInt64(), reader.ReadInt32())
+                    ? new HybridTimestamp(Instant.FromUnixTimeMilliseconds(reader.ReadInt64()), reader.ReadInt32())
                     : null;
 
                 return new Transaction(txId, socket, _socket, options.ReadOnly, readTs);

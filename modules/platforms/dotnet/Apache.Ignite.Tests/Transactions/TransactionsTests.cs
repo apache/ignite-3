@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
+    using NodaTime;
     using NUnit.Framework;
     using Table;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
@@ -251,6 +252,10 @@ namespace Apache.Ignite.Tests.Transactions
 
             Assert.IsTrue(tx.IsReadOnly);
             Assert.IsNotNull(tx.ReadTimestamp);
+
+            TimeSpan diff = DateTime.UtcNow - tx.ReadTimestamp!.Physical.ToDateTimeUtc();
+            Assert.Greater(diff, TimeSpan.Zero);
+            Assert.Less(diff, TimeSpan.FromMinutes(1));
         }
 
         [Test]
