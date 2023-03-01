@@ -122,6 +122,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -200,6 +201,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * TODO: will be removed after fix of the issue.
      */
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
+
+    private final String nodeName;
 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
@@ -309,6 +312,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Meta storage listener for switch reduce assignments. */
     private final WatchListener assignmentsSwitchRebalanceListener;
 
+    private volatile MvGc mvGc;
+
     /**
      * Creates a new table manager.
      *
@@ -346,6 +351,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager
     ) {
+        this.nodeName = nodeName;
         this.tablesCfg = tablesCfg;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -453,9 +459,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
+        mvGc = new MvGc(nodeName, tablesCfg.gcThreads().value());
+
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
@@ -742,12 +749,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTbl, partId));
 
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
-                        .thenApply(storage -> new StorageUpdateHandler(
-                                partId,
-                                storage,
-                                table.indexStorageAdapters(partId),
-                                tblCfg.dataStorage()
-                        ));
+                        .thenApply(storage -> {
+                            StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                                    partId,
+                                    storage,
+                                    table.indexStorageAdapters(partId),
+                                    tblCfg.dataStorage()
+                            );
+
+                            mvGc.addStorage(replicaGrpId, storageUpdateHandler);
+
+                            return storageUpdateHandler;
+                        });
 
                 CompletableFuture<Void> startGroupFut;
 
@@ -803,7 +816,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                table
+                                                storageUpdateHandler
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -957,7 +970,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            TableImpl tableImpl
+            StorageUpdateHandler storageUpdateHandler
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -977,7 +990,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionKey,
                         mvTableStorage,
                         txStateTableStorage,
-                        () -> tableImpl.indexStorageAdapters(partitionKey.partitionId()).get().values()
+                        storageUpdateHandler,
+                        mvGc
                 ),
                 incomingSnapshotsExecutor
         ));
@@ -1061,6 +1075,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         if (e instanceof NodeStoppingException) {
+                            nodeStoppingEx.set(true);
+                        }
+                    }
+                });
+
+                CompletableFuture<Void> removeFromGcFuture = mvGc.removeStorage(replicationGroupId);
+
+                stopping.add(() -> {
+                    try {
+                        // Should be done fairly quickly.
+                        removeFromGcFuture.join();
+                    } catch (Exception e) {
+                        if (!exception.compareAndSet(null, e)) {
+                            if (!(e.getCause() instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                                exception.get().addSuppressed(e);
+                            }
+                        }
+
+                        if (e.getCause() instanceof NodeStoppingException) {
                             nodeStoppingEx.set(true);
                         }
                     }
@@ -1246,12 +1279,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         try {
             int partitions = assignment.size();
 
+            CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
+
             for (int p = 0; p < partitions; p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(tblId, p);
 
                 raftMgr.stopRaftNodes(replicationGroupId);
 
                 replicaMgr.stopReplica(replicationGroupId);
+
+                removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
             }
 
             tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
@@ -1273,10 +1310,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // TODO: IGNITE-18703 Destroy raft log and meta
 
-            CompletableFuture<Void> destroyTableStoragesFuture = allOf(
-                    table.internalTable().storage().destroy(),
-                    runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor)
-            );
+            CompletableFuture<Void> destroyTableStoragesFuture = allOf(removeStorageFromGcFutures)
+                    .thenCompose(unused -> allOf(
+                            table.internalTable().storage().destroy(),
+                            runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor))
+                    );
 
             CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
@@ -1998,11 +2036,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tblCfg.dataStorage()
                         );
 
+                        mvGc.addStorage(replicaGrpId, storageUpdateHandler);
+
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                tbl
+                                storageUpdateHandler
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -2260,10 +2300,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 // TODO: IGNITE-18703 Destroy raft log and meta
 
                 // Should be done fairly quickly.
-                allOf(
-                        internalTable.storage().destroyPartition(partitionId),
-                        runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-                ).join();
+                mvGc.removeStorage(tablePartitionId)
+                        .thenCompose(unused -> allOf(
+                                internalTable.storage().destroyPartition(partitionId),
+                                runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+                        ))
+                        .join();
             }
         });
     }

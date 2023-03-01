@@ -101,9 +101,7 @@ public class MvGc implements ManuallyCloseable {
                     new GcStorageHandler(storageUpdateHandler)
             );
 
-            assert previous == null : "Storage already added for GC: " + tablePartitionId;
-
-            if (lowWatermarkReference.get() != null) {
+            if (previous == null && lowWatermarkReference.get() != null) {
                 scheduleGcForStorage(tablePartitionId);
             }
         });
