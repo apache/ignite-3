@@ -148,7 +148,7 @@ public class IgnitionImpl implements Ignition {
         List<String> nodeNames = new ArrayList<>(nodes.keySet());
 
         if (!nodeNames.isEmpty()) {
-            LOG.info("Going to stop the following Ignite instances: " + nodeNames);
+            LOG.info("Going to stop Ignite instances: " + nodeNames);
 
             for (String nodeName : nodeNames) {
                 stop(nodeName);
