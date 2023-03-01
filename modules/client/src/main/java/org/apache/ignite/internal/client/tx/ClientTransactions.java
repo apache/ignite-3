@@ -24,7 +24,6 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -74,8 +73,7 @@ public class ClientTransactions implements IgniteTransactions {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
-        HybridTimestamp readTs = in.tryUnpackNil() ? null : new HybridTimestamp(in.unpackLong(), in.unpackInt());
 
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly, readTs);
+        return new ClientTransaction(r.clientChannel(), id, isReadOnly);
     }
 }
