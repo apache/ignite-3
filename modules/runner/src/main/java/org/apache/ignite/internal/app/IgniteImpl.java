@@ -649,7 +649,8 @@ public class IgniteImpl implements Ignite {
                             lifecycleManager.startComponents(
                                     metaStorageMgr,
                                     clusterCfgMgr,
-                                    placementDriverMgr,
+                                    // TODO: IGNITE-16985 Design table management flow
+                                    // placementDriverMgr,
                                     metricManager,
                                     distributionZoneManager,
                                     computeComponent,
