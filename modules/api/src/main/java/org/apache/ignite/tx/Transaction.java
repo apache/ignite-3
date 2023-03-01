@@ -18,8 +18,6 @@
 package org.apache.ignite.tx;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The transaction.
