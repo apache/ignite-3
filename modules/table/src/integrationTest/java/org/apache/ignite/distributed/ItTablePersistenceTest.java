@@ -171,7 +171,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         replicaService = mock(ReplicaService.class);
 
-        when(replicaService.invoke(any(), any()))
+        when(replicaService.invoke(any(ClusterNode.class), any()))
                 .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(1)));
 
         for (int i = 0; i < nodes(); i++) {
@@ -372,7 +372,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartitionStorage);
 
-                    StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(0, partitionDataStorage, Map::of);
+                    StorageUpdateHandler storageUpdateHandler =
+                            new StorageUpdateHandler(0, partitionDataStorage, Map::of, tableCfg.dataStorage());
 
                     PartitionListener listener = new PartitionListener(
                             partitionDataStorage,

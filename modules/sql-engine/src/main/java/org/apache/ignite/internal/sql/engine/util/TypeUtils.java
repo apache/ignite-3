@@ -218,7 +218,7 @@ public class TypeUtils {
         Type storageType = ectx.getTypeFactory().getResultClass(fieldType);
 
         if (isConvertableType(fieldType)) {
-            return v -> fromInternal(ectx, v, storageType);
+            return v -> fromInternal(v, storageType);
         }
 
         return Function.identity();
@@ -242,18 +242,18 @@ public class TypeUtils {
      *
      * @deprecated The implementation of this method is incorrect because it relies on the assumption that
      *      {@code val.getClass() == storageType(val)} is always true, which sometimes is not the case.
-     *      Use {@link #toInternal(ExecutionContext, Object, Type)} that provides type information instead.
+     *      Use {@link #toInternal(Object, Type)} that provides type information instead.
      */
     @Deprecated
-    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val) {
-        return val == null ? null : toInternal(ectx, val, val.getClass());
+    public static @Nullable Object toInternal(Object val) {
+        return val == null ? null : toInternal(val, val.getClass());
     }
 
     /**
      * ToInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object toInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object toInternal(Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class) {
@@ -302,7 +302,7 @@ public class TypeUtils {
      * FromInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
+    public static @Nullable Object fromInternal(@Nullable  Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class && val instanceof Integer) {

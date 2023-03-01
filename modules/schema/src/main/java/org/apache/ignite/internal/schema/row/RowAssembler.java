@@ -107,7 +107,7 @@ public class RowAssembler {
      * @param val    Value.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
-    public static void writeValue(RowAssembler rowAsm, NativeType type, Object val) throws SchemaMismatchException {
+    public static void writeValue(RowAssembler rowAsm, NativeType type, @Nullable Object val) throws SchemaMismatchException {
         if (val == null) {
             rowAsm.appendNull();
 

@@ -206,10 +206,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             return value;
         }));
         Config other = ConfigFactory.parseMap(map);
-        Config newConfig = parseConfigOptions().withFallback(other).resolve();
+        Config newConfig = other.withFallback(parseConfigOptions()).resolve();
         return newConfig.isEmpty()
                 ? ""
-                : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true));
+                : newConfig.root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
     }
 
     private Config parseConfigOptions() {
@@ -218,10 +218,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 ConfigParseOptions.defaults().setAllowMissing(false));
     }
 
-    /**
-     * Checking that configuration file is still existed and restore
-     * it in case when it deleted with latest applied state.
-     */
+    /** Check that configuration file still exists and restore it with latest applied state in case it was deleted. */
     private void checkAndRestoreConfigFile() {
         if (!configPath.toFile().exists()) {
             try {

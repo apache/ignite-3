@@ -47,7 +47,7 @@ public class RepeatedFinishClientTransactionTest {
 
         TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch);
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -85,7 +85,7 @@ public class RepeatedFinishClientTransactionTest {
 
         TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch);
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -122,7 +122,7 @@ public class RepeatedFinishClientTransactionTest {
 
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -148,7 +148,7 @@ public class RepeatedFinishClientTransactionTest {
 
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, null);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 

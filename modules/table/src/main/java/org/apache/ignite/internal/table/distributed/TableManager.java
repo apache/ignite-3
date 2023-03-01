@@ -742,7 +742,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTbl, partId));
 
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
-                        .thenApply(storage -> new StorageUpdateHandler(partId, storage, table.indexStorageAdapters(partId)));
+                        .thenApply(storage -> new StorageUpdateHandler(
+                                partId,
+                                storage,
+                                table.indexStorageAdapters(partId),
+                                tblCfg.dataStorage()
+                        ));
 
                 CompletableFuture<Void> startGroupFut;
 
@@ -1986,8 +1991,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
-                        StorageUpdateHandler storageUpdateHandler =
-                                new StorageUpdateHandler(partId, partitionDataStorage, tbl.indexStorageAdapters(partId));
+                        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                                partId,
+                                partitionDataStorage,
+                                tbl.indexStorageAdapters(partId),
+                                tblCfg.dataStorage()
+                        );
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),

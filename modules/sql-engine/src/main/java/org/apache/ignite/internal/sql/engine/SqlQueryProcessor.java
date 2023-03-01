@@ -52,6 +52,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -73,7 +74,6 @@ import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -130,6 +130,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Event listeners to close. */
     private final List<Pair<Event, EventListener>> evtLsnrs = new ArrayList<>();
 
+    private final ReplicaService replicaService;
+
     private volatile SessionManager sessionManager;
 
     private volatile QueryTaskExecutor taskExecutor;
@@ -160,6 +162,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             TxManager txManager,
             DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
+            ReplicaService replicaService,
             HybridClock clock
     ) {
         this.registry = registry;
@@ -171,6 +174,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.txManager = txManager;
         this.distributionZoneManager = distributionZoneManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
+        this.replicaService = replicaService;
         this.clock = clock;
     }
 
@@ -203,7 +207,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(tableManager, schemaManager, registry, busyLock);
+        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(
+                tableManager,
+                schemaManager,
+                replicaService,
+                clock,
+                registry,
+                busyLock
+        );
 
         sqlSchemaManager.registerListener(prepareSvc);
 
@@ -400,13 +411,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                 })
                 .thenCompose(sqlNode -> {
                     boolean rwOp = dataModificationOp(sqlNode);
-                    boolean useDistributedTraits = outerTx != null ? outerTx.isReadOnly() : !rwOp;
 
                     BaseQueryContext ctx = BaseQueryContext.builder()
                             .frameworkConfig(
                                     Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                             .defaultSchema(schema)
-                                            .traitDefs(useDistributedTraits ? Commons.DISTRIBUTED_TRAITS_SET : Commons.LOCAL_TRAITS_SET)
                                             .build()
                             )
                             .logger(LOG)
@@ -420,14 +429,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 context.maybeUnwrap(QueryValidator.class)
                                         .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
 
-                                boolean implicitTxRequired = outerTx == null && rwOp;
+                                boolean implicitTxRequired = outerTx == null;
 
-                                InternalTransaction tx = implicitTxRequired ? txManager.begin()
-                                        : outerTx != null ? outerTx : new LocalTxAttributesHolder(null, clock.now());
+                                InternalTransaction tx = implicitTxRequired ? txManager.begin(!rwOp) : outerTx;
 
-                                BaseQueryContext enrichedContext = ctx.toBuilder().transaction(tx).build();
-
-                                var dataCursor = executionSrvc.executePlan(plan, enrichedContext);
+                                var dataCursor = executionSrvc.executePlan(tx, plan, ctx);
 
                                 return new AsyncSqlCursorImpl<>(
                                         SqlQueryType.mapPlanTypeToSqlType(plan.type()),
@@ -490,22 +496,19 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         for (SqlNode sqlNode : nodes) {
-            boolean needStartTx = SqlKind.DML.contains(sqlNode.getKind()) || SqlKind.QUERY.contains(sqlNode.getKind());
             // Only rw transactions for now.
-            InternalTransaction implicitTx = needStartTx ? txManager.begin() : null;
+            InternalTransaction implicitTx = txManager.begin(false);
 
             final BaseQueryContext ctx = BaseQueryContext.builder()
                     .cancel(new QueryCancel())
                     .frameworkConfig(
                             Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                    .traitDefs(needStartTx ? Commons.LOCAL_TRAITS_SET : Commons.DISTRIBUTED_TRAITS_SET)
                                     .defaultSchema(schema)
                                     .build()
                     )
                     .logger(LOG)
                     .parameters(params)
                     .plannerTimeout(PLANNER_TIMEOUT)
-                    .transaction(implicitTx)
                     .build();
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
@@ -518,7 +521,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
                                 plan.metadata(),
                                 implicitTx,
-                                executionSrvc.executePlan(plan, ctx)
+                                executionSrvc.executePlan(implicitTx, plan, ctx)
                         );
                     });
 
@@ -582,8 +585,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                     DEFAULT_SCHEMA_NAME,
                     parameters.table(),
                     parameters.causalityToken()
-                )
-                .thenApply(v -> false);
+            )
+                    .thenApply(v -> false);
         }
     }
 
@@ -600,8 +603,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                     DEFAULT_SCHEMA_NAME,
                     parameters.table(),
                     parameters.causalityToken()
-                )
-                .thenApply(v -> false);
+            )
+                    .thenApply(v -> false);
         }
     }
 
@@ -618,8 +621,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                     DEFAULT_SCHEMA_NAME,
                     parameters.tableName(),
                     parameters.causalityToken()
-                )
-                .thenApply(v -> false);
+            )
+                    .thenApply(v -> false);
         }
     }
 
@@ -650,9 +653,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                            parameters.index(),
-                            parameters.causalityToken()
-                    )
+                    parameters.index(),
+                    parameters.causalityToken()
+            )
                     .thenApply(v -> false);
         }
     }

@@ -52,12 +52,14 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
@@ -83,8 +85,8 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -143,13 +145,14 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testCloseByCursor() throws Exception {
-        var execService = executionServices.get(0);
-        var ctx = createContext();
-        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        var cursor = execService.executePlan(plan, ctx);
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -177,13 +180,14 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testCancelOnInitiator() throws InterruptedException {
-        var execService = executionServices.get(0);
-        var ctx = createContext();
-        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        var cursor = execService.executePlan(plan, ctx);
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -211,9 +215,9 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testInitializationFailedOnRemoteNode() throws InterruptedException {
-        var execService = executionServices.get(0);
-        var ctx = createContext();
-        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
@@ -236,7 +240,8 @@ public class ExecutionServiceImplTest {
             }
         });
 
-        var cursor = execService.executePlan(plan, ctx);
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
@@ -263,13 +268,14 @@ public class ExecutionServiceImplTest {
     public void testQueryMappingFailure() {
         mappingException = new IllegalStateException("Query mapping error");
 
-        var execService = executionServices.get(0);
-        var ctx = createContext();
-        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        var cursor = execService.executePlan(plan, ctx);
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         var batchFut = cursor.requestNextAsync(1);
 
@@ -289,13 +295,14 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testCancelOnRemote() throws InterruptedException {
-        var execService = executionServices.get(0);
-        var ctx = createContext();
-        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        var cursor = execService.executePlan(plan, ctx);
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -324,11 +331,12 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testCursorIsClosedAfterAllDataRead() throws InterruptedException {
-        var execService = executionServices.get(0);
-        var ctx = createContext();
-        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        var cursor = execService.executePlan(plan, ctx);
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         BatchedResult<?> res = await(cursor.requestNextAsync(8));
         assertNotNull(res);
@@ -350,11 +358,12 @@ public class ExecutionServiceImplTest {
      */
     @Test
     public void testCursorIsClosedAfterAllDataRead2() throws InterruptedException {
-        var execService = executionServices.get(0);
-        var ctx = createContext();
-        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        var cursor = execService.executePlan(plan, ctx);
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<List<Object>> cursor = execService.executePlan(tx, plan, ctx);
 
         BatchedResult<?> res = await(cursor.requestNextAsync(9));
         assertNotNull(res);
@@ -420,7 +429,6 @@ public class ExecutionServiceImplTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .transaction(new LocalTxAttributesHolder(UUID.randomUUID(), null))
                 .logger(LOG)
                 .build();
     }

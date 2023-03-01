@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.Arrays;
-import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory.RowHashFunction;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl.SimpleHashFunction;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl.TypesAwareHashFunction;
 import org.junit.jupiter.api.Assertions;
@@ -84,7 +84,7 @@ class HashFunctionsTest {
          */
         int hash(Object[] row, int... keys) {
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            ToIntFunction<Object[]> func;
+            RowHashFunction<Object[]> func;
 
             switch (this) {
                 case SIMPLE:
@@ -105,7 +105,7 @@ class HashFunctionsTest {
                     throw new UnsupportedOperationException();
             }
 
-            return func.applyAsInt(row);
+            return func.hashOf(row);
         }
     }
 }

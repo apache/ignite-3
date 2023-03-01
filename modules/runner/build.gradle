@@ -135,7 +135,6 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     integrationTestImplementation libs.typesafe.config
-
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {
