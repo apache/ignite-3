@@ -38,6 +38,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -236,7 +237,13 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     }
 
     protected void initializeCluster(String metaStorageNodeName) {
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster", disabled());
+        InitParameters initParameters = InitParameters.builder()
+                .setNodeName(metaStorageNodeName)
+                .setMetaStorageNodeNames(List.of(metaStorageNodeName))
+                .setClusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

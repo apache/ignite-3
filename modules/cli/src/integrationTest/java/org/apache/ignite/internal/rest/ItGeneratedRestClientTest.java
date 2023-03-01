@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -122,7 +123,13 @@ public class ItGeneratedRestClientTest {
 
         String metaStorageNode = testNodeName(testInfo, BASE_PORT);
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster", disabled());
+        InitParameters initParameters = InitParameters.builder()
+                .setNodeName(metaStorageNode)
+                .setMetaStorageNodeNames(List.of(metaStorageNode))
+                .setClusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

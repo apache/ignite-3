@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.rest.RestAuthenticationConfig;
@@ -99,7 +100,12 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthenticationConfig.disabled());
+        InitParameters initParameters = InitParameters.builder()
+                .setNodeName(nodeName)
+                .setMetaStorageNodeNames(List.of(nodeName))
+                .setClusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 

@@ -52,6 +52,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -538,7 +539,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthenticationConfig.disabled());
+            InitParameters initParameters = InitParameters.builder()
+                    .setNodeName(nodeName)
+                    .setMetaStorageNodeNames(List.of(nodeName))
+                    .setClusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());
@@ -594,7 +600,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         if (initNeeded) {
             String nodeName = clusterNodesNames.get(0);
 
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthenticationConfig.disabled());
+            InitParameters initParameters = InitParameters.builder()
+                    .setNodeName(nodeName)
+                    .setMetaStorageNodeNames(List.of(nodeName))
+                    .setClusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         return futures.stream()

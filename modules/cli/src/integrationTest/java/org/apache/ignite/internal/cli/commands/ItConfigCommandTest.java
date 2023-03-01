@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.in;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.AbstractCliTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -55,7 +57,13 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster", disabled());
+        InitParameters initParameters = InitParameters.builder()
+                .setNodeName(nodeName)
+                .setMetaStorageNodeNames(List.of(nodeName))
+                .setClusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 

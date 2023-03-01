@@ -43,6 +43,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -133,7 +134,13 @@ public class Cluster {
 
         String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
 
-        IgnitionManager.init(metaStorageAndCmgNodeName, List.of(metaStorageAndCmgNodeName), "cluster", RestAuthenticationConfig.disabled());
+        InitParameters initParameters = InitParameters.builder()
+                .setNodeName(metaStorageAndCmgNodeName)
+                .setMetaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                .setClusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<IgniteImpl> future : futures) {
             assertThat(future, willCompleteSuccessfully());

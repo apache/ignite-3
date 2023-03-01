@@ -41,6 +41,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
@@ -328,7 +329,12 @@ public class ItSqlLogicTest {
 
         String metaStorageNodeName = NODE_NAME_PREFIX + "0";
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster", disabled());
+        InitParameters initParameters = InitParameters.builder()
+                .setNodeName(metaStorageNodeName)
+                .setMetaStorageNodeNames(List.of(metaStorageNodeName))
+                .setClusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

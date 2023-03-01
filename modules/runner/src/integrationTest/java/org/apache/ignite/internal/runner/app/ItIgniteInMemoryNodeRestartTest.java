@@ -36,6 +36,7 @@ import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -118,7 +119,13 @@ public class ItIgniteInMemoryNodeRestartTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthenticationConfig.disabled());
+            InitParameters initParameters = InitParameters.builder()
+                    .setNodeName(nodeName)
+                    .setMetaStorageNodeNames(List.of(nodeName))
+                    .setClusterName("cluster")
+                    .build();
+
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());

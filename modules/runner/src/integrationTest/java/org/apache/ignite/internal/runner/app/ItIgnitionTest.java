@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -199,7 +200,12 @@ class ItIgnitionTest {
         CompletableFuture<Ignite> future = starter.apply(nodeName);
 
         if (startedNodes.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster", RestAuthenticationConfig.disabled());
+            InitParameters initParameters = InitParameters.builder()
+                    .setNodeName(nodeName)
+                    .setMetaStorageNodeNames(List.of(nodeName))
+                    .setClusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());

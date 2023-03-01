@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -59,7 +60,13 @@ public class IgniteRunnerTest {
                 "--node-name", NODE_NAME
         );
 
-        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster", disabled());
+        InitParameters initParameters = InitParameters.builder()
+                .setNodeName(NODE_NAME)
+                .setMetaStorageNodeNames(List.of(NODE_NAME))
+                .setClusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         assertThat(ign, willCompleteSuccessfully());
     }

@@ -24,20 +24,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.configuration.NodeBootstrapConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -140,23 +138,8 @@ public class IgnitionImpl implements Ignition {
     }
 
     @Override
-    public void init(
-            String nodeName,
-            Collection<String> metaStorageNodenodeNames,
-            String clusterName,
-            RestAuthenticationConfig authenticationConfig
-    ) {
-        init(nodeName, metaStorageNodenodeNames, List.of(), clusterName, authenticationConfig);
-    }
-
-    @Override
-    public void init(
-            String nodeName,
-            Collection<String> metaStorageNodeNames,
-            Collection<String> cmgNodeNames,
-            String clusterName,
-            RestAuthenticationConfig authenticationConfig
-    ) {
+    public void init(InitParameters parameters) {
+        String nodeName = parameters.nodeName();
         IgniteImpl node = readyForInitNodes.get(nodeName);
 
         if (node == null) {
@@ -164,7 +147,11 @@ public class IgnitionImpl implements Ignition {
         }
 
         try {
-            node.init(metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig);
+            node.init(parameters.metaStorageNodeNames(),
+                    parameters.cmgNodeNames(),
+                    parameters.clusterName(),
+                    parameters.restAuthenticationConfig()
+            );
         } catch (NodeStoppingException e) {
             throw new IgniteException("Node stop detected during init", e);
         }
