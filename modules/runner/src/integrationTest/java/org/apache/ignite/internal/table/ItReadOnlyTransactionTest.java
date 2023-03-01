@@ -59,7 +59,7 @@ public class ItReadOnlyTransactionTest extends AbstractBasicIntegrationTest {
         Ignite ignite = CLUSTER_NODES.get(0);
 
         ignite.transactions().runInTransaction(tx -> {
-            for (int i=0; i < 100; i++) {
+            for (int i = 0; i < 100; i++) {
                 sql(tx, "INSERT INTO " + TABLE_NAME + " VALUES (?, ?)", i, "str " + i);
             }
 
@@ -95,7 +95,7 @@ public class ItReadOnlyTransactionTest extends AbstractBasicIntegrationTest {
 
             InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
             SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
-            HybridClock clock = ((IgniteImpl)ignite).clock();
+            HybridClock clock = ((IgniteImpl) ignite).clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
@@ -150,7 +150,7 @@ public class ItReadOnlyTransactionTest extends AbstractBasicIntegrationTest {
 
             InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
             SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
-            HybridClock clock = ((IgniteImpl)ignite).clock();
+            HybridClock clock = ((IgniteImpl) ignite).clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
