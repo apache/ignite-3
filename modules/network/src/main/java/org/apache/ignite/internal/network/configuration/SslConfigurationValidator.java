@@ -23,9 +23,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to validate whole key store configuration.
+ * Annotation to validate SSL configuration.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface KeyStoreConfigurationValidator {
+public @interface SslConfigurationValidator {
 }
