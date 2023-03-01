@@ -271,6 +271,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             // Calling it from the compute is fine. Concurrent writes of the same row are impossible, and if we call the compute closure
             // several times, the same tuple will be inserted into the GC queue (timestamp and rowId don't change in this case).
             gcQueue.add(committedVersionChain);
+        } else {
+            if (committedVersionChain.row == null) {
+                return null;
+            }
         }
 
         return committedVersionChain;

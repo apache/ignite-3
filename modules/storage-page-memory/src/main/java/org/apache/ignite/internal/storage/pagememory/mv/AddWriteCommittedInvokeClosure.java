@@ -81,6 +81,12 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
             throw new StorageException("Write intent exists: [rowId={}, {}]", oldRow.rowId(), storage.createStorageInfo());
         }
 
+        if (row == null && oldRow == null) {
+            operationType = OperationType.NOOP;
+
+            return;
+        }
+
         if (oldRow == null) {
             operationType = OperationType.PUT;
 
