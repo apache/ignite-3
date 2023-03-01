@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration.stub;
+package org.apache.ignite.internal.configuration.stub;
 
 import java.util.UUID;
-import org.apache.ignite.internal.rest.configuration.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderView;
 
 
 /** Stub of {@link BasicAuthenticationProviderView} for tests. */

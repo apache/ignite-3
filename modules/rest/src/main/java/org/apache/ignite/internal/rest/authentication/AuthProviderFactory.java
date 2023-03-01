@@ -21,8 +21,8 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.security.authentication.AuthenticationProvider;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.internal.rest.configuration.AuthenticationConfiguration;
 
 /**
  * Factory that creates beans that are needed for authentication.

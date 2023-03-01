@@ -159,7 +159,7 @@ public class ItRestAuthenticationTest {
 
         // change password
         String updateRestAuthConfigBody = "{\n"
-                + "    \"rest\": {\n"
+                + "    \"security\": {\n"
                 + "        \"authentication\": {\n"
                 + "            \"enabled\": true,\n"
                 + "            \"providers\": [\n"

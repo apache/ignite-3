@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration.stub;
+package org.apache.ignite.internal.configuration.stub;
 
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.rest.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.rest.configuration.AuthenticationView;
+import org.apache.ignite.internal.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.configuration.AuthenticationView;
 
 /** Stub of {@link AuthenticationView} for tests. */
 public class StubAuthenticationView implements AuthenticationView {

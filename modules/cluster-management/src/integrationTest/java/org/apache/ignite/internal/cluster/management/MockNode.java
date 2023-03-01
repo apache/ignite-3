@@ -29,11 +29,11 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -62,7 +62,7 @@ public class MockNode {
 
     private final ClusterManagementConfiguration cmgConfiguration;
 
-    private final ClusterRestConfiguration clusterRestConfiguration;
+    private final SecurityConfiguration securityConfiguration;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -78,14 +78,14 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             ClusterManagementConfiguration cmgConfiguration,
-            ClusterRestConfiguration clusterRestConfiguration
+            SecurityConfiguration securityConfiguration
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
         this.workDir = workDir;
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
-        this.clusterRestConfiguration = clusterRestConfiguration;
+        this.securityConfiguration = securityConfiguration;
 
         try {
             init(addr.port());
@@ -108,7 +108,7 @@ public class MockNode {
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 
         var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-        distributedConfigurationUpdater.setClusterRestConfiguration(clusterRestConfiguration);
+        distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,

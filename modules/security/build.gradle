@@ -15,11 +15,16 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.shadow)
+}
+
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-description = 'ignite-rest'
+description = 'ignite-security'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
@@ -31,7 +36,6 @@ dependencies {
     implementation project(':ignite-rest-api')
     implementation project(':ignite-core')
     implementation project(':ignite-network')
-    implementation project(':ignite-security')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
@@ -50,14 +54,26 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-security')))
     testImplementation libs.slf4j.jdk14
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
+
+    testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation libs.jetbrains.annotations
+
 }
 
 compileJava {
     options.fork = true
     options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
+}
+
+shadowJar {
+    archiveAppendix.set('shaded')
+    archiveClassifier.set('shaded')
+
+    minimize()
+
+    relocate('reactor', 'reactor.shaded')
 }

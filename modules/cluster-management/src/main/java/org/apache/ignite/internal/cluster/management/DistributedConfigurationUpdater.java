@@ -18,16 +18,16 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.configuration.AuthenticationProviderChange;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.rest.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.rest.configuration.AuthenticationProviderChange;
-import org.apache.ignite.internal.rest.configuration.BasicAuthenticationProviderChange;
-import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.AuthenticationProviderConfig;
+import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
 import org.apache.ignite.rest.RestAuthenticationConfig;
 
@@ -38,21 +38,21 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
 
     private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationUpdater.class);
 
-    private final CompletableFuture<ClusterRestConfiguration> clusterRestConfigurationFuture = new CompletableFuture<>();
+    private final CompletableFuture<SecurityConfiguration> securityConfigurationFuture = new CompletableFuture<>();
 
-    public void setClusterRestConfiguration(ClusterRestConfiguration clusterRestConfiguration) {
-        clusterRestConfigurationFuture.complete(clusterRestConfiguration);
+    public void setClusterRestConfiguration(SecurityConfiguration securityConfiguration) {
+        securityConfigurationFuture.complete(securityConfiguration);
     }
 
     /**
      * Applies changes to the {@link AuthenticationConfiguration} when
-     * {@link DistributedConfigurationUpdater#clusterRestConfigurationFuture} is complete.
+     * {@link DistributedConfigurationUpdater#securityConfigurationFuture} is complete.
      *
      * @param restAuthenticationConfig {@link AuthenticationConfiguration} that should be applied.
      * @return Future that will be completed when {@link AuthenticationConfiguration} is applied.
      */
     public CompletableFuture<Void> updateRestAuthConfiguration(RestAuthenticationConfig restAuthenticationConfig) {
-        return clusterRestConfigurationFuture.thenApply(ClusterRestConfiguration::authentication)
+        return securityConfigurationFuture.thenApply(SecurityConfiguration::authentication)
                 .thenCompose(configuration -> changeAuthConfiguration(configuration, restAuthenticationConfig))
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -94,6 +94,6 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
 
     @Override
     public void stop() throws Exception {
-        clusterRestConfigurationFuture.completeExceptionally(new NodeStoppingException("Component is stopped."));
+        securityConfigurationFuture.completeExceptionally(new NodeStoppingException("Component is stopped."));
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 

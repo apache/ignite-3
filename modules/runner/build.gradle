@@ -55,6 +55,7 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
+    implementation project(':ignite-security')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -115,6 +116,7 @@ dependencies {
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-jdbc')
+    integrationTestImplementation project(':ignite-security')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))

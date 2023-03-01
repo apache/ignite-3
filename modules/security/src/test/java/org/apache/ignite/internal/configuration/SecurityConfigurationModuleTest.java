@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,11 +25,12 @@ import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
+import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.Test;
 
-class ClusterRestConfigurationModuleTest {
+class SecurityConfigurationModuleTest {
 
-    private final ClusterRestConfigurationModule module = new ClusterRestConfigurationModule();
+    private final SecurityConfigurationModule module = new SecurityConfigurationModule();
 
     @Test
     void typeIsDistributed() {
@@ -38,12 +39,12 @@ class ClusterRestConfigurationModuleTest {
 
     @Test
     void hasConfigurationRoots() {
-        assertThat(module.rootKeys(), contains(ClusterRestConfiguration.KEY));
+        assertThat(module.rootKeys(), contains(SecurityConfiguration.KEY));
     }
 
     @Test
     void providesValidators() {
-        assertThat(module.validators(),
+        MatcherAssert.assertThat(module.validators(),
                 hasItems(
                         instanceOf(AuthenticationConfigurationValidatorImpl.class),
                         instanceOf(AuthenticationProvidersValidatorImpl.class))

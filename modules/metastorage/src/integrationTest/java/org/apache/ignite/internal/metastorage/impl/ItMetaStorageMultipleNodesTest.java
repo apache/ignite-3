@@ -44,6 +44,7 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -89,7 +89,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
     private static ClusterManagementConfiguration cmgConfiguration;
 
     @InjectConfiguration
-    private static ClusterRestConfiguration clusterRestConfiguration;
+    private static SecurityConfiguration securityConfiguration;
 
     private static class Node {
         private final VaultManager vaultManager;
@@ -121,7 +121,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(clusterRestConfiguration);
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

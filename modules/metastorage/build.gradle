@@ -55,6 +55,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-vault'))
     integrationTestImplementation testFixtures(project(':ignite-metastorage'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-security'))
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-rocksdb-common')

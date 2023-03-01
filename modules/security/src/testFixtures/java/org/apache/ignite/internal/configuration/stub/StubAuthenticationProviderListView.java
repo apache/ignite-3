@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration.stub;
+package org.apache.ignite.internal.configuration.stub;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.rest.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.configuration.AuthenticationProviderView;
 import org.jetbrains.annotations.Nullable;
 
 /** Stub of {@link NamedListView} for tests. */

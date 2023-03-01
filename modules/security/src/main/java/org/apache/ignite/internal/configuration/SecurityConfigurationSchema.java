@@ -15,26 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
-/**
- * Configuration schema for authentication endpoint subtree.
- */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@Config
-public class AuthenticationConfigurationSchema {
+/** Configuration schema for cluster REST endpoint subtree. */
+@ConfigurationRoot(rootName = "security", type = ConfigurationType.DISTRIBUTED)
+public class SecurityConfigurationSchema {
 
-    /** Enabled. */
-    @Value(hasDefault = true)
-    public final boolean enabled = false;
-
-    /** Auth configurations. */
-    @NamedConfigValue
-    @AuthenticationProvidersValidator
-    public AuthenticationProviderConfigurationSchema providers;
-
+    @ConfigValue
+    public AuthenticationConfigurationSchema authentication;
 }

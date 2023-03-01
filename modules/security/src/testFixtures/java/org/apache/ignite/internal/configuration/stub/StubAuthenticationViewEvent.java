@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration.stub;
+package org.apache.ignite.internal.configuration.stub;
 
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.rest.configuration.AuthenticationView;
+import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.jetbrains.annotations.Nullable;
 
 /** Stub of {@link ConfigurationNotificationEvent} for tests. */

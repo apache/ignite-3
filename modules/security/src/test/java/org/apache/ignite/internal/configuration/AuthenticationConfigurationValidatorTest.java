@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
@@ -23,8 +23,8 @@ import static org.mockito.Mockito.mock;
 
 import java.util.Collections;
 import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.internal.rest.configuration.stub.StubAuthenticationView;
-import org.apache.ignite.internal.rest.configuration.stub.StubBasicAuthenticationProviderView;
+import org.apache.ignite.internal.configuration.stub.StubAuthenticationView;
+import org.apache.ignite.internal.configuration.stub.StubBasicAuthenticationProviderView;
 import org.junit.jupiter.api.Test;
 
 class AuthenticationConfigurationValidatorTest {

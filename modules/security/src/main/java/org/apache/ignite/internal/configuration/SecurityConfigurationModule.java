@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
 import com.google.auto.service.AutoService;
 import java.util.Collection;
@@ -24,13 +24,12 @@ import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ConfigurationModule;
 
 /**
  * {@link ConfigurationModule} for cluster configuration provided by ignite-rest.
  */
 @AutoService(ConfigurationModule.class)
-public class ClusterRestConfigurationModule implements ConfigurationModule {
+public class SecurityConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
@@ -38,7 +37,7 @@ public class ClusterRestConfigurationModule implements ConfigurationModule {
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return Collections.singleton(ClusterRestConfiguration.KEY);
+        return Collections.singleton(SecurityConfiguration.KEY);
     }
 
     @Override

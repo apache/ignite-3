@@ -54,7 +54,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.rest.configuration.ClusterRestConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -91,7 +90,7 @@ public class ItDistributedConfigurationPropertiesTest {
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
     @InjectConfiguration
-    private static ClusterRestConfiguration clusterRestConfiguration;
+    private static SecurityConfiguration securityConfiguration;
 
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
@@ -136,7 +135,7 @@ public class ItDistributedConfigurationPropertiesTest {
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
             var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
-            distributedConfigurationUpdater.setClusterRestConfiguration(clusterRestConfiguration);
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,

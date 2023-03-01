@@ -29,10 +29,10 @@ import io.micronaut.http.simple.SimpleHttpRequest;
 import io.micronaut.security.authentication.AuthenticationException;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import java.util.Collections;
-import org.apache.ignite.internal.rest.configuration.AuthenticationView;
-import org.apache.ignite.internal.rest.configuration.stub.StubAuthenticationView;
-import org.apache.ignite.internal.rest.configuration.stub.StubAuthenticationViewEvent;
-import org.apache.ignite.internal.rest.configuration.stub.StubBasicAuthenticationProviderView;
+import org.apache.ignite.internal.configuration.AuthenticationView;
+import org.apache.ignite.internal.configuration.stub.StubAuthenticationView;
+import org.apache.ignite.internal.configuration.stub.StubAuthenticationViewEvent;
+import org.apache.ignite.internal.configuration.stub.StubBasicAuthenticationProviderView;
 import org.junit.jupiter.api.Test;
 
 class DelegatingAuthenticationProviderTest {

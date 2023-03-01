@@ -22,8 +22,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.network.auth.AuthenticationProvider;
 import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthenticationProvider;
 import org.apache.ignite.internal.cluster.management.network.auth.RestAuthentication;
-import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.AuthenticationProviderConfig;
+import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
 import org.apache.ignite.rest.RestAuthenticationConfig;
 

@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
-/** Configuration schema for cluster REST endpoint subtree. */
-@ConfigurationRoot(rootName = "rest", type = ConfigurationType.DISTRIBUTED)
-public class ClusterRestConfigurationSchema {
+/** Basic authentication configuration. */
+@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
+public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
 
-    @ConfigValue
-    public AuthenticationConfigurationSchema authentication;
+    /** Login. */
+    @Value
+    public String login;
+
+    /** Password. */
+    @Value
+    public String password;
 }

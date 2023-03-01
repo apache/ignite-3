@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 
-/** Authentication provider configuration. */
-@PolymorphicConfig
-public class AuthenticationProviderConfigurationSchema {
+/**
+ * Configuration schema for authentication endpoint subtree.
+ */
+@SuppressWarnings("PMD.UnusedPrivateField")
+@Config
+public class AuthenticationConfigurationSchema {
 
-    public static final String TYPE_BASIC = "basic";
+    /** Enabled. */
+    @Value(hasDefault = true)
+    public final boolean enabled = false;
 
-    /** Auth type. */
-    @PolymorphicId
-    public String type;
+    /** Auth configurations. */
+    @NamedConfigValue
+    @AuthenticationProvidersValidator
+    public AuthenticationProviderConfigurationSchema providers;
 
-    /** Name. */
-    @Value
-    public String name;
 }

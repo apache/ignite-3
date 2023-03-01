@@ -42,8 +42,8 @@ import org.apache.ignite.internal.rest.api.cluster.authentication.BasicAuthentic
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.AuthenticationProviderConfig;
+import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
 import org.apache.ignite.rest.RestAuthenticationConfig;
 

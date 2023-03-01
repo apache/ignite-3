@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.configuration;
+package org.apache.ignite.internal.configuration;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-/** Basic authentication configuration. */
-@PolymorphicConfigInstance(AuthenticationProviderConfigurationSchema.TYPE_BASIC)
-public class BasicAuthenticationProviderConfigurationSchema extends AuthenticationProviderConfigurationSchema {
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-    /** Login. */
-    @Value
-    public String login;
-
-    /** Password. */
-    @Value
-    public String password;
+/**
+ * Annotation to validate authentication providers configuration.
+ *
+ * <p>Activate AuthProvidersValidatorImpl in configuration engine for {@link AuthenticationConfigurationSchema#providers}.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface AuthenticationProvidersValidator {
 }

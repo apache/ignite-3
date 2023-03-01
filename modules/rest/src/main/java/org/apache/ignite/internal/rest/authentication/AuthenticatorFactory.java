@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.rest.authentication;
 
-import org.apache.ignite.internal.rest.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.rest.configuration.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderView;
 import org.apache.ignite.rest.AuthenticationType;
 
 /** Factory for {@link Authenticator}. */
