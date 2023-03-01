@@ -29,6 +29,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleContainer;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Schema-aware row.
@@ -46,7 +48,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * <p>When a non-boxed primitive is read from a null column value, it is converted to the primitive type default value.
  */
-public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
+public class Row implements BinaryRowEx, SchemaAware, InternalTuple, BinaryTupleContainer {
 
     /** Schema descriptor. */
     protected final SchemaDescriptor schema;
@@ -261,5 +263,11 @@ public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
         }
 
         return h0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryTuple binaryTuple() {
+        return tuple;
     }
 }

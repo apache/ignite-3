@@ -47,6 +47,17 @@ public class ClientMarshallerReader implements MarshallerReader {
         this.unpacker = unpacker;
     }
 
+    /**
+     * Constructor.
+     *
+     * @param unpacker Unpacker.
+     * @param index Start index.
+     */
+    public ClientMarshallerReader(BinaryTupleReader unpacker, int index) {
+        this.unpacker = unpacker;
+        this.index = index;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void skipValue() {

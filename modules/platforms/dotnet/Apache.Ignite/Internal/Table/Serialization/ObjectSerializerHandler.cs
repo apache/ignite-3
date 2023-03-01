@@ -39,16 +39,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
-        private readonly ConcurrentDictionary<int, ReadValuePartDelegate<T>> _valuePartReaders = new();
-
         [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate void WriteDelegate<in TV>(ref BinaryTupleBuilder writer, Span<byte> noValueSet, TV value);
 
         [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
         private delegate TV ReadDelegate<out TV>(ref BinaryTupleReader reader);
-
-        [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-        private delegate TV ReadValuePartDelegate<TV>(ref BinaryTupleReader reader, TV key);
 
         /// <inheritdoc/>
         public T Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
@@ -64,18 +59,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columnCount);
 
             return readDelegate(ref binaryTupleReader);
-        }
-
-        /// <inheritdoc/>
-        public T ReadValuePart(ref MsgPackReader reader, Schema schema, T key)
-        {
-            var readDelegate = _valuePartReaders.TryGetValue(schema.Version, out var w)
-                ? w
-                : _valuePartReaders.GetOrAdd(schema.Version, EmitValuePartReader(schema));
-
-            var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.ValueColumnCount);
-
-            return readDelegate(ref binaryTupleReader, key);
         }
 
         /// <inheritdoc/>
@@ -383,106 +366,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             il.Emit(OpCodes.Ret);
 
             return (ReadDelegate<T>)method.CreateDelegate(typeof(ReadDelegate<T>));
-        }
-
-        private static ReadValuePartDelegate<T> EmitValuePartReader(Schema schema)
-        {
-            var type = typeof(T);
-
-            if (BinaryTupleMethods.GetReadMethodOrNull(type) != null)
-            {
-                // Single column to primitive type mapping - return key as is.
-                return (ref BinaryTupleReader _, T key) => key;
-            }
-
-            var method = new DynamicMethod(
-                name: "ReadValuePart" + type,
-                returnType: type,
-                parameterTypes: new[] { typeof(BinaryTupleReader).MakeByRefType(), type },
-                m: typeof(IIgnite).Module,
-                skipVisibility: true);
-
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
-            {
-                return EmitKvValuePartReader(schema, method);
-            }
-
-            var il = method.GetILGenerator();
-            var local = il.DeclareAndInitLocal(type); // T res
-
-            var columns = schema.Columns;
-
-            for (var i = 0; i < columns.Count; i++)
-            {
-                var col = columns[i];
-                var fieldInfo = type.GetFieldByColumnName(col.Name);
-
-                if (col.IsKey)
-                {
-                    if (fieldInfo != null)
-                    {
-                        il.Emit(type.IsValueType ? OpCodes.Ldloca_S : OpCodes.Ldloc, local); // res
-                        il.Emit(OpCodes.Ldarg_1); // key
-                        il.Emit(OpCodes.Ldfld, fieldInfo);
-                        il.Emit(OpCodes.Stfld, fieldInfo);
-                    }
-
-                    continue;
-                }
-
-                EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, local);
-            }
-
-            il.Emit(OpCodes.Ldloc_0); // res
-            il.Emit(OpCodes.Ret);
-
-            return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
-        }
-
-        private static ReadValuePartDelegate<T> EmitKvValuePartReader(Schema schema, DynamicMethod method)
-        {
-            var type = typeof(T);
-            var (_, valType, _, valField) = GetKeyValTypes();
-
-            var il = method.GetILGenerator();
-            var kvLocal = il.DeclareAndInitLocal(type);
-
-            var valReadMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
-
-            if (valReadMethod != null)
-            {
-                // Single-value mapping.
-                if (schema.Columns.Count == schema.KeyColumnCount)
-                {
-                    // No value columns.
-                    return (ref BinaryTupleReader _, T _) => default!;
-                }
-
-                EmitFieldRead(valField, il, schema.Columns[schema.KeyColumnCount], 0, kvLocal);
-            }
-            else
-            {
-                var valLocal = il.DeclareAndInitLocal(valType);
-                var columns = schema.Columns;
-
-                for (var i = schema.KeyColumnCount; i < columns.Count; i++)
-                {
-                    var col = columns[i];
-                    var fieldInfo = valType.GetFieldByColumnName(col.Name);
-
-                    EmitFieldRead(fieldInfo, il, col, i - schema.KeyColumnCount, valLocal);
-                }
-
-                // Copy Val to KvPair.
-                il.Emit(OpCodes.Ldloca_S, kvLocal);
-                il.Emit(OpCodes.Ldloc, valLocal);
-                il.Emit(OpCodes.Stfld, valField);
-            }
-
-            il.Emit(OpCodes.Ldloc_0); // res
-            il.Emit(OpCodes.Ret);
-
-            return (ReadValuePartDelegate<T>)method.CreateDelegate(typeof(ReadValuePartDelegate<T>));
         }
 
         private static void EmitFieldRead(FieldInfo? fieldInfo, ILGenerator il, Column col, int elemIdx, LocalBuilder? local)
