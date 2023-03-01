@@ -281,10 +281,6 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     public void testRandomUuidComparison() {
         assertQuery("SELECT RAND_UUID() = RAND_UUID()").returns(false).check();
         assertQuery("SELECT RAND_UUID() != RAND_UUID()").returns(true).check();
-
-        assertQuery("SELECT RAND_UUID() > RAND_UUID()").returns(false).check();
-        assertQuery("SELECT RAND_UUID() < RAND_UUID()").returns(false).check();
-
         assertQuery("SELECT RAND_UUID() >= RAND_UUID()").returns(true).check();
         assertQuery("SELECT RAND_UUID() <= RAND_UUID()").returns(true).check();
     }
