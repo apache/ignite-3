@@ -24,12 +24,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transaction.
@@ -47,21 +45,16 @@ public class ClientTransaction implements Transaction {
     /** Read-only flag. */
     private final boolean isReadOnly;
 
-    /** Read timestamp. */
-    @Nullable
-    private final HybridTimestamp readTs;
-
     /**
      * Constructor.
      *
      * @param ch Channel that the transaction belongs to.
      * @param id Transaction id.
      */
-    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly, @Nullable HybridTimestamp readTs) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly) {
         this.ch = ch;
         this.id = id;
         this.isReadOnly = isReadOnly;
-        this.readTs = readTs;
     }
 
     /**
@@ -126,12 +119,6 @@ public class ClientTransaction implements Transaction {
     @Override
     public boolean isReadOnly() {
         return isReadOnly;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public HybridTimestamp readTimestamp() {
-        return readTs;
     }
 
     /**

@@ -22,6 +22,7 @@ import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -96,6 +97,15 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     null,
                     OperandTypes.SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
+
+    /**
+     * Generic {@code SUBSTR(string, position [, length]} function.
+     * This function works exactly the same as {@link SqlSubstringFunction SUSBSTRING(string, position [, length])}.
+     */
+    public static final SqlFunction SUBSTR = new SqlFunction("SUBSTR", SqlKind.OTHER_FUNCTION,
+            ReturnTypes.ARG0_NULLABLE_VARYING, null,
+            OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
+            SqlFunctionCategory.STRING);
 
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
@@ -205,6 +215,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.TRIM);
         register(SqlLibraryOperators.LTRIM);
         register(SqlLibraryOperators.RTRIM);
+        register(SUBSTR);
 
         // Math functions.
         register(SqlStdOperatorTable.MOD); // Arithmetic remainder.
