@@ -54,7 +54,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
-import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;

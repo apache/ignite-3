@@ -20,14 +20,14 @@ package org.apache.ignite.rest;
 import java.util.Collections;
 import java.util.List;
 
-/** Configuration of REST authentication. */
-public class RestAuthenticationConfig {
+/** Configuration of authentication. */
+public class AuthenticationConfig {
     private final boolean enabled;
 
     private final List<AuthenticationProviderConfig> providers;
 
     /** Constructor. */
-    public RestAuthenticationConfig(boolean enabled, List<AuthenticationProviderConfig> providers) {
+    public AuthenticationConfig(boolean enabled, List<AuthenticationProviderConfig> providers) {
         if (providers == null) {
             throw new IllegalArgumentException("providers cannot be null");
         }
@@ -40,8 +40,8 @@ public class RestAuthenticationConfig {
         this.providers = List.copyOf(providers);
     }
 
-    public static RestAuthenticationConfig disabled() {
-        return new RestAuthenticationConfig(false, Collections.emptyList());
+    public static AuthenticationConfig disabled() {
+        return new AuthenticationConfig(false, Collections.emptyList());
     }
 
     /** Authentication is enabled. */

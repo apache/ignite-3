@@ -37,7 +37,6 @@ import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.runner.app.IgniteRunnerTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

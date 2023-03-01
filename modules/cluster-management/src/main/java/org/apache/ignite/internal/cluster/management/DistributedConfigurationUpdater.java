@@ -26,10 +26,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.rest.AuthenticationConfig;
 import org.apache.ignite.rest.AuthenticationProviderConfig;
 import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
-import org.apache.ignite.rest.RestAuthenticationConfig;
 
 /**
  * Updater is responsible for applying changes to the cluster configuration when it's ready.
@@ -48,12 +48,12 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
      * Applies changes to the {@link AuthenticationConfiguration} when
      * {@link DistributedConfigurationUpdater#securityConfigurationFuture} is complete.
      *
-     * @param restAuthenticationConfig {@link AuthenticationConfiguration} that should be applied.
+     * @param authenticationConfig {@link AuthenticationConfiguration} that should be applied.
      * @return Future that will be completed when {@link AuthenticationConfiguration} is applied.
      */
-    public CompletableFuture<Void> updateRestAuthConfiguration(RestAuthenticationConfig restAuthenticationConfig) {
+    public CompletableFuture<Void> updateRestAuthConfiguration(AuthenticationConfig authenticationConfig) {
         return securityConfigurationFuture.thenApply(SecurityConfiguration::authentication)
-                .thenCompose(configuration -> changeAuthConfiguration(configuration, restAuthenticationConfig))
+                .thenCompose(configuration -> changeAuthConfiguration(configuration, authenticationConfig))
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to change auth configuration", e);
@@ -64,7 +64,7 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     }
 
     private static CompletableFuture<Void> changeAuthConfiguration(AuthenticationConfiguration authConfiguration,
-            RestAuthenticationConfig config) {
+            AuthenticationConfig config) {
         return authConfiguration.change(authChange -> {
             authChange.changeProviders(providers -> {
                 config.providers().forEach(provider -> {

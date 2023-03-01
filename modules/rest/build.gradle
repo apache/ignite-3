@@ -71,8 +71,10 @@ dependencies {
     integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-security')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.micronaut.http.client

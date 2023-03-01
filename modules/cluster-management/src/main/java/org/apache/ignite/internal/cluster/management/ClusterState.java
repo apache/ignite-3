@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cluster.management;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Set;
-import org.apache.ignite.internal.cluster.management.network.auth.RestAuthentication;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -68,7 +68,7 @@ public interface ClusterState extends NetworkMessage, Serializable {
     /**
      * Returns a REST authentication configuration that should be applied.
      */
-    RestAuthentication restAuthToApply();
+    Authentication restAuthToApply();
 
     /**
      * Creates a new cluster state instance. Acts like a constructor replacement.
@@ -98,7 +98,7 @@ public interface ClusterState extends NetworkMessage, Serializable {
      * @param msNodes Collection of Metastorage nodes.
      * @param igniteVersion Ignite product version.
      * @param clusterTag Cluster tag instance.
-     * @param restAuthentication REST authentication configuration.
+     * @param authentication REST authentication configuration.
      * @return Cluster state instance.
      */
     static ClusterState clusterState(
@@ -107,14 +107,14 @@ public interface ClusterState extends NetworkMessage, Serializable {
             Collection<String> msNodes,
             IgniteProductVersion igniteVersion,
             ClusterTag clusterTag,
-            RestAuthentication restAuthentication
+            Authentication authentication
     ) {
         return msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(cmgNodes))
                 .metaStorageNodes(Set.copyOf(msNodes))
                 .version(igniteVersion.toString())
                 .clusterTag(clusterTag)
-                .restAuthToApply(restAuthentication)
+                .restAuthToApply(authentication)
                 .build();
     }
 }

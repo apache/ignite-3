@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthenticationProvider;
-import org.apache.ignite.internal.cluster.management.network.auth.RestAuthentication;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -122,7 +122,7 @@ public class CmgMessageGroup {
         int CLUSTER_TAG = 62;
 
         /**
-         * Message type of {@link RestAuthentication}.
+         * Message type of {@link Authentication}.
          */
         int REST_AUTH = 63;
 

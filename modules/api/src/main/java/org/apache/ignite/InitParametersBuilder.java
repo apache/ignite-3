@@ -18,16 +18,17 @@
 package org.apache.ignite;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.rest.RestAuthenticationConfig;
+import org.apache.ignite.rest.AuthenticationConfig;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
 public class InitParametersBuilder {
     private String nodeName;
-    private Collection<String> metaStorageNodeNames;
-    private Collection<String> cmgNodeNames;
+    private Collection<String> metaStorageNodeNames = List.of();
+    private Collection<String> cmgNodeNames = List.of();
     private String clusterName;
-    private RestAuthenticationConfig restAuthenticationConfig = RestAuthenticationConfig.disabled();
+    private AuthenticationConfig authenticationConfig = AuthenticationConfig.disabled();
 
     public InitParametersBuilder setNodeName(String nodeName) {
         this.nodeName = nodeName;
@@ -49,8 +50,8 @@ public class InitParametersBuilder {
         return this;
     }
 
-    public InitParametersBuilder setRestAuthenticationConfig(RestAuthenticationConfig restAuthenticationConfig) {
-        this.restAuthenticationConfig = restAuthenticationConfig;
+    public InitParametersBuilder setRestAuthenticationConfig(AuthenticationConfig authenticationConfig) {
+        this.authenticationConfig = authenticationConfig;
         return this;
     }
 
@@ -61,8 +62,8 @@ public class InitParametersBuilder {
         Objects.requireNonNull(metaStorageNodeNames);
         Objects.requireNonNull(cmgNodeNames);
         Objects.requireNonNull(clusterName);
-        Objects.requireNonNull(restAuthenticationConfig);
+        Objects.requireNonNull(authenticationConfig);
 
-        return new InitParameters(nodeName, metaStorageNodeNames, cmgNodeNames, clusterName, restAuthenticationConfig);
+        return new InitParameters(nodeName, metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig);
     }
 }

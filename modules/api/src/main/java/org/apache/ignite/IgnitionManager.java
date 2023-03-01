@@ -22,11 +22,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.jetbrains.annotations.Nullable;
 
 /**

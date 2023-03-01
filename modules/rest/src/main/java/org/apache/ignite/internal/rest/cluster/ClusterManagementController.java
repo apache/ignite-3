@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
-import static org.apache.ignite.rest.RestAuthenticationConfig.disabled;
+import static org.apache.ignite.rest.AuthenticationConfig.disabled;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -45,7 +45,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.rest.AuthenticationProviderConfig;
 import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
-import org.apache.ignite.rest.RestAuthenticationConfig;
+import org.apache.ignite.rest.AuthenticationConfig;
 
 /**
  * Cluster management controller implementation.
@@ -87,7 +87,7 @@ public class ClusterManagementController implements ClusterManagementApi {
         }
 
         AuthenticationConfigDto authenticationConfigDto = initCommand.authenticationConfig();
-        RestAuthenticationConfig restAuthenticationConfig = authenticationConfigDto == null
+        AuthenticationConfig authenticationConfig = authenticationConfigDto == null
                 ? disabled()
                 : authnConfigDtoToRestAuthnConfig(authenticationConfigDto);
 
@@ -95,7 +95,7 @@ public class ClusterManagementController implements ClusterManagementApi {
                         initCommand.metaStorageNodes(),
                         initCommand.cmgNodes(),
                         initCommand.clusterName(),
-                        restAuthenticationConfig
+                        authenticationConfig
                 )
                 .exceptionally(ex -> {
                     throw mapException(ex);
@@ -130,8 +130,8 @@ public class ClusterManagementController implements ClusterManagementApi {
         return new IgniteException(ex);
     }
 
-    private RestAuthenticationConfig authnConfigDtoToRestAuthnConfig(AuthenticationConfigDto configDto) {
-        return new RestAuthenticationConfig(configDto.enabled(), authnProviders(configDto.providers()));
+    private AuthenticationConfig authnConfigDtoToRestAuthnConfig(AuthenticationConfigDto configDto) {
+        return new AuthenticationConfig(configDto.enabled(), authnProviders(configDto.providers()));
     }
 
     private List<AuthenticationProviderConfig> authnProviders(List<AuthenticationProviderConfigDto> providers) {

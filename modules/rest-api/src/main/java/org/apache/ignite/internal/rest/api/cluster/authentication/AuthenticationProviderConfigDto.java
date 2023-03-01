@@ -19,8 +19,8 @@ package org.apache.ignite.internal.rest.api.cluster.authentication;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.AuthenticationProviderConfig;
+import org.apache.ignite.rest.AuthenticationType;
 
 /**
  * REST representation of {@link AuthenticationProviderConfig}.

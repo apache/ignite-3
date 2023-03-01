@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cluster.management.network.messages;
 
 import java.util.Set;
-import org.apache.ignite.internal.cluster.management.network.auth.RestAuthentication;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -45,5 +45,5 @@ public interface CmgInitMessage extends NetworkMessage {
     /**
      * REST authentication configuration that should be applied after init.
      */
-    RestAuthentication restAuthToApply();
+    Authentication restAuthToApply();
 }

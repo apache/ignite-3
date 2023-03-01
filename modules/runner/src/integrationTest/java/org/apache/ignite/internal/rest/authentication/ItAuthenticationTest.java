@@ -53,7 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST authentication configuration. */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItRestAuthenticationTest {
+public class ItAuthenticationTest {
 
     /** HTTP client that is expected to be defined in subclasses. */
     private HttpClient client;
@@ -114,14 +114,9 @@ public class ItRestAuthenticationTest {
         // when
         RestNode metaStorageNode = nodes.get(0);
 
-        String msNodeNames = nodes.stream()
-                .map(RestNode::name)
-                .map(name -> "\"" + name + "\"")
-                .collect(Collectors.joining(","));
-
         String initClusterBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + msNodeNames
+                + "        \"" + metaStorageNode.name() + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"
@@ -193,14 +188,9 @@ public class ItRestAuthenticationTest {
         // when
         RestNode metaStorageNode = nodes.get(0);
 
-        String msNodeNames = nodes.stream()
-                .map(RestNode::name)
-                .map(name -> "\"" + name + "\"")
-                .collect(Collectors.joining(","));
-
         String initClusterBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
-                + msNodeNames
+                + "        \"" + metaStorageNode.name() + "\"\n"
                 + "    ],\n"
                 + "    \"cmgNodes\": [],\n"
                 + "    \"clusterName\": \"cluster\",\n"

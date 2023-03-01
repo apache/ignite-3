@@ -18,7 +18,7 @@
 package org.apache.ignite;
 
 import java.util.Collection;
-import org.apache.ignite.rest.RestAuthenticationConfig;
+import org.apache.ignite.rest.AuthenticationConfig;
 
 /** Initialization parameters. */
 public class InitParameters {
@@ -36,16 +36,16 @@ public class InitParameters {
     private final String clusterName;
 
     /** Authentication configuration, that will be applied after initialization. */
-    private final RestAuthenticationConfig restAuthenticationConfig;
+    private final AuthenticationConfig authenticationConfig;
 
 
     public InitParameters(String nodeName, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName,
-            RestAuthenticationConfig restAuthenticationConfig) {
+            AuthenticationConfig authenticationConfig) {
         this.nodeName = nodeName;
         this.metaStorageNodeNames = metaStorageNodeNames;
         this.cmgNodeNames = cmgNodeNames;
         this.clusterName = clusterName;
-        this.restAuthenticationConfig = restAuthenticationConfig;
+        this.authenticationConfig = authenticationConfig;
     }
 
     public static InitParametersBuilder builder() {
@@ -68,7 +68,7 @@ public class InitParameters {
         return clusterName;
     }
 
-    public RestAuthenticationConfig restAuthenticationConfig() {
-        return restAuthenticationConfig;
+    public AuthenticationConfig restAuthenticationConfig() {
+        return authenticationConfig;
     }
 }

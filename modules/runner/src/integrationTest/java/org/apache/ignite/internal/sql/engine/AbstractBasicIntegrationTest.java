@@ -55,7 +55,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.rest.RestAuthenticationConfig;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;

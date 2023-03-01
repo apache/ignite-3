@@ -19,30 +19,30 @@ package org.apache.ignite.internal.cluster.management;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.auth.AuthenticationProvider;
 import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthenticationProvider;
-import org.apache.ignite.internal.cluster.management.network.auth.RestAuthentication;
+import org.apache.ignite.rest.AuthenticationConfig;
 import org.apache.ignite.rest.AuthenticationProviderConfig;
 import org.apache.ignite.rest.AuthenticationType;
 import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
-import org.apache.ignite.rest.RestAuthenticationConfig;
 
-/** Converter for {@link RestAuthentication}. */
-class RestAuthConverter {
+/** Converter for {@link Authentication}. */
+class AuthenticationConverter {
 
     /**
-     * Converts {@link RestAuthentication} to {@link RestAuthenticationConfig}.
+     * Converts {@link Authentication} to {@link AuthenticationConfig}.
      *
-     * @param restAuthentication Rest auth.
+     * @param authentication Rest auth.
      * @return Rest auth config.
      */
-    static RestAuthenticationConfig toRestAuthenticationConfig(RestAuthentication restAuthentication) {
-        List<AuthenticationProviderConfig> providerConfigs = restAuthentication.providers()
+    static AuthenticationConfig toAuthenticationConfig(Authentication authentication) {
+        List<AuthenticationProviderConfig> providerConfigs = authentication.providers()
                 .stream()
-                .map(RestAuthConverter::toAuthenticationProviderConfig)
+                .map(AuthenticationConverter::toAuthenticationProviderConfig)
                 .collect(Collectors.toList());
 
-        return new RestAuthenticationConfig(restAuthentication.enabled(), providerConfigs);
+        return new AuthenticationConfig(authentication.enabled(), providerConfigs);
     }
 
     private static AuthenticationProviderConfig toAuthenticationProviderConfig(AuthenticationProvider provider) {

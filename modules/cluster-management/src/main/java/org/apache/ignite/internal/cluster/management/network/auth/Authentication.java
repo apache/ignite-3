@@ -24,12 +24,12 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.rest.RestAuthenticationConfig;
+import org.apache.ignite.rest.AuthenticationConfig;
 
 
 /** Represents authentication config. */
 @Transferable(Commands.REST_AUTH)
-public interface RestAuthentication extends NetworkMessage, Serializable {
+public interface Authentication extends NetworkMessage, Serializable {
 
     /** If Security is enabled. */
     boolean enabled();
@@ -38,21 +38,21 @@ public interface RestAuthentication extends NetworkMessage, Serializable {
     List<AuthenticationProvider> providers();
 
     /**
-     * Creates a new {@link RestAuthentication} instance. Acts like a constructor replacement.
+     * Creates a new {@link Authentication} instance. Acts like a constructor replacement.
      *
      * @param msgFactory Message factory to instantiate builder.
-     * @param restAuthenticationConfig Authentication  config.
+     * @param authenticationConfig Authentication  config.
      * @return RestAuth instance.
      */
-    static RestAuthentication restAuthentication(
+    static Authentication authentication(
             CmgMessagesFactory msgFactory,
-            RestAuthenticationConfig restAuthenticationConfig
+            AuthenticationConfig authenticationConfig
     ) {
-        List<AuthenticationProvider> providers = restAuthenticationConfig.providers().stream()
+        List<AuthenticationProvider> providers = authenticationConfig.providers().stream()
                 .map(it -> AuthenticationProvider.restAuthConfig(msgFactory, it))
                 .collect(Collectors.toList());
-        return msgFactory.restAuthentication()
-                .enabled(restAuthenticationConfig.enabled())
+        return msgFactory.authentication()
+                .enabled(authenticationConfig.enabled())
                 .providers(providers)
                 .build();
     }

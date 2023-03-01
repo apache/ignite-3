@@ -21,10 +21,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-import org.apache.ignite.rest.RestAuthenticationConfig;
+import org.apache.ignite.rest.AuthenticationConfig;
 
 /**
- * REST representation of {@link RestAuthenticationConfig}.
+ * REST representation of {@link AuthenticationConfig}.
  */
 @Schema(name = "AuthenticationConfig")
 public class AuthenticationConfigDto {
