@@ -84,13 +84,11 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
@@ -210,8 +208,8 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
-    /** Placement driver manager. */
-    private final PlacementDriverManager placementDriverMgr;
+    // /** Placement driver manager. */
+    //private final PlacementDriverManager placementDriverMgr;
 
     /** Configuration manager that handles cluster (distributed) configuration. */
     private final ConfigurationManager clusterCfgMgr;
@@ -404,18 +402,18 @@ public class IgniteImpl implements Ignite {
 
         TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
-        placementDriverMgr = new PlacementDriverManager(
-                metaStorageMgr,
-                vaultMgr,
-                MetastorageGroupId.INSTANCE,
-                clusterSvc,
-                raftConfiguration,
-                cmgMgr::metaStorageNodes,
-                logicalTopologyService,
-                raftExecutorService,
-                tablesConfiguration,
-                clock
-        );
+        // placementDriverMgr = new PlacementDriverManager(
+        //         metaStorageMgr,
+        //         vaultMgr,
+        //         MetastorageGroupId.INSTANCE,
+        //         clusterSvc,
+        //         raftConfiguration,
+        //         cmgMgr::metaStorageNodes,
+        //         logicalTopologyService,
+        //         raftExecutorService,
+        //         tablesConfiguration,
+        //         clock
+        // );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
 
