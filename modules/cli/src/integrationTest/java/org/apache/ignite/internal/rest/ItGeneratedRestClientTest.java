@@ -45,8 +45,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -58,7 +58,7 @@ import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.AuthConfig;
+import org.apache.ignite.rest.client.model.AuthenticationConfig;
 import org.apache.ignite.rest.client.model.ClusterState;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.MetricSource;
@@ -281,7 +281,7 @@ public class ItGeneratedRestClientTest {
                             .clusterName("cluster")
                             .metaStorageNodes(List.of(firstNodeName))
                             .cmgNodes(List.of())
-                            .authConfig(new AuthConfig().enabled(false))
+                            .authenticationConfig(new AuthenticationConfig().enabled(false))
             );
         });
     }
@@ -306,7 +306,7 @@ public class ItGeneratedRestClientTest {
                                 .clusterName("cluster")
                                 .metaStorageNodes(List.of("no-such-node"))
                                 .cmgNodes(List.of())
-                                .authConfig(new AuthConfig().enabled(false)))
+                                .authenticationConfig(new AuthenticationConfig().enabled(false)))
         );
 
         assertThat(thrown.getCode(), equalTo(400));
