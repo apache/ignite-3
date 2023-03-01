@@ -99,8 +99,8 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     /**
      * Validates a plan for a query with min/max distinct aggregate.
-     * <p>
-     * NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregate()}
+     *
+     * <p>NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregate()}
      */
     @Test
     public void minMaxDistinctAggregate() throws Exception {
@@ -133,8 +133,8 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     /**
      * Validates a plan for a query with min/max distinct aggregates and groups.
-     * <p>
-     * NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregateWithGroupBy()}
+     *
+     * <p>NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregateWithGroupBy()}
      */
     @Test
     public void minMaxDistinctAggregateWithGroupBy() throws Exception {
@@ -163,8 +163,8 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     /**
      * Validates a plan uses an index for a query with aggregate if group by matches index columns.
-     * <p>
-     * NB: GROUP BY columns order permutation shouldn't affect the plan.
+     *
+     * <p>NB: GROUP BY columns order permutation shouldn't affect the plan.
      */
     @Test
     public void aggregateWithGroupByColumnsMatchesIndexColumns() throws Exception {
@@ -240,7 +240,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * Validates a plan for a query with order and limit
+     * Validates a plan for a sub-query with order and limit.
      */
     @Test
     public void emptyCollationPassThroughLimit() throws Exception {
@@ -252,7 +252,6 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     /**
      * Validates a plan for a query with aggregate and with groups and sorting by the same column set.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18871")
     @Test
     public void groupsWithOrderByGroupColumns() throws Exception {
         checkTestCase25("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1", schema(single()),
