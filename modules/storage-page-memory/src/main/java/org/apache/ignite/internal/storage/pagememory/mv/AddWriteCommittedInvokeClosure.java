@@ -82,6 +82,8 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         if (row == null && oldRow == null) {
+            // If previous version doesn't exist and current version is a tombstone,
+            // then there is no need to add it.
             operationType = OperationType.NOOP;
 
             return;

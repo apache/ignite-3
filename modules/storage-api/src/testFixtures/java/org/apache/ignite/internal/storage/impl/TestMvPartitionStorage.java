@@ -259,7 +259,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
+    private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
         VersionChain nextChain = committedVersionChain.next;
 
         if (nextChain != null) {
@@ -273,6 +273,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             gcQueue.add(committedVersionChain);
         } else {
             if (committedVersionChain.row == null) {
+                // If previous version doesn't exist and current version is a tombstone,
+                // then just ignore it.
                 return null;
             }
         }

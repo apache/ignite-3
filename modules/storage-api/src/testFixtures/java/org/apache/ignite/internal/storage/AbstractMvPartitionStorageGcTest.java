@@ -144,7 +144,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
     }
 
     @Test
-    void testVacuumsSecondRowIfTombstoneIsFirst2() {
+    void testVacuumsSecondRowIfTombstoneIsFirstAddCommitted() {
         addWriteCommitted(ROW_ID, null, clock.now());
 
         addWriteCommitted(ROW_ID, TABLE_ROW, clock.now());

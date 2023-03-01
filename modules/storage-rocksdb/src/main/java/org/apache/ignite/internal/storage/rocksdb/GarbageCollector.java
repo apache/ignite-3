@@ -150,12 +150,6 @@ class GarbageCollector {
         return false;
     }
 
-    enum Res {
-        NO_PREVIOUS_VALUE,
-        PREVIOUS_VALUE_TOMBSTONE,
-        HAS_PREVIOUS_VALUE
-    }
-
     /**
      * Polls an element for vacuum. See {@link org.apache.ignite.internal.storage.MvPartitionStorage#pollForVacuum(HybridTimestamp)}.
      *
