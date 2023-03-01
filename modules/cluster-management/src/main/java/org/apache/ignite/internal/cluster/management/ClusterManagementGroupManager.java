@@ -393,7 +393,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 });
 
         raftServiceAfterJoin().thenCompose(this::pushAuthenticationConfigToCluster);
-
     }
 
     private CompletableFuture<Void> pushAuthenticationConfigToCluster(CmgRaftService service) {
@@ -861,8 +860,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     return serviceFuture;
                 });
     }
-
-
 
     @TestOnly
     LogicalTopologyImpl logicalTopologyImpl() {

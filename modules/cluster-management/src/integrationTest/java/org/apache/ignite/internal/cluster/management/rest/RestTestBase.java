@@ -41,7 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Cluster management REST test.
  */
 @MicronautTest
-@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RestTestBase extends BaseItClusterManagementTest {
     static final List<MockNode> cluster = new ArrayList<>();
