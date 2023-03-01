@@ -60,7 +60,7 @@ dependencies {
     implementation libs.okhttp.logging
     implementation libs.threetenbp
     implementation libs.swagger.legacy.annotations
-    implementation 'me.tongfei:progressbar:0.9.4'
+    implementation libs.progressBar
 
     testAnnotationProcessor libs.picocli.annotation.processor
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
