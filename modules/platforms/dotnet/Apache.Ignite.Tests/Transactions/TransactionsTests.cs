@@ -250,13 +250,6 @@ namespace Apache.Ignite.Tests.Transactions
             await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
             Assert.IsTrue(tx.IsReadOnly);
-            Assert.IsNotNull(tx.ReadTimestamp);
-
-            TimeSpan diff = DateTime.UtcNow - tx.ReadTimestamp!.Physical.ToDateTimeUtc();
-            Assert.Greater(diff, TimeSpan.Zero);
-            Assert.Less(diff, TimeSpan.FromMinutes(1));
-
-            Assert.GreaterOrEqual(tx.ReadTimestamp.Logical, 0);
         }
 
         [Test]
@@ -265,14 +258,11 @@ namespace Apache.Ignite.Tests.Transactions
             await using var tx = await Client.Transactions.BeginAsync();
 
             Assert.IsFalse(tx.IsReadOnly);
-            Assert.IsNull(tx.ReadTimestamp);
         }
 
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;
-
-            public HybridTimestamp? ReadTimestamp => null;
 
             public ValueTask DisposeAsync()
             {

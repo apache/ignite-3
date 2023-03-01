@@ -48,14 +48,12 @@ namespace Apache.Ignite.Internal.Transactions
         /// <param name="socket">Associated connection.</param>
         /// <param name="failoverSocket">Associated connection multiplexer.</param>
         /// <param name="isReadOnly">Read-only flag.</param>
-        /// <param name="readTs">Read timestamp.</param>
-        public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket, bool isReadOnly, HybridTimestamp? readTs)
+        public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket, bool isReadOnly)
         {
             Id = id;
             Socket = socket;
             FailoverSocket = failoverSocket;
             IsReadOnly = isReadOnly;
-            ReadTimestamp = readTs;
         }
 
         /// <summary>
@@ -75,9 +73,6 @@ namespace Apache.Ignite.Internal.Transactions
 
         /// <inheritdoc/>
         public bool IsReadOnly { get; }
-
-        /// <inheritdoc/>
-        public HybridTimestamp? ReadTimestamp { get; }
 
         /// <inheritdoc/>
         public async Task CommitAsync()
