@@ -76,7 +76,7 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
     }
 
     private void print(String s) {
-        output.print("\r" + s);
+        output.print("\r" + s); // carriage return to the beginning of the line to overwrite the previous progress bar
         output.flush();
     }
 }

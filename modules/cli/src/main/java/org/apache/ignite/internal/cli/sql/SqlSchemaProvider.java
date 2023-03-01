@@ -61,4 +61,8 @@ public class SqlSchemaProvider implements SchemaProvider {
         return schema.get();
     }
 
+    public void initStateAsync() {
+        // trigger schema loading in background
+        CompletableFuture.supplyAsync(this::getSchema);
+    }
 }
