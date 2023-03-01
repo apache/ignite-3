@@ -146,6 +146,11 @@ public class FakeIgnite implements Ignite {
                     public boolean isReadOnly() {
                         return false;
                     }
+
+                    @Override
+                    public HybridTimestamp readTimestamp() {
+                        return null;
+                    }
                 });
             }
         };

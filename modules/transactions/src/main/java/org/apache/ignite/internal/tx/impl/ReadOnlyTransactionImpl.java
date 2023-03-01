@@ -57,6 +57,12 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** {@inheritDoc} */
     @Override
+    public HybridTimestamp readTimestamp() {
+        return readTimestamp;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(ReplicationGroupId replicationGroupId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
         // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
         return null;

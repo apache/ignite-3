@@ -201,6 +201,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: path
+        in: path
+        description: "Configuration tree address. For example: `element.subelement`."
+        required: true
+        schema:
+          type: string
       responses:
         "200":
           description: Configuration of the cluster on the specified path.
@@ -260,6 +266,8 @@ paths:
       operationId: updateNodeConfiguration
       parameters: []
       requestBody:
+        description: the node configuration to update. This is represented as a plain
+          text
         content:
           text/plain:
             schema:
@@ -291,6 +299,12 @@ paths:
       description: "Gets a configuration of a specific node, in HOCON format."
       operationId: getNodeConfigurationByPath
       parameters:
+      - name: path
+        in: path
+        description: "Configuration tree address. For example: `element.subelement`."
+        required: true
+        schema:
+          type: string
       - name: path
         in: path
         description: "Configuration tree address. For example: `element.subelement`."
