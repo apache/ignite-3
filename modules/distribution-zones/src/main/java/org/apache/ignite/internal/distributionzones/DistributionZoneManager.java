@@ -620,7 +620,9 @@ public class DistributionZoneManager implements IgniteComponent {
             }
         }
 
-        topVerFut.thenAccept(ignored -> {
+        topVerFut.thenAcceptAsync(ignored -> {
+            System.out.println("ScaleUp revision awaiting");
+
             synchronized (dataNodesMutex) {
                 CompletableFuture<Void> topVerScaleUpFut;
 
@@ -1180,7 +1182,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     synchronized (dataNodesMutex) {
                         lastTopVer = topVer;
 
-                        SortedMap<Long, CompletableFuture<Void>> topVerFuts = topVerFutures.headMap(topVer);
+                        SortedMap<Long, CompletableFuture<Void>> topVerFuts = topVerFutures.headMap(topVer, true);
 
                         topVerFuts.values().forEach(v -> v.complete(null));
 

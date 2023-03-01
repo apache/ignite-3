@@ -729,7 +729,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
                 new HybridClockImpl(),
-                new OutgoingSnapshotsManager(clusterService.messagingService())
+                new OutgoingSnapshotsManager(clusterService.messagingService()),
+                null,
+                null
         ) {
             @Override
             protected MvTableStorage createTableStorage(TableConfiguration tableCfg, TablesConfiguration tablesCfg) {
