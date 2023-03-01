@@ -206,7 +206,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
     private final WatchListener dataNodesWatchListener;
 
-    private static class DataNodes {
+    static class DataNodes {
         private Set<String> nodes;
 
         private long scaleUpRevision;
@@ -216,6 +216,10 @@ public class DistributionZoneManager implements IgniteComponent {
         private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleUpFutures = new ConcurrentSkipListMap();
 
         private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures = new ConcurrentSkipListMap();
+
+        public DataNodes() {
+
+        }
 
         public DataNodes(Set<String> nodes, long scaleUpRevision, long scaleDownRevision) {
             this.nodes = nodes;
@@ -254,6 +258,16 @@ public class DistributionZoneManager implements IgniteComponent {
         public NavigableMap<Long, CompletableFuture<Void>> getRevisionScaleDownFutures() {
             return revisionScaleDownFutures;
         }
+    }
+
+    @TestOnly
+    public Map<Integer, DataNodes> dataNodes() {
+        return dataNodes;
+    }
+
+    @TestOnly
+    public NavigableMap<Long, CompletableFuture<Void>> topVerFutures() {
+        return topVerFutures;
     }
 
     /**
@@ -611,51 +625,79 @@ public class DistributionZoneManager implements IgniteComponent {
                 CompletableFuture<Void> topVerScaleUpFut;
 
                 if (immediateScaleUp) {
-                    Long scaleUpRevision = topVerScaleUpAndRevision.ceilingEntry(topVer).getValue();
+                    Map.Entry<Long, Long> scaleUpRevisionEntry = topVerScaleUpAndRevision.ceilingEntry(topVer);
 
-                    assert scaleUpRevision != null;
+                    Long scaleUpRevision = null;
 
-                    if (dataNodes.get(zoneId).scaleUpRevision() >= scaleUpRevision) {
-                        topVerScaleUpFut = completedFuture(null);
-                    } else {
-                        topVerScaleUpFut = dataNodes.get(zoneId).getRevisionScaleUpFutures().ceilingEntry(scaleUpRevision).getValue();
+                    if (scaleUpRevisionEntry != null) {
+                        scaleUpRevision = scaleUpRevisionEntry.getValue();
+                    }
+
+                    if (scaleUpRevision != null && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleUpRevision() < scaleUpRevision)) {
+                        if (dataNodes.get(zoneId) == null) {
+                            dataNodes.put(zoneId, new DataNodes());
+                        }
+
+                        Map.Entry<Long, CompletableFuture<Void>> ceilingEntry = dataNodes.get(zoneId).getRevisionScaleUpFutures().ceilingEntry(scaleUpRevision);
+
+                        if (ceilingEntry != null) {
+                            topVerScaleUpFut = ceilingEntry.getValue();
+                        }
 
                         if (topVerScaleUpFut == null) {
                             topVerScaleUpFut = new CompletableFuture<>();
 
-                            dataNodes.get(zoneId).getRevisionScaleDownFutures().put(scaleUpRevision, topVerScaleUpFut);
+                            dataNodes.get(zoneId).getRevisionScaleUpFutures().put(scaleUpRevision, topVerScaleUpFut);
                         }
+                    } else {
+                        topVerScaleUpFut = completedFuture(null);
                     }
                 } else {
                     topVerScaleUpFut = completedFuture(null);
                 }
 
-                topVerScaleUpFut.thenAccept(ignored0 -> {
-                    CompletableFuture<Void> topVerScaleDownFut;
+                topVerScaleUpFut.thenAcceptAsync(ignored0 -> {
+                    System.out.println("ScaleDown revision awaiting");
+
+                    CompletableFuture<Void> topVerScaleDownFut = null;
 
                     synchronized (dataNodesMutex) {
                         if (immediateScaleDown) {
-                            Long scaleDownRevision = topVerScaleDownAndRevision.ceilingEntry(topVer).getValue();
+                            Map.Entry<Long, Long> scaleDownRevisionEntry = topVerScaleDownAndRevision.ceilingEntry(topVer);
 
-                            assert scaleDownRevision != null;
+                            Long scaleDownRevision = null;
 
-                            if (dataNodes.get(zoneId).scaleDownRevision() >= scaleDownRevision) {
-                                topVerScaleDownFut = completedFuture(null);
-                            } else {
-                                topVerScaleDownFut = dataNodes.get(zoneId).getRevisionScaleDownFutures().ceilingEntry(scaleDownRevision).getValue();
+                            if (scaleDownRevisionEntry != null) {
+                                scaleDownRevision = scaleDownRevisionEntry.getValue();
+                            }
+
+                            if (scaleDownRevision != null && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleDownRevision() < scaleDownRevision)) {
+                                if (dataNodes.get(zoneId) == null) {
+                                    dataNodes.put(zoneId, new DataNodes());
+                                }
+
+
+
+                                Map.Entry<Long, CompletableFuture<Void>> ceilingEntry = dataNodes.get(zoneId).getRevisionScaleDownFutures().ceilingEntry(scaleDownRevision);
+
+                                if (ceilingEntry != null) {
+                                    topVerScaleDownFut = ceilingEntry.getValue();
+                                }
 
                                 if (topVerScaleDownFut == null) {
                                     topVerScaleDownFut = new CompletableFuture<>();
 
                                     dataNodes.get(zoneId).revisionScaleDownFutures.put(scaleDownRevision, topVerScaleDownFut);
                                 }
+                            } else {
+                                topVerScaleDownFut = completedFuture(null);
                             }
                         } else {
                             topVerScaleDownFut = completedFuture(null);
                         }
                     }
 
-                    topVerScaleDownFut.thenAccept(ignored1 -> {
+                    topVerScaleDownFut.thenAcceptAsync(ignored1 -> {
                         dataNodesFut.complete(dataNodes.get(zoneId).nodes());
                     });
                 });
@@ -1215,7 +1257,6 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
                     }
 
-                    assert zoneId > 0;
                     assert newDataNodes != null;
                     assert scaleUpRevision > 0 || scaleDownRevision > 0;
 
@@ -1237,7 +1278,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         if (scaleUpRevision > 0) {
-                            SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts = dataNodes.get(zoneId).getRevisionScaleUpFutures().headMap(scaleUpRevision);
+                            SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts = dataNodes.get(zoneId).getRevisionScaleUpFutures().headMap(scaleUpRevision, true);
 
                             revisionScaleUpFuts.values().forEach(v -> v.complete(null));
 
@@ -1245,7 +1286,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         if (scaleDownRevision > 0) {
-                            SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts = dataNodes.get(zoneId).getRevisionScaleDownFutures().headMap(scaleDownRevision);
+                            SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts = dataNodes.get(zoneId).getRevisionScaleDownFutures().headMap(scaleDownRevision, true);
 
                             revisionScaleDownFuts.values().forEach(v -> v.complete(null));
 
