@@ -22,7 +22,6 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
-    using NodaTime;
     using NUnit.Framework;
     using Table;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
