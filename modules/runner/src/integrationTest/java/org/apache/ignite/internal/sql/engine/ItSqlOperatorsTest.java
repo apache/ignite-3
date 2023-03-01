@@ -181,6 +181,7 @@ public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
         assertExpression("ABS(-1)").returns(Math.abs(-1)).check();
         assertExpression("RAND()").check();
         assertExpression("RAND_INTEGER(10)").check();
+        assertExpression("RAND_UUID()").check();
         assertExpression("ACOS(1)").returns(Math.acos(1)).check();
         assertExpression("ASIN(1)").returns(Math.asin(1)).check();
         assertExpression("ATAN(1)").returns(Math.atan(1)).check();
