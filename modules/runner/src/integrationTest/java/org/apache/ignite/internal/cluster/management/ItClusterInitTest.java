@@ -84,8 +84,8 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
         InitParameters initParametersWithWrongNodesList2 = InitParameters.builder()
                 .setNodeName(nodeName)
-                .setMetaStorageNodeNames(nodeNames)
-                .setClusterName("cluster")
+                .setMetaStorageNodeNames(List.of(nodeName))
+                .setClusterName("new name")
                 .build();
 
         // init should fail if cluster names are different
