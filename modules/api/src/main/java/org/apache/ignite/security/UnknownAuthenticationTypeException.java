@@ -17,6 +17,7 @@
 
 package org.apache.ignite.security;
 
+import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 
@@ -33,4 +34,17 @@ public class UnknownAuthenticationTypeException extends IgniteException {
     public UnknownAuthenticationTypeException(String message) {
         super(Common.ILLEGAL_ARGUMENT_ERR, message);
     }
+
+    /**
+     * Creates a new exception with the given trace id, error code, detail message and cause.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detail message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public UnknownAuthenticationTypeException(UUID traceId, int code, String message, Throwable cause) {
+        super(traceId, code, message, cause);
+    }
+
 }

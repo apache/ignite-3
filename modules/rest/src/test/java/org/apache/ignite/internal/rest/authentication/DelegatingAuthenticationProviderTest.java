@@ -113,6 +113,8 @@ class DelegatingAuthenticationProviderTest {
         provider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
         // then
+
+        // just to be sure that authentication is enabled
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
         assertThat(authenticate(provider, validCredentials), willCompleteSuccessfully());

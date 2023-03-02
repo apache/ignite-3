@@ -48,6 +48,7 @@ public class ClusterInitCall implements Call<ClusterInitCallInput, String> {
                     .metaStorageNodes(input.getMetaStorageNodes())
                     .cmgNodes(input.getCmgNodes())
                     .clusterName(input.getClusterName())
+                    //TODO support authentication in the CLI https://issues.apache.org/jira/browse/IGNITE-18607
                     .authenticationConfig(new AuthenticationConfig().enabled(false))
             );
             return DefaultCallOutput.success("Cluster was initialized successfully");
