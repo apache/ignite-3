@@ -35,11 +35,11 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.platform.commons.support.ReflectionSupport;
 
 /**
- * Abstract integration test that starts and stops a cluster.
+ * Abstract integration test that starts and stops a cluster test method.
  */
 @SuppressWarnings("ALL")
-public abstract class AbstractClusterIntegrationTest extends TestStartingIgnites {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractClusterIntegrationTest.class);
+public abstract class ClusterPerTestIntegrationTest extends TestStartingIgnites {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
