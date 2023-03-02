@@ -34,7 +34,7 @@ public class SqlSchemaProvider implements SchemaProvider {
 
     private final AtomicReference<SqlSchema> schema = new AtomicReference<>(null);
 
-    private final AtomicReference<Instant> lastUpdate = new AtomicReference<>(null);
+    private final AtomicReference<Instant> lastUpdate = new AtomicReference<>(Instant.now());
 
     public SqlSchemaProvider(MetadataSupplier metadataSupplier) {
         this(metadataSupplier, SCHEMA_UPDATE_TIMEOUT);
