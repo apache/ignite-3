@@ -105,16 +105,18 @@ namespace Apache.Ignite.Internal
         /// <param name="configuration">Configuration.</param>
         /// <param name="connectionContext">Connection context.</param>
         /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
+        /// <param name="logger">Logger.</param>
         private ClientSocket(
             NetworkStream stream,
             IgniteClientConfiguration configuration,
             ConnectionContext connectionContext,
-            Action<ClientSocket> assignmentChangeCallback)
+            Action<ClientSocket> assignmentChangeCallback,
+            IIgniteLogger? logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
             _assignmentChangeCallback = assignmentChangeCallback;
-            _logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+            _logger = logger;
             _socketTimeout = configuration.SocketTimeout;
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
@@ -164,7 +166,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                var logger = configuration.Logger.GetLogger(typeof(ClientSocket));
+                var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
 
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
                 logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
@@ -177,7 +179,7 @@ namespace Apache.Ignite.Internal
 
                 logger?.Debug($"Handshake succeeded: {context}.");
 
-                return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
+                return new ClientSocket(stream, configuration, context, assignmentChangeCallback, logger);
             }
             catch (Exception e)
             {

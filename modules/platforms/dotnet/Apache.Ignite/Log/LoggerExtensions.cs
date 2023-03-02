@@ -312,7 +312,7 @@ namespace Apache.Ignite.Log
         /// <returns>Logger that uses specified category when no other category is provided.</returns>
         public static IIgniteLogger? GetLogger(this IIgniteLogger? logger, string category)
         {
-            IgniteArgumentCheck.NotNull(logger, "logger");
+            IgniteArgumentCheck.NotNull(category, "category");
 
             return logger == null ? null : new CategoryLogger(logger, category);
         }
