@@ -281,6 +281,18 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     }
 
     /**
+     * Tests for {@code SUBSTR(str, start[, length])} function.
+     */
+    @Test
+    public void testSubstr() {
+        assertQuery("SELECT SUBSTR('abcdefg', 1, 3)").returns("abc");
+        assertQuery("SELECT SUBSTR('abcdefg', 2)").returns("bcdefg");
+        assertQuery("SELECT SUBSTR('abcdefg', -1)").returns("abcdefg");
+        assertQuery("SELECT SUBSTR('abcdefg', 1, -3)").returns("");
+        assertQuery("SELECT SUBSTR(1000, 1, 3)").returns("100");
+    }
+
+    /**
      * An interface describing a clock reporting time in a specified temporal value.
      *
      * @param <T> A type of the temporal value returned by the clock.

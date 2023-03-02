@@ -42,7 +42,9 @@ import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.causality.VersionedValue;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
@@ -66,13 +68,14 @@ import org.jetbrains.annotations.Nullable;
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
-    private final VersionedValue<Map<UUID, InternalIgniteTable>> tablesVv;
+    private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
 
     private final VersionedValue<Map<UUID, IgniteIndex>> indicesVv;
 
     private final TableManager tableManager;
-
     private final SchemaManager schemaManager;
+    private final ReplicaService replicaService;
+    private final HybridClock clock;
 
     private final VersionedValue<SchemaPlus> calciteSchemaVv;
 
@@ -88,11 +91,16 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             TableManager tableManager,
             SchemaManager schemaManager,
+            ReplicaService replicaService,
+            HybridClock clock,
             Consumer<Function<Long, CompletableFuture<?>>> registry,
             IgniteSpinBusyLock busyLock
     ) {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
+        this.replicaService = replicaService;
+        this.clock = clock;
+
         schemasVv = new VersionedValue<>(registry, HashMap::new);
         tablesVv = new VersionedValue<>(registry, HashMap::new);
         indicesVv = new VersionedValue<>(registry, HashMap::new);
@@ -225,11 +233,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                         return failedFuture(ex);
                                     }
 
-                                    Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
+                                    Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
                                     return igniteTableFuture
                                             .thenApply(igniteTable -> {
-                                                InternalIgniteTable oldTable = resTbls.put(igniteTable.id(), igniteTable);
+                                                IgniteTable oldTable = resTbls.put(igniteTable.id(), igniteTable);
 
                                                 // looks like this is UPDATE operation
                                                 if (oldTable != null) {
@@ -289,7 +297,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 IgniteSchema schema = res.compute(schemaName,
                         (k, v) -> v == null ? new IgniteSchema(schemaName) : IgniteSchema.copy(v));
 
-                InternalIgniteTable table = (InternalIgniteTable) schema.getTable(tableName);
+                IgniteTable table = (IgniteTable) schema.getTable(tableName);
 
                 if (table != null) {
                     schema.removeTable(tableName);
@@ -299,7 +307,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                             return failedFuture(ex);
                         }
 
-                        Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
+                        Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
                         resTbls.remove(table.id());
 
@@ -372,6 +380,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors, distribution),
                 table.internalTable(),
+                replicaService,
+                clock,
                 schemaRegistry
         );
     }
@@ -413,9 +423,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                 return failedFuture(tblEx);
                             }
 
-                            Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
+                            Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
-                            InternalIgniteTable table = resTbls.compute(index.tableId(),
+                            IgniteTable table = resTbls.compute(index.tableId(),
                                     (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 
                             IgniteIndex schemaIndex = new IgniteIndex(index);
@@ -482,9 +492,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                                     return failedFuture(tlbEx);
                                 }
 
-                                Map<UUID, InternalIgniteTable> resTbls = new HashMap<>(tables);
+                                Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
-                                InternalIgniteTable table = resTbls.computeIfPresent(rmvIndex.index().tableId(),
+                                IgniteTable table = resTbls.computeIfPresent(rmvIndex.index().tableId(),
                                         (k, v) -> IgniteTableImpl.copyOf((IgniteTableImpl) v));
 
                                 if (table != null) {

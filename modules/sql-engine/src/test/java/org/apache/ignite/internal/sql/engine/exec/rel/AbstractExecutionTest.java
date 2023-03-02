@@ -38,9 +38,10 @@ import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
@@ -61,7 +62,6 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
     public static final Object[][] EMPTY = new Object[0][];
 
     private Throwable lastE;
-    private List<UUID> nodes;
 
     private QueryTaskExecutorImpl taskExecutor;
 
@@ -102,7 +102,6 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
 
         return new ExecutionContext<>(
                 BaseQueryContext.builder()
-                        .transaction(new LocalTxAttributesHolder(UUID.randomUUID(), null))
                         .logger(log)
                         .build(),
                 taskExecutor,
@@ -111,7 +110,9 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 "fake-test-node",
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
-                Map.of()
+                Map.of(),
+                TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
+                null
         );
     }
 

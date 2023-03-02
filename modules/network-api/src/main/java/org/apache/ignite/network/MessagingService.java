@@ -91,6 +91,17 @@ public interface MessagingService {
     CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, NetworkMessage msg, long timeout);
 
     /**
+     * Sends a message asynchronously with same guarantees as {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
+     * completed successfully upon receiving a response.
+     *
+     * @param recipientConsistentId Consistent ID of the recipient of the message.
+     * @param msg The message.
+     * @param timeout Waiting for response timeout in milliseconds.
+     * @return A future holding the response or error if the expected response was not received.
+     */
+    CompletableFuture<NetworkMessage> invoke(String recipientConsistentId, NetworkMessage msg, long timeout);
+
+    /**
      * Registers a listener for a group of network message events.
      *
      * <p>Message group is specified by providing a class annotated with the {@link MessageGroup} annotation.

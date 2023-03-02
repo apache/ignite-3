@@ -18,18 +18,24 @@
 package org.apache.ignite.internal.cli.call.configuration;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 
 /**
  * Shows node configuration from ignite cluster.
  */
 @Singleton
 public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, JsonString> {
+
+    private final ApiClientFactory clientFactory;
+
+    public NodeConfigShowCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -50,6 +56,6 @@ public class NodeConfigShowCall implements Call<NodeConfigShowCallInput, JsonStr
     }
 
     private NodeConfigurationApi createApiClient(NodeConfigShowCallInput input) {
-        return new NodeConfigurationApi(Configuration.getDefaultApiClient().setBasePath(input.getNodeUrl()));
+        return new NodeConfigurationApi(clientFactory.getClient(input.getNodeUrl()));
     }
 }

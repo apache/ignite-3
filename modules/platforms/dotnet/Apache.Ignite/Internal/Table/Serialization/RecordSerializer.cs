@@ -57,9 +57,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <param name="schema">Schema or null when there is no value.</param>
-        /// <param name="key">Key part.</param>
         /// <returns>Resulting record with key and value parts.</returns>
-        public Option<T> ReadValue(PooledBuffer buf, Schema? schema, T key)
+        public Option<T> ReadValue(PooledBuffer buf, Schema? schema)
         {
             if (schema == null)
             {
@@ -71,7 +70,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var r = buf.GetReader();
             r.Skip();
 
-            return Option.Some(_handler.ReadValuePart(ref r, schema, key));
+            return Option.Some(_handler.Read(ref r, schema));
         }
 
         /// <summary>

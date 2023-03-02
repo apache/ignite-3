@@ -261,23 +261,18 @@ void write_table_operation_header(protocol::writer &writer, uuid id, transaction
  *
  * @param reader Reader.
  * @param sch Schema.
- * @param key Key.
  * @return Tuple.
  */
-ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, const ignite_tuple &key) {
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch) {
     auto tuple_data = reader.read_binary();
 
     auto columns_cnt = std::int32_t(sch->columns.size());
     ignite_tuple res(columns_cnt);
-    binary_tuple_parser parser(columns_cnt - sch->key_column_count, tuple_data);
+    binary_tuple_parser parser(columns_cnt, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
         auto &column = sch->columns[i];
-        if (i < sch->key_column_count) {
-            res.set(column.name, key.get(column.name));
-        } else {
-            res.set(column.name, read_next_column(parser, column.type, column.scale));
-        }
+        res.set(column.name, read_next_column(parser, column.type, column.scale));
     }
     return res;
 }
@@ -410,11 +405,28 @@ void table_impl::get_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *key);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(
                 client_operation::TUPLE_GET, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+        });
+}
+
+void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite_callback<bool> callback) {
+
+    with_latest_schema_async<bool>(std::move(callback),
+        [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
+            const schema &sch, auto callback) mutable {
+            auto writer_func = [self, key, &sch, &tx0](protocol::writer &writer) {
+                write_table_operation_header(writer, self->m_id, tx0.get(), sch);
+                write_tuple(writer, sch, *key, true);
+            };
+
+            auto reader_func = [](protocol::reader &reader) -> bool { return reader.read_bool(); };
+
+            self->m_connection->perform_request<bool>(client_operation::TUPLE_CONTAINS_KEY, tx0.get(), writer_func,
+                std::move(reader_func), std::move(callback));
         });
 }
 
@@ -484,7 +496,7 @@ void table_impl::get_and_upsert_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_UPSERT,
@@ -580,7 +592,7 @@ void table_impl::get_and_replace_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_REPLACE,
@@ -636,7 +648,7 @@ void table_impl::get_and_remove_async(
                 if (!sch)
                     return std::nullopt;
 
-                return read_tuple(reader, sch.get(), *record);
+                return read_tuple(reader, sch.get());
             };
 
             self->m_connection->perform_request<std::optional<ignite_tuple>>(client_operation::TUPLE_GET_AND_DELETE,

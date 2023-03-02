@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.FETCH_IS_PARAM_FACTOR;
+import static org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost.OFFSET_IS_PARAM_FACTOR;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.doubleFromRex;
+
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -28,10 +32,8 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -39,12 +41,6 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /** Relational expression that applies a limit and/or offset to its input. */
 public class IgniteLimit extends SingleRel implements IgniteRel {
-    /** In case the fetch value is a DYNAMIC_PARAM. */
-    private static final double FETCH_IS_PARAM_FACTOR = 0.01;
-
-    /** In case the offset value is a DYNAMIC_PARAM. */
-    private static final double OFFSET_IS_PARAM_FACTOR = 0.5;
-
     /** Offset. */
     private final RexNode offset;
 
@@ -178,26 +174,6 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
         double off = offset != null ? doubleFromRex(offset, inputRowCount * OFFSET_IS_PARAM_FACTOR) : 0;
 
         return Math.max(0, Math.min(lim, inputRowCount - off));
-    }
-
-    /**
-     * DoubleFromRex.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @return Integer value of the literal expression.
-     */
-    private double doubleFromRex(RexNode n, double def) {
-        try {
-            if (n.isA(SqlKind.LITERAL)) {
-                return ((RexLiteral) n).getValueAs(Integer.class);
-            } else {
-                return def;
-            }
-        } catch (Exception e) {
-            assert false : "Unable to extract value: " + e.getMessage();
-
-            return def;
-        }
     }
 
     /**

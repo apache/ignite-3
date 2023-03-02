@@ -21,9 +21,11 @@ import static io.micronaut.context.env.Environment.BARE_METAL;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.server.exceptions.ServerStartupException;
+import io.micronaut.http.ssl.ClientAuthentication;
 import io.micronaut.openapi.annotation.OpenAPIInclude;
 import io.micronaut.runtime.Micronaut;
 import io.micronaut.runtime.exceptions.ApplicationStartupException;
+import io.netty.handler.ssl.ClientAuth;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -31,6 +33,9 @@ import io.swagger.v3.oas.annotations.info.License;
 import java.net.BindException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -43,8 +48,11 @@ import org.apache.ignite.internal.rest.api.configuration.NodeConfigurationApi;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricApi;
 import org.apache.ignite.internal.rest.api.node.NodeManagementApi;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestSslConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestSslView;
 import org.apache.ignite.internal.rest.configuration.RestView;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -147,7 +155,7 @@ public class RestComponent implements IgniteComponent {
                 + " [HTTP ports=[" + desiredHttpPort + ", " + desiredHttpPort + portRange + "]],"
                 + " [HTTPS ports=[" + desiredHttpsPort + ", " + desiredHttpsPort + httpsPortRange + "]]";
 
-        throw new RuntimeException(msg);
+        throw new IgniteException(Common.UNEXPECTED_ERR, msg);
     }
 
     /** Starts Micronaut application using the provided ports.
@@ -171,7 +179,7 @@ public class RestComponent implements IgniteComponent {
             if (bindException != null) {
                 return false;
             }
-            throw new RuntimeException(e);
+            throw new IgniteException(Common.UNEXPECTED_ERR, e);
         }
     }
 
@@ -212,14 +220,20 @@ public class RestComponent implements IgniteComponent {
     }
 
     private Map<String, Object> properties(int port, int sslPort) {
-        boolean dualProtocol = restConfiguration.dualProtocol().value();
-        boolean sslEnabled = restConfiguration.ssl().enabled().value();
-        String keyStoreType = restConfiguration.ssl().keyStore().type().value();
-        String keyStorePath = restConfiguration.ssl().keyStore().path().value();
-        String keyStorePassword = restConfiguration.ssl().keyStore().password().value();
+        RestSslConfiguration sslCfg = restConfiguration.ssl();
+        boolean sslEnabled = sslCfg.enabled().value();
 
         if (sslEnabled) {
-            return Map.of(
+            String keyStorePath = sslCfg.keyStore().path().value();
+            // todo: replace with configuration-level validation https://issues.apache.org/jira/browse/IGNITE-18850
+            validateKeyStorePath(keyStorePath);
+
+            String keyStoreType = sslCfg.keyStore().type().value();
+            String keyStorePassword = sslCfg.keyStore().password().value();
+
+            boolean dualProtocol = restConfiguration.dualProtocol().value();
+
+            Map<String, Object> micronautSslConfig = Map.of(
                     "micronaut.server.port", port, // Micronaut is not going to handle requests on that port, but it's required
                     "micronaut.server.dual-protocol", dualProtocol,
                     "micronaut.server.ssl.port", sslPort,
@@ -228,8 +242,74 @@ public class RestComponent implements IgniteComponent {
                     "micronaut.server.ssl.key-store.password", keyStorePassword,
                     "micronaut.server.ssl.key-store.type", keyStoreType
             );
+
+            ClientAuth clientAuth = ClientAuth.valueOf(sslCfg.clientAuth().value().toUpperCase());
+            if (ClientAuth.NONE == clientAuth) {
+                return micronautSslConfig;
+            }
+
+
+            String trustStorePath = sslCfg.trustStore().path().value();
+            // todo: replace with configuration-level validation https://issues.apache.org/jira/browse/IGNITE-18850
+            validateTrustStore(trustStorePath);
+
+            String trustStoreType = sslCfg.trustStore().type().value();
+            String trustStorePassword = sslCfg.trustStore().password().value();
+
+            Map<String, Object> micronautClientAuthConfig = Map.of(
+                    "micronaut.server.ssl.client-authentication", toMicronautClientAuth(clientAuth),
+                    "micronaut.server.ssl.trust-store.path", "file:" + trustStorePath,
+                    "micronaut.server.ssl.trust-store.password", trustStorePassword,
+                    "micronaut.server.ssl.trust-store.type", trustStoreType
+            );
+
+            HashMap<String, Object> result = new HashMap<>();
+            result.putAll(micronautSslConfig);
+            result.putAll(micronautClientAuthConfig);
+
+            return result;
         } else {
             return Map.of("micronaut.server.port", port);
+        }
+    }
+
+    private static void validateKeyStorePath(String keyStorePath) {
+        if (keyStorePath.trim().isEmpty()) {
+            throw new IgniteException(
+                    Common.SSL_CONFIGURATION_ERR,
+                    "Trust store path is not configured. Please check your rest.ssl.keyStore.path configuration."
+            );
+        }
+
+        if (!Files.exists(Path.of(keyStorePath))) {
+            throw new IgniteException(
+                    Common.SSL_CONFIGURATION_ERR,
+                    "Trust store file not found: " + keyStorePath + ". Please check your rest.ssl.keyStore.path configuration."
+            );
+        }
+    }
+
+    private static void validateTrustStore(String trustStorePath) {
+        if (trustStorePath.trim().isEmpty()) {
+            throw new IgniteException(
+                    Common.SSL_CONFIGURATION_ERR,
+                    "Key store path is not configured. Please check your rest.ssl.trustStore.path configuration."
+            );
+        }
+
+        if (!Files.exists(Path.of(trustStorePath))) {
+            throw new IgniteException(
+                    Common.SSL_CONFIGURATION_ERR,
+                    "Key store file not found: " + trustStorePath + ". Please check your rest.ssl.trustStore.path configuration."
+            );
+        }
+    }
+
+    private String toMicronautClientAuth(ClientAuth clientAuth) {
+        switch (clientAuth) {
+            case OPTIONAL: return ClientAuthentication.WANT.name().toLowerCase();
+            case REQUIRE:  return ClientAuthentication.NEED.name().toLowerCase();
+            default: throw new IllegalArgumentException("Can not convert " + clientAuth.name() + " to micronaut type");
         }
     }
 

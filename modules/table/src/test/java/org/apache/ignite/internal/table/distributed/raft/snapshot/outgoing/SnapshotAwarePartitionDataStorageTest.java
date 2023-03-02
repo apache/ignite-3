@@ -37,8 +37,9 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,8 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Mock
     private OutgoingSnapshot snapshot;
+
+    private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
     @BeforeEach
     void configureMocks() {
@@ -125,21 +128,17 @@ class SnapshotAwarePartitionDataStorageTest {
     }
 
     @Test
-    void delegatesCommittedGroupConfigurationGetter() {
-        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
-
-        when(partitionStorage.committedGroupConfiguration()).thenReturn(config);
-
-        assertThat(testedStorage.committedGroupConfiguration(), is(sameInstance(config)));
-    }
-
-    @Test
-    void delegatesCommittedGroupConfigurationSetter() {
-        RaftGroupConfiguration config = mock(RaftGroupConfiguration.class);
+    void convertsCommittedGroupConfigurationOnSave() {
+        RaftGroupConfiguration config = new RaftGroupConfiguration(
+                List.of("peer"),
+                List.of("learner"),
+                List.of("old-peer"),
+                List.of("old-learner")
+        );
 
         testedStorage.committedGroupConfiguration(config);
 
-        verify(partitionStorage).committedGroupConfiguration(config);
+        verify(partitionStorage).committedGroupConfiguration(configurationConverter.toBytes(config));
     }
 
     @Test
@@ -179,7 +178,7 @@ class SnapshotAwarePartitionDataStorageTest {
     void delegatesClose() {
         testedStorage.close();
 
-        verify(partitionStorage).close();
+        verify(partitionStorage, never()).close();
     }
 
     @Test

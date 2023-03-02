@@ -118,7 +118,6 @@ namespace Apache.Ignite.Internal
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Secondary connections are established in the background.
-            // TODO IGNITE-18808 Do this periodically.
             _ = socket.ConnectAllSockets();
 
             return socket;
@@ -308,7 +307,11 @@ namespace Apache.Ignite.Internal
                         tasks.Add(ConnectAsync(endpoint).AsTask());
                     }
 
+                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+
                     await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                    _logger?.Debug("All secondary connections established.");
                 }
                 catch (Exception e)
                 {
@@ -343,11 +346,11 @@ namespace Apache.Ignite.Internal
         private async ValueTask<ClientSocket> GetNextSocketAsync()
         {
             List<Exception>? errors = null;
-            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+            var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
 
             for (var i = 0; i < _endpoints.Count; i++)
             {
-                var idx = (startIdx + i) % _endpoints.Count;
+                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
                 var endPoint = _endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
@@ -376,11 +379,11 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private ClientSocket? GetNextSocketWithoutReconnect()
         {
-            var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
+            var startIdx = unchecked((int) Interlocked.Increment(ref _endPointIndex));
 
             for (var i = 0; i < _endpoints.Count; i++)
             {
-                var idx = (startIdx + i) % _endpoints.Count;
+                var idx = Math.Abs(startIdx + i) % _endpoints.Count;
                 var endPoint = _endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })

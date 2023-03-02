@@ -38,7 +38,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointSt
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
@@ -49,7 +48,6 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -147,6 +145,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             try {
                 return closure.execute();
             } finally {
+                updateVersionChainLockByRowId.releaseAllLockByCurrentThread();
+
                 checkpointTimeoutLock.checkpointReadUnlock();
             }
         });
@@ -225,8 +225,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    @Nullable
-    public RaftGroupConfiguration committedGroupConfiguration() {
+    public byte @Nullable [] committedGroupConfiguration() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
@@ -240,9 +239,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         return null;
                     }
 
-                    byte[] bytes = blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
-
-                    return replicationProtocolGroupConfigFromBytes(bytes);
+                    return blobStorage.readBlob(meta.lastReplicationProtocolGroupConfigFirstPageId());
                 } finally {
                     replicationProtocolGroupConfigReadWriteLock.readLock().unlock();
                 }
@@ -253,7 +250,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void committedGroupConfiguration(RaftGroupConfiguration config) {
+    public void committedGroupConfiguration(byte[] config) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
@@ -263,13 +260,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
-    private void committedGroupConfigurationBusy(RaftGroupConfiguration config) {
+    private void committedGroupConfigurationBusy(byte[] groupConfigBytes) {
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         CheckpointProgress lastCheckpoint = checkpointManager.lastCheckpointProgress();
         UUID lastCheckpointId = lastCheckpoint == null ? null : lastCheckpoint.id();
-
-        byte[] groupConfigBytes = replicationProtocolGroupConfigToBytes(config);
 
         replicationProtocolGroupConfigReadWriteLock.writeLock().lock();
 
@@ -286,19 +281,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         } finally {
             replicationProtocolGroupConfigReadWriteLock.writeLock().unlock();
         }
-    }
-
-    @Nullable
-    private static RaftGroupConfiguration replicationProtocolGroupConfigFromBytes(byte @Nullable [] bytes) {
-        if (bytes == null) {
-            return null;
-        }
-
-        return ByteUtils.fromBytes(bytes);
-    }
-
-    private static byte[] replicationProtocolGroupConfigToBytes(RaftGroupConfiguration config) {
-        return ByteUtils.toBytes(config);
     }
 
     @Override
@@ -431,7 +413,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public void committedGroupConfigurationOnRebalance(RaftGroupConfiguration config) {
+    public void committedGroupConfigurationOnRebalance(byte[] config) {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         committedGroupConfigurationBusy(config);

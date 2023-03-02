@@ -219,7 +219,7 @@ public class ClientCompute implements IgniteCompute {
                     w.packObjectArrayAsBinaryTuple(args);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
-                ClientTupleSerializer.getHashFunction(null, keyMapper, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(null, keyMapper, key));
     }
 
     private static <R> CompletableFuture<R> executeColocatedTupleKey(
@@ -241,7 +241,7 @@ public class ClientCompute implements IgniteCompute {
                     w.packObjectArrayAsBinaryTuple(args);
                 },
                 r -> (R) r.unpackObjectFromBinaryTuple(),
-                ClientTupleSerializer.getHashFunction(null, key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(null, key));
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {

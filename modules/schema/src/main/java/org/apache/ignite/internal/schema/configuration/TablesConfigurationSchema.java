@@ -49,4 +49,8 @@ public class TablesConfigurationSchema {
     @ExistingDataStorage
     @Value(hasDefault = true)
     public String defaultDataStorage = "aipersist";
+
+    /** Number of garbage collector threads. */
+    @Value(hasDefault = true)
+    public int gcThreads = Runtime.getRuntime().availableProcessors();
 }

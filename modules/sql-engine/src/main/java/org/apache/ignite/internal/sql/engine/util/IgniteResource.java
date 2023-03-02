@@ -40,4 +40,7 @@ public interface IgniteResource {
 
     @Resources.BaseMessage("Unexpected number of query parameters. Provided {0} but there is only {1} dynamic parameter(s).")
     Resources.ExInst<SqlValidatorException> unexpectedParameter(int provided, int expected);
+
+    @Resources.BaseMessage("Invalid decimal literal")
+    Resources.ExInst<SqlValidatorException> decimalLiteralInvalid();
 }

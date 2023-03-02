@@ -100,7 +100,10 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             // When passing white space to this command, picocli will treat it as a positional argument
             if (execOptions == null || (execOptions.command != null && execOptions.command.isBlank())) {
-                SqlCompleter sqlCompleter = new SqlCompleter(new SqlSchemaProvider(sqlManager::getMetadata));
+                SqlSchemaProvider schemaProvider = new SqlSchemaProvider(sqlManager::getMetadata);
+                schemaProvider.initStateAsync();
+
+                SqlCompleter sqlCompleter = new SqlCompleter(schemaProvider);
                 IgniteSqlCommandCompleter sqlCommandCompleter = new IgniteSqlCommandCompleter();
                 replExecutorProvider.get().execute(Repl.builder()
                         .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli> ")))

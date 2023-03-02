@@ -70,9 +70,9 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, keyRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -95,7 +95,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
                 ClientTupleSerializer::readTuplesNullable,
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -113,7 +113,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w),
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -135,7 +135,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
                 r -> null,
-                ClientTupleSerializer.getHashFunction(tx, recs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -152,9 +152,9 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, rec),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -172,7 +172,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -195,7 +195,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
                 ClientTupleSerializer::readTuples,
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, recs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -219,7 +219,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -235,7 +235,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                     ser.writeTuple(tx, newRec, s, w, false, true);
                 },
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, oldRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, oldRec));
     }
 
     /** {@inheritDoc} */
@@ -252,9 +252,9 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, rec),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -272,7 +272,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, keyRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -290,7 +290,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w, false),
                 ClientMessageUnpacker::unpackBoolean,
-                ClientTupleSerializer.getHashFunction(tx, rec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -307,9 +307,9 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r, keyRec),
+                (s, r) -> ClientTupleSerializer.readTuple(s, r, false),
                 null,
-                ClientTupleSerializer.getHashFunction(tx, keyRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -332,7 +332,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
                 (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, keyRecs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()));
     }
 
     /** {@inheritDoc} */
@@ -355,7 +355,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 (s, w) -> ser.writeTuples(tx, recs, s, w, false),
                 ClientTupleSerializer::readTuples,
                 Collections.emptyList(),
-                ClientTupleSerializer.getHashFunction(tx, recs.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, recs.iterator().next()));
     }
 
     /** {@inheritDoc} */

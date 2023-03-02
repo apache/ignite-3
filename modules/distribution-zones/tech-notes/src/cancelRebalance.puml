@@ -1,0 +1,18 @@
+@startuml
+skinparam maxMessageSize 400
+
+PlacementDriver -> PrimaryReplica: Send RebalanceRequest
+PrimaryReplica -> ReplicationGroup : Start rebalance process
+ReplicationGroup -> PrimaryReplica : Send rebalanceError message
+PrimaryReplica -> PlacementDriver : Send rebalanceError message
+PlacementDriver -> PlacementDriver: Decides to give up with this rebalance at all
+PlacementDriver -> Metastore : Put (oldTopology, newTopology) to **zonedId.assignment.cancel** key [see 1]
+PlacementDriver <- Metastore : Receives the notification about ***.cancel** update
+PlacementDriver -> PrimaryReplica : Send CancelRebalanceRequest(oldTopology, newTopology)
+PrimaryReplica -> ReplicationGroup : Send CancelRebalanceRequest(oldTopology, newTopology) [see 2]
+ReplicationGroup -> ReplicationGroup : Process cancellation request and invoke onCancelDone listener
+ReplicationGroup -> PrimaryReplica : Send CancelRebalanceDone message
+PrimaryReplica -> PlacementDriver : Send CancelRebalanceDone message
+PlacementDriver -> Metastore : Invoke general rebalance mestastore multi-invoke to update ***.planned/*.pending/*.cancel** and set current stable topology to the same **zonedId.assignment.stable** (needs to force the metastore update)
+DistributionZoneManager <- Metastore : Receives **zonedId.assignment.stable** update, stop unneeded replicas, prepare new rebalance if needed
+@enduml

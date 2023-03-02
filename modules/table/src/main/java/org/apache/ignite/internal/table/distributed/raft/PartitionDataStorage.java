@@ -22,9 +22,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
-import org.apache.ignite.internal.storage.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -101,19 +101,10 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     void lastApplied(long lastAppliedIndex, long lastAppliedTerm) throws StorageException;
 
     /**
-     * Committed RAFT group configuration corresponding to the write command with the highest index applied to the storage.
-     * {@code null} if it was never saved.
-     *
-     * @see MvPartitionStorage#committedGroupConfiguration()
-     */
-    @Nullable
-    RaftGroupConfiguration committedGroupConfiguration();
-
-    /**
      * Updates RAFT group configuration.
      *
      * @param config Configuration to save.
-     * @see MvPartitionStorage#committedGroupConfiguration(RaftGroupConfiguration)
+     * @see MvPartitionStorage#committedGroupConfiguration(byte[])
      */
     void committedGroupConfiguration(RaftGroupConfiguration config);
 
@@ -174,6 +165,13 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @return Cursor of results including both rows data and transaction-related context. The versions are ordered from newest to oldest.
      */
     Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException;
+
+    /**
+     * Tries to garbage collect the oldest stale entry of the partition.
+     *
+     * @see MvPartitionStorage#pollForVacuum(HybridTimestamp)
+     */
+    @Nullable BinaryRowAndRowId pollForVacuum(HybridTimestamp lowWatermark);
 
     /**
      * Returns the underlying {@link MvPartitionStorage}. Only for tests!

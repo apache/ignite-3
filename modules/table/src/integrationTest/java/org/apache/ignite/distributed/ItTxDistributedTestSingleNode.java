@@ -67,6 +67,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -86,6 +87,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -122,6 +124,9 @@ import org.mockito.Mockito;
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private static DataStorageConfiguration dsCfg;
 
     private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
@@ -422,7 +427,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMpPartStorage);
                 Supplier<Map<UUID, TableSchemaAwareIndexStorage>> indexes = () -> Map.of(pkStorage.get().id(), pkStorage.get());
-                StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(partId, partitionDataStorage, indexes);
+                StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(partId, partitionDataStorage, indexes, dsCfg);
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
                         new RaftNodeId(grpId, configuration.peer(assignment)),
@@ -613,10 +618,18 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         return manager;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Check the storage of partition is the same across all nodes.
+     * The checking is based on {@link MvPartitionStorage#lastAppliedIndex()} that is increased on all update storage operation.
+     * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
+     *
+     * @param table The table.
+     * @param partId Partition id.
+     * @return True if {@link MvPartitionStorage#lastAppliedIndex()} is equivalent across all nodes, false otherwise.
+     */
     @Override
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
-        int hash = 0;
+        long storageIdx = 0;
 
         for (Map.Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza svc = entry.getValue();
@@ -635,9 +648,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             MvPartitionStorage storage = listener.getMvStorage();
 
-            if (hash == 0) {
-                hash = storage.hashCode();
-            } else if (hash != storage.hashCode()) {
+            if (storageIdx == 0) {
+                storageIdx = storage.lastAppliedIndex();
+            } else if (storageIdx != storage.lastAppliedIndex()) {
                 return false;
             }
         }
@@ -649,11 +662,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     public void testIgniteTransactionsAndReadTimestamp() {
         Transaction readWriteTx = igniteTransactions.begin();
         assertFalse(readWriteTx.isReadOnly());
-        assertNull(readWriteTx.readTimestamp());
+        assertNull(((InternalTransaction) readWriteTx).readTimestamp());
 
         Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertTrue(readOnlyTx.isReadOnly());
-        assertNotNull(readOnlyTx.readTimestamp());
+        assertNotNull(((InternalTransaction) readOnlyTx).readTimestamp());
 
         readWriteTx.commit();
 

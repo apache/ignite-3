@@ -83,7 +83,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
 
         table.start();
 
-        storage = table.getOrCreateMvPartition(PARTITION_ID);
+        storage = getOrCreateMvPartition(table, PARTITION_ID);
     }
 
     @AfterEach
