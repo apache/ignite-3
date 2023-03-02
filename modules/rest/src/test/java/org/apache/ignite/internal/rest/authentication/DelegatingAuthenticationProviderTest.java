@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.rest.authentication;
 
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.CoreMatchers.is;
+import static org.apache.ignite.internal.rest.authentication.TestSubscriberUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.http.HttpMethod;
 import io.micronaut.http.simple.SimpleHttpRequest;
@@ -42,10 +40,8 @@ class DelegatingAuthenticationProviderTest {
     private final DelegatingAuthenticationProvider authenticationProvider = new DelegatingAuthenticationProvider();
 
     @Test
-    public void enableAuth() {
+    public void enableAuth() throws Throwable {
         // when
-        TestAuthenticationSubscriber subscriber = new TestAuthenticationSubscriber();
-
         AuthenticationView adminPasswordAuthView = new StubAuthenticationView(true,
                 new StubBasicAuthenticationProviderView("admin", "password"));
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
@@ -53,37 +49,25 @@ class DelegatingAuthenticationProviderTest {
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        authenticationProvider.authenticate(httpRequest, validCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
 
         // unsuccessful authentication with invalid credentials
         UsernamePasswordCredentials invalidCredentials = new UsernamePasswordCredentials("admin", "wrong-password");
-        authenticationProvider.authenticate(httpRequest, invalidCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertThat(subscriber.lastError(), is(instanceOf(AuthenticationException.class))),
-                () -> assertNull(subscriber.lastResponse())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, invalidCredentials)),
+                willFailFast(AuthenticationException.class));
+
     }
 
     @Test
     public void leaveOldSettingWhenInvalidConfiguration() {
         // when
-        TestAuthenticationSubscriber subscriber = new TestAuthenticationSubscriber();
-
         AuthenticationView invalidAuthView = new StubAuthenticationView(true, Collections.emptyList());
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, invalidAuthView)).join();
 
         // then
         // authentication is still disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        authenticationProvider.authenticate(httpRequest, emptyCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, emptyCredentials)), willCompleteSuccessfully());
     }
 
     @Test
@@ -97,11 +81,7 @@ class DelegatingAuthenticationProviderTest {
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        TestAuthenticationSubscriber subscriber = new TestAuthenticationSubscriber();
-        authenticationProvider.authenticate(httpRequest, validCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated()));
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
 
         // disable authentication
         AuthenticationView disabledAuthView = new StubAuthenticationView(false, Collections.emptyList());
@@ -110,11 +90,7 @@ class DelegatingAuthenticationProviderTest {
         // then
         // authentication is disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        authenticationProvider.authenticate(httpRequest, emptyCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, emptyCredentials)), willCompleteSuccessfully());
     }
 
     @Test
@@ -128,11 +104,7 @@ class DelegatingAuthenticationProviderTest {
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        TestAuthenticationSubscriber subscriber = new TestAuthenticationSubscriber();
-        authenticationProvider.authenticate(httpRequest, validCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated()));
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
 
         // disable authentication
         AuthenticationView disabledAuthView = new StubAuthenticationView(false,
@@ -142,11 +114,7 @@ class DelegatingAuthenticationProviderTest {
         // then
         // authentication is disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        authenticationProvider.authenticate(httpRequest, emptyCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, emptyCredentials)), willCompleteSuccessfully());
     }
 
     @Test
@@ -160,31 +128,20 @@ class DelegatingAuthenticationProviderTest {
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials adminAdminCredentials = new UsernamePasswordCredentials("admin", "password");
-        TestAuthenticationSubscriber subscriber = new TestAuthenticationSubscriber();
-        authenticationProvider.authenticate(httpRequest, adminAdminCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminAdminCredentials)), willCompleteSuccessfully());
 
         // change authentication settings - change password
         AuthenticationView adminPasswordAuthView = new StubAuthenticationView(true,
                 new StubBasicAuthenticationProviderView("admin", "new-password"));
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminAdminAuthView, adminPasswordAuthView)).join();
 
-        authenticationProvider.authenticate(httpRequest, adminAdminCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertThat(subscriber.lastError(), is(instanceOf(AuthenticationException.class))),
-                () -> assertNull(subscriber.lastResponse())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminAdminCredentials)),
+                willFailFast(AuthenticationException.class));
 
         // then
         // successful authentication with the new password
         UsernamePasswordCredentials adminPasswordCredentials = new UsernamePasswordCredentials("admin", "new-password");
-        authenticationProvider.authenticate(httpRequest, adminPasswordCredentials).subscribe(subscriber);
-        assertAll(
-                () -> assertNull(subscriber.lastError()),
-                () -> assertTrue(subscriber.lastResponse().isAuthenticated())
-        );
+        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminPasswordCredentials)),
+                willCompleteSuccessfully());
     }
 }
