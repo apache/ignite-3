@@ -365,46 +365,6 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     /**
-     * Collects all multi-versioned partition storages to close.
-     */
-    // TODO: IGNITE-18529 We need to wait for all current operations and disable new ones
-    // TODO: IGNITE-18529 Думаю просто удалить
-    public List<T> getAllForClose() {
-        return IntStream.range(0, storageByPartitionId.length())
-                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
-                .filter(Objects::nonNull)
-                .collect(toList());
-    }
-
-    /**
-     * Destroys all created multi-versioned partition storages.
-     *
-     * @param destroyStorageFunction Partition destruction function.
-     * @return Future destruction of all created multi-versioned partition storages.
-     */
-    // TODO: IGNITE-18529 We need to deal with parallel operations
-    // TODO: IGNITE-18529 Думаю просто удалить
-    public CompletableFuture<Void> destroyAll(Function<T, CompletableFuture<Void>> destroyStorageFunction) {
-        List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
-
-        for (int partitionId = 0; partitionId < storageByPartitionId.length(); partitionId++) {
-            StorageOperation storageOperation = operationByPartitionId.get(partitionId);
-
-            if (storageOperation instanceof DestroyStorageOperation) {
-                destroyFutures.add(((DestroyStorageOperation) storageOperation).getDestroyFuture());
-            } else {
-                T storage = storageByPartitionId.getAndSet(partitionId, null);
-
-                if (storage != null) {
-                    destroyFutures.add(destroyStorageFunction.apply(storage));
-                }
-            }
-        }
-
-        return CompletableFuture.allOf(destroyFutures.toArray(CompletableFuture[]::new));
-    }
-
-    /**
      * Returns table name.
      */
     public String getTableName() {

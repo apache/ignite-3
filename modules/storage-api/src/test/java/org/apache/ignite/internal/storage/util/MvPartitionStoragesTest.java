@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willTimeoutFast;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -519,52 +518,6 @@ public class MvPartitionStoragesTest {
         );
 
         assertThat(finishRebalanceMvStorage(0), willFailFast(RuntimeException.class));
-    }
-
-    @Test
-    void testGetAllForClose() {
-        MvPartitionStorage storage0 = mock(MvPartitionStorage.class);
-        MvPartitionStorage storage1 = mock(MvPartitionStorage.class);
-
-        assertThat(mvPartitionStorages.create(0, partId -> storage0), willCompleteSuccessfully());
-        assertThat(mvPartitionStorages.create(1, partId -> storage1), willCompleteSuccessfully());
-
-        assertThat(mvPartitionStorages.getAllForClose(), contains(storage0, storage1));
-    }
-
-    @Test
-    void testDestroyAll() {
-        MvPartitionStorage storage0 = mock(MvPartitionStorage.class);
-        MvPartitionStorage storage1 = mock(MvPartitionStorage.class);
-
-        assertThat(mvPartitionStorages.create(0, partId -> storage0), willCompleteSuccessfully());
-        assertThat(mvPartitionStorages.create(1, partId -> storage1), willCompleteSuccessfully());
-
-        CompletableFuture<Void> startDestroyMvStorage0Future = new CompletableFuture<>();
-        CompletableFuture<Void> finishDestroyMvStorage0Future = new CompletableFuture<>();
-
-        CompletableFuture<?> destroyMvStorage0Future = runAsync(() ->
-                assertThat(mvPartitionStorages.destroy(0, mvStorage -> {
-                    startDestroyMvStorage0Future.complete(null);
-
-                    return finishDestroyMvStorage0Future;
-                }), willCompleteSuccessfully())
-        );
-
-        assertThat(startDestroyMvStorage0Future, willCompleteSuccessfully());
-
-        CompletableFuture<Void> destroyAllMvStoragesFuture = mvPartitionStorages.destroyAll(mvStorage -> {
-            assertSame(mvStorage, storage1);
-
-            return completedFuture(null);
-        });
-
-        assertThat(destroyAllMvStoragesFuture, willTimeoutFast());
-
-        finishDestroyMvStorage0Future.complete(null);
-
-        assertThat(destroyMvStorage0Future, willCompleteSuccessfully());
-        assertThat(destroyAllMvStoragesFuture, willCompleteSuccessfully());
     }
 
     @Test

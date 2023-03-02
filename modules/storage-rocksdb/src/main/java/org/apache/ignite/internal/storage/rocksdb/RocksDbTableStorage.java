@@ -41,6 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -358,19 +359,22 @@ public class RocksDbTableStorage implements MvTableStorage {
 
         resources.add(writeOptions);
 
-        mvPartitionStorages.getAllForClose().forEach(mvPartitionStorage -> resources.add(mvPartitionStorage::close));
-
-        for (HashIndex index : hashIndices.values()) {
-            resources.add(index::close);
-        }
-
-        for (SortedIndex index : sortedIndices.values()) {
-            resources.add(index::close);
-        }
-
-        Collections.reverse(resources);
-
         try {
+            mvPartitionStorages
+                    .getAllForCloseOrDestroy()
+                    .get(10, TimeUnit.SECONDS)
+                    .forEach(mvPartitionStorage -> resources.add(mvPartitionStorage::close));
+
+            for (HashIndex index : hashIndices.values()) {
+                resources.add(index::close);
+            }
+
+            for (SortedIndex index : sortedIndices.values()) {
+                resources.add(index::close);
+            }
+
+            Collections.reverse(resources);
+
             IgniteUtils.closeAll(resources);
         } catch (Exception e) {
             throw new StorageException("Failed to stop RocksDB table storage: " + getTableName(), e);
