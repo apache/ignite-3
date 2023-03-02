@@ -27,7 +27,7 @@ namespace Apache.Ignite.Internal.Transactions
     /// <summary>
     /// Ignite transaction.
     /// </summary>
-    internal class Transaction : ITransaction
+    internal sealed class Transaction : ITransaction
     {
         /** Open state. */
         private const int StateOpen = 0;
@@ -47,11 +47,13 @@ namespace Apache.Ignite.Internal.Transactions
         /// <param name="id">Transaction id.</param>
         /// <param name="socket">Associated connection.</param>
         /// <param name="failoverSocket">Associated connection multiplexer.</param>
-        public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket)
+        /// <param name="isReadOnly">Read-only flag.</param>
+        public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket, bool isReadOnly)
         {
             Id = id;
             Socket = socket;
             FailoverSocket = failoverSocket;
+            IsReadOnly = isReadOnly;
         }
 
         /// <summary>
@@ -68,6 +70,9 @@ namespace Apache.Ignite.Internal.Transactions
         /// Gets the transaction id.
         /// </summary>
         public long Id { get; }
+
+        /// <inheritdoc/>
+        public bool IsReadOnly { get; }
 
         /// <inheritdoc/>
         public async Task CommitAsync()
