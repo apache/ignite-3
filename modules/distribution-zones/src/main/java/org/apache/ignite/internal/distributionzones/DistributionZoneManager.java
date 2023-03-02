@@ -591,6 +591,13 @@ public class DistributionZoneManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Data nodes.
+     *
+     * @param zoneId Zone id.
+     * @param topVer Topology version.
+     * @return Data nodes future.
+     */
     public CompletableFuture<Set<String>> getDataNodes(int zoneId, long topVer) {
         boolean immediateScaleUp0 = false;
         boolean immediateScaleDown0 = false;
@@ -599,7 +606,8 @@ public class DistributionZoneManager implements IgniteComponent {
             immediateScaleUp0 = zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleUp().value() == 0;
             immediateScaleDown0 = zonesConfiguration.defaultDistributionZone().dataNodesAutoAdjustScaleDown().value() == 0;
         } else {
-            NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones = zonesConfiguration.distributionZones();
+            NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
+                    zonesConfiguration.distributionZones();
 
             for (int i = 0; i < zones.value().size(); i++) {
                 DistributionZoneView zone = zones.value().get(i);
@@ -658,8 +666,10 @@ public class DistributionZoneManager implements IgniteComponent {
                         scaleUpRevision = scaleUpRevisionEntry.getValue();
                     }
 
-                    if (scaleUpRevision != null && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleUpRevision() < scaleUpRevision)) {
-                        Map.Entry<Long, CompletableFuture<Void>> ceilingEntry = dataNodes.get(zoneId).getRevisionScaleUpFutures().ceilingEntry(scaleUpRevision);
+                    if (scaleUpRevision != null
+                            && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleUpRevision() < scaleUpRevision)) {
+                        Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
+                                dataNodes.get(zoneId).getRevisionScaleUpFutures().ceilingEntry(scaleUpRevision);
 
                         if (ceilingEntry != null) {
                             topVerScaleUpFut = ceilingEntry.getValue();
@@ -690,8 +700,10 @@ public class DistributionZoneManager implements IgniteComponent {
                                 scaleDownRevision = scaleDownRevisionEntry.getValue();
                             }
 
-                            if (scaleDownRevision != null && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleDownRevision() < scaleDownRevision)) {
-                                Map.Entry<Long, CompletableFuture<Void>> ceilingEntry = dataNodes.get(zoneId).getRevisionScaleDownFutures().ceilingEntry(scaleDownRevision);
+                            if (scaleDownRevision != null
+                                    && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleDownRevision() < scaleDownRevision)) {
+                                Map.Entry<Long, CompletableFuture<Void>> ceilingEntry =
+                                        dataNodes.get(zoneId).getRevisionScaleDownFutures().ceilingEntry(scaleDownRevision);
 
                                 if (ceilingEntry != null) {
                                     topVerScaleDownFut = ceilingEntry.getValue();
@@ -1152,7 +1164,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
 
                 try {
-                    assert evt.entryEvents().size() == 2 : "Expected an event with logical topology and logical topology version entries but was events with keys: "
+                    assert evt.entryEvents().size() == 2 :
+                            "Expected an event with logical topology and logical topology version entries but was events with keys: "
                             + evt.entryEvents().stream().map(entry -> entry.newEntry() == null ? "null" : entry.newEntry().key())
                             .collect(toList());
 
@@ -1171,7 +1184,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             topVer = fromBytes(e.value());
 
                             revision = e.revision();
-                        } if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
+                        } else if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
                             newLogicalTopologyBytes = e.value();
 
                             newLogicalTopology = fromBytes(newLogicalTopologyBytes);
@@ -1288,7 +1301,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             }
 
                             if (scaleUpRevision > 0) {
-                                SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts = dataNodes.get(zoneId).getRevisionScaleUpFutures().headMap(scaleUpRevision, true);
+                                SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts =
+                                        dataNodes.get(zoneId).getRevisionScaleUpFutures().headMap(scaleUpRevision, true);
 
                                 revisionScaleUpFuts.values().forEach(v -> v.complete(null));
 
@@ -1296,7 +1310,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             }
 
                             if (scaleDownRevision > 0) {
-                                SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts = dataNodes.get(zoneId).getRevisionScaleDownFutures().headMap(scaleDownRevision, true);
+                                SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts =
+                                        dataNodes.get(zoneId).getRevisionScaleDownFutures().headMap(scaleDownRevision, true);
 
                                 revisionScaleDownFuts.values().forEach(v -> v.complete(null));
 

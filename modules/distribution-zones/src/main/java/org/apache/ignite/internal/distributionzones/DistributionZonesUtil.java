@@ -45,10 +45,12 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
 
     /** Key prefix for zone's scale up change trigger key. */
-    private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpChangeTrigger.";
+    private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX =
+            DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpChangeTrigger.";
 
     /** Key prefix for zone's scale down change trigger key. */
-    private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownChangeTrigger.";
+    private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX =
+            DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownChangeTrigger.";
 
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = "distributionZones.logicalTopology.nodes";
