@@ -737,9 +737,7 @@ public class ItRebalanceDistributedTest {
                     schemaManager,
                     view -> new LocalLogStorageFactory(),
                     new HybridClockImpl(),
-                    new OutgoingSnapshotsManager(clusterService.messagingService()),
-                    null,
-                    null
+                    new OutgoingSnapshotsManager(clusterService.messagingService())
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(TableConfiguration tableCfg) {

@@ -566,9 +566,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 schemaManager,
                 null,
                 clock,
-                mock(OutgoingSnapshotsManager.class),
-                null,
-                null
+                mock(OutgoingSnapshotsManager.class)
         );
 
         tableManager.start();
