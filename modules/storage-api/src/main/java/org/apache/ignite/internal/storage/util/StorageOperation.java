@@ -26,15 +26,54 @@ import org.jetbrains.annotations.Nullable;
  */
 interface StorageOperation {
     /**
+     * Returns future completion of the operation.
+     */
+    CompletableFuture<Void> operationFuture();
+
+    /**
+     * Return {@code true} if the operation is the final.
+     */
+    boolean isFinalOperation();
+
+    /**
+     * Marks the operation as final.
+     */
+    void markFinalOperation();
+
+    /**
+     * Abstract operation of the storage.
+     */
+    abstract class AbstractStorageOperation implements StorageOperation {
+        private final CompletableFuture<Void> operationFuture = new CompletableFuture<>();
+
+        private volatile boolean finalOperation;
+
+        @Override
+        public CompletableFuture<Void> operationFuture() {
+            return operationFuture;
+        }
+
+        @Override
+        public boolean isFinalOperation() {
+            return finalOperation;
+        }
+
+        @Override
+        public void markFinalOperation() {
+            finalOperation = true;
+        }
+    }
+
+    /**
      * Storage creation operation.
      */
-    class CreateStorageOperation implements StorageOperation {
+    class CreateStorageOperation extends AbstractStorageOperation {
     }
 
     /**
      * Storage destruction operation.
      */
-    class DestroyStorageOperation implements StorageOperation {
+    class DestroyStorageOperation extends AbstractStorageOperation {
         private final CompletableFuture<Void> destroyFuture = new CompletableFuture<>();
 
         private final AtomicReference<CreateStorageOperation> createStorageOperationReference = new AtomicReference<>();
@@ -45,14 +84,14 @@ interface StorageOperation {
          * @param createStorageOperation Storage creation operation.
          * @return {@code True} if the operation was set by current method invocation, {@code false} if by another method invocation.
          */
-        public boolean setCreationOperation(CreateStorageOperation createStorageOperation) {
+        boolean setCreationOperation(CreateStorageOperation createStorageOperation) {
             return createStorageOperationReference.compareAndSet(null, createStorageOperation);
         }
 
         /**
          * Returns {@link #setCreationOperation(CreateStorageOperation) set} a storage creation operation.
          */
-        public @Nullable CreateStorageOperation getCreateStorageOperation() {
+        @Nullable CreateStorageOperation getCreateStorageOperation() {
             return createStorageOperationReference.get();
         }
 
@@ -67,24 +106,30 @@ interface StorageOperation {
     /**
      * Storage rebalancing start operation.
      */
-    class StartRebalanceStorageOperation implements StorageOperation {
+    class StartRebalanceStorageOperation extends AbstractStorageOperation {
     }
 
     /**
      * Storage rebalancing abort operation.
      */
-    class AbortRebalanceStorageOperation implements StorageOperation {
+    class AbortRebalanceStorageOperation extends AbstractStorageOperation {
     }
 
     /**
      * Storage rebalancing finish operation.
      */
-    class FinishRebalanceStorageOperation implements StorageOperation {
+    class FinishRebalanceStorageOperation extends AbstractStorageOperation {
     }
 
     /**
      * Storage cleanup operation.
      */
-    class CleanupStorageOperation implements StorageOperation {
+    class CleanupStorageOperation extends AbstractStorageOperation {
+    }
+
+    /**
+     * Storage close operation.
+     */
+    class CloseStorageOperation extends AbstractStorageOperation {
     }
 }

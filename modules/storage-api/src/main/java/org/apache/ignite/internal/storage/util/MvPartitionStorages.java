@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.util.StorageOperation.AbortRebalanceStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.CleanupStorageOperation;
+import org.apache.ignite.internal.storage.util.StorageOperation.CloseStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.CreateStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.DestroyStorageOperation;
 import org.apache.ignite.internal.storage.util.StorageOperation.FinishRebalanceStorageOperation;
@@ -127,7 +128,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         }).whenComplete((storage, throwable) -> operationByPartitionId.compute(partitionId, (partId, operation) -> {
             assert operation instanceof CreateStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-            return null;
+            return completeOperation(operation);
         }));
     }
 
@@ -158,9 +159,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                        DestroyStorageOperation destroyStorageOperation = (DestroyStorageOperation) operation;
-
-                        return destroyStorageOperation.getCreateStorageOperation();
+                        return completeOperation(operation);
                     });
 
                     if (throwable == null) {
@@ -198,7 +197,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                         operationByPartitionId.compute(partitionId, (partId, operation) -> {
                             assert operation instanceof CleanupStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
                 );
     }
@@ -242,7 +241,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof StartRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
                 );
     }
@@ -283,7 +282,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof AbortRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
                 );
     }
@@ -325,8 +324,43 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
                             assert operation instanceof FinishRebalanceStorageOperation :
                                     createStorageInfo(partitionId) + ", op=" + operation;
 
-                            return null;
+                            return completeOperation(operation);
                         })
+                );
+    }
+
+    /**
+     * Returns all storages for closing or destroying after completion of operations for all storages.
+     *
+     * <p>After completing the future, when try to perform any operation, {@link StorageException} for all storages will be thrown.
+     *
+     * @return Future that at the complete will return all the storages that are not destroyed.
+     */
+    public CompletableFuture<List<T>> getAllForCloseOrDestroy() {
+        List<CompletableFuture<Void>> operationFutures = new ArrayList<>();
+
+        for (int partitionId = 0; partitionId < storageByPartitionId.length(); partitionId++) {
+            StorageOperation storageOperation = operationByPartitionId.compute(partitionId, (partId, operation) -> {
+                if (operation == null) {
+                    operation = new CloseStorageOperation();
+                }
+
+                operation.markFinalOperation();
+
+                return operation;
+            });
+
+            if (!(storageOperation instanceof CloseStorageOperation)) {
+                operationFutures.add(storageOperation.operationFuture());
+            }
+        }
+
+        return CompletableFuture.allOf(operationFutures.toArray(CompletableFuture[]::new))
+                .thenApply(unused ->
+                        IntStream.range(0, storageByPartitionId.length())
+                                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
+                                .filter(Objects::nonNull)
+                                .collect(toList())
                 );
     }
 
@@ -334,6 +368,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * Collects all multi-versioned partition storages to close.
      */
     // TODO: IGNITE-18529 We need to wait for all current operations and disable new ones
+    // TODO: IGNITE-18529 Думаю просто удалить
     public List<T> getAllForClose() {
         return IntStream.range(0, storageByPartitionId.length())
                 .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
@@ -348,6 +383,7 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
      * @return Future destruction of all created multi-versioned partition storages.
      */
     // TODO: IGNITE-18529 We need to deal with parallel operations
+    // TODO: IGNITE-18529 Думаю просто удалить
     public CompletableFuture<Void> destroyAll(Function<T, CompletableFuture<Void>> destroyStorageFunction) {
         List<CompletableFuture<Void>> destroyFutures = new ArrayList<>();
 
@@ -442,6 +478,8 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
             throw new StorageRebalanceException(createStorageInProgressOfFinishRebalanceErrorMessage(partitionId));
         } else if (operation instanceof CleanupStorageOperation) {
             throw new StorageException(createStorageInProgressOfCleanupErrorMessage(partitionId));
+        } else if (operation instanceof CloseStorageOperation || operation.isFinalOperation()) {
+            throw new StorageException(createStorageInProgressOfCloseErrorMessage(partitionId));
         } else {
             throw new StorageException(createUnknownOperationErrorMessage(partitionId, operation));
         }
@@ -460,6 +498,8 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
             throw new StorageRebalanceException(createStorageInProgressOfFinishRebalanceErrorMessage(partitionId));
         } else if (operation instanceof CleanupStorageOperation) {
             throw new StorageRebalanceException(createStorageInProgressOfCleanupErrorMessage(partitionId));
+        } else if (operation instanceof CloseStorageOperation || operation.isFinalOperation()) {
+            throw new StorageException(createStorageInProgressOfCloseErrorMessage(partitionId));
         } else {
             throw new StorageRebalanceException(createUnknownOperationErrorMessage(partitionId, operation));
         }
@@ -499,5 +539,19 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
     private String createUnknownOperationErrorMessage(int partitionId, StorageOperation operation) {
         return "Unknown operation: [" + createStorageInfo(partitionId) + ", operation=" + operation + ']';
+    }
+
+    private String createStorageInProgressOfCloseErrorMessage(int partitionId) {
+        return "Storage is in the process of closing: [" + createStorageInfo(partitionId) + ']';
+    }
+
+    private static @Nullable StorageOperation completeOperation(StorageOperation operation) {
+        operation.operationFuture().complete(null);
+
+        if (operation.isFinalOperation()) {
+            return operation;
+        }
+
+        return operation instanceof DestroyStorageOperation ? ((DestroyStorageOperation) operation).getCreateStorageOperation() : null;
     }
 }
