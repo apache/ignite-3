@@ -742,7 +742,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
-                CompletableFuture<PartitionStorages> partitionStoragesFut = createPartitionStorages(table, partId);
+                CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
 
                 CompletableFuture<PartitionDataStorage> partitionDataStorageFut = partitionStoragesFut
                         .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
@@ -1997,9 +1997,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                     if (shouldStartLocalServices) {
-                        PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
+                        PartitionStorages partitionStorages = getOrCreatePartitionStorages(tbl, partId).join();
 
-                        MvPartitionStorage mvPartitionStorage = tbl.internalTable().storage().getMvPartition(partId);
+                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
@@ -2201,10 +2201,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future of creating or getting partition stores.
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
-    private CompletableFuture<PartitionStorages> createPartitionStorages(TableImpl table, int partitionId) {
+    // TODO: IGNITE-18939 Create storages only once, then only get them
+    private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
 
-        return internalTable.storage().createMvPartition(partitionId)
+        MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
+
+        return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
                 .thenComposeAsync(mvPartitionStorage -> {
                     TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
 
@@ -2218,22 +2221,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
                     }
                 }, ioExecutor);
-    }
-
-    /**
-     * Returns previously created partition storages.
-     *
-     * @param table Table.
-     * @param partitionId Partition ID.
-     */
-    private static PartitionStorages getPartitionStorages(TableImpl table, int partitionId) {
-        MvPartitionStorage mvPartition = table.internalTable().storage().getMvPartition(partitionId);
-        TxStateStorage txStateStorage = table.internalTable().txStateStorage().getTxStateStorage(partitionId);
-
-        assert mvPartition != null : "table=" + table.name() + ", tableId=" + table.tableId() + ", partitionId=" + partitionId;
-        assert txStateStorage != null : "table=" + table.name() + ", tableId=" + table.tableId() + ", partitionId=" + partitionId;
-
-        return new PartitionStorages(mvPartition, txStateStorage);
     }
 
     /**

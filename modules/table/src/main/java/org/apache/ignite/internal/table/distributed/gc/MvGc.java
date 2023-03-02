@@ -116,9 +116,8 @@ public class MvGc implements ManuallyCloseable {
                     new GcStorageHandler(storageUpdateHandler)
             );
 
-            assert previous == null : tablePartitionId;
-
-            if (lowWatermarkReference.get() != null) {
+            // TODO: IGNITE-18939 Should be called once, you need to check that previous == null
+            if (previous == null && lowWatermarkReference.get() != null) {
                 scheduleGcForStorage(tablePartitionId);
             }
         });
