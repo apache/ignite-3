@@ -66,8 +66,10 @@ namespace Apache.Ignite.Tests
             using var requestWriter = new PooledArrayBuffer();
             requestWriter.MessageWriter.Write(123);
 
-            Assert.ThrowsAsync<ObjectDisposedException>(
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
                 async () => await socket.DoOutInOpAsync(ClientOp.SchemasGet, requestWriter));
+
+            Assert.IsInstanceOf<ObjectDisposedException>(ex!.InnerException);
 
             // Multiple dispose is allowed.
             socket.Dispose();
