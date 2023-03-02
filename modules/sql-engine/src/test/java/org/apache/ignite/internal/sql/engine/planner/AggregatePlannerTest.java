@@ -37,8 +37,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 
 /**
  * Test that verifies plans for queries with aggregates.
- * <p>
- * Note: The test should not disable any rules and validates the best query plans.
+ *
+ * <p>Note: The test should not disable any rules and validates the best query plans.
  */
 public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     /** {@inheritDoc} */
