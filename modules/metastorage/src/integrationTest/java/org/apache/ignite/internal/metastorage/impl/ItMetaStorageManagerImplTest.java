@@ -188,7 +188,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         assertThat(vaultManager.get(key1), willBe(nullValue()));
         assertThat(vaultManager.get(key2), willBe(nullValue()));
 
-        metaStorageManager.registerExactWatch(key1, noOpListener());
+        metaStorageManager.registerExactWatch(key1, new NoOpListener("test1"));
 
         invokeFuture = metaStorageManager.invoke(
                 Conditions.exists(new ByteArray("foo")),
@@ -201,13 +201,13 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() == 2, 10_000));
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision("test1").join() == 2, 10_000));
 
         // Expect that only the watched key is persisted.
         assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(value));
         assertThat(vaultManager.get(key2), willBe(nullValue()));
 
-        metaStorageManager.registerExactWatch(key2, noOpListener());
+        metaStorageManager.registerExactWatch(key2, new NoOpListener("test2"));
 
         byte[] newValue = "newValue".getBytes(StandardCharsets.UTF_8);
 
@@ -222,20 +222,31 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(invokeFuture, willBe(true));
 
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() == 3, 10_000));
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision("test2").join() == 3, 10_000));
 
         assertThat(vaultManager.get(key1).thenApply(VaultEntry::value), willBe(newValue));
         assertThat(vaultManager.get(key2).thenApply(VaultEntry::value), willBe(newValue));
     }
 
-    private static WatchListener noOpListener() {
-        return new WatchListener() {
-            @Override
-            public void onUpdate(WatchEvent event) {}
+    private static class NoOpListener implements WatchListener {
+        private final String id;
 
-            @Override
-            public void onError(Throwable e) {}
-        };
+        NoOpListener(String id) {
+            this.id = id;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public CompletableFuture<Void> onUpdate(WatchEvent event) {
+            return completedFuture(null);
+        }
+
+        @Override
+        public void onError(Throwable e) {}
     }
 
     @Test

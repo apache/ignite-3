@@ -21,8 +21,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.NavigableMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -30,8 +32,6 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -39,6 +39,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTriConsumer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Parametrized type to store several versions of the value.
@@ -51,10 +52,10 @@ public class VersionedValue<T> {
     private static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
-    private static final int DEFAULT_HISTORY_SIZE = 2;
+    private static final int DEFAULT_MAX_HISTORY_SIZE = 2;
 
-    /** Size of stored history. */
-    private final int historySize;
+    /** Size of the history of changes to store, including last applied token. */
+    private final int maxHistorySize;
 
     /** List of completion listeners, see {@link #whenComplete(IgniteTriConsumer)}. */
     private final List<IgniteTriConsumer<Long, T, Throwable>> completionListeners = new CopyOnWriteArrayList<>();
@@ -63,15 +64,15 @@ public class VersionedValue<T> {
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
 
     /**
-     * This lock guarantees that the history is not trimming {@link #trimToSize(long)} during getting a value from versioned storage {@link
-     * #get(long)}.
+     * Mutex that ensures that only one thread can be removing old history entries.
      */
-    private final ReadWriteLock trimHistoryLock = new ReentrantReadWriteLock();
+    private final Object trimHistoryMutex = new Object();
 
     /** Initial future. The future will be completed when {@link VersionedValue} sets a first value. */
     private final CompletableFuture<T> initFut = new CompletableFuture<>();
 
     /** The supplier may provide a value which will used as a default. */
+    @Nullable
     private final Supplier<T> defaultValSupplier;
 
     /** Update mutex. */
@@ -88,6 +89,7 @@ public class VersionedValue<T> {
      * This {@code updaterFuture} is {@code null} if no updates in context of current causality token have been initiated.
      * See {@link #update(long, BiFunction)}.
      */
+    @Nullable
     private volatile CompletableFuture<T> updaterFuture = null;
 
     /**
@@ -99,17 +101,17 @@ public class VersionedValue<T> {
      *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update of
      *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                      concurrently with {@link #complete(long, T)} operations.
-     * @param historySize                   Size of the history of changes to store, including last applied token.
+     * @param maxHistorySize                Size of the history of changes to store, including last applied token.
      * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
      *                                      evaluate the default value if the value is not initialized yet. It is not guaranteed to
      *                                      execute only once.
      */
     public VersionedValue(
-            Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
-            int historySize,
-            Supplier<T> defaultVal
+            @Nullable Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
+            int maxHistorySize,
+            @Nullable Supplier<T> defaultVal
     ) {
-        this.historySize = historySize;
+        this.maxHistorySize = maxHistorySize;
 
         this.defaultValSupplier = defaultVal;
 
@@ -134,10 +136,10 @@ public class VersionedValue<T> {
      *                                      execute only once.
      */
     public VersionedValue(
-            Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
-            Supplier<T> defaultVal
+            @Nullable Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
+            @Nullable Supplier<T> defaultVal
     ) {
-        this(observableRevisionUpdater, DEFAULT_HISTORY_SIZE, defaultVal);
+        this(observableRevisionUpdater, DEFAULT_MAX_HISTORY_SIZE, defaultVal);
     }
 
     /**
@@ -150,8 +152,8 @@ public class VersionedValue<T> {
      *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                      concurrently with {@link #complete(long, T)} operations.
      */
-    public VersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
-        this(observableRevisionUpdater, DEFAULT_HISTORY_SIZE, null);
+    public VersionedValue(@Nullable Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
+        this(observableRevisionUpdater, DEFAULT_MAX_HISTORY_SIZE, null);
     }
 
     /**
@@ -187,34 +189,20 @@ public class VersionedValue<T> {
         long actualToken0 = this.actualToken;
 
         if (history.floorEntry(causalityToken) == null) {
-            throw new OutdatedTokenException(causalityToken, actualToken0, historySize);
+            throw new OutdatedTokenException(causalityToken, actualToken0, maxHistorySize);
         }
 
         if (causalityToken <= actualToken0) {
             return getValueForPreviousToken(causalityToken);
         }
 
-        trimHistoryLock.readLock().lock();
-
-        try {
-            if (causalityToken <= actualToken0) {
-                return getValueForPreviousToken(causalityToken);
-            }
-
-            var fut = new CompletableFuture<T>();
-
-            CompletableFuture<T> previousFut = history.putIfAbsent(causalityToken, fut);
-
-            return previousFut == null ? fut : previousFut;
-        } finally {
-            trimHistoryLock.readLock().unlock();
-        }
+        return history.computeIfAbsent(causalityToken, t -> new CompletableFuture<>());
     }
 
     /**
      * Gets the latest value of completed future.
      */
-    public T latest() {
+    public @Nullable T latest() {
         for (CompletableFuture<T> fut : history.descendingMap().values()) {
             if (fut.isDone()) {
                 return fut.join();
@@ -229,7 +217,7 @@ public class VersionedValue<T> {
      *
      * @return The value.
      */
-    private T getDefault() {
+    private @Nullable T getDefault() {
         if (defaultValSupplier != null && defaultValRef.get() == null) {
             T defaultVal = defaultValSupplier.get();
 
@@ -252,7 +240,7 @@ public class VersionedValue<T> {
         Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(causalityToken);
 
         if (histEntry == null) {
-            throw new OutdatedTokenException(causalityToken, actualToken, historySize);
+            throw new OutdatedTokenException(causalityToken, actualToken, maxHistorySize);
         }
 
         return histEntry.getValue();
@@ -317,7 +305,7 @@ public class VersionedValue<T> {
      * @param value          Value to set.
      * @param throwable      An exception.
      */
-    private void completeInternal(long causalityToken, T value, Throwable throwable) {
+    private void completeInternal(long causalityToken, @Nullable T value, @Nullable Throwable throwable) {
         CompletableFuture<T> res = history.putIfAbsent(
                 causalityToken,
                 throwable == null ? completedFuture(value) : failedFuture(throwable)
@@ -350,7 +338,9 @@ public class VersionedValue<T> {
      * @param throwable Throwable.
      * @return Error message.
      */
-    private String completeInternalConflictErrorMessage(CompletableFuture<T> future, long token, T value, Throwable throwable) {
+    private String completeInternalConflictErrorMessage(
+            CompletableFuture<T> future, long token, @Nullable T value, @Nullable Throwable throwable
+    ) {
         return future.handle(
             (prevValue, prevThrowable) ->
                 IgniteStringFormatter.format(
@@ -408,7 +398,7 @@ public class VersionedValue<T> {
             CompletableFuture<T> future = updaterFuture == null ? previousOrDefaultValueFuture(actualToken0) : updaterFuture;
 
             CompletableFuture<CompletableFuture<T>> f0 = future
-                    .handle(updater::apply)
+                    .handle(updater)
                     .handle((fut, e) -> e == null ? fut : failedFuture(e));
 
             updaterFuture = f0.thenCompose(Function.identity());
@@ -446,7 +436,7 @@ public class VersionedValue<T> {
      * @param value Value.
      * @param throwable Throwable.
      */
-    private void notifyCompletionListeners(long causalityToken, T value, Throwable throwable) {
+    private void notifyCompletionListeners(long causalityToken, @Nullable T value, @Nullable Throwable throwable) {
         Throwable unpackedThrowable = throwable instanceof CompletionException ? throwable.getCause() : throwable;
 
         List<Exception> exceptions = new ArrayList<>();
@@ -499,14 +489,14 @@ public class VersionedValue<T> {
             return completeUpdatesFuture.thenRun(() -> {
                 completeRelatedFuture(causalityToken);
 
-                if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
-                    trimToSize(causalityToken);
+                // Delete older tokens if their amount exceeds the configured history size.
+                NavigableMap<Long, CompletableFuture<T>> oldTokensMap = history.headMap(causalityToken, true);
+
+                if (oldTokensMap.size() > maxHistorySize) {
+                    synchronized (trimHistoryMutex) {
+                        trimToSize(oldTokensMap);
+                    }
                 }
-
-                Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
-
-                assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
-                    "Future for the token is not completed [token={}]", causalityToken);
             });
         }
     }
@@ -522,7 +512,7 @@ public class VersionedValue<T> {
         CompletableFuture<T> future = entry.getValue();
 
         if (!future.isDone()) {
-            Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
+            Entry<Long, CompletableFuture<T>> entryBefore = history.lowerEntry(causalityToken);
 
             CompletableFuture<T> previousFuture = entryBefore == null ? completedFuture(getDefault()) : entryBefore.getValue();
 
@@ -544,6 +534,8 @@ public class VersionedValue<T> {
             // This future is previous, it is always done.
             future.whenComplete((v, e) -> notifyCompletionListeners(causalityToken, v, e));
         }
+
+        assert future.isDone() : IgniteStringFormatter.format("Future for the token is not completed [token={}]", causalityToken);
     }
 
     /**
@@ -568,22 +560,13 @@ public class VersionedValue<T> {
 
     /**
      * Trims the storage to history size.
-     *
-     * @param causalityToken Last token which is being applied.
      */
-    private void trimToSize(long causalityToken) {
-        Long lastToken = history.lastKey();
+    private void trimToSize(NavigableMap<Long, CompletableFuture<T>> map) {
+        Iterator<Long> it = map.keySet().iterator();
 
-        trimHistoryLock.writeLock().lock();
-
-        try {
-            for (Long token : history.keySet()) {
-                if (!token.equals(lastToken) && causalityToken - token >= historySize) {
-                    history.remove(token);
-                }
-            }
-        } finally {
-            trimHistoryLock.writeLock().unlock();
+        for (int i = map.size(); i > maxHistorySize; i--) {
+            it.next();
+            it.remove();
         }
     }
 

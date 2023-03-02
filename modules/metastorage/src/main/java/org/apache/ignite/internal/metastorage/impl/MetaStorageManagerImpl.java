@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
@@ -34,13 +35,12 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
-import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageLearnerListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -77,7 +77,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     /**
      * Special key for the Vault where the applied revision is stored.
      */
-    private static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
+    private static final String APPLIED_REV_PREFIX = "applied_revision_";
 
     private final ClusterService clusterService;
 
@@ -102,11 +102,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
-
-    /**
-     * Applied revision of the Meta Storage, that is, the most recent revision that has been processed on this node.
-     */
-    private volatile long appliedRevision;
 
     /**
      * The constructor.
@@ -177,8 +172,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public void start() {
-        this.appliedRevision = readAppliedRevision().join();
-
         storage.start();
 
         cmgMgr.metaStorageNodes()
@@ -219,23 +212,32 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public long appliedRevision() {
-        return appliedRevision;
+    public CompletableFuture<Long> appliedRevision(String watchId) {
+        return vaultMgr.get(appliedRevisionKey(watchId))
+                .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
+    }
+
+    private long appliedRevision(WatchListener lsnr) {
+        return appliedRevision(lsnr.id()).join();
+    }
+
+    private static ByteArray appliedRevisionKey(String watchId) {
+        return ByteArray.fromString(APPLIED_REV_PREFIX + watchId);
     }
 
     @Override
-    public void registerPrefixWatch(ByteArray key, WatchListener lsnr) {
-        storage.watchPrefix(key.bytes(), appliedRevision + 1, lsnr);
+    public void registerPrefixWatch(ByteArray key, WatchListener listener) {
+        storage.watchPrefix(key.bytes(), appliedRevision(listener) + 1, listener);
     }
 
     @Override
     public void registerExactWatch(ByteArray key, WatchListener listener) {
-        storage.watchExact(key.bytes(), appliedRevision + 1, listener);
+        storage.watchExact(key.bytes(), appliedRevision(listener) + 1, listener);
     }
 
     @Override
     public void registerRangeWatch(ByteArray keyFrom, @Nullable ByteArray keyTo, WatchListener listener) {
-        storage.watchRange(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), appliedRevision + 1, listener);
+        storage.watchRange(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes(), appliedRevision(listener) + 1, listener);
     }
 
     @Override
@@ -528,30 +530,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         }
     }
 
-    /**
-     * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by the current applied revision as an
-     * upper bound. Applied revision is a revision of the last successful vault update.
-     *
-     * @param keyFrom Start key of range (inclusive). Couldn't be {@code null}.
-     * @param keyTo End key of range (exclusive). Could be {@code null}.
-     * @return Cursor built upon entries corresponding to the given range and applied revision.
-     * @throws OperationTimeoutException If the operation is timed out.
-     * @throws CompactedException If the desired revisions are removed from the storage due to a compaction.
-     * @see ByteArray
-     * @see Entry
-     */
-    public Publisher<Entry> rangeWithAppliedRevision(ByteArray keyFrom, @Nullable ByteArray keyTo) {
-        if (!busyLock.enterBusy()) {
-            return new NodeStoppingPublisher<>();
-        }
-
-        try {
-            return new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision)));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     @Override
     public Publisher<Entry> prefix(ByteArray keyPrefix) {
         return prefix(keyPrefix, -1);
@@ -588,35 +566,27 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Returns applied revision from the local storage.
-     */
-    private CompletableFuture<Long> readAppliedRevision() {
-        return vaultMgr.get(APPLIED_REV)
-                .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
-    }
-
-    /**
      * Saves processed Meta Storage revision and corresponding entries to the Vault.
      */
-    private void saveUpdatedEntriesToVault(long revision, Collection<Entry> updatedEntries) {
-        assert revision > appliedRevision : "Remote revision " + revision + " is greater than applied revision " + appliedRevision;
-
+    private CompletableFuture<Void> saveUpdatedEntriesToVault(String watchId, WatchEvent watchEvent) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping applying MetaStorage revision because the node is stopping");
 
-            return;
+            return completedFuture(null);
         }
 
         try {
-            Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(updatedEntries.size() + 1);
+            if (watchEvent.entryEvents().isEmpty()) {
+                return vaultMgr.put(appliedRevisionKey(watchId), longToBytes(watchEvent.revision()));
+            } else {
+                Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(watchEvent.entryEvents().size() + 1);
 
-            batch.put(APPLIED_REV, longToBytes(revision));
+                batch.put(appliedRevisionKey(watchId), longToBytes(watchEvent.revision()));
 
-            updatedEntries.forEach(e -> batch.put(new ByteArray(e.key()), e.value()));
+                watchEvent.entryEvents().forEach(e -> batch.put(new ByteArray(e.newEntry().key()), e.newEntry().value()));
 
-            vaultMgr.putAll(batch).join();
-
-            appliedRevision = revision;
+                return vaultMgr.putAll(batch);
+            }
         } finally {
             busyLock.leaveBusy();
         }

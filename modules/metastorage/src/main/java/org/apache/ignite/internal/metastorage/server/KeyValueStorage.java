@@ -286,10 +286,4 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param snapshotPath Path to the snapshot's directory.
      */
     void restoreSnapshot(Path snapshotPath);
-
-    /**
-     * Closes the storage.
-     */
-    @Override
-    void close();
 }

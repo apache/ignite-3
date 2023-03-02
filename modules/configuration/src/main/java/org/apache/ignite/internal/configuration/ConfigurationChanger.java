@@ -63,6 +63,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -88,7 +89,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final Map<MemberKey, Map<Annotation, Set<Validator<?, ?>>>> cachedAnnotations = new ConcurrentHashMap<>();
 
     /** Closure to execute when an update from the storage is received. */
-    private final Notificator notificator;
+    private final ConfigurationUpdateListener configurationUpdateListener;
 
     /** Root keys. Mapping: {@link RootKey#key()} -> identity (itself). */
     private final Map<String, RootKey<?, ?>> rootKeys;
@@ -102,7 +103,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
 
-    /** Configuration listener notification counter, must be incremented before each use of {@link #notificator}. */
+    /** Configuration listener notification counter, must be incremented before each use of {@link #configurationUpdateListener}. */
     private final AtomicLong notificationListenerCnt = new AtomicLong();
 
     /** Lock for reading/updating the {@link #storageRoots}. Fair, to give a higher priority to external updates. */
@@ -112,8 +113,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and invoked
      * every time when there's an update from any of the storages.
      */
-    @FunctionalInterface
-    public interface Notificator {
+    public interface ConfigurationUpdateListener {
         /**
          * Invoked every time when the configuration is updated.
          *
@@ -123,7 +123,18 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          * @param notificationNumber Configuration listener notification number.
          * @return Future that must signify when processing is completed. Exceptional completion is not expected.
          */
-        CompletableFuture<Void> notify(@Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision, long notificationNumber);
+        CompletableFuture<Void> onConfigurationUpdated(
+                @Nullable SuperRoot oldRoot, SuperRoot newRoot, long storageRevision, long notificationNumber
+        );
+
+        /**
+         * Invoked every time when a storage revision has been updated, but no data has been modified.
+         *
+         * @param storageRevision Configuration revision of the storage.
+         * @param notificationNumber Configuration listener notification number.
+         * @return Future that must signify when processing is completed. Exceptional completion is not expected.
+         */
+        CompletableFuture<Void> onRevisionUpdated(long storageRevision, long notificationNumber);
     }
 
     /**
@@ -185,21 +196,21 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /**
      * Constructor.
      *
-     * @param notificator Closure to execute when update from the storage is received.
+     * @param configurationUpdateListener Closure to execute when update from the storage is received.
      * @param rootKeys Configuration root keys.
      * @param validators Validators.
      * @param storage Configuration storage.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationChanger(
-            Notificator notificator,
+            ConfigurationUpdateListener configurationUpdateListener,
             Collection<RootKey<?, ?>> rootKeys,
             Collection<Validator<?, ?>> validators,
             ConfigurationStorage storage
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        this.notificator = notificator;
+        this.configurationUpdateListener = configurationUpdateListener;
         this.validators = List.copyOf(validators);
         this.storage = storage;
 
@@ -265,7 +276,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         storageRoots = new StorageRoots(superRoot, data.changeId());
 
-        storage.registerConfigurationListener(this::updateFromListener);
+        storage.registerConfigurationListener(configurationStorageListener());
     }
 
     /**
@@ -588,6 +599,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 throw new ConfigurationValidationException(validationIssues);
             }
 
+            // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
+            // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
+            // fail and the update will be recalculated and there is a chance that the new local configuration will produce an non-empty
+            // update.
             return storage.write(allChanges, localRoots.version)
                     .thenCompose(casWroteSuccessfully -> {
                         if (casWroteSuccessfully) {
@@ -603,48 +618,62 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
     }
 
-    /**
-     * Updates configuration from storage listener.
-     *
-     * @param changedEntries Changed data.
-     * @return Future that signifies update completion.
-     */
-    private CompletableFuture<Void> updateFromListener(Data changedEntries) {
-        StorageRoots oldStorageRoots = storageRoots;
+    private ConfigurationStorageListener configurationStorageListener() {
+        return new ConfigurationStorageListener() {
+            @Override
+            public CompletableFuture<Void> onEntriesChanged(Data changedEntries) {
+                StorageRoots oldStorageRoots = storageRoots;
 
-        Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
+                SuperRoot oldSuperRoot = oldStorageRoots.roots;
+                SuperRoot newSuperRoot = oldSuperRoot.copy();
 
-        compressDeletedEntries(dataValuesPrefixMap);
+                Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
 
-        SuperRoot oldSuperRoot = oldStorageRoots.roots;
-        SuperRoot newSuperRoot = oldSuperRoot.copy();
+                compressDeletedEntries(dataValuesPrefixMap);
 
-        fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
+                fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
 
-        long newChangeId = changedEntries.changeId();
+                long newChangeId = changedEntries.changeId();
 
-        rwLock.writeLock().lock();
+                var newStorageRoots = new StorageRoots(newSuperRoot, newChangeId);
 
-        try {
-            storageRoots = new StorageRoots(newSuperRoot, newChangeId);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
+                rwLock.writeLock().lock();
 
-        // Save revisions for recovery.
-        return storage.writeConfigurationRevision(oldStorageRoots.version, storageRoots.version)
-                .thenCompose(unused -> {
-                    long notificationNumber = notificationListenerCnt.incrementAndGet();
+                try {
+                    storageRoots = newStorageRoots;
+                } finally {
+                    rwLock.writeLock().unlock();
+                }
 
-                    return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber)
-                            .whenComplete((v, t) -> {
+                // Save revisions for recovery.
+                return storage.writeConfigurationRevision(oldStorageRoots.version, newStorageRoots.version)
+                        .thenCompose(unused -> {
+                            long notificationNumber = notificationListenerCnt.incrementAndGet();
+
+                            CompletableFuture<Void> notificationFuture;
+
+                            if (dataValuesPrefixMap.isEmpty()) {
+                                notificationFuture = configurationUpdateListener.onRevisionUpdated(newChangeId, notificationNumber);
+                            } else {
+                                notificationFuture = configurationUpdateListener
+                                        .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
+                            }
+
+                            return notificationFuture.whenComplete((v, t) -> {
                                 if (t == null) {
                                     oldStorageRoots.changeFuture.complete(null);
                                 } else {
                                     oldStorageRoots.changeFuture.completeExceptionally(t);
                                 }
                             });
-                });
+                        });
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionUpdated(long newRevision) {
+                return configurationUpdateListener.onRevisionUpdated(newRevision, notificationListenerCnt.incrementAndGet());
+            }
+        };
     }
 
     /**
@@ -655,7 +684,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     CompletableFuture<Void> notifyCurrentConfigurationListeners() {
         StorageRoots storageRoots = this.storageRoots;
 
-        return notificator.notify(null, storageRoots.roots, storageRoots.version, notificationListenerCnt.incrementAndGet());
+        long notificationCount = notificationListenerCnt.incrementAndGet();
+
+        return configurationUpdateListener.onConfigurationUpdated(null, storageRoots.roots, storageRoots.version, notificationCount);
     }
 
     /** {@inheritDoc} */
