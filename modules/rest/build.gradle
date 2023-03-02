@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+plugins {
+    alias(libs.plugins.shadow)
+}
+
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
@@ -84,4 +88,13 @@ dependencies {
 compileJava {
     options.fork = true
     options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
+}
+
+shadowJar {
+    archiveAppendix.set('shaded')
+    archiveClassifier.set('shaded')
+
+    minimize()
+
+    relocate('reactor.', 'reactor.shaded')
 }
