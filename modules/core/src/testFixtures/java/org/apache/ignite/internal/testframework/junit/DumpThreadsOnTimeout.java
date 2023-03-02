@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.testframework.junit;
 
+import com.google.auto.service.AutoService;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.concurrent.TimeoutException;
+import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.LifecycleMethodExecutionExceptionHandler;
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
@@ -40,6 +42,7 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
  * integrationTestImplementation(testFixtures(project(':ignite-core')))
  * </pre>
  */
+@AutoService(Extension.class)
 public class DumpThreadsOnTimeout implements TestExecutionExceptionHandler, LifecycleMethodExecutionExceptionHandler {
     @Override
     public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {

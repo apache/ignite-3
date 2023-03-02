@@ -15,18 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.testframework.junit;
+package org.apache.ignite.internal.junit;
 
+import com.google.auto.service.AutoService;
 import java.lang.reflect.Method;
 import java.util.ServiceLoader;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 /**
- * This extension tries to do it best to stop all Ignite instances that were started in this JVM after a test
+ * This extension tries to do its best to stop all Ignite instances that were started in this JVM after a test
  * suite finishes running (after-all).
  *
  * <p>This extension is designed to be
@@ -40,6 +42,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * integrationTestImplementation(testFixtures(project(':ignite-core')))
  * </pre>
  */
+@AutoService(Extension.class)
 public class StopAllIgnitesAfterTests implements AfterAllCallback {
     private static final String IGNITION_MANAGER_CLASS_NAME = "org.apache.ignite.IgnitionManager";
 
