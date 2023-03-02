@@ -456,11 +456,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
 
-        mvGc = new MvGc(nodeName, tablesCfg.gcThreads().value());
+        mvGc = new MvGc(nodeName, tablesCfg);
     }
 
     @Override
     public void start() {
+        mvGc.start();
+
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
@@ -1087,7 +1089,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             if (throwable.get() != null) {
-                LOG.info("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
+                LOG.error("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
             }
         }
     }

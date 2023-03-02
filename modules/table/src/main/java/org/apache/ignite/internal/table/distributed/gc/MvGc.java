@@ -34,6 +34,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
@@ -53,8 +54,14 @@ public class MvGc implements ManuallyCloseable {
     /** GC batch size for the storage. */
     static final int GC_BATCH_SIZE = 5;
 
+    /** Node name. */
+    private final String nodeName;
+
+    /** Tables configuration. */
+    private final TablesConfiguration tablesConfig;
+
     /** Garbage collection thread pool. */
-    private final ExecutorService executor;
+    private volatile ExecutorService executor;
 
     /** Prevents double closing. */
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -72,10 +79,18 @@ public class MvGc implements ManuallyCloseable {
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param threadCount Number of garbage collector threads.
+     * @param tablesConfig Tables configuration.
      */
-    public MvGc(String nodeName, int threadCount) {
-        assert threadCount > 0 : threadCount;
+    public MvGc(String nodeName, TablesConfiguration tablesConfig) {
+        this.nodeName = nodeName;
+        this.tablesConfig = tablesConfig;
+    }
+
+    /**
+     * Starts the garbage collector.
+     */
+    public void start() {
+        int threadCount = tablesConfig.gcThreads().value();
 
         executor = new ThreadPoolExecutor(
                 threadCount,
@@ -101,6 +116,7 @@ public class MvGc implements ManuallyCloseable {
                     new GcStorageHandler(storageUpdateHandler)
             );
 
+            // TODO: IGNITE-18895 разобраться возможно тут надо починтить правильно
             if (previous == null && lowWatermarkReference.get() != null) {
                 scheduleGcForStorage(tablePartitionId);
             }
@@ -166,7 +182,9 @@ public class MvGc implements ManuallyCloseable {
 
         busyLock.block();
 
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        if (executor != null) {
+            shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
     }
 
     private void initNewGcBusy() {
@@ -175,32 +193,22 @@ public class MvGc implements ManuallyCloseable {
 
     private void scheduleGcForStorage(TablePartitionId tablePartitionId) {
         executor.submit(() -> inBusyLock(() -> {
-            GcStorageHandler storageHandler = storageHandlerByPartitionId.compute(tablePartitionId, (id, gcStorageHandler) -> {
-                if (gcStorageHandler == null) {
-                    // Storage has been removed from garbage collection.
-                    return null;
-                }
-
-                boolean casResult = gcStorageHandler.gcInProgressFuture.compareAndSet(null, new CompletableFuture<>());
-
-                assert casResult : tablePartitionId;
-
-                return gcStorageHandler;
-            });
+            GcStorageHandler storageHandler = storageHandlerByPartitionId.get(tablePartitionId);
 
             if (storageHandler == null) {
                 // Storage has been removed from garbage collection.
                 return;
             }
 
-            CompletableFuture<Void> future = storageHandler.gcInProgressFuture.get();
+            CompletableFuture<Void> future = new CompletableFuture<>();
 
-            assert future != null : tablePartitionId;
+            if (!storageHandler.gcInProgressFuture.compareAndSet(null, future)) {
+                // In parallel, another task has already begun collecting garbage.
+                return;
+            }
 
             try {
-                boolean scheduleGcForStorageAgain = true;
-
-                for (int i = 0; i < GC_BATCH_SIZE && scheduleGcForStorageAgain; i++) {
+                for (int i = 0; i < GC_BATCH_SIZE; i++) {
                     HybridTimestamp lowWatermark = lowWatermarkReference.get();
 
                     assert lowWatermark != null : tablePartitionId;
@@ -208,22 +216,22 @@ public class MvGc implements ManuallyCloseable {
                     // If storage has been deleted or there is no garbage, then for now we will stop collecting garbage for this storage.
                     if (!storageHandlerByPartitionId.containsKey(tablePartitionId)
                             || !storageHandler.storageUpdateHandler.vacuum(lowWatermark)) {
-                        scheduleGcForStorageAgain = false;
+                        return;
                     }
                 }
-
-                if (scheduleGcForStorageAgain) {
-                    scheduleGcForStorage(tablePartitionId);
-                }
-
-                future.complete(null);
             } catch (Throwable t) {
                 future.completeExceptionally(t);
-            } finally {
-                boolean casResult = storageHandler.gcInProgressFuture.compareAndSet(future, null);
 
-                assert casResult : tablePartitionId;
+                return;
+            } finally {
+                if (!future.isCompletedExceptionally()) {
+                    future.complete(null);
+                }
+
+                storageHandler.gcInProgressFuture.set(null);
             }
+
+            scheduleGcForStorage(tablePartitionId);
         }));
     }
 

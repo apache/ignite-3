@@ -33,7 +33,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
@@ -42,19 +45,26 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * For testing {@link MvGc}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class MvGcTest {
     private static final int PARTITION_ID = 0;
 
     private MvGc gc;
 
     @BeforeEach
-    void setUp() {
-        gc = new MvGc("test", 1);
+    void setUp(
+            @InjectConfiguration("mock.gcThreads = 1")
+            TablesConfiguration tablesConfig
+    ) {
+        gc = new MvGc("test", tablesConfig);
+
+        gc.start();
     }
 
     @AfterEach
