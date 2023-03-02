@@ -218,7 +218,7 @@ public class DistributionZoneManager implements IgniteComponent {
         private final NavigableMap<Long, CompletableFuture<Void>> revisionScaleDownFutures = new ConcurrentSkipListMap();
 
         public DataNodes() {
-
+            nodes = emptySet();
         }
 
         public DataNodes(Set<String> nodes, long scaleUpRevision, long scaleDownRevision) {
@@ -621,10 +621,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         topVerFut.thenAcceptAsync(ignored -> {
-            System.out.println("ScaleUp revision awaiting");
-
             synchronized (dataNodesMutex) {
-                CompletableFuture<Void> topVerScaleUpFut;
+                CompletableFuture<Void> topVerScaleUpFut = null;
 
                 if (immediateScaleUp) {
                     Map.Entry<Long, Long> scaleUpRevisionEntry = topVerScaleUpAndRevision.ceilingEntry(topVer);
@@ -659,8 +657,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
 
                 topVerScaleUpFut.thenAcceptAsync(ignored0 -> {
-                    System.out.println("ScaleDown revision awaiting");
-
                     CompletableFuture<Void> topVerScaleDownFut = null;
 
                     synchronized (dataNodesMutex) {
@@ -700,6 +696,10 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
 
                     topVerScaleDownFut.thenAcceptAsync(ignored1 -> {
+                        if (dataNodes.get(zoneId) == null) {
+                            dataNodes.put(zoneId, new DataNodes());
+                        }
+
                         dataNodesFut.complete(dataNodes.get(zoneId).nodes());
                     });
                 });
