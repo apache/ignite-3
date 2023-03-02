@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-/**
- * Call that represents an action that can be performed given an input.
- * It can be rest call, dictionary lookup or whatever.
- *
- * @param <IT> Input for the call.
- * @param <OT> Output of the call.
- */
-@FunctionalInterface
-public interface Call<IT extends CallInput, OT> {
-    CallOutput<OT> execute(IT input);
+import me.tongfei.progressbar.ProgressBar;
+
+/** {@link ProgressBar} based tracker. */
+public class ProgressBarTracker implements ProgressTracker {
+    private final ProgressBar progressBar;
+
+    public ProgressBarTracker(ProgressBar progressBar) {
+        this.progressBar = progressBar;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void track() {
+        progressBar.step();
+    }
 }

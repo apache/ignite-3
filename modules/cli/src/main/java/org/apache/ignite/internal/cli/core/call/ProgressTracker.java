@@ -17,14 +17,8 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-/**
- * Call that represents an action that can be performed given an input.
- * It can be rest call, dictionary lookup or whatever.
- *
- * @param <IT> Input for the call.
- * @param <OT> Output of the call.
- */
-@FunctionalInterface
-public interface Call<IT extends CallInput, OT> {
-    CallOutput<OT> execute(IT input);
+/** Progress tracker that will be called periodically during the call execution. */
+public interface ProgressTracker {
+    /** Tracks that the step is performed. */
+    void track(); // todo: add the increment parameter in https://issues.apache.org/jira/browse/IGNITE-18731
 }
