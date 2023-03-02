@@ -59,7 +59,7 @@ public class AsyncCallExecutionPipeline<I extends CallInput, T> extends Abstract
         ProgressBar progressBar = progressBarBuilder.build();
 
         try {
-            CallOutput<T> result = callFactory.apply(progressBar::step)
+            CallOutput<T> result = callFactory.apply(new ProgressBarTracker(progressBar))
                     .execute(callInput)
                     .whenComplete((el, err) -> progressBar.close())
                     .join();
