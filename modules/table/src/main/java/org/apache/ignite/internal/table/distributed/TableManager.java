@@ -742,7 +742,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 PendingComparableValuesTracker<HybridTimestamp> safeTime = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
 
-                CompletableFuture<PartitionStorages> partitionStoragesFut = getOrCreatePartitionStorages(table, partId);
+                CompletableFuture<PartitionStorages> partitionStoragesFut = createPartitionStorages(table, partId);
 
                 CompletableFuture<PartitionDataStorage> partitionDataStorageFut = partitionStoragesFut
                         .thenApply(partitionStorages -> partitionDataStorage(partitionStorages.getMvPartitionStorage(),
@@ -1997,9 +1997,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             pendingAssignmentsWatchEvent.key(), partId, tbl.name(), localMember.address());
 
                     if (shouldStartLocalServices) {
-                        PartitionStorages partitionStorages = getOrCreatePartitionStorages(tbl, partId).join();
+                        PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
 
-                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
+                        MvPartitionStorage mvPartitionStorage = tbl.internalTable().storage().getMvPartition(partId);
                         TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
                         PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
@@ -2009,8 +2009,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tbl.indexStorageAdapters(partId),
                                 tblCfg.dataStorage()
                         );
-
-                        mvGc.addStorage(replicaGrpId, storageUpdateHandler);
 
                         RaftGroupOptions groupOptions = groupOptionsForPartition(
                                 internalTable.storage(),
@@ -2196,19 +2194,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates or gets partition stores. If one of the storages has not completed the rebalance, then the storages are cleared.
+     * Creates partition stores. If one of the storages has not completed the rebalance, then the storages are cleared.
      *
      * @param table Table.
      * @param partitionId Partition ID.
      * @return Future of creating or getting partition stores.
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
-    private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
+    private CompletableFuture<PartitionStorages> createPartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
 
-        MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
-
-        return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
+        return internalTable.storage().createMvPartition(partitionId)
                 .thenComposeAsync(mvPartitionStorage -> {
                     TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
 
@@ -2222,6 +2218,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return completedFuture(new PartitionStorages(mvPartitionStorage, txStateStorage));
                     }
                 }, ioExecutor);
+    }
+
+    /**
+     * Returns previously created partition storages.
+     *
+     * @param table Table.
+     * @param partitionId Partition ID.
+     */
+    private static PartitionStorages getPartitionStorages(TableImpl table, int partitionId) {
+        MvPartitionStorage mvPartition = table.internalTable().storage().getMvPartition(partitionId);
+        TxStateStorage txStateStorage = table.internalTable().txStateStorage().getTxStateStorage(partitionId);
+
+        assert mvPartition != null : "table=" + table.name() + ", tableId=" + table.tableId() + ", partitionId=" + partitionId;
+        assert txStateStorage != null : "table=" + table.name() + ", tableId=" + table.tableId() + ", partitionId=" + partitionId;
+
+        return new PartitionStorages(mvPartition, txStateStorage);
     }
 
     /**
