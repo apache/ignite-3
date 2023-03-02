@@ -28,6 +28,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.concurrent.CompletableFuture;
@@ -80,7 +81,9 @@ public interface ClusterConfigurationApi {
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)
     @Patch
-    CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration);
+    CompletableFuture<Void> updateConfiguration(
+            @Body @RequestBody(description = "The cluster configuration to update.") String updatedConfiguration
+    );
 
     /**
      * Returns configuration in HOCON format represented by path. This is represented as a plain text.

@@ -19,8 +19,12 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
+description = 'ignite-rest-api'
+
 dependencies {
     annotationProcessor libs.micronaut.inject.annotation.processor
+    annotationProcessor libs.micronaut.openapi
+
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
@@ -32,9 +36,13 @@ dependencies {
     implementation libs.swaggerv3.annotations
     implementation libs.micronaut.http.core
     implementation libs.micronaut.http.server.core
+
     testImplementation libs.junit5.api
     testImplementation libs.mockito.core
     testImplementation libs.junit5.params
 }
 
-description = 'ignite-rest-api'
+compileJava {
+    options.fork = true
+    options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
+}

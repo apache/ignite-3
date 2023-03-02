@@ -110,7 +110,7 @@ dependencies {
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
 task copyOpenapiDefinition(type: Copy) {
-    from("$rootDir/modules/rest/openapi")
+    from("$rootDir/modules/rest-api/openapi")
     into("$buildDir/customOpenapiDefinition/")
 }
 
