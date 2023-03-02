@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
@@ -47,6 +48,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -89,6 +91,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -120,7 +123,7 @@ public class DistributionZoneManagerScaleUpTest {
 
     private MetaStorageManager metaStorageManager;
 
-    private WatchListener watchListener;
+    private WatchListener topologyWatchListener;
 
     private DistributionZonesConfiguration zonesConfiguration;
 
@@ -184,7 +187,13 @@ public class DistributionZoneManagerScaleUpTest {
         when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
 
         doAnswer(invocation -> {
-            watchListener = invocation.getArgument(1);
+            ByteArray key = invocation.getArgument(0);
+
+            WatchListener watchListener = invocation.getArgument(1);
+
+            if (Arrays.equals(key.bytes(), zonesLogicalTopologyVersionKey().bytes())) {
+                topologyWatchListener = watchListener;
+            }
 
             return null;
         }).when(metaStorageManager).registerExactWatch(any(), any());
@@ -1578,14 +1587,17 @@ public class DistributionZoneManagerScaleUpTest {
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {
         byte[] newLogicalTopology = toBytes(nodes);
+        byte[] newTopVer = toBytes(1L);
 
-        Entry newEntry = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
+        Entry newEntry0 = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
+        Entry newEntry1 = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
 
-        EntryEvent entryEvent = new EntryEvent(null, newEntry);
+        EntryEvent entryEvent0 = new EntryEvent(null, newEntry0);
+        EntryEvent entryEvent1 = new EntryEvent(null, newEntry1);
 
-        WatchEvent evt = new WatchEvent(entryEvent);
+        WatchEvent evt = new WatchEvent(List.of(entryEvent0, entryEvent1), rev);
 
-        watchListener.onUpdate(evt);
+        topologyWatchListener.onUpdate(evt);
     }
 
     private void mockCmgLocalNodes() {

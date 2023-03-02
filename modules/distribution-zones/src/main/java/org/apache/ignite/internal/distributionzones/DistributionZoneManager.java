@@ -67,6 +67,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -306,6 +307,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG),
                 new ThreadPoolExecutor.DiscardPolicy()
         );
+
+        dataNodes.put(DEFAULT_ZONE_ID, new DataNodes());
     }
 
     @TestOnly
@@ -343,6 +346,8 @@ public class DistributionZoneManager implements IgniteComponent {
             CompletableFuture<Void> fut = new CompletableFuture<>();
 
             zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
+                AtomicInteger zoneId = new AtomicInteger();
+
                 try {
                     zonesListChange.create(distributionZoneCfg.name(), zoneChange -> {
                         if (distributionZoneCfg.dataNodesAutoAdjust() == null) {
@@ -368,8 +373,18 @@ public class DistributionZoneManager implements IgniteComponent {
                         zonesChange.changeGlobalIdCounter(intZoneId);
 
                         zoneChange.changeZoneId(intZoneId);
+
+                        zoneId.set(intZoneId);
+
+                        synchronized (dataNodesMutex) {
+                            dataNodes.put(intZoneId, new DataNodes());
+                        }
                     });
                 } catch (ConfigurationNodeAlreadyExistException e) {
+                    synchronized (dataNodesMutex) {
+                        dataNodes.remove(zoneId.get());
+                    }
+
                     throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                 }
             })).whenComplete((res, e) -> {
@@ -524,6 +539,16 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
                 }
 
+                synchronized (dataNodesMutex) {
+                    DataNodes dataNodesMeta = dataNodes.remove(zoneView.zoneId());
+
+                    dataNodesMeta.revisionScaleUpFutures.values()
+                            .forEach(fut0 -> fut.completeExceptionally(new DistributionZoneNotFoundException(name)));
+
+                    dataNodesMeta.revisionScaleDownFutures.values()
+                            .forEach(fut0 -> fut.completeExceptionally(new DistributionZoneNotFoundException(name)));
+                }
+
                 zonesListChange.delete(name);
             }))
                     .whenComplete((res, e) -> {
@@ -634,10 +659,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
 
                     if (scaleUpRevision != null && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleUpRevision() < scaleUpRevision)) {
-                        if (dataNodes.get(zoneId) == null) {
-                            dataNodes.put(zoneId, new DataNodes());
-                        }
-
                         Map.Entry<Long, CompletableFuture<Void>> ceilingEntry = dataNodes.get(zoneId).getRevisionScaleUpFutures().ceilingEntry(scaleUpRevision);
 
                         if (ceilingEntry != null) {
@@ -670,12 +691,6 @@ public class DistributionZoneManager implements IgniteComponent {
                             }
 
                             if (scaleDownRevision != null && (dataNodes.get(zoneId) == null || dataNodes.get(zoneId).scaleDownRevision() < scaleDownRevision)) {
-                                if (dataNodes.get(zoneId) == null) {
-                                    dataNodes.put(zoneId, new DataNodes());
-                                }
-
-
-
                                 Map.Entry<Long, CompletableFuture<Void>> ceilingEntry = dataNodes.get(zoneId).getRevisionScaleDownFutures().ceilingEntry(scaleDownRevision);
 
                                 if (ceilingEntry != null) {
@@ -696,10 +711,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     }
 
                     topVerScaleDownFut.thenAcceptAsync(ignored1 -> {
-                        if (dataNodes.get(zoneId) == null) {
-                            dataNodes.put(zoneId, new DataNodes());
-                        }
-
                         dataNodesFut.complete(dataNodes.get(zoneId).nodes());
                     });
                 });
@@ -1235,7 +1246,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 }
 
                 try {
-                    assert evt.entryEvents().size() == 2;
+                    assert evt.entryEvents().size() == 2 : evt.entryEvents().size();
 
                     int zoneId = 0;
 
@@ -1263,36 +1274,34 @@ public class DistributionZoneManager implements IgniteComponent {
                     assert scaleUpRevision > 0 || scaleDownRevision > 0;
 
                     synchronized (dataNodesMutex) {
-                        DataNodes oldDataNodes = dataNodes.get(zoneId);
+                        DataNodes dataNodesMeta = dataNodes.get(zoneId);
 
-                        if (oldDataNodes != null) {
-                            oldDataNodes.nodes(newDataNodes);
+                        if (dataNodesMeta != null) {
+                            dataNodesMeta.nodes(newDataNodes);
 
                             if (scaleUpRevision > 0) {
-                                oldDataNodes.scaleUpRevision(scaleUpRevision);
+                                dataNodesMeta.scaleUpRevision(scaleUpRevision);
                             }
 
                             if (scaleDownRevision > 0) {
-                                oldDataNodes.scaleDownRevision(scaleDownRevision);
+                                dataNodesMeta.scaleDownRevision(scaleDownRevision);
                             }
-                        } else {
-                            dataNodes.put(zoneId, new DataNodes(newDataNodes, scaleUpRevision, scaleDownRevision));
-                        }
 
-                        if (scaleUpRevision > 0) {
-                            SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts = dataNodes.get(zoneId).getRevisionScaleUpFutures().headMap(scaleUpRevision, true);
+                            if (scaleUpRevision > 0) {
+                                SortedMap<Long, CompletableFuture<Void>> revisionScaleUpFuts = dataNodes.get(zoneId).getRevisionScaleUpFutures().headMap(scaleUpRevision, true);
 
-                            revisionScaleUpFuts.values().forEach(v -> v.complete(null));
+                                revisionScaleUpFuts.values().forEach(v -> v.complete(null));
 
-                            revisionScaleUpFuts.clear();
-                        }
+                                revisionScaleUpFuts.clear();
+                            }
 
-                        if (scaleDownRevision > 0) {
-                            SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts = dataNodes.get(zoneId).getRevisionScaleDownFutures().headMap(scaleDownRevision, true);
+                            if (scaleDownRevision > 0) {
+                                SortedMap<Long, CompletableFuture<Void>> revisionScaleDownFuts = dataNodes.get(zoneId).getRevisionScaleDownFutures().headMap(scaleDownRevision, true);
 
-                            revisionScaleDownFuts.values().forEach(v -> v.complete(null));
+                                revisionScaleDownFuts.values().forEach(v -> v.complete(null));
 
-                            revisionScaleDownFuts.clear();
+                                revisionScaleDownFuts.clear();
+                            }
                         }
                     }
                 } finally {

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.util.DistributionZonesTestUtil.mockMetaStorageListener;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -97,7 +100,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     private MetaStorageManager metaStorageManager;
 
-    private WatchListener watchListener;
+    private WatchListener topologyWatchListener;
 
     private DistributionZonesConfiguration zonesConfiguration;
 
@@ -161,7 +164,13 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
         when(vaultMgr.put(any(), any())).thenReturn(completedFuture(null));
 
         doAnswer(invocation -> {
-            watchListener = invocation.getArgument(1);
+            ByteArray key = invocation.getArgument(0);
+
+            WatchListener watchListener = invocation.getArgument(1);
+
+            if (Arrays.equals(key.bytes(), zonesLogicalTopologyVersionKey().bytes())) {
+                topologyWatchListener = watchListener;
+            }
 
             return null;
         }).when(metaStorageManager).registerExactWatch(any(), any());
@@ -198,7 +207,10 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
         distributionZoneManager.alterZone(
                 DEFAULT_ZONE_NAME,
-                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()
+                new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(0)
+                        .dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE)
+                        .build()
         ).get();
 
         //first event
@@ -328,14 +340,17 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {
         byte[] newLogicalTopology = toBytes(nodes);
+        byte[] newTopVer = toBytes(1L);
 
-        Entry newEntry = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
+        Entry newEntry0 = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
+        Entry newEntry1 = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
 
-        EntryEvent entryEvent = new EntryEvent(null, newEntry);
+        EntryEvent entryEvent0 = new EntryEvent(null, newEntry0);
+        EntryEvent entryEvent1 = new EntryEvent(null, newEntry1);
 
-        WatchEvent evt = new WatchEvent(entryEvent);
+        WatchEvent evt = new WatchEvent(List.of(entryEvent0, entryEvent1), rev);
 
-        watchListener.onUpdate(evt);
+        topologyWatchListener.onUpdate(evt);
     }
 
     private void mockVaultAppliedRevision(long revision) {

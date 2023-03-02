@@ -1,5 +1,33 @@
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -13,7 +41,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -24,63 +51,18 @@ import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Stream;
-
-import static java.util.Collections.emptySet;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(ConfigurationExtension.class)
-public class AwaitDataNodesTest extends IgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AwaitDataNodesTest.class);
-
-    private VaultManager vaultManager;
-
-    private ClusterService clusterService;
+public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneAwaitDataNodesTest.class);
 
     private MetaStorageManager metaStorageManager;
 
@@ -102,16 +84,11 @@ public class AwaitDataNodesTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo, @InjectConfiguration RaftConfiguration raftConfiguration) throws NodeStoppingException {
-        var addr = new NetworkAddress("localhost", 10_000);
+        VaultManager vaultManager = mock(VaultManager.class);
 
-        clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
-
-        vaultManager = new VaultManager(new InMemoryVaultService());
+        when(vaultManager.get(any())).thenReturn(completedFuture(null));
 
         cmgManager = mock(ClusterManagementGroupManager.class);
-
-        when(cmgManager.metaStorageNodes())
-                .thenReturn(completedFuture(Set.of(clusterService.localConfiguration().getName())));
 
         metaStorageManager = mock(MetaStorageManager.class);
 
@@ -132,7 +109,6 @@ public class AwaitDataNodesTest extends IgniteAbstractTest {
         when(metaStorageManager.invoke(any())).thenReturn(completedFuture(StatementResultImpl.builder().result(new byte[] {0}).build()));
 
         vaultManager.start();
-        clusterService.start();
 
         clusterStateStorage = new TestClusterStateStorage();
 
@@ -171,13 +147,9 @@ public class AwaitDataNodesTest extends IgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        List<IgniteComponent> components =
-                List.of(clusterService, vaultManager, clusterStateStorage, clusterCfgMgr, distributionZoneManager);
-
-        IgniteUtils.closeAll(Stream.concat(
-                components.stream().map(c -> c::beforeNodeStop),
-                components.stream().map(c -> c::stop)
-        ));
+        distributionZoneManager.stop();
+        clusterCfgMgr.stop();
+        clusterStateStorage.stop();
     }
 
     @Test
@@ -659,14 +631,13 @@ public class AwaitDataNodesTest extends IgniteAbstractTest {
 
         Entry newEntry0 = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newDataNodes, rev, 1);
         Entry newEntry1 = new EntryImpl(
-                isScaleUp ? zoneScaleUpChangeTriggerKey(zoneId).bytes() : zoneScaleDownChangeTriggerKey(DEFAULT_ZONE_ID).bytes(),
+                isScaleUp ? zoneScaleUpChangeTriggerKey(zoneId).bytes() : zoneScaleDownChangeTriggerKey(zoneId).bytes(),
                 newScaleRevision,
                 rev,
                 1);
 
         EntryEvent entryEvent0 = new EntryEvent(null, newEntry0);
         EntryEvent entryEvent1 = new EntryEvent(null, newEntry1);
-//        EntryEvent entryEvent2 = new EntryEvent(null, newEntry2);
 
         WatchEvent evt = new WatchEvent(List.of(entryEvent0, entryEvent1/*, entryEvent2*/), rev);
 
