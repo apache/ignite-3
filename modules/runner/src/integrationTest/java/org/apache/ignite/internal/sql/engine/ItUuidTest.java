@@ -271,6 +271,8 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     public void testRandomUuid() {
         assertQuery("INSERT INTO t SELECT x, RAND_UUID(), RAND_UUID() FROM TABLE(SYSTEM_RANGE(0, 99))").returns(100L).check();
         assertQuery("SELECT uuid_key FROM t").columnTypes(UUID.class).check();
+        assertQuery("SELECT COUNT(DISTINCT uuid_key) FROM t").returns(100L).check();
+        assertQuery("SELECT COUNT(DISTINCT uuid_key2) FROM t").returns(100L).check();
         assertQuery("SELECT COUNT(*) FROM t WHERE uuid_key = uuid_key2").returns(0L).check();
         assertQuery("SELECT COUNT(*) FROM t WHERE uuid_key = RAND_UUID()").returns(0L).check();
         assertQuery("SELECT COUNT(*) FROM t WHERE uuid_key != uuid_key2").returns(100L).check();
