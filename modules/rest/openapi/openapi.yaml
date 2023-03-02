@@ -157,7 +157,6 @@ paths:
       operationId: updateClusterConfiguration
       parameters: []
       requestBody:
-        description: the cluster configuration to update
         content:
           text/plain:
             schema:
@@ -261,8 +260,6 @@ paths:
       operationId: updateNodeConfiguration
       parameters: []
       requestBody:
-        description: the node configuration to update. This is represented as a plain
-          text
         content:
           text/plain:
             schema:
