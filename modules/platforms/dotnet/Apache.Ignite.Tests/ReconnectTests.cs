@@ -21,6 +21,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal;
+using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -131,7 +132,8 @@ public class ReconnectTests
     {
         var cfg = new IgniteClientConfiguration
         {
-            ReconnectInterval = TimeSpan.FromMilliseconds(100)
+            ReconnectInterval = TimeSpan.FromMilliseconds(100),
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
 
         using var servers = FakeServerGroup.Create(10, _ => new FakeServer());
