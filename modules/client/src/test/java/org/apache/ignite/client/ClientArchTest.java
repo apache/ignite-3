@@ -32,11 +32,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.client.ClientArchTest.ModuleAndDependenciesClassPathProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 
 /**
@@ -59,6 +62,15 @@ public class ClientArchTest {
         return new ClassFileImporter().importPath(CLASS_PATH_DIR);
     }
 
+    @Nullable
+    private static JarFile toJarFile(Path path) {
+        try {
+            return new JarFile(path.toFile());
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     static class ModuleAndDependenciesClassPathProvider implements LocationProvider {
 
         @Override
@@ -73,7 +85,8 @@ public class ClientArchTest {
             result.add(Location.of(cp));
 
             try (Stream<Path> walk = Files.walk(cp)) {
-                walk.filter(path -> path.endsWith(".jar"))
+                walk.map(ClientArchTest::toJarFile)
+                        .filter(Objects::nonNull)
                         .map(Location::of)
                         .collect(Collectors.toCollection(() -> result));
             } catch (IOException e) {
