@@ -296,7 +296,6 @@ namespace Apache.Ignite.Internal
                 try
                 {
                     tasks.Clear();
-                    _logger?.Debug("Trying to establish secondary connections...");
 
                     foreach (var endpoint in _endpoints)
                     {
