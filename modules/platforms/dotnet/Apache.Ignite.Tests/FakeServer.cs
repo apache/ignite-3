@@ -441,6 +441,9 @@ namespace Apache.Ignite.Tests
 
                 if (DropNewConnections)
                 {
+                    handler.Disconnect(true);
+                    _handler = null;
+
                     continue;
                 }
 
