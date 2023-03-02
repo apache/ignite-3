@@ -164,10 +164,10 @@ namespace Apache.Ignite.Internal
                 NoDelay = true
             };
 
+            var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+
             try
             {
-                var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
-
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
                 logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
 
@@ -183,6 +183,8 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
+                logger?.Warn($"Connection failed before or during handshake: {e.Message}.", e);
+
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
 
