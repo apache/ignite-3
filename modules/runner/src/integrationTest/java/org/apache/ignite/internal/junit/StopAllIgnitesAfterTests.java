@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.junit;
 
 import com.google.auto.service.AutoService;
-import java.lang.reflect.Method;
 import java.util.ServiceLoader;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -44,53 +44,23 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  */
 @AutoService(Extension.class)
 public class StopAllIgnitesAfterTests implements AfterAllCallback {
-    private static final String IGNITION_MANAGER_CLASS_NAME = "org.apache.ignite.IgnitionManager";
-
-    private static final String IGNITION_CLASS_NAME = "org.apache.ignite.Ignition";
-
-    private static final String IGNITION_IMPL_CLASS_NAME = "org.apache.ignite.internal.app.IgnitionImpl";
-
     private static final IgniteLogger LOG = Loggers.forClass(StopAllIgnitesAfterTests.class);
 
     @Override
-    public void afterAll(ExtensionContext context) throws Exception {
-        // Try to stop all Ignite nodes via reflection to make sure that this extension does not break anything
-        // even in modules where IgnitionManager or IgnitionImpl are not available (so even for unit tests).
+    public void afterAll(ExtensionContext context) {
+        String testInstanceName = context.getTestClass().map(Class::getName).orElse("<unknown>");
 
-        Class<?> ignitionClass = findClassByName(IGNITION_CLASS_NAME);
-        Class<?> ignitionImplClass = findClassByName(IGNITION_IMPL_CLASS_NAME);
+        LOG.info("Trying to stop all Ignites in {}", testInstanceName);
 
-        if (isIgnitionManagerClassAvailable() && ignitionClass != null && ignitionImplClass != null) {
-            String testInstanceName = context.getTestClass().map(Class::getName).orElse("<unknown>");
+        IgnitionImpl ignition = loadIgnitionService();
 
-            LOG.info("Trying to stop all Ignites in {}", testInstanceName);
+        ignition.stopAll();
 
-            Method stopAllMethod = ignitionImplClass.getMethod("stopAll");
-
-            Object ignition = loadIgnitionService(ignitionClass, Thread.currentThread().getContextClassLoader());
-
-            stopAllMethod.invoke(ignition);
-
-            LOG.info("Stopped all Ignites in {}", testInstanceName);
-        }
+        LOG.info("Stopped all Ignites in {}", testInstanceName);
     }
 
-    private static boolean isIgnitionManagerClassAvailable() {
-        Class<?> ignitionManagerClass = findClassByName(IGNITION_MANAGER_CLASS_NAME);
-        return ignitionManagerClass != null;
-    }
-
-    @Nullable
-    private static Class<?> findClassByName(String className) {
-        try {
-            return Class.forName(className);
-        } catch (ClassNotFoundException e) {
-            return null;
-        }
-    }
-
-    private static Object loadIgnitionService(Class<?> ignitionClass, @Nullable ClassLoader clsLdr) {
-        ServiceLoader<?> ldr = ServiceLoader.load(ignitionClass, clsLdr);
-        return ldr.iterator().next();
+    private static IgnitionImpl loadIgnitionService() {
+        ServiceLoader<?> ldr = ServiceLoader.load(Ignition.class, Thread.currentThread().getContextClassLoader());
+        return (IgnitionImpl) ldr.iterator().next();
     }
 }
