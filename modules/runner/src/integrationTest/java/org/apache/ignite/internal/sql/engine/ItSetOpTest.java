@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
-public class ItSetOpTest extends AbstractBasicIntegrationTest {
+public class ItSetOpTest extends SharedClusterIntegrationTest {
     /**
      * Before all.
      */

@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.SharedClusterIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.sql.IgniteSql;
@@ -35,7 +35,7 @@ import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
-public class ItCommonApiTest extends AbstractBasicIntegrationTest {
+public class ItCommonApiTest extends SharedClusterIntegrationTest {
     protected SqlQueryProcessor queryProcessor() {
         return (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
     }

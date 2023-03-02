@@ -46,11 +46,10 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.TestStartingIgnites;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -58,13 +57,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for the rebalance.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRebalanceTest extends BaseIgniteAbstractTest {
+public class ItRebalanceTest extends TestStartingIgnites {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceTest.class);
 
     @WorkDirectory

@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
  * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
  * 'Photo');
  */
-public class ItOrToUnionRuleTest extends AbstractBasicIntegrationTest {
+public class ItOrToUnionRuleTest extends SharedClusterIntegrationTest {
     public static final String IDX_SUBCAT_ID = "IDX_SUBCAT_ID";
 
     public static final String IDX_SUBCATEGORY = "IDX_SUBCATEGORY";

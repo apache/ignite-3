@@ -46,7 +46,7 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.SharedClusterIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
@@ -87,7 +87,7 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for asynchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
+public class ItSqlAsynchronousApiTest extends SharedClusterIntegrationTest {
     private static final int ROW_COUNT = 16;
 
     /**

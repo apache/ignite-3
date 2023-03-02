@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for DDL statements that affect distribution zones.
  */
-public class ItZoneDdlTest extends AbstractBasicIntegrationTest {
+public class ItZoneDdlTest extends SharedClusterIntegrationTest {
 
     @Test
     public void testCreateIfExists() {

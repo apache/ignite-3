@@ -40,17 +40,15 @@ import java.util.stream.Stream;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.ignite.internal.TestStartingIgnites;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST SSL configuration. */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRestSslTest {
+public class ItRestSslTest extends TestStartingIgnites {
 
     /** HTTP port of the test node. */
     private static final int httpPort = 10300;

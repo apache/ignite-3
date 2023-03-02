@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Check JOIN on basic cases.
  */
-public class ItJoinTest extends AbstractBasicIntegrationTest {
+public class ItJoinTest extends SharedClusterIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() throws InterruptedException {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");

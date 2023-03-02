@@ -37,7 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for {@link org.apache.ignite.internal.sql.engine.type.UuidType} data type.
  */
-public class ItUuidTest extends AbstractBasicIntegrationTest {
+public class ItUuidTest extends SharedClusterIntegrationTest {
 
     // UUID1 > UUID2
     private static final UUID UUID_1 = UUID.fromString("fd10556e-fc27-4a99-b5e4-89b8344cb3ce");

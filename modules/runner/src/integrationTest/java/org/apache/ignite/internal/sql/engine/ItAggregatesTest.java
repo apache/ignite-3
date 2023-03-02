@@ -36,7 +36,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Group of tests to verify aggregation functions.
  */
-public class ItAggregatesTest extends AbstractBasicIntegrationTest {
+public class ItAggregatesTest extends SharedClusterIntegrationTest {
     private static String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
 

@@ -56,15 +56,14 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.TestStartingIgnites;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -88,7 +87,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -96,9 +94,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests how RAFT snapshots installation works for table partitions.
  */
 @SuppressWarnings("resource")
-@ExtendWith(WorkDirectoryExtension.class)
 @Timeout(90)
-class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
+class ItTableRaftSnapshotsTest extends TestStartingIgnites {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     /**

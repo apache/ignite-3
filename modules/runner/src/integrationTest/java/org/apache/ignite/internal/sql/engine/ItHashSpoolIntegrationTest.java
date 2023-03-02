@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Hash spool test.
  */
-public class ItHashSpoolIntegrationTest extends AbstractBasicIntegrationTest {
+public class ItHashSpoolIntegrationTest extends SharedClusterIntegrationTest {
     @Test
     public void testNullsInSearchRow() {
         sql("CREATE TABLE t(pk varchar default gen_random_uuid PRIMARY KEY, i1 INTEGER, i2 INTEGER)");

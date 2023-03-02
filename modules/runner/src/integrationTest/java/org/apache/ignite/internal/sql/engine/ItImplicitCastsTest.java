@@ -33,7 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Implicit casts are added where it is necessary to do so.
  */
-public class ItImplicitCastsTest extends AbstractBasicIntegrationTest {
+public class ItImplicitCastsTest extends SharedClusterIntegrationTest {
 
     @AfterEach
     public void dropTables() {

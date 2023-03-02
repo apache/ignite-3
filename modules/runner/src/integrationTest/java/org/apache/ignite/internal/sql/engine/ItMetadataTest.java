@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-public class ItMetadataTest extends AbstractBasicIntegrationTest {
+public class ItMetadataTest extends SharedClusterIntegrationTest {
     /**
      * Before all.
      */

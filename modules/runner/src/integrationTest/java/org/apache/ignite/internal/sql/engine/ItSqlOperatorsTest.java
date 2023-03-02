@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
  *
  * @see IgniteSqlOperatorTable
  */
-public class ItSqlOperatorsTest extends AbstractBasicIntegrationTest {
+public class ItSqlOperatorsTest extends SharedClusterIntegrationTest {
     /** {@inheritDoc} */
     @Override
     protected int nodes() {

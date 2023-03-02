@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test Ignite SQL functions.
  */
-public class ItFunctionsTest extends AbstractBasicIntegrationTest {
+public class ItFunctionsTest extends SharedClusterIntegrationTest {
     private static final Object[] NULL_RESULT = new Object[] { null };
 
     @Test

@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /** Different DML tests. */
-public class ItDmlTest extends AbstractBasicIntegrationTest {
+public class ItDmlTest extends SharedClusterIntegrationTest {
 
     @Override
     protected int nodes() {

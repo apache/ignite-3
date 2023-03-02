@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test SQL data types.
  */
-public class ItDataTypesTest extends AbstractBasicIntegrationTest {
+public class ItDataTypesTest extends SharedClusterIntegrationTest {
     /**
      * Drops all created tables.
      */

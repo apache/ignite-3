@@ -42,19 +42,17 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 import org.apache.ignite.internal.rest.ssl.RestNode;
+import org.apache.ignite.internal.TestStartingIgnites;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests for the REST port range configuration. */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItPortRangeTest {
+public class ItPortRangeTest extends TestStartingIgnites {
 
     /** Trust store path. */
     private static final String trustStorePath = "ssl/truststore.jks";
