@@ -231,13 +231,15 @@ namespace Apache.Ignite.Internal
                     {
                         var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
 
-                        if (task.Exception != null)
+                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException)
+                        {
+                            // Canceled task means Dispose was called.
+                            completionSource.TrySetException(
+                                new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed."));
+                        }
+                        else if (task.Exception != null)
                         {
                             completionSource.TrySetException(task.Exception);
-                        }
-                        else if (task.IsCanceled)
-                        {
-                            completionSource.TrySetCanceled();
                         }
                     },
                     taskCompletionSource,
@@ -634,7 +636,7 @@ namespace Apache.Ignite.Internal
             _exception = ex;
             _stream.Dispose();
 
-            ex ??= new ObjectDisposedException("Connection closed.");
+            ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
 
             while (!_requests.IsEmpty)
             {
