@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
@@ -50,8 +51,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -64,14 +63,12 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
 
     /**
      * Excluded native types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
+     * ToDo: https://issues.apache.org/jira/browse/IGNITE-15623 - support timestamp
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
             NativeTypeSpec.BITMASK,
-            NativeTypeSpec.DECIMAL,
-            NativeTypeSpec.NUMBER,
             NativeTypeSpec.TIMESTAMP,
-            NativeTypeSpec.BYTES)
+            NativeTypeSpec.NUMBER)
             .collect(Collectors.toSet());
 
     /**
@@ -92,16 +89,10 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
 
     /**
      * Check colocation by one column PK and explicit colocation key for all types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
-    @EnumSource(
-            value = NativeTypeSpec.class,
-            names = {"INT8", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
-            mode = Mode.EXCLUDE
-    )
-    // @EnumSource(value = NativeTypeSpec.class, names = {"BYTES", "TIME", "DATETIME"}, mode = Mode.INCLUDE)
-    public void colocationOneColumn(NativeTypeSpec type) throws ExecutionException, InterruptedException {
+    @MethodSource("oneColumnParameters")
+    public void colocationOneColumn(NativeTypeSpec type) throws Exception {
         sql(String.format("create table test0(id %s primary key, v INTEGER)", sqlTypeName(type)));
         sql(String.format("create table test1(id0 integer, id1 %s, v INTEGER, primary key(id0, id1)) colocate by(id1)", sqlTypeName(type)));
 
@@ -120,7 +111,15 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
             Set<Object> ids0 = r0.stream().map(t -> t.value("id")).collect(Collectors.toSet());
             List<Tuple> r1 = getAll(tbl1, i);
 
-            r1.forEach(t -> assertTrue(ids0.remove(t.value("id1"))));
+            // because the byte array is not comparable, we need to check the type separately
+            if (type == NativeTypeSpec.BYTES) {
+                r1.forEach(t -> {
+                    byte[] k = t.value("id1");
+                    ids0.stream().filter(v -> Arrays.equals((byte[]) v, k)).findAny().ifPresent(ids0::remove);
+                });
+            } else {
+                r1.forEach(t -> assertTrue(ids0.remove(t.value("id1"))));
+            }
 
             assertTrue(ids0.isEmpty());
         }
@@ -128,12 +127,11 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
 
     /**
      * Check colocation by one column for all types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17557")
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws ExecutionException, InterruptedException {
+    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws Exception {
         sql(String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlTypeName(t0), sqlTypeName(t1)));
 
         sql(String.format(
@@ -179,6 +177,18 @@ public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
                 if (!EXCLUDED_TYPES.contains(t0) && !EXCLUDED_TYPES.contains(t1)) {
                     args.add(Arguments.of(t0, t1));
                 }
+            }
+        }
+
+        return args.stream();
+    }
+
+    private static Stream<Arguments> oneColumnParameters() {
+        List<Arguments> args = new ArrayList<>();
+
+        for (NativeTypeSpec t : NativeTypeSpec.values()) {
+            if (!EXCLUDED_TYPES.contains(t)) {
+                args.add(Arguments.of(t));
             }
         }
 

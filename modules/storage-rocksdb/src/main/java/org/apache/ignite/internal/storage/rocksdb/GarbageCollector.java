@@ -235,6 +235,8 @@ class GarbageCollector {
                 // At this point there's definitely a value that needs to be garbage collected in the iterator.
                 byte[] valueBytes = it.value();
 
+                assert valueBytes.length > 0; // Can't be a tombstone.
+
                 var row = new ByteBufferRow(ByteBuffer.wrap(valueBytes).order(TABLE_ROW_BYTE_ORDER));
                 BinaryRowAndRowId retVal = new BinaryRowAndRowId(row, gcRowVersion.getRowId());
 

@@ -237,6 +237,7 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+        // TODO IGNITE-18899 wrap BinaryTuple similar to MutableRowTupleAdapter
         var tuple = new ClientTuple(schema);
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
@@ -251,35 +252,17 @@ public class ClientTupleSerializer {
         return tuple;
     }
 
-    static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
-        var tuple = new ClientTuple(schema);
-        var binTuple = new BinaryTupleReader(schema.columns().length - schema.keyColumnCount(), in.readBinaryUnsafe());
-
-        for (var i = 0; i < schema.columns().length; i++) {
-            ClientColumn col = schema.columns()[i];
-
-            if (i < schema.keyColumnCount()) {
-                tuple.setInternal(i, keyTuple.value(col.name()));
-            } else {
-                ClientBinaryTupleUtils.readAndSetColumnValue(
-                        binTuple, i - schema.keyColumnCount(), tuple, col.name(), col.type(), col.scale());
-            }
-        }
-
-        return tuple;
-    }
-
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
         var valTuple = new ClientTuple(schema, keyColCnt, schema.columns().length - 1);
-        var binTupleReader = new BinaryTupleReader(colCnt - keyColCnt, in.readBinaryUnsafe());
+        var binTupleReader = new BinaryTupleReader(colCnt, in.readBinaryUnsafe());
 
         for (var i = keyColCnt; i < colCnt; i++) {
             ClientColumn col = schema.columns()[i];
             ClientBinaryTupleUtils.readAndSetColumnValue(
-                    binTupleReader, i - keyColCnt, valTuple, col.name(), col.type(), col.scale());
+                    binTupleReader, i, valTuple, col.name(), col.type(), col.scale());
         }
 
         return valTuple;

@@ -18,18 +18,24 @@
 package org.apache.ignite.internal.cli.call.configuration;
 
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 
 /**
  * Updates cluster configuration.
  */
 @Singleton
 public class ClusterConfigUpdateCall implements Call<ClusterConfigUpdateCallInput, String> {
+    private final ApiClientFactory clientFactory;
+
+    public ClusterConfigUpdateCall(ApiClientFactory clientFactory) {
+        this.clientFactory = clientFactory;
+    }
+
     /** {@inheritDoc} */
     @Override
     public DefaultCallOutput<String> execute(ClusterConfigUpdateCallInput input) {
@@ -49,6 +55,6 @@ public class ClusterConfigUpdateCall implements Call<ClusterConfigUpdateCallInpu
     }
 
     private ClusterConfigurationApi createApiClient(ClusterConfigUpdateCallInput input) {
-        return new ClusterConfigurationApi(Configuration.getDefaultApiClient().setBasePath(input.getClusterUrl()));
+        return new ClusterConfigurationApi(clientFactory.getClient(input.getClusterUrl()));
     }
 }

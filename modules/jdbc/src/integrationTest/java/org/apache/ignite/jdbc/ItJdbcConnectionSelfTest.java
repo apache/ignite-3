@@ -28,14 +28,12 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
-import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.TRANSACTION_STATE_EXCEPTION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -47,7 +45,6 @@ import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
-import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Properties;
@@ -513,7 +510,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15248")
     public void testGetSetAutoCommit() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             boolean ac0 = conn.getAutoCommit();
@@ -572,43 +569,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             // Exception when called on closed connection
             checkConnectionClosed(() -> conn.rollback());
         }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
-    public void testBeginFailsWhenMvccIsDisabled() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            conn.createStatement().execute("BEGIN");
-
-            fail("Exception is expected");
-        } catch (SQLException e) {
-            assertEquals(TRANSACTION_STATE_EXCEPTION, e.getSQLState());
-        }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
-    public void testCommitIgnoredWhenMvccIsDisabled() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            conn.setAutoCommit(false);
-            conn.createStatement().execute("COMMIT");
-
-            conn.commit();
-        }
-        // assert no exception
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
-    public void testRollbackIgnoredWhenMvccIsDisabled() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            conn.setAutoCommit(false);
-
-            conn.createStatement().execute("ROLLBACK");
-
-            conn.rollback();
-        }
-        // assert no exception
     }
 
     /**
@@ -790,104 +750,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                     () -> conn.setHoldability(HOLD_CURSORS_OVER_COMMIT),
                     "Connection is closed"
             );
-        }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
-    public void testSetSavepoint() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertFalse(conn.getMetaData().supportsSavepoints());
-
-            // Disallowed in auto-commit mode
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setSavepoint(),
-                    "Savepoint cannot be set in auto-commit mode"
-            );
-
-            conn.close();
-
-            checkConnectionClosed(() -> conn.setSavepoint());
-        }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
-    public void testSetSavepointName() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertFalse(conn.getMetaData().supportsSavepoints());
-
-            // Invalid arg
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setSavepoint(null),
-                    "Savepoint name cannot be null"
-            );
-
-            final String name = "savepoint";
-
-            // Disallowed in auto-commit mode
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setSavepoint(name),
-                    "Savepoint cannot be set in auto-commit mode"
-            );
-
-            conn.close();
-
-            checkConnectionClosed(() -> conn.setSavepoint(name));
-        }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
-    public void testRollbackSavePoint() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertFalse(conn.getMetaData().supportsSavepoints());
-
-            // Invalid arg
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.rollback(null),
-                    "Invalid savepoint"
-            );
-
-            final Savepoint savepoint = getFakeSavepoint();
-
-            // Disallowed in auto-commit mode
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.rollback(savepoint),
-                    "Auto-commit mode"
-            );
-
-            conn.close();
-
-            checkConnectionClosed(() -> conn.rollback(savepoint));
-        }
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15087")
-    public void testReleaseSavepoint() throws Exception {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            assertFalse(conn.getMetaData().supportsSavepoints());
-
-            // Invalid arg
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.releaseSavepoint(null),
-                    "Savepoint cannot be null"
-            );
-
-            final Savepoint savepoint = getFakeSavepoint();
-
-            checkNotSupported(() -> conn.releaseSavepoint(savepoint));
-
-            conn.close();
-
-            checkConnectionClosed(() -> conn.releaseSavepoint(savepoint));
         }
     }
 
@@ -1138,22 +1000,5 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             checkConnectionClosed(() -> conn.setNetworkTimeout(executor, timeout));
         }
-    }
-
-    /**
-     * Returns savepoint.
-     */
-    private Savepoint getFakeSavepoint() {
-        return new Savepoint() {
-            @Override
-            public int getSavepointId() throws SQLException {
-                return 100;
-            }
-
-            @Override
-            public String getSavepointName() {
-                return "savepoint";
-            }
-        };
     }
 }

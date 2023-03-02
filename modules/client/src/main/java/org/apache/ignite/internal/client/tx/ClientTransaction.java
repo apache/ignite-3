@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -43,15 +42,19 @@ public class ClientTransaction implements Transaction {
     /** The future used on repeated commit/rollback. */
     private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
 
+    /** Read-only flag. */
+    private final boolean isReadOnly;
+
     /**
      * Constructor.
      *
      * @param ch Channel that the transaction belongs to.
      * @param id Transaction id.
      */
-    public ClientTransaction(ClientChannel ch, long id) {
+    public ClientTransaction(ClientChannel ch, long id, boolean isReadOnly) {
         this.ch = ch;
         this.id = id;
+        this.isReadOnly = isReadOnly;
     }
 
     /**
@@ -115,15 +118,7 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public boolean isReadOnly() {
-        // TODO: IGNITE-17929 Add read-only support to ClientTransactions
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public HybridTimestamp readTimestamp() {
-        // TODO: IGNITE-17929 Add read-only support to ClientTransactions
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return isReadOnly;
     }
 
     /**

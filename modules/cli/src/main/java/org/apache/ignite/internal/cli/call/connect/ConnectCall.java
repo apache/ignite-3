@@ -23,6 +23,7 @@ import java.net.MalformedURLException;
 import java.util.Objects;
 import org.apache.ignite.internal.cli.config.ConfigConstants;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.JdbcUrl;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.invoker.Configuration;
 
 
 /**
@@ -48,12 +48,15 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private final StateConfigProvider stateConfigProvider;
 
+    private final ApiClientFactory clientFactory;
+
     /**
      * Constructor.
      */
-    public ConnectCall(Session session, StateConfigProvider stateConfigProvider) {
+    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
+        this.clientFactory = clientFactory;
     }
 
     @Override
@@ -76,11 +79,11 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     }
 
     private String fetchNodeName(String nodeUrl) throws ApiException {
-        return new NodeManagementApi(Configuration.getDefaultApiClient().setBasePath(nodeUrl)).nodeState().getName();
+        return new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeState().getName();
     }
 
     private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
-        return new NodeConfigurationApi(Configuration.getDefaultApiClient().setBasePath(nodeUrl)).getNodeConfiguration();
+        return new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
     }
 
     private String constructJdbcUrl(String configuration, String nodeUrl) {

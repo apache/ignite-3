@@ -60,6 +60,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -258,6 +259,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                                 TestDataStorageConfigurationSchema.class
                         )
                 ),
+                mock(ReplicaService.class),
                 clock
         );
 

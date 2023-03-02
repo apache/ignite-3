@@ -383,18 +383,6 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public Publisher<BinaryRow> lookup(
             int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        throw new IgniteInternalException(new OperationNotSupportedException());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
             UUID txId,
             PrimaryReplica recipient,
             UUID indexId,

@@ -46,14 +46,18 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvTableStorage extends ManuallyCloseable {
     /**
-     * Retrieves or creates a partition for the current table. Not expected to be called concurrently with the same Partition ID.
+     * Creates a partition for the current table.
+     *
+     * <p>If the partition has already been created or is in the process of being created, a {@link StorageException} will be thrown.
+     *
+     * <p>If the partition is in the process of being destroyed, it will be re-created after the destruction is completed.
      *
      * @param partitionId Partition ID.
-     * @return Partition storage.
+     * @return Future that will be completed when the partition creation completes.
      * @throws IllegalArgumentException If Partition ID is out of configured bounds.
      * @throws StorageException If an error has occurred during the partition creation.
      */
-    MvPartitionStorage getOrCreateMvPartition(int partitionId) throws StorageException;
+    CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId);
 
     /**
      * Returns the partition storage or {@code null} if the requested storage doesn't exist.

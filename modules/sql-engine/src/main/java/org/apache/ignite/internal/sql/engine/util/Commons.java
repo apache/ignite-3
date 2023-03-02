@@ -140,12 +140,6 @@ public final class Commons {
             DistributionTraitDef.INSTANCE
     );
 
-    @SuppressWarnings("rawtypes")
-    public static final List<RelTraitDef> LOCAL_TRAITS_SET = List.of(
-            ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE
-    );
-
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()

@@ -164,7 +164,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
             case DEFAULT_CONSTANT: {
                 var typeFactory = (IgniteTypeFactory) rexBuilder.getTypeFactory();
 
-                Object defaultValue = TypeUtils.toInternal(null, descriptor.defaultValue());
+                Object defaultValue = TypeUtils.toInternal(descriptor.defaultValue());
 
                 return rexBuilder.makeLiteral(defaultValue, deriveLogicalType(typeFactory, descriptor), false);
             }

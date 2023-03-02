@@ -32,15 +32,14 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowConverter;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -86,7 +85,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             IgniteIndex schemaIndex,
-            InternalIgniteTable schemaTable,
+            IgniteTable schemaTable,
             Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
@@ -135,7 +134,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
         Publisher<BinaryRow> pub;
-        InternalTransaction tx = context().transaction();
+        TxAttributes txAttributes = context().txAttributes();
 
         if (schemaIndex.type() == Type.SORTED) {
             int flags = 0;
@@ -152,22 +151,11 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
                 flags |= (cond.upperInclude()) ? SortedIndex.INCLUDE_RIGHT : 0;
             }
 
-            if (tx.isReadOnly()) {
+            if (txAttributes.readOnly()) {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         partWithTerm.partId(),
-                        tx.readTimestamp(),
+                        txAttributes.time(),
                         context().localNode(),
-                        lower,
-                        upper,
-                        flags,
-                        requiredColumns
-                );
-            } else if (!(tx instanceof LocalTxAttributesHolder)) {
-                // TODO IGNITE-17952 This block should be removed.
-                // Workaround to make RW scan work from tx coordinator.
-                pub = ((SortedIndex) schemaIndex.index()).scan(
-                        partWithTerm.partId(),
-                        tx,
                         lower,
                         upper,
                         flags,
@@ -176,7 +164,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             } else {
                 pub = ((SortedIndex) schemaIndex.index()).scan(
                         partWithTerm.partId(),
-                        tx.id(),
+                        txAttributes.id(),
                         new PrimaryReplica(context().localNode(), partWithTerm.term()),
                         lower,
                         upper,
@@ -190,27 +178,18 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
             BinaryTuple key = toBinaryTuple(cond.lower());
 
-            if (tx.isReadOnly()) {
+            if (txAttributes.readOnly()) {
                 pub = schemaIndex.index().lookup(
                         partWithTerm.partId(),
-                        tx.readTimestamp(),
+                        txAttributes.time(),
                         context().localNode(),
-                        key,
-                        requiredColumns
-                );
-            } else if (!(tx instanceof LocalTxAttributesHolder)) {
-                // TODO IGNITE-17952 This block should be removed.
-                // Workaround to make RW lookup work from tx coordinator.
-                pub = schemaIndex.index().lookup(
-                        partWithTerm.partId(),
-                        tx,
                         key,
                         requiredColumns
                 );
             } else {
                 pub = schemaIndex.index().lookup(
                         partWithTerm.partId(),
-                        tx.id(),
+                        txAttributes.id(),
                         new PrimaryReplica(context().localNode(), partWithTerm.term()),
                         key,
                         requiredColumns

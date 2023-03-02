@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -248,11 +247,6 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             public boolean isReadOnly() {
                 return false;
             }
-
-            @Override
-            public HybridTimestamp readTimestamp() {
-                return null;
-            }
         };
 
         var ex = assertThrows(IgniteException.class, () -> kvView().put(tx, 1, "1"));
@@ -324,6 +318,24 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         } else {
             tx.rollback();
         }
+    }
+
+    @Test
+    void testReadOnlyTxAttributes() {
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+
+        assertTrue(tx.isReadOnly());
+
+        tx.rollback();
+    }
+
+    @Test
+    void testReadWriteTxAttributes() {
+        Transaction tx = client().transactions().begin();
+
+        assertFalse(tx.isReadOnly());
+
+        tx.rollback();
     }
 
     private KeyValueView<Integer, String> kvView() {

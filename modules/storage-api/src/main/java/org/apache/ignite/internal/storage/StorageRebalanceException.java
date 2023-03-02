@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import org.apache.ignite.lang.ErrorGroups.Storage;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,5 +51,17 @@ public class StorageRebalanceException extends StorageException {
      */
     public StorageRebalanceException(String message, @Nullable Throwable cause) {
         super(Storage.STORAGE_REBALANCE_ERR, message, cause);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param messagePattern Error message pattern.
+     * @param cause Non-null throwable cause.
+     * @param params Error message params.
+     * @see IgniteStringFormatter#format(String, Object...)
+     */
+    public StorageRebalanceException(String messagePattern, Throwable cause, Object... params) {
+        super(Storage.STORAGE_REBALANCE_ERR, messagePattern, cause, params);
     }
 }

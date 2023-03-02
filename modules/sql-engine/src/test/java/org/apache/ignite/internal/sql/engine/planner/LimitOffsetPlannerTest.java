@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.doubleFromRex;
+
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.util.ImmutableIntList;
@@ -24,6 +26,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -83,44 +86,67 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
         IgniteSchema publicSchema = createSchemaWithTable(IgniteDistributions.random());
 
         // Simple case, Limit can't be pushed down under Exchange or Sort. Sort before Exchange is more preferable.
-        assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 10 OFFSET 10", publicSchema,
+        assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 5 OFFSET 10", publicSchema,
                 isInstanceOf(IgniteLimit.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteSort.class))))));
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 5.0)
+                                        .and(s -> doubleFromRex(s.offset, -1) == 10.0))))));
+
+        // Same simple case but witout offset.
+        assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 5", publicSchema,
+                isInstanceOf(IgniteLimit.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 5.0)
+                                        .and(s -> s.offset == null))))));
+
+        // No special liited sort required if LIMIT is not set.
+        assertPlan("SELECT * FROM TEST ORDER BY ID OFFSET 10", publicSchema,
+                isInstanceOf(IgniteLimit.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> s.fetch == null)
+                                        .and(s -> s.offset == null))))));
 
         // Simple case without ordering.
-        assertPlan("SELECT * FROM TEST OFFSET 10 ROWS FETCH FIRST 10 ROWS ONLY", publicSchema,
+        assertPlan("SELECT * FROM TEST OFFSET 10 ROWS FETCH FIRST 5 ROWS ONLY", publicSchema,
                 isInstanceOf(IgniteLimit.class)
-                    .and(input(isInstanceOf(IgniteExchange.class)))
-                    .and(hasChildThat(isInstanceOf(IgniteSort.class)).negate()));
-
+                        .and(s -> doubleFromRex(s.fetch(), -1) == 5)
+                        .and(s -> doubleFromRex(s.offset(), -1) == 10)
+                        .and(input(isInstanceOf(IgniteExchange.class)))
+                        .and(hasChildThat(isInstanceOf(IgniteSort.class)).negate()));
         // Check that Sort node is not eliminated by aggregation and Exchange node is not eliminated by distribution
         // required by parent nodes.
         assertPlan("SELECT * FROM TEST UNION (SELECT * FROM TEST ORDER BY ID LIMIT 10)", publicSchema,
                 nodeOrAnyChild(isInstanceOf(IgniteUnionAll.class)
-                    .and(hasChildThat(isInstanceOf(IgniteLimit.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                            .and(input(isInstanceOf(IgniteSort.class)))))))));
+                        .and(hasChildThat(isInstanceOf(IgniteLimit.class)
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteSort.class)
+                                                .and(s -> doubleFromRex(s.fetch, -1) == 10.0)))))))));
 
         // Check that internal Sort node is not eliminated by external Sort node with different collation.
         assertPlan("SELECT * FROM (SELECT * FROM TEST ORDER BY ID LIMIT 10) ORDER BY VAL", publicSchema,
                 nodeOrAnyChild(isInstanceOf(IgniteSort.class)
                     .and(hasChildThat(isInstanceOf(IgniteLimit.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
-                            .and(input(isInstanceOf(IgniteSort.class)))))))));
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 10.0)))))))));
 
         // Check that extended collation is passed through the Limit node if it satisfies the Limit collation.
         assertPlan("SELECT * FROM (SELECT * FROM TEST ORDER BY ID LIMIT 10) ORDER BY ID, VAL", publicSchema,
                 isInstanceOf(IgniteLimit.class)
                     .and(input(isInstanceOf(IgniteExchange.class)
                         .and(input(isInstanceOf(IgniteSort.class)
-                            .and(s -> s.collation().getKeys().equals(ImmutableIntList.of(0, 1))))))));
+                                .and(input(isInstanceOf(IgniteTableScan.class)))
+                                .and(s -> s.collation().getKeys().equals(ImmutableIntList.of(0, 1))))))));
 
         // Check that external Sort node is not required if external collation is subset of internal collation.
         assertPlan("SELECT * FROM (SELECT * FROM TEST ORDER BY ID, VAL LIMIT 10) ORDER BY ID", publicSchema,
                 isInstanceOf(IgniteLimit.class)
                     .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(input(isInstanceOf(IgniteSort.class))))));
+                            .and(input(isInstanceOf(IgniteSort.class)
+                                    .and(s -> doubleFromRex(s.fetch, -1) == 10.0))))));
 
         // Check double limit when external collation is a subset of internal collation.
         assertPlan("SELECT * FROM (SELECT * FROM TEST ORDER BY ID, VAL LIMIT 10) ORDER BY ID LIMIT 5 OFFSET 3",
@@ -128,15 +154,19 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                 isInstanceOf(IgniteLimit.class)
                     .and(input(isInstanceOf(IgniteLimit.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
-                            .and(input(isInstanceOf(IgniteSort.class))))))));
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 10.0)
+                                        .and(s -> s.offset == null))))))));
 
         // Check limit/exchange/sort rel order in subquery.
         assertPlan("SELECT NULLIF((SELECT id FROM test ORDER BY id LIMIT 1 OFFSET 1), id) FROM test",
                 publicSchema,
                 hasChildThat(isInstanceOf(IgniteLimit.class)
-                    .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(e -> e.distribution() == IgniteDistributions.single())
-                        .and(input(isInstanceOf(IgniteSort.class)))))));
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(e -> e.distribution() == IgniteDistributions.single())
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(s -> doubleFromRex(s.offset, -1) == 1)
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 1)))))));
 
         publicSchema = createSchemaWithTable(IgniteDistributions.random(), 0);
 

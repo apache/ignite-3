@@ -125,7 +125,7 @@ public class InternalTableImpl implements InternalTable {
     private final TxStateTableStorage txStateStorage;
 
     /** Replica service. */
-    protected final ReplicaService replicaSvc;
+    private final ReplicaService replicaSvc;
 
     /** Mutex for the partition map update. */
     private final Object updatePartMapMux = new Object();
@@ -840,18 +840,6 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BitSet columnsToInclude
     ) {
         return scan(partId, readTimestamp, recipientNode, indexId, key, null, null, 0, columnsToInclude);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<BinaryRow> lookup(
-            int partId,
-            @Nullable InternalTransaction tx,
-            @NotNull UUID indexId,
-            BinaryTuple key,
-            @Nullable BitSet columnsToInclude
-    ) {
-        return scan(partId, tx, indexId, key, null, null, 0, columnsToInclude);
     }
 
     /** {@inheritDoc} */

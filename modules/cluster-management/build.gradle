@@ -35,40 +35,33 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-rocksdb-common')
-    implementation project(':ignite-rest-api')
     implementation libs.jetbrains.annotations
-    implementation libs.micronaut.http.core
-    implementation libs.micronaut.http.server.core
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
 
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation project(':ignite-network')
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
     testImplementation libs.slf4j.jdk14
-    testImplementation libs.micronaut.test
-    testImplementation libs.micronaut.http.client
-    testImplementation libs.micronaut.http.server.netty
 
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-raft')
+    testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-configuration'))
+    testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
-    integrationTestImplementation project(':ignite-rest-api')
-    integrationTestImplementation project(':ignite-vault')
-    integrationTestImplementation(testFixtures(project))
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
-    integrationTestImplementation(testFixtures(project(':ignite-network')))
-    integrationTestImplementation project(':ignite-raft')
-    integrationTestImplementation libs.micronaut.junit5
-    integrationTestImplementation libs.micronaut.test
-    integrationTestImplementation libs.micronaut.http.client
-    integrationTestImplementation libs.micronaut.http.server.netty
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
 }

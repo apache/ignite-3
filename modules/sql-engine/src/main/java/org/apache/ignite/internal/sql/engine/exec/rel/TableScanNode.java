@@ -26,11 +26,10 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.util.LocalTxAttributesHolder;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -61,7 +60,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     public TableScanNode(
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
-            InternalIgniteTable schemaTable,
+            IgniteTable schemaTable,
             Collection<PartitionWithTerm> partsWithTerms,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
@@ -78,21 +77,17 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
-        InternalTransaction tx = context().transaction();
+        TxAttributes txAttributes = context().txAttributes();
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
                 partsWithTerms.iterator(), partWithTerm -> {
             Publisher<BinaryRow> pub;
 
-            if (tx.isReadOnly()) {
-                pub = physTable.scan(partWithTerm.partId(), tx.readTimestamp(), context().localNode());
-            } else if (!(tx instanceof LocalTxAttributesHolder)) {
-                // TODO IGNITE-17952 This block should be removed.
-                // Workaround to make RW scan work from tx coordinator.
-                pub = physTable.scan(partWithTerm.partId(), tx);
+            if (txAttributes.readOnly()) {
+                pub = physTable.scan(partWithTerm.partId(), txAttributes.time(), context().localNode());
             } else {
                 PrimaryReplica recipient = new PrimaryReplica(context().localNode(), partWithTerm.term());
 
-                pub = physTable.scan(partWithTerm.partId(), tx.id(), recipient, null, null, null, 0, null);
+                pub = physTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
             }
 
             return convertPublisher(pub);

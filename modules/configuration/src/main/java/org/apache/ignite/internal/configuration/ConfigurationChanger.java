@@ -634,22 +634,16 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         // Save revisions for recovery.
         return storage.writeConfigurationRevision(oldStorageRoots.version, storageRoots.version)
                 .thenCompose(unused -> {
-                    if (dataValuesPrefixMap.isEmpty()) {
-                        oldStorageRoots.changeFuture.complete(null);
+                    long notificationNumber = notificationListenerCnt.incrementAndGet();
 
-                        return CompletableFuture.completedFuture(null);
-                    } else {
-                        long notificationNumber = notificationListenerCnt.incrementAndGet();
-
-                        return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber)
-                                .whenComplete((v, t) -> {
-                                    if (t == null) {
-                                        oldStorageRoots.changeFuture.complete(null);
-                                    } else {
-                                        oldStorageRoots.changeFuture.completeExceptionally(t);
-                                    }
-                                });
-                    }
+                    return notificator.notify(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber)
+                            .whenComplete((v, t) -> {
+                                if (t == null) {
+                                    oldStorageRoots.changeFuture.complete(null);
+                                } else {
+                                    oldStorageRoots.changeFuture.completeExceptionally(t);
+                                }
+                            });
                 });
     }
 
