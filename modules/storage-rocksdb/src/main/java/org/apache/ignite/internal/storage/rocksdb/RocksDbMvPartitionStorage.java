@@ -1017,11 +1017,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        StorageState previous = state.getAndSet(StorageState.CLOSED);
 
-            assert state == StorageState.CLOSED : state;
-
+        if (previous == StorageState.CLOSED) {
             return;
         }
 
