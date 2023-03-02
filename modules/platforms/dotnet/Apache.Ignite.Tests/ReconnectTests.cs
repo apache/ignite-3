@@ -130,10 +130,12 @@ public class ReconnectTests
     [Test]
     public async Task TestReconnectAfterFullClusterRestart()
     {
+        var logger = new ConsoleLogger { MinLevel = LogLevel.Trace };
+
         var cfg = new IgniteClientConfiguration
         {
             ReconnectInterval = TimeSpan.FromMilliseconds(100),
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            Logger = logger
         };
 
         using var servers = FakeServerGroup.Create(10, _ => new FakeServer());
@@ -142,19 +144,25 @@ public class ReconnectTests
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 
         // Drop all connections and block new connections.
+        logger.Debug("Dropping all connections and blocking new connections...");
         servers.DropNewConnections = true;
         servers.DropExistingConnections();
+        logger.Debug("Dropped all connections and blocked new connections.");
 
         // Client fails to perform operations.
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await client.Tables.GetTablesAsync());
 
         // Allow new connections.
+        logger.Debug("Allowing new connections...");
         servers.DropNewConnections = false;
+        logger.Debug("Allowed new connections.");
 
         // Client works again.
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
 
         // All connections are restored.
+        logger.Debug("Waiting for all connections to be restored...");
+
         TestUtils.WaitForCondition(
             () => client.GetConnections().Count == 10,
             5000,
