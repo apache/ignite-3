@@ -77,7 +77,7 @@ public class ItReadOnlyTransactionTest extends AbstractBasicIntegrationTest {
      * @return Count of rows in the table.
      */
     private static int checkData(Transaction tx, Function<Integer, String> valueMapper) {
-        List<List<Object>> rows = sql(tx, "SELECT id, val from " + TABLE_NAME + " ORDER BY id");
+        List<List<Object>> rows = sql(tx, "SELECT id, val FROM " + TABLE_NAME + " ORDER BY id");
 
         for (List<Object> row : rows) {
             var id = (Integer) row.get(0);
