@@ -56,25 +56,25 @@ class SslConfigurationValidatorImplTest {
     @Test
     public void nullTrustStorePath(@TempDir Path tmpDir) throws IOException {
         validate(createTrustStoreConfig(tmpDir, "PKCS12", null, "changeIt"),
-                "Key store path must not be blank");
+                "Trust store path must not be blank");
     }
 
     @Test
     public void emptyTrustStorePath(@TempDir Path tmpDir) throws IOException {
         validate(createTrustStoreConfig(tmpDir, "PKCS12", "", "changeIt"),
-                "Key store path must not be blank");
+                "Trust store path must not be blank");
     }
 
     @Test
     public void nullTrustStoreType(@TempDir Path tmpDir) throws IOException {
         validate(createTrustStoreConfig(tmpDir, null, "/path/to/keystore.p12", null),
-                "Key store type must not be blank", "Key store file doesn't exist at /path/to/keystore.p12");
+                "Trust store type must not be blank", "Trust store file doesn't exist at /path/to/keystore.p12");
     }
 
     @Test
     public void blankTrustStoreType(@TempDir Path tmpDir) throws IOException {
         validate(createTrustStoreConfig(tmpDir, "", "/path/to/keystore.p12", null),
-                "Key store type must not be blank", "Key store file doesn't exist at /path/to/keystore.p12");
+                "Trust store type must not be blank", "Trust store file doesn't exist at /path/to/keystore.p12");
     }
 
     @Test

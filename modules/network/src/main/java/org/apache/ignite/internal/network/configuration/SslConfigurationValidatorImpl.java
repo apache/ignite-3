@@ -37,30 +37,30 @@ public class SslConfigurationValidatorImpl implements Validator<SslConfiguration
     public void validate(SslConfigurationValidator annotation, ValidationContext<SslView> ctx) {
         SslView ssl = ctx.getNewValue();
         if (ssl.enabled()) {
-            validateKeyStore(ctx, ".keyStore", ssl.keyStore());
+            validateKeyStore(ctx, ".keyStore", "Key store", ssl.keyStore());
 
             ClientAuth clientAuth = ClientAuth.valueOf(ssl.clientAuth().toUpperCase());
             if (clientAuth != ClientAuth.NONE) {
-                validateKeyStore(ctx, ".trustStore", ssl.trustStore());
+                validateKeyStore(ctx, ".trustStore", "Trust store", ssl.trustStore());
             }
         }
     }
 
-    private static void validateKeyStore(ValidationContext<SslView> ctx, String keyName, KeyStoreView keyStore) {
+    private static void validateKeyStore(ValidationContext<SslView> ctx, String keyName, String type, KeyStoreView keyStore) {
         String keyStorePath = keyStore.path();
         if (nullOrBlank(keyStorePath) && nullOrBlank(keyStore.password())) {
             return;
         }
 
         if (nullOrBlank(keyStore.type())) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, "Key store type must not be blank"));
+            ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " type must not be blank"));
         }
 
         if (nullOrBlank(keyStorePath)) {
-            ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, "Key store path must not be blank"));
+            ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " path must not be blank"));
         } else {
             if (!Files.exists(Path.of(keyStorePath))) {
-                ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, "Key store file doesn't exist at " + keyStorePath));
+                ctx.addIssue(new ValidationIssue(ctx.currentKey() + keyName, type + " file doesn't exist at " + keyStorePath));
             }
         }
     }
