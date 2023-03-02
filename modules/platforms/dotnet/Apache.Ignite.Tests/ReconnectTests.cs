@@ -111,7 +111,8 @@ public class ReconnectTests
     {
         var cfg = new IgniteClientConfiguration
         {
-            ReconnectInterval = TimeSpan.FromMilliseconds(100)
+            ReconnectInterval = TimeSpan.FromMilliseconds(100),
+            SocketTimeout = TimeSpan.FromMilliseconds(200)
         };
 
         using var servers = FakeServerGroup.Create(5, idx => new FakeServer { DropNewConnections = idx > 0 });
