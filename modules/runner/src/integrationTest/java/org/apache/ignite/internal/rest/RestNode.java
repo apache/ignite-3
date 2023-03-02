@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest;
 
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
@@ -112,9 +114,6 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
-        String keyStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(keyStorePath).getPath();
-        String trustStoreAbsolutPath = ItRestSslTest.class.getClassLoader().getResource(trustStorePath).getPath();
-
         return "{\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
@@ -130,16 +129,26 @@ public class RestNode {
                 + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
                 + "      port: " + httpsPort + ",\n"
                 + "      keyStore: {\n"
-                + "        path: " + keyStoreAbsolutPath + ",\n"
+                + "        path: \"" + getResourcePath(keyStorePath) + "\",\n"
                 + "        password: " + keyStorePassword + "\n"
                 + "      }, \n"
                 + "      trustStore: {\n"
-                + "        type: JKS, "
-                + "        path: " + trustStoreAbsolutPath + ",\n"
+                + "        type: JKS,\n"
+                + "        path: \"" + getResourcePath(trustStorePath) + "\",\n"
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
-                + "  }"
+                + "  }\n"
                 + "}";
+    }
+
+    private static String getResourcePath(String resource) {
+        try {
+            URL url = ItRestSslTest.class.getClassLoader().getResource(resource);
+            Path path = Path.of(url.toURI()); // Properly extract file system path from the "file:" URL
+            return path.toString().replace("\\", "\\\\"); // Escape backslashes for the config parser
+        } catch (URISyntaxException e) {
+            return "";
+        }
     }
 }
