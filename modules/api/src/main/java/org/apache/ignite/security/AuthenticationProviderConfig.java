@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.security;
 
 /** General interface for all authentication provider configs. */
 public interface AuthenticationProviderConfig {

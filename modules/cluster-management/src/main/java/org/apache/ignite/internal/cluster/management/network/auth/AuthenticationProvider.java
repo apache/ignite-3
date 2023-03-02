@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.cluster.management.network.auth.BasicAu
 import java.io.Serializable;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.rest.AuthenticationProviderConfig;
-import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
+import org.apache.ignite.security.AuthenticationProviderConfig;
+import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 
 /** Represents authentication provider config. */
 public interface AuthenticationProvider extends NetworkMessage, Serializable {

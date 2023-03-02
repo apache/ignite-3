@@ -22,8 +22,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.rest.AuthenticationType;
-import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
+import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 
 /**
  * REST representation of {@link BasicAuthenticationProviderConfig}.

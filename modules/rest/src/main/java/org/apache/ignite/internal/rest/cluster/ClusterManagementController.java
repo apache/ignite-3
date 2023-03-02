@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
-import static org.apache.ignite.rest.AuthenticationConfig.disabled;
+import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -42,10 +42,10 @@ import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterI
 import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.rest.AuthenticationConfig;
-import org.apache.ignite.rest.AuthenticationProviderConfig;
-import org.apache.ignite.rest.AuthenticationType;
-import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
+import org.apache.ignite.security.AuthenticationConfig;
+import org.apache.ignite.security.AuthenticationProviderConfig;
+import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 
 /**
  * Cluster management controller implementation.

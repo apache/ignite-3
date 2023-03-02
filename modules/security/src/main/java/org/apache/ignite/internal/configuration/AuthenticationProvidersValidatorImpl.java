@@ -22,7 +22,8 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.rest.AuthenticationType;
+import org.apache.ignite.security.AuthenticationType;
+import org.apache.ignite.security.UnknownAuthenticationTypeException;
 
 /**
  * Authentication provider schema configuration validator implementation.
@@ -42,10 +43,8 @@ public class AuthenticationProvidersValidatorImpl implements
 
     private void validateProvider(String key, AuthenticationProviderView view,
             ValidationContext<NamedListView<AuthenticationProviderView>> ctx) {
-        AuthenticationType authenticationType = AuthenticationType.parse(view.type());
-        if (authenticationType == null) {
-            ctx.addIssue(new ValidationIssue(key, "Unknown auth type: " + view.type()));
-        } else {
+        try {
+            AuthenticationType authenticationType = AuthenticationType.parse(view.type());
             if (authenticationType == AuthenticationType.BASIC) {
                 BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
                 if (StringUtils.nullOrBlank(basicAuthProviderView.login())) {
@@ -55,6 +54,8 @@ public class AuthenticationProvidersValidatorImpl implements
                     ctx.addIssue(new ValidationIssue(key, "Password must not be blank"));
                 }
             }
+        } catch (UnknownAuthenticationTypeException ex) {
+            ctx.addIssue(new ValidationIssue(key, "Unknown auth type: " + view.type()));
         }
     }
 }

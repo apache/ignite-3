@@ -19,7 +19,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.cluster.management.network.auth.Authentication.authentication;
-import static org.apache.ignite.rest.AuthenticationConfig.disabled;
+import static org.apache.ignite.security.AuthenticationConfig.disabled;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;

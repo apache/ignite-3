@@ -19,7 +19,7 @@ package org.apache.ignite;
 
 import java.util.Collection;
 import java.util.Objects;
-import org.apache.ignite.rest.AuthenticationConfig;
+import org.apache.ignite.security.AuthenticationConfig;
 
 /** Initialization parameters. */
 public class InitParameters {

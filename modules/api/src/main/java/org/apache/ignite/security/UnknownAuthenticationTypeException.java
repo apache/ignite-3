@@ -15,26 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.security;
 
-import java.util.Arrays;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 
-/** Authentication types. */
-public enum AuthenticationType {
-    BASIC;
+/**
+ * Throws when unknown authentication type is provided.
+ */
+public class UnknownAuthenticationTypeException extends IgniteException {
 
     /**
-     * Parses {@link AuthenticationType} from the given string.
+     * Constructor.
      *
-     * @param type string
-     * @return parsed {@link AuthenticationType} or null
+     * @param message error message.
      */
-    @Nullable
-    public static AuthenticationType parse(String type) {
-        return Arrays.stream(values())
-                .filter(it -> type.equalsIgnoreCase(it.name()))
-                .findFirst()
-                .orElse(null);
+    public UnknownAuthenticationTypeException(String message) {
+        super(Common.ILLEGAL_ARGUMENT_ERR, message);
     }
 }

@@ -19,26 +19,18 @@ package org.apache.ignite.internal.rest.authentication;
 
 import org.apache.ignite.internal.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderView;
-import org.apache.ignite.rest.AuthenticationType;
+import org.apache.ignite.security.AuthenticationType;
 
 /** Factory for {@link Authenticator}. */
 class AuthenticatorFactory {
 
     static Authenticator create(AuthenticationProviderView view) {
-        AuthenticationType authenticationType = AuthenticationType.parse(view.type());
-        if (authenticationType != null) {
-            return create(authenticationType, view);
-        } else {
-            throw new IllegalArgumentException("Unknown auth type: " + view.type());
-        }
-    }
-
-    private static Authenticator create(AuthenticationType type, AuthenticationProviderView view) {
+        AuthenticationType type = AuthenticationType.parse(view.type());
         if (type == AuthenticationType.BASIC) {
             BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
             return new BasicAuthenticator(basicAuthProviderView.login(), basicAuthProviderView.password());
         } else {
-            throw new IllegalArgumentException("Unexpected auth type: " + type);
+            throw new IllegalArgumentException("Unexpected authentication type: " + type);
         }
     }
 }

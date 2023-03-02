@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cluster.management.network.auth;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup.Commands;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
+import org.apache.ignite.security.BasicAuthenticationProviderConfig;
 
 /** Represents basic authentication provider config. */
 @Transferable(Commands.BASIC_AUTH_PROVIDER)

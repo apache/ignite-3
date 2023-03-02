@@ -142,7 +142,7 @@ import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.SerializationRegistryServiceLoader;
-import org.apache.ignite.rest.AuthenticationConfig;
+import org.apache.ignite.security.AuthenticationConfig;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;

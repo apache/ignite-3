@@ -29,7 +29,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.rest.AuthenticationType;
+import org.apache.ignite.security.AuthenticationType;
 
 /**
  * Updater is responsible for applying changes to the cluster configuration when it's ready.
@@ -84,7 +84,7 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
                     .changePassword(basicAuthProvider.password())
                     .changeName(provider.name());
         } else {
-            throw new IllegalArgumentException("Unsupported authentication provider type: " + type);
+            throw new IllegalArgumentException("Unexpected authentication type: " + type);
         }
     }
 

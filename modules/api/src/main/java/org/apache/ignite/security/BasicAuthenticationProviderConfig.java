@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.security;
 
 import org.apache.ignite.internal.util.StringUtils;
 

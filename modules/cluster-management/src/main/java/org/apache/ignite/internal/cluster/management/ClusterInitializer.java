@@ -19,7 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.rest.AuthenticationConfig.disabled;
+import static org.apache.ignite.security.AuthenticationConfig.disabled;
 
 import java.util.Collection;
 import java.util.List;
@@ -40,7 +40,7 @@ import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.rest.AuthenticationConfig;
+import org.apache.ignite.security.AuthenticationConfig;
 
 /**
  * Class for performing cluster initialization.

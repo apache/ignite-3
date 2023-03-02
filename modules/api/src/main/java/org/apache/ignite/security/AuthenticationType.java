@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.api.cluster.authentication;
+package org.apache.ignite.security;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.apache.ignite.security.AuthenticationProviderConfig;
-import org.apache.ignite.security.AuthenticationType;
+import java.util.Arrays;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * REST representation of {@link AuthenticationProviderConfig}.
- */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
-        property = "type")
-@JsonSubTypes({
-        @JsonSubTypes.Type(value = BasicAuthenticationProviderConfigDto.class, name = "basic")
-})
-public interface AuthenticationProviderConfigDto {
+/** Authentication types. */
+public enum AuthenticationType {
+    BASIC;
 
-    /** Authentication type. */
-    AuthenticationType type();
-
-    /** Name of the authentication provider. */
-    String name();
+    /**
+     * Parses {@link AuthenticationType} from the given string.
+     *
+     * @param type string
+     * @return parsed {@link AuthenticationType} or null
+     * @throws UnknownAuthenticationTypeException in case of unknown type
+     */
+    @Nullable
+    public static AuthenticationType parse(String type) {
+        return Arrays.stream(values())
+                .filter(it -> type.equalsIgnoreCase(it.name()))
+                .findFirst()
+                .orElseThrow(() -> new UnknownAuthenticationTypeException("Unknown authentication type: " + type));
+    }
 }

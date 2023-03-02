@@ -24,7 +24,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.rest.AuthenticationConfig;
+import org.apache.ignite.security.AuthenticationConfig;
 
 
 /** Represents authentication config. */

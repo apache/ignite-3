@@ -20,7 +20,7 @@ package org.apache.ignite;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.rest.AuthenticationConfig;
+import org.apache.ignite.security.AuthenticationConfig;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
 public class InitParametersBuilder {
