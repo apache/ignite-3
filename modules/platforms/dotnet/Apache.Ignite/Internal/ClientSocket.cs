@@ -205,7 +205,10 @@ namespace Apache.Ignite.Internal
 
             if (_disposeTokenSource.IsCancellationRequested)
             {
-                throw new ObjectDisposedException(nameof(ClientSocket));
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.Connection,
+                    "Socket is disposed.",
+                    new ObjectDisposedException(nameof(ClientSocket)));
             }
 
             var requestId = Interlocked.Increment(ref _requestId);
