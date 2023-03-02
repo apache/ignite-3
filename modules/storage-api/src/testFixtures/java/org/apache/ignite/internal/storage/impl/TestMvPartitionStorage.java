@@ -273,8 +273,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             gcQueue.add(committedVersionChain);
         } else {
             if (committedVersionChain.row == null) {
-                // If previous version doesn't exist and current version is a tombstone,
-                // then just ignore it.
+                // If there is only one version, and it is a tombstone, then remove the chain.
                 return null;
             }
         }

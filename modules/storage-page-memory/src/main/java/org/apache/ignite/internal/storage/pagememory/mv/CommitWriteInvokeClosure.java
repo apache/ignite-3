@@ -81,7 +81,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
 
         if (next == null && current.isTombstone()) {
-            // Previous version doesn't exist and current version is a tombstone, delete current version.
+            // If there is only one version, and it is a tombstone, then remove the chain.
             operationType = OperationType.REMOVE;
 
             return;
