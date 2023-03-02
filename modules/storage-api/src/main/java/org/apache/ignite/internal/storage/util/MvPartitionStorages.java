@@ -330,41 +330,6 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
     }
 
     /**
-     * Returns all storages for closing or destroying after completion of operations for all storages.
-     *
-     * <p>After completing the future, when try to perform any operation, {@link StorageException} for all storages will be thrown.
-     *
-     * @return Future that at the complete will return all the storages that are not destroyed.
-     */
-    public CompletableFuture<List<T>> getAllForCloseOrDestroy() {
-        List<CompletableFuture<Void>> operationFutures = new ArrayList<>();
-
-        for (int partitionId = 0; partitionId < storageByPartitionId.length(); partitionId++) {
-            StorageOperation storageOperation = operationByPartitionId.compute(partitionId, (partId, operation) -> {
-                if (operation == null) {
-                    operation = new CloseStorageOperation();
-                }
-
-                operation.markFinalOperation();
-
-                return operation;
-            });
-
-            if (!(storageOperation instanceof CloseStorageOperation)) {
-                operationFutures.add(storageOperation.operationFuture());
-            }
-        }
-
-        return CompletableFuture.allOf(operationFutures.toArray(CompletableFuture[]::new))
-                .thenApply(unused ->
-                        IntStream.range(0, storageByPartitionId.length())
-                                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
-                                .filter(Objects::nonNull)
-                                .collect(toList())
-                );
-    }
-
-    /**
      * Returns table name.
      */
     public String getTableName() {
@@ -513,5 +478,40 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
         }
 
         return operation instanceof DestroyStorageOperation ? ((DestroyStorageOperation) operation).getCreateStorageOperation() : null;
+    }
+
+    /**
+     * Returns all storages for closing or destroying after completion of operations for all storages.
+     *
+     * <p>After completing the future, when try to perform any operation, {@link StorageException} for all storages will be thrown.
+     *
+     * @return Future that at the complete will return all the storages that are not destroyed.
+     */
+    public CompletableFuture<List<T>> getAllForCloseOrDestroy() {
+        List<CompletableFuture<Void>> operationFutures = new ArrayList<>();
+
+        for (int partitionId = 0; partitionId < storageByPartitionId.length(); partitionId++) {
+            StorageOperation storageOperation = operationByPartitionId.compute(partitionId, (partId, operation) -> {
+                if (operation == null) {
+                    operation = new CloseStorageOperation();
+                }
+
+                operation.markFinalOperation();
+
+                return operation;
+            });
+
+            if (!(storageOperation instanceof CloseStorageOperation)) {
+                operationFutures.add(storageOperation.operationFuture());
+            }
+        }
+
+        return CompletableFuture.allOf(operationFutures.toArray(CompletableFuture[]::new))
+                .thenApply(unused ->
+                        IntStream.range(0, storageByPartitionId.length())
+                                .mapToObj(partitionId -> storageByPartitionId.getAndSet(partitionId, null))
+                                .filter(Objects::nonNull)
+                                .collect(toList())
+                );
     }
 }
