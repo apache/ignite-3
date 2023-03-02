@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.rest.authentication;
 
-import static org.apache.ignite.internal.rest.authentication.TestSubscriberUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static reactor.adapter.JdkFlowAdapter.publisherToFlowPublisher;
 
 import io.micronaut.http.HttpMethod;
 import io.micronaut.http.simple.SimpleHttpRequest;
 import io.micronaut.security.authentication.AuthenticationException;
+import io.micronaut.security.authentication.AuthenticationResponse;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -44,7 +46,7 @@ class DelegatingAuthenticationProviderTest {
 
     private final SimpleHttpRequest<Object> httpRequest = new SimpleHttpRequest<>(HttpMethod.GET, "/", null);
 
-    private final DelegatingAuthenticationProvider authenticationProvider = new DelegatingAuthenticationProvider();
+    private final DelegatingAuthenticationProvider provider = new DelegatingAuthenticationProvider();
 
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;
@@ -64,17 +66,16 @@ class DelegatingAuthenticationProviderTest {
                 })
                 .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
+        assertThat(authenticate(provider, validCredentials), willCompleteSuccessfully());
 
         // unsuccessful authentication with invalid credentials
         UsernamePasswordCredentials invalidCredentials = new UsernamePasswordCredentials("admin", "wrong-password");
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, invalidCredentials)),
-                willFailFast(AuthenticationException.class));
+        assertThat(authenticate(provider, invalidCredentials), willFailFast(AuthenticationException.class));
 
     }
 
@@ -86,12 +87,12 @@ class DelegatingAuthenticationProviderTest {
                     change.changeEnabled(true);
                 })
                 .value();
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, invalidAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(null, invalidAuthView)).join();
 
         // then
         // authentication is still disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, emptyCredentials)), willCompleteSuccessfully());
+        assertThat(authenticate(provider, emptyCredentials), willCompleteSuccessfully());
     }
 
     @Test
@@ -109,12 +110,12 @@ class DelegatingAuthenticationProviderTest {
                 })
                 .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
+        assertThat(authenticate(provider, validCredentials), willCompleteSuccessfully());
 
         // disable authentication
         AuthenticationView disabledAuthView = mutateConfiguration(
@@ -124,12 +125,12 @@ class DelegatingAuthenticationProviderTest {
                 })
                 .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
 
         // then
         // authentication is disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, emptyCredentials)), willCompleteSuccessfully());
+        assertThat(authenticate(provider, emptyCredentials), willCompleteSuccessfully());
     }
 
     @Test
@@ -147,12 +148,12 @@ class DelegatingAuthenticationProviderTest {
                 })
                 .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
+        assertThat(authenticate(provider, validCredentials), willCompleteSuccessfully());
 
         // disable authentication
         AuthenticationView disabledAuthView = mutateConfiguration(
@@ -161,12 +162,12 @@ class DelegatingAuthenticationProviderTest {
                 })
                 .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
 
         // then
         // authentication is disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, emptyCredentials)), willCompleteSuccessfully());
+        assertThat(authenticate(provider, emptyCredentials), willCompleteSuccessfully());
     }
 
     @Test
@@ -184,12 +185,12 @@ class DelegatingAuthenticationProviderTest {
                 })
                 .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials adminAdminCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminAdminCredentials)), willCompleteSuccessfully());
+        assertThat(authenticate(provider, adminAdminCredentials), willCompleteSuccessfully());
 
         // change authentication settings - change password
         AuthenticationView adminNewPasswordAuthView = mutateConfiguration(
@@ -203,16 +204,21 @@ class DelegatingAuthenticationProviderTest {
                 })
                 .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
+        provider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
 
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminAdminCredentials)),
-                willFailFast(AuthenticationException.class));
+        assertThat(authenticate(provider, adminAdminCredentials), willFailFast(AuthenticationException.class));
 
         // then
         // successful authentication with the new password
         UsernamePasswordCredentials adminPasswordCredentials = new UsernamePasswordCredentials("admin", "new-password");
-        assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminPasswordCredentials)),
-                willCompleteSuccessfully());
+        assertThat(authenticate(provider, adminPasswordCredentials), willCompleteSuccessfully());
+    }
+
+    private CompletableFuture<AuthenticationResponse> authenticate(
+            DelegatingAuthenticationProvider provider,
+            UsernamePasswordCredentials credentials
+    ) {
+        return subscribeToValue(publisherToFlowPublisher(provider.authenticate(httpRequest, credentials)));
     }
 
     private static AuthenticationConfiguration mutateConfiguration(AuthenticationConfiguration configuration,
