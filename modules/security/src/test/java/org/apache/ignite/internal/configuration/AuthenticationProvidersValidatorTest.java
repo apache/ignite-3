@@ -19,64 +19,163 @@ package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
-import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.internal.configuration.stub.StubAuthenticationProviderListView;
-import org.apache.ignite.internal.configuration.stub.StubBasicAuthenticationProviderView;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+
+@ExtendWith(ConfigurationExtension.class)
 class AuthenticationProvidersValidatorTest {
+
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @Test
     public void basicProvider() {
+        // when
+        NamedListView<AuthenticationProviderView> newValue = (NamedListView<AuthenticationProviderView>) mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changePassword("admin")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(false);
+                })
+                .value()
+                .providers();
+
         ValidationContext<NamedListView<AuthenticationProviderView>> ctx = mockValidationContext(
-                new StubAuthenticationProviderListView(Collections.emptyList()),
-                new StubAuthenticationProviderListView(
-                        Collections.singletonList(new StubBasicAuthenticationProviderView("login", "password")))
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationProvidersValidatorImpl.INSTANCE, mock(AuthenticationProvidersValidator.class), ctx, null);
     }
 
     @Test
     public void basicProviderWithNullLogin() {
+        // when
+        NamedListView<AuthenticationProviderView> newValue = (NamedListView<AuthenticationProviderView>) mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changePassword("admin")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(false);
+                })
+                .value()
+                .providers();
+
         ValidationContext<NamedListView<AuthenticationProviderView>> ctx = mockValidationContext(
-                new StubAuthenticationProviderListView(Collections.emptyList()),
-                new StubAuthenticationProviderListView(Collections.singletonList(new StubBasicAuthenticationProviderView(null, "password")))
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationProvidersValidatorImpl.INSTANCE, mock(AuthenticationProvidersValidator.class), ctx,
                 "Login must not be blank");
     }
 
     @Test
     public void basicProviderWithEmptyLogin() {
+        // when
+        NamedListView<AuthenticationProviderView> newValue = (NamedListView<AuthenticationProviderView>) mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("")
+                                .changePassword("admin")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(false);
+                })
+                .value()
+                .providers();
+
         ValidationContext<NamedListView<AuthenticationProviderView>> ctx = mockValidationContext(
-                new StubAuthenticationProviderListView(Collections.emptyList()),
-                new StubAuthenticationProviderListView(Collections.singletonList(new StubBasicAuthenticationProviderView("", "password")))
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationProvidersValidatorImpl.INSTANCE, mock(AuthenticationProvidersValidator.class), ctx,
                 "Login must not be blank");
     }
 
     @Test
     public void basicProviderWithNullPassword() {
+        // when
+        NamedListView<AuthenticationProviderView> newValue = (NamedListView<AuthenticationProviderView>) mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(false);
+                })
+                .value()
+                .providers();
+
         ValidationContext<NamedListView<AuthenticationProviderView>> ctx = mockValidationContext(
-                new StubAuthenticationProviderListView(Collections.emptyList()),
-                new StubAuthenticationProviderListView(Collections.singletonList(new StubBasicAuthenticationProviderView("login", null)))
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationProvidersValidatorImpl.INSTANCE, mock(AuthenticationProvidersValidator.class), ctx,
                 "Password must not be blank");
     }
 
     @Test
     public void basicProviderWithEmptyPassword() {
+        // when
+        NamedListView<AuthenticationProviderView> newValue = (NamedListView<AuthenticationProviderView>) mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changePassword("")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(false);
+                })
+                .value()
+                .providers();
+
         ValidationContext<NamedListView<AuthenticationProviderView>> ctx = mockValidationContext(
-                new StubAuthenticationProviderListView(Collections.emptyList()),
-                new StubAuthenticationProviderListView(Collections.singletonList(new StubBasicAuthenticationProviderView("login", "")))
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationProvidersValidatorImpl.INSTANCE, mock(AuthenticationProvidersValidator.class), ctx,
                 "Password must not be blank");
+    }
+
+    private static AuthenticationConfiguration mutateConfiguration(AuthenticationConfiguration configuration,
+            Consumer<AuthenticationChange> consumer) {
+        CompletableFuture<AuthenticationConfiguration> future = configuration.change(consumer)
+                .thenApply(unused -> configuration);
+        assertThat(future, willCompleteSuccessfully());
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -19,60 +19,114 @@ package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
-import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.internal.configuration.stub.StubAuthenticationView;
-import org.apache.ignite.internal.configuration.stub.StubBasicAuthenticationProviderView;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+
+@ExtendWith(ConfigurationExtension.class)
 class AuthenticationConfigurationValidatorTest {
+
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @Test
     public void nullAuth() {
-        ValidationContext<AuthenticationView> ctx = mockValidationContext(
-                new StubAuthenticationView(false, Collections.emptyList()),
-                null
-        );
+        // when
+        ValidationContext<AuthenticationView> ctx = mockValidationContext(null, null);
+
+        // then
         validate(AuthenticationConfigurationValidatorImpl.INSTANCE, mock(AuthenticationConfigurationValidator.class), ctx,
                 "Auth config must not be null");
     }
 
     @Test
     public void enableAuthEmptyProviders() {
+        // when
+        AuthenticationView newValue = mutateConfiguration(authenticationConfiguration, change -> change.changeEnabled(true)).value();
         ValidationContext<AuthenticationView> ctx = mockValidationContext(
-                new StubAuthenticationView(false, Collections.emptyList()),
-                new StubAuthenticationView(true, Collections.emptyList())
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationConfigurationValidatorImpl.INSTANCE, mock(AuthenticationConfigurationValidator.class), ctx,
                 "Providers must be present, if auth is enabled");
     }
 
     @Test
     public void enableAuthNotEmptyProviders() {
+        // when
+        AuthenticationView newValue = mutateConfiguration(authenticationConfiguration, change -> {
+            change.changeProviders(providers -> providers.create("basic", provider -> {
+                provider.convert(BasicAuthenticationProviderChange.class)
+                        .changeLogin("admin")
+                        .changePassword("admin")
+                        .changeName("basic");
+            }));
+            change.changeEnabled(true);
+        }).value();
+
         ValidationContext<AuthenticationView> ctx = mockValidationContext(
-                new StubAuthenticationView(false, Collections.emptyList()),
-                new StubAuthenticationView(true, new StubBasicAuthenticationProviderView("basic", "admin", "admin"))
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationConfigurationValidatorImpl.INSTANCE, mock(AuthenticationConfigurationValidator.class), ctx, null);
     }
 
     @Test
     public void disableAuthEmptyProviders() {
+        // when
+        AuthenticationView newValue = mutateConfiguration(authenticationConfiguration, change -> change.changeEnabled(false)).value();
         ValidationContext<AuthenticationView> ctx = mockValidationContext(
-                new StubAuthenticationView(true, new StubBasicAuthenticationProviderView("basic", "admin", "admin")),
-                new StubAuthenticationView(false, Collections.emptyList())
+                null,
+                newValue
         );
+
+        // then
         validate(AuthenticationConfigurationValidatorImpl.INSTANCE, mock(AuthenticationConfigurationValidator.class), ctx, null);
     }
 
     @Test
     public void disableAuthNotEmptyProviders() {
+        // when
+        AuthenticationView newValue = mutateConfiguration(authenticationConfiguration, change -> {
+            change.changeProviders(providers -> providers.create("basic", provider -> {
+                provider.convert(BasicAuthenticationProviderChange.class)
+                        .changeLogin("admin")
+                        .changePassword("admin")
+                        .changeName("basic");
+            }));
+            change.changeEnabled(false);
+        }).value();
+
         ValidationContext<AuthenticationView> ctx = mockValidationContext(
-                new StubAuthenticationView(true, new StubBasicAuthenticationProviderView("basic", "admin", "admin")),
-                new StubAuthenticationView(false, new StubBasicAuthenticationProviderView("basic", "admin", "admin"))
+                null,
+                newValue
         );
         validate(AuthenticationConfigurationValidatorImpl.INSTANCE, mock(AuthenticationConfigurationValidator.class), ctx, null);
+    }
+
+    private static AuthenticationConfiguration mutateConfiguration(AuthenticationConfiguration configuration,
+            Consumer<AuthenticationChange> consumer) {
+        CompletableFuture<AuthenticationConfiguration> future = configuration.change(consumer)
+                .thenApply(unused -> configuration);
+        assertThat(future, willCompleteSuccessfully());
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

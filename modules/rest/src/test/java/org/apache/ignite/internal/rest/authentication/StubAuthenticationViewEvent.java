@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.stub;
+package org.apache.ignite.internal.rest.authentication;
 
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -24,7 +24,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Stub of {@link ConfigurationNotificationEvent} for tests. */
 public class StubAuthenticationViewEvent implements ConfigurationNotificationEvent<AuthenticationView> {
-
     private final AuthenticationView oldValue;
     private final AuthenticationView newValue;
 

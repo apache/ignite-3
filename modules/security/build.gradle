@@ -22,7 +22,6 @@ plugins {
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-security'
 
@@ -39,14 +38,11 @@ dependencies {
     annotationProcessor libs.auto.service
 
     testImplementation project(':ignite-configuration')
+    testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
-
-    testFixturesImplementation project(':ignite-configuration')
-    testFixturesImplementation libs.jetbrains.annotations
-
 }
 
 compileJava {

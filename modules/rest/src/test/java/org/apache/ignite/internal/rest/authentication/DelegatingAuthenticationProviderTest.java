@@ -26,24 +26,44 @@ import io.micronaut.http.HttpMethod;
 import io.micronaut.http.simple.SimpleHttpRequest;
 import io.micronaut.security.authentication.AuthenticationException;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
-import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
+import org.apache.ignite.internal.configuration.AuthenticationChange;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.AuthenticationView;
-import org.apache.ignite.internal.configuration.stub.StubAuthenticationView;
-import org.apache.ignite.internal.configuration.stub.StubAuthenticationViewEvent;
-import org.apache.ignite.internal.configuration.stub.StubBasicAuthenticationProviderView;
+import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+
+@ExtendWith(ConfigurationExtension.class)
 class DelegatingAuthenticationProviderTest {
 
     private final SimpleHttpRequest<Object> httpRequest = new SimpleHttpRequest<>(HttpMethod.GET, "/", null);
 
     private final DelegatingAuthenticationProvider authenticationProvider = new DelegatingAuthenticationProvider();
 
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
+
     @Test
-    public void enableAuth() throws Throwable {
+    public void enableAuth() {
         // when
-        AuthenticationView adminPasswordAuthView = new StubAuthenticationView(true,
-                new StubBasicAuthenticationProviderView("admin", "password"));
+        AuthenticationView adminPasswordAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changePassword("password")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(true);
+                })
+                .value();
+
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
         // then
@@ -61,7 +81,11 @@ class DelegatingAuthenticationProviderTest {
     @Test
     public void leaveOldSettingWhenInvalidConfiguration() {
         // when
-        AuthenticationView invalidAuthView = new StubAuthenticationView(true, Collections.emptyList());
+        AuthenticationView invalidAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeEnabled(true);
+                })
+                .value();
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, invalidAuthView)).join();
 
         // then
@@ -73,8 +97,17 @@ class DelegatingAuthenticationProviderTest {
     @Test
     public void disableAuthEmptyProviders() {
         //when
-        AuthenticationView adminPasswordAuthView = new StubAuthenticationView(true,
-                new StubBasicAuthenticationProviderView("admin", "password"));
+        AuthenticationView adminPasswordAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changePassword("password")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(true);
+                })
+                .value();
 
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
@@ -84,7 +117,13 @@ class DelegatingAuthenticationProviderTest {
         assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
 
         // disable authentication
-        AuthenticationView disabledAuthView = new StubAuthenticationView(false, Collections.emptyList());
+        AuthenticationView disabledAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.delete("basic"));
+                    change.changeEnabled(false);
+                })
+                .value();
+
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
 
         // then
@@ -96,8 +135,17 @@ class DelegatingAuthenticationProviderTest {
     @Test
     public void disableAuthNotEmptyProviders() {
         //when
-        AuthenticationView adminPasswordAuthView = new StubAuthenticationView(true,
-                new StubBasicAuthenticationProviderView("admin", "password"));
+        AuthenticationView adminPasswordAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changePassword("password")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(true);
+                })
+                .value();
 
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
@@ -107,8 +155,12 @@ class DelegatingAuthenticationProviderTest {
         assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, validCredentials)), willCompleteSuccessfully());
 
         // disable authentication
-        AuthenticationView disabledAuthView = new StubAuthenticationView(false,
-                new StubBasicAuthenticationProviderView("admin", "password"));
+        AuthenticationView disabledAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeEnabled(false);
+                })
+                .value();
+
         authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, disabledAuthView)).join();
 
         // then
@@ -120,10 +172,19 @@ class DelegatingAuthenticationProviderTest {
     @Test
     public void changedCredentials() {
         // when
-        AuthenticationView adminAdminAuthView = new StubAuthenticationView(true,
-                new StubBasicAuthenticationProviderView("admin", "password"));
+        AuthenticationView adminPasswordAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.create("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changePassword("password")
+                                .changeName("basic");
+                    }));
+                    change.changeEnabled(true);
+                })
+                .value();
 
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminAdminAuthView)).join();
+        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(null, adminPasswordAuthView)).join();
 
         // then
         // successful authentication with valid credentials
@@ -131,9 +192,18 @@ class DelegatingAuthenticationProviderTest {
         assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminAdminCredentials)), willCompleteSuccessfully());
 
         // change authentication settings - change password
-        AuthenticationView adminPasswordAuthView = new StubAuthenticationView(true,
-                new StubBasicAuthenticationProviderView("admin", "new-password"));
-        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminAdminAuthView, adminPasswordAuthView)).join();
+        AuthenticationView adminNewPasswordAuthView = mutateConfiguration(
+                authenticationConfiguration, change -> {
+                    change.changeProviders(providers -> providers.update("basic", provider -> {
+                        provider.convert(BasicAuthenticationProviderChange.class)
+                                .changeLogin("admin")
+                                .changePassword("new-password")
+                                .changeName("basic");
+                    }));
+                })
+                .value();
+
+        authenticationProvider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
 
         assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminAdminCredentials)),
                 willFailFast(AuthenticationException.class));
@@ -143,5 +213,17 @@ class DelegatingAuthenticationProviderTest {
         UsernamePasswordCredentials adminPasswordCredentials = new UsernamePasswordCredentials("admin", "new-password");
         assertThat(subscribeToValue(authenticationProvider.authenticate(httpRequest, adminPasswordCredentials)),
                 willCompleteSuccessfully());
+    }
+
+    private static AuthenticationConfiguration mutateConfiguration(AuthenticationConfiguration configuration,
+            Consumer<AuthenticationChange> consumer) {
+        CompletableFuture<AuthenticationConfiguration> future = configuration.change(consumer)
+                .thenApply(unused -> configuration);
+        assertThat(future, willCompleteSuccessfully());
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
