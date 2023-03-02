@@ -51,6 +51,9 @@ namespace Apache.Ignite.Internal
         /** Minimum supported heartbeat interval. */
         private static readonly TimeSpan MinRecommendedHeartbeatInterval = TimeSpan.FromMilliseconds(500);
 
+        /** Socket id for debug logging. */
+        private static long _socketId;
+
         /** Underlying stream. */
         private readonly NetworkStream _stream;
 
@@ -111,7 +114,7 @@ namespace Apache.Ignite.Internal
             _stream = stream;
             ConnectionContext = connectionContext;
             _assignmentChangeCallback = assignmentChangeCallback;
-            _logger = configuration.Logger.GetLogger(GetType());
+            _logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
             _socketTimeout = configuration.SocketTimeout;
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
@@ -164,7 +167,7 @@ namespace Apache.Ignite.Internal
                 var logger = configuration.Logger.GetLogger(typeof(ClientSocket));
 
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
+                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
