@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -65,7 +65,7 @@ public class ClientArchTest {
         public Set<Location> get(Class<?> clazz) {
             // Running this test in IDE is not supported.
             // The cpFile is not set up properly, and the test skips.
-            assertNotNull(CLASS_PATH_DIR);
+            assumeTrue(CLASS_PATH_DIR != null);
 
             Path cp = Path.of(CLASS_PATH_DIR);
 
