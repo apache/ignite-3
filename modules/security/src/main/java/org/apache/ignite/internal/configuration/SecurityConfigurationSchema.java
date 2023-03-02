@@ -26,5 +26,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 public class SecurityConfigurationSchema {
 
     @ConfigValue
+    @AuthenticationConfigurationValidator
     public AuthenticationConfigurationSchema authentication;
 }

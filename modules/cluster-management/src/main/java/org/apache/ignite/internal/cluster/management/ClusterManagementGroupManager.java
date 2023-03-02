@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.internal.cluster.management.AuthenticationConverter.toAuthenticationConfig;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.rest.AuthenticationConfig.disabled;
@@ -349,14 +348,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private ClusterState createClusterState(CmgInitMessage msg) {
-        return ClusterState.clusterState(
-                msgFactory,
-                msg.cmgNodes(),
-                msg.metaStorageNodes(),
-                IgniteProductVersion.CURRENT_VERSION,
-                clusterTag(msgFactory, msg.clusterName()),
-                msg.restAuthToApply()
-        );
+        return msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(msg.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(msg.metaStorageNodes()))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag(msgFactory, msg.clusterName()))
+                .restAuthToApply(msg.restAuthToApply())
+                .build();
     }
 
     /**
@@ -408,7 +406,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     } else {
                         LOG.info("REST auth configuration found in the Raft storage, going to apply it");
                         Authentication restAuthToApply = state.restAuthToApply();
-                        return distributedConfigurationUpdater.updateRestAuthConfiguration(toAuthenticationConfig(restAuthToApply))
+                        return distributedConfigurationUpdater.updateRestAuthConfiguration(restAuthToApply)
                                 .thenCompose(unused -> removeAuthConfigFromClusterState(service));
                     }
                 });
@@ -417,13 +415,16 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private CompletableFuture<Void> removeAuthConfigFromClusterState(CmgRaftService service) {
         return service.readClusterState()
                 .thenCompose(state -> {
-                    ClusterState clusterState = ClusterState.clusterState(
-                            msgFactory,
-                            state.cmgNodes(),
-                            state.metaStorageNodes(),
-                            state.igniteVersion(),
-                            state.clusterTag()
-                    );
+                    Collection<String> cmgNodes = state.cmgNodes();
+                    Collection<String> msNodes = state.metaStorageNodes();
+                    IgniteProductVersion igniteVersion = state.igniteVersion();
+                    ClusterTag clusterTag = state.clusterTag();
+                    ClusterState clusterState = msgFactory.clusterState()
+                            .cmgNodes(Set.copyOf(cmgNodes))
+                            .metaStorageNodes(Set.copyOf(msNodes))
+                            .version(igniteVersion.toString())
+                            .clusterTag(clusterTag)
+                            .build();
                     return service.updateClusterState(clusterState);
                 })
                 .whenComplete((v, e) -> {

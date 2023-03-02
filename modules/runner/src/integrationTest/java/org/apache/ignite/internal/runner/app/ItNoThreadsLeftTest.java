@@ -100,9 +100,9 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(nodeName)
-                .setMetaStorageNodeNames(List.of(nodeName))
-                .setClusterName("cluster")
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("cluster")
                 .build();
         IgnitionManager.init(initParameters);
 

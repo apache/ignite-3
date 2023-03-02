@@ -25,7 +25,7 @@ import org.apache.ignite.rest.AuthenticationConfig;
 public class InitParameters {
 
     /** Name of the node that the initialization request will be sent to. */
-    private final String nodeName;
+    private final String destinationNodeName;
 
     /** Names of nodes that will host the Meta Storage <b>and</b> the CMG. */
     private final Collection<String> metaStorageNodeNames;
@@ -42,21 +42,27 @@ public class InitParameters {
     /**
      * Constructor.
      *
-     * @param nodeName Name of the node that the initialization request will be sent to.
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage <b>and</b> the CMG.
+     * @param destinationNodeName Name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the CMG.
      * @param clusterName Human-readable name of the cluster.
-     * @param authenticationConfig REST authentication configuration.
+     * @param authenticationConfig authentication configuration.
      */
-    public InitParameters(String nodeName, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName,
-            AuthenticationConfig authenticationConfig) {
+    InitParameters(
+            String destinationNodeName,
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName,
+            AuthenticationConfig authenticationConfig
+    ) {
 
-        Objects.requireNonNull(nodeName);
+        Objects.requireNonNull(destinationNodeName);
         Objects.requireNonNull(metaStorageNodeNames);
         Objects.requireNonNull(cmgNodeNames);
         Objects.requireNonNull(clusterName);
         Objects.requireNonNull(authenticationConfig);
 
-        this.nodeName = nodeName;
+        this.destinationNodeName = destinationNodeName;
         this.metaStorageNodeNames = metaStorageNodeNames;
         this.cmgNodeNames = cmgNodeNames;
         this.clusterName = clusterName;
@@ -68,7 +74,7 @@ public class InitParameters {
     }
 
     public String nodeName() {
-        return nodeName;
+        return destinationNodeName;
     }
 
     public Collection<String> metaStorageNodeNames() {

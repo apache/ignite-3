@@ -237,9 +237,9 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
 
     protected void initializeCluster(String metaStorageNodeName) {
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(metaStorageNodeName)
-                .setMetaStorageNodeNames(List.of(metaStorageNodeName))
-                .setClusterName("cluster")
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
                 .build();
 
         IgnitionManager.init(initParameters);

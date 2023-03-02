@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains REST component core implementation.
+ * This package contains security configuration classes.
  */
 
 package org.apache.ignite.internal.configuration;

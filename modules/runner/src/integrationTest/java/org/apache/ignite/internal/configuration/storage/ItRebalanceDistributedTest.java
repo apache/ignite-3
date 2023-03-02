@@ -591,6 +591,8 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
         private List<IgniteComponent> nodeComponents;
 
         private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
@@ -650,7 +652,7 @@ public class ItRebalanceDistributedTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
             distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             cmgManager = new ClusterManagementGroupManager(
@@ -792,7 +794,8 @@ public class ItRebalanceDistributedTest {
                     baselineMgr,
                     dataStorageMgr,
                     schemaManager,
-                    tableManager
+                    tableManager,
+                    distributedConfigurationUpdater
             );
 
             nodeComponents.forEach(IgniteComponent::start);

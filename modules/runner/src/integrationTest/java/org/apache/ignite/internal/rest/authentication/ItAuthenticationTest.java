@@ -70,13 +70,13 @@ public class ItAuthenticationTest {
         nodes = IntStream.range(0, 3)
                 .mapToObj(id -> {
                     return RestNode.builder()
-                            .setWorkDir(workDir)
-                            .setName(testNodeName(testInfo, id))
-                            .setNetworkPort(3344 + id)
-                            .setHttpPort(10300 + id)
-                            .setHttpsPort(10400 + id)
-                            .setSslEnabled(false)
-                            .setDualProtocol(false)
+                            .workDir(workDir)
+                            .name(testNodeName(testInfo, id))
+                            .networkPort(3344 + id)
+                            .httpPort(10300 + id)
+                            .httpsPort(10400 + id)
+                            .sslEnabled(false)
+                            .dualProtocol(false)
                             .build();
                 })
                 .collect(toList());
@@ -294,7 +294,7 @@ public class ItAuthenticationTest {
 
     @AfterEach
     void tearDown() {
-        nodes.forEach(RestNode::stop);
+        nodes.stream().parallel().forEach(RestNode::stop);
     }
 
     private static void waitForAllNodesStarted(List<RestNode> nodes) {

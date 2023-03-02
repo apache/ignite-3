@@ -329,9 +329,9 @@ public class ItSqlLogicTest {
         String metaStorageNodeName = NODE_NAME_PREFIX + "0";
 
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(metaStorageNodeName)
-                .setMetaStorageNodeNames(List.of(metaStorageNodeName))
-                .setClusterName("cluster")
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
                 .build();
         IgnitionManager.init(initParameters);
 

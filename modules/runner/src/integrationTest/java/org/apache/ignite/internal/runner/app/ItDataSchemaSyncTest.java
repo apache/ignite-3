@@ -112,9 +112,9 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(metaStorageNode)
-                .setMetaStorageNodeNames(List.of(metaStorageNode))
-                .setClusterName("cluster")
+                .destinationNodeName(metaStorageNode)
+                .metaStorageNodeNames(List.of(metaStorageNode))
+                .clusterName("cluster")
                 .build();
 
         IgnitionManager.init(initParameters);

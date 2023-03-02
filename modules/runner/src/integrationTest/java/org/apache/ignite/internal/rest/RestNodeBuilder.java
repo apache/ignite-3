@@ -35,62 +35,62 @@ public class RestNodeBuilder {
     private boolean sslClientAuthEnabled = false;
     private boolean dualProtocol = false;
 
-    public RestNodeBuilder setKeyStorePath(String keyStorePath) {
+    public RestNodeBuilder keyStorePath(String keyStorePath) {
         this.keyStorePath = keyStorePath;
         return this;
     }
 
-    public RestNodeBuilder setKeyStorePassword(String keyStorePassword) {
+    public RestNodeBuilder keyStorePassword(String keyStorePassword) {
         this.keyStorePassword = keyStorePassword;
         return this;
     }
 
-    public RestNodeBuilder setTrustStorePath(String trustStorePath) {
+    public RestNodeBuilder trustStorePath(String trustStorePath) {
         this.trustStorePath = trustStorePath;
         return this;
     }
 
-    public RestNodeBuilder setTrustStorePassword(String trustStorePassword) {
+    public RestNodeBuilder trustStorePassword(String trustStorePassword) {
         this.trustStorePassword = trustStorePassword;
         return this;
     }
 
-    public RestNodeBuilder setWorkDir(Path workDir) {
+    public RestNodeBuilder workDir(Path workDir) {
         this.workDir = workDir;
         return this;
     }
 
-    public RestNodeBuilder setName(String name) {
+    public RestNodeBuilder name(String name) {
         this.name = name;
         return this;
     }
 
-    public RestNodeBuilder setNetworkPort(int networkPort) {
+    public RestNodeBuilder networkPort(int networkPort) {
         this.networkPort = networkPort;
         return this;
     }
 
-    public RestNodeBuilder setHttpPort(int httpPort) {
+    public RestNodeBuilder httpPort(int httpPort) {
         this.httpPort = httpPort;
         return this;
     }
 
-    public RestNodeBuilder setHttpsPort(int httpsPort) {
+    public RestNodeBuilder httpsPort(int httpsPort) {
         this.httpsPort = httpsPort;
         return this;
     }
 
-    public RestNodeBuilder setSslEnabled(boolean sslEnabled) {
+    public RestNodeBuilder sslEnabled(boolean sslEnabled) {
         this.sslEnabled = sslEnabled;
         return this;
     }
 
-    public RestNodeBuilder setSslClientAuthEnabled(boolean sslClientAuthEnabled) {
+    public RestNodeBuilder sslClientAuthEnabled(boolean sslClientAuthEnabled) {
         this.sslClientAuthEnabled = sslClientAuthEnabled;
         return this;
     }
 
-    public RestNodeBuilder setDualProtocol(boolean dualProtocol) {
+    public RestNodeBuilder dualProtocol(boolean dualProtocol) {
         this.dualProtocol = dualProtocol;
         return this;
     }

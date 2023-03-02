@@ -406,6 +406,7 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
+
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));

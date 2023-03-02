@@ -64,10 +64,7 @@ public class ClusterManagementController implements ClusterManagementApi {
      * @param clusterInitializer cluster initializer.
      * @param clusterManagementGroupManager cluster management group manager.
      */
-    public ClusterManagementController(
-            ClusterInitializer clusterInitializer,
-            ClusterManagementGroupManager clusterManagementGroupManager
-    ) {
+    public ClusterManagementController(ClusterInitializer clusterInitializer, ClusterManagementGroupManager clusterManagementGroupManager) {
         this.clusterInitializer = clusterInitializer;
         this.clusterManagementGroupManager = clusterManagementGroupManager;
     }

@@ -23,7 +23,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.netty.handler.ssl.util.SelfSignedCertificate;
-import jakarta.inject.Inject;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -59,10 +58,7 @@ class RestComponentTest {
     private String keyStorePath;
 
     @InjectConfiguration
-    AuthenticationConfiguration authenticationConfiguration;
-
-    @Inject
-    AuthProviderFactory authProviderFactory;
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @WorkDirectory
     private Path workDir;

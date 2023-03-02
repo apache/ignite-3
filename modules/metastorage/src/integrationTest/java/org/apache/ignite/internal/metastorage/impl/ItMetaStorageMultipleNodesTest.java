@@ -104,6 +104,8 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
         private final MetaStorageManagerImpl metaStorageManager;
 
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
         Node(ClusterService clusterService, Path dataPath) {
             this.clusterService = clusterService;
 
@@ -120,7 +122,7 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
             distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             this.cmgManager = new ClusterManagementGroupManager(
@@ -144,8 +146,15 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         }
 
         void start() throws NodeStoppingException {
-            List<IgniteComponent> components =
-                    List.of(vaultManager, clusterService, raftManager, clusterStateStorage, cmgManager, metaStorageManager);
+            List<IgniteComponent> components = List.of(
+                    vaultManager,
+                    clusterService,
+                    raftManager,
+                    clusterStateStorage,
+                    cmgManager,
+                    metaStorageManager,
+                    distributedConfigurationUpdater
+            );
 
             components.forEach(IgniteComponent::start);
 
@@ -157,8 +166,15 @@ public class ItMetaStorageMultipleNodesTest extends IgniteAbstractTest {
         }
 
         void stop() throws Exception {
-            List<IgniteComponent> components =
-                    List.of(metaStorageManager, cmgManager, raftManager, clusterStateStorage, clusterService, vaultManager);
+            List<IgniteComponent> components = List.of(
+                    metaStorageManager,
+                    cmgManager,
+                    raftManager,
+                    clusterStateStorage,
+                    clusterService,
+                    vaultManager,
+                    distributedConfigurationUpdater
+            );
 
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
 

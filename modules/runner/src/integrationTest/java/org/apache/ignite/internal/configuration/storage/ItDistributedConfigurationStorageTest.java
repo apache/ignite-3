@@ -90,6 +90,8 @@ public class ItDistributedConfigurationStorageTest {
 
         private final DistributedConfigurationStorage cfgStorage;
 
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -109,7 +111,7 @@ public class ItDistributedConfigurationStorageTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
-            var distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
             distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
 
             cmgManager = new ClusterManagementGroupManager(
@@ -139,7 +141,8 @@ public class ItDistributedConfigurationStorageTest {
         void start() throws Exception {
             vaultManager.start();
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager).forEach(IgniteComponent::start);
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager, distributedConfigurationUpdater)
+                    .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
@@ -153,7 +156,7 @@ public class ItDistributedConfigurationStorageTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager);
+                    List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager, distributedConfigurationUpdater);
 
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();

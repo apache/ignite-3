@@ -53,12 +53,3 @@ compileJava {
     options.fork = true
     options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
 }
-
-shadowJar {
-    archiveAppendix.set('shaded')
-    archiveClassifier.set('shaded')
-
-    minimize()
-
-    relocate('reactor', 'reactor.shaded')
-}

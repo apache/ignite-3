@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
+import org.apache.ignite.internal.cluster.management.network.auth.AuthenticationProvider;
+import org.apache.ignite.internal.cluster.management.network.auth.BasicAuthenticationProvider;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.AuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
@@ -26,10 +29,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.rest.AuthenticationConfig;
-import org.apache.ignite.rest.AuthenticationProviderConfig;
 import org.apache.ignite.rest.AuthenticationType;
-import org.apache.ignite.rest.BasicAuthenticationProviderConfig;
 
 /**
  * Updater is responsible for applying changes to the cluster configuration when it's ready.
@@ -45,15 +45,15 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     }
 
     /**
-     * Applies changes to the {@link AuthenticationConfiguration} when
-     * {@link DistributedConfigurationUpdater#securityConfigurationFuture} is complete.
+     * Applies changes to the {@link AuthenticationConfiguration} when {@link DistributedConfigurationUpdater#securityConfigurationFuture}
+     * is complete.
      *
-     * @param authenticationConfig {@link AuthenticationConfiguration} that should be applied.
+     * @param authentication {@link AuthenticationConfiguration} that should be applied.
      * @return Future that will be completed when {@link AuthenticationConfiguration} is applied.
      */
-    public CompletableFuture<Void> updateRestAuthConfiguration(AuthenticationConfig authenticationConfig) {
+    public CompletableFuture<Void> updateRestAuthConfiguration(Authentication authentication) {
         return securityConfigurationFuture.thenApply(SecurityConfiguration::authentication)
-                .thenCompose(configuration -> changeAuthConfiguration(configuration, authenticationConfig))
+                .thenCompose(configuration -> changeAuthConfiguration(configuration, authentication))
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to change auth configuration", e);
@@ -64,26 +64,27 @@ public class DistributedConfigurationUpdater implements IgniteComponent {
     }
 
     private static CompletableFuture<Void> changeAuthConfiguration(AuthenticationConfiguration authConfiguration,
-            AuthenticationConfig config) {
+            Authentication authentication) {
         return authConfiguration.change(authChange -> {
             authChange.changeProviders(providers -> {
-                config.providers().forEach(provider -> {
+                authentication.providers().forEach(provider -> {
                     providers.create(provider.name(), cfg -> applyProviderChange(cfg, provider));
                 });
             });
-            authChange.changeEnabled(config.enabled());
+            authChange.changeEnabled(authentication.enabled());
         });
     }
 
-    private static void applyProviderChange(AuthenticationProviderChange change, AuthenticationProviderConfig provider) {
-        if (provider.type() == AuthenticationType.BASIC) {
-            BasicAuthenticationProviderConfig basicAuthProvider = (BasicAuthenticationProviderConfig) provider;
+    private static void applyProviderChange(AuthenticationProviderChange change, AuthenticationProvider provider) {
+        AuthenticationType type = AuthenticationType.parse(provider.type());
+        if (type == AuthenticationType.BASIC) {
+            BasicAuthenticationProvider basicAuthProvider = (BasicAuthenticationProvider) provider;
             change.convert(BasicAuthenticationProviderChange.class)
                     .changeLogin(basicAuthProvider.login())
                     .changePassword(basicAuthProvider.password())
                     .changeName(provider.name());
         } else {
-            LOG.error("Couldn't make configuration change for type: ", provider.type());
+            throw new IllegalArgumentException("Unsupported authentication provider type: " + type);
         }
     }
 

@@ -134,9 +134,9 @@ public class Cluster {
         String metaStorageAndCmgNodeName = testNodeName(testInfo, 0);
 
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(metaStorageAndCmgNodeName)
-                .setMetaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
-                .setClusterName("cluster")
+                .destinationNodeName(metaStorageAndCmgNodeName)
+                .metaStorageNodeNames(List.of(metaStorageAndCmgNodeName))
+                .clusterName("cluster")
                 .build();
 
         IgnitionManager.init(initParameters);

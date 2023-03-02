@@ -60,9 +60,9 @@ public class IgniteRunnerTest {
         );
 
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(NODE_NAME)
-                .setMetaStorageNodeNames(List.of(NODE_NAME))
-                .setClusterName("cluster")
+                .destinationNodeName(NODE_NAME)
+                .metaStorageNodeNames(List.of(NODE_NAME))
+                .clusterName("cluster")
                 .build();
 
         IgnitionManager.init(initParameters);

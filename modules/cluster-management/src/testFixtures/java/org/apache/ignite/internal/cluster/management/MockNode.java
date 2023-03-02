@@ -124,6 +124,7 @@ public class MockNode {
         components.add(raftManager);
         components.add(clusterStateStorage);
         components.add(clusterManager);
+        components.add(distributedConfigurationUpdater);
     }
 
     /**

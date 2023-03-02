@@ -25,8 +25,6 @@ import org.reactivestreams.Subscription;
 /** Implementation of {@link Subscriber} for tests. */
 public class TestAuthenticationSubscriber implements Subscriber<AuthenticationResponse> {
 
-    private volatile Subscription source;
-
     @Nullable
     private volatile AuthenticationResponse lastResponse;
 
@@ -35,8 +33,7 @@ public class TestAuthenticationSubscriber implements Subscriber<AuthenticationRe
 
     @Override
     public void onSubscribe(Subscription subscription) {
-        source = subscription;
-        source.request(1);
+        subscription.request(1);
     }
 
     @Override

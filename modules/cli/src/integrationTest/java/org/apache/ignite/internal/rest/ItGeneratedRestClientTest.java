@@ -129,9 +129,9 @@ public class ItGeneratedRestClientTest {
         String metaStorageNode = testNodeName(testInfo, BASE_PORT);
 
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(metaStorageNode)
-                .setMetaStorageNodeNames(List.of(metaStorageNode))
-                .setClusterName("cluster")
+                .destinationNodeName(metaStorageNode)
+                .metaStorageNodeNames(List.of(metaStorageNode))
+                .clusterName("cluster")
                 .build();
 
         IgnitionManager.init(initParameters);

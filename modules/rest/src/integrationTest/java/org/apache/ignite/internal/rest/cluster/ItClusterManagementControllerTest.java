@@ -68,13 +68,8 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     @Test
     void testInitNoSuchNode() {
         // Given body with nodename that does not exist
-        String givenInvalidBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "        \"nodename\"\n"
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\""
-                + "}";
+        String givenInvalidBody = "{\"metaStorageNodes\": [\"nodename\"], \"cmgNodes\": [], \"clusterName\": \"cluster\"}";
+
         // When
         var thrown = assertThrows(
                 HttpClientResponseException.class,

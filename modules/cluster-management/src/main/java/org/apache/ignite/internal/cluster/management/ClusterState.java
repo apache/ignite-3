@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.network.auth.Authentication;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
-import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -69,52 +67,4 @@ public interface ClusterState extends NetworkMessage, Serializable {
      * Returns a REST authentication configuration that should be applied.
      */
     Authentication restAuthToApply();
-
-    /**
-     * Creates a new cluster state instance. Acts like a constructor replacement.
-     *
-     * @param msgFactory Message factory to instantiate builder.
-     * @param cmgNodes Collection of CMG nodes.
-     * @param msNodes Collection of Metastorage nodes.
-     * @param igniteVersion Ignite product version.
-     * @param clusterTag Cluster tag instance.
-     * @return Cluster state instance.
-     */
-    static ClusterState clusterState(
-            CmgMessagesFactory msgFactory,
-            Collection<String> cmgNodes,
-            Collection<String> msNodes,
-            IgniteProductVersion igniteVersion,
-            ClusterTag clusterTag
-    ) {
-        return clusterState(msgFactory, cmgNodes, msNodes, igniteVersion, clusterTag, null);
-    }
-
-    /**
-     * Creates a new cluster state instance. Acts like a constructor replacement.
-     *
-     * @param msgFactory Message factory to instantiate builder.
-     * @param cmgNodes Collection of CMG nodes.
-     * @param msNodes Collection of Metastorage nodes.
-     * @param igniteVersion Ignite product version.
-     * @param clusterTag Cluster tag instance.
-     * @param authentication REST authentication configuration.
-     * @return Cluster state instance.
-     */
-    static ClusterState clusterState(
-            CmgMessagesFactory msgFactory,
-            Collection<String> cmgNodes,
-            Collection<String> msNodes,
-            IgniteProductVersion igniteVersion,
-            ClusterTag clusterTag,
-            Authentication authentication
-    ) {
-        return msgFactory.clusterState()
-                .cmgNodes(Set.copyOf(cmgNodes))
-                .metaStorageNodes(Set.copyOf(msNodes))
-                .version(igniteVersion.toString())
-                .clusterTag(clusterTag)
-                .restAuthToApply(authentication)
-                .build();
-    }
 }

@@ -96,10 +96,10 @@ public class DelegatingAuthenticationProvider implements AuthenticationProvider,
                 authenticators.addAll(providersFromAuthView(view));
                 authEnabled = true;
             } else {
-                LOG.error("Invalid configuration: auth enabled, but no providers. Leave the old settings");
+                LOG.error("Invalid configuration: auth enabled, but no providers. Leaving the old settings");
             }
         } catch (Exception exception) {
-            LOG.error("Couldn't refresh authentication providers. Leave the old settings", exception);
+            LOG.error("Couldn't refresh authentication providers. Leaving the old settings", exception);
         } finally {
             rwLock.writeLock().unlock();
         }

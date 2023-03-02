@@ -19,52 +19,113 @@ package org.apache.ignite;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.rest.AuthenticationConfig;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
 public class InitParametersBuilder {
-    private String nodeName;
-    private Collection<String> metaStorageNodeNames = List.of();
-    private Collection<String> cmgNodeNames = List.of();
+    private String destinationNodeName;
+    private Collection<String> metaStorageNodeNames;
+    private Collection<String> cmgNodeNames;
     private String clusterName;
     private AuthenticationConfig authenticationConfig = AuthenticationConfig.disabled();
 
-    public InitParametersBuilder setNodeName(String nodeName) {
-        this.nodeName = nodeName;
+    /**
+     * Sets name of the node that the initialization request will be sent to.
+     *
+     * @param destinationNodeName Destination node name.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder destinationNodeName(String destinationNodeName) {
+        if (StringUtils.nullOrBlank(destinationNodeName)) {
+            throw new IllegalArgumentException("Node name cannot be null or empty.");
+        }
+        this.destinationNodeName = destinationNodeName;
         return this;
     }
 
-    public InitParametersBuilder setMetaStorageNodeNames(Collection<String> metaStorageNodeNames) {
-        this.metaStorageNodeNames = metaStorageNodeNames;
+    /**
+     * Sets names of nodes that will host the Meta Storage.
+     *
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder metaStorageNodeNames(Collection<String> metaStorageNodeNames) {
+        if (metaStorageNodeNames == null) {
+            throw new IllegalArgumentException("Meta storage node names cannot be null.");
+        }
+        if (metaStorageNodeNames.isEmpty()) {
+            throw new IllegalArgumentException("Meta storage node names cannot be empty.");
+        }
+        this.metaStorageNodeNames = List.copyOf(metaStorageNodeNames);
         return this;
     }
 
-    public InitParametersBuilder setCmgNodeNames(Collection<String> cmgNodeNames) {
-        this.cmgNodeNames = cmgNodeNames;
+    /**
+     * Sets names of nodes that will host the CMG. If not set, {@link InitParametersBuilder#metaStorageNodeNames} will be used.
+     *
+     * @param cmgNodeNames Names of nodes that will host the CMG.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder cmgNodeNames(Collection<String> cmgNodeNames) {
+        if (cmgNodeNames == null) {
+            throw new IllegalArgumentException("CMG node names cannot be null.");
+        }
+        if (cmgNodeNames.isEmpty()) {
+            throw new IllegalArgumentException("CMG node names cannot be empty.");
+        }
+        this.cmgNodeNames = List.copyOf(cmgNodeNames);
         return this;
     }
 
-    public InitParametersBuilder setClusterName(String clusterName) {
+    /**
+     * Sets Human-readable name of the cluster.
+     *
+     * @param clusterName Human-readable name of the cluster.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder clusterName(String clusterName) {
+        if (StringUtils.nullOrBlank(clusterName)) {
+            throw new IllegalArgumentException("Cluster name cannot be null or empty.");
+        }
         this.clusterName = clusterName;
         return this;
     }
 
-    public InitParametersBuilder setRestAuthenticationConfig(AuthenticationConfig authenticationConfig) {
+    /**
+     * Sets authentication configuration, that will be applied after initialization. If not set, the authentication will be disabled.
+     *
+     * @param authenticationConfig Authentication configuration.
+     * @return {@code this} for chaining.
+     */
+    public InitParametersBuilder restAuthenticationConfig(AuthenticationConfig authenticationConfig) {
+        if (authenticationConfig == null) {
+            throw new IllegalArgumentException("Authentication config cannot be null.");
+        }
         this.authenticationConfig = authenticationConfig;
         return this;
     }
 
     /** Builds {@link InitParameters}. */
     public InitParameters build() {
-        cmgNodeNames = cmgNodeNames.isEmpty() ? metaStorageNodeNames : cmgNodeNames;
+        cmgNodeNames = cmgNodeNames == null ? metaStorageNodeNames : cmgNodeNames;
 
-        Objects.requireNonNull(nodeName);
-        Objects.requireNonNull(metaStorageNodeNames);
-        Objects.requireNonNull(cmgNodeNames);
-        Objects.requireNonNull(clusterName);
-        Objects.requireNonNull(authenticationConfig);
+        if (destinationNodeName == null) {
+            throw new IllegalStateException("Destination node name is not set.");
+        }
+        if (metaStorageNodeNames == null) {
+            throw new IllegalStateException("Meta storage node names is not set.");
+        }
+        if (cmgNodeNames == null) {
+            throw new IllegalStateException("CMG node names is not set.");
+        }
+        if (clusterName == null) {
+            throw new IllegalStateException("Cluster name is not set.");
+        }
+        if (authenticationConfig == null) {
+            throw new IllegalStateException("Authentication config is not set.");
+        }
 
-        return new InitParameters(nodeName, metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig);
+        return new InitParameters(destinationNodeName, metaStorageNodeNames, cmgNodeNames, clusterName, authenticationConfig);
     }
 }

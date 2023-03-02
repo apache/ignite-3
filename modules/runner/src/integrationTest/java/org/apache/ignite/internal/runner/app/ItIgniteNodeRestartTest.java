@@ -540,9 +540,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             String nodeName = clusterNodesNames.get(0);
 
             InitParameters initParameters = InitParameters.builder()
-                    .setNodeName(nodeName)
-                    .setMetaStorageNodeNames(List.of(nodeName))
-                    .setClusterName("cluster")
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
                     .build();
             IgnitionManager.init(initParameters);
         }
@@ -601,9 +601,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             String nodeName = clusterNodesNames.get(0);
 
             InitParameters initParameters = InitParameters.builder()
-                    .setNodeName(nodeName)
-                    .setMetaStorageNodeNames(List.of(nodeName))
-                    .setClusterName("cluster")
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
                     .build();
             IgnitionManager.init(initParameters);
         }

@@ -60,9 +60,9 @@ public class ItClusterInitTest extends IgniteAbstractTest {
         String nodeName = nodeNames.get(0);
 
         InitParameters initParameters = InitParameters.builder()
-                .setNodeName(nodeName)
-                .setMetaStorageNodeNames(List.of(nodeName))
-                .setClusterName("cluster")
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("cluster")
                 .build();
 
         IgnitionManager.init(initParameters);
@@ -71,9 +71,9 @@ public class ItClusterInitTest extends IgniteAbstractTest {
         IgnitionManager.init(initParameters);
 
         InitParameters initParametersWithWrongNodesList1 = InitParameters.builder()
-                .setNodeName(nodeName)
-                .setMetaStorageNodeNames(nodeNames)
-                .setClusterName("cluster")
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(nodeNames)
+                .clusterName("cluster")
                 .build();
 
         // init should fail if the list of nodes is different
@@ -83,9 +83,9 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
 
         InitParameters initParametersWithWrongNodesList2 = InitParameters.builder()
-                .setNodeName(nodeName)
-                .setMetaStorageNodeNames(List.of(nodeName))
-                .setClusterName("new name")
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("new name")
                 .build();
 
         // init should fail if cluster names are different
