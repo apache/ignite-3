@@ -45,6 +45,7 @@ import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
+import org.apache.ignite.internal.ssl.ItSslTest;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -90,8 +91,19 @@ public class PlatformTestNodeRunner {
                     + "}",
 
             NODE_NAME2, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10943,\"portRange\":1,\"idleTimeout\":3000,"
-                    + "\"sendServerExceptionStackTraceToClient\":true, \"ssl\".\"enabled\": true},"
+                    + "  \"clientConnector\":{"
+                    + "    \"port\": 10943,"
+                    + "    \"portRange\":1,"
+                    + "    \"idleTimeout\":3000,"
+                    + "    \"sendServerExceptionStackTraceToClient\":true, "
+                    + "    \"ssl\": {\n"
+                    + "      enabled: true,\n"
+                    + "      keyStore: {\n"
+                    + "        path: \"KEYSTORE_PATH\",\n"
+                    + "        password: \"KEYSTORE_PASS\"\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "  },\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
@@ -124,10 +136,16 @@ public class PlatformTestNodeRunner {
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
+        var sslPassword = "changeit";
+        var trustStorePath = ItSslTest.class.getClassLoader().getResource("ssl/truststore.jks").getPath();
+        var keyStorePath = ItSslTest.class.getClassLoader().getResource("ssl/keystore.p12").getPath();
+
         List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> {
                     String nodeName = e.getKey();
-                    String config = e.getValue();
+                    String config = e.getValue()
+                            .replace("KEYSTORE_PATH", keyStorePath)
+                            .replace("KEYSTORE_PASS", sslPassword);
 
                     return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
                 })
