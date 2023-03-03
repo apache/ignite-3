@@ -164,6 +164,8 @@ namespace Apache.Ignite
         /// Gets or sets the SSL stream factory.
         /// <para />
         /// When not null, secure socket connection will be established.
+        /// <para />
+        /// See <see cref="SslStreamFactory"/>.
         /// </summary>
         public ISslStreamFactory? SslStreamFactory { get; set; }
     }

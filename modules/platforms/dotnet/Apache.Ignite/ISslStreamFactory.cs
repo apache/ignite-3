@@ -22,6 +22,8 @@ using System.Net.Security;
 
 /// <summary>
 /// SSL Stream Factory defines how SSL connection is established.
+/// <para />
+/// See <see cref="IgniteClientConfiguration.SslStreamFactory"/>, <see cref="SslStreamFactory"/>.
 /// </summary>
 public interface ISslStreamFactory
 {
