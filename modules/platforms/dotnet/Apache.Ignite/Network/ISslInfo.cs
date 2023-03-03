@@ -29,8 +29,7 @@ public interface ISslInfo
     /// <summary>
     /// Gets the cipher suite which was negotiated for this connection.
     /// </summary>
-    [CLSCompliant(false)]
-    TlsCipherSuite NegotiatedCipherSuite { get; }
+    string NegotiatedCipherSuiteName { get; }
 
     /// <summary>
     /// Gets the certificate used to authenticate the local endpoint.

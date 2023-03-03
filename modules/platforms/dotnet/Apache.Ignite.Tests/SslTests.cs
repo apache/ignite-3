@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Linq;
+using System.Net.Security;
 using System.Threading.Tasks;
 using Log;
 using NUnit.Framework;
@@ -50,7 +52,10 @@ public class SslTests : IgniteTestsBase
 
         using var client = await IgniteClient.StartAsync(cfg);
 
-        // TODO: How to check that SSL is actually used?
-        client.GetConnections();
+        var connection = client.GetConnections().Single();
+
+        Assert.IsNotNull(connection.SslInfo);
+        Assert.IsFalse(connection.SslInfo!.IsMutuallyAuthenticated);
+        Assert.AreEqual(TlsCipherSuite.TLS_AES_128_GCM_SHA256.ToString(), connection.SslInfo.NegotiatedCipherSuiteName);
     }
 }

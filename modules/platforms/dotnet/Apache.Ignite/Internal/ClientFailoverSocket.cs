@@ -29,6 +29,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Ignite.Network;
     using Log;
     using Proto;
     using Transactions;
@@ -226,15 +227,16 @@ namespace Apache.Ignite.Internal
         /// Gets active connections.
         /// </summary>
         /// <returns>Active connections.</returns>
-        public IEnumerable<ConnectionContext> GetConnections()
+        public IList<IConnectionInfo> GetConnections()
         {
-            var res = new List<ConnectionContext>(_endpoints.Count);
+            var res = new List<IConnectionInfo>(_endpoints.Count);
 
             foreach (var endpoint in _endpoints)
             {
                 if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
                 {
-                    res.Add(ctx);
+                    // TODO: Populate
+                    res.Add(null!);
                 }
             }
 
