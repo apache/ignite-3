@@ -295,6 +295,42 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     }
 
     /** <inheritdoc /> */
+    protected override Expression VisitMemberInit(MemberInitExpression expression)
+    {
+        Console.WriteLine("TADA");
+        var first = true;
+
+        if (expression.NewExpression.Arguments.Any())
+        {
+            VisitNew(expression.NewExpression);
+            first = false;
+        }
+
+        for (var i = 0; i < expression.Bindings.Count; i++)
+        {
+            var arg = (MemberAssignment)expression.Bindings[i]; // todo
+            if (!first)
+            {
+                if (_useStar)
+                {
+                    throw new NotSupportedException("Aggregate functions do not support multiple fields");
+                }
+
+                ResultBuilder.TrimEnd().Append(", ");
+            }
+
+            first = false;
+
+            Visit(arg.Expression);
+
+            ResultBuilder.AppendWithSpace("as ");
+            ResultBuilder.Append(arg.Member.Name.ToUpperInvariant());
+        }
+
+        return expression;
+    }
+
+    /** <inheritdoc /> */
     protected override Expression VisitConstant(ConstantExpression expression)
     {
         if (MethodVisitor.VisitConstantCall(expression, this))

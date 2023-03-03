@@ -21,22 +21,29 @@ using System.Collections.Generic;
 using System.Linq;
 using Internal.Linq;
 using NUnit.Framework;
+using Table;
 
 /// <summary>
-/// Linq GROUP BY tests.
+/// Tests MemberInit.
 /// </summary>
-public partial class LinqTests
+public partial class LinqSqlGenerationTests
 {
     [Test]
-    public void Do()
-    {
-        Assert.Pass();
-    }
+    public void Do() => AssertSql(
+        "select _T0.KEY as KEY, _T0.VAL as VALUE from PUBLIC.tbl1 as _T0",
+        q => q.Select(p => new CustomProjection {Key = p.Key, Value = p.Val}).ToList());
+
+    [Test]
+    public void Do1() => AssertSql(
+        "select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0",
+        q => q.Select(p => new CustomProjectionRecord(p.Key, p.Val)).ToList());
 
     private class CustomProjection
     {
-        public int Key { get; set; }
+        public long Key { get; set; }
 
-        public int Value { get; set; }
+        public string? Value { get; set; }
     }
+
+    private record CustomProjectionRecord(long Key, string? Val);
 }

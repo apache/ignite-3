@@ -21,14 +21,24 @@ using System.Collections.Generic;
 using System.Linq;
 using Internal.Linq;
 using NUnit.Framework;
-using Table;
 
-public partial class LinqSqlGenerationTests
+/// <summary>
+/// Linq MemberInitTests.
+/// </summary>
+public partial class LinqTests
 {
     [Test]
-    public void Do() => AssertSql(
-        "select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0",
-        q => q.Select(p => new CustomProjection {Key = p.Key, Value = p.Val}).ToList<object>());
+    public void Do()
+    {
+        var res = PocoView.AsQueryable()
+            .Where(x => x.Key == 2)
+            .Select(x => new CustomProjection { Key = x.Key, Value = x.Val })
+            .ToArray();
+
+        Assert.AreEqual(1, res.Length);
+        Assert.AreEqual(2, res[0].Key);
+        Assert.AreEqual("v-2", res[0].Value);
+    }
 
     private class CustomProjection
     {
