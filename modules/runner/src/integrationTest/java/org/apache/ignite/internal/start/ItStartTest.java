@@ -33,7 +33,7 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.function.Executable;
 
-class ItStartTest extends TestStartingIgnites {
+class ItStartTest extends IgniteIntegrationTest {
     private Cluster cluster;
 
     @WorkDirectory

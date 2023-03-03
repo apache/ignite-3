@@ -27,5 +27,5 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 // The order is important here.
 @ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
-public abstract class TestStartingIgnites extends BaseIgniteAbstractTest {
+public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
 }

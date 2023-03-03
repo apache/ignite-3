@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -55,7 +55,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Ignition interface tests.
  */
-class ItIgnitionTest extends TestStartingIgnites {
+class ItIgnitionTest extends IgniteIntegrationTest {
     /** Network ports of the test nodes. */
     private static final int[] PORTS = {3344, 3345, 3346};
 

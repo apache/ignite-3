@@ -31,7 +31,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterEach;
@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /** SSL support integration test. */
-public class ItSslTest extends TestStartingIgnites {
+public class ItSslTest extends IgniteIntegrationTest {
 
     private static String password;
 

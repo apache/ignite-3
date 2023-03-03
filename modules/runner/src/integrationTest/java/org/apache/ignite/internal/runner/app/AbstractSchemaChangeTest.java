@@ -33,7 +33,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.schema.configuration.ColumnChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -52,7 +52,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Ignition interface tests.
  */
-abstract class AbstractSchemaChangeTest extends TestStartingIgnites {
+abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
     /** Table name. */
     public static final String TABLE = "TBL1";
 

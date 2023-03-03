@@ -50,7 +50,7 @@ import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.Cluster.NodeKnockout;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -95,7 +95,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 @Timeout(90)
-class ItTableRaftSnapshotsTest extends TestStartingIgnites {
+class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     /**

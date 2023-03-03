@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -71,7 +71,7 @@ import org.junit.jupiter.api.TestInstance;
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class ClusterPerClassIntegrationTest extends TestStartingIgnites {
+public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /** Timeout should be big enough to prevent premature session expiration. */

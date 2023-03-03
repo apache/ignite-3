@@ -40,7 +40,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
@@ -141,7 +141,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
-public class ItSqlLogicTest extends TestStartingIgnites {
+public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
     private static final String NODE_NAME_PREFIX = "sqllogic";

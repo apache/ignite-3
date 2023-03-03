@@ -40,7 +40,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 import org.apache.ignite.internal.rest.ssl.RestNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -52,7 +52,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests for the REST port range configuration. */
-public class ItPortRangeTest extends TestStartingIgnites {
+public class ItPortRangeTest extends IgniteIntegrationTest {
 
     /** Trust store path. */
     private static final String trustStorePath = "ssl/truststore.jks";

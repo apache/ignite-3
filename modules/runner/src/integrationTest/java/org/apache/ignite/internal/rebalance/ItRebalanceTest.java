@@ -35,7 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -61,7 +61,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Test suite for the rebalance.
  */
-public class ItRebalanceTest extends TestStartingIgnites {
+public class ItRebalanceTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceTest.class);
 
     @WorkDirectory

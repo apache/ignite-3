@@ -32,7 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.TestStartingIgnites;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.KeyValueView;
@@ -50,7 +50,7 @@ import org.junit.jupiter.api.TestInfo;
  * Ignition interface tests.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-14578")
-class ItTableCreationTest extends TestStartingIgnites {
+class ItTableCreationTest extends IgniteIntegrationTest {
     /** Network ports of the test nodes. */
     private static final int[] PORTS = {3344, 3345, 3346};
 
