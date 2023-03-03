@@ -33,7 +33,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
-public class ItCreateTableDdlTest extends SharedClusterIntegrationTest {
+public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     /**
      * Clear tables after each test.
      *

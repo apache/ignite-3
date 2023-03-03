@@ -28,8 +28,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Hash spool test.
  */
-public class ItHashSpoolTest extends SharedClusterIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(SharedClusterIntegrationTest.class);
+public class ItHashSpoolTest extends ClusterPerClassIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /**
      * After each.

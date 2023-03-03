@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /** Tests for correlated queries. */
-public class ItCorrelatesTest extends SharedClusterIntegrationTest {
+public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
 
     /**

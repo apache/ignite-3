@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Check LIMIT and\or OFFSET commands.
  */
-public class ItLimitOffsetTest extends SharedClusterIntegrationTest {
+public class ItLimitOffsetTest extends ClusterPerClassIntegrationTest {
     @BeforeEach
     void beforeEach() {
         sql("CREATE TABLE test (pk INT PRIMARY KEY, col0 INT)");

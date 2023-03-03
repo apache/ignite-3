@@ -71,8 +71,8 @@ import org.junit.jupiter.api.TestInstance;
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class SharedClusterIntegrationTest extends TestStartingIgnites {
-    private static final IgniteLogger LOG = Loggers.forClass(SharedClusterIntegrationTest.class);
+public abstract class ClusterPerClassIntegrationTest extends TestStartingIgnites {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /** Timeout should be big enough to prevent premature session expiration. */
     private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);

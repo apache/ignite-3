@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.sql.engine.SharedClusterIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -50,7 +50,7 @@ import org.junit.jupiter.api.Test;
  * <li>When a table is not existed, tries to alter or drop the table have to failed {@link TableNotFoundException}.</li>
  * </ul>
  */
-public class ItTableApiContractTest extends SharedClusterIntegrationTest {
+public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
     /** Schema name. */
     public static final String SCHEMA = "PUBLIC";
 

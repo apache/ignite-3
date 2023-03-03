@@ -30,7 +30,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
-import org.apache.ignite.internal.sql.engine.SharedClusterIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -40,7 +40,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests to verify integration of {@link IndexManager} with other components.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItIndexManagerTest extends SharedClusterIntegrationTest {
+public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
     /** {@inheritDoc} */
     @Override
     protected int nodes() {

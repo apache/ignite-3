@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Interval coverage tests. */
-public class ItIntervalTest extends SharedClusterIntegrationTest {
+public class ItIntervalTest extends ClusterPerClassIntegrationTest {
     @Override
     protected int nodes() {
         return 1;

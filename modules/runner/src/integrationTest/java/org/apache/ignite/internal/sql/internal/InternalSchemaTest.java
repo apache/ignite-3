@@ -26,7 +26,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.sql.engine.SharedClusterIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -34,7 +34,7 @@ import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.Test;
 
 /** Tests for internal manipulations with schema. */
-public class InternalSchemaTest extends SharedClusterIntegrationTest {
+public class InternalSchemaTest extends ClusterPerClassIntegrationTest {
     /**
      * Checks that schema version is updated even if column names are intersected.
      */

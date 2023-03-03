@@ -55,7 +55,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.SharedClusterIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -75,7 +75,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests to check a scan internal command.
  */
-public class ItTableScanTest extends SharedClusterIntegrationTest {
+public class ItTableScanTest extends ClusterPerClassIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test";
 

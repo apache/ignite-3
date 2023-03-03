@@ -20,7 +20,7 @@ package org.apache.ignite.internal;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.sql.engine.SharedClusterIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Assertions;
@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
  * The test check that the behavior of the cluster whit property IGNITE_GET_METADATA_LOCALLY_ONLY is correct.
  */
 @WithSystemProperty(key = "IGNITE_GET_METADATA_LOCALLY_ONLY", value = "true")
-public class ItNoSyncMetadataTest extends SharedClusterIntegrationTest {
+public class ItNoSyncMetadataTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Creates a table and waits when the metadata synchronizes among nodes of the cluster.
