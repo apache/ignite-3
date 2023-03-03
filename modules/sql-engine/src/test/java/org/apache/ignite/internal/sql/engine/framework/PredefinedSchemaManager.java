@@ -73,7 +73,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     }
 
     @Override
-    public void waitSchemaVer(long ver) {
+    public void waitActualSchema(long ver) {
         // No op.
     }
 
@@ -84,7 +84,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     }
 
     @Override
-    public long getToken() {
+    public long lastAppliedVersion() {
         return 0;
     }
 }

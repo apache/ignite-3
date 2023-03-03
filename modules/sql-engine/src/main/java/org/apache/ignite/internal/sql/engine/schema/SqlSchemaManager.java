@@ -22,19 +22,13 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * SchemaHolder interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Sql schemas operations interface.
  */
 public interface SqlSchemaManager {
     /**
      * Returns a required schema if specified, or default schema otherwise.
      */
     SchemaPlus schema(@Nullable String schema);
-
-    /**
-     * TODO !!!!
-     */
-    void waitSchemaVer(long ver);
 
     /**
      * Returns a table by given id.
@@ -45,5 +39,16 @@ public interface SqlSchemaManager {
      */
     IgniteTable tableById(UUID id);
 
-    long getToken();
+    /**
+     * Wait for {@code ver} schema version.
+     * This is a blocking operation.
+     */
+    void waitActualSchema(long ver);
+
+    /**
+     * Return last applied schema version.
+     *
+     * @return Current version.
+     */
+    long lastAppliedVersion();
 }

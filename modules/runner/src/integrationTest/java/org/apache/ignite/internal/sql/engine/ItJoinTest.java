@@ -38,7 +38,7 @@ public class ItJoinTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
         sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
 
-        sql("create index t1_idx on t1 (c3, c2, c1)");
+/*        sql("create index t1_idx on t1 (c3, c2, c1)");
         sql("create index t2_idx on t2 (c3, c2, c1)");
 
         // FIXME: https://issues.apache.org/jira/browse/IGNITE-18203
@@ -61,7 +61,7 @@ public class ItJoinTest extends ClusterPerClassIntegrationTest {
                 new Object[] {3, 3, null, 3},
                 new Object[] {4, 3, 3, 3},
                 new Object[] {5, 4, 4, 4}
-        );
+        );*/
     }
 
     /**
@@ -69,7 +69,10 @@ public class ItJoinTest extends ClusterPerClassIntegrationTest {
      */
     @ParameterizedTest
     @EnumSource
-    public void testInnerJoin(JoinType joinType) {
+    public void testInnerJoin(JoinType joinType) throws InterruptedException {
+        sql("create index t1_idx111 on t1 (c3, c2, c1)");
+        waitForIndex("t1_idx111");
+
         assertQuery(""
                 + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t2.c1 c21, t2.c2 c22 "
                 + "  from t1 "

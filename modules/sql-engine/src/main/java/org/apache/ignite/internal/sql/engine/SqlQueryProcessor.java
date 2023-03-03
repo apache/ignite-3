@@ -179,7 +179,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.replicaService = replicaService;
         this.clock = clock;
         //this.lastStorageVersion = lastStorageVersion;
-        this.lastStorageVersion = () -> sqlSchemaManager.getToken();
+        this.lastStorageVersion = () -> sqlSchemaManager.lastAppliedVersion();
     }
 
     /** {@inheritDoc} */
@@ -429,7 +429,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
-                    Runnable schemaWait = () -> sqlSchemaManager.waitSchemaVer(lastStorageVersion.get());
+                    Runnable schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get());
 
                     return prepareSvc.prepareAsync(sqlNode, ctx, schemaWait)
                             .thenApply(plan -> {
@@ -518,7 +518,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .plannerTimeout(PLANNER_TIMEOUT)
                     .build();
 
-            Runnable schemaWait = () -> sqlSchemaManager.waitSchemaVer(lastStorageVersion.get());
+            Runnable schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get());
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
             CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx, schemaWait))

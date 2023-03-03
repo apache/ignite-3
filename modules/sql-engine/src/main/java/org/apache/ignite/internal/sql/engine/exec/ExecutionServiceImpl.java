@@ -328,7 +328,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         assert nodeName != null && msg != null;
 
         DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            sqlSchemaManager.waitSchemaVer(msg.lastVersion());
+            sqlSchemaManager.waitActualSchema(msg.lastVersion());
 
             BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
 

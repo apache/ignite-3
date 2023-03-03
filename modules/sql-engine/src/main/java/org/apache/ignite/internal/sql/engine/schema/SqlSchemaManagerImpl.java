@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -90,11 +91,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     public volatile long token;
 
-    @Override
-    public long getToken() {
-        return token;
-    }
-
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -144,11 +140,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                 listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
 
-                calciteSchemaVv.complete(token, newCalciteSchema);
-
-                System.err.println("!!!!0 complete " + token);
-
                 this.token = token;
+
+                calciteSchemaVv.complete(token, newCalciteSchema);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -165,20 +159,21 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public void waitSchemaVer(long ver) {
+    public void waitActualSchema(long ver) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
             calciteSchemaVv.get(ver).join();
-/*            try {
-                calciteSchemaVv.get(ver).join();
-            } catch (OutdatedTokenException e) {
-                // No op.
-            }*/
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long lastAppliedVersion() {
+        return token;
     }
 
     /** {@inheritDoc} */
@@ -215,8 +210,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             TableImpl table,
             long causalityToken
     ) {
-        System.err.println("!!!! onTableCreated " + causalityToken + " " + table.tableId());
-
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -408,7 +401,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @return Schema registration future.
      */
     public synchronized CompletableFuture<?> onIndexCreated(Index<?> index, long causalityToken) {
-        System.err.println("!!!! onIndexCreated ver=" + causalityToken + " hash=" + hashCode());
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
