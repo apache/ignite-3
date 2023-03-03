@@ -24,12 +24,12 @@ import io.micronaut.runtime.Micronaut;
  */
 public interface RestFactory {
     /**
-     * Destroy method. All resources of factory implementation must be cleaned and all field must be null-pointed.
+     * Destroy method. All resources of the factory implementation must be cleaned and all fields must be set to {@code null}.
      *      The reason of these requirements is Micronaut design.
-     *      {@link Micronaut#start()} store shutdown hook and capture pointer
-     *      to embedded application {@link io.micronaut.http.server.netty.NettyEmbeddedServer} and as result
-     *      {@link io.micronaut.context.ApplicationContext} will be not collect by GC never.
-     *      All rest factories stored in application context and should be cleaned to prevent memory leak.
+     *      {@link Micronaut#start()} store shutdown hook and capture a pointer
+     *      to the embedded application {@link io.micronaut.http.server.netty.NettyEmbeddedServer} and as a result
+     *      {@link io.micronaut.context.ApplicationContext} will never be collected by the GC.
+     *      All rest factories stored in the application context should be cleaned to prevent memory leak.
      */
     void cleanResources();
 }
