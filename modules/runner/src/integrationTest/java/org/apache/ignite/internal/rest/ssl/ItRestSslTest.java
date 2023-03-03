@@ -40,17 +40,16 @@ import java.util.stream.Stream;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.rest.RestNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST SSL configuration. */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRestSslTest {
+public class ItRestSslTest extends IgniteIntegrationTest {
 
     /** HTTP port of the test node. */
     private static final int httpPort = 10300;
@@ -105,12 +104,49 @@ public class ItRestSslTest {
                 .sslContext(sslContextWithClientAuth())
                 .build();
 
-        httpNode = new RestNode(workDir, testNodeName(testInfo, 3344), 3344, 10300, 10400, false, false, false);
-        httpsNode = new RestNode(workDir, testNodeName(testInfo, 3345), 3345, 10301, 10401, true, false, false);
-        dualProtocolNode = new RestNode(workDir, testNodeName(testInfo, 3346), 3346, 10302, 10402, true, false, true);
-        httpsWithClientAuthNode = new RestNode(workDir, testNodeName(testInfo, 3347), 3347, 10303, 10403, true, true, false);
+        httpNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3344))
+                .networkPort(3344)
+                .httpPort(10300)
+                .httpsPort(10400)
+                .sslEnabled(false)
+                .dualProtocol(false)
+                .build();
 
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode).forEach(RestNode::start);
+        httpsNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3345))
+                .networkPort(3345)
+                .httpPort(10301)
+                .httpsPort(10401)
+                .sslEnabled(true)
+                .dualProtocol(false)
+                .build();
+
+        dualProtocolNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3346))
+                .networkPort(3346)
+                .httpPort(10302)
+                .httpsPort(10402)
+                .sslEnabled(true)
+                .dualProtocol(true)
+                .build();
+
+        httpsWithClientAuthNode = RestNode.builder()
+                .workDir(workDir)
+                .name(testNodeName(testInfo, 3347))
+                .networkPort(3347)
+                .httpPort(10303)
+                .httpsPort(10403)
+                .sslEnabled(true)
+                .sslClientAuthEnabled(true)
+                .dualProtocol(false)
+                .build();
+
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode).parallel()
+                .forEach(RestNode::start);
     }
 
     @Test
@@ -196,7 +232,9 @@ public class ItRestSslTest {
 
     @AfterAll
     static void afterAll() {
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode).forEach(RestNode::stop);
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode)
+                .parallel()
+                .forEach(RestNode::stop);
     }
 
     private static SSLContext sslContext() throws CertificateException, KeyStoreException, IOException,

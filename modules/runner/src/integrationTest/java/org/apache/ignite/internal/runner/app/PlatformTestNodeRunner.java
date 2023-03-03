@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -135,7 +136,12 @@ public class PlatformTestNodeRunner {
 
         String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         System.out.println("Initialization complete");
 

@@ -157,6 +157,7 @@ paths:
       operationId: updateClusterConfiguration
       parameters: []
       requestBody:
+        description: the cluster configuration to update
         content:
           text/plain:
             schema:
@@ -260,6 +261,8 @@ paths:
       operationId: updateNodeConfiguration
       parameters: []
       requestBody:
+        description: the node configuration to update. This is represented as a plain
+          text
         content:
           text/plain:
             schema:
@@ -436,6 +439,19 @@ paths:
                 $ref: '#/components/schemas/Problem'
 components:
   schemas:
+    AuthenticationConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: If Security is enabled.
+        providers:
+          type: array
+          description: A list of authentication providers.
+          items:
+            $ref: '#/components/schemas/AuthenticationProviderConfigDto'
+    AuthenticationProviderConfigDto:
+      type: object
     ClusterNode:
       type: object
       properties:
@@ -498,6 +514,8 @@ components:
         clusterName:
           type: string
           description: The name of the cluster.
+        authenticationConfig:
+          $ref: '#/components/schemas/AuthenticationConfig'
     InvalidParam:
       type: object
       properties:

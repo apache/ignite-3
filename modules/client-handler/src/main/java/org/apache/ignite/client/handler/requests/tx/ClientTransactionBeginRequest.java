@@ -55,15 +55,6 @@ public class ClientTransactionBeginRequest {
             try {
                 long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
                 out.packLong(resourceId);
-
-                var readTs = tx.readTimestamp();
-
-                if (readTs != null) {
-                    out.packLong(readTs.getPhysical());
-                    out.packInt(readTs.getLogical());
-                } else {
-                    out.packNil();
-                }
             } catch (IgniteInternalCheckedException e) {
                 tx.rollback();
                 throw new IgniteInternalException(e.getMessage(), e);

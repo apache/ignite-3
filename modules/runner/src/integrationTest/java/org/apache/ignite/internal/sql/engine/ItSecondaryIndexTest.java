@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Basic index tests.
  */
-public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
+public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
     private static final String PK_SORTED_IDX = "PK_SORTED_IDX";
 
     private static final String DEPID_IDX = "DEPID_IDX";

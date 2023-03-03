@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -122,6 +123,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
@@ -309,6 +311,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Meta storage listener for switch reduce assignments. */
     private final WatchListener assignmentsSwitchRebalanceListener;
 
+    private final MvGc mvGc;
+
     /**
      * Creates a new table manager.
      *
@@ -451,11 +455,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
 
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
+
+        mvGc = new MvGc(nodeName, tablesCfg);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
+        mvGc.start();
+
         tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
@@ -742,12 +749,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTbl, partId));
 
                 CompletableFuture<StorageUpdateHandler> storageUpdateHandlerFut = partitionDataStorageFut
-                        .thenApply(storage -> new StorageUpdateHandler(
-                                partId,
-                                storage,
-                                table.indexStorageAdapters(partId),
-                                tblCfg.dataStorage()
-                        ));
+                        .thenApply(storage -> {
+                            StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
+                                    partId,
+                                    storage,
+                                    table.indexStorageAdapters(partId),
+                                    tblCfg.dataStorage()
+                            );
+
+                            mvGc.addStorage(replicaGrpId, storageUpdateHandler);
+
+                            return storageUpdateHandler;
+                        });
 
                 CompletableFuture<Void> startGroupFut;
 
@@ -803,7 +816,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                 internalTbl.storage(),
                                                 internalTbl.txStateStorage(),
                                                 partitionKey(internalTbl, partId),
-                                                table
+                                                storageUpdateHandler
                                         );
 
                                         Peer serverPeer = newConfiguration.peer(localMemberName);
@@ -957,7 +970,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
             PartitionKey partitionKey,
-            TableImpl tableImpl
+            StorageUpdateHandler storageUpdateHandler
     ) {
         RaftGroupOptions raftGroupOptions;
 
@@ -977,7 +990,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionKey,
                         mvTableStorage,
                         txStateTableStorage,
-                        () -> tableImpl.indexStorageAdapters(partitionKey.partitionId()).get().values()
+                        storageUpdateHandler,
+                        mvGc
                 ),
                 incomingSnapshotsExecutor
         ));
@@ -1027,7 +1041,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<Runnable> stopping = new ArrayList<>();
 
-            AtomicReference<Exception> exception = new AtomicReference<>();
+            AtomicReference<Throwable> throwable = new AtomicReference<>();
 
             AtomicBoolean nodeStoppingEx = new AtomicBoolean();
 
@@ -1037,32 +1051,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 stopping.add(() -> {
                     try {
                         raftMgr.stopRaftNodes(replicationGroupId);
-                    } catch (Exception e) {
-                        if (!exception.compareAndSet(null, e)) {
-                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                                exception.get().addSuppressed(e);
-                            }
-                        }
-
-                        if (e instanceof NodeStoppingException) {
-                            nodeStoppingEx.set(true);
-                        }
+                    } catch (Throwable t) {
+                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
                 });
 
                 stopping.add(() -> {
                     try {
                         replicaMgr.stopReplica(replicationGroupId);
-                    } catch (Exception e) {
-                        if (!exception.compareAndSet(null, e)) {
-                            if (!(e instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
-                                exception.get().addSuppressed(e);
-                            }
-                        }
+                    } catch (Throwable t) {
+                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
+                    }
+                });
 
-                        if (e instanceof NodeStoppingException) {
-                            nodeStoppingEx.set(true);
-                        }
+                CompletableFuture<Void> removeFromGcFuture = mvGc.removeStorage(replicationGroupId);
+
+                stopping.add(() -> {
+                    try {
+                        // Should be done fairly quickly.
+                        removeFromGcFuture.join();
+                    } catch (Throwable t) {
+                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
                     }
                 });
             }
@@ -1075,14 +1084,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         table.internalTable().txStateStorage(),
                         table.internalTable()
                 );
-            } catch (Exception e) {
-                if (!exception.compareAndSet(null, e)) {
-                    exception.get().addSuppressed(e);
-                }
+            } catch (Throwable t) {
+                handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
             }
 
-            if (exception.get() != null) {
-                LOG.info("Unable to stop table [name={}, tableId={}]", exception.get(), table.name(), table.tableId());
+            if (throwable.get() != null) {
+                LOG.error("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
             }
         }
     }
@@ -1246,12 +1253,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         try {
             int partitions = assignment.size();
 
+            CompletableFuture<?>[] removeStorageFromGcFutures = new CompletableFuture<?>[partitions];
+
             for (int p = 0; p < partitions; p++) {
                 TablePartitionId replicationGroupId = new TablePartitionId(tblId, p);
 
                 raftMgr.stopRaftNodes(replicationGroupId);
 
                 replicaMgr.stopReplica(replicationGroupId);
+
+                removeStorageFromGcFutures[p] = mvGc.removeStorage(replicationGroupId);
             }
 
             tablesByIdVv.update(causalityToken, (previousVal, e) -> inBusyLock(busyLock, () -> {
@@ -1273,10 +1284,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // TODO: IGNITE-18703 Destroy raft log and meta
 
-            CompletableFuture<Void> destroyTableStoragesFuture = allOf(
-                    table.internalTable().storage().destroy(),
-                    runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor)
-            );
+            CompletableFuture<Void> destroyTableStoragesFuture = allOf(removeStorageFromGcFutures)
+                    .thenCompose(unused -> allOf(
+                            table.internalTable().storage().destroy(),
+                            runAsync(() -> table.internalTable().txStateStorage().destroy(), ioExecutor))
+                    );
 
             CompletableFuture<?> dropSchemaRegistryFuture = schemaManager.dropRegistry(causalityToken, table.tableId())
                     .thenCompose(
@@ -2002,7 +2014,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTable.storage(),
                                 internalTable.txStateStorage(),
                                 partitionKey(internalTable, partId),
-                                tbl
+                                storageUpdateHandler
                         );
 
                         RaftGroupListener raftGrpLsnr = new PartitionListener(
@@ -2182,13 +2194,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Creates or gets partition stores. If one of the storages has not completed the rebalance, then the storages are cleared.
+     * Creates partition stores. If one of the storages has not completed the rebalance, then the storages are cleared.
      *
      * @param table Table.
      * @param partitionId Partition ID.
      * @return Future of creating or getting partition stores.
      */
     // TODO: IGNITE-18619 Maybe we should wait here to create indexes, if you add now, then the tests start to hang
+    // TODO: IGNITE-18939 Create storages only once, then only get them
     private CompletableFuture<PartitionStorages> getOrCreatePartitionStorages(TableImpl table, int partitionId) {
         InternalTable internalTable = table.internalTable();
 
@@ -2260,11 +2273,33 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 // TODO: IGNITE-18703 Destroy raft log and meta
 
                 // Should be done fairly quickly.
-                allOf(
-                        internalTable.storage().destroyPartition(partitionId),
-                        runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
-                ).join();
+                mvGc.removeStorage(tablePartitionId)
+                        .thenCompose(unused -> allOf(
+                                internalTable.storage().destroyPartition(partitionId),
+                                runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor)
+                        ))
+                        .join();
             }
         });
+    }
+
+    private static void handleExceptionOnCleanUpTablesResources(
+            Throwable t,
+            AtomicReference<Throwable> throwable,
+            AtomicBoolean nodeStoppingEx
+    ) {
+        if (t instanceof CompletionException || t instanceof ExecutionException) {
+            t = t.getCause();
+        }
+
+        if (!throwable.compareAndSet(null, t)) {
+            if (!(t instanceof NodeStoppingException) || !nodeStoppingEx.get()) {
+                throwable.get().addSuppressed(t);
+            }
+        }
+
+        if (t instanceof NodeStoppingException) {
+            nodeStoppingEx.set(true);
+        }
     }
 }

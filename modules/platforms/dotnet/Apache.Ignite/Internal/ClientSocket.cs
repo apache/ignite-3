@@ -51,6 +51,9 @@ namespace Apache.Ignite.Internal
         /** Minimum supported heartbeat interval. */
         private static readonly TimeSpan MinRecommendedHeartbeatInterval = TimeSpan.FromMilliseconds(500);
 
+        /** Socket id for debug logging. */
+        private static long _socketId;
+
         /** Underlying stream. */
         private readonly NetworkStream _stream;
 
@@ -102,16 +105,18 @@ namespace Apache.Ignite.Internal
         /// <param name="configuration">Configuration.</param>
         /// <param name="connectionContext">Connection context.</param>
         /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
+        /// <param name="logger">Logger.</param>
         private ClientSocket(
             NetworkStream stream,
             IgniteClientConfiguration configuration,
             ConnectionContext connectionContext,
-            Action<ClientSocket> assignmentChangeCallback)
+            Action<ClientSocket> assignmentChangeCallback,
+            IIgniteLogger? logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
             _assignmentChangeCallback = assignmentChangeCallback;
-            _logger = configuration.Logger.GetLogger(GetType());
+            _logger = logger;
             _socketTimeout = configuration.SocketTimeout;
 
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
@@ -159,12 +164,12 @@ namespace Apache.Ignite.Internal
                 NoDelay = true
             };
 
+            var logger = configuration.Logger.GetLogger(nameof(ClientSocket) + "-" + Interlocked.Increment(ref _socketId));
+
             try
             {
-                var logger = configuration.Logger.GetLogger(typeof(ClientSocket));
-
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
+                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
@@ -174,10 +179,12 @@ namespace Apache.Ignite.Internal
 
                 logger?.Debug($"Handshake succeeded: {context}.");
 
-                return new ClientSocket(stream, configuration, context, assignmentChangeCallback);
+                return new ClientSocket(stream, configuration, context, assignmentChangeCallback, logger);
             }
             catch (Exception e)
             {
+                logger?.Warn($"Connection failed before or during handshake: {e.Message}.", e);
+
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
 
@@ -205,7 +212,10 @@ namespace Apache.Ignite.Internal
 
             if (_disposeTokenSource.IsCancellationRequested)
             {
-                throw new ObjectDisposedException(nameof(ClientSocket));
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.Connection,
+                    "Socket is disposed.",
+                    new ObjectDisposedException(nameof(ClientSocket)));
             }
 
             var requestId = Interlocked.Increment(ref _requestId);
@@ -221,13 +231,15 @@ namespace Apache.Ignite.Internal
                     {
                         var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
 
-                        if (task.Exception != null)
+                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException)
+                        {
+                            // Canceled task means Dispose was called.
+                            completionSource.TrySetException(
+                                new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed."));
+                        }
+                        else if (task.Exception != null)
                         {
                             completionSource.TrySetException(task.Exception);
-                        }
-                        else if (task.IsCanceled)
-                        {
-                            completionSource.TrySetCanceled();
                         }
                     },
                     taskCompletionSource,
@@ -624,7 +636,7 @@ namespace Apache.Ignite.Internal
             _exception = ex;
             _stream.Dispose();
 
-            ex ??= new ObjectDisposedException("Connection closed.");
+            ex ??= new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.");
 
             while (!_requests.IsEmpty)
             {

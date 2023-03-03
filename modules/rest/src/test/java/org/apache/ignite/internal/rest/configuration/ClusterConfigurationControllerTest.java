@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.rest.configuration.hocon.HoconPresentation;
  * Functional test for {@link ClusterConfigurationController}.
  */
 @MicronautTest
+@Property(name = "micronaut.security.enabled", value = "false")
 class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest {
 
     @Inject

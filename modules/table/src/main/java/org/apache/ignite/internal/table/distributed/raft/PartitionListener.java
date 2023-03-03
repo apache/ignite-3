@@ -427,6 +427,7 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
+        storage.close();
     }
 
     /**
