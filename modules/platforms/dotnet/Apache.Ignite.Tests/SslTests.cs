@@ -48,6 +48,7 @@ public class SslTests : IgniteTestsBase
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
         Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
+        Assert.IsNull(sslInfo.LocalCertificate);
         Assert.AreEqual(
             "E=dev@ignite.apache.org, CN=ignite.apache.org, OU=dev, O=apache ignite, L=London, S=US, C=US",
             sslInfo.RemoteCertificate!.Issuer);
