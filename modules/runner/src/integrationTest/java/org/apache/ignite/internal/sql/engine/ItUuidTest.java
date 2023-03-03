@@ -159,9 +159,7 @@ public class ItUuidTest extends AbstractBasicIntegrationTest {
     public void testUuidCaseExpression() {
         UUID other = UUID.randomUUID();
 
-        sql("INSERT INTO t (id, uuid_key) VALUES (1, ?)", UUID_1);
-        sql("INSERT INTO t (id, uuid_key) VALUES (2, ?)", UUID_2);
-        sql("INSERT INTO t (id, uuid_key) VALUES (3, NULL)");
+        sql("INSERT INTO t (id, uuid_key) VALUES (1, ?), (2, ?), (3, NULL)", UUID_1, UUID_2);
 
         // CASE WHEN <condition> THEN .. WHEN <condition2> THEN ... END
         assertQuery("SELECT id, CASE WHEN uuid_key = ? THEN uuid_key ELSE ? END FROM t ORDER BY id ASC ")
