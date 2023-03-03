@@ -72,6 +72,11 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
         return schema == null ? root : root.getSubSchema(schema);
     }
 
+    @Override
+    public void waitSchemaVer(long ver) {
+        // No op.
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteTable tableById(UUID id, int ver) {

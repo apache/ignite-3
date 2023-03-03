@@ -77,7 +77,7 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
         this(
                 input.getCluster(),
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),
-                ((RelInputEx) input).getTableById(),
+                input.getTable("table"),
                 input.getInput(),
                 input.getEnum("operation", Operation.class),
                 input.getStringList("updateColumnList"),
@@ -111,14 +111,5 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTableModify(cluster, getTraitSet(), getTable(), sole(inputs),
                 getOperation(), getUpdateColumnList(), getSourceExpressionList(), isFlattened());
-    }
-
-    @Override
-    public RelWriter explainTerms(RelWriter pw) {
-        return super.explainTerms(pw)
-                .itemIf("tableId", getTable().unwrap(IgniteTable.class).id().toString(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES)
-                .itemIf("tableVer", getTable().unwrap(IgniteTable.class).version(),
-                        pw.getDetailLevel() == ALL_ATTRIBUTES);
     }
 }

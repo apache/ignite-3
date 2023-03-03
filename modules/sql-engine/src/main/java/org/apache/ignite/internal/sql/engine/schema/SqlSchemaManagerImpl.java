@@ -41,9 +41,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.Index;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
@@ -55,6 +58,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotReader;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -83,6 +87,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock;
+
+    public volatile long token;
+
+    @Override
+    public long getToken() {
+        return token;
+    }
 
     /**
      * Constructor.
@@ -134,6 +145,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
 
                 calciteSchemaVv.complete(token, newCalciteSchema);
+
+                System.err.println("!!!!0 complete " + token);
+
+                this.token = token;
             } finally {
                 busyLock.leaveBusy();
             }
@@ -146,6 +161,27 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
         return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void waitSchemaVer(long ver) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            System.err.println("1!!! waitSchemaVer " + ver + " hash=" + hashCode());
+
+            try {
+                calciteSchemaVv.get(ver).join();
+            } catch (OutdatedTokenException e) {
+                // No op.
+            }
+
+            System.err.println("1!!! get waitSchemaVer " + ver + " hash=" + hashCode());
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
@@ -211,6 +247,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             TableImpl table,
             long causalityToken
     ) {
+        System.err.println("!!!! onTableCreated " + causalityToken + " " + table.tableId());
+
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -377,13 +415,15 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
 
-        return new IgniteTableImpl(
+        IgniteTableImpl tbl = new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors, distribution),
                 table.internalTable(),
                 replicaService,
                 clock,
                 schemaRegistry
         );
+
+        return tbl;
     }
 
     private DefaultValueStrategy convertDefaultValueProvider(DefaultValueProvider defaultValueProvider) {
@@ -400,6 +440,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @return Schema registration future.
      */
     public synchronized CompletableFuture<?> onIndexCreated(Index<?> index, long causalityToken) {
+        System.err.println("!!!! onIndexCreated ver=" + causalityToken + " hash=" + hashCode());
         if (!busyLock.enterBusy()) {
             return failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()));
         }
@@ -441,7 +482,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                                         resIdxs.put(index.id(), schemaIndex);
 
-                                        return CompletableFuture.completedFuture(resIdxs);
+                                        return completedFuture(resIdxs);
                                     })
                             ).thenCompose(ignore -> {
                                 table.addIndex(schemaIndex);

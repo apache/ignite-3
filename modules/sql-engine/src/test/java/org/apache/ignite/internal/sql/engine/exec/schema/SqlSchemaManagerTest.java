@@ -323,7 +323,7 @@ public class SqlSchemaManagerTest {
 
 
     @Test
-    public void testIndexEventsProcessed() throws Exception {
+    public void testIndexEventsProcessed() {
         InternalTable mock = mock(InternalTable.class);
         when(mock.tableId()).thenReturn(tableId);
         when(mock.name()).thenReturn("T");

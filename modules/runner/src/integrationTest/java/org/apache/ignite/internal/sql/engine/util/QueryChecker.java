@@ -98,7 +98,7 @@ public abstract class QueryChecker {
      */
     public static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
         return matchesOnce(".*IgniteIndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
-                + " tableId=\\[.*\\], index=\\[" + idxName + "\\].*\\)");
+                + " index=\\[" + idxName + "\\].*\\)");
     }
 
     /**

@@ -32,6 +32,11 @@ public interface SqlSchemaManager {
     SchemaPlus schema(@Nullable String schema);
 
     /**
+     * TODO !!!!
+     */
+    void waitSchemaVer(long ver);
+
+    /**
      * Returns a table by given id.
      *
      * @param id An id of required table.
@@ -40,4 +45,6 @@ public interface SqlSchemaManager {
      * @return The table.
      */
     IgniteTable tableById(UUID id, int ver);
+
+    long getToken();
 }

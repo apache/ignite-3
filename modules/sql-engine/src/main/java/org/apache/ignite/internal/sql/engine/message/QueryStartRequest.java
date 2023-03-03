@@ -54,4 +54,10 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      */
     @Marshallable
     TxAttributes txAttributes();
+
+    /**
+     * TODO
+     * @return
+     */
+    long lastVersion();
 }

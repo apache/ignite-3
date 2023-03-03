@@ -46,6 +46,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     public RowHashFunction<T> create(int[] fields, UUID tableId) {
         int fieldCnt = fields.length;
         NativeType[] fieldTypes = new NativeType[fieldCnt];
+        System.err.println("!!! try get table " + tableId);
         TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId, -1).descriptor();
         ImmutableIntList colocationColumns = tblDesc.distribution().getKeys();
 

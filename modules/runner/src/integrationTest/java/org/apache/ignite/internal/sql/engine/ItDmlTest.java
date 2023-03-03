@@ -64,13 +64,16 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     @Test
     public void pkConstraintConsistencyTest() {
         sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
+        System.err.println("!!!!0 create table");
         assertQuery("INSERT INTO my VALUES (?, ?)")
                 .withParams(0, 1)
                 .returns(1L)
                 .check();
+        System.err.println("!!!!0 insert");
         assertQuery("SELECT val FROM my WHERE id = 0")
                 .returns(1)
                 .check();
+        System.err.println("!!!!0 select");
 
         {
             SqlException ex = assertThrows(SqlException.class, () -> sql("INSERT INTO my VALUES (?, ?)", 0, 2));

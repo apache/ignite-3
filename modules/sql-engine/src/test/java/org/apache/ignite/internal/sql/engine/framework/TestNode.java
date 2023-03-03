@@ -132,7 +132,7 @@ public class TestNode implements LifecycleAware {
 
                         return new ScanNode<>(ctx, dataProvider);
                     }
-                }
+                }, () -> 0L
         ));
     }
 

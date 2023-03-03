@@ -233,7 +233,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             return future;
         } catch (Exception ex) {
-            return CompletableFuture.failedFuture(ex);
+            return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
         }
@@ -253,7 +253,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             boolean failIfNotExists
     ) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         LOG.debug("Going to drop index [schema={}, index={}]", schemaName, indexName);
@@ -547,7 +547,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 String newName,
                 ConfigurationNotificationEvent<TableIndexView> ctx
         ) {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
+            return failedFuture(new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-16196"));
         }
 
         /** {@inheritDoc} */
@@ -559,7 +559,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         /** {@inheritDoc} */
         @Override
         public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
-            return CompletableFuture.failedFuture(new IllegalStateException("Should not be called"));
+            return failedFuture(new IllegalStateException("Should not be called"));
         }
     }
 }

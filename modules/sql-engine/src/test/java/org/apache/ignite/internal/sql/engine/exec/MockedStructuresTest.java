@@ -260,7 +260,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                         )
                 ),
                 mock(ReplicaService.class),
-                clock
+                clock,
+                () -> 0L
         );
 
         queryProc.start();

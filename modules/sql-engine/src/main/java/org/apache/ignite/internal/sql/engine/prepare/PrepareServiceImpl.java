@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -142,7 +143,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
+    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx, Runnable schemaWait) {
         try {
             assert single(sqlNode);
 
@@ -162,12 +163,14 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 case UNION:
                 case EXCEPT:
                 case INTERSECT:
+                    schemaWait.run();
                     return prepareQuery(sqlNode, planningContext);
 
                 case INSERT:
                 case DELETE:
                 case UPDATE:
                 case MERGE:
+                    schemaWait.run();
                     return prepareDml(sqlNode, planningContext);
 
                 case EXPLAIN:

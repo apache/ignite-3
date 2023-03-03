@@ -411,7 +411,8 @@ public class ExecutionServiceImplTest {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 exchangeService,
-                ctx -> node.implementor(ctx, mailboxRegistry, exchangeService)
+                ctx -> node.implementor(ctx, mailboxRegistry, exchangeService),
+                () -> 0L
         );
 
         taskExecutor.start();

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
@@ -50,7 +51,6 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -157,7 +157,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private CalciteCatalogReader catalogReader;
 
-    private long plannerTimeout;
+    private final long plannerTimeout;
 
     /**
      * Private constructor, used by a builder.
@@ -292,9 +292,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-        private TxAttributes txAttributes;
-
         private long plannerTimeout;
+
+        private Supplier<Long> lastStorageVersion;
 
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
@@ -318,11 +318,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         public Builder parameters(Object... parameters) {
             this.parameters = Objects.requireNonNull(parameters);
-            return this;
-        }
-
-        public Builder txAttributes(TxAttributes txAttributes) {
-            this.txAttributes = txAttributes;
             return this;
         }
 

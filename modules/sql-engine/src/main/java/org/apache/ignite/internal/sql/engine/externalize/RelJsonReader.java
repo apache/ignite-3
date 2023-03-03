@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.prepare.RelOptTableImpl;
@@ -52,8 +53,10 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.SqlException;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * RelJsonReader.
@@ -61,14 +64,13 @@ import org.apache.ignite.sql.SqlException;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
-    private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {
-    };
+    private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
 
     private final ObjectMapper mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
-    private final SqlSchemaManager schemaManager;
-
     private final RelJson relJson;
+
+    private final RelOptSchema relOptSchema;
 
     private final Map<String, RelNode> relMap = new LinkedHashMap<>();
 
@@ -78,18 +80,27 @@ public class RelJsonReader {
      * FromJson.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static <T extends RelNode> T fromJson(SqlSchemaManager schemaManager, String json) {
-        RelJsonReader reader = new RelJsonReader(schemaManager);
+    public static <T extends RelNode> T fromJson(BaseQueryContext ctx, String json) {
+        RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
 
-        return (T) reader.read(json);
+        T res = null;
+
+        try {
+            res = (T) reader.read(json);
+        } catch (NullPointerException e) {
+            System.err.println("!!! NPE: " + json);
+
+            throw e;
+        }
+        return res;
     }
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RelJsonReader(SqlSchemaManager schemaManager) {
-        this.schemaManager = schemaManager;
+    public RelJsonReader(RelOptSchema relOptSchema) {
+        this.relOptSchema = relOptSchema;
 
         relJson = new RelJson();
     }
@@ -120,7 +131,15 @@ public class RelJsonReader {
         String id = (String) jsonRel.get("id");
         String type = (String) jsonRel.get("relOp");
         Function<RelInput, RelNode> factory = relJson.factory(type);
-        RelNode rel = factory.apply(new RelInputImpl(jsonRel));
+        RelNode rel = null;
+        try {
+            rel = factory.apply(new RelInputImpl(jsonRel));
+
+        } catch (NullPointerException e) {
+            System.err.println("!!! NPE: " + jsonRel);
+
+            throw e;
+        }
         relMap.put(id, rel);
         lastRel = rel;
     }
@@ -151,22 +170,23 @@ public class RelJsonReader {
             // it's the only way to find out that someone just recreate the table
             // (probably with different schema) with the same name while the plan
             // was serialized
-            throw new AssertionError("Unexpected method was called");
+            //throw new AssertionError("Unexpected method was called");
+            List<String> list = getStringList(table);
+            @Nullable RelOptTable t0 = relOptSchema.getTableForMember(list);
+            return t0;
         }
 
         /** {@inheritDoc} */
-        @Override
-        public RelOptTable getTableById() {
-            String tableId = getString("tableId");
-            int ver = ((Number) get("tableVer")).intValue();
-
-            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId), ver);
+/*        @Override
+        public RelOptTable getTableById(String tag) {
+            String tableId = getString(tag);
+            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId));
 
             List<String> tableName = getStringList("table");
 
             return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
-                    table, c -> null);
-        }
+                    table, null);
+        }*/
 
         /** {@inheritDoc} */
         @Override

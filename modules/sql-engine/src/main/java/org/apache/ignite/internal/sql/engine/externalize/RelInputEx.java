@@ -38,13 +38,6 @@ public interface RelInputEx extends RelInput {
     RelCollation getCollation(String tag);
 
     /**
-     * Returns table by its id.
-     *
-     * @return A table with given id.
-     */
-    RelOptTable getTableById();
-
-    /**
      * Returns search bounds.
      *
      * @param tag Tag.
