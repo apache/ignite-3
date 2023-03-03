@@ -27,17 +27,15 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.app.IgniteRunner;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests the start ignite nodes.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class IgniteRunnerTest {
+public class IgniteRunnerTest extends IgniteIntegrationTest {
     private static final String NODE_NAME = "node";
 
     @WorkDirectory

@@ -73,7 +73,9 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
@@ -102,6 +104,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -135,7 +138,18 @@ public class IncomingSnapshotCopierTest {
 
     private final UUID snapshotId = UUID.randomUUID();
 
+    private final UUID tableId = UUID.randomUUID();
+
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
+
+    private MvGc mvGc;
+
+    @BeforeEach
+    void setUp() {
+        mvGc = mock(MvGc.class);
+
+        when(mvGc.removeStorage(any(TablePartitionId.class))).then(invocation -> completedFuture(null));
+    }
 
     @AfterEach
     void tearDown() {
@@ -181,6 +195,11 @@ public class IncomingSnapshotCopierTest {
         assertThat(runAsync(snapshotCopier::join), willSucceedIn(1, TimeUnit.SECONDS));
 
         assertEquals(Status.OK().getCode(), snapshotCopier.getCode());
+
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
+
+        verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
 
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
         TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
@@ -272,10 +291,11 @@ public class IncomingSnapshotCopierTest {
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
                 spy(new PartitionAccessImpl(
-                        new PartitionKey(UUID.randomUUID(), TEST_PARTITION),
+                        new PartitionKey(tableId, TEST_PARTITION),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
-                        List::of
+                        mock(StorageUpdateHandler.class),
+                        mvGc
                 )),
                 mock(SnapshotMeta.class),
                 executorService
@@ -568,6 +588,11 @@ public class IncomingSnapshotCopierTest {
         assertThat(runAsync(snapshotCopier::join), willFailFast(IllegalStateException.class));
 
         verify(partitionSnapshotStorage.partition()).abortRebalance();
+
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, TEST_PARTITION);
+
+        verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
+        verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(StorageUpdateHandler.class));
     }
 
     private TableConfiguration getTableConfig() {

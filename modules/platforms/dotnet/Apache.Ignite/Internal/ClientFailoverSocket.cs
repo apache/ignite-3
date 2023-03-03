@@ -307,7 +307,11 @@ namespace Apache.Ignite.Internal
                         tasks.Add(ConnectAsync(endpoint).AsTask());
                     }
 
+                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
+
                     await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                    _logger?.Debug("All secondary connections established.");
                 }
                 catch (Exception e)
                 {

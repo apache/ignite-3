@@ -19,11 +19,13 @@ package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An extension of a transaction for internal usage.
@@ -84,4 +86,11 @@ public interface InternalTransaction extends Transaction {
      */
     @Deprecated
     void enlistResultFuture(CompletableFuture<?> resultFuture);
+
+    /**
+     * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
+     *
+     * @return Read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
+     */
+    @Nullable HybridTimestamp readTimestamp();
 }

@@ -110,9 +110,7 @@ public class IgnitionManager {
      * @param nodeName Node name to stop.
      */
     public static void stop(String nodeName) {
-        Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
-
-        ignition.stop(nodeName);
+        stop(nodeName, Thread.currentThread().getContextClassLoader());
     }
 
     /**

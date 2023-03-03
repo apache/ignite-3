@@ -42,6 +42,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -50,9 +51,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigura
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -68,15 +67,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Abstract basic integration test.
+ * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractBasicIntegrationTest.class);
+public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
 
     /** Timeout should be big enough to prevent premature session expiration. */
     private static final long SESSION_IDLE_TIMEOUT = TimeUnit.SECONDS.toMillis(60);

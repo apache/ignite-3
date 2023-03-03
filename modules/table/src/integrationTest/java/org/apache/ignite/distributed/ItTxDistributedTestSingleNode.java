@@ -87,6 +87,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -661,11 +662,11 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     public void testIgniteTransactionsAndReadTimestamp() {
         Transaction readWriteTx = igniteTransactions.begin();
         assertFalse(readWriteTx.isReadOnly());
-        assertNull(readWriteTx.readTimestamp());
+        assertNull(((InternalTransaction) readWriteTx).readTimestamp());
 
         Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
         assertTrue(readOnlyTx.isReadOnly());
-        assertNotNull(readOnlyTx.readTimestamp());
+        assertNotNull(((InternalTransaction) readOnlyTx).readTimestamp());
 
         readWriteTx.commit();
 

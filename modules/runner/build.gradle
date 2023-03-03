@@ -94,6 +94,7 @@ dependencies {
     testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    integrationTestAnnotationProcessor libs.auto.service
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
@@ -139,6 +140,7 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     integrationTestImplementation libs.typesafe.config
+    integrationTestImplementation libs.auto.service.annotations
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {

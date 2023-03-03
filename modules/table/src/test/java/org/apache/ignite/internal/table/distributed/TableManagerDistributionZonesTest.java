@@ -481,5 +481,11 @@ public class TableManagerDistributionZonesTest extends IgniteAbstractTest {
         when(tableCfg.assignments()).thenReturn(mock(ConfigurationValue.class));
 
         when(tablesConfiguration.tables()).thenReturn(tables);
+
+        ConfigurationValue<Integer> gcThreads = mock(ConfigurationValue.class);
+
+        when(gcThreads.value()).thenReturn(1);
+
+        when(tablesConfiguration.gcThreads()).thenReturn(gcThreads);
     }
 }

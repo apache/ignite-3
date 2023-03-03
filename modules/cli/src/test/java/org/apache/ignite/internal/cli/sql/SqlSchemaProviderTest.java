@@ -44,16 +44,26 @@ class SqlSchemaProviderTest {
     }
 
     @Test
-    public void testProviderWithoutTimeout() {
+    public void testProviderWithoutTimeout() throws InterruptedException {
         SqlSchemaProvider provider = new SqlSchemaProvider(supplier, 0);
-        Assertions.assertNotEquals(provider.getSchema(), provider.getSchema());
+
+        SqlSchema firstSchema = provider.getSchema();
+        provider.getSchema(); // trigger update
+        Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+
+        Assertions.assertNotEquals(firstSchema, provider.getSchema());
     }
 
     @Test
     public void testProviderWith1secTimeout() throws InterruptedException {
         SqlSchemaProvider provider = new SqlSchemaProvider(supplier, 1);
+
+        provider.initStateAsync();
+        Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+
         SqlSchema schema = provider.getSchema();
         Thread.sleep(TimeUnit.SECONDS.toMillis(2));
+
         Assertions.assertNotEquals(schema, provider.getSchema());
     }
 }

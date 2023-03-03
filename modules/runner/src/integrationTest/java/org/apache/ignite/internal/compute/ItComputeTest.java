@@ -43,7 +43,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -55,7 +55,7 @@ import org.junit.jupiter.api.Test;
  * Integration tests for Compute functionality.
  */
 @SuppressWarnings("resource")
-class ItComputeTest extends AbstractClusterIntegrationTest {
+class ItComputeTest extends ClusterPerTestIntegrationTest {
     @Test
     void executesJobLocally() throws Exception {
         IgniteImpl entryNode = node(0);

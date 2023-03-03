@@ -24,6 +24,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,6 +40,7 @@ import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of an entry point for handling grid lifecycle.
@@ -135,6 +139,24 @@ public class IgnitionImpl implements Ignition {
 
             return null;
         });
+    }
+
+    /**
+     * Stops all Ignite instances started in this JVM.
+     */
+    @TestOnly
+    public void stopAll() {
+        List<String> nodeNames = new ArrayList<>(nodes.keySet());
+
+        if (!nodeNames.isEmpty()) {
+            LOG.info("Going to stop Ignite instances: " + nodeNames);
+
+            for (String nodeName : nodeNames) {
+                stop(nodeName);
+            }
+
+            LOG.info("Stopped the following Ignite instances: " + nodeNames);
+        }
     }
 
     @Override

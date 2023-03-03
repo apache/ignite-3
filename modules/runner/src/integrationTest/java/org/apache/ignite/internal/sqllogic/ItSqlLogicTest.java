@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
@@ -48,7 +49,6 @@ import org.apache.ignite.internal.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -138,11 +138,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * @see <a href="https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki">Extended format documentation.</a>
  */
 @Tag(value = "sqllogic")
-@ExtendWith({WorkDirectoryExtension.class, SystemPropertiesExtension.class})
+@ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
-public class ItSqlLogicTest {
+public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
     private static final String NODE_NAME_PREFIX = "sqllogic";

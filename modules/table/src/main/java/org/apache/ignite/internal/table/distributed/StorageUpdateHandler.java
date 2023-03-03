@@ -396,7 +396,10 @@ public class StorageUpdateHandler {
         return true;
     }
 
-    private void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
+    /**
+     * Adds a binary row to the indexes, if the tombstone then skips such operation.
+     */
+    public void addToIndexes(@Nullable BinaryRow binaryRow, RowId rowId) {
         if (binaryRow == null) { // skip removes
             return;
         }
@@ -404,5 +407,13 @@ public class StorageUpdateHandler {
         for (TableSchemaAwareIndexStorage index : indexes.get().values()) {
             index.put(binaryRow, rowId);
         }
+    }
+
+    /**
+     * Waits for indexes to be created.
+     */
+    // TODO: IGNITE-18619 Fix it, we should have already waited for the indexes to be created
+    public void waitIndexes() {
+        indexes.get();
     }
 }
