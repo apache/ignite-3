@@ -55,7 +55,7 @@ public class AuthenticationProvidersValidatorImpl implements
                 }
             }
         } catch (UnknownAuthenticationTypeException ex) {
-            ctx.addIssue(new ValidationIssue(key, "Unknown auth type: " + view.type()));
+            ctx.addIssue(new ValidationIssue(key, "Unknown authentication type: " + view.type()));
         }
     }
 }
