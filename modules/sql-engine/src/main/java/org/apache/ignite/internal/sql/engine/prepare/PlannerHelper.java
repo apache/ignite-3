@@ -43,10 +43,9 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
- * PlannerHelper.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Utility class that encapsulates the query optimization pipeline.
  */
-public class PlannerHelper {
+public final class PlannerHelper {
     /**
      * Maximum number of tables in join supported for join order optimization.
      *
@@ -66,11 +65,15 @@ public class PlannerHelper {
     }
 
     /**
-     * Optimize.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Optimizes a given query.
      *
-     * @param sqlNode Sql node.
-     * @param planner Planner.
+     * <p>That is, it passes a given AST through the optimization pipeline,
+     * applying different rule sets step by step, and returns the optimized
+     * physical tree of Ignite relations.
+     *
+     * @param sqlNode Validated AST of the query to optimize.
+     * @param planner A planner used to apply a rule set to the query tree.
+     * @return An optimized physical tree of Ignite relations.
      */
     public static IgniteRel optimize(SqlNode sqlNode, IgnitePlanner planner) {
         try {
@@ -147,7 +150,7 @@ public class PlannerHelper {
      *         of previously found subquery and current one will be saved</li>
      * </ol>
      */
-    public static class JoinSizeFinder extends RelHomogeneousShuttle {
+    private static class JoinSizeFinder extends RelHomogeneousShuttle {
         private int countOfSources = 0;
         private int maxCountOfSourcesInSubQuery = 0;
 

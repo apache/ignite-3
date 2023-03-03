@@ -483,8 +483,10 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * SetDisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Sets names of the rules which should be excluded from query optimization pipeline.
+     *
+     * @param disabledRuleNames Names of the rules to exclude. The name can be derived from rule by
+     *     {@link Commons#shortRuleName(RelOptRule)}.
      */
     public void setDisabledRules(Set<String> disabledRuleNames) {
         ctx.rulesFilter(rulesSet -> {

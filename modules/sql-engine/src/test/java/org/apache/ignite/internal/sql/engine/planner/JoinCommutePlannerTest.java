@@ -214,10 +214,12 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
     }
 
     /**
-     * The test verifies that queries with big join can be planned for a reasonable amount of time, thus all assertions
-     * ensure that planer return anything but null. The "reasonable amount of time" here is a timeout of the test.
-     * That is, with enabled {@link CoreRules#JOIN_COMMUTE}, optimization of join with a few dozens of tables
-     * will take eternity. Thus, if the test managed to finish before it was killed, it can be considered a success.
+     * The test verifies that queries with a considerable number of joins can be planned for a
+     * reasonable amount of time, thus all assertions ensure that the planer returns anything but
+     * null. The "reasonable amount of time" here is a timeout of the test. With enabled
+     * {@link CoreRules#JOIN_COMMUTE}, optimization of joining with a few dozens of tables will
+     * take an eternity. Thus, if the test finished before it was killed, it can be considered
+     * a success.
      */
     @Test
     public void commuteIsDisabledForBigJoinsOfTables() throws Exception {

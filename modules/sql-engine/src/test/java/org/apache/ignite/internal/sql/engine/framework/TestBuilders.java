@@ -312,15 +312,15 @@ public class TestBuilders {
         @Override
         public TestTable build() {
             if (distribution == null) {
-                throw new IllegalArgumentException("distribution is not specified");
+                throw new IllegalArgumentException("Distribution is not specified");
             }
 
             if (name == null) {
-                throw new IllegalArgumentException("name is not specified");
+                throw new IllegalArgumentException("Name is not specified");
             }
 
             if (columns.isEmpty()) {
-                throw new IllegalArgumentException("table must contain at least one column");
+                throw new IllegalArgumentException("Table must contain at least one column");
             }
 
             return new TestTable(
