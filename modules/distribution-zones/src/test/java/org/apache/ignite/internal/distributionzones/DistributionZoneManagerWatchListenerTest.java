@@ -22,6 +22,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -168,12 +169,12 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
             WatchListener watchListener = invocation.getArgument(1);
 
-            if (Arrays.equals(key.bytes(), zonesLogicalTopologyVersionKey().bytes())) {
+            if (Arrays.equals(key.bytes(), zoneLogicalTopologyPrefix().bytes())) {
                 topologyWatchListener = watchListener;
             }
 
             return null;
-        }).when(metaStorageManager).registerExactWatch(any(), any());
+        }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
         AtomicLong raftIndex = new AtomicLong();
 
@@ -340,7 +341,7 @@ public class DistributionZoneManagerWatchListenerTest extends IgniteAbstractTest
 
     private void watchListenerOnUpdate(Set<String> nodes, long rev) {
         byte[] newLogicalTopology = toBytes(nodes);
-        byte[] newTopVer = toBytes(1L);
+        byte[] newTopVer = longToBytes(1L);
 
         Entry newEntry0 = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
         Entry newEntry1 = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
