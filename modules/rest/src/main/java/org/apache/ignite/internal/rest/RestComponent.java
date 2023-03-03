@@ -318,6 +318,9 @@ public class RestComponent implements IgniteComponent {
     public synchronized void stop() throws Exception {
         // TODO: IGNITE-16636 Use busy-lock approach to guard stopping RestComponent
         if (context != null) {
+            for (RestFactory restFactory : restFactories) {
+                context.destroyBean(restFactory);
+            }
             context.stop();
             context = null;
         }

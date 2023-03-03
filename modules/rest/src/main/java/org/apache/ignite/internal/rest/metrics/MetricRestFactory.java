@@ -28,7 +28,7 @@ import org.apache.ignite.internal.rest.RestFactory;
  */
 @Factory
 public class MetricRestFactory implements RestFactory {
-    private final MetricManager metricManager;
+    private MetricManager metricManager;
 
     public MetricRestFactory(MetricManager metricManager) {
         this.metricManager = metricManager;
@@ -38,5 +38,10 @@ public class MetricRestFactory implements RestFactory {
     @Singleton
     public MetricManager metricManager() {
         return metricManager;
+    }
+
+    @Override
+    public void cleanResources() {
+        metricManager = null;
     }
 }
