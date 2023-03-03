@@ -52,11 +52,13 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX =
             DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownChangeTrigger.";
 
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
+
     /** Key prefix for zones' logical topology nodes. */
-    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = "distributionZones.logicalTopology.nodes";
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
 
     /** Key prefix for zones' logical topology version. */
-    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = "distributionZones.logicalTopology.version";
+    private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
 
     /** Key prefix, needed for processing the event about zone's update was triggered only once. */
     private static final String DISTRIBUTION_ZONES_CHANGE_TRIGGER_KEY_PREFIX = "distributionZones.change.trigger.";
@@ -88,6 +90,10 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zoneDataNodesPrefix() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
+    }
+
+    public static ByteArray zoneLogicalTopologyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
     /**

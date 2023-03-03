@@ -21,13 +21,16 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -95,7 +98,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
     private WatchListener dataNodesWatchListener;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         VaultManager vaultManager = mock(VaultManager.class);
 
         when(vaultManager.get(any())).thenReturn(completedFuture(null));
@@ -109,14 +112,14 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
             WatchListener watchListener = invocation.getArgument(1);
 
-            if (Arrays.equals(key.bytes(), zonesLogicalTopologyVersionKey().bytes())) {
+            if (Arrays.equals(key.bytes(), zoneLogicalTopologyPrefix().bytes())) {
                 topologyWatchListener = watchListener;
             } else if (Arrays.equals(key.bytes(), zoneDataNodesPrefix().bytes())) {
                 dataNodesWatchListener = watchListener;
             }
 
             return null;
-        }).when(metaStorageManager).registerExactWatch(any(), any());
+        }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
         when(metaStorageManager.invoke(any())).thenReturn(completedFuture(StatementResultImpl.builder().result(new byte[] {0}).build()));
 
@@ -155,6 +158,10 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
         mockCmgLocalNodes();
 
         distributionZoneManager.start();
+
+        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME, new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
+                        .dataNodesAutoAdjustScaleUp(0).dataNodesAutoAdjustScaleDown(0).build())
+                .get(3, TimeUnit.SECONDS);
     }
 
     @AfterEach
@@ -641,7 +648,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
     private void topologyWatchListenerOnUpdate(Set<String> nodes, long topVer, long rev) {
         byte[] newLogicalTopology = toBytes(nodes);
-        byte[] newTopVer = toBytes(topVer);
+        byte[] newTopVer = longToBytes(topVer);
 
         Entry newEntry0 = new EntryImpl(zonesLogicalTopologyKey().bytes(), newLogicalTopology, rev, 1);
         Entry newEntry1 = new EntryImpl(zonesLogicalTopologyVersionKey().bytes(), newTopVer, rev, 1);
@@ -656,7 +663,7 @@ public class DistributionZoneAwaitDataNodesTest extends IgniteAbstractTest {
 
     private void dataNodesWatchListenerOnUpdate(int zoneId, Set<String> nodes, boolean isScaleUp, long scaleRevision, long rev) {
         byte[] newDataNodes = toBytes(nodes);
-        byte[] newScaleRevision = toBytes(scaleRevision);
+        byte[] newScaleRevision = longToBytes(scaleRevision);
 
         Entry newEntry0 = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newDataNodes, rev, 1);
         Entry newEntry1 = new EntryImpl(

@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesPrefix;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -762,8 +763,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             logicalTopologyService.addEventListener(topologyEventListener);
 
-            metaStorageManager.registerExactWatch(zonesLogicalTopologyVersionKey(), topologyWatchListener);
-            metaStorageManager.registerExactWatch(zoneDataNodesPrefix(), dataNodesWatchListener);
+            metaStorageManager.registerPrefixWatch(zoneLogicalTopologyPrefix(), topologyWatchListener);
+            metaStorageManager.registerPrefixWatch(zoneDataNodesPrefix(), dataNodesWatchListener);
 
             initDataNodesFromVaultManager();
 
@@ -1181,7 +1182,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         Entry e = event.newEntry();
 
                         if (Arrays.equals(e.key(), zonesLogicalTopologyVersionKey().bytes())) {
-                            topVer = fromBytes(e.value());
+                            topVer = bytesToLong(e.value());
 
                             revision = e.revision();
                         } else if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
@@ -1191,7 +1192,6 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
                     }
 
-                    assert topVer > 0;
                     assert newLogicalTopology != null;
                     assert revision > 0;
 
@@ -1277,9 +1277,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
                             newDataNodes = fromBytes(e.value());
                         } else if (startsWith(e.key(), zoneScaleUpChangeTriggerKey().bytes())) {
-                            scaleUpRevision = fromBytes(e.value());
+                            scaleUpRevision = bytesToLong(e.value());
                         } else if (startsWith(e.key(), zoneScaleDownChangeTriggerKey().bytes())) {
-                            scaleDownRevision = fromBytes(e.value());
+                            scaleDownRevision = bytesToLong(e.value());
                         }
                     }
 
