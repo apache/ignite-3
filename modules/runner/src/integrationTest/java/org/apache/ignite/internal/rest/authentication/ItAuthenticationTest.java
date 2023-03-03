@@ -81,7 +81,7 @@ public class ItAuthenticationTest {
                 })
                 .collect(toList());
 
-        nodes.forEach(RestNode::start);
+        nodes.stream().parallel().forEach(RestNode::start);
     }
 
     @Test

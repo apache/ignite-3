@@ -123,8 +123,8 @@ public class MockNode {
         components.add(clusterService);
         components.add(raftManager);
         components.add(clusterStateStorage);
-        components.add(clusterManager);
         components.add(distributedConfigurationUpdater);
+        components.add(clusterManager);
     }
 
     /**

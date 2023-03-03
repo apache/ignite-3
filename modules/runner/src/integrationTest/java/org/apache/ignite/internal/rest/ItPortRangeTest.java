@@ -104,7 +104,7 @@ public class ItPortRangeTest {
                 })
                 .collect(Collectors.toList());
         try {
-            nodes.forEach(RestNode::start);
+            nodes.stream().parallel().forEach(RestNode::start);
             // When GET /management/v1/configuration/node
             String httpAddress = sslEnabled ? nodes.get(0).httpsAddress() : nodes.get(0).httpAddress();
             URI uri = URI.create(httpAddress + "/management/v1/configuration/node");
@@ -114,7 +114,7 @@ public class ItPortRangeTest {
             HttpResponse<String> response = sslClient.send(request, BodyHandlers.ofString());
             assertEquals(200, response.statusCode());
         } finally {
-            nodes.forEach(RestNode::stop);
+            nodes.stream().parallel().forEach(RestNode::stop);
         }
     }
 

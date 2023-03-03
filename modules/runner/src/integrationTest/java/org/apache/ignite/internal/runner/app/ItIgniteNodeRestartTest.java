@@ -380,6 +380,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 replicaMgr,
                 txManager,
                 metaStorageMgr,
+                distributedConfigurationUpdater,
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,

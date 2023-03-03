@@ -24,7 +24,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -123,10 +122,6 @@ class AuthenticationConfigurationValidatorTest {
         CompletableFuture<AuthenticationConfiguration> future = configuration.change(consumer)
                 .thenApply(unused -> configuration);
         assertThat(future, willCompleteSuccessfully());
-        try {
-            return future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return future.join();
     }
 }

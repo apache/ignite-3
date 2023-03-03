@@ -620,6 +620,7 @@ public class IgniteImpl implements Ignite {
                     restComponent,
                     raftMgr,
                     clusterStateStorage,
+                    distributedConfigurationUpdater,
                     cmgMgr
             );
 
@@ -654,8 +655,7 @@ public class IgniteImpl implements Ignite {
                                     indexManager,
                                     qryEngine,
                                     clientHandlerModule,
-                                    (IgniteComponent) deploymentManager,
-                                    distributedConfigurationUpdater
+                                    (IgniteComponent) deploymentManager
                             );
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);

@@ -18,6 +18,7 @@
 package org.apache.ignite;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.security.AuthenticationConfig;
 
@@ -63,8 +64,8 @@ public class InitParameters {
         Objects.requireNonNull(authenticationConfig);
 
         this.destinationNodeName = destinationNodeName;
-        this.metaStorageNodeNames = metaStorageNodeNames;
-        this.cmgNodeNames = cmgNodeNames;
+        this.metaStorageNodeNames = List.copyOf(metaStorageNodeNames);
+        this.cmgNodeNames = List.copyOf(cmgNodeNames);
         this.clusterName = clusterName;
         this.authenticationConfig = authenticationConfig;
     }

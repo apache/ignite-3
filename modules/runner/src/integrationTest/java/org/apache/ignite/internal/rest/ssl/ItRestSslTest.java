@@ -147,7 +147,7 @@ public class ItRestSslTest {
                 .dualProtocol(false)
                 .build();
 
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode)
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode).parallel()
                 .forEach(RestNode::start);
     }
 
@@ -234,7 +234,9 @@ public class ItRestSslTest {
 
     @AfterAll
     static void afterAll() {
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode).forEach(RestNode::stop);
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode)
+                .parallel()
+                .forEach(RestNode::stop);
     }
 
     private static SSLContext sslContext() throws CertificateException, KeyStoreException, IOException,

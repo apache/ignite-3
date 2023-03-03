@@ -58,7 +58,7 @@ public class ItClusterManagementControllerTest extends RestTestBase {
     private HttpClient client;
 
     @InjectConfiguration
-    AuthenticationConfiguration authenticationConfiguration;
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @Test
     void testControllerLoaded() {

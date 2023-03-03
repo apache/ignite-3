@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willFailFast;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static reactor.adapter.JdkFlowAdapter.publisherToFlowPublisher;
 
 import io.micronaut.http.HttpMethod;
@@ -29,7 +31,6 @@ import io.micronaut.security.authentication.AuthenticationException;
 import io.micronaut.security.authentication.AuthenticationResponse;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.AuthenticationChange;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
@@ -71,7 +72,12 @@ class DelegatingAuthenticationProviderTest {
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(authenticate(provider, validCredentials), willCompleteSuccessfully());
+
+        CompletableFuture<AuthenticationResponse> authenticate = authenticate(provider, validCredentials);
+        assertAll(
+                () -> assertThat(authenticate, willCompleteSuccessfully()),
+                () -> assertThat(authenticate.join().isAuthenticated(), is(true))
+        );
 
         // unsuccessful authentication with invalid credentials
         UsernamePasswordCredentials invalidCredentials = new UsernamePasswordCredentials("admin", "wrong-password");
@@ -92,7 +98,12 @@ class DelegatingAuthenticationProviderTest {
         // then
         // authentication is still disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        assertThat(authenticate(provider, emptyCredentials), willCompleteSuccessfully());
+
+        CompletableFuture<AuthenticationResponse> authenticate = authenticate(provider, emptyCredentials);
+        assertAll(
+                () -> assertThat(authenticate, willCompleteSuccessfully()),
+                () -> assertThat(authenticate.join().isAuthenticated(), is(true))
+        );
     }
 
     @Test
@@ -117,7 +128,12 @@ class DelegatingAuthenticationProviderTest {
         // just to be sure that authentication is enabled
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(authenticate(provider, validCredentials), willCompleteSuccessfully());
+
+        CompletableFuture<AuthenticationResponse> validCredentialResponse = authenticate(provider, validCredentials);
+        assertAll(
+                () -> assertThat(validCredentialResponse, willCompleteSuccessfully()),
+                () -> assertThat(validCredentialResponse.join().isAuthenticated(), is(true))
+        );
 
         // disable authentication
         AuthenticationView disabledAuthView = mutateConfiguration(
@@ -132,7 +148,13 @@ class DelegatingAuthenticationProviderTest {
         // then
         // authentication is disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        assertThat(authenticate(provider, emptyCredentials), willCompleteSuccessfully());
+
+        CompletableFuture<AuthenticationResponse> emptyCredentialsResponse = authenticate(provider, emptyCredentials);
+        assertAll(
+                () -> assertThat(emptyCredentialsResponse, willCompleteSuccessfully()),
+                () -> assertThat(emptyCredentialsResponse.join().isAuthenticated(), is(true))
+        );
+
     }
 
     @Test
@@ -155,7 +177,12 @@ class DelegatingAuthenticationProviderTest {
         // then
         // successful authentication with valid credentials
         UsernamePasswordCredentials validCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(authenticate(provider, validCredentials), willCompleteSuccessfully());
+
+        CompletableFuture<AuthenticationResponse> validCredentialsResponse = authenticate(provider, validCredentials);
+        assertAll(
+                () -> assertThat(validCredentialsResponse, willCompleteSuccessfully()),
+                () -> assertThat(validCredentialsResponse.join().isAuthenticated(), is(true))
+        );
 
         // disable authentication
         AuthenticationView disabledAuthView = mutateConfiguration(
@@ -169,7 +196,12 @@ class DelegatingAuthenticationProviderTest {
         // then
         // authentication is disabled
         UsernamePasswordCredentials emptyCredentials = new UsernamePasswordCredentials();
-        assertThat(authenticate(provider, emptyCredentials), willCompleteSuccessfully());
+
+        CompletableFuture<AuthenticationResponse> emptyCredentialsResponse = authenticate(provider, emptyCredentials);
+        assertAll(
+                () -> assertThat(emptyCredentialsResponse, willCompleteSuccessfully()),
+                () -> assertThat(emptyCredentialsResponse.join().isAuthenticated(), is(true))
+        );
     }
 
     @Test
@@ -191,8 +223,13 @@ class DelegatingAuthenticationProviderTest {
 
         // then
         // successful authentication with valid credentials
-        UsernamePasswordCredentials adminAdminCredentials = new UsernamePasswordCredentials("admin", "password");
-        assertThat(authenticate(provider, adminAdminCredentials), willCompleteSuccessfully());
+        UsernamePasswordCredentials adminPasswordCredentials = new UsernamePasswordCredentials("admin", "password");
+
+        CompletableFuture<AuthenticationResponse> adminPasswordResponse = authenticate(provider, adminPasswordCredentials);
+        assertAll(
+                () -> assertThat(adminPasswordResponse, willCompleteSuccessfully()),
+                () -> assertThat(adminPasswordResponse.join().isAuthenticated(), is(true))
+        );
 
         // change authentication settings - change password
         AuthenticationView adminNewPasswordAuthView = mutateConfiguration(
@@ -208,12 +245,17 @@ class DelegatingAuthenticationProviderTest {
 
         provider.onUpdate(new StubAuthenticationViewEvent(adminPasswordAuthView, adminNewPasswordAuthView)).join();
 
-        assertThat(authenticate(provider, adminAdminCredentials), willFailFast(AuthenticationException.class));
+        assertThat(authenticate(provider, adminPasswordCredentials), willFailFast(AuthenticationException.class));
 
         // then
         // successful authentication with the new password
-        UsernamePasswordCredentials adminPasswordCredentials = new UsernamePasswordCredentials("admin", "new-password");
-        assertThat(authenticate(provider, adminPasswordCredentials), willCompleteSuccessfully());
+        UsernamePasswordCredentials adminNewPasswordCredentials = new UsernamePasswordCredentials("admin", "new-password");
+
+        CompletableFuture<AuthenticationResponse> adminNewPasswordResponse = authenticate(provider, adminNewPasswordCredentials);
+        assertAll(
+                () -> assertThat(adminNewPasswordResponse, willCompleteSuccessfully()),
+                () -> assertThat(adminNewPasswordResponse.join().isAuthenticated(), is(true))
+        );
     }
 
     private CompletableFuture<AuthenticationResponse> authenticate(
@@ -228,10 +270,6 @@ class DelegatingAuthenticationProviderTest {
         CompletableFuture<AuthenticationConfiguration> future = configuration.change(consumer)
                 .thenApply(unused -> configuration);
         assertThat(future, willCompleteSuccessfully());
-        try {
-            return future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return future.join();
     }
 }
