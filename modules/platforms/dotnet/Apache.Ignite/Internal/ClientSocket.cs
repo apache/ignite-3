@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal
     using System.IO;
     using System.Linq;
     using System.Net;
+    using System.Net.Security;
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
@@ -280,7 +281,7 @@ namespace Apache.Ignite.Internal
             await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
             using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
-            return ReadHandshakeResponse(response.GetReader(), endPoint);
+            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream));
         }
 
         private static async ValueTask CheckMagicBytesAsync(Stream stream)
@@ -307,7 +308,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint)
+        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint, SslInfo? sslInfo)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -335,7 +336,8 @@ namespace Apache.Ignite.Internal
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
-                clusterId);
+                clusterId,
+                sslInfo);
         }
 
         private static IgniteException? ReadError(ref MsgPackReader reader)
@@ -491,6 +493,16 @@ namespace Apache.Ignite.Internal
 
             return recommendedHeartbeatInterval;
         }
+
+        private static SslInfo? GetSslInfo(Stream stream) =>
+            stream is SslStream sslStream
+                ? new SslInfo(
+                    sslStream.TargetHostName,
+                    sslStream.NegotiatedCipherSuite.ToString(),
+                    sslStream.IsMutuallyAuthenticated,
+                    sslStream.LocalCertificate,
+                    sslStream.RemoteCertificate)
+                : null;
 
         private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
         {

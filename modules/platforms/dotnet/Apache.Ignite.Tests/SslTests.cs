@@ -30,18 +30,7 @@ using NUnit.Framework;
 public class SslTests : IgniteTestsBase
 {
     [Test]
-    public void TestSslOnClientWithoutSslOnServerThrows()
-    {
-        var cfg = GetConfig();
-
-        cfg.SslStreamFactory = new SslStreamFactory();
-
-        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
-        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
-    }
-
-    [Test]
-    public async Task TestSslOnClientAndServer()
+    public async Task TestSslWithoutClientAuthentication()
     {
         var cfg = new IgniteClientConfiguration
         {
@@ -53,9 +42,32 @@ public class SslTests : IgniteTestsBase
         using var client = await IgniteClient.StartAsync(cfg);
 
         var connection = client.GetConnections().Single();
+        var sslInfo = connection.SslInfo;
 
-        Assert.IsNotNull(connection.SslInfo);
-        Assert.IsFalse(connection.SslInfo!.IsMutuallyAuthenticated);
-        Assert.AreEqual(TlsCipherSuite.TLS_AES_128_GCM_SHA256.ToString(), connection.SslInfo.NegotiatedCipherSuiteName);
+        Assert.IsNotNull(sslInfo);
+        Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
+        Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
+        Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
+        Assert.AreEqual(
+            "E=dev@ignite.apache.org, CN=ignite.apache.org, OU=dev, O=apache ignite, L=London, S=US, C=US",
+            sslInfo.RemoteCertificate!.Issuer);
+    }
+
+    [Test]
+    public async Task TestSslWithClientAuthentication()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestSslOnClientWithoutSslOnServerThrows()
+    {
+        var cfg = GetConfig();
+
+        cfg.SslStreamFactory = new SslStreamFactory();
+
+        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
     }
 }

@@ -31,6 +31,7 @@ namespace Apache.Ignite.Internal
     using Buffers;
     using Ignite.Network;
     using Log;
+    using Network;
     using Proto;
     using Transactions;
 
@@ -235,8 +236,7 @@ namespace Apache.Ignite.Internal
             {
                 if (endpoint.Socket is { IsDisposed: false, ConnectionContext: { } ctx })
                 {
-                    // TODO: Populate
-                    res.Add(null!);
+                    res.Add(new ConnectionInfo(ctx.ClusterNode, ctx.SslInfo));
                 }
             }
 

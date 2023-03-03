@@ -15,23 +15,8 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal
-{
-    using System;
-    using Ignite.Network;
+namespace Apache.Ignite.Internal.Network;
 
-    /// <summary>
-    /// Socket connection context.
-    /// </summary>
-    /// <param name="Version">Protocol version.</param>
-    /// <param name="IdleTimeout">Server idle timeout.</param>
-    /// <param name="ClusterNode">Cluster node.</param>
-    /// <param name="ClusterId">Cluster id.</param>
-    /// <param name="SslInfo">SSL info.</param>
-    internal record ConnectionContext(
-        ClientProtocolVersion Version,
-        TimeSpan IdleTimeout,
-        IClusterNode ClusterNode,
-        Guid ClusterId,
-        ISslInfo? SslInfo);
-}
+using Ignite.Network;
+
+internal sealed record ConnectionInfo(IClusterNode Node, ISslInfo? SslInfo) : IConnectionInfo;
