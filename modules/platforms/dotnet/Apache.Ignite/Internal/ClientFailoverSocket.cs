@@ -409,7 +409,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+                var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
 
                 if (_clusterId == null)
                 {

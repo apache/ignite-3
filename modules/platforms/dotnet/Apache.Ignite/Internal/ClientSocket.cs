@@ -156,7 +156,7 @@ namespace Apache.Ignite.Internal
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
         public static async Task<ClientSocket> ConnectAsync(
-            IPEndPoint endPoint,
+            SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
             Action<ClientSocket> assignmentChangeCallback)
         {
@@ -169,19 +169,17 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await socket.ConnectAsync(endPoint).ConfigureAwait(false);
+                await socket.ConnectAsync(endPoint.EndPoint).ConfigureAwait(false);
                 logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
 
                 Stream stream = new NetworkStream(socket, ownsSocket: true);
 
                 if (configuration.SslStreamFactory is { } sslStreamFactory)
                 {
-                    // TODO: Where does the host come from?
-                    var host = endPoint.ToString();
-                    stream = sslStreamFactory.Create(stream, host);
+                    stream = sslStreamFactory.Create(stream, endPoint.Host);
                 }
 
-                var context = await HandshakeAsync(stream, endPoint)
+                var context = await HandshakeAsync(stream, endPoint.EndPoint)
                     .WaitAsync(configuration.SocketTimeout)
                     .ConfigureAwait(false);
 
