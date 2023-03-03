@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -40,12 +42,16 @@ import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -54,6 +60,43 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     private static final Predicate<AggregateCall> NON_NULL_PREDICATE = Objects::nonNull;
+
+    enum TestCase {
+        /**
+         * Query: SELECT AVG(val0) FROM test
+         *
+         * <p>Distribution: single
+         */
+        CASE_1("SELECT AVG(val0) FROM test", schema(single())),
+        /**
+         * Query: SELECT AVG(val0) FROM test
+         *
+         * <p>Distribution: hash(0)
+         */
+        CASE_2("SELECT AVG(val0) FROM test", schema(hash())),
+        CASE_3("SELECT AVG(val0) FROM test", schema(hash()));
+
+        final String query;
+        final IgniteSchema schema;
+
+        TestCase(String query, IgniteSchema schema) {
+            this.query = query;
+            this.schema = schema;
+        }
+
+    }
+
+    private static EnumSet<TestCase> missedCases;
+
+    @BeforeAll
+    static void initMissedCases() {
+        missedCases = EnumSet.allOf(TestCase.class);
+    }
+
+    @AfterAll
+    static void ensureAllCasesAreCovered() {
+        assertThat("Some cases were not covered by test", missedCases, Matchers.empty());
+    }
 
     /**
      * Validates a plan for simple query with aggregate.
@@ -534,6 +577,15 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      * @return Rules.
      */
     protected abstract String[] disabledRules();
+
+    protected <T extends RelNode> void assertPlan(
+            TestCase testCase,
+            Predicate<T> predicate
+    ) throws Exception {
+        missedCases.remove(testCase);
+
+        assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, List.of(), disabledRules());
+    }
 
     protected <T extends RelNode> void assertPlan(
             String sql,

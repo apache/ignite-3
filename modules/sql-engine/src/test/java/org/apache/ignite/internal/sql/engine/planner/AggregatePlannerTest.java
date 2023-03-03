@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test that verifies plans for queries with aggregates.
@@ -45,6 +46,12 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @Override
     protected String[] disabledRules() {
         return new String[0];
+    }
+
+    @Test
+    public void case1() throws Exception {
+        assertPlan(TestCase.CASE_1, any -> true);
+        assertPlan(TestCase.CASE_2, any -> true);
     }
 
     /** {@inheritDoc} */
