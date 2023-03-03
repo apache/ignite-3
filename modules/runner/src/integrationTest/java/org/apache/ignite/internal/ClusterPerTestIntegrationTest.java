@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.platform.commons.support.ReflectionSupport;
 
 /**
- * Abstract integration test that starts and stops a cluster test method.
+ * Abstract integration test that starts and stops a cluster per test method.
  */
 @SuppressWarnings("ALL")
 public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTest {
