@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -46,6 +49,10 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.util.ArrayUtils;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -55,260 +62,434 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
 
     private static final Predicate<AggregateCall> NON_NULL_PREDICATE = Objects::nonNull;
 
-    /**
-     * Validates a plan for simple query with aggregate.
-     */
-    @Test
-    public void simpleAggregate() throws Exception {
-        checkTestCase1("SELECT AVG(val0) FROM test", schema(single()));
 
-        checkTestCase2("SELECT AVG(val0) FROM test", schema(hash()));
+    enum TestCase {
+        /**
+         * Query: SELECT AVG(val0) FROM test
+         *
+         * <p>Distribution: single
+         */
+        CASE_1("SELECT AVG(val0) FROM test", schema(single())),
+        /**
+         * Query: SELECT AVG(val0) FROM test
+         *
+         * <p>Distribution: hash(0)
+         */
+        CASE_1A("SELECT AVG(val0) FROM test", schema(hash())),
+        /**
+         * Query: SELECT AVG(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: single
+         */
+        CASE_2_1("SELECT AVG(DISTINCT val0) FROM test", schema(single())),
+        /**
+         * Query: SELECT AVG(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: hash(0)
+         */
+        CASE_2_1A("SELECT AVG(DISTINCT val0) FROM test", schema(hash())),
+        /**
+         * Query: SELECT COUNT(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: single
+         */
+        CASE_2_2("SELECT COUNT(DISTINCT val0) FROM test", schema(single())),
+        /**
+         * Query: SELECT COUNT(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: hash(0)
+         */
+        CASE_2_2A("SELECT COUNT(DISTINCT val0) FROM test", schema(hash())),
+        /**
+         * Query: SELECT SUM(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: single
+         */
+        CASE_2_3("SELECT SUM(DISTINCT val0) FROM test", schema(single())),
+        /**
+         * Query: SELECT SUM(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: hash(0)
+         */
+        CASE_2_3A("SELECT SUM(DISTINCT val0) FROM test", schema(hash())),
+        /**
+         * Query: SELECT MIN(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: single
+         */
+        CASE_3_1("SELECT MIN(DISTINCT val0) FROM test", schema(single())),
+        /**
+         * Query: SELECT MIN(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: hash(0)
+         */
+        CASE_3_1A("SELECT MIN(DISTINCT val0) FROM test", schema(hash())),
+        /**
+         * Query: SELECT MAX(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: single
+         */
+        CASE_3_2("SELECT MAX(DISTINCT val0) FROM test", schema(single())),
+        /**
+         * Query: SELECT MAX(DISTINCT val0) FROM test
+         *
+         * <p>Distribution: hash(0)
+         */
+        CASE_3_2A("SELECT MAX(DISTINCT val0) FROM test", schema(hash())),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution single
+         */
+        CASE_5("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single())),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution hash
+         */
+        CASE_5A("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash())),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         *
+         * <p>Distribution single
+         */
+        CASE_6("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single())),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_6A("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash())),
+        /**
+         * Query: SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution single
+         */
+        CASE_7_1("SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0", schema(single())),
+        /**
+         * Query: SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_7_1A("SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0", schema(hash())),
+        /**
+         * Query: SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0
+         *
+         * <p>Distribution single
+         */
+        CASE_7_2("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema(single())),
+        /**
+         * Query: SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_7_2A("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema(hash())),
+        /**
+         * Query: SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution single
+         */
+        CASE_7_3("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema(single())),
+        /**
+         * Query: SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_7_3A("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema(hash())),
+        /**
+         * Query: SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution single
+         */
+        CASE_7_4("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema(single())),
+        /**
+         * Query: SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_7_4A("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema(hash())),
+        /**
+         * Query: SELECT MIN(DISTINCT val0) FROM test GROUP BY val1
+         *
+         * <p>Distribution single
+         */
+        CASE_8_1("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema(single())),
+        /**
+         * Query: SELECT MIN(DISTINCT val0) FROM test GROUP BY val1
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_8_1A("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema(hash())),
+        /**
+         * Query: SELECT MAX(DISTINCT val0) FROM test GROUP BY val1
+         *
+         * <p>Distribution single
+         */
+        CASE_8_2("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema(single())),
+        /**
+         * Query: SELECT MAX(DISTINCT val0) FROM test GROUP BY val1
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_8_2A("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema(hash())),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         *
+         * <p>Index on (grp0, grp1)
+         *
+         * <p>Distribution single
+         */
+        CASE_9("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0
+         *
+         * <p>Index on (grp0, grp1)
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_9A("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0, grp1
+         *
+         * <p>Distribution single
+         */
+        CASE_10("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema(single(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp0, grp1
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_10A("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema(hash(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         *
+         * <p>Distribution single
+         */
+        CASE_11("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT AVG(val0) FROM test GROUP BY grp1, grp0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_11A("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT DISTINCT val0, val1 FROM test
+         *
+         * <p>Index on val0
+         *
+         * <p>Distribution single
+         */
+        CASE_12("SELECT DISTINCT val0, val1 FROM test", schema(single(), index("val0", 1))),
+        /**
+         * Query: SELECT DISTINCT val0, val1 FROM test
+         *
+         * <p>Index on val0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_12A("SELECT DISTINCT val0, val1 FROM test", schema(hash(), index("val0", 1))),
+        /**
+         * Query: SELECT DISTINCT grp0, grp1 FROM test
+         *
+         * <p>Index on (grp0, grp1)
+         *
+         * <p>Distribution single
+         */
+        CASE_13("SELECT DISTINCT grp0, grp1 FROM test", schema(single(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT DISTINCT grp0, grp1 FROM test
+         *
+         * <p>Index on (grp0, grp1)
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_13A("SELECT DISTINCT grp0, grp1 FROM test", schema(hash(), index("grp0_grp1", 3, 4))),
+        /**
+         * Query: SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)
+         *
+         * <p>Distribution single
+         */
+        CASE_14("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(single())),
+        /**
+         * Query: SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_14A("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(hash())),
+        /**
+         * Query: SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)
+         *
+         * <p>Distribution single
+         */
+        CASE_15("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(single())),
+        /**
+         * Query: SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_15A("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(hash())),
+        /**
+         * Query: SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)
+         *
+         * <p>Index on val0 DESC
+         *
+         * <p>Distribution single
+         */
+        CASE_16("SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)", schema(single(), indexByVal0Desc())),
+        /**
+         * Query: SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)
+         *
+         * <p>Index on val0 DESC
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_16A("SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)", schema(hash(), indexByVal0Desc())),
+        /**
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test
+         *
+         * <p>Distribution single
+         */
+        CASE_17("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single())),
+        /**
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_17A("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1
+         *
+         * <p>Distribution single
+         */
+        CASE_18_1("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1", schema(single())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_18_1A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1", schema(hash())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0
+         *
+         * <p>Distribution single
+         */
+        CASE_18_2("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0", schema(single())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_18_2A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0", schema(hash())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1
+         *
+         * <p>Distribution single
+         */
+        CASE_18_3("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(single())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_18_3A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(hash())),
+
+        /**
+         * SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0
+         *
+         * <p>Distribution single
+         */
+        CASE_19_1("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(single())),
+        /**
+         * SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_19_1A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(hash())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1
+         *
+         * <p>Distribution single
+         */
+        CASE_19_2("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1", schema(single())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_19_2A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1", schema(hash())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt
+         *
+         * <p>Distribution single
+         */
+        CASE_20("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt", schema(single())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_20A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt", schema(hash())),
+        /**
+         * Query: SELECT /*+ EXPAND_DISTINCT_AGG *&#47; SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0
+         *
+         * <p>Index on val0
+         *
+         * <p>Distribution single
+         */
+        CASE_21("SELECT /*+ EXPAND_DISTINCT_AGG */ SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0",
+                schema(single(), index("idx_val0", 3, 1), index("idx_val1", 3, 2))),
+        /**
+         * Query: SELECT /*+ EXPAND_DISTINCT_AGG *&#47; SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0
+         *
+         * <p>Index on val0
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_21A("SELECT /*+ EXPAND_DISTINCT_AGG */ SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0",
+                schema(hash(), index("idx_val0", 3, 1), index("idx_val1", 3, 2))),
+        /**
+         * Query: SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT),
+         * SUM(VAL_DOUBLE) FROM test GROUP BY grp
+         *
+         * <p>Distribution single
+         */
+        CASE_22("SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT), "
+                + "SUM(VAL_DOUBLE) FROM test GROUP BY grp", schemaWithAllNumerics(single())),
+        /**
+         * Query: SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT),
+         * SUM(VAL_DOUBLE) FROM test GROUP BY grp
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_22A("SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT), "
+                + "SUM(VAL_DOUBLE) FROM test GROUP BY grp", schemaWithAllNumerics(hash())),
+
+        ;
+
+        final String query;
+        final IgniteSchema schema;
+
+        TestCase(String query, IgniteSchema schema) {
+            this.query = query;
+            this.schema = schema;
+        }
+
+        @Override
+        public String toString() {
+            return this.name() + ": query=" + query;
+        }
     }
 
-    /**
-     * Validates a plan for a query with aggregate and groups.
-     */
-    @Test
-    public void simpleAggregateWithGroupBy() throws Exception {
-        checkTestCase3("SELECT AVG(val0) FROM test GROUP BY grp0", schema(single()));
-        checkTestCase3("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(single()));
+    protected static EnumSet<TestCase> missedCases;
 
-        checkTestCase4("SELECT AVG(val0) FROM test GROUP BY grp0", schema(hash()));
-        checkTestCase4("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema(hash()));
+    @BeforeAll
+    static void initMissedCases() {
+        missedCases = EnumSet.allOf(TestCase.class);
     }
 
-    /**
-     * Validates a plan for simple query with DISTINCT aggregates.
-     *
-     * @see #minMaxDistinctAggregate()
-     */
-    @Test
-    public void distinctAggregate() throws Exception {
-        IgniteSchema schema = schema(single());
-
-        checkTestCase5("SELECT COUNT(DISTINCT val0) FROM test", schema);
-        checkTestCase5("SELECT AVG(DISTINCT val0) FROM test", schema);
-        checkTestCase5("SELECT SUM(DISTINCT val0) FROM test", schema);
-
-        schema = schema(hash());
-
-        checkTestCase6("SELECT COUNT(DISTINCT val0) FROM test", schema);
-        checkTestCase6("SELECT AVG(DISTINCT val0) FROM test", schema);
-        checkTestCase6("SELECT SUM(DISTINCT val0) FROM test", schema);
-    }
-
-    /**
-     * Validates a plan for a query with min/max distinct aggregate.
-     *
-     * <p>NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregate()}
-     */
-    @Test
-    public void minMaxDistinctAggregate() throws Exception {
-        checkTestCase1("SELECT MIN(DISTINCT val0) FROM test", schema(single()));
-
-        checkTestCase2("SELECT MAX(DISTINCT val0) FROM test", schema(hash()));
-    }
-
-    /**
-     * Validates a plan for a query with DISTINCT aggregates and groups.
-     *
-     * @see #minMaxDistinctAggregateWithGroupBy()
-     */
-    @Test
-    public void distinctAggregateWithGroups() throws Exception {
-        IgniteSchema schema = schema(single());
-
-        checkTestCase7("SELECT COUNT(DISTINCT val0) FROM test GROUP BY grp0", schema);
-        checkTestCase7("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema);
-        checkTestCase7("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema);
-        checkTestCase7("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema);
-
-        schema = schema(hash());
-
-        checkTestCase8("SELECT COUNT(DISTINCT val0) FROM test GROUP BY val1, grp0", schema);
-        checkTestCase8("SELECT grp0, COUNT(DISTINCT val0) as v1 FROM test GROUP BY grp0", schema);
-        checkTestCase8("SELECT AVG(DISTINCT val0) FROM test GROUP BY grp0", schema);
-        checkTestCase8("SELECT SUM(DISTINCT val0) FROM test GROUP BY grp0", schema);
-    }
-
-    /**
-     * Validates a plan for a query with min/max distinct aggregates and groups.
-     *
-     * <p>NB: DISTINCT make no sense for MIN/MAX, thus expected plan is the same as in {@link #simpleAggregateWithGroupBy()}
-     */
-    @Test
-    public void minMaxDistinctAggregateWithGroupBy() throws Exception {
-        IgniteSchema schema = schema(single());
-
-        checkTestCase3("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
-        checkTestCase3("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
-
-        schema = schema(hash());
-
-        checkTestCase4("SELECT MIN(DISTINCT val0) FROM test GROUP BY val1", schema);
-        checkTestCase4("SELECT MAX(DISTINCT val0) FROM test GROUP BY val1", schema);
-    }
-
-    /**
-     * Validates a plan uses an index for a query with aggregate if grouped by index prefix.
-     */
-    @Test
-    public void aggregateWithGroupByIndexPrefixColumns() throws Exception {
-        checkTestCase9("SELECT AVG(val0) FROM test GROUP BY grp0",
-                schema(single(), index("grp0_grp1", 3, 4)));
-
-        checkTestCase10("SELECT AVG(val0) FROM test GROUP BY grp0",
-                schema(hash(), index("grp0_grp1", 3, 4)));
-    }
-
-    /**
-     * Validates a plan uses an index for a query with aggregate if group by matches index columns.
-     *
-     * <p>NB: GROUP BY columns order permutation shouldn't affect the plan.
-     */
-    @Test
-    public void aggregateWithGroupByColumnsMatchesIndexColumns() throws Exception {
-        IgniteSchema schema = schema(single(), index("grp0_grp1", 3, 4));
-
-        checkTestCase11("SELECT AVG(val0) FROM test GROUP BY grp0, grp1", schema);
-        checkTestCase11("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema);
-
-        schema = schema(hash(), index("grp0_grp1", 3, 4));
-
-        checkTestCase12("SELECT AVG(val0) FROM test GROUP BY grp0, grp0", schema);
-
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871 Index should be used here.
-        // checkTestCase12("SELECT AVG(val0) FROM test GROUP BY grp1, grp0", schema);
-    }
-
-    /**
-     * Validates a plan for a query with DISTINCT and without aggregation function.
-     */
-    @Test
-    public void distinctWithoutAggregate() throws Exception {
-        checkTestCase13("SELECT DISTINCT val0, val1 FROM test", schema(single(), index("val0", 1)));
-
-        checkTestCase14("SELECT DISTINCT val0, val1 FROM test", schema(hash(), index("val0", 1)));
-    }
-
-    /**
-     * Validates a plan uses index for a query with DISTINCT and without aggregation functions.
-     */
-    @Test
-    public void distinctWithoutAggregateUseIndex() throws Exception {
-        checkTestCase15("SELECT DISTINCT grp0, grp1 FROM test", schema(single(), index("grp0_grp1", 3, 4)));
-
-        checkTestCase16("SELECT DISTINCT grp0, grp1 FROM test", schema(hash(), index("grp0_grp1", 3, 4)));
-    }
-
-    /**
-     * Validates a plan for a query which WHERE clause contains a sub-query with aggregate.
-     */
-    @Test
-    public void subquertWithAggregateInWhereClause() throws Exception {
-        checkTestCase17("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(single()));
-
-        checkTestCase18("SELECT val0 FROM test WHERE VAL1 = (SELECT AVG(val1) FROM test)", schema(hash()));
-    }
-
-    /**
-     * Validates a plan for a query with DISTINCT aggregate in WHERE clause.
-     */
-    @Test
-    public void distinctAggregateInWhereClause() throws Exception {
-        checkTestCase19("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(single()));
-
-        checkTestCase20("SELECT val0 FROM test WHERE VAL1 = ANY(SELECT DISTINCT val1 FROM test)", schema(hash()));
-    }
-
-    /**
-     * Validates a plan with merge-sort utilizes index if collation fits.
-     */
-    @Test
-    public void noSortAppendingWithCorrectCollation() throws Exception {
-        checkTestCase21(
-                "SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)",
-                schema(single(), indexByVal0Desc()),
-                "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"
-        );
-
-        checkTestCase22(
-                "SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)",
-                schema(hash(), indexByVal0Desc()),
-                "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"
-        );
-    }
-
-    /**
-     * Validates a plan for a sub-query with order and limit.
-     */
-    @Test
-    public void emptyCollationPassThroughLimit() throws Exception {
-        checkTestCase23("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single()));
-
-        checkTestCase24("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash()));
-    }
-
-    /**
-     * Validates a plan for a query with aggregate and with groups and sorting by the same column set.
-     */
-    @Test
-    public void groupsWithOrderByGroupColumns() throws Exception {
-        checkTestCase25("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1", schema(single()),
-                TraitUtils.createCollation(List.of(0, 1)));
-        checkTestCase25("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0", schema(single()),
-                TraitUtils.createCollation(List.of(1, 0)));
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871
-        // checkTestCase25("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(single()),
-        // TraitUtils.createCollation(List.of(0, 1)));
-
-        checkTestCase26("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1", schema(hash()),
-                TraitUtils.createCollation(List.of(0, 1)));
-        checkTestCase26("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1, val0", schema(hash()),
-                TraitUtils.createCollation(List.of(1, 0)));
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18871
-        // checkTestCase26("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val1, val0 ORDER BY val0, val1", schema(hash()),
-        // TraitUtils.createCollation(List.of(0, 1)));
-    }
-
-    /**
-     * Validates a plan for a query with aggregate and with sorting by subset of group columns.
-     */
-    @Test
-    public void aggregateWithOrderBySubsetOfGroupColumns() throws Exception {
-        checkTestCase27("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(single()),
-                TraitUtils.createCollation(List.of(0, 1)));
-        checkTestCase27("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1", schema(single()),
-                TraitUtils.createCollation(List.of(1, 0)));
-
-        checkTestCase28("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0", schema(hash()),
-                TraitUtils.createCollation(List.of(0, 1)));
-        checkTestCase28("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1", schema(hash()),
-                TraitUtils.createCollation(List.of(1, 0)));
-    }
-
-    /**
-     * Validates a plan for a query with aggregate, groups and sorting, when additional sort is required.
-     */
-    @Test
-    public void aggregateWithGroupByAndOrderByDifferentColumns() throws Exception {
-        checkTestCase29("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1, cnt", schema(single()),
-                TraitUtils.createCollation(List.of(0, 1, 2)));
-
-        checkTestCase30("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY cnt, val1", schema(hash()),
-                TraitUtils.createCollation(List.of(2, 1)));
-    }
-
-    /**
-     * Validates a plan for a query with aggregate and groups, and EXPAND_DISTINCT_AGG hint.
-     */
-    @Test
-    public void expandDistinctAggregates() throws Exception {
-        checkTestCase31("SELECT /*+ EXPAND_DISTINCT_AGG */ SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0",
-                schema(single(), index("idx_val0", 3, 1), index("idx_val1", 3, 2)));
-
-        checkTestCase32("SELECT /*+ EXPAND_DISTINCT_AGG */ SUM(DISTINCT val0), AVG(DISTINCT val1) FROM test GROUP BY grp0",
-                schema(hash(), index("idx_val0", 3, 1), index("idx_val1", 3, 2)));
+    @AfterAll
+    static void ensureAllCasesAreCovered() {
+        assertThat("Some cases were not covered by test", missedCases, Matchers.empty());
     }
 
     /**
@@ -316,33 +497,6 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void sumAggregateTypes() throws Exception {
-        checkSumAggretageTypes(single());
-
-        checkSumAggretageTypes(hash());
-    }
-
-    /**
-     * Check SUM aggregate has a correct return type for any numeric column type.
-     */
-    private void checkSumAggretageTypes(IgniteDistribution distribution) throws Exception {
-        org.apache.ignite.internal.sql.engine.framework.TestTable table = TestBuilders.table()
-                .name("TEST")
-                .addColumn("ID", NativeTypes.INT32)
-                .addColumn("GRP", NativeTypes.INT32)
-                .addColumn("VAL_TINYINT", NativeTypes.INT8)
-                .addColumn("VAL_SMALLINT", NativeTypes.INT16)
-                .addColumn("VAL_INT", NativeTypes.INT32)
-                .addColumn("VAL_BIGINT", NativeTypes.INT64)
-                .addColumn("VAL_DECIMAL", NativeTypes.decimalOf(DecimalNativeType.DEFAULT_PRECISION, DecimalNativeType.DEFAULT_SCALE))
-                .addColumn("VAL_FLOAT", NativeTypes.FLOAT)
-                .addColumn("VAL_DOUBLE", NativeTypes.DOUBLE)
-                .size(DEFAULT_TBL_SIZE)
-                .distribution(distribution)
-                .build();
-
-        IgniteSchema schema = new IgniteSchema("PUBLIC");
-        schema.addTable(table);
-
         List<RelDataType> types0 = List.of(
                 TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT), true),
                 TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT), true),
@@ -354,179 +508,210 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE), true),
                 TYPE_FACTORY.createTypeWithNullability(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE), true));
 
-        assertPlan("SELECT SUM(VAL_TINYINT), SUM(VAL_SMALLINT), SUM(VAL_INT), SUM(VAL_BIGINT), SUM(VAL_DECIMAL), SUM(VAL_FLOAT), "
-                        + "SUM(VAL_DOUBLE) FROM test GROUP BY grp",
-                schema,
-                nodeOrAnyChild(isInstanceOf(SingleRel.class))
-                        .and(n -> {
-                            List<RelDataType> types = n.getRowType().getFieldList().stream()
-                                    .map(RelDataTypeField::getType)
-                                    .collect(Collectors.toList());
+        Predicate<RelNode> pred = nodeOrAnyChild(isInstanceOf(SingleRel.class))
+                .and(n -> {
+                    List<RelDataType> types = n.getRowType().getFieldList().stream()
+                            .map(RelDataTypeField::getType)
+                            .collect(Collectors.toList());
 
-                            return types.equals(types0);
-                        })
-        );
+                    return types.equals(types0);
+                });
+
+        assertPlan(TestCase.CASE_22, pred);
+        assertPlan(TestCase.CASE_22A, pred);
     }
 
     /**
      * Checks a query with aggregate in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase1(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase1(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with aggregate in case of HASH distribution.
      */
-    protected abstract void checkTestCase2(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase2(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Check a query with aggregate and groups in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase3(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase3(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Check a query with aggregate and groups in case of HASH distribution.
      */
-    protected abstract void checkTestCase4(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase4(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT aggregates in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase5(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase5(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT aggregates in case of HASH distribution.
      */
-    protected abstract void checkTestCase6(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase6(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Check a query with DISTINCT aggregates and groups in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase7(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase7(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Check a query with DISTINCT aggregates and groups in case of HASH distribution.
      */
-    protected abstract void checkTestCase8(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase8(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with GROUP BY on first index columns can use index in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase9(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase9(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with GROUP BY on first index columns can use index in case of HASH distribution.
      */
-    protected abstract void checkTestCase10(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase10(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with GROUP BY on all index columns can use index in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase11(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase11(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with GROUP BY on all index columns can use index in case of HASH distribution.
      */
-    protected abstract void checkTestCase12(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase12(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT and without aggregation function in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase13(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase13(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT and without aggregation function in case of HASH distribution.
      */
-    protected abstract void checkTestCase14(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase14(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT and without aggregation functions can use index in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase15(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase15(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT and without aggregation functions can use index in case of HASH distribution.
      */
-    protected abstract void checkTestCase16(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase16(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a sub-query with aggregate in WHERE clause in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase17(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase17(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a sub-query with aggregate in WHERE clause in case of HASH distribution.
      */
-    protected abstract void checkTestCase18(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase18(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT aggregate in WHERE clause in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase19(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase19(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with DISTINCT aggregate in WHERE clause in case of HASH distribution.
      */
-    protected abstract void checkTestCase20(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase20(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks merge-sort utilizes index if collation fits in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase21(String sql, IgniteSchema schema, String... additionalRules) throws Exception;
+    protected void checkTestCase21(String sql, IgniteSchema schema, String... additionalRules) throws Exception {
+    }
 
     /**
      * Checks merge-sort utilizes index if collation fits in case of HASH distribution.
      */
-    protected abstract void checkTestCase22(String sql, IgniteSchema schema, String... additionalRules) throws Exception;
+    protected void checkTestCase22(String sql, IgniteSchema schema, String... additionalRules) throws Exception {
+    }
 
     /**
      * Checks a query with order by and limit in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase23(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase23(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with order by and limit in case of HASH distribution.
      */
-    protected abstract void checkTestCase24(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase24(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks query with aggregates and GROUP BY and ORDER BY the same columns in various order in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase25(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
+    protected void checkTestCase25(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
+    }
 
     /**
      * Checks query with aggregates and GROUP BY and ORDER BY the same columns in various order in case of HASH distribution.
      */
-    protected abstract void checkTestCase26(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
+    protected void checkTestCase26(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
+    }
 
     /**
      * Checks query with aggregates and ORDER BY a subset of GROUP BY columns in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase27(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
+    protected void checkTestCase27(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
+    }
 
     /**
      * Checks query with aggregates and ORDER BY a subset of GROUP BY columns in case of HASH distribution.
      */
-    protected abstract void checkTestCase28(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
+    protected void checkTestCase28(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
+    }
 
     /**
      * Checks a query with aggregate and GROUP BY a subset of ORDER BY columns (additional sort required) in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase29(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
+    protected void checkTestCase29(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
+    }
 
     /**
      * Checks a query with aggregate and GROUP BY a subset of ORDER BY columns (additional sort required) in case of HASH distribution.
      */
-    protected abstract void checkTestCase30(String sql, IgniteSchema schema, RelCollation collation) throws Exception;
+    protected void checkTestCase30(String sql, IgniteSchema schema, RelCollation collation) throws Exception {
+    }
 
     /**
      * Checks a query with EXPAND_DISTINCT_AGG hint in case of SINGLE distribution.
      */
-    protected abstract void checkTestCase31(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase31(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Checks a query with EXPAND_DISTINCT_AGG hint in case of HASH distribution.
      */
-    protected abstract void checkTestCase32(String sql, IgniteSchema schema) throws Exception;
+    protected void checkTestCase32(String sql, IgniteSchema schema) throws Exception {
+    }
 
     /**
      * Rules to disable.
@@ -541,6 +726,24 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
             Predicate<T> predicate
     ) throws Exception {
         assertPlan(sql, Collections.singleton(schema), predicate, List.of(), disabledRules());
+    }
+
+    protected <T extends RelNode> void assertPlan(
+            TestCase testCase,
+            Predicate<T> predicate,
+            String... additionalRulesToDisable
+    ) throws Exception {
+        if (!missedCases.remove(testCase)) {
+            fail("Testcase was as disabled: " + testCase);
+        }
+
+        String[] rulesToDisable = disabledRules();
+
+        if (additionalRulesToDisable != null) {
+            rulesToDisable = ArrayUtils.concat(rulesToDisable, additionalRulesToDisable);
+        }
+
+        assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, List.of(), rulesToDisable);
     }
 
     @SafeVarargs
@@ -560,6 +763,28 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         for (Consumer<org.apache.ignite.internal.sql.engine.framework.TestTable> index : indices) {
             index.accept(table);
         }
+
+        IgniteSchema schema = new IgniteSchema("PUBLIC");
+        schema.addTable(table);
+
+        return schema;
+    }
+
+    private static IgniteSchema schemaWithAllNumerics(IgniteDistribution distribution) {
+        org.apache.ignite.internal.sql.engine.framework.TestTable table = TestBuilders.table()
+                .name("TEST")
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("GRP", NativeTypes.INT32)
+                .addColumn("VAL_TINYINT", NativeTypes.INT8)
+                .addColumn("VAL_SMALLINT", NativeTypes.INT16)
+                .addColumn("VAL_INT", NativeTypes.INT32)
+                .addColumn("VAL_BIGINT", NativeTypes.INT64)
+                .addColumn("VAL_DECIMAL", NativeTypes.decimalOf(DecimalNativeType.DEFAULT_PRECISION, DecimalNativeType.DEFAULT_SCALE))
+                .addColumn("VAL_FLOAT", NativeTypes.FLOAT)
+                .addColumn("VAL_DOUBLE", NativeTypes.DOUBLE)
+                .size(DEFAULT_TBL_SIZE)
+                .distribution(distribution)
+                .build();
 
         IgniteSchema schema = new IgniteSchema("PUBLIC");
         schema.addTable(table);
