@@ -194,7 +194,10 @@ namespace Apache.Ignite.Internal
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
 
-                throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Failed to connect to endpoint: " + endPoint, e);
+                throw new IgniteClientConnectionException(
+                    ErrorGroups.Client.Connection,
+                    "Failed to connect to endpoint: " + endPoint.EndPoint,
+                    e);
             }
         }
 
