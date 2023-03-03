@@ -38,6 +38,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.DistributedConfigurationUpdater;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -88,6 +89,9 @@ public class ItDistributedConfigurationPropertiesTest {
     @InjectConfiguration
     private static ClusterManagementConfiguration clusterManagementConfiguration;
 
+    @InjectConfiguration
+    private static SecurityConfiguration securityConfiguration;
+
     /**
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
@@ -103,6 +107,8 @@ public class ItDistributedConfigurationPropertiesTest {
         private final MetaStorageManager metaStorageManager;
 
         private final ConfigurationManager distributedCfgManager;
+
+        private final DistributedConfigurationUpdater distributedConfigurationUpdater;
 
         /** Flag that disables storage updates. */
         private volatile boolean receivesUpdates = true;
@@ -130,14 +136,17 @@ public class ItDistributedConfigurationPropertiesTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            distributedConfigurationUpdater = new DistributedConfigurationUpdater();
+            distributedConfigurationUpdater.setClusterRestConfiguration(securityConfiguration);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
-                    clusterManagementConfiguration
-            );
+                    clusterManagementConfiguration,
+                    distributedConfigurationUpdater);
 
             metaStorageManager = new MetaStorageManagerImpl(
                     vaultManager,
@@ -178,7 +187,7 @@ public class ItDistributedConfigurationPropertiesTest {
         void start() {
             vaultManager.start();
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager, distributedConfigurationUpdater)
                     .forEach(IgniteComponent::start);
 
             // deploy watches to propagate data from the metastore into the vault
@@ -196,7 +205,13 @@ public class ItDistributedConfigurationPropertiesTest {
          */
         void stop() throws Exception {
             var components = List.of(
-                    distributedCfgManager, cmgManager, metaStorageManager, raftManager, clusterService, vaultManager
+                    distributedCfgManager,
+                    cmgManager,
+                    metaStorageManager,
+                    raftManager,
+                    clusterService,
+                    vaultManager,
+                    distributedConfigurationUpdater
             );
 
             for (IgniteComponent igniteComponent : components) {

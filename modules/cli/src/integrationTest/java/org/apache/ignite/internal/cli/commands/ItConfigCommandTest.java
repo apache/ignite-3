@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.AbstractCliTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -54,7 +55,13 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
 
-        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(nodeName)
+                .metaStorageNodeNames(List.of(nodeName))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 

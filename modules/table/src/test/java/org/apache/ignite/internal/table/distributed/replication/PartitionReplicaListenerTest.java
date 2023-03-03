@@ -351,7 +351,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @BeforeEach
-    private void beforeTest() {
+    public void beforeTest() {
         localLeader = true;
         txState = null;
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
