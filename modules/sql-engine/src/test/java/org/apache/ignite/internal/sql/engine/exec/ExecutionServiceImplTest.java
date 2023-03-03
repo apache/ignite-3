@@ -447,7 +447,7 @@ public class ExecutionServiceImplTest {
 
         assertThat(nodes, hasSize(1));
 
-        return await(prepareService.prepareAsync(nodes.get(0), ctx));
+        return await(prepareService.prepareAsync(nodes.get(0), ctx, () -> {}));
     }
 
     static class TestCluster {

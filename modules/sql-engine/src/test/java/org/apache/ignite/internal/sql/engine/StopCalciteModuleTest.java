@@ -224,8 +224,7 @@ public class StopCalciteModuleTest {
                 distributionZoneManager,
                 Map::of,
                 mock(ReplicaService.class),
-                clock,
-                () -> 0L
+                clock
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());

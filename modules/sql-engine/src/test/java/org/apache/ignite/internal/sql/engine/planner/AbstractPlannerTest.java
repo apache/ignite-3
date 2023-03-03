@@ -695,8 +695,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
+        BaseQueryContext ctx = baseQueryContext(schemas, null);
+
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new PredefinedSchemaManager(schemas));
+            RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
             deserializedNodes.add(reader.read(s));
         }
 

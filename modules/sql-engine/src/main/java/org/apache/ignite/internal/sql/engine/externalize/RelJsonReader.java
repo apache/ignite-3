@@ -83,16 +83,7 @@ public class RelJsonReader {
     public static <T extends RelNode> T fromJson(BaseQueryContext ctx, String json) {
         RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
 
-        T res = null;
-
-        try {
-            res = (T) reader.read(json);
-        } catch (NullPointerException e) {
-            System.err.println("!!! NPE: " + json);
-
-            throw e;
-        }
-        return res;
+        return (T) reader.read(json);
     }
 
     /**

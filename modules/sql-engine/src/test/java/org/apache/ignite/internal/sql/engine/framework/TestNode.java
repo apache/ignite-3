@@ -181,7 +181,7 @@ public class TestNode implements LifecycleAware {
 
         assertThat(nodes, hasSize(1));
 
-        return await(prepareService.prepareAsync(nodes.get(0), createContext()));
+        return await(prepareService.prepareAsync(nodes.get(0), createContext(), () -> {}));
     }
 
     /**

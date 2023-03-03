@@ -45,12 +45,12 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     private final Map<UUID, IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
-    public PredefinedSchemaManager(IgniteSchema schema) {
+    PredefinedSchemaManager(IgniteSchema schema) {
         this(List.of(schema));
     }
 
     /** Constructs schema manager from a collection of schemas. */
-    public PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
+    PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
         this.root = Frameworks.createRootSchema(false);
         this.tableById = new HashMap<>();
 
@@ -81,5 +81,10 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     @Override
     public IgniteTable tableById(UUID id, int ver) {
         return tableById.get(id);
+    }
+
+    @Override
+    public long getToken() {
+        return 0;
     }
 }
