@@ -201,7 +201,7 @@ public class RestComponent implements IgniteComponent {
         return micronaut
                 .properties(properties(portCandidate, sslPortCandidate))
                 .banner(false)
-                .mapError(ServerStartupException.class, this::mapServerStartupException)
+                .mapError(ServerStartupException.class, RestComponent::mapServerStartupException)
                 .mapError(ApplicationStartupException.class, ex -> -1);
     }
 
@@ -211,7 +211,7 @@ public class RestComponent implements IgniteComponent {
         }
     }
 
-    private int mapServerStartupException(ServerStartupException exception) {
+    private static int mapServerStartupException(ServerStartupException exception) {
         if (exception.getCause() instanceof BindException) {
             return -1; // -1 forces the micronaut to throw an ApplicationStartupException
         } else {
@@ -318,9 +318,6 @@ public class RestComponent implements IgniteComponent {
     public synchronized void stop() throws Exception {
         // TODO: IGNITE-16636 Use busy-lock approach to guard stopping RestComponent
         if (context != null) {
-            for (RestFactory restFactory : restFactories) {
-                context.destroyBean(restFactory);
-            }
             context.stop();
             context = null;
         }
