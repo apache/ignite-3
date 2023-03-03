@@ -400,7 +400,7 @@ public class ExecutionServiceImplTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
+        when(schemaManagerMock.tableById(any())).thenReturn(table);
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,

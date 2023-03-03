@@ -79,7 +79,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteTable tableById(UUID id, int ver) {
+    public IgniteTable tableById(UUID id) {
         return tableById.get(id);
     }
 

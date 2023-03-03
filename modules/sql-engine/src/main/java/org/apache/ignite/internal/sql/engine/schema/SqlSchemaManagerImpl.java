@@ -170,15 +170,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
-            System.err.println("1!!! waitSchemaVer " + ver + " hash=" + hashCode());
-
-            try {
+            calciteSchemaVv.get(ver).join();
+/*            try {
                 calciteSchemaVv.get(ver).join();
             } catch (OutdatedTokenException e) {
                 // No op.
-            }
-
-            System.err.println("1!!! get waitSchemaVer " + ver + " hash=" + hashCode());
+            }*/
         } finally {
             busyLock.leaveBusy();
         }
@@ -187,29 +184,16 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     @NotNull
-    public IgniteTable tableById(UUID id, int ver) {
+    public IgniteTable tableById(UUID id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
             IgniteTable table = tablesVv.latest().get(id);
 
-            // there is a chance that someone tries to resolve table before
-            // the distributed event of that table creation has been processed
-            // by TableManager, so we need to get in sync with the TableManager
-            if (table == null || ver > table.version()) {
-                table = awaitLatestTableSchema(id);
-            }
-
             if (table == null) {
                 throw new IgniteInternalException(OBJECT_NOT_FOUND_ERR,
                         IgniteStringFormatter.format("Table not found [tableId={}]", id));
-            }
-
-            if (table.version() < ver) {
-                throw new IgniteInternalException(TABLE_VER_NOT_FOUND_ERR,
-                        IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={}, latestKnownVer={}]",
-                                id, ver, table.version()));
             }
 
             return table;
@@ -220,22 +204,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     public void registerListener(SchemaUpdateListener listener) {
         listeners.add(listener);
-    }
-
-    private @Nullable IgniteTable awaitLatestTableSchema(UUID tableId) {
-        try {
-            TableImpl table = tableManager.table(tableId);
-
-            if (table == null) {
-                return null;
-            }
-
-            table.schemaView().waitLatestSchema();
-
-            return convert(table);
-        } catch (NodeStoppingException e) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
-        }
     }
 
     /**
