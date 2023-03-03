@@ -156,8 +156,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
         deleteRowHashFields = project(desc.columnsCount(), upsertRowHashFields, keyFields);
 
         statistic = new StatisticsImpl();
-
-        this.indexes.putAll(indexes);
     }
 
     private IgniteTableImpl(IgniteTableImpl t) {
@@ -176,9 +174,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable, Updat
     }
 
     public static IgniteTableImpl copyOf(IgniteTableImpl v) {
-        IgniteTableImpl tbl = new IgniteTableImpl(v);
-
-        return tbl;
+        return new IgniteTableImpl(v);
     }
 
     /** {@inheritDoc} */

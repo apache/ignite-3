@@ -252,10 +252,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .build();
     }
 
-    private QueryPlan prepareFragment(String jsonFragment, BaseQueryContext ctx, long actualVersion) {
-        // return tableId
-        //IgniteRel plan = physNodesCache.computeIfAbsent(jsonFragment + actualVersion, ser -> fromJson(ctx, ser));
-        IgniteRel plan = fromJson(ctx, jsonFragment);
+    private QueryPlan prepareFragment(String jsonFragment, BaseQueryContext ctx) {
+        IgniteRel plan = physNodesCache.computeIfAbsent(jsonFragment, ser -> fromJson(ctx, ser));
 
         return new FragmentPlan(plan);
     }
@@ -337,7 +335,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return new DistributedQueryManager(ctx);
         });
 
-        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes(), -1);
+        queryManager.submitFragment(nodeName, msg.root(), msg.fragmentDescription(), msg.txAttributes());
     }
 
     private void onMessage(String nodeName, QueryStartResponse msg) {
@@ -568,11 +566,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 String initiatorNode,
                 String fragmentString,
                 FragmentDescription desc,
-                TxAttributes txAttributes,
-                long actualVersion
+                TxAttributes txAttributes
         ) {
             try {
-                QueryPlan qryPlan = prepareFragment(fragmentString, ctx, actualVersion);
+                QueryPlan qryPlan = prepareFragment(fragmentString, ctx);
 
                 FragmentPlan plan = (FragmentPlan) qryPlan;
 

@@ -112,4 +112,12 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
         return new IgniteTableModify(cluster, getTraitSet(), getTable(), sole(inputs),
                 getOperation(), getUpdateColumnList(), getSourceExpressionList(), isFlattened());
     }
+
+    @Override
+    public RelWriter explainTerms(RelWriter pw) {
+        // for correct rel obtaining from ExecutionServiceImpl#physNodesCache.
+        return super.explainTerms(pw)
+                .itemIf("tableId", getTable().unwrap(IgniteTable.class).id().toString(),
+                pw.getDetailLevel() == ALL_ATTRIBUTES);
+        }
 }
