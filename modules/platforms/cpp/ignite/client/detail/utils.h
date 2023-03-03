@@ -23,8 +23,8 @@
 #include "ignite/client/transaction/transaction.h"
 
 #include "ignite/protocol/writer.h"
-#include "ignite/schema/binary_tuple_builder.h"
-#include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/tuple/binary_tuple_builder.h"
+#include "ignite/tuple/binary_tuple_parser.h"
 
 namespace ignite::detail {
 

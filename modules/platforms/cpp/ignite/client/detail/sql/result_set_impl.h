@@ -21,7 +21,7 @@
 #include "ignite/client/detail/utils.h"
 #include "ignite/client/sql/result_set_metadata.h"
 #include "ignite/client/table/ignite_tuple.h"
-#include "ignite/schema/binary_tuple_parser.h"
+#include "ignite/tuple/binary_tuple_parser.h"
 
 #include <cstdint>
 
