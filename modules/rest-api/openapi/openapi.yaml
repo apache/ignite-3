@@ -449,8 +449,31 @@ components:
           description: A list of authentication providers.
           items:
             $ref: '#/components/schemas/AuthenticationProviderConfigDto'
+      description: REST representation of AuthenticationConfig.
     AuthenticationProviderConfigDto:
       type: object
+      description: REST representation of AuthenticationProviderConfig.
+      discriminator:
+        propertyName: type
+        mapping:
+          basic: '#/components/schemas/BasicAuthenticationProviderConfig'
+      oneOf:
+      - $ref: '#/components/schemas/BasicAuthenticationProviderConfig'
+    BasicAuthenticationProviderConfig:
+      type: object
+      properties:
+        login:
+          type: string
+          description: Login.
+        password:
+          type: string
+          description: Password.
+        name:
+          type: string
+          description: Provider name.
+        type:
+          type: string
+      description: REST representation of BasicAuthenticationProviderConfig.
     ClusterNode:
       type: object
       properties:
