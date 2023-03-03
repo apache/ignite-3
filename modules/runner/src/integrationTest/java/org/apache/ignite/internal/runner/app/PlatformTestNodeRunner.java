@@ -91,14 +91,13 @@ public class PlatformTestNodeRunner {
 
             NODE_NAME2, "{\n"
                     + "  \"clientConnector\":{\"port\": 10943,\"portRange\":1,\"idleTimeout\":3000,"
-                    + "\"sendServerExceptionStackTraceToClient\":true},"
+                    + "\"sendServerExceptionStackTraceToClient\":true, \"ssl\".\"enabled\": true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "  clientConnector.ssl.enabled: true\n"
                     + "}"
     );
 
