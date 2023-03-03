@@ -45,6 +45,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sqllogic.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.sqllogic.SqlScriptRunner.RunnerRuntime;
+import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -63,6 +64,7 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite to run SQL test scripts.
@@ -135,6 +137,7 @@ import org.junit.jupiter.api.TestFactory;
  * @see <a href="https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki">Extended format documentation.</a>
  */
 @Tag(value = "sqllogic")
+@ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-18000")
