@@ -108,7 +108,7 @@ namespace Apache.Ignite.Internal
         /// <param name="assignmentChangeCallback">Partition assignment change callback.</param>
         /// <param name="logger">Logger.</param>
         private ClientSocket(
-            NetworkStream stream,
+            Stream stream,
             IgniteClientConfiguration configuration,
             ConnectionContext connectionContext,
             Action<ClientSocket> assignmentChangeCallback,
@@ -172,7 +172,14 @@ namespace Apache.Ignite.Internal
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
                 logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}, starting handshake...");
 
-                var stream = new NetworkStream(socket, ownsSocket: true);
+                Stream stream = new NetworkStream(socket, ownsSocket: true);
+
+                if (configuration.SslStreamFactory is { } sslStreamFactory)
+                {
+                    // TODO: Where does the host come from?
+                    var host = endPoint.ToString();
+                    stream = sslStreamFactory.Create(stream, host);
+                }
 
                 var context = await HandshakeAsync(stream, endPoint)
                     .WaitAsync(configuration.SocketTimeout)
@@ -262,7 +269,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="stream">Network stream.</param>
         /// <param name="endPoint">Endpoint.</param>
-        private static async Task<ConnectionContext> HandshakeAsync(NetworkStream stream, IPEndPoint endPoint)
+        private static async Task<ConnectionContext> HandshakeAsync(Stream stream, IPEndPoint endPoint)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
             await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
@@ -275,7 +282,7 @@ namespace Apache.Ignite.Internal
             return ReadHandshakeResponse(response.GetReader(), endPoint);
         }
 
-        private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
+        private static async ValueTask CheckMagicBytesAsync(Stream stream)
         {
             var responseMagic = ByteArrayPool.Rent(ProtoCommon.MagicBytes.Length);
 
@@ -407,7 +414,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static async ValueTask WriteHandshakeAsync(NetworkStream stream, ClientProtocolVersion version)
+        private static async ValueTask WriteHandshakeAsync(Stream stream, ClientProtocolVersion version)
         {
             using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
             WriteHandshake(version, bufferWriter.MessageWriter);

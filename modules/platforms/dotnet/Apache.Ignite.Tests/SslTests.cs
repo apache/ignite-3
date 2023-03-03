@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -26,12 +27,13 @@ using NUnit.Framework;
 public class SslTests : IgniteTestsBase
 {
     [Test]
-    public async Task TestSslOnClientWithoutSslOnServerThrows()
+    public void TestSslOnClientWithoutSslOnServerThrows()
     {
         var cfg = GetConfig();
 
         cfg.SslStreamFactory = new SslStreamFactory();
 
-        await IgniteClient.StartAsync(cfg);
+        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
     }
 }
