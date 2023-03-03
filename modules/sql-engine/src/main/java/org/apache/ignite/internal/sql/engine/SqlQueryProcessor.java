@@ -153,6 +153,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final Supplier<Long> lastStorageVersion;
 
+    private final Runnable schemaWait;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Function<Long, CompletableFuture<?>>> registry,
@@ -178,8 +180,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
-        //this.lastStorageVersion = lastStorageVersion;
         this.lastStorageVersion = () -> sqlSchemaManager.lastAppliedVersion();
+
+        schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get());
     }
 
     /** {@inheritDoc} */
@@ -429,8 +432,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
-                    Runnable schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get());
-
                     return prepareSvc.prepareAsync(sqlNode, ctx, schemaWait)
                             .thenApply(plan -> {
                                 context.maybeUnwrap(QueryValidator.class)
@@ -518,10 +519,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .plannerTimeout(PLANNER_TIMEOUT)
                     .build();
 
-            Runnable schemaWait = () -> sqlSchemaManager.waitActualSchema(lastStorageVersion.get());
-
             // TODO https://issues.apache.org/jira/browse/IGNITE-17746 Fix query execution flow.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx, schemaWait))
+            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none ->
+                            prepareSvc.prepareAsync(sqlNode, ctx, schemaWait))
                     .thenApply(plan -> {
                         context.maybeUnwrap(QueryValidator.class)
                                 .ifPresent(queryValidator -> queryValidator.validatePlan(plan));

@@ -122,15 +122,7 @@ public class RelJsonReader {
         String id = (String) jsonRel.get("id");
         String type = (String) jsonRel.get("relOp");
         Function<RelInput, RelNode> factory = relJson.factory(type);
-        RelNode rel = null;
-        try {
-            rel = factory.apply(new RelInputImpl(jsonRel));
-
-        } catch (NullPointerException e) {
-            System.err.println("!!! NPE: " + jsonRel);
-
-            throw e;
-        }
+        RelNode rel = factory.apply(new RelInputImpl(jsonRel));
         relMap.put(id, rel);
         lastRel = rel;
     }
@@ -163,21 +155,8 @@ public class RelJsonReader {
             // was serialized
             //throw new AssertionError("Unexpected method was called");
             List<String> list = getStringList(table);
-            @Nullable RelOptTable t0 = relOptSchema.getTableForMember(list);
-            return t0;
+            return relOptSchema.getTableForMember(list);
         }
-
-        /** {@inheritDoc} */
-/*        @Override
-        public RelOptTable getTableById(String tag) {
-            String tableId = getString(tag);
-            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId));
-
-            List<String> tableName = getStringList("table");
-
-            return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
-                    table, null);
-        }*/
 
         /** {@inheritDoc} */
         @Override
