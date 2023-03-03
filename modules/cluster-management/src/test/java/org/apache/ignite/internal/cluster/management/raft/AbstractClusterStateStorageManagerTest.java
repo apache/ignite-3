@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import static org.apache.ignite.internal.cluster.management.ClusterState.clusterState;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,6 +27,8 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -74,13 +75,13 @@ public abstract class AbstractClusterStateStorageManagerTest {
      */
     @Test
     void testClusterState() {
-        var state = clusterState(
-                msgFactory,
-                List.of("foo", "bar"),
-                List.of("foo", "baz"),
-                IgniteProductVersion.CURRENT_VERSION,
-                clusterTag(msgFactory, "cluster")
-        );
+        ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
+        var state = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(List.of("foo", "bar")))
+                .metaStorageNodes(Set.copyOf(List.of("foo", "baz")))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag1)
+                .build();
 
         assertThat(storageManager.getClusterState(), is(nullValue()));
 
@@ -88,13 +89,14 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
 
-        state = clusterState(
-                msgFactory,
-                List.of("foo"),
-                List.of("foo"),
-                IgniteProductVersion.fromString("3.3.3"),
-                clusterTag(msgFactory, "new_cluster")
-        );
+        IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("3.3.3");
+        ClusterTag clusterTag = clusterTag(msgFactory, "new_cluster");
+        state = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(List.of("foo")))
+                .metaStorageNodes(Set.copyOf(List.of("foo")))
+                .version(igniteVersion.toString())
+                .clusterTag(clusterTag)
+                .build();
 
         storageManager.putClusterState(state);
 
@@ -106,25 +108,26 @@ public abstract class AbstractClusterStateStorageManagerTest {
      */
     @Test
     void testSnapshot() {
-        var state = clusterState(
-                msgFactory,
-                List.of("foo", "bar"),
-                List.of("foo", "baz"),
-                IgniteProductVersion.CURRENT_VERSION,
-                clusterTag(msgFactory, "cluster")
-        );
+        ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
+        var state = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(List.of("foo", "bar")))
+                .metaStorageNodes(Set.copyOf(List.of("foo", "baz")))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag1)
+                .build();
 
         storageManager.putClusterState(state);
 
         assertThat(storageManager.snapshot(workDir), willCompleteSuccessfully());
 
-        var newState = clusterState(
-                msgFactory,
-                List.of("foo"),
-                List.of("foo"),
-                IgniteProductVersion.fromString("3.3.3"),
-                clusterTag(msgFactory, "new_cluster")
-        );
+        IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("3.3.3");
+        ClusterTag clusterTag = clusterTag(msgFactory, "new_cluster");
+        var newState = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(List.of("foo")))
+                .metaStorageNodes(Set.copyOf(List.of("foo")))
+                .version(igniteVersion.toString())
+                .clusterTag(clusterTag)
+                .build();
 
         storageManager.putClusterState(newState);
 

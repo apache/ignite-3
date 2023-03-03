@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -97,7 +98,12 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNode)
+                .metaStorageNodeNames(List.of(metaStorageNode))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

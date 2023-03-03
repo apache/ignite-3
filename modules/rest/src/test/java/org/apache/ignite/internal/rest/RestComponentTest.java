@@ -37,8 +37,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.List;
+import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.rest.authentication.AuthProviderFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -54,6 +56,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class RestComponentTest {
 
     private String keyStorePath;
+
+    @InjectConfiguration
+    private AuthenticationConfiguration authenticationConfiguration;
 
     @WorkDirectory
     private Path workDir;
@@ -80,7 +85,7 @@ class RestComponentTest {
     @DisplayName("REST component stars with default configuration")
     void defaultConfiguration(@InjectConfiguration RestConfiguration restConfiguration) throws Exception {
         // Given
-        RestComponent component = new RestComponent(List.of(), restConfiguration);
+        RestComponent component = new RestComponent(List.of(new AuthProviderFactory(authenticationConfiguration)), restConfiguration);
 
         // When
         component.start();
@@ -93,7 +98,7 @@ class RestComponentTest {
     @DisplayName("REST component does not start with ssl.enabled=true and no keystore")
     void sslConfiguration(@InjectConfiguration("mock.ssl.enabled: true") RestConfiguration restConfiguration) {
         // Given
-        RestComponent component = new RestComponent(List.of(), restConfiguration);
+        RestComponent component = new RestComponent(List.of(new AuthProviderFactory(authenticationConfiguration)), restConfiguration);
 
         // When
         IgniteException thrown = assertThrows(IgniteException.class, component::start);
@@ -113,7 +118,7 @@ class RestComponentTest {
         // And clientAuth=require But no truststore
         restConfiguration.ssl().clientAuth().update("require").get();
 
-        RestComponent component = new RestComponent(List.of(), restConfiguration);
+        RestComponent component = new RestComponent(List.of(new AuthProviderFactory(authenticationConfiguration)), restConfiguration);
 
         // When
         IgniteException thrown = assertThrows(IgniteException.class, component::start);

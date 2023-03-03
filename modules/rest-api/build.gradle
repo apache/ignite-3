@@ -36,6 +36,8 @@ dependencies {
     implementation libs.swaggerv3.annotations
     implementation libs.micronaut.http.core
     implementation libs.micronaut.http.server.core
+    implementation libs.micronaut.security
+    implementation libs.micronaut.security.annotations
 
     testImplementation libs.junit5.api
     testImplementation libs.mockito.core

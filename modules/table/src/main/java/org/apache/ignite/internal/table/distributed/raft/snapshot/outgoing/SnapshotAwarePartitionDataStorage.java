@@ -175,8 +175,6 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public void close() {
         cleanupSnapshots();
-
-        partitionStorage.close();
     }
 
     private void cleanupSnapshots() {

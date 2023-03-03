@@ -35,10 +35,16 @@ dependencies {
     implementation project(':ignite-network')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-security')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
     implementation libs.micronaut.openapi
+    implementation libs.micronaut.security
+    implementation libs.micronaut.security.annotations
+    // TODO It might worth shadowing reactor library https://issues.apache.org/jira/browse/IGNITE-18942
+    implementation libs.micronaut.reactor
+    implementation libs.micronaut.reactor.http.client
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config
@@ -49,10 +55,12 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
-    testImplementation libs.hamcrest.core
     testImplementation libs.slf4j.jdk14
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
+    testImplementation libs.mockito.core
+    testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.optional
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))
@@ -61,8 +69,10 @@ dependencies {
     integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-security')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.micronaut.http.client
