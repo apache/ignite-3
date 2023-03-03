@@ -79,7 +79,7 @@ public class PlatformTestNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":3000,\""
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":1,\"idleTimeout\":3000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
@@ -90,7 +90,7 @@ public class PlatformTestNodeRunner {
                     + "}",
 
             NODE_NAME2, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":3000,"
+                    + "  \"clientConnector\":{\"port\": 10943,\"portRange\":1,\"idleTimeout\":3000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
@@ -98,6 +98,7 @@ public class PlatformTestNodeRunner {
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
                     + "    }\n"
                     + "  }\n"
+                    + "  clientConnector.ssl.enabled: true\n"
                     + "}"
     );
 

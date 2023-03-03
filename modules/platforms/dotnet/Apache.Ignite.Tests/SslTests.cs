@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -35,5 +36,21 @@ public class SslTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
+    }
+
+    [Test]
+    public async Task TestSslOnClientAndServer()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints = { "127.0.0.1:" + (ServerPort + 1) },
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace },
+            SslStreamFactory = new SslStreamFactory {SkipServerCertificateValidation = true}
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
+
+        // TODO: How to check that SSL is actually used?
+        client.GetConnections();
     }
 }
