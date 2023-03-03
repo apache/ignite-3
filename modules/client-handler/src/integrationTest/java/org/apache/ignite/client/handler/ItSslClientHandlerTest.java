@@ -68,7 +68,7 @@ public class ItSslClientHandlerTest {
             throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
-        ks.setKeyEntry("key", cert.key(), null, new Certificate[]{cert.cert()});
+        ks.setKeyEntry("key", cert.key(), "changeit".toCharArray(), new Certificate[]{cert.cert()});
         try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
             ks.store(fos, "changeit".toCharArray());
         }
