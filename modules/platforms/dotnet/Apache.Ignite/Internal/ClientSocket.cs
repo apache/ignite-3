@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.IO;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -55,7 +56,7 @@ namespace Apache.Ignite.Internal
         private static long _socketId;
 
         /** Underlying stream. */
-        private readonly NetworkStream _stream;
+        private readonly Stream _stream;
 
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
@@ -346,7 +347,7 @@ namespace Apache.Ignite.Internal
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
-            NetworkStream stream,
+            Stream stream,
             byte[] messageSizeBytes,
             CancellationToken cancellationToken)
         {
@@ -369,7 +370,7 @@ namespace Apache.Ignite.Internal
         }
 
         private static async Task<int> ReadMessageSizeAsync(
-            NetworkStream stream,
+            Stream stream,
             byte[] buffer,
             CancellationToken cancellationToken)
         {
@@ -382,7 +383,7 @@ namespace Apache.Ignite.Internal
         }
 
         private static async Task ReceiveBytesAsync(
-            NetworkStream stream,
+            Stream stream,
             byte[] buffer,
             int size,
             CancellationToken cancellationToken)
