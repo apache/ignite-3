@@ -15,16 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.call;
+package org.apache.ignite.internal.cli.call.unit;
 
-/** Progress tracker that will be called periodically during the call execution. */
-public interface ProgressTracker {
-    /** Tracks that the step is performed. */
-    void track();
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.core.ApiClientFactory;
+import org.apache.ignite.internal.cli.core.call.ProgressTracker;
+import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 
-    void track(long size);
+/** Factory for {@link DeployUnitCall}. */
+@Singleton
+public class DeployUnitCallFactory {
 
-    void maxSize(long size);
+    @Inject
+    ApiClientFactory factory;
 
-    void done();
+    @Inject
+    UnitsRegistry registry;
+
+    public DeployUnitCall create(ProgressTracker tracker) {
+        return new DeployUnitCall(tracker, factory, registry);
+    }
 }

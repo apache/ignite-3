@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.call;
+package org.apache.ignite.internal.cli.decorators;
 
-/** Progress tracker that will be called periodically during the call execution. */
-public interface ProgressTracker {
-    /** Tracks that the step is performed. */
-    void track();
+import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 
-    void track(long size);
+import org.apache.ignite.internal.cli.call.unit.UnitStatusRecord;
+import org.apache.ignite.internal.cli.core.decorator.Decorator;
+import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 
-    void maxSize(long size);
-
-    void done();
+/** Decorator for {@link UnitStatusRecord}. */
+public class UnitStatusDecorator implements Decorator<UnitStatusRecord, TerminalOutput> {
+    @Override
+    public TerminalOutput decorate(UnitStatusRecord record) {
+        return () -> ansi(
+                "[id: %s, versions: %s]",
+                record.id(),
+                record.versionToConsistentIds().keySet()
+        );
+    }
 }

@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.call;
+package org.apache.ignite.internal.cli.commands.unit;
 
-/** Progress tracker that will be called periodically during the call execution. */
-public interface ProgressTracker {
-    /** Tracks that the step is performed. */
-    void track();
+import org.apache.ignite.internal.cli.commands.BaseCommand;
+import picocli.CommandLine.Command;
 
-    void track(long size);
-
-    void maxSize(long size);
-
-    void done();
+/** Manages deployment units. */
+@Command(name = "unit", subcommands = {
+        UnitDeployCommand.class,
+        UnitUndeployCommand.class,
+        UnitListCommand.class,
+        UnitStatusCommand.class
+}, description = "Manages deployment units")
+public class UnitCommand extends BaseCommand {
 }
+

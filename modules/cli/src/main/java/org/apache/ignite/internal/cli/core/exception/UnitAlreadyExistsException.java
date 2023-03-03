@@ -15,16 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.call;
+package org.apache.ignite.internal.cli.core.exception;
 
-/** Progress tracker that will be called periodically during the call execution. */
-public interface ProgressTracker {
-    /** Tracks that the step is performed. */
-    void track();
 
-    void track(long size);
+/** Exception thrown when unit with the same ID and version already exists. */
+public class UnitAlreadyExistsException extends RuntimeException {
+    private static final long serialVersionUID = 6686070697496211036L;
 
-    void maxSize(long size);
+    private final String unitId;
+    private final String version;
 
-    void done();
+    public UnitAlreadyExistsException(String unitId, String version) {
+        this.unitId = unitId;
+        this.version = version;
+    }
+
+    public UnitAlreadyExistsException(String unitId) {
+        this.unitId = unitId;
+        this.version = null;
+    }
+
+    public String unitId() {
+        return unitId;
+    }
+
+    public String version() {
+        return version;
+    }
 }

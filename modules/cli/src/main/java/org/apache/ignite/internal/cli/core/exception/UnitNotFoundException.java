@@ -15,16 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.call;
+package org.apache.ignite.internal.cli.core.exception;
 
-/** Progress tracker that will be called periodically during the call execution. */
-public interface ProgressTracker {
-    /** Tracks that the step is performed. */
-    void track();
+/** Exception thrown when a unit is not found. */
+public class UnitNotFoundException extends RuntimeException {
+    private static final long serialVersionUID = 2731560870400651810L;
 
-    void track(long size);
+    private final String unitId;
+    private final String version;
 
-    void maxSize(long size);
+    public UnitNotFoundException(String unitId, String version) {
+        this.unitId = unitId;
+        this.version = version;
+    }
 
-    void done();
+    public UnitNotFoundException(String unitId) {
+        this.unitId = unitId;
+        this.version = null;
+    }
+
+    public String unitId() {
+        return unitId;
+    }
+
+    public String version() {
+        return version;
+    }
 }
