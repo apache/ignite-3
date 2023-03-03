@@ -33,7 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -64,7 +64,7 @@ import org.junit.jupiter.api.TestInfo;
  * Tests for synchronous SQL API.
  */
 @SuppressWarnings("ThrowableNotThrown")
-public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
+public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
     /**

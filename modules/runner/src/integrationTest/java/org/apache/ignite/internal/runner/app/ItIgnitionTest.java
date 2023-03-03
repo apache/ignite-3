@@ -40,10 +40,10 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
@@ -51,13 +51,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Ignition interface tests.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-class ItIgnitionTest {
+class ItIgnitionTest extends IgniteIntegrationTest {
     /** Network ports of the test nodes. */
     private static final int[] PORTS = {3344, 3345, 3346};
 

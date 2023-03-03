@@ -39,7 +39,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.UnitStatus;
 import org.apache.ignite.deployment.UnitStatus.UnitStatusBuilder;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.AbstractClusterIntegrationTest;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -49,7 +49,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for {@link org.apache.ignite.deployment.IgniteDeployment}.
  */
-public class ItDeploymentUnitTest extends AbstractClusterIntegrationTest {
+public class ItDeploymentUnitTest extends ClusterPerTestIntegrationTest {
     private static final long REPLICA_TIMEOUT = TimeUnit.SECONDS.toMillis(30);
     private static final long SIZE_IN_BYTES = 1024L;
 

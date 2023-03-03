@@ -27,23 +27,19 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.platform.commons.support.ReflectionSupport;
 
 /**
- * Abstract integration test that starts and stops a cluster.
+ * Abstract integration test that starts and stops a cluster per test method.
  */
 @SuppressWarnings("ALL")
-@ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(AbstractClusterIntegrationTest.class);
+public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
 
     /** Base port number. */
     private static final int BASE_PORT = 3344;
