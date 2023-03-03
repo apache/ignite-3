@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.runner.app.IgniteRunnerTest;
@@ -67,8 +68,15 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
                 "--work-dir", workDir.resolve(NODE_NAME).toAbsolutePath().toString(),
                 "--node-name", NODE_NAME
         );
+
         // And init cluster
-        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(NODE_NAME)
+                .metaStorageNodeNames(List.of(NODE_NAME))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         // Then node is started
         assertThat(ign, willCompleteSuccessfully());

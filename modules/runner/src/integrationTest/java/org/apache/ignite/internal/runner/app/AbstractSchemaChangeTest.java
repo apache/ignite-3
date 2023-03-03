@@ -33,6 +33,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.schema.configuration.ColumnChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
@@ -178,7 +179,13 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNode)
+                .metaStorageNodeNames(List.of(metaStorageNode))
+                .clusterName("cluster")
+                .build();
+
+        IgnitionManager.init(initParameters);
 
         await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
 

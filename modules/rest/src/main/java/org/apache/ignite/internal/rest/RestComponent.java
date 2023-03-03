@@ -198,8 +198,13 @@ public class RestComponent implements IgniteComponent {
     private Micronaut buildMicronautContext(int portCandidate, int sslPortCandidate) {
         Micronaut micronaut = Micronaut.build("");
         setFactories(micronaut);
+
+        Map<String, Object> properties = new HashMap<>();
+        properties.putAll(serverProperties(portCandidate, sslPortCandidate));
+        properties.putAll(authProperties());
+
         return micronaut
-                .properties(properties(portCandidate, sslPortCandidate))
+                .properties(properties)
                 .banner(false)
                 .mapError(ServerStartupException.class, this::mapServerStartupException)
                 .mapError(ApplicationStartupException.class, ex -> -1);
@@ -219,7 +224,7 @@ public class RestComponent implements IgniteComponent {
         }
     }
 
-    private Map<String, Object> properties(int port, int sslPort) {
+    private Map<String, Object> serverProperties(int port, int sslPort) {
         RestSslConfiguration sslCfg = restConfiguration.ssl();
         boolean sslEnabled = sslCfg.enabled().value();
 
@@ -271,6 +276,12 @@ public class RestComponent implements IgniteComponent {
         } else {
             return Map.of("micronaut.server.port", port);
         }
+    }
+
+    private Map<String, Object> authProperties() {
+        return Map.of("micronaut.security.enabled", true,
+                        "micronaut.security.intercept-url-map[1].pattern", "/**",
+                        "micronaut.security.intercept-url-map[1].access", "isAuthenticated()");
     }
 
     private static void validateKeyStorePath(String keyStorePath) {

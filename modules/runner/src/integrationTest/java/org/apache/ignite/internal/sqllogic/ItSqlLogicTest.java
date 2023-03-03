@@ -40,6 +40,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -327,7 +328,12 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
 
         String metaStorageNodeName = NODE_NAME_PREFIX + "0";
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
+        InitParameters initParameters = InitParameters.builder()
+                .destinationNodeName(metaStorageNodeName)
+                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .clusterName("cluster")
+                .build();
+        IgnitionManager.init(initParameters);
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

@@ -42,7 +42,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
-import org.apache.ignite.internal.rest.ssl.RestNode;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -90,19 +89,20 @@ public class ItPortRangeTest extends IgniteIntegrationTest {
     @MethodSource("sslConfigurationProperties")
     void portRange(boolean sslEnabled, boolean dualProtocol, TestInfo testInfo) throws IOException, InterruptedException {
         List<RestNode> nodes = IntStream.range(0, 3)
-                .mapToObj(id -> new RestNode(
-                        workDir,
-                        testNodeName(testInfo, id),
-                        3522 + id,
-                        10300,
-                        10400,
-                        true,
-                        false,
-                        true
-                ))
+                .mapToObj(id -> {
+                    return RestNode.builder()
+                            .workDir(workDir)
+                            .name(testNodeName(testInfo, id))
+                            .networkPort(3344 + id)
+                            .httpPort(10300)
+                            .httpsPort(10400)
+                            .sslEnabled(sslEnabled)
+                            .dualProtocol(dualProtocol)
+                            .build();
+                })
                 .collect(Collectors.toList());
         try {
-            nodes.forEach(RestNode::start);
+            nodes.stream().parallel().forEach(RestNode::start);
             // When GET /management/v1/configuration/node
             String httpAddress = sslEnabled ? nodes.get(0).httpsAddress() : nodes.get(0).httpAddress();
             URI uri = URI.create(httpAddress + "/management/v1/configuration/node");
@@ -112,7 +112,7 @@ public class ItPortRangeTest extends IgniteIntegrationTest {
             HttpResponse<String> response = sslClient.send(request, BodyHandlers.ofString());
             assertEquals(200, response.statusCode());
         } finally {
-            nodes.forEach(RestNode::stop);
+            nodes.stream().parallel().forEach(RestNode::stop);
         }
     }
 

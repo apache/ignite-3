@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -196,7 +197,12 @@ class ItIgnitionTest extends IgniteIntegrationTest {
         CompletableFuture<Ignite> future = starter.apply(nodeName);
 
         if (startedNodes.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
+            InitParameters initParameters = InitParameters.builder()
+                    .destinationNodeName(nodeName)
+                    .metaStorageNodeNames(List.of(nodeName))
+                    .clusterName("cluster")
+                    .build();
+            IgnitionManager.init(initParameters);
         }
 
         assertThat(future, willCompleteSuccessfully());

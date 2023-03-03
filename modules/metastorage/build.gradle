@@ -44,9 +44,11 @@ dependencies {
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(":ignite-cluster-management")
     integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(":ignite-raft-api")
     integrationTestImplementation project(":ignite-vault")
+    integrationTestImplementation project(":ignite-security")
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
