@@ -102,6 +102,18 @@ public class SslTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestSslOnServerWithoutSslOnClientThrows()
+    {
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints = { "127.0.0.1:" + (ServerPort + 1) }
+        };
+
+        var ex = Assert.ThrowsAsync<AggregateException>(async () => await IgniteClient.StartAsync(cfg));
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex?.GetBaseException());
+    }
+
+    [Test]
     public void TestMissingClientCertThrows()
     {
         var cfg = new IgniteClientConfiguration
