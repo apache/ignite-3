@@ -300,6 +300,7 @@ public class DeploymentManagerImpl implements IgniteDeployment, IgniteComponent 
 
                     @Override
                     public void onComplete() {
+                        Collections.sort(list);
                         result.complete(list);
                     }
                 });

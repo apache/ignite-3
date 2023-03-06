@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
 
 import java.io.PrintWriter;
@@ -482,31 +483,23 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * SetDisabledRules.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Sets names of the rules which should be excluded from query optimization pipeline.
+     *
+     * @param disabledRuleNames Names of the rules to exclude. The name can be derived from rule by
+     *     {@link Commons#shortRuleName(RelOptRule)}.
      */
     public void setDisabledRules(Set<String> disabledRuleNames) {
         ctx.rulesFilter(rulesSet -> {
             List<RelOptRule> newSet = new ArrayList<>();
 
             for (RelOptRule r : rulesSet) {
-                if (!disabledRuleNames.contains(shortRuleName(r.toString()))) {
+                if (!disabledRuleNames.contains(shortRuleName(r))) {
                     newSet.add(r);
                 }
             }
 
             return RuleSets.ofList(newSet);
         });
-    }
-
-    private static String shortRuleName(String ruleDesc) {
-        int pos = ruleDesc.indexOf('(');
-
-        if (pos == -1) {
-            return ruleDesc;
-        }
-
-        return ruleDesc.substring(0, pos);
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {

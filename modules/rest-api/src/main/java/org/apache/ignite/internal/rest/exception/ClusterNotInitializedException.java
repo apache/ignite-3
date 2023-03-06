@@ -21,7 +21,4 @@ package org.apache.ignite.internal.rest.exception;
  * Exception that is thrown when the cluster is not initialized.
  */
 public class ClusterNotInitializedException extends RuntimeException {
-    public ClusterNotInitializedException() {
-        super();
-    }
 }

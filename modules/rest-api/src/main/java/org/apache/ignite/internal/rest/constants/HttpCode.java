@@ -26,6 +26,8 @@ public enum HttpCode {
     UNAUTHORIZED(401, "Unauthorized"),
     FORBIDDEN(403, "Forbidden"),
     NOT_FOUND(404, "Not Found"),
+    // May be used in case of "Already exists" problem.
+    CONFLICT(409, "Conflict"),
     INTERNAL_ERROR(500, "Internal Server Error");
 
     private final int code;

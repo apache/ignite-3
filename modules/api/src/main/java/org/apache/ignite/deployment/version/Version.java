@@ -47,6 +47,11 @@ public interface Version extends Comparable<Version> {
             }
             return 1;
         }
+
+        @Override
+        public String toString() {
+            return render();
+        }
     };
 
     /**

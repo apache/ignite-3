@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.sql.engine.benchmarks;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestCluster;
-import org.apache.ignite.internal.sql.engine.framework.TestNode;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -31,7 +29,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -41,13 +38,13 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 /**
  * Benchmarks derived from <a href="http://www.tpc.org/tpch/">TPC-H</a>.
  */
-@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
-@Measurement(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
-@BenchmarkMode(Mode.Throughput)
-@OutputTimeUnit(TimeUnit.SECONDS)
+@Warmup(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(3)
 @State(Scope.Benchmark)
-public class TpchBenchmark {
+public class TpchParseBenchmark {
 
     /**
      * Identifiers of TPC-H queries. See {@link TpchQueries#getQuery(String)}.
@@ -58,40 +55,20 @@ public class TpchBenchmark {
     })
     private String queryId;
 
-    private TestCluster testCluster;
-
-    private TestNode gatewayNode;
-
     private String queryString;
 
-    /** Starts the cluster and prepares the plan of the query. */
+    /** Prepares the plan of the query. */
     @Setup
     public void setUp() {
-        var clusterBuilder = TestBuilders.cluster().nodes("N1");
-        TpchSchema.registerTables(clusterBuilder, 1, 10);
-
-        testCluster = clusterBuilder.build();
-
-        testCluster.start();
-        gatewayNode = testCluster.node("N1");
-
         queryString = TpchQueries.getQuery(queryId);
     }
 
-    /** Stops the cluster. */
-    @TearDown
-    public void tearDown() throws Exception {
-        testCluster.stop();
-    }
-
     /**
-     * Benchmark that measures the time it takes to prepare a {@code TPC-H query}.
-     *
-     * <p>The result includes the time to complete the following stages: parsing, validation, and planning.
+     * Benchmark that measures the time it takes to parse a {@code TPC-H query}.
      */
     @Benchmark
-    public void prepareQuery(Blackhole bh) {
-        bh.consume(gatewayNode.prepare(queryString));
+    public void parseQuery(Blackhole bh) {
+        bh.consume(Commons.parse(queryString, Commons.PARSER_CONFIG));
     }
 
     /**
@@ -103,7 +80,7 @@ public class TpchBenchmark {
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
                 //.addProfiler("gc")
-                .include(TpchBenchmark.class.getName())
+                .include(TpchParseBenchmark.class.getName())
                 .build();
 
         new Runner(build).run();
