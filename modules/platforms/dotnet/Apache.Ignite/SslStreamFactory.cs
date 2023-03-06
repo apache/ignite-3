@@ -27,7 +27,7 @@ using Internal.Common;
 /// <summary>
 /// Standard SSL stream factory. Can be used with or without client-side certificates.
 /// </summary>
-public class SslStreamFactory : ISslStreamFactory
+public sealed class SslStreamFactory : ISslStreamFactory
 {
     /// <summary>
     /// Default SSL protocols.
