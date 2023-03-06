@@ -19,7 +19,7 @@ package org.apache.ignite.internal.cli.call;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
-import org.apache.ignite.internal.cli.IntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTestBase;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -27,7 +27,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Base class for call integration tests that needs initialized ignite cluster. Contains common methods and useful assertions.
  */
-public class CallInitializedIntegrationTestBase extends IntegrationTestBase {
+public class CallInitializedIntegrationTestBase extends CliIntegrationTestBase {
     @BeforeAll
     void beforeAll(TestInfo testInfo) {
         startNodes(testInfo);
