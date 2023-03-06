@@ -21,7 +21,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.UNEXPECTED_ERR;
 
 import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,8 +43,6 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.AbstractQueryContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory.RowHashFunction;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -82,10 +79,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     private final ExpressionFactory<RowT> expressionFactory;
 
-    private final HashFunctionFactory<RowT> hashFunctionFactory;
-
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
-    private final Map<HashFunctionCacheKey, RowHashFunction<RowT>> hashFunctionCache = new HashMap<>();
 
     /**
      * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
@@ -117,8 +111,7 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
             Map<String, Object> params,
-            TxAttributes txAttributes,
-            HashFunctionFactory<RowT> hashFunctionFactory
+            TxAttributes txAttributes
     ) {
         super(qctx);
 
@@ -130,7 +123,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
-        this.hashFunctionFactory = hashFunctionFactory;
         this.txAttributes = txAttributes;
 
         expressionFactory = new ExpressionFactoryImpl<>(
@@ -219,28 +211,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     public ClusterNode localNode() {
         return localNode;
-    }
-
-    /**
-     * Returns the function to compute colocation hash for specified table.
-     *
-     * @param tableId An identifier of a table. This identifier will be used to acquire expected types
-     *     of the colocation fields.
-     * @param fields Indexes of the fields representing colocation columns. This is a projection of
-     *     the colocation fields of specified table on actual row. For example, type of the row to insert
-     *     equals to the type of table's row, thus passed fields should match the colocation columns of the table.
-     *     But row for delete may contain the primary fields only, thus we need to project colocation fields
-     *     on this trimmed row.
-     * @return A hash function.
-     */
-    // this is more like workaround to limit scope of the refactoring,
-    // but it definitely need to be fixed
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-18900
-    public RowHashFunction<RowT> hashFunction(UUID tableId, int[] fields) {
-        return hashFunctionCache.computeIfAbsent(
-                new HashFunctionCacheKey(tableId, fields),
-                k -> hashFunctionFactory.create(fields, tableId)
-        );
     }
 
     /** {@inheritDoc} */

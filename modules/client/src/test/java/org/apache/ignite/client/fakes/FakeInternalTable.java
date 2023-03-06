@@ -102,6 +102,12 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    public int partitionId(BinaryRowEx row) {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         onDataAccess("get", keyRow);
 

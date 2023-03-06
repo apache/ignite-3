@@ -219,8 +219,7 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Map.of(),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
-                    null
+                    TxAttributes.fromTx(new NoOpTransaction(node.name()))
             );
         }
     }
