@@ -36,7 +36,7 @@ public class SslTests : IgniteTestsBase
         {
             Endpoints = { "127.0.0.1:" + (ServerPort + 1) },
             Logger = new ConsoleLogger { MinLevel = LogLevel.Trace },
-            SslStreamFactory = new SslStreamFactory {SkipServerCertificateValidation = true}
+            SslStreamFactory = new SslStreamFactory { SkipServerCertificateValidation = true }
         };
 
         using var client = await IgniteClient.StartAsync(cfg);
@@ -57,8 +57,31 @@ public class SslTests : IgniteTestsBase
     [Test]
     public async Task TestSslWithClientAuthentication()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints = { "127.0.0.1:" + (ServerPort + 2) },
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace },
+            SslStreamFactory = new SslStreamFactory
+            {
+                SkipServerCertificateValidation = true,
+                CertificatePath = "TODO",
+                CertificatePassword = "changeit"
+            }
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
+
+        var connection = client.GetConnections().Single();
+        var sslInfo = connection.SslInfo;
+
+        Assert.IsNotNull(sslInfo);
+        Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
+        Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
+        Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
+        Assert.IsNull(sslInfo.LocalCertificate);
+        Assert.AreEqual(
+            "E=dev@ignite.apache.org, CN=ignite.apache.org, OU=dev, O=apache ignite, L=London, S=US, C=US",
+            sslInfo.RemoteCertificate!.Issuer);
     }
 
     [Test]
