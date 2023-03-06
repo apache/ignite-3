@@ -118,24 +118,51 @@ public class SslTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestCustomSslStreamFactory()
+    public async Task TestCustomSslStreamFactory()
     {
-        // TODO: Test server cert validation?
-        Assert.Fail("TODO");
+        var cfg = new IgniteClientConfiguration
+        {
+            Endpoints = { "127.0.0.1:" + (ServerPort + 1) },
+            SslStreamFactory = new CustomSslStreamFactory()
+        };
+
+        using var client = await IgniteClient.StartAsync(cfg);
+
+        var connection = client.GetConnections().Single();
+        var sslInfo = connection.SslInfo;
+
+        Assert.IsNotNull(sslInfo);
+        Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
     }
 
     [Test]
     public async Task TestSslStreamFactoryReturnsNullDisablesSsl()
     {
         var cfg = GetConfig();
-        cfg.SslStreamFactory = new NullStreamFactory();
+        cfg.SslStreamFactory = new NullSslStreamFactory();
 
         using var client = await IgniteClient.StartAsync(cfg);
         Assert.IsNull(client.GetConnections().Single().SslInfo);
     }
 
-    private class NullStreamFactory : ISslStreamFactory
+    private class NullSslStreamFactory : ISslStreamFactory
     {
         public SslStream? Create(Stream stream, string targetHost) => null;
+    }
+
+    private class CustomSslStreamFactory : ISslStreamFactory
+    {
+        public SslStream? Create(Stream stream, string targetHost)
+        {
+            var sslStream = new SslStream(
+                innerStream: stream,
+                leaveInnerStreamOpen: false,
+                userCertificateValidationCallback: (_, certificate, _, _) => certificate!.Issuer.Contains("ignite"),
+                userCertificateSelectionCallback: null);
+
+            sslStream.AuthenticateAsClient(targetHost, null, SslProtocols.None, false);
+
+            return sslStream;
+        }
     }
 }
